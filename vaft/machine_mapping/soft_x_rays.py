@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from .conventions import clock_angle_to_toroidal_angle
 from .utils import path_exists, resolve_data_root, set_path
 
 # ``sample_v3.py`` records a waveform relative to its digitizer trigger and
@@ -37,6 +38,27 @@ DEFAULT_SAMPLE_RATES: dict[str, float] = {
 }
 # Kept as a compatibility alias for callers that explicitly build a 22577 axis.
 DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATES["22577"]
+
+# The `phi` column of vaft/data/geometry/line_of_sight_endpoints.csv holds a
+# VEST *clock* angle, not IMAS phi, and is converted on read.
+#
+# DAQ 17592 (horizontal, vertical) carries 0, which is 12 o'clock in both
+# coordinates -- 0 is its own reflection -- and agrees with the port-status
+# document's `12MM10 : Soft X-ray`. That one is right however it was meant.
+#
+# DAQ 22577 (bottom, lowermid) carries 120, and this is the PROVISIONAL part
+# (issue #746). Reading it as a clock angle makes it 4 o'clock, hence phi = 240,
+# and that is the reading taken here because every other legacy angle issue #718
+# audited was a clock angle written into an IMAS field -- the interferometer's
+# 5.240 rad and all three Mirnov arrays. But the port document lists soft X-ray
+# only at 12MM10, 1T6 and 12T6, so 4 o'clock is not corroborated; if the column
+# was in fact already IMAS phi, the right answer is 120 and this conversion is
+# wrong for these two arrays. Either way the document does not record an SXR
+# array where this one sits, so it is likely out of date for this system.
+SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE = True
+"""PROVISIONAL (issue #746): the geometry table's ``phi`` column is read as a
+VEST clock angle and negated into IMAS phi. Set ``False`` if the SXR
+installation record shows the column was already IMAS phi."""
 DEFAULT_TIME_OFFSET = 0.0
 DEFAULT_ENERGY_BAND = (0.0, 20_000.0)
 PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"
@@ -142,14 +164,8 @@ def _resolve_digitizer_file(
             return path
         raise FileNotFoundError(f"Digitizer CSV file not found: {path}")
 
-    root = resolve_data_root(data_root)
     label = str(daq_label)
-    candidates = [
-        root / "legacy" / f"digitizer_{label}_{int(shot)}.csv",
-        root / f"digitizer_{label}_{int(shot)}.csv",
-        root / "soft_x_rays" / f"digitizer_{label}_{int(shot)}.csv",
-        root / "raw" / f"digitizer_{label}_{int(shot)}.csv",
-    ]
+    candidates = _digitizer_file_candidates(shot, label, data_root)
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -167,7 +183,15 @@ def _digitizer_file_candidates(
     daq_label: str | int,
     data_root: str | Path | None,
 ) -> list[Path]:
-    """Return candidate locations for one archived SXR digitizer file."""
+    """Return candidate locations for one archived SXR digitizer file.
+
+    The flat candidates cover the packaged sample and hand-assembled data
+    directories. The per-shot candidate covers a consolidated archive laid out
+    as ``legacy/soft_x_rays/{shot}/``, which is what
+    ``vaft.database.filedb.FileDB.legacy`` resolves and what the camera mapping
+    already assumes; pointing ``data_root`` at that directory is then enough to
+    read a whole archive without naming files one at a time.
+    """
     root = resolve_data_root(data_root)
     filename = f"digitizer_{str(daq_label)}_{int(shot)}.csv"
     return [
@@ -175,6 +199,7 @@ def _digitizer_file_candidates(
         root / filename,
         root / "soft_x_rays" / filename,
         root / "raw" / filename,
+        root / str(int(shot)) / filename,
     ]
 
 
@@ -362,9 +387,30 @@ def resolve_sxr_geometry_root(geometry_root: str | Path | None = None) -> Path |
     return None
 
 
+
+def _geometry_phi_to_imas(stored_rad: float) -> float:
+    """Convert the geometry table's stored angle to an IMAS toroidal angle.
+
+    The column is in radians, and holds a VEST clock angle unless
+    :data:`SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE` says otherwise.
+    """
+    if not SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE:
+        return float(stored_rad)
+    return clock_angle_to_toroidal_angle(float(np.rad2deg(stored_rad)))
+
+
 @lru_cache(maxsize=8)
 def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tuple[str, int], dict[str, Any]]:
-    """Load SXR LOS endpoint geometry keyed by ``(array, channel)``."""
+    """Load SXR LOS endpoint geometry keyed by ``(array, channel)``.
+
+    The returned ``phi`` is an **IMAS toroidal angle in radians**, converted
+    from the VEST clock angle the CSV stores (see
+    :data:`SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE`).  The conversion happens here
+    rather than at the IDS write so that this function and the IDS cannot
+    disagree about which frame a chord is in -- returning the raw column while
+    the mapper converted it would put a caller's chord 120 degrees from where
+    the IDS says it is.
+    """
     table_path = resolve_sxr_geometry_table(geometry_table)
     if table_path is None:
         return {}
@@ -378,7 +424,7 @@ def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tu
             "first_z": float(row["first_z"]),
             "second_r": float(row["second_r"]),
             "second_z": float(row["second_z"]),
-            "phi": float(row.get("phi", 0.0)),
+            "phi": _geometry_phi_to_imas(float(row.get("phi", 0.0))),
         }
     return geometry
 
@@ -521,7 +567,8 @@ def _geometry_for_channel(
             return None
         first = (float(table_entry["first_r"]), float(table_entry["first_z"]))
         second = (float(table_entry["second_r"]), float(table_entry["second_z"]))
-        return first, second, float(table_entry.get("phi", 0.0))
+        # Already an IMAS toroidal angle: load_sxr_geometry_table converts.
+        return first, second, float(table_entry["phi"])
 
     if geometry_root is None:
         return None

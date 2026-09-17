@@ -67,6 +67,25 @@ def load_yaml(path: str) -> Dict[str, Any]:
     return {} if data is None else data
 
 
+@lru_cache(maxsize=8)
+def _cached_document(path: str, mtime_ns: int) -> Mapping[str, Any]:
+    """The parsed VEST configuration, cached per file and modification time."""
+    return load_yaml(path)
+
+
+def _policy_document(info_file: str | None) -> Mapping[str, Any]:
+    """The VEST configuration for the policy resolvers, parsed once per edit.
+
+    Both ``resolve_diagnostics_time_policies`` and
+    ``resolve_plasma_timing_policy`` read the whole file for one top-level
+    block, and the plasma-timing resolver needs both blocks; parsing the
+    ~2000-line document on every call cost more than the detectors it
+    configures.  Callers must not mutate the returned mapping.
+    """
+    path = _resolve_info_file_path(info_file)
+    return _cached_document(path, os.stat(path).st_mtime_ns)
+
+
 def _resolve_info_file_path(filename: str | None) -> str:
     if filename is None:
         return package_data_path("vest.yaml")
@@ -409,7 +428,7 @@ def resolve_diagnostics_time_policies(
     meant.  ``overrides`` is deep-merged over the whole configured document and
     can add windows or re-point components.
     """
-    content = load_yaml(_resolve_info_file_path(info_file))
+    content = _policy_document(info_file)
     document = content.get(DIAGNOSTICS_TIME_POLICIES_KEY)
     context = DIAGNOSTICS_TIME_POLICIES_KEY
     if not isinstance(document, Mapping):
@@ -471,6 +490,508 @@ def resolve_diagnostics_time_policies(
             )
         table[str(component)] = windows[window_name]
     return table
+
+
+PLASMA_TIMING_KEY = "plasma_timing"
+
+
+@dataclass(frozen=True)
+class CroppedRecord:
+    """One record cropped to the plasma-analysis span, split into baseline and search.
+
+    ``baseline_mask`` is handed to the detectors as their ``reference_mask``
+    (the process layer speaks of a reference stretch, the policy of the
+    plasma baseline); it is ``None`` when the record carries less than
+    ``min_baseline_s`` before ``tstart`` -- the detector then falls back to its
+    own leading fraction of the cropped record, which lies inside the search
+    stretch, and ``flags`` says ``baseline_inside_search``.
+    """
+
+    t: np.ndarray
+    y: np.ndarray
+    baseline_mask: np.ndarray | None
+    search: np.ndarray
+    flags: tuple[str, ...]
+
+    def detect(self, rule: Mapping[str, Any]):
+        """Run :func:`vaft.process.onset.active_window` with ``rule`` on this record."""
+        from vaft.process.onset import active_window
+
+        return active_window(
+            self.t, self.y, reference_mask=self.baseline_mask, search_mask=self.search, **rule
+        )
+
+
+def crop_to_span(
+    time: Any,
+    values: Any,
+    *,
+    baseline_start: float,
+    tstart: float,
+    tend: float,
+    min_baseline_s: float | None = None,
+) -> CroppedRecord:
+    """Crop a record to ``[baseline_start, tend)`` and split it at ``tstart``.
+
+    The one crop rule every reader of the plasma-timing policy applies -- the
+    ODS-side composer and the raw-side mapper -- so the two cannot drift.
+    Raises :class:`ValueError` when ``time`` and ``values`` differ in length.
+    """
+    if min_baseline_s is None:
+        min_baseline_s = MIN_BASELINE_S
+    t = np.asarray(time, dtype=float).reshape(-1)
+    y = np.asarray(values, dtype=float).reshape(-1)
+    if t.size != y.size:
+        raise ValueError(f"time has {t.size} samples but the signal has {y.size}")
+    keep = (t >= float(baseline_start)) & (t < float(tend))
+    t, y = t[keep], y[keep]
+    baseline = t < float(tstart)
+    covered = float(t[baseline][-1] - t[baseline][0]) if baseline.sum() > 1 else 0.0
+    if covered < float(min_baseline_s):
+        return CroppedRecord(t, y, None, ~baseline, ("baseline_inside_search",))
+    return CroppedRecord(t, y, baseline, ~baseline, ())
+
+#: A baseline stretch shorter than this (a product built from the plasma
+#: range onward) is not trusted on its own: the detectors then use their own
+#: leading fraction of the cropped record, which lies inside the search
+#: stretch, and the consumer flags ``baseline_inside_search``.
+MIN_BASELINE_S = 5.0e-3
+
+#: The rule blocks of ``plasma_timing`` whose keys are keyword arguments of
+#: :func:`vaft.process.onset.active_window`.
+_PLASMA_TIMING_RULE_BLOCKS = ("h_alpha", "ip")
+
+
+@dataclass(frozen=True)
+class PlasmaTimingPolicy:
+    """The configured plasma-timing policy (issue #409).
+
+    ``window`` is the shared plasma-analysis range every consumer searches
+    inside; ``baseline_lead_s`` the stretch before it whose samples are the
+    baseline.  ``h_alpha``, ``ip`` and each ``lines[label]`` entry
+    are keyword arguments of :func:`vaft.process.onset.active_window`, keyed
+    by the signal they were tuned on; ``usability`` and ``agreement`` are the
+    channel checks and cross-check tolerances ``vaft.omas.plasma_timing``
+    applies.  The generic detectors carry none of these numbers.
+    """
+
+    window: DiagnosticsTimePolicy
+    baseline_lead_s: float
+    h_alpha: Mapping[str, Any]
+    lines: Mapping[str, Mapping[str, Any]]
+    ip: Mapping[str, Any]
+    usability: Mapping[str, float]
+    agreement: Mapping[str, float]
+
+    @property
+    def baseline_start(self) -> float:
+        """Where the baseline stretch begins: ``window.tstart - baseline_lead_s``."""
+        return float(self.window.tstart - self.baseline_lead_s)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window.as_dict(),
+            "baseline_lead_s": self.baseline_lead_s,
+            "h_alpha": dict(self.h_alpha),
+            "lines": {label: dict(rule) for label, rule in self.lines.items()},
+            "ip": dict(self.ip),
+            "usability": dict(self.usability),
+            "agreement": dict(self.agreement),
+        }
+
+
+#: ``active_window`` arguments every call site supplies from the record
+#: itself; a rule may not set them.
+_ACTIVE_WINDOW_RESERVED = frozenset({"reference_mask", "search_mask", "fs"})
+
+
+def _coerce_rule_value(key: str, value: Any, annotation: str, *, context: str) -> Any:
+    """Coerce one yaml value to the parameter's annotated type, or refuse."""
+    kinds = {part.strip() for part in annotation.split("|")}
+    if value is None:
+        if "None" in kinds:
+            return None
+        raise VestConfigurationError(f"{context}: parameter {key!r} may not be null")
+    if "str" in kinds:
+        if isinstance(value, str) and value:
+            return value
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be a non-empty string")
+    if "bool" in kinds:
+        if isinstance(value, bool):
+            return value
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be true or false")
+    if isinstance(value, bool):
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be numeric, not a boolean")
+    number = _required_number({key: value}, key, context=context)
+    if not np.isfinite(number):
+        raise VestConfigurationError(f"{context}: parameter {key!r} must be finite")
+    if "int" in kinds:
+        if number != int(number):
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be an integer")
+        return int(number)
+    return number
+
+
+def _signature_rule(func: Any, rule: Any, *, reserved: frozenset, context: str) -> Dict[str, Any]:
+    """Validate one rule block against ``func``'s keyword-only parameters.
+
+    Every key must be a keyword-only parameter of the detector other than the
+    ones the caller derives from the record (``reserved``), and every value is
+    coerced to the parameter's annotated type -- a boolean for a numeric
+    parameter, a fraction for an integer count, a null for a required number
+    are configuration errors.
+    """
+    import inspect
+
+    if not isinstance(rule, Mapping) or not rule:
+        raise VestConfigurationError(f"{context}: must be a non-empty mapping")
+    parameters = inspect.signature(func).parameters
+    allowed = {
+        name
+        for name, p in parameters.items()
+        if p.kind is inspect.Parameter.KEYWORD_ONLY and name not in reserved
+    }
+    unknown = sorted(set(rule) - allowed)
+    if unknown:
+        raise VestConfigurationError(
+            f"{context}: {', '.join(repr(k) for k in unknown)} "
+            f"{'is' if len(unknown) == 1 else 'are'} not a configurable keyword argument of "
+            f"{func.__module__}.{func.__name__}"
+        )
+    return {
+        key: _coerce_rule_value(key, value, str(parameters[key].annotation), context=context)
+        for key, value in rule.items()
+    }
+
+
+def _active_window_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against :func:`vaft.process.onset.active_window`."""
+    from vaft.process.onset import active_window
+
+    return _signature_rule(active_window, rule, reserved=_ACTIVE_WINDOW_RESERVED, context=context)
+
+
+#: ``zero_crossing_after_excursion`` arguments the caller supplies from the
+#: record and the anchoring event; a rule may not set them.
+_ZERO_CROSSING_RESERVED = frozenset({"anchor_time", "reference_mask", "search_mask"})
+
+
+#: ``robust_peak`` arguments the caller supplies from the record; a rule may not set them.
+_ROBUST_PEAK_RESERVED = frozenset({"reference_mask", "search_mask", "fs"})
+
+
+def _robust_peak_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against :func:`vaft.process.onset.robust_peak`."""
+    from vaft.process.onset import PEAK_POLARITIES, robust_peak
+
+    out = _signature_rule(robust_peak, rule, reserved=_ROBUST_PEAK_RESERVED, context=context)
+    polarity = out.get("polarity")
+    if polarity is not None and polarity not in PEAK_POLARITIES:
+        raise VestConfigurationError(
+            f"{context}: 'polarity' must be one of {', '.join(PEAK_POLARITIES)}, not {polarity!r}"
+        )
+    return out
+
+
+def _zero_crossing_rule(rule: Any, *, context: str) -> Dict[str, Any]:
+    """Validate one rule block against
+    :func:`vaft.process.onset.zero_crossing_after_excursion`."""
+    from vaft.process.onset import zero_crossing_after_excursion
+
+    return _signature_rule(
+        zero_crossing_after_excursion, rule, reserved=_ZERO_CROSSING_RESERVED, context=context
+    )
+
+
+def _number_block(block: Any, keys: Sequence[str], *, context: str) -> Dict[str, float]:
+    """Read the named non-negative numbers; a ``*_fraction`` must lie in [0, 1]
+    and a ``*_level`` or ``min_samples`` must be positive."""
+    if not isinstance(block, Mapping):
+        raise VestConfigurationError(f"{context}: must be a mapping")
+    out = {key: _required_number(block, key, context=context) for key in keys}
+    for key, value in out.items():
+        if not np.isfinite(value) or value < 0.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be finite and >= 0")
+        if key.endswith("_fraction") and value > 1.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} is a fraction and must be <= 1")
+        if (key.endswith("_level") or key == "min_samples") and value <= 0.0:
+            raise VestConfigurationError(f"{context}: parameter {key!r} must be positive")
+    return out
+
+
+PLASMA_TIMING_USABILITY_KEYS = (
+    "min_samples",
+    "min_finite_fraction",
+    "rail_level",
+    "rail_fraction",
+    "max_railed_fraction",
+    "min_baseline_mad",
+    "min_valid_fraction",
+)
+PLASMA_TIMING_AGREEMENT_KEYS = ("onset_tolerance_s", "lag_tolerance_s", "offset_tolerance_s")
+
+
+def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimingPolicy:
+    """Return the configured plasma-timing policy (issue #409).
+
+    ``window`` names one of the ``diagnostics_time_policies`` windows -- the
+    shared plasma-analysis range -- and is resolved without any analysis
+    override, so the stage's ``tstart``/``tend`` arguments never move it.
+    Every rule block is checked against ``active_window``'s signature here,
+    so a misspelled parameter is a configuration error at load time rather
+    than a ``TypeError`` inside a detector.
+    """
+    content = _policy_document(info_file)
+    document = content.get(PLASMA_TIMING_KEY)
+    context = PLASMA_TIMING_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {PLASMA_TIMING_KEY!r} section"
+        )
+    window_name = document.get("window")
+    windows = resolve_diagnostics_time_policies(info_file=info_file).windows
+    if not isinstance(window_name, str) or window_name not in windows:
+        raise VestConfigurationError(
+            f"{context}: 'window' must name a configured diagnostics time window; "
+            f"configured windows: {', '.join(sorted(windows))}"
+        )
+    lead = _required_number(document, "baseline_lead_s", context=context)
+    if not np.isfinite(lead) or lead < 0.0:
+        raise VestConfigurationError(f"{context}: 'baseline_lead_s' must be finite and >= 0")
+    rules = {
+        name: _active_window_rule(document.get(name), context=f"{context}: {name}")
+        for name in _PLASMA_TIMING_RULE_BLOCKS
+    }
+    raw_lines = document.get("lines", {})
+    if raw_lines is None:
+        raw_lines = {}
+    if not isinstance(raw_lines, Mapping):
+        raise VestConfigurationError(f"{context}: 'lines' must be a mapping of label -> rule")
+    lines = {
+        str(label): _active_window_rule(rule, context=f"{context}: lines[{label!r}]")
+        for label, rule in raw_lines.items()
+    }
+    return PlasmaTimingPolicy(
+        window=windows[window_name],
+        baseline_lead_s=lead,
+        h_alpha=rules["h_alpha"],
+        lines=lines,
+        ip=rules["ip"],
+        usability=_number_block(
+            document.get("usability"), PLASMA_TIMING_USABILITY_KEYS, context=f"{context}: usability"
+        ),
+        agreement=_number_block(
+            document.get("agreement"), PLASMA_TIMING_AGREEMENT_KEYS, context=f"{context}: agreement"
+        ),
+    )
+
+
+DISCHARGE_TIMING_KEY = "discharge_timing"
+DISCHARGE_TIMING_LOOP_SELECTIONS = ("inboard_midplane",)
+
+
+@dataclass(frozen=True)
+class DischargeTimingPolicy:
+    """The configured discharge-timing policy (issue #409).
+
+    Actuator events, independent of :class:`PlasmaTimingPolicy`: ``coil``
+    is the per-coil onset rule (keyword arguments of
+    :func:`vaft.process.onset.active_window`, run on ``|I - baseline|``),
+    ``ohmic_coil`` names the solenoid drive whose onset anchors the
+    loop-voltage excursion, ``loop_voltage`` says which flux loop is read and
+    whether a stored voltage is preferred to ``-d(flux)/dt``, and ``vloop`` is
+    the zero-crossing rule (keyword arguments of
+    :func:`vaft.process.onset.zero_crossing_after_excursion`).  ``window``
+    and ``baseline_lead_s`` have the same meaning as in the plasma policy so
+    :func:`vaft.omas.plasma_timing.analysis_span` accepts either.
+    """
+
+    window: DiagnosticsTimePolicy
+    baseline_lead_s: float
+    ohmic_coil: str
+    loop_voltage: Mapping[str, Any]
+    coil: Mapping[str, Any]
+    vloop: Mapping[str, Any]
+
+    @property
+    def baseline_start(self) -> float:
+        """Where the baseline stretch begins: ``window.tstart - baseline_lead_s``."""
+        return float(self.window.tstart - self.baseline_lead_s)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window.as_dict(),
+            "baseline_lead_s": self.baseline_lead_s,
+            "ohmic_coil": self.ohmic_coil,
+            "loop_voltage": dict(self.loop_voltage),
+            "coil": dict(self.coil),
+            "vloop": dict(self.vloop),
+        }
+
+
+def resolve_discharge_timing_policy(*, info_file: str | None = None) -> DischargeTimingPolicy:
+    """Return the configured discharge-timing policy (issue #409).
+
+    Validated like :func:`resolve_plasma_timing_policy`: the window must be a
+    configured diagnostics time window, ``ohmic_coil`` a non-empty name,
+    ``loop_voltage.selection`` one of ``inboard_midplane``, and the two rule
+    blocks are checked against their detectors' signatures at load time.
+    """
+    content = _policy_document(info_file)
+    document = content.get(DISCHARGE_TIMING_KEY)
+    context = DISCHARGE_TIMING_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {DISCHARGE_TIMING_KEY!r} section"
+        )
+    window_name = document.get("window")
+    windows = resolve_diagnostics_time_policies(info_file=info_file).windows
+    if not isinstance(window_name, str) or window_name not in windows:
+        raise VestConfigurationError(
+            f"{context}: 'window' must name a configured diagnostics time window; "
+            f"configured windows: {', '.join(sorted(windows))}"
+        )
+    lead = _required_number(document, "baseline_lead_s", context=context)
+    if not np.isfinite(lead) or lead < 0.0:
+        raise VestConfigurationError(f"{context}: 'baseline_lead_s' must be finite and >= 0")
+    ohmic_coil = document.get("ohmic_coil")
+    if not isinstance(ohmic_coil, str) or not ohmic_coil.strip():
+        raise VestConfigurationError(f"{context}: 'ohmic_coil' must name a pf_active coil")
+    loop_voltage = document.get("loop_voltage")
+    if not isinstance(loop_voltage, Mapping):
+        raise VestConfigurationError(f"{context}: 'loop_voltage' must be a mapping")
+    selection = loop_voltage.get("selection")
+    if selection not in DISCHARGE_TIMING_LOOP_SELECTIONS:
+        raise VestConfigurationError(
+            f"{context}: loop_voltage.selection must be one of "
+            f"{', '.join(DISCHARGE_TIMING_LOOP_SELECTIONS)}, not {selection!r}"
+        )
+    prefer = loop_voltage.get("prefer_measured_voltage", True)
+    if not isinstance(prefer, bool):
+        raise VestConfigurationError(
+            f"{context}: loop_voltage.prefer_measured_voltage must be true or false"
+        )
+    unknown = sorted(set(loop_voltage) - {"selection", "prefer_measured_voltage"})
+    if unknown:
+        raise VestConfigurationError(
+            f"{context}: loop_voltage has unknown keys {', '.join(repr(k) for k in unknown)}"
+        )
+    return DischargeTimingPolicy(
+        window=windows[window_name],
+        baseline_lead_s=lead,
+        ohmic_coil=ohmic_coil.strip(),
+        loop_voltage={"selection": str(selection), "prefer_measured_voltage": prefer},
+        coil=_active_window_rule(document.get("coil"), context=f"{context}: coil"),
+        vloop=_zero_crossing_rule(document.get("vloop"), context=f"{context}: vloop"),
+    )
+
+
+PLASMA_FEATURES_KEY = "plasma_features"
+PLASMA_FEATURES_WINDOWS = ("plasma_timing",)
+#: The H-alpha label; ``lines`` may not carry it (it is the ``h_alpha`` block).
+#: ``vaft.omas.plasma_timing.HALPHA_LABEL`` is the same string; the omas
+#: composer asserts so at import.
+PLASMA_FEATURES_HALPHA_LABEL = "H-alpha_6563"
+_PLASMA_FEATURES_RULE_BLOCKS = ("ip", "h_alpha", "diamagnetic")
+
+
+@dataclass(frozen=True)
+class PlasmaFeaturesPolicy:
+    """The configured plasma-features policy (issue #409).
+
+    ``window`` names where the peaks are measured -- ``plasma_timing``, the
+    window :func:`vaft.omas.plasma_timing.plasma_timing` found, is the only
+    value; nothing is measured over the analysis range.  ``ip``, ``h_alpha``,
+    each ``lines[label]`` and ``diamagnetic`` are keyword arguments of
+    :func:`vaft.process.onset.robust_peak`, keyed by the signal they were
+    tuned on.  ``ip_ramp_end`` is optional and reserved: ``None`` unless a
+    block is configured, and never required by any consumer.
+    """
+
+    window: str
+    ip: Mapping[str, Any]
+    h_alpha: Mapping[str, Any]
+    lines: Mapping[str, Mapping[str, Any]]
+    diamagnetic: Mapping[str, Any]
+    ip_ramp_end: Mapping[str, Any] | None = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "window": self.window,
+            "ip": dict(self.ip),
+            "h_alpha": dict(self.h_alpha),
+            "lines": {label: dict(rule) for label, rule in self.lines.items()},
+            "diamagnetic": dict(self.diamagnetic),
+            "ip_ramp_end": None if self.ip_ramp_end is None else dict(self.ip_ramp_end),
+        }
+
+
+def resolve_plasma_features_policy(*, info_file: str | None = None) -> PlasmaFeaturesPolicy:
+    """Return the configured plasma-features policy (issue #409).
+
+    Every rule block is checked against ``robust_peak``'s signature at load
+    time; ``lines`` may not carry the H-alpha label (that is the ``h_alpha``
+    block); ``ip_ramp_end`` is validated only when present.
+    """
+    content = _policy_document(info_file)
+    document = content.get(PLASMA_FEATURES_KEY)
+    context = PLASMA_FEATURES_KEY
+    if not isinstance(document, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration defines no {PLASMA_FEATURES_KEY!r} section"
+        )
+    window = document.get("window")
+    if window not in PLASMA_FEATURES_WINDOWS:
+        raise VestConfigurationError(
+            f"{context}: 'window' must be one of {', '.join(PLASMA_FEATURES_WINDOWS)}, not {window!r}"
+        )
+    rules = {
+        name: _robust_peak_rule(document.get(name), context=f"{context}: {name}")
+        for name in _PLASMA_FEATURES_RULE_BLOCKS
+    }
+    raw_lines = document.get("lines", {})
+    if raw_lines is None:
+        raw_lines = {}
+    if not isinstance(raw_lines, Mapping):
+        raise VestConfigurationError(f"{context}: 'lines' must be a mapping of label -> rule")
+    if PLASMA_FEATURES_HALPHA_LABEL in raw_lines:
+        raise VestConfigurationError(
+            f"{context}: lines may not carry {PLASMA_FEATURES_HALPHA_LABEL!r}; H-alpha is the 'h_alpha' block"
+        )
+    lines = {
+        str(label): _robust_peak_rule(rule, context=f"{context}: lines[{label!r}]")
+        for label, rule in raw_lines.items()
+    }
+    ramp_end = document.get("ip_ramp_end")
+    return PlasmaFeaturesPolicy(
+        window=str(window),
+        ip=rules["ip"],
+        h_alpha=rules["h_alpha"],
+        lines=lines,
+        diamagnetic=rules["diamagnetic"],
+        ip_ramp_end=None if ramp_end is None else _robust_peak_rule(
+            ramp_end, context=f"{context}: ip_ramp_end"
+        ),
+    )
+
+
+AGREEMENT_CONSISTENT = "consistent"
+AGREEMENT_IP_BEFORE_HALPHA = "ip_before_halpha"
+AGREEMENT_HALPHA_LEADS_IP_LARGE = "halpha_leads_ip_large"
+
+
+def onset_agreement(onset_delta: float, tolerances: Mapping[str, float]) -> str:
+    """How the current's onset relates to the light's, in the one vocabulary both readers use.
+
+    ``onset_delta`` is the current's onset minus the light's; the policy's
+    ``agreement`` block sets how much earlier (``onset_tolerance_s``) or later
+    (``lag_tolerance_s``) the current may start before the pair disagrees.
+    """
+    if onset_delta < -float(tolerances["onset_tolerance_s"]):
+        return AGREEMENT_IP_BEFORE_HALPHA
+    if onset_delta > float(tolerances["lag_tolerance_s"]):
+        return AGREEMENT_HALPHA_LEADS_IP_LARGE
+    return AGREEMENT_CONSISTENT
 
 
 def build_window_time_axis(
@@ -681,14 +1202,19 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
         for i, loop in enumerate(geometry.get("loops", [])):
             set_path(ods, f"flux_loop.loop.{i}.position.r", loop.get("r", 0.0))
             set_path(ods, f"flux_loop.loop.{i}.position.z", loop.get("z", 0.0))
-            set_path(ods, f"flux_loop.loop.{i}.position.phi", loop.get("phi", 0.0))
+            # No toroidal angle: a flux loop is a continuous loop encircling
+            # the machine axis, so it has no scalar phi to write (issue #718,
+            # and see FLUX_LOOP_IS_AXISYMMETRIC in .magnetics). The 0.0 that
+            # used to go here was a placeholder indistinguishable from a probe
+            # genuinely sitting at 12 o'clock.
             set_path(ods, f"flux_loop.loop.{i}.area", loop.get("area", 0.0))
 
     elif diagnostic_type == "b_field_pol_probe":
         for i, probe in enumerate(geometry.get("probes", [])):
             set_path(ods, f"b_field_pol_probe.probe.{i}.position.r", probe.get("r", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.position.z", probe.get("z", 0.0))
-            set_path(ods, f"b_field_pol_probe.probe.{i}.position.phi", probe.get("phi", 0.0))
+            if probe.get("phi") is not None:
+                set_path(ods, f"b_field_pol_probe.probe.{i}.position.phi", probe["phi"])
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.r", probe.get("orientation_r", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.z", probe.get("orientation_z", 0.0))
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.phi", probe.get("orientation_phi", 0.0))
@@ -986,17 +1512,29 @@ def apply_default_constraint_uncertainties(
 
 
 __all__ = [
+    "AGREEMENT_CONSISTENT",
+    "AGREEMENT_HALPHA_LEADS_IP_LARGE",
+    "AGREEMENT_IP_BEFORE_HALPHA",
     "DEFAULT_CONSTRAINT_UNCERTAINTIES",
     "DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR",
     "DIAGNOSTICS_TIME_POLICIES_KEY",
+    "DISCHARGE_TIMING_KEY",
     "DiagnosticsTimePolicy",
+    "DischargeTimingPolicy",
+    "CroppedRecord",
     "DiagnosticsTimePolicyTable",
+    "MIN_BASELINE_S",
+    "PLASMA_FEATURES_KEY",
+    "PLASMA_TIMING_KEY",
+    "PlasmaFeaturesPolicy",
+    "PlasmaTimingPolicy",
     "VestConfigurationError",
     "apply_default_constraint_uncertainties",
     "apply_magnetics_uncertainties",
     "apply_pf_active_current_uncertainties",
     "apply_tf_uncertainties",
     "build_window_time_axis",
+    "crop_to_span",
     "get_diagnostic_info",
     "get_metadata",
     "get_path",
@@ -1005,6 +1543,7 @@ __all__ = [
     "raw_database_info",
     "load_yaml",
     "normalize_constraint_uncertainties",
+    "onset_agreement",
     "package_data_path",
     "path_count",
     "path_exists",
@@ -1014,5 +1553,8 @@ __all__ = [
     "process_static_geometry",
     "resolve_data_root",
     "resolve_diagnostics_time_policies",
+    "resolve_discharge_timing_policy",
+    "resolve_plasma_features_policy",
+    "resolve_plasma_timing_policy",
     "set_path",
 ]

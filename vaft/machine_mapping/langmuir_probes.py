@@ -20,6 +20,8 @@ from vaft.database import raw as raw_db
 from vaft.process.langmuir import probe_surface_area, process_triple_probe
 from vaft.process.signal_processing import resample_to_time
 
+from .conventions import port_toroidal_angle
+from .registry import port_phi
 from .utils import (
     _deep_merge,
     _normalize_shot_key,
@@ -38,13 +40,22 @@ DEFAULT_DT = 4e-5
 MID_Z_M = 0.0
 UPPER_Z_M = 0.98
 
-# Toroidal angle (phi) is deliberately NOT written to the ODS: issue #152
-# flags that an absolute phi value requires "a documented VEST clock-position
-# reference and IMAS sign convention" that has not been established. The
-# clock positions are recorded here only as provenance for whoever resolves
-# that convention later.
+# The clock-position reference issue #152 said was missing now exists, so the
+# toroidal angle these clock positions imply is written (issue #718). The
+# conversion is not the identity: clock number runs clockwise and IMAS phi runs
+# counter-clockwise, so 11 o'clock is phi = 30 deg, not 330. See
+# vaft.machine_mapping.conventions.
+#
+# The mid assembly is at 11M12, which the port-status document lists as "Triple
+# probe + internal magnetic probe array" -- the same port the IMPA goes through,
+# which is consistent. The upper assembly's 4 o'clock comes from #152; note the
+# 2023 port document marks 4U6 "Available", so the upper probe may have been
+# removed by then. That is a shot-era question, not a reason to withhold the
+# angle from the shots that do carry the assembly.
 MID_CLOCK_POSITION = "11 o'clock"
 UPPER_CLOCK_POSITION = "4 o'clock"
+MID_PORT = "11M12"
+UPPER_CLOCK_HOUR = 4.0
 
 ION_MASS_KG = {
     "H": 1.67262192369e-27,
@@ -52,9 +63,37 @@ ION_MASS_KG = {
 }
 
 ASSEMBLIES: tuple[dict[str, Any], ...] = (
-    {"key": "mid", "name": "Mid triple Langmuir probe", "z": MID_Z_M, "position_key": "mid_r"},
-    {"key": "upper", "name": "Upper triple Langmuir probe", "z": UPPER_Z_M, "position_key": "upper_r"},
+    {
+        "key": "mid",
+        "name": "Mid triple Langmuir probe",
+        "z": MID_Z_M,
+        "position_key": "mid_r",
+        # The port, not the angle: resolving phi here would read and validate
+        # vest.yaml at import time, which makes this module unimportable when
+        # that file is malformed instead of failing in the one mapper call that
+        # needs it. :func:`_assembly_phi` resolves it at write time.
+        "port": MID_PORT,
+    },
+    {
+        "key": "upper",
+        "name": "Upper triple Langmuir probe",
+        "z": UPPER_Z_M,
+        "position_key": "upper_r",
+        "clock": UPPER_CLOCK_HOUR,
+    },
 )
+
+
+def _assembly_phi(assembly: dict[str, Any]) -> float:
+    """The IMAS toroidal angle of an assembly, from its port or clock position.
+
+    The upper assembly has a clock position (4 o'clock, from issue #152) but no
+    port name -- the 2023 port document marks 4U6 "Available", so there is no
+    entry to look up.
+    """
+    if "port" in assembly:
+        return port_phi(str(assembly["port"]))
+    return port_toroidal_angle(float(assembly["clock"]))
 
 
 class LangmuirProbeConfigError(ValueError):
@@ -287,6 +326,7 @@ def vfit_langmuir_probes_dynamic(
         set_path(ods, f"{prefix}.identifier", f"langmuir_probes:{assembly['key']}")
         set_path(ods, f"{prefix}.name", assembly["name"])
         set_path(ods, f"{prefix}.position.z", assembly["z"])
+        set_path(ods, f"{prefix}.position.phi", _assembly_phi(assembly))
         position_r = positions.get(assembly["position_key"])
         if position_r is not None:
             set_path(ods, f"{prefix}.position.r", float(position_r))

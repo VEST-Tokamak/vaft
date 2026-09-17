@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+import re
 from typing import Any
 
 import numpy as np
 from scipy.io import loadmat
 
+from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
 try:
@@ -16,6 +19,8 @@ except ImportError:
     unumpy = None
 
 
+logger = logging.getLogger(__name__)
+
 _CHANNEL_META = (
     (0, 0.475, "Polychrometer 1R1", "poly1R1"),
     (1, 0.425, "Polychrometer 2R2", "poly2R2"),
@@ -23,6 +28,99 @@ _CHANNEL_META = (
     (3, 0.310, "Polychrometer 4R4", "poly4R4"),
     (4, 0.255, "Polychrometer 5R5", "poly5R5"),
 )
+
+
+# ---------------------------------------------------------------------------
+# Where the scattering volumes sit toroidally (issue #718)
+# ---------------------------------------------------------------------------
+#
+# The laser is not radial, so a single toroidal angle would be wrong for the
+# whole diagnostic: it enters through 8MM10, crosses the midplane as a chord
+# and is absorbed in the 1MM10 dump, and each polychromator looks at a
+# different point along that chord.  So phi is a function of the channel's own
+# major radius.
+#
+# The two ports are 150 deg apart, which puts the chord's closest approach to
+# the machine axis at ``R_port * cos(75 deg) = 0.208 m``.  Two independent
+# checks say this is the right chord.  Every polychromator radius (0.255 to
+# 0.475 m) lies outside that tangency radius, as it must -- a chord cannot be
+# sampled inside its own closest approach, and a radial laser would have no
+# such floor.  And of the two branches the chord offers at a given radius, the
+# one used here spans 80 to 109 deg, straddling the 9MM10 viewing port at
+# exactly 90 deg; the other branch sits near 12 o'clock where that port cannot
+# see it.
+#
+# The VEST Thomson slide corroborates this reading of the layout on two counts
+# that were not used to build it.  Its top view puts the laser injection system
+# and the beam dump on opposite sides with the collection optics immediately
+# beside the injection side -- which is 8MM10 and 9MM10, adjacent ports -- and
+# it draws the beam as a chord that misses the centre column rather than a
+# diameter.  And its position table, R1..R5 = 0.475 / 0.425 / 0.37 / 0.31 /
+# 0.255 m, is exactly _CHANNEL_META below.
+#
+# DERIVED, NOT AS-BUILT: the port major radius below is the vessel radius the
+# camera port geometry uses, not a surveyed Thomson value.  It shifts every
+# angle together and is the one number to replace if a survey appears.  The
+# machine has at least three candidate radii and they are different surfaces:
+# 0.803 m (the port flange, used here), 0.88 m (the vessel outboard, marked on
+# the fast-camera slide) and 0.760 m (the packaged limiter outline).  Taking
+# 0.88 instead would move the tangency radius from 0.208 m to 0.228 m; both sit
+# inside R5 = 0.255 m, so the channel radii do not decide between them.
+
+LASER_ENTRY_PORT = "8MM10"
+LASER_DUMP_PORT = "1MM10"
+VIEWING_PORT = "9MM10"
+PORT_MAJOR_RADIUS_M = 0.803
+
+
+def _chord_geometry() -> tuple[float, float]:
+    """The chord's bisector angle [rad] and its tangency radius [m]."""
+    entry = port_phi(LASER_ENTRY_PORT)
+    dump = port_phi(LASER_DUMP_PORT)
+    separation = abs(np.angle(np.exp(1j * (entry - dump))))
+    tangency = PORT_MAJOR_RADIUS_M * np.cos(0.5 * separation)
+    # The bisector lies half a separation from the entry port, on the side the
+    # short arc runs; np.angle picks that side for us.
+    bisector = dump + 0.5 * np.angle(np.exp(1j * (entry - dump)))
+    return float(bisector), float(tangency)
+
+
+def scattering_volume_phi(r_m: float) -> float:
+    """The IMAS toroidal angle of the scattering volume at major radius ``r_m``.
+
+    Raises when the radius is not a point on the laser path -- inside the
+    chord's tangency radius, or not a finite number. There is no angle to
+    return in that case and defaulting to one would invent a location.
+
+    The IDS writers use :func:`_scattering_volume_phi_or_none` instead, which
+    warns and omits rather than failing a whole shot on one bad radius.
+    """
+    bisector, tangency = _chord_geometry()
+    r = float(r_m)
+    if not np.isfinite(r) or r < tangency:
+        raise ValueError(
+            f"major radius {r:.4f} m is not on the {LASER_ENTRY_PORT}-to-{LASER_DUMP_PORT} "
+            f"laser chord, whose tangency radius is {tangency:.4f} m"
+        )
+    return float(np.mod(bisector + np.arccos(tangency / r), 2.0 * np.pi))
+
+
+def _scattering_volume_phi_or_none(r_m: float, channel: int) -> float | None:
+    """``scattering_volume_phi``, but a bad radius costs one channel, not the shot.
+
+    The dynamic mapper takes its radii from each shot's ``Rposition`` vector,
+    so a unit slip, a NaN or an off-chord value is a data defect that arrives
+    at runtime. Raising there would drop an entire Thomson mapping over one
+    channel; omitting ``phi`` leaves the rest of that channel intact and says
+    nothing false about where it was.
+    """
+    try:
+        return scattering_volume_phi(r_m)
+    except ValueError as error:
+        logger.warning(
+            "thomson_scattering channel %d: %s; leaving position.phi unwritten", channel, error
+        )
+        return None
 
 
 def _uarray_or_values(values: Any, errors: Any) -> Any:
@@ -57,19 +155,115 @@ def _normalize_thomson_time_to_seconds(time_values: np.ndarray) -> np.ndarray:
     return time / 1e3
 
 
+#: Directories searched for a shot's Thomson MAT, nearest first. Only the
+#: directory is ranked here -- which *file* wins inside them is decided by
+#: :func:`thomson_source_rank`, so a revision is preferred wherever it sits.
+_THOMSON_SEARCH_SUBDIRS = ("thomson_scattering", "legacy", "")
+
+#: Filename layouts, most-preferred family last. The trailing number is the
+#: analysis version and ``_rev`` marks a revision of that version, so the rank
+#: is ordered rather than a lookup: a later version beats an earlier one, and a
+#: revision beats the version it revises.
+_THOMSON_NAME_PATTERNS = (
+    # (regex, family rank). The regex must anchor the shot so 40330 never
+    # matches a file belonging to 4033.
+    (re.compile(r"^(?P<shot>\d+)_NeTe\.mat$", re.IGNORECASE), 0),
+    (re.compile(r"^NeTe_Shot(?P<shot>\d+)\.mat$", re.IGNORECASE), 1),
+    (re.compile(r"^NeTe[_-](?P<shot>\d+)\.mat$", re.IGNORECASE), 2),
+    (
+        re.compile(
+            r"^NeTe_Shot(?P<shot>\d+)_v(?P<version>\d+)(?P<rev>_rev)?\.mat$",
+            re.IGNORECASE,
+        ),
+        3,
+    ),
+    # The same two layouts without the `NeTe_` prefix. `Shot40330_v10.mat` is
+    # the first example in the corrective updater's own filename docstring, and
+    # that updater parses a shot number out of it -- so a rank that did not
+    # recognise it made the updater drop the file instead of ingesting it.
+    (re.compile(r"^Shot(?P<shot>\d+)\.mat$", re.IGNORECASE), 1),
+    (
+        re.compile(
+            r"^Shot(?P<shot>\d+)_v(?P<version>\d+)(?P<rev>_rev)?\.mat$",
+            re.IGNORECASE,
+        ),
+        3,
+    ),
+)
+
+
+def thomson_source_rank(filename: str, shotnumber: int) -> tuple[int, int, int] | None:
+    """Rank one Thomson MAT filename for ``shotnumber``, or ``None`` if unrelated.
+
+    Higher sorts better. This is the single place the preference between
+    competing files is expressed, so the library resolver and the corrective
+    updater cannot disagree about which file is authoritative -- previously the
+    resolver read a fixed list that happened to put ``_v9`` before
+    ``_v9_rev``, while the updater passed whichever path ``os.listdir`` yielded
+    last, and the two could pick different files for the same shot.
+
+    The order is ``(family, version, revision)``:
+
+    ``family``
+        ``{shot}_NeTe`` < ``NeTe_Shot{shot}`` < ``NeTe_{shot}`` < the versioned
+        ``NeTe_Shot{shot}_v{n}`` family. No VEST shot carries files from both
+        the ``NeTe_{shot}`` campaign and the versioned family, so this ordering
+        never has to arbitrate between two live analyses.
+    ``version``
+        The ``v{n}`` number, so a future ``_v10`` outranks ``_v9`` without this
+        table being edited.
+    ``revision``
+        ``_rev`` outranks the version it revises. Shots 40323-40331 each carry
+        both, and their ``T_e`` differs by up to 58%, so reading the wrong one
+        is a scientific error rather than a cosmetic one.
+    """
+    name = Path(filename).name
+    for pattern, family in _THOMSON_NAME_PATTERNS:
+        match = pattern.match(name)
+        if match is None:
+            continue
+        if int(match.group("shot")) != int(shotnumber):
+            return None
+        groups = match.groupdict()
+        version = int(groups["version"]) if groups.get("version") else 0
+        revision = 1 if groups.get("rev") else 0
+        return (family, version, revision)
+    return None
+
+
+def _discover_thomson_sources(shotnumber: int, search_root: Path) -> list[Path]:
+    """Return every Thomson MAT for ``shotnumber`` under ``search_root``.
+
+    Ordered best-first by :func:`thomson_source_rank`, then by directory
+    proximity, then by name. Directory iteration order never reaches the
+    result: the listing is sorted before it is ranked, so two machines with
+    different filesystem orders resolve the same file.
+    """
+    found: list[tuple[tuple[int, int, int], int, str, Path]] = []
+    for depth, subdir in enumerate(_THOMSON_SEARCH_SUBDIRS):
+        directory = search_root / subdir if subdir else search_root
+        try:
+            names = sorted(entry.name for entry in directory.iterdir() if entry.is_file())
+        except OSError:
+            continue
+        for name in names:
+            rank = thomson_source_rank(name, shotnumber)
+            if rank is not None:
+                found.append((rank, -depth, name, directory / name))
+    # Two passes so the name tiebreak stays ascending: a single reverse=True
+    # would flip it along with the rank, contradicting "then by name".
+    found.sort(key=lambda item: item[2])
+    found.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [path for _, _, _, path in found]
+
+
 def _candidate_thomson_paths(shotnumber: int, data_root: Path) -> list[Path]:
-    return [
-        data_root / "thomson_scattering" / f"NeTe_{shotnumber}.mat",
-        data_root / f"NeTe_{shotnumber}.mat",
-        data_root / "legacy" / f"NeTe_Shot{shotnumber}_v9.mat",
-        data_root / "legacy" / f"NeTe_Shot{shotnumber}_v9_rev.mat",
-        data_root / "legacy" / f"{shotnumber}_NeTe.mat",
-        data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9.mat",
-        data_root / "thomson_scattering" / f"NeTe_Shot{shotnumber}_v9_rev.mat",
-        data_root / f"NeTe_Shot{shotnumber}_v9.mat",
-        data_root / f"NeTe_Shot{shotnumber}_v9_rev.mat",
-        data_root / f"{shotnumber}_NeTe.mat",
-    ]
+    """Thomson MAT candidates for ``shotnumber``, best first.
+
+    Discovery is by listing rather than by probing a fixed set of names, so a
+    version this module has never heard of is still found and ranked.
+    """
+    return _discover_thomson_sources(shotnumber, Path(data_root))
 
 
 def _resolve_thomson_mat_file(
@@ -124,9 +318,33 @@ def _resolve_thomson_mat_file(
         if candidate.exists():
             return candidate
 
-    searched = ", ".join(str(path) for path in candidates)
+    if candidates:
+        searched = ", ".join(str(path) for path in candidates)
+    else:
+        # Discovery found nothing, so there are no probed paths to list. Name
+        # the directories and the layouts instead: an operator chasing a
+        # missing shot needs to know where we looked, and the old fixed-list
+        # error told them that.
+        roots = ", ".join(
+            str(search_root / sub) if sub else str(search_root)
+            for sub in _THOMSON_SEARCH_SUBDIRS
+        )
+        searched = (
+            f"{roots} (for names NeTe_Shot{shotnumber}_v<n>[_rev].mat, "
+            f"NeTe_Shot{shotnumber}.mat, NeTe_{shotnumber}.mat, "
+            f"{shotnumber}_NeTe.mat, Shot{shotnumber}[_v<n>[_rev]].mat)"
+        )
     raise FileNotFoundError(
         f"Cannot find Thomson MAT file for shot {shotnumber}; searched: {searched}"
+    )
+
+
+def _has_v9_channel_keys(mat_data: dict[str, Any]) -> bool:
+    """Whether every polychromator key the v9 reader indexes is present."""
+    return all(
+        f"{tag}_{quantity}" in mat_data
+        for _, _, _, tag in _CHANNEL_META
+        for quantity in ("Te", "sigmaTe", "Ne", "sigmaNe")
     )
 
 
@@ -191,6 +409,9 @@ def _set_dynamic_from_suffixed(mat_data: dict[str, Any], ods: Any, suffix: str) 
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", float(r_pos))
         set_path(ods, f"{prefix}.position.z", 0)
+        phi = _scattering_volume_phi_or_none(float(r_pos), channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", f"Polychrometer {channel + 1}")
         set_path(
             ods,
@@ -224,8 +445,76 @@ def _extract_channel_series(matrix: np.ndarray, channel: int, time_len: int) -> 
     )
 
 
-def _set_dynamic_from_simple(mat_data: dict[str, Any], ods: Any) -> None:
-    time = _normalize_thomson_time_to_seconds(_as_real_array(mat_data["time"]))
+def _recover_simple_time(
+    mat_data: dict[str, Any],
+    shotnumber: int,
+    source_file: Path,
+) -> np.ndarray:
+    """Return the time axis for a simple-schema MAT, from a sibling if needed.
+
+    ``39915_NeTe.mat`` carries ``Ne``/``Te`` but no ``time``, while its
+    ``39916`` counterpart has one -- the old export was not consistent. Rather
+    than synthesising a timebase, the other ranked sources for the same shot
+    are consulted and one is adopted only when its length matches the data's
+    time axis unambiguously. A fabricated timebase would silently misplace
+    every measurement, which is worse than refusing to map the shot.
+    """
+    if "time" in mat_data:
+        return _as_real_array(mat_data["time"])
+
+    samples = _as_real_array(mat_data["Te"]).shape[0]
+    matches: list[tuple[Path, np.ndarray]] = []
+    for sibling in _discover_thomson_sources(shotnumber, source_file.parent):
+        if sibling == source_file:
+            continue
+        try:
+            other = loadmat(str(sibling))
+        except (OSError, ValueError):
+            continue
+        # Every timebase this module knows how to read, including the suffixed
+        # campaign's `tsTime_<shot>`. Checked to exhaustion rather than
+        # stopping at the first key that happens to be present: a file holding
+        # a wrong-length `time` beside a correct-length `time_TS` still has a
+        # usable timebase.
+        keys = ("time", "time_TS", f"tsTime_{int(shotnumber)}")
+        for key in keys:
+            if key not in other:
+                continue
+            candidate = _as_real_array(other[key]).reshape(-1)
+            if candidate.size == samples:
+                matches.append((sibling, candidate))
+                break
+
+    if not matches:
+        raise KeyError(
+            f"{source_file.name} has no 'time' field and no sibling Thomson file "
+            f"for shot {shotnumber} carries a time axis of {samples} samples to "
+            "match it against. Refusing to invent timestamps."
+        )
+
+    distinct = {tuple(np.round(values, 12)) for _, values in matches}
+    if len(distinct) > 1:
+        names = ", ".join(sorted(path.name for path, _ in matches))
+        raise KeyError(
+            f"{source_file.name} has no 'time' field, and the sibling files "
+            f"({names}) disagree about the {samples}-sample timebase for shot "
+            f"{shotnumber}. Refusing to choose one arbitrarily."
+        )
+    return matches[0][1]
+
+
+def _set_dynamic_from_simple(
+    mat_data: dict[str, Any],
+    ods: Any,
+    *,
+    shotnumber: int | None = None,
+    source_file: Path | None = None,
+) -> None:
+    if "time" in mat_data or shotnumber is None or source_file is None:
+        raw_time = _as_real_array(mat_data["time"])
+    else:
+        raw_time = _recover_simple_time(mat_data, shotnumber, source_file)
+    time = _normalize_thomson_time_to_seconds(raw_time)
     te = _as_real_array(mat_data["Te"])
     ne = _as_real_array(mat_data["Ne"])
     sigma_te = _sanitize_sigma(mat_data["sigmaTe"])
@@ -255,6 +544,9 @@ def vfit_thomson_scattering_static(ods: Any) -> None:
         prefix = f"thomson_scattering.channel.{channel}"
         set_path(ods, f"{prefix}.position.r", r_pos)
         set_path(ods, f"{prefix}.position.z", 0)
+        phi = _scattering_volume_phi_or_none(r_pos, channel)
+        if phi is not None:
+            set_path(ods, f"{prefix}.position.phi", phi)
         set_path(ods, f"{prefix}.name", name)
 
 
@@ -271,7 +563,12 @@ def vfit_thomson_scattering_dynamic(
     )
     mat_data = loadmat(str(source_file))
 
-    if "time_TS" in mat_data:
+    # `time_TS` alone does not make a file readable by the v9 reader: shot
+    # 22027 carries `time_TS` next to `poly1R1_REM_Te` / `poly2R3_...`, a
+    # polychromator naming this module does not map. Check the keys the reader
+    # will actually index so such a file reports the schema it has, rather than
+    # raising a bare KeyError on the first tag it happens to miss.
+    if "time_TS" in mat_data and _has_v9_channel_keys(mat_data):
         _set_dynamic_from_v9(mat_data, ods)
         return
 
@@ -280,9 +577,15 @@ def vfit_thomson_scattering_dynamic(
         _set_dynamic_from_suffixed(mat_data, ods, suffix)
         return
 
-    simple_keys = {"time", "Te", "sigmaTe", "Ne", "sigmaNe"}
+    # 'time' is deliberately not required here: some old exports omit it, and
+    # _set_dynamic_from_simple recovers it from a sibling of the same shot or
+    # raises. Requiring it made those files fall through to the "unsupported
+    # schema" error, which named the wrong problem.
+    simple_keys = {"Te", "sigmaTe", "Ne", "sigmaNe"}
     if simple_keys.issubset(mat_data):
-        _set_dynamic_from_simple(mat_data, ods)
+        _set_dynamic_from_simple(
+            mat_data, ods, shotnumber=shotnumber, source_file=source_file
+        )
         return
 
     available = sorted(key for key in mat_data.keys() if not key.startswith("__"))
@@ -311,6 +614,7 @@ def thomson_scattering(
 
 __all__ = [
     "thomson_scattering",
+    "thomson_source_rank",
     "vfit_thomson_scattering_dynamic",
     "vfit_thomson_scattering_static",
 ]

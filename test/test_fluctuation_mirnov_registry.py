@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import vaft.machine_mapping.magnetics as mapping_magnetics
+from vaft.machine_mapping.conventions import clock_angle_to_toroidal_angle
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     OUTBOARD_MIRNOV_MAJOR_RADIUS,
@@ -144,6 +145,12 @@ def _synthetic_fluctuation_raw_loader():
     The per-channel toroidal angle is read back out of the configuration under
     test, so the injected geometry and the mapped geometry cannot silently
     drift apart.
+
+    The mode is injected against the channel's **IMAS** toroidal angle, not the
+    VEST clock angle the configuration stores.  A physical mode number is
+    defined on the physical toroidal coordinate; injecting against the
+    clockwise-positive clock angle would make this test a round trip through
+    one frame rather than a statement about a mode (issue #718).
     """
     by_field = {int(c["field"]): c for c in fluctuation_mirnov_channel_definitions()}
     time = np.arange(0.2, 0.4, 1.0 / NATIVE_SAMPLE_RATE)
@@ -152,7 +159,8 @@ def _synthetic_fluctuation_raw_loader():
         channel = by_field.get(int(field))
         if channel is None:
             return None
-        phase = INJECTED_PHASE_OFFSET - INJECTED_N * np.radians(channel["toroidal_angle_deg"])
+        phi = clock_angle_to_toroidal_angle(float(channel["toroidal_angle_deg"]))
+        phase = INJECTED_PHASE_OFFSET - INJECTED_N * phi
         data = np.sin(2.0 * np.pi * INJECTED_FREQUENCY * time + phase)
         return time, data
 
@@ -216,13 +224,15 @@ def test_toroidal_mode_recovered_end_to_end_through_the_mapper():
         assert get_path(payload, f"{base}.voltage.validity") == 0
         time = np.asarray(get_path(payload, f"{base}.voltage.time"))
         signals.append(np.asarray(get_path(payload, f"{base}.voltage.data")))
-        angles.append(float(get_path(payload, f"{base}.toroidal_angle")))
+        angles.append(float(get_path(payload, f"{base}.position.phi")))
 
     # Cropped to the analysis window, but never resampled onto the 25 kHz
     # equilibrium grid (issue #136).
     assert time.size == round((0.36 - 0.26) * NATIVE_SAMPLE_RATE)
     assert np.isclose(np.median(np.diff(time)), 1.0 / NATIVE_SAMPLE_RATE)
-    assert np.allclose(angles, np.radians([45.0, 135.0, 225.0]))
+    # The IMAS toroidal angles, not the 45/135/225 clock angles the identifiers
+    # carry: the clock coordinate is clockwise-positive and phi is not.
+    assert np.allclose(angles, np.radians([315.0, 225.0, 135.0]))
 
     result = toroidal_phase_fit_at_time(
         time,
@@ -457,3 +467,49 @@ def test_a_revision_without_from_shot_is_rejected():
                 mapping_magnetics._fluctuation_mirnov_config()
         finally:
             mapping_magnetics._fluctuation_mirnov_config.cache_clear()
+
+
+def test_reversing_the_angular_handedness_reverses_the_fitted_mode_number():
+    """The frame is not a free choice: it sets the sign of every measured n.
+
+    Converting a channel's position from the VEST clock angle to IMAS phi is a
+    reflection, ``phi = -clock + C``, not an offset.  Fitting one set of
+    measured phases against the two frames therefore returns ``n`` and ``-n``.
+
+    Issue #718 changed which frame the mapper writes, so this is the behaviour
+    that changed under it; pinning it here stops a future edit from flipping
+    the sign of every published mode number silently.  The IMAS answer is the
+    correct one -- the legacy clock frame is left-handed with respect to the
+    physical toroidal coordinate the mode lives on.
+    """
+    from vaft.process.magnetics import toroidal_phase_fit_at_time
+
+    payload = _map_synthetic_fluctuation_shot()
+    selected = select_fluctuation_mirnov_channels(sub_array="L1", z_range=(-0.05, 0.05))
+    indices = fluctuation_mirnov_probe_indices(payload)
+
+    signals, phi, clock = [], [], []
+    for channel in selected:
+        base = f"magnetics.b_field_pol_probe.{indices[channel['identifier']]}"
+        time = np.asarray(get_path(payload, f"{base}.voltage.time"))
+        signals.append(np.asarray(get_path(payload, f"{base}.voltage.data")))
+        phi.append(float(get_path(payload, f"{base}.position.phi")))
+        clock.append(np.radians(float(channel["toroidal_angle_deg"])))
+
+    def _fit(angles, candidates):
+        result = toroidal_phase_fit_at_time(
+            time,
+            np.vstack(signals),
+            np.asarray(angles),
+            center_time=float(time[time.size // 2]),
+            sample_rate=NATIVE_SAMPLE_RATE,
+            window_size=512,
+            frequencies=[INJECTED_FREQUENCY],
+            candidate_n=candidates,
+        )
+        assert len(result.modes) == 1
+        assert result.modes[0].rms_error < 0.05
+        return result.modes[0].n
+
+    assert _fit(phi, range(0, 5)) == INJECTED_N
+    assert _fit(clock, range(-4, 1)) == -INJECTED_N

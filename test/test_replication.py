@@ -19,6 +19,7 @@ from vaft.database.replication import (
     StageNotReplicableError,
     is_reusable,
     replicate_stage,
+    sha256_file,
 )
 from vaft.database.staging import external_h5_links, merge_master_links
 
@@ -403,15 +404,35 @@ def test_derived_images_are_not_mistaken_for_stage_ids():
 # --------------------------------------------------------------------------- #
 
 
-def _stage_product(db, stage, shot, ods, status="success"):
+#: Every fixture here is the magnetic-EFIT lineage, which is the only one
+#: pipeline 1 produces today. Named once so a future family test has something
+#: to vary rather than a literal to hunt for.
+FAMILY = "magnetic"
+
+#: Which stability product these fixtures stand for. Any one would do -- the
+#: point is that a stage product now belongs to exactly one.
+PRODUCT = "dcon-peeling"
+
+
+def _lineage(stage):
+    """The lineage arguments a stage's FileDB path takes."""
+    from vaft.database.filedb import stage_lineage
+
+    return stage_lineage(
+        stage, family=FAMILY, refinement="chease", product=PRODUCT
+    )
+
+
+def _stage_product(db, stage, shot, ods, status="success", manifest_extra=None):
     from vaft.omas import save as save_local
 
-    product = db.omas_product(stage, shot=shot)
+    product = db.omas_product(stage, shot=shot, **_lineage(stage))
     product.parent.mkdir(parents=True, exist_ok=True)
     save_local(ods, product)
-    manifest = db.omas_manifest(stage, shot=shot)
+    manifest = db.omas_manifest(stage, shot=shot, **_lineage(stage))
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text(json.dumps({"stage": stage, "status": status}), encoding="utf-8")
+    payload = {"stage": stage, "status": status, **(manifest_extra or {})}
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch):
@@ -447,10 +468,19 @@ def test_a_vacuum_shot_reaches_main_without_an_equilibrium(tmp_path, monkeypatch
     assert {call["source"] for call in sent} == {"main"}
 
 
-def test_eddy_does_not_overwrite_what_diagnostics_wrote(tmp_path, monkeypatch):
+def test_replication_refuses_an_eddy_product_that_carries_more_than_it_owns(
+    tmp_path, monkeypatch
+):
+    """`_project` stays defensive even though the builder no longer over-carries.
+
+    The eddy product is now built as its own projection, so a product shaped
+    like the one below should not exist. This asserts replication would still
+    refuse to publish its extra IDS if one did -- a stale product on disk, a
+    hand-assembled one, or a regression in the builder.
+    """
     db = FileDB(tmp_path)
     eddy = ODS(consistency_check=False)
-    eddy["magnetics.ids_properties.comment"] = "carried through from diagnostics"
+    eddy["magnetics.ids_properties.comment"] = "an IDS eddy does not own"
     eddy["pf_passive.ids_properties.comment"] = "computed here"
     _stage_product(db, "eddy", 45000, eddy)
 
@@ -476,8 +506,51 @@ def test_the_refinement_and_the_baseline_land_in_different_sources(tmp_path, mon
     refined = replicate_stage("chease", 39915, filedb=db)
 
     assert baseline.source == "main"
-    assert refined.source == "chease-mhd-stability"
+    # The refinement hangs beneath the baseline it refines rather than sitting
+    # in a namespace of its own, and is still a separate source: `main` does not
+    # acquire it, because nothing is unioned on read.
+    assert refined.source == "main/chease"
     assert baseline.ids == refined.ids == ("equilibrium",)
+
+
+def test_replication_reads_the_family_it_is_given(tmp_path, monkeypatch):
+    """The lineage a product was written under has to reach the reader.
+
+    `PipelinePaths` files an electron-EFIT run's products under
+    `omas/efit/electron/...`. If replication defaults to `magnetic` regardless,
+    it either fails on a path the pipeline never wrote or -- worse, when an
+    earlier magnetic run left one there -- publishes the magnetic equilibrium to
+    HSDS under the electron campaign. That is the lineage collision this grammar
+    exists to prevent, at the one boundary that leaves the local tree.
+    """
+    from vaft.database.filedb import stage_lineage
+
+    db = FileDB(tmp_path)
+    for family, comment in (("magnetic", "the magnetic one"), ("electron", "the electron one")):
+        ods = ODS(consistency_check=False)
+        ods["equilibrium.ids_properties.comment"] = comment
+        lineage = stage_lineage("efit", family=family)
+        product = db.omas_product("efit", shot=39915, **lineage)
+        product.parent.mkdir(parents=True, exist_ok=True)
+        from vaft.omas import save as save_local
+
+        save_local(ods, product)
+        manifest = db.omas_manifest("efit", shot=39915, **lineage)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps({"stage": "efit", "status": "success"}), encoding="utf-8")
+
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    electron = replicate_stage("efit", 39915, filedb=db, family="electron")
+
+    assert electron.state in ("success", "validated")
+    assert (
+        electron.product_sha256
+        == sha256_file(db.omas_product("efit", shot=39915, family="electron"))
+    )
+    assert electron.product_sha256 != sha256_file(
+        db.omas_product("efit", shot=39915, family="magnetic")
+    ), "the electron run must not have replicated the magnetic product"
 
 
 def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monkeypatch):
@@ -492,21 +565,21 @@ def test_a_failed_stability_replication_leaves_the_baseline_alone(tmp_path, monk
     baseline = replicate_stage("efit", 39915, filedb=db)
 
     def only_stability_fails(ods, shot, *, source=None, **kwargs):
-        if source == "chease-mhd-stability":
+        if source.startswith("main/chease"):
             raise RuntimeError("stability replication failed")
         return f"hdf5://{source}/{shot}/"
 
     monkeypatch.setattr("vaft.database.save", only_stability_fails)
     with pytest.raises(replication.ReplicationError):
-        replicate_stage("mhd_linear", 39915, filedb=db, attempts=1)
+        replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT, attempts=1)
 
     # The EFIT record is untouched: separate stages, separate records.
     assert replication.read_record(
-        db.omas_replication_record("efit", shot=39915)
+        db.omas_replication_record("efit", family="magnetic", shot=39915)
     ) == baseline
     assert (
         replication.read_record(
-            db.omas_replication_record("mhd_linear", shot=39915)
+            db.omas_replication_record("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915)
         ).state
         == "failed"
     )
@@ -530,21 +603,45 @@ def test_a_missing_hsds_namespace_fails_with_the_provisioning_fix(staged, monkey
     assert sent == [], "nothing is sent to a namespace that does not exist"
 
 
-def test_per_code_and_mode_stability_detail_survives_replication(tmp_path, monkeypatch):
-    """DCON, RDCON and STRIDE share one publication lineage but keep their identity."""
-    from vaft.omas import load as load_local, save as save_local
+def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
+    tmp_path, monkeypatch
+):
+    """DCON, RDCON and STRIDE share one publication lineage but keep their identity.
+
+    Each solver appends a ``<solver name=... n_tor=...>`` fragment to the one
+    ``<parameters>`` string `vaft.machine_mapping.mhd_linear` maintains, so the
+    lineage is the field's own contents and survives replication as a string.
+
+    This test used to assert a nested ``code.parameters.cases.N.status`` shape
+    that no producer writes and that would not survive an IMAS entry
+    (#561; the measurement is in ``test_code_parameters_contract.py``).  The
+    per-(code, mode) status it was reaching for lives in the stage manifest,
+    which `replicate_stage` reads for eligibility only -- so it is checked here
+    where it exists, and the fact that it does not reach the replica is stated
+    rather than implied.  Closing that gap is #527's business.
+    """
+    import xml.etree.ElementTree as ET
+
+    from vaft.machine_mapping.mhd_linear import _append_code_parameters
 
     db = FileDB(tmp_path)
     ods = ODS(consistency_check=False)
     ods["mhd_linear.time"] = [0.3, 0.31]
-    for index, (code, mode, status) in enumerate(
-        [("dcon", 1, "success"), ("rdcon", 2, "no_output"), ("stride", 1, "failed")]
-    ):
-        base = f"mhd_linear.code.parameters.cases.{index}"
-        ods[f"{base}.code"] = code
-        ods[f"{base}.toroidal_mode"] = mode
-        ods[f"{base}.status"] = status
-    _stage_product(db, "mhd_linear", 39915, ods)
+    # -1 is "this solver did not successfully run"; the second slice succeeded.
+    ods["mhd_linear.code.output_flag"] = [-1, 0]
+    for solver, n_tor in (("dcon", 1), ("rdcon", 2), ("stride", 1)):
+        _append_code_parameters(
+            ods,
+            "mhd_linear",
+            f'<solver name="{solver}" n_tor="{n_tor}"/>',
+            code_name="GPEC-suite",
+        )
+    cases = {
+        "t=316/dcon/n=1": {"status": "success"},
+        "t=316/rdcon/n=2": {"status": "no_output"},
+        "t=316/stride/n=1": {"status": "failed", "reason": "no equilibrium"},
+    }
+    _stage_product(db, "mhd_linear", 39915, ods, manifest_extra={"modules_modes": cases})
 
     captured = {}
 
@@ -555,15 +652,34 @@ def test_per_code_and_mode_stability_detail_survives_replication(tmp_path, monke
     _patch_remote(monkeypatch, sent=[])
     monkeypatch.setattr("vaft.database.save", capture)
 
-    record = replicate_stage("mhd_linear", 39915, filedb=db)
+    record = replicate_stage("mhd_linear", 39915, filedb=db, product=PRODUCT)
 
-    assert record.source == "chease-mhd-stability"
+    assert record.source == f"main/chease/{PRODUCT}"
     replicated = captured["ods"]
-    for index, code in enumerate(["dcon", "rdcon", "stride"]):
-        base = f"mhd_linear.code.parameters.cases.{index}"
-        assert replicated[f"{base}.code"] == code
-    # A failed case travels as a failed case, not as an absence.
-    assert replicated["mhd_linear.code.parameters.cases.2.status"] == "failed"
+
+    # The local product leg keeps the field a string: only the Access Layer
+    # parses it, so a consumer can still read it as XML here.
+    parameters = replicated["mhd_linear.code.parameters"]
+    assert isinstance(parameters, str)
+    root = ET.fromstring(parameters)
+    assert [(e.get("name"), e.get("n_tor")) for e in root.findall("solver")] == [
+        ("dcon", "1"),
+        ("rdcon", "2"),
+        ("stride", "1"),
+    ]
+
+    # A slice no solver reached travels as an explicit negative flag, not as an
+    # absence -- which is what "a failed case travels as a failed case" means
+    # in the fields mhd_linear actually has.
+    assert list(replicated["mhd_linear.code.output_flag"]) == [-1, 0]
+
+    # Per-(code, mode) status lives in the manifest, and the manifest is not
+    # replicated: `replicate_stage` reads it to decide eligibility and sends
+    # only the IDS the stage owns, so nothing carries that status onward.
+    manifest = json.loads(db.omas_manifest("mhd_linear", family="magnetic", refinement="chease", product=PRODUCT, shot=39915).read_text(encoding="utf-8"))
+    assert manifest["modules_modes"]["t=316/stride/n=1"]["status"] == "failed"
+    assert set(replicated.keys()) <= {"mhd_linear", "ntms", "dataset_description"}
+    assert "failed" not in json.dumps(replicated["mhd_linear.code.parameters"])
 
 
 def test_a_landed_replica_that_fails_its_check_is_still_recorded(staged, monkeypatch):
@@ -777,3 +893,237 @@ def test_a_replica_missing_only_empty_channels_validates(monkeypatch):
 
     assert summary["passed"] is True
     assert summary["empty_arrays_unwritten"] >= 1
+
+
+# --------------------------------------------------------------------------- #
+# a busy server is not a missing namespace
+# --------------------------------------------------------------------------- #
+
+
+def test_a_genuine_404_is_reported_as_a_missing_namespace(monkeypatch):
+    from vaft.database import utils
+    from vaft.database.sources import MissingSourceError
+
+    def absent(path, mode=None):
+        raise OSError(404, "Not Found")
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", absent)
+    with pytest.raises(MissingSourceError, match="hstouch"):
+        utils.require_source_exists("main")
+
+
+def test_a_transient_failure_is_raised_as_itself(monkeypatch):
+    """Under concurrent load HSDS answers some probes with anything but 404.
+
+    Reporting those as "the namespace does not exist" sends an operator to
+    provision a folder that is already there -- which happened across 1298
+    replications -- and, because a missing namespace is not retryable, it also
+    killed each shot outright instead of retrying a blip.
+    """
+    from vaft.database import utils
+    from vaft.database.sources import MissingSourceError
+
+    def busy(path, mode=None):
+        raise OSError(503, "Service Unavailable")
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", busy)
+    with pytest.raises(OSError) as excinfo:
+        utils.require_source_exists("main")
+    assert not isinstance(excinfo.value, MissingSourceError)
+    assert excinfo.value.args[0] == 503
+
+
+def test_a_transient_probe_failure_is_retried(staged, monkeypatch):
+    from vaft.database import replication as R
+
+    calls = []
+
+    def flaky(source):
+        calls.append(source)
+        if len(calls) == 1:
+            raise OSError(503, "Service Unavailable")
+
+    monkeypatch.setattr("vaft.database.utils.require_source_exists", flaky)
+    monkeypatch.setattr(R, "_fetch_remote_master", lambda *a, **k: None)
+    monkeypatch.setattr(R, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr(R, "_round_trip", lambda ods, **kw: {"passed": True})
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: "uri")
+
+    record = replicate_stage(
+        "diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0
+    )
+
+    assert len(calls) == 2
+    assert record.validated
+
+
+def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
+    """Provisioning is an operator action; three attempts cannot fix it."""
+    from vaft.database import replication as R
+    from vaft.database.sources import MissingSourceError
+
+    calls = []
+
+    def absent(source):
+        calls.append(source)
+        raise MissingSourceError(source, "domain not found")
+
+    fetches = []
+
+    def fetch(source, shot, dest):
+        fetches.append(source)
+        return None
+
+    monkeypatch.setattr("vaft.database.utils.require_source_exists", absent)
+    monkeypatch.setattr(R, "_fetch_remote_master", fetch)
+    monkeypatch.setattr(R, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: "uri")
+
+    with pytest.raises(MissingSourceError):
+        replicate_stage("diagnostics", 39915, filedb=staged, attempts=3, retry_delay=0)
+
+    assert len(calls) == 1
+    # The probe comes first: an unprovisioned namespace never costs a fetch.
+    assert fetches == []
+
+
+# --------------------------------------------------------------------------- #
+# optional stages (issue #305)
+# --------------------------------------------------------------------------- #
+
+
+def _staged_impa(tmp_path, status: str, *, product: bool = True) -> FileDB:
+    """A FileDB holding one IMPA product for shot 39915 with ``status``."""
+    from vaft.omas import save as save_local
+
+    db = FileDB(tmp_path)
+    if product:
+        path = db.omas_product("impa", shot=39915)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        ods = ODS(consistency_check=False)
+        ods["dataset_description.data_entry.pulse"] = 39915
+        ods["magnetics.b_field_tor_probe.0.identifier"] = "impa:IMPA 01"
+        save_local(ods, path)
+    manifest = db.omas_manifest("impa", shot=39915)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps({"stage": "impa", "status": status}))
+    return db
+
+
+@pytest.mark.parametrize("status", ["rejected", "failed", "unavailable"])
+def test_an_ineligible_optional_product_is_recorded_rather_than_raised(
+    tmp_path, monkeypatch, status
+):
+    """A rejected IMPA calibration must not fail the run that produced it.
+
+    Absence from a sparse source would otherwise be indistinguishable from
+    "never attempted", so the reason is written down locally even though
+    nothing is published.
+    """
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, status)
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "skipped"
+    assert not record.replicated and not record.validated
+    assert status in record.error
+    assert sent == []
+    assert replication.read_record(db.omas_replication_record("impa", shot=39915)).state == "skipped"
+
+
+def test_a_missing_optional_product_is_recorded_rather_than_raised(tmp_path, monkeypatch):
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, "success", product=False)
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "skipped"
+    assert "No impa product" in record.error
+    assert sent == []
+
+
+def test_a_required_stage_still_raises_where_an_optional_one_records(staged):
+    """The containment is the optional stage's, not a general weakening."""
+    manifest = staged.omas_manifest("diagnostics", shot=39915)
+    manifest.write_text(json.dumps({"stage": "diagnostics", "status": "rejected"}))
+
+    with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
+        replicate_stage("diagnostics", 39915, filedb=staged)
+
+
+def test_an_accepted_optional_product_reaches_its_own_source(tmp_path, monkeypatch):
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    db = _staged_impa(tmp_path, "success")
+
+    record = replicate_stage("impa", 39915, filedb=db)
+
+    assert record.state == "validated"
+    assert [entry["source"] for entry in sent] == ["impa"]
+    # The baseline source is never touched by the optional diagnostic.
+    assert all(entry["source"] != "main" for entry in sent)
+    assert sent[0]["ids"] == ["dataset_description", "magnetics"]
+
+
+# --------------------------------------------------------------------------- #
+# the finalizer must not prune on a listing it could not trust
+# --------------------------------------------------------------------------- #
+
+
+def test_the_finalizer_refuses_an_unreachable_listing(tmp_path, monkeypatch):
+    """An unreadable folder must not read as "no files present".
+
+    `_remote_entries` reports an absent folder and an unreachable one the same
+    way. The finalizer acts on that emptiness by pruning links, and the master
+    it produces is the commit point -- so a transient listing failure would
+    publish a master describing only the in-flight stage, which is the exact
+    harm the write ordering exists to prevent.
+    """
+    def unreachable(*_args, **_kwargs):
+        raise OSError("HSDS is busy")
+
+    monkeypatch.setattr(replication, "_require_remote_entries", unreachable)
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    finalize = replication._master_finalizer("main", 39915, previous)
+
+    with pytest.raises(OSError, match="busy"):
+        finalize(_master(tmp_path / "current.h5", ["equilibrium"]))
+
+
+def test_the_finalizer_refuses_a_listing_with_no_ids_files(tmp_path, monkeypatch):
+    """The payload is already uploaded, so a healthy folder cannot be empty."""
+    monkeypatch.setattr(replication, "_require_remote_entries", lambda *a, **k: ())
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    finalize = replication._master_finalizer("main", 39915, previous)
+
+    with pytest.raises(replication.ReplicationError, match="lists no IDS files"):
+        finalize(_master(tmp_path / "current.h5", ["equilibrium"]))
+
+
+def test_the_finalizer_carries_the_previous_links_when_the_listing_is_sound(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        replication,
+        "_require_remote_entries",
+        lambda *a, **k: ("magnetics.h5", "equilibrium.h5", "master.h5"),
+    )
+
+    previous = tmp_path / "previous.h5"
+    _master(previous, ["magnetics"])
+    current = _master(tmp_path / "current.h5", ["equilibrium"])
+
+    replication._master_finalizer("main", 39915, previous)(current)
+
+    assert external_h5_links(current) == ["equilibrium.h5", "magnetics.h5"]
+
+
+def test_a_first_write_needs_no_finalizer():
+    assert replication._master_finalizer("main", 39915, None) is None

@@ -127,15 +127,78 @@ def _resolve_reference(source: str | Path | None, options: dict | None) -> Path:
     return path
 
 
-#: Relative asymmetry max|M - M^T| / max|M| above which a passive-passive
-#: coupling matrix is reported. Reciprocity requires M_ij == M_ji exactly;
-#: float64 round-off in a stored matrix sits near 1e-15, so anything above
-#: this is a defect in the asset, not noise. The packaged asset reads 1.27e-3
-#: (issue #347), which is why loading it warns until it is regenerated.
+#: Relative asymmetry max|M - M^T| / max|M| at or below which a stored matrix
+#: is reciprocal to float64 round-off: the fold below is then a bitwise no-op
+#: and the record says so rather than claiming a correction was applied.
+PASSIVE_COUPLING_ASYMMETRY_ROUNDOFF = 1.0e-12
+#: Above this a passive-passive coupling matrix is reported. Reciprocity
+#: requires M_ij == M_ji exactly, so anything above round-off is a defect in
+#: the source, not noise. The packaged asset read 1.27e-3 until issue #373
+#: repaired the material factor the donor code applied one-sidedly; it is now
+#: exactly reciprocal and carries that repair as provenance (see
+#: ``workflow/em_coupling``). The threshold stays for a caller-supplied
+#: reference matrix, and for any product materialized before the repair.
 PASSIVE_COUPLING_ASYMMETRY_WARN = 1.0e-6
 #: Above this the matrix is not plausibly a mutual-inductance matrix at all,
 #: and averaging it into symmetry would manufacture physics; refuse instead.
 PASSIVE_COUPLING_ASYMMETRY_REJECT = 1.0e-1
+
+#: Optional npz key holding the asset's own provenance as a JSON document
+#: (``workflow/em_coupling/regenerate_passive_coupling.py`` writes it).
+COUPLING_PROVENANCE_KEY = "provenance"
+#: Provenance fields the mapper surfaces into ``em_coupling.code.parameters``.
+#: Deterministic per asset, so two loads of one asset write identical records.
+_SURFACED_PROVENANCE = (
+    "generator",
+    "generated",
+    "git_commit",
+    "source_sha256",
+    "passive_material_factor",
+    "convention",
+)
+
+
+def _load_versioned_coupling(
+    path: str | Path = DEFAULT_VERSIONED_COUPLING,
+) -> tuple[dict[str, np.ndarray], dict | None]:
+    """The packaged coupling matrices and, when the asset carries one, its provenance.
+
+    An asset written before #373 has no provenance key and loads unchanged;
+    ``None`` then says "the asset does not say where it came from", which the
+    record distinguishes from a repaired asset.
+    """
+    import json
+
+    matrices: dict[str, np.ndarray] = {}
+    provenance: dict | None = None
+    with np.load(path, allow_pickle=False) as versioned:
+        for key in versioned.files:
+            if key == COUPLING_PROVENANCE_KEY:
+                try:
+                    provenance = json.loads(str(versioned[key][()]))
+                except (TypeError, ValueError):
+                    provenance = None
+                continue
+            matrices[key] = np.asarray(versioned[key], dtype=float)
+    return matrices, provenance
+
+
+def load_versioned_coupling_provenance(
+    path: str | Path = DEFAULT_VERSIONED_COUPLING,
+) -> dict | None:
+    """The provenance record stored in the packaged coupling asset, or ``None``."""
+    return _load_versioned_coupling(path)[1]
+
+
+def _coupling_provenance_lines(provenance: dict | None) -> list[str]:
+    """``key=value`` lines for ``code.parameters`` naming the asset's origin."""
+    if not provenance:
+        return ["coupling_asset_provenance=absent"]
+    lines = []
+    for key in _SURFACED_PROVENANCE:
+        if key in provenance and provenance[key] is not None:
+            lines.append(f"coupling_asset_{key}={provenance[key]}")
+    return lines
 
 
 def _symmetrize_passive_coupling(mutual_pp: np.ndarray, *, source: str) -> tuple[np.ndarray, float]:
@@ -191,16 +254,10 @@ def em_coupling(
     reference_path = _resolve_reference(source, options)
     reference = load_static_ods(reference_path)
     geometry_version = pf_geometry_version_for_shot(shot)
-    with np.load(DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
-        mutual_aa = np.asarray(
-            versioned[f"mutual_active_active_{geometry_version}"], dtype=float
-        )
-        mutual_pa = np.asarray(
-            versioned[f"mutual_passive_active_{geometry_version}"], dtype=float
-        )
-        packaged_mutual_pp = np.asarray(
-            versioned["mutual_passive_passive"], dtype=float
-        )
+    versioned, asset_provenance = _load_versioned_coupling(DEFAULT_VERSIONED_COUPLING)
+    mutual_aa = versioned[f"mutual_active_active_{geometry_version}"]
+    mutual_pa = versioned[f"mutual_passive_active_{geometry_version}"]
+    packaged_mutual_pp = versioned["mutual_passive_passive"]
 
     n_passive, n_active = mutual_pa.shape
     if mutual_aa.shape != (n_active, n_active):
@@ -244,18 +301,41 @@ def em_coupling(
     ods["em_coupling.mutual_active_active"] = mutual_aa
     ods["em_coupling.mutual_passive_active"] = mutual_pa
     ods["em_coupling.mutual_passive_passive"] = mutual_pp
+    from_reference = "em_coupling.mutual_passive_passive" in reference
+    symmetrized = passive_asymmetry > PASSIVE_COUPLING_ASYMMETRY_ROUNDOFF
+    if symmetrized:
+        reciprocity = (
+            "mutual_passive_passive symmetrized to (M + M^T)/2 on load"
+            f" (input asymmetry {passive_asymmetry:.3g})"
+        )
+    elif asset_provenance and not from_reference:
+        reciprocity = (
+            "mutual_passive_passive reciprocity exact in the packaged asset"
+            f" (input asymmetry {passive_asymmetry:.3g}; material factor "
+            f"{asset_provenance.get('passive_material_factor', 'unspecified')} repaired by "
+            f"{asset_provenance.get('generator', 'unspecified')}, issue #373)"
+        )
+    else:
+        reciprocity = (
+            "mutual_passive_passive reciprocity exact"
+            f" (input asymmetry {passive_asymmetry:.3g})"
+        )
     ods["em_coupling.ids_properties.comment"] = (
         "VEST electromagnetic coupling for PF geometry "
         f"{geometry_version}; selected for shot {shot if shot is not None else 'unspecified'}"
-        "; mutual_passive_passive symmetrized to (M + M^T)/2 on load"
-        f" (input asymmetry {passive_asymmetry:.3g})"
+        f"; {reciprocity}"
     )
     # DD-sanctioned home for the numeric record, so a consumer can see how far
-    # the stored asset was from reciprocity without re-reading the asset.
-    ods["em_coupling.code.parameters"] = (
-        f"passive_passive_symmetrized=true\n"
-        f"passive_passive_input_asymmetry={passive_asymmetry:.6e}\n"
-    )
+    # the stored matrix was from reciprocity, and where the packaged asset came
+    # from, without re-reading the asset.  ``passive_passive_input_asymmetry``
+    # is always present: ``vaft.omas.process_wrapper`` harvests it.
+    ods["em_coupling.code.parameters"] = "\n".join(
+        [
+            f"passive_passive_symmetrized={'true' if symmetrized else 'false'}",
+            f"passive_passive_input_asymmetry={passive_asymmetry:.6e}",
+            *_coupling_provenance_lines(None if from_reference else asset_provenance),
+        ]
+    ) + "\n"
     # em_coupling has no dynamic counterpart in VAFT, so per the DD's
     # `homogeneous_time` rule ("if only constant or static nodes are filled,
     # homogeneous_time must be set to 2") this IDS is always independent.
@@ -283,7 +363,12 @@ def calculate_em_coupling_from_raw_database(
 __all__ = [
     "calculate_em_coupling_from_raw_database",
     "em_coupling",
+    "load_versioned_coupling_provenance",
+    "COUPLING_PROVENANCE_KEY",
     "DEFAULT_REFERENCE_ODS",
     "DEFAULT_STATIC_GEOMETRY",
     "DEFAULT_VERSIONED_COUPLING",
+    "PASSIVE_COUPLING_ASYMMETRY_REJECT",
+    "PASSIVE_COUPLING_ASYMMETRY_ROUNDOFF",
+    "PASSIVE_COUPLING_ASYMMETRY_WARN",
 ]

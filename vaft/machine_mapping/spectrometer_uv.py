@@ -7,9 +7,23 @@ import numpy as np
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import resample_to_time
 
+from .registry import port_phi
 from .utils import set_path
 
 DEFAULT_DT = 4e-5
+
+#: The port the filterscope collects through: ``6MR``, the Entrance.
+#:
+#: Two independent sources agree.  The port-status document lists 6MR as
+#: "Entrance" and puts the fast camera, the H-alpha / O I filterscope and the
+#: hard X-ray detector there together -- and "H-alpha / O I" is exactly
+#: channels 0 and 1 below.  The VEST operators state the same thing: the
+#: filterscope's toroidal position is the fast camera's.
+#:
+#: So this is the same port :data:`vaft.machine_mapping.camera_visible.CAMERA_PORT`
+#: names, and unlike the provisional placements in issue #746 it is documented
+#: rather than inferred.  Issue #718 for the clock-to-phi conversion.
+FILTERSCOPE_PORT = "6MR"
 
 CHANNEL_NAMES: dict[int, str] = {
     0: "H alpha Filterscope",
@@ -17,13 +31,40 @@ CHANNEL_NAMES: dict[int, str] = {
     2: "Versatile Filterscope",
 }
 
+#: Native digitizer rate per channel: channels 0 and 1 are on the slow DAQ,
+#: the versatile filterscope (channel 2) on the fast DAQ.  Every policy grid
+#: is 25 kHz, so channel 2 is resampled (see :func:`vfit_filterscope`).
+CHANNEL_CADENCE_HZ: dict[int, float] = {
+    0: 25e3,
+    1: 25e3,
+    2: 250e3,
+}
+
+#: Where a channel's digitizer rails, in stored units, for the channels whose
+#: rail is documented: the versatile filterscope clips at 5.0 (41524).  A
+#: channel absent here has no known rail and is not judged against one.
+CHANNEL_RAIL_LEVEL: dict[int, float] = {
+    2: 5.0,
+}
+
+#: ``(raw_field, channel, line, label, wavelength_m)``.
+#:
+#: ``label`` follows the syntax the IMAS Data Dictionary prescribes for
+#: ``processed_line.label`` -- element with ionization state, then the
+#: wavelength in Angstrom (``OI_7770``, ``CIII_1909``) -- because that string
+#: is the only place the Data Dictionary lets a species be recorded: there is
+#: no element, ion or transition field under ``processed_line``.  The hydrogen
+#: entries name a Balmer series member instead of an ionization state, which
+#: the Data Dictionary does not cover but spectroscopy does.
+#: :mod:`vaft.spectroscopy` parses both forms, so a label written here is what
+#: ``emission=`` resolves against.
 SIGNALS: list[tuple[int, int, int, str, float]] = [
     (101, 0, 0, "H-alpha_6563", 656.3e-9),
     (214, 1, 0, "OI_7770", 777.0e-9),
     (144, 2, 0, "H-alpha_6563", 656.3e-9),
     (141, 2, 1, "H-beta_4861", 486.1e-9),
     (138, 2, 2, "H-gamma_4340", 434.0e-9),
-    (142, 2, 3, "CII_3726", 372.6e-9),
+    (142, 2, 3, "CII_4267", 426.7e-9),
     (140, 2, 4, "CIII_1909", 190.9e-9),
     (139, 2, 5, "OII_3726", 372.6e-9),
     (143, 2, 6, "OV_629", 62.9e-9),
@@ -55,6 +96,18 @@ def _needs_legacy_time_shift(shot: int) -> bool:
     return (41446 <= shot <= 41451) or (shot >= 41660)
 
 
+def legacy_time_shift_s(shot: int) -> float:
+    """The offset the mapper adds to a filterscope record's own time axis.
+
+    A fast-DAQ record starts at zero on its own clock and the mapper adds
+    this to place it on the discharge clock.  The mapper applies it to any
+    record whose axis ends before 0.1 s -- in practice the fast channel; a
+    slow-DAQ record spans the full second -- so this is the value a shifted
+    record received, not proof that a given record was shifted.
+    """
+    return 0.26 if _needs_legacy_time_shift(shot) else 0.24
+
+
 def vfit_filterscope(
     ods: object,
     shot: int,
@@ -68,8 +121,16 @@ def vfit_filterscope(
     set_path(ods, "spectrometer_uv.ids_properties.comment", "VEST filterscope data")
     set_path(ods, "spectrometer_uv.ids_properties.homogeneous_time", 1)
 
+    phi = port_phi(FILTERSCOPE_PORT)
     for channel, name in CHANNEL_NAMES.items():
         set_path(ods, f"spectrometer_uv.channel.{channel}.name", name)
+        # Only the toroidal coordinate. The sightline's R and Z are a fan from
+        # the collection optics into the plasma that no source here quantifies,
+        # and the Data Dictionary gives spectrometer_uv no scalar toroidal
+        # angle, so line_of_sight.first_point.phi is where the one thing we do
+        # know belongs. Writing an invented R and Z beside it to look complete
+        # is what issue #718 exists to stop.
+        set_path(ods, f"spectrometer_uv.channel.{channel}.line_of_sight.first_point.phi", phi)
 
     for _, channel, line, label, wavelength in SIGNALS:
         set_path(ods, f"spectrometer_uv.channel.{channel}.processed_line.{line}.label", label)
@@ -84,7 +145,7 @@ def vfit_filterscope(
         if target_time is not None
         else _build_time_axis(t_start, t_end, dt)
     )
-    shift = 0.26 if _needs_legacy_time_shift(shot) else 0.24
+    shift = legacy_time_shift_s(shot)
 
     loaded_signals = {
         field: raw_db.require_signal(
@@ -140,4 +201,11 @@ def filterscope_from_raw_database(
     spectrometer_uv(ods, shot, tstart, tend, dt, raw_source=raw_source)
 
 
-__all__ = ["filterscope_from_raw_database", "spectrometer_uv", "vfit_filterscope"]
+__all__ = [
+    "CHANNEL_CADENCE_HZ",
+    "SIGNALS",
+    "filterscope_from_raw_database",
+    "legacy_time_shift_s",
+    "spectrometer_uv",
+    "vfit_filterscope",
+]

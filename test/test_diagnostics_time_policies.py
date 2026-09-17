@@ -11,6 +11,7 @@ from configuration -- and that both coverages coexist in one ODS.
 
 from __future__ import annotations
 
+import copy
 import gzip
 import json
 
@@ -29,6 +30,7 @@ from vaft.machine_mapping.utils import (
     VestConfigurationError,
     build_window_time_axis,
     resolve_diagnostics_time_policies,
+    resolve_plasma_timing_policy,
 )
 from vaft.omas.vest_upstream import (
     _policy_time,
@@ -55,6 +57,12 @@ def test_configured_policy_splits_analysis_from_full_discharge():
     for component in ("tf", "barometry", "ec_power"):
         assert policies[component].name == "full_discharge"
         assert (policies[component].tstart, policies[component].tend) == (0.0, 1.0)
+    # The shared plasma-analysis range (#409) is a window no component maps
+    # onto: the EFIT constraint times and the diamagnetic-flux window search
+    # inside it, and the stretch before it is the baseline.
+    shared = policies.windows["plasma_analysis"]
+    assert (shared.tstart, shared.tend, shared.dt) == (0.28, 0.36, SLOW_DT)
+    assert not [c for c, p in policies.items() if p.name == "plasma_analysis"]
 
 
 def test_stage_arguments_retune_the_analysis_window_only():
@@ -67,6 +75,15 @@ def test_stage_arguments_retune_the_analysis_window_only():
     assert policies["magnetics"].dt == 1e-5
     assert (policies["tf"].tstart, policies["tf"].tend) == (0.0, 1.0)
     assert policies["tf"].dt == SLOW_DT
+    # ... and never the shared plasma-analysis range the timing policy names.
+    timing = resolve_plasma_timing_policy()
+    assert timing.window.name == "plasma_analysis"
+    assert (timing.window.tstart, timing.window.tend) == (0.28, 0.36)
+    assert timing.baseline_lead_s == 0.02
+    assert timing.baseline_start == pytest.approx(0.26)
+    assert set(timing.usability) >= {"min_baseline_mad", "rail_level"}
+    assert set(timing.agreement) == {"onset_tolerance_s", "lag_tolerance_s", "offset_tolerance_s"}
+    assert timing.lines == {}
 
 
 def test_overrides_repoint_a_component_without_touching_the_rest():
@@ -120,19 +137,19 @@ def _static_ods(tmp_path):
 
 
 @pytest.fixture(scope="module")
-def full_record_diagnostics(tmp_path_factory):
-    """One 25 000-sample build, shared by the tests that assert on it.
+def _full_record_build(tmp_path_factory):
+    """One 25 000-sample build, cached for the tests that assert on it.
 
     Two tests below need exactly this product and differ only in what they
-    inspect -- one reads `ods`, the other reads `manifest`. Two builds cost
-    127 s where one costs 76 s, so sharing takes ~50 s off the suite.
+    inspect -- one reads `ods`, the other reads `manifest`.
 
-    Module-scoped, and therefore handed out without copying: consumers must
-    treat both values as read-only. That holds today -- one consumer passes
-    `ods` to `write_stage_product`, which serializes it and shallow-copies the
-    manifest before adding its own key, mutating neither. A consumer that does
-    mutate would leak into whichever test runs next, so give it its own build
-    rather than adding to this fixture.
+    The saving is real but modest, ~17 s of a ~143 s file. Building twice is
+    not twice the cost: the second build runs with `machine_mapping`'s
+    lru_caches already warm (68.5 s cold, 58.9 s warm), so what sharing removes
+    is a warm build, not a cold one.
+
+    Nothing consumes this directly: `full_record_diagnostics` hands each test a
+    private copy (~0.05 s), so the saving does not come out of test isolation.
     """
     tmp_path = tmp_path_factory.mktemp("full-record")
     raw = tmp_path / "raw.json.gz"
@@ -141,6 +158,21 @@ def full_record_diagnostics(tmp_path_factory):
     return build_diagnostics_ods(
         shot=SHOT, raw_source=raw, static_ods=_static_ods(tmp_path)
     )
+
+
+@pytest.fixture
+def full_record_diagnostics(_full_record_build):
+    """A private copy of the cached build, one per test.
+
+    Function-scoped and deep-copied, so a consumer may mutate what it is given
+    exactly as if it had built its own: nothing it does reaches the cached
+    object or the next test. `ODS.copy()` is `copy.deepcopy`, and omas's
+    `ODS.__deepcopy__` rebuilds through `same_init_ods()` -- carrying
+    `imas_version`, `consistency_check` and the COCOS settings -- then re-parents
+    the children, so the copy reports the same locations as the original.
+    """
+    ods, manifest = _full_record_build
+    return ods.copy(), copy.deepcopy(manifest)
 
 
 def _magnetics_field_codes() -> list[int]:
@@ -172,6 +204,38 @@ def _write_raw_dump(path, samples, *, include_magnetics=True):
     }
     with gzip.open(path, "wt", encoding="utf-8") as handle:
         json.dump({"shot": SHOT, "fields": fields}, handle)
+
+
+def test_the_shared_build_hands_each_test_a_private_copy(
+    _full_record_build, full_record_diagnostics
+):
+    """The 25 000-sample build is cached; what each test gets is not shared.
+
+    Two tests below read the same expensive product, so it is built once. That
+    is only safe if a test cannot reach the cached object -- otherwise the
+    saving would be paid for in isolation, and a mutation in one test would
+    surface as a failure in whichever test happened to run next.
+    """
+    cached_ods, cached_manifest = _full_record_build
+    ods, manifest = full_record_diagnostics
+
+    assert ods is not cached_ods
+    assert manifest is not cached_manifest
+
+    # A leaf write does not reach the cached ODS.
+    original = np.asarray(cached_ods["tf.time"], dtype=float).copy()
+    ods["tf.time"] = np.zeros_like(original)
+    np.testing.assert_allclose(
+        np.asarray(cached_ods["tf.time"], dtype=float), original
+    )
+
+    # ...and neither does a write nested inside the manifest, which a shallow
+    # copy would have shared.
+    cached_policy = cached_manifest["time_grid"]["components"]["tf"]["policy"]
+    manifest["time_grid"]["components"]["tf"]["policy"] = "mutated"
+    assert (
+        cached_manifest["time_grid"]["components"]["tf"]["policy"] == cached_policy
+    )
 
 
 def test_full_and_short_windows_coexist_in_one_diagnostics_ods(
@@ -360,3 +424,91 @@ def test_every_mapped_component_reports_its_coverage(full_record_diagnostics):
     # impa writes into the magnetics IDS rather than one of its own, so it has
     # no coordinate to report; every other mapped component must have one.
     assert mapped - {"impa"} <= recorded
+
+
+# ---------------------------------------------------------------------------
+# Discharge-timing policy (#409 PR-v)
+# ---------------------------------------------------------------------------
+
+
+def test_the_discharge_timing_policy_shares_the_plasma_window():
+    from vaft.machine_mapping.utils import DischargeTimingPolicy, resolve_discharge_timing_policy
+
+    policy = resolve_discharge_timing_policy()
+    plasma = resolve_plasma_timing_policy()
+
+    assert isinstance(policy, DischargeTimingPolicy)
+    assert policy.window == plasma.window
+    assert policy.baseline_start == plasma.baseline_start
+    assert policy.ohmic_coil == "PF1"
+    assert policy.loop_voltage == {"selection": "inboard_midplane", "prefer_measured_voltage": True}
+    assert policy.coil["principal_only"] is True and policy.coil["pickup_floor"] == 3.0
+    assert policy.vloop["anchor_tolerance_s"] == 5e-4 and policy.vloop["approach_fraction"] == 0.1
+    assert policy.as_dict()["vloop"] == dict(policy.vloop)
+
+
+def test_discharge_timing_configuration_errors_are_caught_at_load(tmp_path):
+    from vaft.machine_mapping.utils import resolve_discharge_timing_policy
+
+    from _plasma_timing_fixtures import policy_resolver
+
+    resolve_with = policy_resolver(tmp_path, "discharge_timing", resolve_discharge_timing_policy)
+    block = resolve_with.block
+
+    with pytest.raises(VestConfigurationError, match="'aproach_fraction'.*zero_crossing_after_excursion"):
+        resolve_with(vloop={**block["vloop"], "aproach_fraction": 0.1})
+    with pytest.raises(VestConfigurationError, match="'anchor_time'"):
+        resolve_with(vloop={**block["vloop"], "anchor_time": 0.29})
+    with pytest.raises(VestConfigurationError, match="loop_voltage.selection"):
+        resolve_with(loop_voltage={**block["loop_voltage"], "selection": "outboard"})
+    with pytest.raises(VestConfigurationError, match="unknown keys 'loop_index'"):
+        resolve_with(loop_voltage={**block["loop_voltage"], "loop_index": 5})
+    with pytest.raises(VestConfigurationError, match="'ohmic_coil' must name"):
+        resolve_with(ohmic_coil="")
+    with pytest.raises(VestConfigurationError, match="'window' must name"):
+        resolve_with(window="plasma_analisys")
+    with pytest.raises(VestConfigurationError, match="'fs'"):
+        resolve_with(coil={**block["coil"], "fs": 25000.0})
+
+
+# ---------------------------------------------------------------------------
+# Plasma-features policy (#409 PR-vi)
+# ---------------------------------------------------------------------------
+
+
+def test_the_plasma_features_policy_measures_inside_the_timing_window():
+    from vaft.machine_mapping.utils import PlasmaFeaturesPolicy, resolve_plasma_features_policy
+
+    policy = resolve_plasma_features_policy()
+
+    assert isinstance(policy, PlasmaFeaturesPolicy)
+    assert policy.window == "plasma_timing"
+    assert policy.ip["cutoff_hz"] == 2000.0 and policy.ip["min_width_s"] == 2e-3
+    assert policy.h_alpha["prefilter_samples"] == 5
+    assert set(policy.lines) == {"OI_7770", "CIII_1909"}
+    assert policy.diamagnetic["polarity"] == "absolute"
+    assert policy.ip_ramp_end is None
+    assert policy.as_dict()["lines"]["OI_7770"] == dict(policy.lines["OI_7770"])
+
+
+def test_plasma_features_configuration_errors_are_caught_at_load(tmp_path):
+    from vaft.machine_mapping.utils import resolve_plasma_features_policy
+
+    from _plasma_timing_fixtures import policy_resolver
+
+    resolve_with = policy_resolver(tmp_path, "plasma_features", resolve_plasma_features_policy)
+    block = resolve_with.block
+
+    with pytest.raises(VestConfigurationError, match="'level_fractoin'.*robust_peak"):
+        resolve_with(ip={**block["ip"], "level_fractoin": 0.5})
+    with pytest.raises(VestConfigurationError, match="'search_mask'"):
+        resolve_with(h_alpha={**block["h_alpha"], "search_mask": 0})
+    with pytest.raises(VestConfigurationError, match="'polarity' must be a non-empty string"):
+        resolve_with(diamagnetic={**block["diamagnetic"], "polarity": 3})
+    with pytest.raises(VestConfigurationError, match="'polarity' must be one of"):
+        resolve_with(diamagnetic={**block["diamagnetic"], "polarity": "upward"})
+    with pytest.raises(VestConfigurationError, match="lines may not carry 'H-alpha_6563'"):
+        resolve_with(lines={**block["lines"], "H-alpha_6563": dict(block["h_alpha"])})
+    with pytest.raises(VestConfigurationError, match="'window' must be one of plasma_timing"):
+        resolve_with(window="plasma_analysis")
+    assert resolve_with(ip_ramp_end={"level_fraction": 0.1}).ip_ramp_end == {"level_fraction": 0.1}
