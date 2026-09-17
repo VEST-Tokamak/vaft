@@ -565,9 +565,22 @@ class PipelinePaths:
                 artifact="work")
         )
 
+    def _legacy_mhd_linear_dir(self, shot, product: str | None) -> PurePosixPath:
+        """Where shot-first keeps an ``mhd_linear`` stage product.
+
+        Without a product this is the literal the legacy server wrote. With one
+        it is that product's cell directory, because one product owns one
+        ``mhd_linear``: the rule that builds it is keyed on a ``{product}``
+        wildcard, and a path the product does not appear in cannot carry one --
+        every product would also collide on the single legacy file.
+        """
+        if product is None:
+            return self._shot_dir(shot, "linear_stability")
+        return self._legacy_cell_dir(shot, product)
+
     def mhd_linear_ods(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
-            return str(self._shot_dir(shot, "linear_stability") / "mhd_linear.json")
+            return str(self._legacy_mhd_linear_dir(shot, product) / "mhd_linear.json")
         return str(
             self._filedb.omas_product("mhd_linear", shot=shot, **self._lineage("mhd_linear", product))
         )
@@ -575,7 +588,7 @@ class PipelinePaths:
     def mhd_linear_manifest(self, shot, product: str | None = None) -> str:
         if self.layout == SHOT_FIRST:
             return str(
-                self._shot_dir(shot, "linear_stability") / "mhd_linear_manifest.json"
+                self._legacy_mhd_linear_dir(shot, product) / "mhd_linear_manifest.json"
             )
         return str(
             self._filedb.omas_manifest("mhd_linear", shot=shot, **self._lineage("mhd_linear", product))
@@ -688,7 +701,13 @@ class PipelinePaths:
         `product` is required there.
         """
         if self.layout == SHOT_FIRST:
-            return str(self._shot_dir(shot, "logs") / f"{name}.log")
+            directory = self._shot_dir(shot, "logs")
+            if product is not None and _LOG_OWNER.get(name) == ("omas", "mhd_linear"):
+                # One log per product's run, as one stage product per product:
+                # the per-product rules key their log on `{product}` too, and
+                # Snakemake requires every wildcard of a rule in its log path.
+                directory = directory / solver_module(product)
+            return str(directory / f"{name}.log")
         owner = _LOG_OWNER.get(name)
         if owner is None:
             raise ValueError(f"No canonical FileDB log owner registered for stage {name!r}")
@@ -724,7 +743,7 @@ class PipelinePaths:
     def impa_selection(self) -> str:
         """Which eligible shots the optional IMPA branch attempts (issue #305)."""
         if self.layout == SHOT_FIRST:
-            return str(Path(self.base_dir) / "preflight" / "impa_shots.json")
+            return str(PurePosixPath(self.base_dir) / "preflight" / "impa_shots.json")
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "impa_shots.json")
 
     def preflight_excluded(self) -> str:
