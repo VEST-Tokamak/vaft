@@ -302,3 +302,43 @@ def test_a_panel_with_a_field_keeps_its_colorbar_in_its_own_cell(sample):
     result.state.set("time_slice", 1)
     assert len(result.figure.subfigs[0].axes) == before
     assert result.axes[0].get_position().width == pytest.approx(width)
+
+
+def test_a_core_profiles_profile_offers_its_own_slices_not_the_equilibriums():
+    """cold review plot G2: the control listed the nine equilibrium slices for
+    a plot that indexes ``core_profiles.profiles_1d``; the default (equilibrium
+    slice 4) opened an empty figure and index 0 drew another instant under an
+    equilibrium time label."""
+    ods = vaft.omas.sample_ods()
+    stored = [0.331, 0.325, 0.316]  # three slices, not the equilibrium's nine, nor its order
+    rho = np.linspace(0.0, 1.0, 21)
+    ods["core_profiles.ids_properties.homogeneous_time"] = 1
+    ods["core_profiles.time"] = np.asarray(stored)
+    for index, instant in enumerate(stored):
+        base = f"core_profiles.profiles_1d.{index}"
+        ods[f"{base}.time"] = instant
+        ods[f"{base}.grid.rho_tor_norm"] = rho
+        ods[f"{base}.grid.rho_pol_norm"] = rho
+        ods[f"{base}.electrons.temperature"] = 1000.0 * instant * (1.0 - rho**2) + 1.0
+    record = next(
+        r for r in vaft.omas.available_plots(ods) if r.name == "electron_temperature_profile"
+    )
+    assert record.slices["container"] == "core_profiles.profiles_1d"
+    assert record.slices["usable"] == (0, 1, 2)
+    assert record.slices["times"] == pytest.approx(stored)
+
+    result = vaft.omas.plot_electron_temperature_profile(
+        ods, interactive=True, interaction_backend="none"
+    )
+    control = next(c for c in result.controls if c.name == "time_slice")
+    assert control.options == (0, 1, 2)
+    assert control.label == "core_profiles slice"
+    assert control.labels == ("0: 331.0 ms", "1: 325.0 ms", "2: 316.0 ms")
+
+    def peaks():
+        canvas = result.figure.subfigs[0] if result.figure.subfigs else result.figure
+        return [float(np.nanmax(line.get_ydata())) for ax in canvas.axes for line in ax.lines]
+
+    assert peaks() == pytest.approx([1000.0 * stored[control.default] + 1.0])
+    result.state.set("time_slice", 2)
+    assert peaks() == pytest.approx([317.0])
