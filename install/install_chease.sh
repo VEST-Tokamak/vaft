@@ -68,6 +68,8 @@ Usage: bash install/install_chease.sh --source PATH [options]
                        digest and file list are then recorded in the manifest
   --jobs N             parallel build jobs (default: 1, upstream is not -j safe)
   --skip-tests         do not run install/check_chease.py after building
+                       (the build is then installed unverified; without it
+                       a failed check is this script's exit status)
   --check-only         run install/check_chease.py and change nothing
   --uninstall          remove what this script installed into the prefix, and the
                        prefix itself if this script created it and it is then empty
@@ -287,8 +289,20 @@ EOF
 # check_chease.py refines a packaged equilibrium and compares q, pressure and
 # current against it, which is a stronger acceptance than anything upstream
 # ships. The binary is installed either way so a failure can be examined.
+# The checker's status is this script's status, as it is on Windows: a caller
+# that keys on it (CI, an agent, `&&`) must not read a failed acceptance as
+# success. The export hint still comes first, because a build that failed its
+# acceptance is installed and has to be reachable to be examined.
+# --skip-tests is the one way to install without being judged.
+ACCEPTANCE_STATUS=0
 if ((!SKIP_TESTS)); then
   note "verifying with install/check_chease.py"
-  CHEASEHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_chease.py" --source "$SOURCE" --prefix "$PREFIX" || true
+  CHEASEHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_chease.py" --source "$SOURCE" --prefix "$PREFIX" || ACCEPTANCE_STATUS=$?
+else
+  note "--skip-tests: install/check_chease.py was not run, so this build is unverified"
 fi
 printf '\nPoint VAFT at this build:\n  export CHEASEHOME=%s\n' "$PREFIX"
+if ((ACCEPTANCE_STATUS)); then
+  printf '[FAIL] install/check_chease.py rejected this build (status %s). It is installed so the failure can be examined; rerun the check with --check-only.\n' "$ACCEPTANCE_STATUS" >&2
+  exit "$ACCEPTANCE_STATUS"
+fi

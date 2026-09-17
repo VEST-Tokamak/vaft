@@ -66,6 +66,8 @@ Usage: bash install/install_efit.sh --source PATH --accept-efit-users-agreement 
   (set VAFT_PYTHON to choose the interpreter the VAFT-side checks run under;
    by default the first one on PATH that can import vaft and f90nml)
   --skip-tests                     do not run EFIT's ctest suite after building
+                                   (install/check_efit.py still runs and still decides
+                                   the exit status)
   --check-only                     run install/check_efit.py and change nothing
   --uninstall                      remove the build directory this script configured and what
                                    it installed into the prefix; the prefix itself only if
@@ -550,6 +552,21 @@ Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-
 print("wrote", sys.argv[1])
 EOF
 
+# The checker's status is this script's status, as it is on Windows: a caller
+# that keys on it (CI, an agent, `&&`) must not read a failed acceptance as
+# success. The same goes for a failed ctest, which used to be a [WARN] and a
+# line in the manifest. The export hint still comes first, because the build
+# is installed and has to be reachable to be examined.
+# --skip-tests skips EFIT's own ctest suite only; check_efit.py always runs.
+ACCEPTANCE_STATUS=0
 note "verifying with install/check_efit.py"
-"$PYTHON" "$SCRIPT_DIR/check_efit.py" --source "$SOURCE" --prefix "$PREFIX" || true
+"$PYTHON" "$SCRIPT_DIR/check_efit.py" --source "$SOURCE" --prefix "$PREFIX" || ACCEPTANCE_STATUS=$?
 printf '\nPoint VAFT at this build:\n  export EFITHOME=%s\n' "$PREFIX"
+if ((ACCEPTANCE_STATUS)); then
+  printf '[FAIL] install/check_efit.py rejected this build (status %s). It is installed so the failure can be examined; rerun the check with --check-only.\n' "$ACCEPTANCE_STATUS" >&2
+  exit "$ACCEPTANCE_STATUS"
+fi
+if [[ "$CTEST_STATUS" == failed ]]; then
+  printf '[FAIL] EFIT'"'"'s ctest suite reported failures; see %s.\n' "$LOG" >&2
+  exit 1
+fi

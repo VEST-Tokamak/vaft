@@ -83,6 +83,8 @@ Usage: bash install/install_gpec.sh --source PATH [options]
                                digest and file list are then recorded in the manifest
   --jobs N                     parallel build jobs (default: all cores)
   --skip-tests                 do not run install/check_gpec.py after building
+                               (the build is then installed unverified; without it
+                               a failed check is this script's exit status)
   --check-only                 run install/check_gpec.py and change nothing
   --uninstall                  remove what this script installed into the prefix, and the
                                prefix itself if this script created it and it is then empty
@@ -416,8 +418,20 @@ EOF
 # and then GPEC on DCON's output, so it exercises the real handoff rather than
 # starting six binaries separately. The executables are installed either way so
 # a failure can be examined.
+# The checker's status is this script's status, as it is on Windows: a caller
+# that keys on it (CI, an agent, `&&`) must not read a failed acceptance as
+# success. The export hint still comes first, because a build that failed its
+# acceptance is installed and has to be reachable to be examined.
+# --skip-tests is the one way to install without being judged.
+ACCEPTANCE_STATUS=0
 if ((!SKIP_TESTS)); then
   note "verifying with install/check_gpec.py"
-  GPECHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX" || true
+  GPECHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX" || ACCEPTANCE_STATUS=$?
+else
+  note "--skip-tests: install/check_gpec.py was not run, so this build is unverified"
 fi
 printf '\nPoint VAFT at this build:\n  export GPECHOME=%s\n' "$PREFIX"
+if ((ACCEPTANCE_STATUS)); then
+  printf '[FAIL] install/check_gpec.py rejected this build (status %s). It is installed so the failure can be examined; rerun the check with --check-only.\n' "$ACCEPTANCE_STATUS" >&2
+  exit "$ACCEPTANCE_STATUS"
+fi

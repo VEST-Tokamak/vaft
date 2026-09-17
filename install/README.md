@@ -424,7 +424,8 @@ bash install/install_gpec.sh   --source ~/git/GPEC
 
 Each builds the code, installs into `<source>/vaft-install`, writes
 `vaft-external-install.json` recording the revision and the exact build command,
-and finishes by running the matching checker. Both accept `--check-only`,
+and finishes by running the matching checker and adopting its exit status
+(the binaries are installed either way, so a failure can be examined). Both accept `--check-only`,
 `--uninstall`, `--jobs N` and `--allow-dirty`, and both refuse a source tree
 with uncommitted changes unless you pass that last one, because a build from a
 dirty tree has no revision you can state.

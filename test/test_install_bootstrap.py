@@ -2626,3 +2626,58 @@ def test_windows_uninstall_is_driven_by_an_ownership_record():
         block = block[: block.index("exit 0")]
         assert "Remove-InstallPrefix -Prefix $resolved -CodeName $CodeName" in block
         assert "-Recurse" not in block, f"install/{name} still removes the prefix wholesale"
+
+
+@requires_bash
+@pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
+@pytest.mark.parametrize("checker_status", [0, 1])
+def test_posix_installers_exit_with_the_acceptance_status(name, checker_status, tmp_path):
+    """Cold review install F8: `check_*.py ... || true` made a failed build exit 0.
+
+    The Windows installers end with the checker's status; the POSIX ones threw
+    it away and printed "Point VAFT at this build". This runs the script's own
+    acceptance tail with a stand-in for the interpreter.
+    """
+    text = (INSTALL / name).read_text(encoding="utf-8")
+    assert not re.search(r"check_\w+\.py[^\n]*\|\| true", text)
+    tail = text[text.index("\nACCEPTANCE_STATUS=0\n"):]
+    stub = tmp_path / "python-stub"
+    stub.write_text(f"#!/bin/sh\necho '[checker ran]'\nexit {checker_status}\n", encoding="utf-8")
+    stub.chmod(0o755)
+    preamble = (
+        "set -euo pipefail\nnote() { printf '%s\\n' \"$*\"; }\n"
+        f"PYTHON='{stub}' SCRIPT_DIR=/nonexistent SOURCE=/src PREFIX=/prefix\n"
+        "SKIP_TESTS=0 CTEST_STATUS=passed LOG=/log\n"
+    )
+    done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+    assert "[checker ran]" in done.stdout
+    assert "HOME=/prefix" in done.stdout, "the export hint comes before the verdict"
+    assert done.returncode == checker_status
+    if checker_status:
+        assert "[FAIL]" in done.stderr
+
+
+@requires_bash
+def test_efit_installer_fails_on_a_failed_ctest_and_skip_tests_is_explicit(tmp_path):
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    tail = text[text.index("\nACCEPTANCE_STATUS=0\n"):]
+    stub = tmp_path / "python-stub"
+    stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    stub.chmod(0o755)
+    preamble = (
+        "set -euo pipefail\nnote() { :; }\n"
+        f"PYTHON='{stub}' SCRIPT_DIR=/x SOURCE=/src PREFIX=/prefix CTEST_STATUS=failed LOG=/log\n"
+    )
+    done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 1 and "ctest" in done.stderr
+
+    # --skip-tests: CHEASE and GPEC install unverified and say so.
+    for name in ("install_chease.sh", "install_gpec.sh"):
+        body = (INSTALL / name).read_text(encoding="utf-8")
+        tail = body[body.index("\nACCEPTANCE_STATUS=0\n"):]
+        preamble = (
+            "set -euo pipefail\nnote() { printf '%s\\n' \"$*\"; }\n"
+            "PYTHON=/nonexistent SCRIPT_DIR=/x SOURCE=/src PREFIX=/prefix SKIP_TESTS=1\n"
+        )
+        done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+        assert done.returncode == 0 and "unverified" in done.stdout
