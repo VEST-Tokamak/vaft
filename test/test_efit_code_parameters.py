@@ -4,6 +4,14 @@ The EFIT stage wrote a nested tree there. It looked right in the local product
 and was dropped entirely on the way through the IMAS Access Layer, so 4096
 paths of collection provenance never reached the HSDS replica. Nothing warned:
 the loss is only visible when something reads the replica back.
+
+This module pins the EFIT payload itself -- that it is one string, that every
+field survives a serialize/parse cycle, that it is byte-deterministic.  The
+rule it is an instance of is stated in ``docs/_guide/Data_structures.md``
+("What survives on ``code.parameters``"), measured end to end in
+``test_code_parameters_contract.py``, and held over every source file by
+``test_code_parameters_writers.py`` -- which is why the single-file source
+check that used to live here is gone.
 """
 
 import importlib.util
@@ -96,8 +104,14 @@ def test_the_payload_is_deterministic():
     assert _payload() == _payload()
 
 
-def test_the_stage_no_longer_writes_nested_parameter_paths():
+def test_the_stage_writes_the_payload_to_the_single_field():
+    """The positive half of the old source check.
+
+    That nothing writes a *nested* path is now enforced over the whole
+    repository by ``test_code_parameters_writers.py``; what stays here is the
+    half specific to this stage -- that its payload reaches the one field the
+    DD defines.
+    """
     source = (WORKFLOW / "generate_efit_ods.py").read_text(encoding="utf-8")
 
     assert 'ods["equilibrium.code.parameters"]' in source
-    assert "code.parameters.efit_collection" not in source

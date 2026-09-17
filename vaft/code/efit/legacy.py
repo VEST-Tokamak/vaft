@@ -11,8 +11,8 @@ import numpy as np
 
 from vaft.ods_access import path_value
 
-import statistics
 import math
+import warnings
 from scipy.signal import savgol_filter
 
 
@@ -45,6 +45,54 @@ def _signal_matches_time(container, path, time) -> bool:
     return bool(values.size and values.size == time_values.size)
 
 
+CONSTRAINT_EQUILIBRIUM_COMMENT = "constraint equilibrium"
+
+
+def annotate_constraint_equilibrium(EQ, times):
+    """Stamp the constraint equilibrium's identity without erasing its provenance.
+
+    A caller may already have written where the constraint times came from
+    (the plasma window and its source, issue #409) into
+    ``ids_properties.comment``; that line is kept and the identity appended.
+    """
+    existing = EQ["ids_properties.comment"] if "ids_properties.comment" in EQ else ""
+    if existing and CONSTRAINT_EQUILIBRIUM_COMMENT not in str(existing):
+        EQ["ids_properties.comment"] = f"{existing}; {CONSTRAINT_EQUILIBRIUM_COMMENT}"
+    elif not existing:
+        EQ["ids_properties.comment"] = CONSTRAINT_EQUILIBRIUM_COMMENT
+    EQ["ids_properties.homogeneous_time"] = 1
+    EQ["time"] = times
+
+
+def box_average(time, data, center: float, half_width: float, *, what: str = "signal") -> float:
+    """The mean of the samples inside ``[center - half_width, center + half_width]``.
+
+    A true box average: every sample the window contains counts once, none
+    is interpolated onto a grid of its own (issue #433).  The window is
+    closed on both ends.  A window that contains no sample is an error named
+    after the constraint -- averaging an interpolated fiction there would
+    hide that the diagnostics grid does not cover the reconstruction time.
+    """
+    t = np.asarray(time, dtype=float).reshape(-1)
+    y = np.asarray(data, dtype=float).reshape(-1)
+    if t.size != y.size:
+        raise ValueError(f"{what}: {y.size} samples against {t.size} time instants")
+    inside = (t >= center - half_width) & (t <= center + half_width)
+    if not inside.any():
+        raise ValueError(
+            f"{what}: no sample inside [{center - half_width:.6g}, {center + half_width:.6g}] s "
+            f"(grid {t[0]:.6g}..{t[-1]:.6g} s, {t.size} samples)"
+        )
+    return float(np.mean(y[inside]))
+
+
+def _window_pair(time, data, error, center, half_width, *, what):
+    return (
+        box_average(time, data, center, half_width, what=what),
+        box_average(time, error, center, half_width, what=f"{what} uncertainty"),
+    )
+
+
 def vfit_equilibrium_form_constraints(
     EQ,
     PF,
@@ -64,26 +112,27 @@ def vfit_equilibrium_form_constraints(
     #    MG=ods['magnetics']
     #    TF=ods['tf']
 
-    EQ["ids_properties.comment"] = "constraint equilibrium"
-    EQ["ids_properties.homogeneous_time"] = 1
-    EQ["time"] = times
+    annotate_constraint_equilibrium(EQ, times)
     nbt = len(times)
-
-    ave_time = []
-    for i in range(nbt):
-        ave_time.append(np.arange(times[i] - average, times[i] + average, 0.0001))
+    # Each constraint is the box average of the diagnostic samples inside
+    # [t_i - average, t_i + average]: every sample once, equal weights, no
+    # interpolation grid of its own (issue #433).
+    times = [float(t) for t in times]
 
     if "pf_current" in constraints:
         for channel in PF["coil"]:
             label = PF[f"coil.{channel}.name"]
-            turns = PF[f"coil.{channel}.element.0.turns_with_sign"]
+            # Deliberately not read: the constraint is the measured circuit
+            # current, not an ampere-turn. Reading it would only materialize
+            # the path on an ODS that does not carry it.
             time = PF[f"coil.{channel}.current.time"]
             data = PF[f"coil.{channel}.current.data"]
             error = PF[f"coil.{channel}.current.data_error_upper"]
 
             for i in range(nbt):
-                const = statistics.mean(np.interp(ave_time[i], time, data))
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"pf_current[{channel}] {label}"
+                )
 
                 EQ[f"time_slice.{i}.constraints.pf_current.{channel}.measured"] = const
                 EQ[
@@ -126,8 +175,9 @@ def vfit_equilibrium_form_constraints(
             data = MG[f"b_field_pol_probe.{channel}.field.data"]
             error = MG[f"b_field_pol_probe.{channel}.field.data_error_upper"]
             for i in range(nbt):
-                const = statistics.mean(np.interp(ave_time[i], time, data))
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"bpol_probe[{channel}] {label}"
+                )
                 EQ[f"time_slice.{i}.constraints.bpol_probe.{channel}.measured"] = const
                 EQ[
                     f"time_slice.{i}.constraints.bpol_probe.{channel}.measured_error_upper"
@@ -151,12 +201,11 @@ def vfit_equilibrium_form_constraints(
             data = MG[f"flux_loop.{channel}.flux.data"]
             error = MG[f"flux_loop.{channel}.flux.data_error_upper"]
             for i in range(nbt):
-                # const=statistics.mean(np.interp(ave_time[i],time,data/2/math.pi)) # Origianl version
-                # const_error=statistics.mean(np.interp(ave_time[i],time,error/2/math.pi))
-                const = statistics.mean(
-                    np.interp(ave_time[i], time, data)
-                )  # Modified Version for ods/ids convention (division by 2Pi are conducted in the k-file generation)
-                const_error = statistics.mean(np.interp(ave_time[i], time, error))  # Wb
+                # Stored in Wb per the IDS convention; the division by 2 pi
+                # happens in the k-file writer.
+                const, const_error = _window_pair(
+                    time, data, error, times[i], average, what=f"flux_loop[{channel}] {label}"
+                )
                 EQ[f"time_slice.{i}.constraints.flux_loop.{channel}.measured"] = const
                 EQ[
                     f"time_slice.{i}.constraints.flux_loop.{channel}.measured_error_upper"
@@ -169,8 +218,7 @@ def vfit_equilibrium_form_constraints(
         error = MG[f"ip.0.data_error_upper"]
 
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
+            const, const_error = _window_pair(time, data, error, times[i], average, what="ip")
 
             EQ[f"time_slice.{i}.constraints.ip.measured"] = const
             EQ[f"time_slice.{i}.constraints.ip.measured_error_upper"] = const_error
@@ -181,9 +229,9 @@ def vfit_equilibrium_form_constraints(
         error = MG[f"diamagnetic_flux.0.data_error_upper"]
 
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
-            #            print(i,const*2*math.pi)
+            const, const_error = _window_pair(
+                time, data, error, times[i], average, what="diamagnetic_flux"
+            )
 
             EQ[f"time_slice.{i}.constraints.diamagnetic_flux.measured"] = const
             EQ[f"time_slice.{i}.constraints.diamagnetic_flux.measured_error_upper"] = (
@@ -195,8 +243,9 @@ def vfit_equilibrium_form_constraints(
         data = TF[f"b_field_tor_vacuum_r.data"]
         error = TF[f"b_field_tor_vacuum_r.data_error_upper"]
         for i in range(nbt):
-            const = statistics.mean(np.interp(ave_time[i], time, data))
-            const_error = statistics.mean(np.interp(ave_time[i], time, error))
+            const, const_error = _window_pair(
+                time, data, error, times[i], average, what="b_field_tor_vacuum_r"
+            )
 
             EQ[f"time_slice.{i}.constraints.b_field_tor_vacuum_r.measured"] = const
             EQ[
@@ -204,394 +253,7 @@ def vfit_equilibrium_form_constraints(
             ] = const_error
 
 
-def vfit_pf_active_efit26(PF, PF_orig, shot, tstart, tend, dt):
-    nbcoil = 26  # number of coil
-    PFname = [
-        "PF1-1",
-        "PF1-2",
-        "PF1-3",
-        "PF1-4",
-        "PF1-5",
-        "PF1-6",
-        "PF1-7",
-        "PF1-8",
-        "PF2U",
-        "PF2L",
-        "PF3U",
-        "PF3L",
-        "PF4U",
-        "PF4L",
-        "PF5U",
-        "PF5L",
-        "PF6U",
-        "PF6L",
-        "PF7U",
-        "PF7L",
-        "PF8U",
-        "PF8L",
-        "PF9U",
-        "PF9L",
-        "PF10U",
-        "PF10L",
-    ]
-    Rcoil = 1.68e-8  # Copper
-    # For resistance calculation
-    if shot <= 45957:
-        nbELT = [
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            250,
-            250,
-            8,
-            8,
-            8,
-            8,
-            12,
-            12,
-            12,
-            12,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-        ]  # number of turn of each coil
-        RPF = [
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.104,
-            0.104,
-            0.29,
-            0.29,
-            0.57,
-            0.57,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.93,
-            0.93,
-            0.93,
-            0.93,
-        ]  # Radius
-        ZPF = [
-            0.15,
-            0.45,
-            0.75,
-            1.05,
-            -0.15,
-            -0.45,
-            -0.75,
-            -1.05,
-            0.98,
-            -0.98,
-            1.25,
-            -1.25,
-            1.25,
-            -1.25,
-            1.15,
-            -1.15,
-            0.875,
-            -0.875,
-            0.72,
-            -0.72,
-            0.68,
-            -0.68,
-            0.5223,
-            -0.5223,
-            0.4807,
-            -0.4807,
-        ]
-        dRPF = [
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.04,
-            0.04,
-            0.028,
-            0.028,
-            0.028,
-            0.028,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-        ]
-        dZPF = [
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.38,
-            0.38,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-        ]
-    else:
-        nbELT = [
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            79,
-            250,
-            250,
-            8,
-            8,
-            8,
-            8,
-            12,
-            12,
-            24,
-            24,
-            12,
-            12,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-        ]  # number of turn of each coil
-        RPF = [
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.053,
-            0.104,
-            0.104,
-            0.29,
-            0.29,
-            0.57,
-            0.57,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.71,
-            0.93,
-            0.93,
-            0.93,
-            0.93,
-        ]  # Radius
-        ZPF = [
-            0.15,
-            0.45,
-            0.75,
-            1.05,
-            -0.15,
-            -0.45,
-            -0.75,
-            -1.05,
-            0.98,
-            -0.98,
-            1.25,
-            -1.25,
-            1.25,
-            -1.25,
-            1.15,
-            -1.15,
-            0.8827,
-            -0.8827,
-            0.7119,
-            -0.7119,
-            0.68,
-            -0.68,
-            0.5223,
-            -0.5223,
-            0.4807,
-            -0.4807,
-        ]
-        dRPF = [
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.0172,
-            0.04,
-            0.04,
-            0.028,
-            0.028,
-            0.028,
-            0.028,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-            0.042,
-        ]
-        dZPF = [
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.3,
-            0.38,
-            0.38,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0145,
-            0.0308,
-            0.0308,
-            0.0162,
-            0.0162,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-            0.0324,
-        ]
-
-    #    (time,data)=vest_loadn(shot,'PF1 Current')
-    time = PF_orig["time"]
-    if dt > 0:
-        tstart = max(tstart, time[0])
-        tend = min(tend, time[-1])
-        time_1 = np.arange(tstart, tend, dt)
-    else:
-        time_1 = time
-
-    PF["ids_properties.comment"] = "PF config from vfit_pf_active_efit16"
-    PF["ids_properties.homogeneous_time"] = 1
-
-    PF["time"] = time_1
-    nbt = len(time_1)
-
-    for i in range(nbcoil):
-        PF["coil.{}.name".format(i)] = PFname[i]
-        PF["coil.{}.identifier".format(i)] = PFname[i]
-
-    for i in range(nbcoil):
-        APF = dRPF[i] * dZPF[i]
-        PF["coil.{}.resistance".format(i)] = 2.0 * math.pi * Rcoil * RPF[i] / APF
-        PF["coil.{}.element.0.turns_with_sign".format(i)] = nbELT[i]
-        PF["coil.{}.element.0.geometry.geometry_type".format(i)] = 2
-        PF["coil.{}.element.0.geometry.rectangle.r".format(i)] = RPF[i]
-        PF["coil.{}.element.0.geometry.rectangle.z".format(i)] = ZPF[i]
-        PF["coil.{}.element.0.geometry.rectangle.width".format(i)] = dRPF[i]
-        PF["coil.{}.element.0.geometry.rectangle.height".format(i)] = dZPF[i]
-        PF["coil.{}.element.0.area".format(i)] = APF
-
-    # Take current from VEST DB
-    PFdata = []
-    nbcoil2 = len(PF_orig["coil"])
-    for i in range(nbcoil2):
-        PFdata.append(PF_orig[f"coil.{i}.current.data"])
-
-    conver = [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        2,
-        2,
-        3,
-        3,
-        4,
-        4,
-        5,
-        5,
-        6,
-        6,
-        7,
-        7,
-        8,
-        8,
-        9,
-        9,
-    ]
-    for i in range(nbcoil):
-        j = conver[i]
-        PF[f"coil.{i}.current.data"] = np.interp(time_1, time, PFdata[j])
-
-
-#        PF[f'coil.{i}.current.time']=time_1
-
-
-def correct_flux_loop(ods):
+def correct_flux_loop(ods, *, window=None):
     """
     In the inboard flux loop near the central solenoid,
     there is an issue where the uncertainty in the vacuum component of the total signal becomes larger than the plasma signal.
@@ -618,7 +280,7 @@ def correct_flux_loop(ods):
     print("Flux Loop Onset Time: ", fl_onset)
 
     # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
+    (onset, offset) = _plasma_window(ods, window)
     fl_onset = fl_onset + 0.003
     onset = onset - 0.003
 
@@ -856,7 +518,7 @@ def vest_rspv1(ods, plasma, rz):
 
 
 def calculate_md_by_ods(
-    ods, filament_position=[], filament_fraction=[], method="vecterized"
+    ods, filament_position=[], filament_fraction=[], method="vectorized"
 ):
     # Method
     ## nested_loop : calculate by nested loop
@@ -978,164 +640,6 @@ def calculate_md_by_ods(
     return psi_total, psi_coil, psi_eddy, psi_plas, bz_total, bz_coil, bz_eddy, bz_plas
 
 
-def brokenFinder(ods, option=2):
-    # Calculate response matrix
-    (psi_total, psi_coil, psi_eddy, psi_plas, bz_total, bz_coil, bz_eddy, bz_plas) = (
-        calculate_md_by_ods(ods, method="vectorized")
-    )
-
-    # Find the plasma onset and offset time
-    (onset, offset) = vest_Halpha_tstart_tend(ods)
-    bz_calc_time = ods["pf_active.time"]
-    bz_exp_time = ods["magnetics.time"]
-
-    min_time = max(bz_calc_time[0], bz_exp_time[0])
-    max_time = min(bz_calc_time[-1], bz_exp_time[-1])
-
-    # phase1: time before plasma
-    time1 = np.linspace(min_time, onset - 0.015, 11)
-    # phase2: time after plasma
-    time2 = np.linspace(offset + 0.001, max_time, 11)
-
-    #    print(time1)
-    #    print(time2)
-
-    # list of probes:
-    broken = []
-
-    if option == 1:
-        # brokenThreshold
-        brokenThreshold = 0.95
-        # Bz probes
-        for index in range(64):
-            bz_calc = bz_coil[index] + bz_eddy[index]
-            bz_exp = ods["magnetics"][f"b_field_pol_probe.{index}.field.data"]
-
-            # phase 1:
-            bz_calc1 = np.interp(time1, bz_calc_time, bz_calc)
-            bz_exp1 = np.interp(time1, bz_exp_time, bz_exp)
-
-            cxy = np.corrcoef(bz_calc1, bz_exp1)
-            if cxy[0][1] < brokenThreshold:
-                broken.append(index + 1)
-            #                print('1',index+1,cxy[0][1])
-
-            else:
-                # phase 2:
-                bz_calc2 = np.interp(time2, bz_calc_time, bz_calc)
-                bz_exp2 = np.interp(time2, bz_exp_time, bz_exp)
-
-                cxy = np.corrcoef(bz_calc2, bz_exp2)
-                if cxy[0][1] < brokenThreshold:
-                    broken.append(index + 1)
-        #                    print('2',index+1,cxy[0][1])
-
-        # Flux loop
-        for index in range(11):
-            psi_calc = psi_coil[index] + psi_eddy[index]
-            psi_exp = ods["magnetics"][f"flux_loop.{index}.flux.data"]
-
-            psi_calc1 = np.interp(time1, bz_calc_time, psi_calc)
-            psi_exp1 = np.interp(time1, bz_exp_time, psi_exp)
-
-            cxy = np.corrcoef(psi_calc1, psi_exp1)
-            if cxy[0][1] < brokenThreshold:
-                broken.append(64 + index + 1)
-            #                print('1',index+65,cxy[0][1])
-
-            else:
-                # phase 2:
-                psi_calc2 = np.interp(time2, bz_calc_time, psi_calc)
-                psi_exp2 = np.interp(time2, bz_exp_time, psi_exp)
-
-                cxy = np.corrcoef(psi_calc2, psi_exp2)
-                if cxy[0][1] < brokenThreshold:
-                    broken.append(64 + index + 1)
-    #                    print('2',index+65,cxy[0][1])
-
-    else:
-        # brokenThreshold
-        brokenThreshold = 0.005  # mV
-        # Bz probes
-        for index in range(64):
-            if index < 27:
-                brokenThreshold = 0.009
-            elif index < 48:
-                brokenThreshold = 0.005
-            else:
-                brokenThreshold = 0.007
-
-            bz_calc = bz_coil[index] + bz_eddy[index]
-            bz_exp = ods["magnetics"][f"b_field_pol_probe.{index}.field.data"]
-
-            # phase 1:
-            bz_calc1 = np.interp(time1, bz_calc_time, bz_calc)
-            bz_exp1 = np.interp(time1, bz_exp_time, bz_exp)
-
-            # max1=max(abs(bz_calc1))
-            # max2=max(abs(bz_exp1))
-            # max3=max(max1,max2)
-
-            cxy = abs(bz_calc1 - bz_exp1)
-            max4 = max(cxy)
-
-            if max4 > brokenThreshold:
-                broken.append(index + 1)
-            #                print('1',index+1,max4)
-
-            else:
-                # phase 2:
-                bz_calc2 = np.interp(time2, bz_calc_time, bz_calc)
-                bz_exp2 = np.interp(time2, bz_exp_time, bz_exp)
-
-                # max1=max(abs(bz_calc2))
-                # max2=max(abs(bz_exp2))
-                # max3=max(max1,max2)
-
-                cxy = abs(bz_calc2 - bz_exp2)
-                max4 = max(cxy)
-
-                if max4 > brokenThreshold:
-                    broken.append(index + 1)
-        #                    print('2',index+1,max4)
-
-        # Flux loop
-        for index in range(11):
-            psi_calc = psi_coil[index] + psi_eddy[index]
-            psi_exp = ods["magnetics"][f"flux_loop.{index}.flux.data"]
-
-            psi_calc1 = np.interp(time1, bz_calc_time, psi_calc)
-            psi_exp1 = np.interp(time1, bz_exp_time, psi_exp)
-
-            # max1=max(abs(psi_calc1))
-            # max2=max(abs(psi_exp1))
-            # max3=max(max1,max2)
-
-            cxy = abs(psi_calc1 - psi_exp1)
-            max4 = max(cxy)
-
-            if max4 > brokenThreshold:
-                broken.append(64 + index + 1)
-            #                print('1',index+65,max4)
-
-            else:
-                # phase 2:
-                psi_calc2 = np.interp(time2, bz_calc_time, psi_calc)
-                psi_exp2 = np.interp(time2, bz_exp_time, psi_exp)
-
-                # max1=max(abs(psi_calc2))
-                # max2=max(abs(psi_exp2))
-                # max3=max(max1,max2)
-
-                cxy = abs(psi_calc2 - psi_exp2)
-                max4 = max(cxy)
-                if max4 > brokenThreshold:
-                    broken.append(64 + index + 1)
-    #                    print('2',index+65,max4)
-
-    return broken
-
-
 def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
     """
     Finds the onset, peak, and offset times of the signal within the specified time range
@@ -1206,7 +710,35 @@ def vest_signal_onoffsetpeak(time, data, tstart, tend, threshold):
     return t_onset, t_peak, t_offset
 
 
+def _plasma_window(ods, window=None):
+    """``(onset, offset)`` for this module's own callers.
+
+    The ``window`` a policy-aware caller already resolved (the constraints
+    script hands over the one it chose) wins; otherwise the shared timing
+    through the same helper the ``vaft.omas`` finders use, which raises
+    ``ValueError`` naming the reason when no source shows a plasma.
+    """
+    if window is not None:
+        onset, offset = window
+        return float(onset), float(offset)
+    from vaft.omas.general import _plasma_timing_or_raise
+
+    return _plasma_timing_or_raise(ods).window
+
+
 def vest_Halpha_tstart_tend(ods):
+    """Deprecated H-alpha plasma window (0.3-0.36 s, min-normalised, legacy detector).
+
+    Superseded by :func:`vaft.omas.plasma_timing.plasma_timing`, which finds
+    the H-alpha line by label, validates it and returns the window with its
+    provenance inside the configured ``plasma_analysis`` range (issue #409).
+    """
+    warnings.warn(
+        "vest_Halpha_tstart_tend() is deprecated and will be removed in the next release; use "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     # Load the data
     SP = ods["spectrometer_uv"]
@@ -1236,7 +768,20 @@ def set_discharge_index(ods):
     """
     Set the time range higher than 20 kA and between 0.3 ~ 0.36 sec with manual tstep.
     If no Ip > 20 kA is found, return time range and 'vacuum'; otherwise return time range and 'plasma'.
+
+    Deprecated: the EFIT constraint script now takes the configured
+    ``plasma_analysis`` range (``resolve_plasma_timing_policy().window``)
+    intersected with the window ``vaft.omas.plasma_timing.plasma_timing``
+    detects, and flags the range fallback instead of a silent 'vacuum' status
+    (issue #409).
     """
+    warnings.warn(
+        "set_discharge_index() is deprecated and will be removed in the next release; use the plasma_analysis window from "
+        "vaft.machine_mapping.utils.resolve_plasma_timing_policy() intersected with "
+        "vaft.omas.plasma_timing.plasma_timing(ods).window instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     Ip = ods["magnetics.ip.0.data"]
     time = ods["magnetics.ip.0.time"]
