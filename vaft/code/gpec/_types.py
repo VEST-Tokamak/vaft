@@ -149,18 +149,26 @@ class IdealGPECOptions:
     def __post_init__(self) -> None:
         # A config error is knowable here; refusing at construction keeps it
         # from surfacing after DCON has run and gpec.in / vac.in are staged.
-        if self.machine == "vest":
-            return
-        missing = [
-            name
-            for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
-            if getattr(self, name) is None
-        ]
-        if missing:
+        if self.machine != "vest":
+            missing = [
+                name
+                for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
+                if getattr(self, name) is None
+            ]
+            if missing:
+                raise ValueError(
+                    f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
+                    "(only 'vest' has packaged coil geometry and direction words); or pass an "
+                    "explicit GPECCaseInputs.coil_in"
+                )
+        # An explicitly empty selection is refused rather than read as "use the
+        # packaged template" -- and refused here, for the reason above: it used
+        # to surface from inside `prepare`, which is the late failure this
+        # method exists to prevent.
+        if self.coil_specs is not None and len(self.coil_specs) == 0:
             raise ValueError(
-                f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
-                "(only 'vest' has packaged coil geometry and direction words); or pass an "
-                "explicit GPECCaseInputs.coil_in"
+                "coil_specs is empty: at least one coil set name is required; pass "
+                "None to use the packaged coil.in template"
             )
 
 
