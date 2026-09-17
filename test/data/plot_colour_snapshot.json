@@ -56,19 +56,18 @@
   "machine_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#d62728": 549,
-   ".layers:color=#ff7f00": 77,
+   ".layers:color=#ff7f00": 66,
    ".layers:color=0.4": 1,
    ".layers:color=0.55": 950
   },
   "machine_geometry_topview": {
-   ".layers:color=#984ea3": 1,
    ".layers:color=#e41a1c": 2,
    ".layers:color=#ff7f00": 1,
    ".layers:color=0.4": 2
   },
   "magnetics_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
-   ".layers:color=#ff7f00": 77
+   ".layers:color=#ff7f00": 66
   },
   "mirnov_spatial_phase": {
    ".series:color=#377eb8": 2,
@@ -98,8 +97,15 @@
    ".layers:color=C8": 50,
    ".layers:color=C9": 50
   },
+  "startup_proxies_time": {
+   ".models.series:color=0.35": 3,
+   ".models.series:color=0.5": 2
+  },
   "vacuum_field": {
    ".overlays:color=0.4": 1
+  },
+  "vacuum_field_midplane": {
+   ".series:color=tab:red": 1
   },
   "wall_geometry_poloidal": {
    ".layers:color=0.4": 1

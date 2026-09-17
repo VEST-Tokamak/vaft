@@ -590,6 +590,7 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
             "barometry",
             "spectrometer_uv",
             "langmuir_probes",
+            "ec_launchers",
         ),
     ),
     "eddy": StageReplication(

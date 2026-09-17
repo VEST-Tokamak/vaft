@@ -164,9 +164,17 @@ def test_grouped_applies_to_multi_channel_plots_only(shots):
 # Display policy survives layout (sections 15, 16, 17)
 # ---------------------------------------------------------------------------
 
+def _with_impa(ods):
+    # Channel 70 of the old sample was an IMPA probe; IMPA is its own stage
+    # since #305, and composed onto 65 poloidal probes IMPA Bz 03 is index 67.
+    from _synthetic_inputs import make_impa_composed
+
+    return make_impa_composed(ods)
+
+
 def test_an_invalid_channel_panel_is_marked_in_subplots(shots):
     figure, axes = vaft.omas.plot_mirnov_time_voltage(
-        shots[39915], selection=[26, 70], layout="subplots"
+        _with_impa(shots[39915]), selection=[26, 67], layout="subplots"
     )
     flagged = [panel for panel in axes.ravel() if any(t.get_text() == "invalid" for t in panel.texts)]
     assert len(flagged) == 1
@@ -188,7 +196,7 @@ def test_multi_shot_subplot_puts_shots_inside_the_channel_panel(shots):
 
 def test_shared_x_is_dropped_across_mixed_time_bases(shots):
     figure, axes = vaft.omas.plot_mirnov_time_voltage(
-        shots[39915], selection=[26, 70], layout="subplots"
+        _with_impa(shots[39915]), selection=[26, 67], layout="subplots"
     )
     a, b = axes.ravel()
     assert not a.get_shared_x_axes().joined(a, b)

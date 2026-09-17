@@ -655,7 +655,9 @@ def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
     metrics = magnetics_quality_metrics(ods, report)
 
     summary = metrics["summary"]
-    assert summary["expected"] == 87
+    # 65 poloidal probes + 11 flux loops since IMPA became its own stage (#305)
+    # and the phase-reference entries were shot-gated (#857); was 87.
+    assert summary["expected"] == 76
     assert summary["present"] == 74
     # Every present channel but one is usable over part of the record; none is
     # usable over all of it, because they all share the held tail.  The one is

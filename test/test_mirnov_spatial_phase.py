@@ -143,9 +143,12 @@ def test_one_toroidal_position_cannot_support_a_fit():
 
 def test_the_packaged_shot_says_how_thin_its_array_is(sample):
     """Two positions do fit, and the title must not hide what that means."""
-    from vaft.plot.backend.recipes import _toroidal_phase_channels
+    from vaft.plot.backend.recipes import _toroidal_phase_group
 
-    _, angles = _toroidal_phase_channels(sample)
+    # The regenerated sample gives every equilibrium probe a position.phi
+    # (#731), so the candidates span four angles; the fit uses one poloidal
+    # position (#816), which on 39915 is still two probes at two angles.
+    _, angles = _toroidal_phase_group(sample)
     assert np.unique(np.round(np.degrees(angles), 3)).size == 2
     assert missing_required_path(sample, NAME) is None
     model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)

@@ -67,7 +67,10 @@ def test_the_packaged_products_pin_the_loop_voltage_event(shot):
     vloop = timing.vloop
     assert vloop.loop_index == 5 and vloop.loop_name == "Flux Loop - #10"
     assert vloop.position == pytest.approx((0.091, 0.04))
-    assert vloop.voltage_source == VOLTAGE_DERIVED and "voltage_derived" in vloop.flags
+    # The regenerated products map the flux-loop voltage itself (bdf4863a8), so
+    # the event reads it rather than differentiating the flux; the pinned
+    # instants and the excursion value did not move.
+    assert vloop.voltage_source == VOLTAGE_MEASURED and "voltage_derived" not in vloop.flags
     assert vloop.anchor_time == timing.oh_onset
     assert vloop.excursion_time == pytest.approx(expected["excursion"][0], abs=5e-4)
     assert vloop.excursion_value == pytest.approx(expected["excursion"][1], abs=0.3)

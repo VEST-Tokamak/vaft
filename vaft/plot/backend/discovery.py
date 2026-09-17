@@ -463,7 +463,7 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates.update(_composite_facts(record, recipe, entries))
         if _takes_time_slice(record.name):
             updates["slices"] = _slices_block(ods)
-        if record.name == "vacuum_field":
+        if record.name in ("vacuum_field", "vacuum_field_midplane"):
             updates["times"] = _pf_samples_block(ods)
         elif record.name.startswith("camera_visible_image"):
             updates["times"] = _camera_frames_block(ods)
@@ -610,7 +610,7 @@ def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
     from .recipes import _count, resolve_time_slice
 
     declared = tuple(record.fields.get("declared") or record.fields.get("options") or ())
-    if record.name == "vacuum_field":
+    if record.name in ("vacuum_field", "vacuum_field_midplane"):
         return _vacuum_fields_block(record, ods, declared)
     if not _count(ods, "equilibrium.time_slice"):
         return {**record.fields, "options": ()}
@@ -645,13 +645,16 @@ def _vacuum_fields_block(
     than a control that would raise.
     """
     has_toroidal = _has(ods, "tf.b_field_tor_vacuum_r.data")
+    has_limiter = _has(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
     requires = {
         "breakdown": has_toroidal,
         "lloyd_margin": (
             has_toroidal
-            and _has(ods, "wall.description_2d.0.limiter.unit.0.outline.r")
+            and has_limiter
             and _has(ods, "barometry.gauge.0.pressure.data")
         ),
+        # The midplane cut's traced length needs the pitch and a wall to end on.
+        "connection_length": has_toroidal and has_limiter,
     }
     options = tuple(name for name in declared if requires.get(name, True))
     default = record.fields.get("default")

@@ -67,10 +67,19 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
         # one of a handful of stored equilibria.
         OptionSpec("time_index", "int", description="position on a dense time base"),
+        # Startup views (issue #888).
+        OptionSpec("p_Pa", "float", description="fill pressure in pascal for a Lloyd threshold"),
+        OptionSpec("ec_frequency_Hz", "float",
+                   description="EC source frequency in Hz whose resonance is marked; None draws none"),
+        OptionSpec("rz", "range", description="(R, Z) observation point in metres"),
+        OptionSpec("markers", "bool", description="mark each entry's breakdown onset"),
+        OptionSpec("seeds", description="(R, Z) seeds of traced vacuum field lines, in metres"),
+        OptionSpec("max_turns", "float", description="toroidal turns a traced vacuum field line is cut to"),
         OptionSpec("resolution", "int", description="points per axis of a computed 2-D grid"),
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),

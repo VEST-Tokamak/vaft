@@ -52,8 +52,8 @@ def test_configured_policy_splits_analysis_from_full_discharge():
     for component in ("magnetics", "pf_active", "spectrometer_uv", "impa"):
         assert policies[component].name == "analysis"
         assert (policies[component].tstart, policies[component].tend) == (0.26, 0.36)
-    # ec_power has no mapper yet (#165); registering it now means the EC
-    # mapping inherits the full-discharge window rather than the short one.
+    # ec_power is the `ec_launchers` mapping (#165): the ECH pulse starts
+    # before breakdown, so it takes the full-discharge window.
     for component in ("tf", "barometry", "ec_power"):
         assert policies[component].name == "full_discharge"
         assert (policies[component].tstart, policies[component].tend) == (0.0, 1.0)

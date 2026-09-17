@@ -105,7 +105,7 @@ def test_the_convention_round_trip_is_exact_and_recorded(caplog, capsys):
         assert memo["onset_method"] == ONSET_METHOD
         assert memo["breakdown_onset_source"] == "h_alpha_primary"
         assert memo["ip_onset_source"] == "ip_principal"
-        assert memo["vloop_onset_source"].startswith("magnetics.flux_loop.5 dflux_dt")
+        assert memo["vloop_onset_source"].startswith("magnetics.flux_loop.5 voltage")
         assert memo["onset_flags"] == ""
         assert ods["magnetics.time"][0] == pytest.approx(before[("magnetics", "time")][0] - memo["breakdown_onset"])
         change_time_convention(ods, convention="daq")

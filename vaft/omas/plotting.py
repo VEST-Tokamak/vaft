@@ -411,6 +411,38 @@ def plot_camera_visible_image_field_line(
     )
 
 
+def plot_camera_visible_image_vacuum_field_line(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """FAST-camera frame with vacuum field lines traced at the frame's time.
+
+    The field is the coils' and vessel's vacuum field -- never an equilibrium,
+    which a pre-breakdown frame does not have -- with the toroidal pitch from
+    ``tf.b_field_tor_vacuum_r``.  ``shot=`` names the calibrated camera pose
+    (34764, 39915, 47518); ``time=`` or ``frame_index=`` picks the frame;
+    ``seeds=[(R, Z), ...]`` in metres (default ``[(0.4, 0.0)]``);
+    ``ec_frequency_Hz=`` without ``seeds=`` adds a seed at that source's
+    resonance radius.  ``resolution=``, ``dphi_deg=`` and ``max_length_m=``
+    (default 30 m per direction) tune the trace.  Renders with
+    :func:`vaft.plot.camera_visible_image_vacuum_field_line`; the same lines
+    are ``overlay="vacuum_field_line"`` on
+    :func:`plot_camera_visible_image`.
+    """
+    return render(
+        "camera_visible_image_vacuum_field_line",
+        source,
+        ax=ax,
+        show=show,
+        label=label,
+        **options,
+    )
+
+
 def plot_camera_visible_animation_frames(
     source: Any,
     *,
@@ -463,8 +495,15 @@ def plot_vacuum_field(
 ) -> tuple[Any, Any]:
     """One quantity of the coils' and vessel's vacuum field, at one instant.
 
-    ``field=`` chooses among ``psi``, ``b_poloidal``, ``decay_index`` and
-    ``breakdown``; ``time_index=`` steps along the PF time base.
+    ``field=`` chooses among ``psi`` (default), ``b_poloidal``,
+    ``decay_index``, ``e_toroidal``, ``breakdown`` (the figure of merit
+    E_t B_t / B_p) and ``lloyd_margin`` (|E_phi| over the Lloyd threshold
+    at the traced connection length; ``p_Pa=`` overrides the fill pressure
+    read from the barometry).  ``time=`` in seconds or ``time_index=`` on the
+    PF time base picks the instant (default: the breakdown onset);
+    ``resolution=`` is the grid size; ``ec_frequency_Hz=`` (e.g. ``2.45e9``)
+    draws the electron-cyclotron resonance radius at that instant, which
+    follows the slider with ``interactive=True``.
 
     Renders with :func:`vaft.plot.vacuum_field`.
     """
@@ -1445,6 +1484,7 @@ __all__ = [
     "plot_camera_visible_spectrogram",
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
+    "plot_camera_visible_image_vacuum_field_line",
     "plot_camera_visible_image_frame",
     "plot_chease_overview_profile_validity",
     "plot_chease_overview_refinement_summary",
