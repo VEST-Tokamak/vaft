@@ -577,3 +577,22 @@ def test_profiles_exclude_plasma_state_bookkeeping(tmp_path):
     assert "ps_partial_update" not in profiles  # a scalar flag
     assert "frac_full" not in profiles  # one point is not a profile
     assert "version_id" not in profiles  # a character array
+
+
+def test_a_state_left_by_an_earlier_run_does_not_pass_for_a_new_one(tmp_path):
+    """``plasma_state_test`` reports its errors on stdout and exits 0, so the
+    state file is the success signal -- and one from an earlier run in the same
+    work directory satisfied it (cold review transport F5)."""
+    source = _case_directory(tmp_path)
+    gfile = tmp_path / "g"
+    gfile.write_text("EQDSK\n", encoding="utf-8")
+    generator = write_launchable_stub(tmp_path / "bin" / "plasma_state_test")
+    config = nubeam.NUBEAMConfig(generator_executable=str(generator))
+
+    with short_temporary_directory(max_length=60) as scratch:
+        inputs = nubeam.prepare_nubeam_inputs(
+            source, gfile=gfile, workdir=scratch / "run", config=config
+        )
+        inputs.plasma_state.write_bytes(b"STATE FROM AN EARLIER RUN")
+        with pytest.raises(nubeam.NUBEAMExecutionError, match="did not create"):
+            nubeam.generate_plasma_state(inputs, config)
