@@ -86,6 +86,16 @@ def test_mismatched_profile_length_is_refused():
         resistive_layer_at([0.5], psi_norm=psi_norm, t_e=t_e[:-1], n_e=n_e)
 
 
+def test_a_decreasing_kinetic_coordinate_is_refused():
+    """np.interp clamps silently on a decreasing abscissa, which handed every
+    surface the first element's (core) values (cold review process F11)."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.raises(ValueError, match="strictly increasing"):
+        resistive_layer_at(
+            [0.5], psi_norm=psi_norm[::-1], t_e=t_e[::-1], n_e=n_e[::-1]
+        )
+
+
 def test_a_non_positive_ion_mass_is_refused():
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="ion_mass_amu"):
