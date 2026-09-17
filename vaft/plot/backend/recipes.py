@@ -871,6 +871,10 @@ OMAS_BOUND = "omas"
 BACKENDS = (NEUTRAL, OMAS_BOUND)
 
 
+#: ``CallableRecipe.time_axis`` of a builder that resolves ``time=`` itself.
+OWN_TIME = "own"
+
+
 @dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
@@ -903,6 +907,12 @@ class CallableRecipe:
     #: ``(label, object)`` sequence, each object prepared as a single-entry
     #: builder's would be, instead of the first object alone.
     multi_entry: bool = False
+    #: What ``time=`` means to this plot: ``""`` -- nothing, the plot has no
+    #: instant to choose and ``time=`` is refused; :data:`OWN_TIME` -- the
+    #: builder resolves ``time=`` itself, on its own time base; otherwise the
+    #: array of structures ``time_slice=`` indexes (``equilibrium.time_slice``),
+    #: and :func:`build_model` snaps ``time=`` to the nearest of its elements.
+    time_axis: str = ""
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -978,7 +988,12 @@ def _build_nbi_profile(ods, *, field, y_label, y_unit, heading, **options):
     count = _count(ods, base)
     if not count:
         raise ValueError(f"core_sources.source.{source} carries no profiles_1d")
-    index = int(options.get("time_slice", 0))
+    if options.get("time") is not None:
+        index = resolve_slice_option(
+            ods, base, time=options["time"], time_slice=options.get("time_slice")
+        )
+    else:
+        index = int(options.get("time_slice", 0))
     if index >= count:
         raise ValueError(
             f"time_slice {index} is out of range; core_sources.source.{source} "
@@ -7833,6 +7848,7 @@ def _build_panels(
     chosen = _member_choice(recipe, options.pop("members", None))
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
+    timed: list[str] = []
     for name in recipe.members:
         if chosen is not None and name not in chosen:
             continue
@@ -7849,7 +7865,20 @@ def _build_panels(
         if not _reads_processed_line(RECIPES.get(name)):
             for option in EMISSION_OPTIONS:
                 merged.pop(option, None)
+        # And for an instant: it selects the slice of the members that draw
+        # one and leaves a time history beside them whole.
+        if not time_axis_of(name):
+            merged.pop("time", None)
+        elif merged.get("time") is not None:
+            timed.append(name)
         members.append(build_model(name, entries, _panel_member=True, **merged))
+    if members and options.get("time") is not None and not timed:
+        # The member that would have taken it has no data here, so what is
+        # left is time histories: say so rather than draw them unchanged.
+        raise ValueError(
+            "time= selects nothing in this overview: none of the panels this input "
+            "supports draws a single instant (takes no time= here)"
+        )
     if not members:
         raise ValueError(
             "none of the panels "
@@ -8399,6 +8428,138 @@ def resolve_time_slice(
     stored = _get(ods, f"equilibrium.time_slice.{index}.time")
     time_value = float(np.asarray(stored, dtype=float).ravel()[0]) if stored is not None else np.nan
     return index, time_value, reason
+
+
+def time_axis_of(name: str) -> str:
+    """What ``time=`` selects in plot ``name``: ``""``, :data:`OWN_TIME` or a container.
+
+    ``""`` means the plot has no instant to choose -- a time history, a
+    machine drawing -- and ``time=`` is refused rather than accepted and
+    ignored.  A container (``equilibrium.time_slice``) is the array of
+    structures ``time_slice=`` indexes; an IDS time base
+    (``thomson_scattering.time``) is the sample axis it indexes on a
+    channel-indexed profile.  A composite takes ``time=`` when a member does.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, CallableRecipe):
+        return recipe.time_axis
+    if isinstance(recipe, ChannelProfileRecipe):
+        return OWN_TIME
+    if isinstance(recipe, ProfileRecipe):
+        if recipe.index == "channel":
+            return f"{recipe.y_path.split('.', 1)[0]}.time"
+        return recipe.slice_container or "equilibrium.time_slice"
+    if isinstance(recipe, FieldRecipe):
+        return _container_of(recipe.value_path) if "{i}" in recipe.value_path else ""
+    if isinstance(recipe, GeometryRecipe):
+        sliced = [layer[3] for layer in recipe.layers if layer[3] == "equilibrium.time_slice"]
+        return sliced[0] if sliced else ""
+    if isinstance(recipe, PanelRecipe):
+        return OWN_TIME if any(time_axis_of(member) for member in recipe.members) else ""
+    return ""
+
+
+def no_time_option_message(name: str) -> str:
+    """The refusal of time= by a plot that draws no single instant."""
+    return (
+        f"{name!r} takes no time=: it draws no single instant "
+        "(use time_range= to window a time history)"
+    )
+
+
+def slice_times(ods: Any, axis: str) -> np.ndarray:
+    """The stored time of every element ``time_slice=`` can name on ``axis``.
+
+    An array of structures is read element by element (``<axis>.{i}.time``),
+    falling back to the IDS time base where an element stores none; a path
+    ending in ``.time`` is that time base itself.  NaN marks an element with
+    no time anywhere.
+    """
+    if axis.endswith(".time"):
+        stored = _get(ods, axis)
+        return np.asarray([] if stored is None else stored, dtype=float).ravel()
+    total = _count(ods, axis)
+    base = _get(ods, f"{axis.split('.', 1)[0]}.time")
+    base = np.asarray([] if base is None else base, dtype=float).ravel()
+    times = np.full(total, np.nan, dtype=float)
+    for index in range(total):
+        stored = _get(ods, f"{axis}.{index}.time")
+        try:
+            times[index] = float(np.asarray(stored, dtype=float).ravel()[0])
+        except (IndexError, TypeError, ValueError):
+            if index < base.size:
+                times[index] = base[index]
+    return times
+
+
+def resolve_slice_option(
+    ods: Any, axis: str, *, time: float | None, time_slice: Any = None, name: str = ""
+) -> int:
+    """The ``time_slice`` index a ``time=`` in seconds names on ``axis``: the nearest BY TIME.
+
+    This is the one place a generic builder's slice is chosen from a time, so
+    ``time=0.325`` and the ``time_slice=`` of the slice stored at 0.325 s build
+    the same model.  ``time_slice=`` passed beside it is accepted only when it
+    names that same slice.  On the equilibrium the candidates are the usable
+    slices, as in :func:`resolve_time_slice`.
+    """
+    times = slice_times(ods, axis)
+    candidates = np.flatnonzero(np.isfinite(times))
+    if axis == "equilibrium.time_slice":
+        usable = [i for i in _usable_slices(ods) if i < times.size and np.isfinite(times[i])]
+        if usable:
+            candidates = np.asarray(usable, dtype=int)
+    if candidates.size == 0:
+        raise ValueError(
+            f"{name or 'this plot'}: time= cannot be resolved, {axis} stores no time; "
+            "pass time_slice= instead"
+        )
+    wanted = float(time)
+    chosen = times[candidates]
+    index = int(candidates[int(np.argmin(np.abs(chosen - wanted)))])
+    if not chosen.min() <= wanted <= chosen.max():
+        warnings.warn(
+            f"time={wanted:g} s lies outside the stored {axis} times "
+            f"({chosen.min():g}-{chosen.max():g} s); drawing the nearest, slice {index}. "
+            "Times are in seconds.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if time_slice is not None and int(time_slice) != index:
+        raise ValueError(
+            f"{name or 'this plot'}: time={wanted:g} s is slice {index} of {axis} "
+            f"(t = {times[index]:g} s) but time_slice={time_slice!r} was passed too; pass one of them"
+        )
+    return index
+
+
+def _resolve_time_option(
+    name: str, entries: Sequence[tuple[str, Any]], options: dict[str, Any]
+) -> dict[str, Any]:
+    """``options`` with a ``time=`` turned into the ``time_slice=`` the builders read."""
+    axis = time_axis_of(name)
+    if not axis:
+        raise ValueError(no_time_option_message(name))
+    if axis == OWN_TIME:
+        return options
+    resolved = {
+        str(label): resolve_slice_option(
+            ods, axis, time=options["time"], time_slice=options.get("time_slice"), name=name
+        )
+        for label, ods in entries
+        if _count(ods, axis) or axis.endswith(".time")
+    }
+    if not resolved:
+        raise ValueError(f"{name!r}: time= cannot be resolved, no entry stores {axis}")
+    if len(set(resolved.values())) > 1:
+        raise ValueError(
+            f"{name!r}: time={float(options['time']):g} s is a different slice in each entry "
+            f"({', '.join(f'{k}: {v}' for k, v in resolved.items())}) and one figure takes one "
+            "time_slice=; draw the entries separately"
+        )
+    remaining = {key: value for key, value in options.items() if key != "time"}
+    remaining["time_slice"] = next(iter(resolved.values()))
+    return remaining
 
 
 def resolve_time_sample(times: Any, time: float | None) -> tuple[int, float, str]:
@@ -10315,6 +10476,49 @@ RECIPES["chease_overview_profile_validity"] = CallableRecipe(
 )
 
 
+#: What ``time=`` selects in each computed view that draws one instant
+#: (``CallableRecipe.time_axis``); a view not named here draws none and
+#: refuses ``time=``.  Declared in one table so the whole policy is readable
+#: at once, and checked against behaviour by test_plot_time_option.py.
+_CALLABLE_TIME_AXES: dict[str, str] = {
+    **dict.fromkeys(
+        (
+            "equilibrium_geometry_topview", "machine_geometry_topview",
+            "equilibrium_overview_constraints", "equilibrium_overview_residuals",
+            "equilibrium_overview_fit_quality", "equilibrium_overview_verification",
+            "electron_temperature_field", "electron_density_field",
+        ),
+        "equilibrium.time_slice",
+    ),
+    **dict.fromkeys(
+        (
+            "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
+            "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+        ),
+        "mhd_linear.time_slice",
+    ),
+    "neoclassical_profile_bootstrap_current": "core_profiles.profiles_1d",
+    **dict.fromkeys(
+        (
+            "equilibrium_overview", "equilibrium_field_psi_vacuum", "vacuum_field",
+            "pf_plasma_geometry_poloidal", "passive_structure_field_wall_reduction",
+            "mirnov_spatial_phase",
+            "camera_visible_image", "camera_visible_image_frame",
+            "camera_visible_image_efit_overlay", "camera_visible_image_field_line",
+            "camera_visible_image_fluctuation", "camera_visible_image_mhd_power",
+            "nbi_profile_electron_heating", "nbi_profile_ion_heating",
+            "nbi_profile_current_drive",
+            "vacuum_field_midplane", "impa_profile_field",
+            "camera_visible_image_vacuum_field_line",
+        ),
+        OWN_TIME,
+    ),
+}
+for _name, _axis in _CALLABLE_TIME_AXES.items():
+    RECIPES[_name] = dataclasses.replace(RECIPES[_name], time_axis=_axis)
+del _name, _axis
+
+
 def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -> Any:
     """Build the view model for canonical plot ``name`` from ``entries``.
 
@@ -10340,6 +10544,9 @@ def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -
             "not read one; it is accepted by plots whose path names "
             "processed_line"
         )
+
+    if options.get("time") is not None:
+        options = _resolve_time_option(name, entries, options)
 
     if isinstance(recipe, LineRecipe):
         return _build_line_series(entries, recipe, _plot_name=name, **options)

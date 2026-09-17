@@ -231,6 +231,13 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
                 f"{', '.join(sorted(EXTRACTION_OPTIONS))}; renderer style options: "
                 f"{', '.join(sorted(STYLE_OPTIONS))}"
             )
+        if key == "time" and value is not None:
+            # Accepted-then-ignored is the defect (cold review plot G1): a plot
+            # with no instant to choose says so before anything is built.
+            from . import recipes
+
+            if name in recipes.RECIPES and not recipes.time_axis_of(name):
+                raise ValueError(recipes.no_time_option_message(name))
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
                 f"{name!r} is not a panel composite and takes no members=; "
