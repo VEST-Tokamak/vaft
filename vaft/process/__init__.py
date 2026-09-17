@@ -20,6 +20,12 @@ imported as well as everything they defined, and ``profile`` opened with
 declares ``__all__``.  ``test/data/process_export_inventory.json`` records the
 old surface and ``test/test_process_lazy_namespace.py`` checks that each
 dropped name is still reachable from the module that really provides it.
+
+The discovery layer -- ``describe``, ``search``, ``list_processes``,
+``categories`` and the ``catalog`` submodule they live in (issue #252) -- is
+resolved the same way, on first access, and is never part of ``__all__``: the
+star import does not touch it, and neither does importing a processing
+submodule.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from importlib import import_module
 
 _SUBMODULES = {
     "atomic": ".atomic",
+    "camera_fluctuation": ".camera_fluctuation",
     "camera_geometry": ".camera_geometry",
     "cocos": ".cocos",
     "electromagnetics": ".electromagnetics",
@@ -37,10 +44,14 @@ _SUBMODULES = {
     "langmuir": ".langmuir",
     "magnetics": ".magnetics",
     "numerical": ".numerical",
+    "onset": ".onset",
+    "perturbation": ".perturbation",
     "profile": ".profile",
     "signal_processing": ".signal_processing",
     "soft_x_rays": ".soft_x_rays",
     "statistical_analysis": ".statistical_analysis",
+    "wall_modes": ".wall_modes",
+    "coils_non_axisymmetric": ".coils_non_axisymmetric",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -64,16 +75,29 @@ _IMPORT_ORDER = (
     "electromagnetics",
     "numerical",
     "magnetics",
+    "perturbation",
     "statistical_analysis",
     "atomic",
     "langmuir",
     "impa",
+    # Added after the lazy loader; nothing it exports collides with a sibling.
+    "onset",
+    "wall_modes",
+    "coils_non_axisymmetric",
+    "camera_fluctuation",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
 #: submodule callers import by name, and ``_equilibrium_parametric`` is private
 #: and re-exported through ``equilibrium``.
 _ATTRIBUTE_ONLY = ("cocos",)
+
+#: Names served by ``.catalog`` on first access.  Deliberately not in
+#: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
+#: make the star import load it, which is exactly what #252 forbids.
+_CATALOG_NAMES = frozenset(
+    {"catalog", "ProcessSpec", "describe", "search", "list_processes", "categories"}
+)
 
 _MODULES: dict[str, object] = {}
 
@@ -150,6 +174,12 @@ def __getattr__(name: str):
         globals()[name] = value
         return value
 
+    if name in _CATALOG_NAMES:
+        module = import_module(".catalog", __name__)
+        value = module if name == "catalog" else getattr(module, name)
+        globals()[name] = value
+        return value
+
     if name == "__all__":
         value = _public_names()
         globals()["__all__"] = value
@@ -162,4 +192,4 @@ def __getattr__(name: str):
 
 def __dir__():
     names = globals().get("__all__") or _public_names()
-    return sorted(set(globals()) | set(names) | set(_ATTRIBUTE_ONLY))
+    return sorted(set(globals()) | set(names) | set(_ATTRIBUTE_ONLY) | _CATALOG_NAMES)

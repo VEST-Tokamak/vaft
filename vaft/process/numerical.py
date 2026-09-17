@@ -1,3 +1,15 @@
+"""Numerical primitives on plain arrays.
+
+One function so far.  Anything that is a physics formula belongs in
+:mod:`vaft.formula`; anything that knows about a diagnostic belongs in a
+diagnostic module.  This is for the operations that are neither.
+
+Notation
+--------
+t   : time                          [s]
+x   : the sampled quantity          [any]
+"""
+
 import numpy as np
 from typing import Union
 
@@ -6,31 +18,58 @@ __all__ = ["time_derivative"]
 
 
 def time_derivative(time: np.ndarray, data: np.ndarray) -> np.ndarray:
-    """
-    Compute weighted derivative for non-uniform time-data arrays.
-    
-    Uses a weighted central difference scheme that accounts for non-uniform
-    time spacing. For interior points, it uses a weighted average of forward
-    and backward differences, with weights proportional to the time intervals.
-    
+    """Time derivative of a sampled quantity on a non-uniform time axis.
+
+    A weighted central difference: at each interior point the forward and
+    backward differences are averaged with weights proportional to the
+    *opposite* interval, so the closer neighbour counts more.  On a uniform
+    grid this reduces to the ordinary central difference; the ends use a
+    one-sided difference.
+
     Parameters
     ----------
     time : np.ndarray
-        Time array (non-uniform spacing allowed)
+        Sample times; spacing may vary [s].
     data : np.ndarray
-        Data array corresponding to time points
-        
+        The sampled quantity, same shape as ``time`` [any].
+
     Returns
     -------
     np.ndarray
-        Derivative of data with respect to time, same shape as input data
-        
-    Notes
-    -----
-    - First point uses forward difference
-    - Last point uses backward difference
-    - Interior points use weighted central difference
-    - Handles edge cases (single point, two points, etc.)
+        ``d(data)/dt`` at each sample, same shape as ``data`` [any/s].
+
+    Raises
+    ------
+    ValueError
+        The arrays differ in shape, or hold fewer than two samples.
+
+    Processing steps
+    ----------------
+    1. First sample: forward difference.  Last sample: backward difference.
+    2. Interior sample ``i``: with ``h_b = t[i] - t[i-1]`` and
+       ``h_f = t[i+1] - t[i]``, the derivative is
+       ``(h_f * backward + h_b * forward) / (h_b + h_f)``.
+    3. A zero interval on either side falls back to the difference across the
+       other; zero on both sides yields ``0``.
+
+    Convention
+    ----------
+    The weighting is the simple interval-weighted average of the two one-sided
+    differences, not the second-order non-uniform stencil; it is what was
+    written and is kept so that results do not move.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A zero time interval produces a ``0`` derivative silently rather than an
+    error, so a duplicated timestamp hides as a flat spot.  The scheme is
+    first-order accurate on a non-uniform grid and amplifies sample noise as
+    any finite difference does; smooth or filter first if the derivative is
+    to be read quantitatively.  The loop over interior points is pure Python
+    and slow on long records.
     """
     time = np.asarray(time)
     data = np.asarray(data)
