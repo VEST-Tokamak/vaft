@@ -56,13 +56,27 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        "utils": 9,
-        "equilibrium": 96,
-        "stability": 19,
+        "utils": 11,   # +gp_fit, the scipy Gaussian process (#426)
+        # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
+        # #365 added the two IMAS extremity triangularities and the sub-vertex
+        # extremum helper they share with vaft.process: 77 + 3 = 80.
+        # #760 renamed the first-principles bremsstrahlung form to state its
+        # real argument order; the deprecated spelling is a distinct function
+        # object, so it counts: 80 + 1 = 81.
+        "equilibrium": 81,
+        "virial": 33,
+        "stability": 21,
         "green": 16,
         "atomic": 3,
         "statistics": 22,
         "magnetics": 2,
+        "neoclassical": 12,
+        # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
+        # #783 comment 1 added the post-avalanche equilibrium-field and
+        # flux-closure kernels and the limiter-aperture geometry, comment 2
+        # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
+        # 5 + 7 = 12.
+        "startup": 15,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -203,7 +217,15 @@ def test_the_catalog_refuses_to_run_without_docstrings():
 
 @pytest.mark.perf
 def test_the_normal_import_path_stays_cheap():
-    """``-X importtime`` self-times of the formula modules, catalog absent."""
+    """``-X importtime`` costs of the formula modules, catalog absent.
+
+    Both columns, deliberately. This test read only the self-time and checked
+    only three modules, so it passed all the way through #426: importing
+    `vaft.formula.stability` self-timed at 0.55 ms while costing 2.57 s
+    cumulatively, because `vaft.formula.utils` -- not in the checked list --
+    imported scikit-learn at module scope. Adding `utils` without reading the
+    cumulative column would still have passed, and so would the reverse.
+    """
     result = subprocess.run(
         [sys.executable, "-X", "importtime", "-c", "import vaft.formula.stability"],
         capture_output=True,
@@ -211,14 +233,37 @@ def test_the_normal_import_path_stays_cheap():
         check=True,
     )
     self_us: dict[str, int] = {}
+    cumulative_us: dict[str, int] = {}
     for line in result.stderr.splitlines():
         match = re.match(r"import time:\s+(\d+)\s+\|\s+(\d+)\s+\|\s*(\S+)", line)
         if match:
-            self_us[match.group(3).strip()] = int(match.group(1))
+            name = match.group(3).strip()
+            self_us[name] = int(match.group(1))
+            cumulative_us[name] = int(match.group(2))
     assert "vaft.formula.catalog" not in self_us
     assert "vaft.formula._docstring" not in self_us
-    for module in ("vaft.formula", "vaft.formula.constants", "vaft.formula.stability"):
+    assert "sklearn" not in cumulative_us, "scikit-learn is optional since #426"
+
+    checked = (
+        "vaft.formula",
+        "vaft.formula.constants",
+        "vaft.formula.utils",
+        "vaft.formula.stability",
+    )
+    for module in checked:
         assert self_us[module] < 50_000, (module, self_us[module])
+
+    # Cumulative, which is what a caller actually waits for. Measured at
+    # ~0.81 s for stability and ~0.35 ms for utils once sklearn left the import
+    # path. The budgets are deliberately loose -- a wall-clock assertion on a
+    # shared runner is the flaky half of this test, and the `sklearn` check
+    # above is the timing-independent guard that actually catches the
+    # regression this exists for. These only catch something an order of
+    # magnitude worse.
+    assert cumulative_us["vaft.formula.utils"] < 1_000_000, cumulative_us["vaft.formula.utils"]
+    assert cumulative_us["vaft.formula.stability"] < 3_000_000, (
+        cumulative_us["vaft.formula.stability"]
+    )
 
 
 # --- snapshot ------------------------------------------------------------------

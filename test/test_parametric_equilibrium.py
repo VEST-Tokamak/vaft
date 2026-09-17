@@ -129,6 +129,9 @@ def test_global_descriptors_and_radial_coordinates_have_definitions():
     assert descriptors["volume"].value == pytest.approx(2 * np.pi**2 * 1.0 * 0.35 * 0.5, rel=2e-3)
     assert descriptors["thermal_energy"].available
     assert descriptors["beta_t"].available
+    assert descriptors["beta_n"].available
+    assert descriptors["beta_n"].unit == "1"
+    assert descriptors["beta_n"].quality.get("scaling_convention") == "% m T / MA"
     assert len(descriptors.rational_surfaces[1.5]) == 1
     radial = derive_radial_coordinates(eq)
     np.testing.assert_allclose(radial["psi_n"].value[[0, -1]], [0, 1])
@@ -318,16 +321,110 @@ def test_solovev_export_rejects_an_open_boundary_contour():
         solovev_to_equilibrium(model, r, z, magnetic_axis=(1.0, 0.0))
 
 
+def test_evaluate_solovev_orientation_families_and_convention_alias():
+    """evaluate_solovev poloidal field orientation matches COCOS definitions."""
+    from vaft.data.cocos import COCOS_INDICES, cocos_spec
+    from vaft.process.equilibrium import evaluate_solovev
+
+    model = SolovevEquilibrium(np.array([0.03, -0.02, 0.015, 0.004, -0.001]), -1200.0, 0.08, 1.0)
+    r = np.linspace(0.7, 1.3, 21); z = np.linspace(-0.4, 0.4, 19)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+
+    # Default is COCOS 11 (sigma = +1)
+    default_vals = evaluate_solovev(model, rm, zm)
+    cocos11_vals = evaluate_solovev(model, rm, zm, cocos=11)
+    np.testing.assert_allclose(default_vals["b_r"], cocos11_vals["b_r"])
+    np.testing.assert_allclose(default_vals["b_z"], cocos11_vals["b_z"])
+
+    # Fallback cocos=None matches historical orientation (sigma = -1)
+    hist_vals = evaluate_solovev(model, rm, zm, cocos=None)
+    np.testing.assert_allclose(default_vals["b_r"], -hist_vals["b_r"])
+    np.testing.assert_allclose(default_vals["b_z"], -hist_vals["b_z"])
+
+    # Alias convention=...
+    alias_vals = evaluate_solovev(model, rm, zm, convention=11)
+    np.testing.assert_allclose(default_vals["b_r"], alias_vals["b_r"])
+
+    # Conflicting arguments
+    with pytest.raises(ValueError, match="conflicting"):
+        evaluate_solovev(model, rm, zm, cocos=2, convention=12)
+
+    # Invalid COCOS indices
+    for invalid in (0, 9, 10, 19, -1):
+        with pytest.raises(ValueError, match="valid COCOS"):
+            evaluate_solovev(model, rm, zm, cocos=invalid)
+
+    # Check all 16 COCOS indices match their expected orientation sign
+    for index in COCOS_INDICES:
+        vals = evaluate_solovev(model, rm, zm, cocos=index)
+        spec = cocos_spec(index)
+        expected_sign = spec.sigma_rpz * spec.sigma_bp
+        if expected_sign > 0:
+            np.testing.assert_allclose(vals["b_r"], default_vals["b_r"])
+            np.testing.assert_allclose(vals["b_z"], default_vals["b_z"])
+        else:
+            np.testing.assert_allclose(vals["b_r"], hist_vals["b_r"])
+            np.testing.assert_allclose(vals["b_z"], hist_vals["b_z"])
+
+
 def test_solovev_export_honors_the_declared_psi_convention():
     """The export must be self-consistent with its COCOS tag: full-weber
     conventions carry 2*pi*psi, and derived fields/descriptors agree with the
     per-radian export."""
-    from vaft.process.equilibrium import solovev_to_equilibrium
+    from vaft.formula.constants import MU0
+    from vaft.process.equilibrium import (
+        evaluate_solovev,
+        solovev_to_equilibrium,
+        solve_solovev_constraints,
+    )
+    from vaft.process._equilibrium_parametric import _grid_fields
 
     # c2 > 0 makes the axis a saddle in Z, so no magnetic axis exists.
     saddle = SolovevEquilibrium(np.array([0.0, -0.02, 0.015, 0.0, 0.0]), -1.0e5, 0.0, 1.0)
     with pytest.raises(ValueError, match="magnetic axis"):
         solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121))
+
+    # Invalid conventions
+    with pytest.raises(ValueError, match="convention must be a COCOS index"):
+        solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121), convention=0)
+    with pytest.raises(ValueError, match="convention must be a COCOS index"):
+        solovev_to_equilibrium(saddle, np.linspace(0.5, 1.5, 121), np.linspace(-0.7, 0.7, 121), convention=9)
+
+    # Well-formed equilibrium across conventions
+    R0, kappa, psi_b = 1.0, 1.4, 0.08
+    pprime = -8.0 * ((1.0 + 1.0 / kappa**2) / 4.0) / MU0
+    r_out = np.sqrt(R0**2 + 2 * np.sqrt(psi_b))
+    r_in = np.sqrt(R0**2 - 2 * np.sqrt(psi_b))
+    z_top = kappa * np.sqrt(psi_b) / R0
+    constraints = [
+        SolovevConstraint(r_out, 0.0, "psi", psi_b),
+        SolovevConstraint(r_in, 0.0, "psi", psi_b),
+        SolovevConstraint(R0, z_top, "psi", psi_b),
+        SolovevConstraint(R0, 0.0, "psi", 0.0),
+        SolovevConstraint(R0, 0.0, "dpsi_dr", 0.0),
+    ]
+    model = solve_solovev_constraints(
+        constraints, pprime=pprime, ffprime=0.0, rref=R0, psi_boundary=psi_b, f_boundary=1.4
+    )
+    r = np.linspace(0.5, 1.5, 151)
+    z = np.linspace(-0.7, 0.7, 151)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+
+    # Fields on grid derived through _grid_fields must match evaluate_solovev in COCOS 11
+    eq11 = solovev_to_equilibrium(model, r, z, convention=11)
+    _, _, br11, bz11, _ = _grid_fields(eq11)
+    analytic11 = evaluate_solovev(model, rm, zm, cocos=11)
+    np.testing.assert_allclose(br11[5:-5, 5:-5], analytic11["b_r"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+    np.testing.assert_allclose(bz11[5:-5, 5:-5], analytic11["b_z"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+
+    # Check both orientation families (e.g. COCOS 1, 2, 3, 11, 12, 13)
+    for c in (1, 2, 3, 11, 12, 13):
+        eq_c = solovev_to_equilibrium(model, r, z, convention=c)
+        assert eq_c.convention.cocos == c
+        _, _, br_c, bz_c, bp_c = _grid_fields(eq_c)
+        # Physical field components in (R, Z) match the analytic fields for all conventions
+        np.testing.assert_allclose(br_c[5:-5, 5:-5], analytic11["b_r"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
+        np.testing.assert_allclose(bz_c[5:-5, 5:-5], analytic11["b_z"][5:-5, 5:-5], rtol=1e-3, atol=1e-3)
 
 
 def test_d_r_sep_uses_the_midplane_and_reports_asymmetry():
@@ -576,3 +673,88 @@ def test_explicit_flux_tolerance_overrides_the_derived_window():
     strict = derive_boundary_representation(eq, flux_tolerance=0.0)
     assert strict.provenance.tolerances["xpoint_flux_psi_n"] == 0.0
     assert not strict.topology.is_diverted
+
+
+def test_unavailable_beta_n_has_dimensionless_unit():
+    eq = _analytic_equilibrium()
+    eq_no_p = EquilibriumData(**{**eq.__dict__, "pressure": None})
+    descriptors = derive_global_descriptors(eq_no_p)
+    assert not descriptors["beta_n"].available
+    assert descriptors["beta_n"].unit == "1"
+
+
+def test_miller_squareness_is_off_by_default_and_moves_nothing():
+    # A caller that never mentions squareness must get the surface it always
+    # got: zero zeta, evaluated identically, and fitted with the same five
+    # parameters rather than six pinned near zero.
+    five = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32)
+    assert five.zeta == 0.0
+    theta = np.linspace(0, 2 * np.pi, 64, endpoint=False)
+    plain = evaluate_miller(five, theta)
+    explicit = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.0), theta)
+    np.testing.assert_array_equal(plain[0], explicit[0])
+    np.testing.assert_array_equal(plain[1], explicit[1])
+    fit = fit_miller_surface(Contour(*evaluate_miller(five, np.linspace(0, 2 * np.pi, 500, endpoint=False))))
+    assert fit.surface.zeta == 0.0
+
+
+@pytest.mark.parametrize("zeta", [-0.25, -0.1, 0.1, 0.3])
+def test_miller_squareness_round_trip_keeps_the_projection_orthogonal(zeta):
+    truth = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, zeta)
+    theta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    contour = Contour(*evaluate_miller(truth, theta))
+    fit = fit_miller_surface(contour, squareness=True)
+    assert fit.accepted
+    assert fit.surface.zeta == pytest.approx(zeta, abs=2e-3)
+    assert fit.surface.kappa == pytest.approx(truth.kappa, rel=2e-3)
+    assert fit.surface.delta == pytest.approx(truth.delta, abs=2e-3)
+    # The residual has to reach the same floor an unsquared exact fit reaches.
+    # If the Newton refinement had kept differentiating Z as if zeta were zero,
+    # the projection would stop being orthogonal and this floor would rise --
+    # quietly, because the residual still shrinks, just to the wrong thing.
+    unsquared = fit_miller_surface(
+        Contour(*evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32), theta))
+    )
+    assert fit.normalized_rms_error < 10.0 * unsquared.normalized_rms_error
+
+
+def test_a_squared_off_surface_is_rejected_without_squareness_and_described_with_it():
+    # The case the parameter exists for: the five-parameter form has nowhere to
+    # put the shape, so it lands in the residual and the fit is reported as not
+    # Miller-like -- when what is true is that it is not FIVE-parameter Miller.
+    truth = MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.25)
+    contour = Contour(*evaluate_miller(truth, np.linspace(0, 2 * np.pi, 500, endpoint=False)))
+    without = fit_miller_surface(contour)
+    assert not without.accepted and "normalized RMS" in without.reason
+    with_squareness = fit_miller_surface(contour, squareness=True)
+    assert with_squareness.accepted
+    assert with_squareness.normalized_rms_error < 0.1 * without.normalized_rms_error
+
+
+def test_miller_refuses_a_squareness_that_doubles_the_curve_back():
+    # 1 + 2 zeta cos(2 theta) changes sign at |zeta| = 0.5: past it the
+    # parameterization reverses and the "surface" crosses itself, so this is a
+    # curve that is not one rather than a squarer plasma.
+    theta = np.linspace(0, 2 * np.pi, 16, endpoint=False)
+    with pytest.raises(ValueError, match="zeta"):
+        evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.5), theta)
+
+
+def test_the_squared_fit_still_reports_a_distance_to_the_curve():
+    # The residual is meant to be an orthogonal distance, which is a claim
+    # about the Newton refinement rather than about the optimiser: with the
+    # derivatives left unsquared the step still converges and the residual
+    # still shrinks, just to something that is not the distance. Measured
+    # against a brute-force nearest point on a densely sampled fitted curve,
+    # on a noisy contour so the residual is not zero to begin with.
+    from scipy.spatial import cKDTree
+
+    rng = np.random.default_rng(3)
+    theta = np.linspace(0, 2 * np.pi, 500, endpoint=False)
+    r, z = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32, 0.25), theta)
+    noisy = Contour(r + rng.normal(0, 3e-4, r.size), z + rng.normal(0, 3e-4, z.size))
+
+    fit = fit_miller_surface(noisy, squareness=True)
+    dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
+    brute = cKDTree(dense).query(fit.contour.points)[0]
+    assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
