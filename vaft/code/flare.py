@@ -379,6 +379,11 @@ def run_flare(
         env=environment,
         capture_output=True,
         text=True,
+        # FLARE's and MPI's bytes are a foreign program's. Decoded strictly at
+        # the host locale, one byte outside it raises UnicodeDecodeError inside
+        # subprocess.run after the run has finished, and the result is lost.
+        encoding="utf-8",
+        errors="replace",
         timeout=config.timeout,
         check=False,
     )
@@ -479,7 +484,7 @@ def write_helicity_flipped_field(
 
     lines: list[str] = []
     flipped = 0
-    for line in origin.read_text().splitlines():
+    for line in origin.read_text(encoding="utf-8").splitlines():
         tokens = line.split()
         if not _is_brzphi_row(tokens):
             lines.append(line)

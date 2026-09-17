@@ -204,3 +204,17 @@ def test_the_installed_driver_answers(tmp_path):
     # The wrapper never lets the empty case through.
     with pytest.raises(ValueError):
         run_flare("")
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub writes raw bytes with printf")
+def test_a_byte_outside_utf8_does_not_lose_a_finished_run(tmp_path):
+    """The streams were decoded strictly at the locale, so one such byte (a
+    Latin-1 degree sign, say) raised after the run had completed (cold review
+    stability F3)."""
+    driver = tmp_path / "bin" / "flare"
+    driver.parent.mkdir()
+    driver.write_text("#!/bin/sh\nprintf 'angle 30\\260\\n'\nexit 0\n", encoding="utf-8")
+    driver.chmod(driver.stat().st_mode | stat.S_IEXEC)
+    result = run_flare("run", home=tmp_path)
+    assert result.ok
+    assert result.stdout.startswith("angle 30")
