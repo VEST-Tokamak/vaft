@@ -177,12 +177,25 @@ def test_the_row_connection_length_is_the_map_row(solved, t_breakdown):
     )
 
 
-def test_the_prefill_default_is_the_median_before_the_instant(solved, profiles):
+def test_the_prefill_default_is_the_median_of_the_window_before_the_instant(solved, profiles):
     pressure = np.asarray(solved["barometry.gauge.0.pressure.data"], dtype=float)
     stamps = np.asarray(solved["barometry.gauge.0.pressure.time"], dtype=float)
-    expected = float(np.median(pressure[stamps < profiles["time"]]))
+    window = (stamps < profiles["time"]) & (stamps >= profiles["time"] - vaft.omas.PREFILL_WINDOW_S)
+    expected = float(np.median(pressure[window]))
     assert profiles["p_Pa"] == expected
     assert vaft.omas.compute_prefill_pressure_ods(solved, before=profiles["time"]) == expected
+
+
+def test_the_prefill_is_the_gas_fill_not_the_base_vacuum_before_the_puff(solved, t_breakdown):
+    """The gauge runs the whole discharge; before the puff it reads base vacuum.
+    A median over everything ahead of breakdown was a tenth of the fill on 39915."""
+    pressure = np.asarray(solved["barometry.gauge.0.pressure.data"], dtype=float)
+    stamps = np.asarray(solved["barometry.gauge.0.pressure.time"], dtype=float)
+    base_vacuum = float(np.median(pressure[stamps < 0.1]))
+    fill = vaft.omas.compute_prefill_pressure_ods(solved, before=t_breakdown)
+    assert fill > 5 * base_vacuum
+    with pytest.raises(ValueError, match="window_s"):
+        vaft.omas.compute_prefill_pressure_ods(solved, before=t_breakdown, window_s=0.0)
 
 
 def test_a_higher_pressure_changes_the_margin_where_a_threshold_exists(solved, t_breakdown, profiles):
@@ -292,7 +305,8 @@ def test_the_summary_reads_the_existing_evaluators(summary, solved, t_breakdown,
     product = float(np.asarray(solved["tf.b_field_tor_vacuum_r.data"])[
         int(np.argmin(np.abs(tf_time - t_breakdown)))])
     assert summary["r_ecr_m"] == pytest.approx(electron_cyclotron_resonance_radius(product, 2.45e9))
-    assert summary["ec_power_W"] is None and "ec_power_W" in summary["unavailable"]
+    # 39915 ran its 2.45 GHz magnetron through breakdown: a few kW net
+    assert 1e3 < summary["ec_power_W"] < 1e4
 
 
 def test_the_null_area_is_the_session_02_definition(summary, solved, t_breakdown):

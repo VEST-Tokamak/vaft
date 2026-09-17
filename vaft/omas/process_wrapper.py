@@ -1310,11 +1310,19 @@ def compute_connection_length_map_ods(
 EC_FREQUENCY_VEST_HZ = 2.45e9
 
 
-def compute_prefill_pressure_ods(ods: ODS, *, before: float) -> float:
+#: Fill window read ahead of breakdown by :func:`compute_prefill_pressure_ods` [s].
+PREFILL_WINDOW_S = 0.02
+
+
+def compute_prefill_pressure_ods(ods: ODS, *, before: float, window_s: float = PREFILL_WINDOW_S) -> float:
     """The fill pressure a breakdown saw, from the barometry, in pascal.
 
-    The median of ``barometry.gauge.0.pressure`` over the samples strictly
-    before ``before`` (all samples when none precede it). The median and not
+    The median of ``barometry.gauge.0.pressure`` over the ``window_s`` ahead of
+    ``before``, i.e. samples in ``[before - window_s, before)`` (all samples
+    when none fall there). The window matters: the gauge is stored over the
+    whole discharge, and a median over everything before breakdown is
+    dominated by the base vacuum before the gas puff -- on shot 39915 that is
+    0.28 mPa against a 2.9 mPa fill. The median and not
     the mean: a Penning gauge spikes, and one spike moves a mean far enough to
     matter inside the logarithm of a Lloyd threshold. This is the definition
     the ``lloyd_margin`` vacuum-field plot uses; it is public here so every
@@ -1324,6 +1332,7 @@ def compute_prefill_pressure_ods(ods: ODS, *, before: float) -> float:
         ods: structure carrying ``barometry.gauge.0.pressure``.
         before: instant the fill is read ahead of [s], normally the breakdown
             onset.
+        window_s: how far ahead of ``before`` the fill is read [s].
 
     Returns:
         The prefill pressure [Pa].
@@ -1342,7 +1351,10 @@ def compute_prefill_pressure_ods(ods: ODS, *, before: float) -> float:
         )
     pressure = np.asarray(pressure, dtype=float)
     stamps = np.asarray(stamps, dtype=float)
-    ahead = pressure[stamps < float(before)]
+    if not window_s > 0:
+        raise ValueError(f"window_s must be positive; got {window_s!r}")
+    ahead = pressure[(stamps < float(before)) & (stamps >= float(before) - float(window_s))]
+    ahead = ahead[np.isfinite(ahead)]
     return float(np.median(ahead if ahead.size else pressure))
 
 
@@ -1492,6 +1504,7 @@ def compute_vacuum_midplane_profiles_ods(
     ec_frequency_Hz: float = EC_FREQUENCY_VEST_HZ,
     dphi_deg: float = 2.0,
     max_length_m: float = 150.0,
+    trace_connection_length: bool = True,
 ) -> Dict[str, Any]:
     """Radial profiles of the vacuum startup quantities along one row of the vacuum map.
 
@@ -1527,6 +1540,10 @@ def compute_vacuum_midplane_profiles_ods(
         ec_frequency_Hz: ECRH source frequency [Hz].
         dphi_deg: toroidal step of the connection-length trace [deg].
         max_length_m: per-direction trace limit [m].
+        trace_connection_length: trace the row's connection length; ``False``
+            skips the seconds-long trace, leaving ``connection_length_m``,
+            ``lloyd_threshold`` and ``lloyd_margin`` ``nan`` -- for a caller
+            that draws only the field quantities.
 
     Returns:
         ``r`` [m] (the grid axis) and, one value per ``r``: ``b_z``, ``b_r``,
@@ -1552,6 +1569,7 @@ def compute_vacuum_midplane_profiles_ods(
         breakdown_margin,
         electron_cyclotron_resonance_radius,
         lloyd_breakdown_field,
+        lloyd_figure_of_merit,
     )
 
     grid = compute_vacuum_field_map(ods, time=time, resolution=int(resolution))
@@ -1571,9 +1589,7 @@ def compute_vacuum_midplane_profiles_ods(
     except ValueError:
         product = float("nan")
     b_toroidal = product / r_axis
-    with np.errstate(divide="ignore", invalid="ignore"):
-        figure = e_toroidal * np.abs(b_toroidal) / b_poloidal
-    figure = np.where(np.isfinite(figure), figure, np.nan)
+    figure = lloyd_figure_of_merit(e_toroidal, b_toroidal, b_poloidal)
     r_ecr = (
         float(electron_cyclotron_resonance_radius(product, float(ec_frequency_Hz)))
         if np.isfinite(product) else float("nan")
@@ -1583,7 +1599,7 @@ def compute_vacuum_midplane_profiles_ods(
     inside = _inside_limiter(wall_r, wall_z, r_axis, z_row)
 
     length = np.full(r_axis.shape, np.nan)
-    if wall_r is not None and np.isfinite(product):
+    if trace_connection_length and wall_r is not None and np.isfinite(product):
         from vaft.process.equilibrium import connection_length_map, make_vacuum_field_interpolator
 
         b_field = make_vacuum_field_interpolator(

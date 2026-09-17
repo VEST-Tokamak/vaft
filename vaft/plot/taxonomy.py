@@ -90,6 +90,9 @@ _SUBJECTS = (
     Subject("charge_exchange", "diagnostic"),
     Subject("spectrometer_uv", "diagnostic"),
     Subject("barometry", "diagnostic"),
+    # A diagnostic of its own: it measures plasma current, and also the
+    # induced current in the tungsten limiter, so it is not an alias of either.
+    Subject("rogowski_coil", "diagnostic", ("rogowski",)),
     Subject("camera_visible", "diagnostic"),
     Subject("magnetics", "diagnostic"),
     # Machine description
@@ -105,6 +108,9 @@ _SUBJECTS = (
     # The field the coils and the vessel make with no plasma in it: a model of
     # the machine, not a reconstruction of a discharge.
     Subject("vacuum", "model", ("vacuum_field", "null_field")),
+    # The vacuum readings a startup is judged by -- B_Z, V_loop, the decay
+    # index at one point -- against time, several shots overlaid (issue #888).
+    Subject("startup_proxies", "model", ("startup",)),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
     # The resistive half of the linear-MHD suite. Its own subject rather than a
@@ -117,6 +123,7 @@ _SUBJECTS = (
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
+    Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
     Subject("chease", "code"),
     # Purpose-driven composites
     Subject("current", "composite"),

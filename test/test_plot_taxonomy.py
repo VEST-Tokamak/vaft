@@ -51,10 +51,12 @@ def test_aliases_resolve_to_exactly_one_canonical_subject():
 
 def test_unknown_subject_terms_raise_with_the_vocabulary():
     # Related-but-distinct concepts must not silently resolve (issue #251):
-    # a Rogowski coil measures plasma current but is not an alias of it.
-    for term in ("rogowski_coil", "line_radiation", ""):
+    # a Rogowski coil measures plasma current but is not an alias of it -- it
+    # is its own diagnostic subject (issue #888), never plasma_current.
+    for term in ("line_radiation", "hall_sensor", ""):
         with pytest.raises(KeyError, match="unknown subject"):
             taxonomy.resolve_subject(term)
+    assert taxonomy.resolve_subject("rogowski_coil").name == "rogowski_coil"
 
 
 def test_families_are_groups_not_aliases():

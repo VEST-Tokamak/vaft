@@ -146,6 +146,7 @@ CONVENTION_SENSITIVE = frozenset({
     "lloyd_breakdown_field",
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
+    "lloyd_figure_of_merit",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

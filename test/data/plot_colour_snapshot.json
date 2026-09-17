@@ -98,8 +98,15 @@
    ".layers:color=C8": 50,
    ".layers:color=C9": 50
   },
+  "startup_proxies_time": {
+   ".models.series:color=0.35": 3,
+   ".models.series:color=0.5": 2
+  },
   "vacuum_field": {
    ".overlays:color=0.4": 1
+  },
+  "vacuum_field_midplane": {
+   ".series:color=tab:red": 1
   },
   "wall_geometry_poloidal": {
    ".layers:color=0.4": 1

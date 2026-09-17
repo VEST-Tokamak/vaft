@@ -813,3 +813,30 @@ def test_a_missing_toroidal_field_is_not_silently_a_zero_radius():
 
     with pytest.raises(ValueError, match="B_T_R_Tm"):
         electron_cyclotron_resonance_radius(np.array([0.05, np.nan]), 2.45e9)
+
+
+# ------------------------------------------------------------------
+# The Lloyd figure of merit and its empirical thresholds (#888)
+# ------------------------------------------------------------------
+
+
+def test_the_figure_of_merit_is_the_product_of_magnitudes_over_b_p():
+    from vaft.formula.startup import lloyd_figure_of_merit
+
+    assert lloyd_figure_of_merit(-2.0, 0.1, 1e-3) == pytest.approx(200.0)
+    assert lloyd_figure_of_merit(2.0, -0.1, -1e-3) == pytest.approx(200.0)
+    values = lloyd_figure_of_merit(np.array([1.0, 1.0]), 0.1, np.array([1e-4, 0.0]))
+    assert values[0] == pytest.approx(1000.0)
+    assert np.isnan(values[1])  # a null has no finite figure
+
+
+def test_the_empirical_thresholds_are_the_vfit_lines():
+    import vaft.formula
+    from vaft.formula import startup
+
+    assert startup.LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M == 1000.0
+    assert startup.LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M == 100.0
+    assert startup.LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M < startup.LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M
+    assert {"LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M", "LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M",
+            "lloyd_figure_of_merit"} <= set(startup.__all__)
+    assert vaft.formula.LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M == 100.0

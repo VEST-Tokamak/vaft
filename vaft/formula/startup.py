@@ -579,6 +579,83 @@ def breakdown_margin(E_parallel, E_breakdown):
     return _maybe_scalar(margin, E_parallel, E_breakdown)
 
 
+#: Empirical threshold on the Lloyd figure of merit $E_\phi B_\phi / B_p$ above
+#: which a purely Ohmic breakdown is expected [V/m].  VEST's VFIT
+#: ``Plot_Vacuum_2D.m`` draws it as "Lloyd Condition BtEt/Bp > 1000V/m
+#: (Ohmic)", following Lloyd et al., Nucl. Fusion 31 (1991) 2031.
+LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M = 1000.0
+
+#: The same threshold with ECH pre-ionisation, an order of magnitude lower
+#: [V/m]; the "> 100V/m (ECH)" line of the same VFIT figure.
+LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M = 100.0
+
+
+def lloyd_figure_of_merit(E_phi, B_phi, B_p):
+    r"""Lloyd's breakdown figure of merit: toroidal drive times field-line pitch.
+
+    $$F_{BD} = \frac{|E_\phi|\,|B_\phi|}{|B_p|}$$
+
+    The toroidal electric field projected along a field line whose length
+    grows as $B_\phi / B_p$; the quantity the empirical Ohmic and
+    ECH-assisted breakdown thresholds
+    (:data:`LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M`,
+    :data:`LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M`) are stated against.
+
+    Parameters
+    ----------
+    E_phi : float or np.ndarray
+        Toroidal electric field; used as a magnitude [V/m].
+    B_phi : float or np.ndarray
+        Toroidal field; used as a magnitude [T].
+    B_p : float or np.ndarray
+        Poloidal field magnitude; used as a magnitude [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Figure of merit; ``nan`` where ``B_p`` is zero or any input is
+        non-finite [V/m].
+
+    Convention
+    ----------
+    All three inputs are used as **magnitudes**: the sign of $E_\phi$ depends
+    on the flux kernel (tracked in #354) and the signs of $B_\phi$ and $B_p$ on
+    COCOS and coil polarity, none of which changes whether an avalanche can
+    form.  A null ($B_p = 0$) has no finite figure and is returned as ``nan``
+    rather than ``inf``, so a map of it keeps a finite colour range.
+
+    Physical interpretation
+    -----------------------
+    $E_\phi B_\phi / B_p$ is the parallel field an electron would see if the
+    connection length were set by the pitch alone.  A strong toroidal field
+    and a weak poloidal one lengthen the path over which the drive acts, which
+    is why a startup looks for a null.
+
+    Limitations
+    -----------
+    A proxy, not a threshold: it ignores the fill pressure and the real
+    connection length to the wall, both of which
+    :func:`lloyd_breakdown_field` and :func:`breakdown_margin` take into
+    account.  The 1000 V/m and 100 V/m thresholds are machine experience, not
+    derived.
+
+    References
+    ----------
+    .. [1] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+
+    See Also
+    --------
+    breakdown_margin
+    """
+    e_phi = np.abs(np.asarray(E_phi, dtype=float))
+    b_phi = np.abs(np.asarray(B_phi, dtype=float))
+    b_p = np.abs(np.asarray(B_p, dtype=float))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        figure = e_phi * b_phi / b_p
+    figure = np.where(np.isfinite(figure), figure, np.nan)
+    return _maybe_scalar(figure, E_phi, B_phi, B_p)
+
+
 
 # ------------------------------------------------------------------
 # Pre-ionisation: where a microwave source resonates with the electrons
@@ -1504,4 +1581,7 @@ def ejiri_f3_from_alpha(alpha):
     return _maybe_scalar(factor, alpha)
 
 
-__all__ = public_names(globals())
+__all__ = public_names(
+    globals(),
+    constants=("LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M", "LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M"),
+)

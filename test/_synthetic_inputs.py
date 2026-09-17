@@ -366,6 +366,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "camera_visible_image_frame": make_camera,
     "camera_visible_image_efit_overlay": make_camera,
     "camera_visible_image_field_line": make_camera,
+    "camera_visible_image_vacuum_field_line": make_camera,
     "camera_visible_animation_frames": make_camera,
     "ntms_time_delta_prime": make_ntms,
     "mhd_linear_time_energy_perturbed": make_mhd_linear,
@@ -380,6 +381,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
 #: build_model options a name needs beyond the ODS (factories cannot pass options).
 OPTIONS: dict[str, dict] = {
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
+    "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
 }
 
 #: Names no factory could make build, with the exact error.

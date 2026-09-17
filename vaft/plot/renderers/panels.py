@@ -31,6 +31,7 @@ from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "startup_proxies_time",
     "passive_structure_overview_wall_reduction",
     "passive_structure_overview_wall_time",
     "chease_overview_profile_validity",
@@ -676,6 +677,27 @@ _VACUUM_OPTIONAL = (
     "magnetics.b_field_pol_probe.{i}.field.data",
     "magnetics.flux_loop.{i}.flux.data",
 )
+
+
+@_panel_renderer(
+    domain="pf_active",
+    subject="startup_proxies",
+    view="time",
+    quantity="",
+    description=(
+        "Vacuum B_Z, loop voltage and decay index at one (R, Z) point against time "
+        "(rz=), from the OH-coil onset to the plasma-current peak, every entry overlaid "
+        "with its breakdown onset marked (issue #888)."
+    ),
+    ids=("pf_active", "pf_passive", "wall", "tf", "equilibrium", "magnetics", "spectrometer_uv"),
+    required_paths=("pf_active.time", "pf_active.coil.{i}.current.data"),
+    optional_paths=("pf_passive.loop.{i}.element.{j}.geometry.outline.r",),
+)
+def startup_proxies_time(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Vacuum startup proxies at one point against time, shots overlaid."""
+    return render_panels(model, ax=ax, show=show, **style)
 
 
 @_panel_renderer(
