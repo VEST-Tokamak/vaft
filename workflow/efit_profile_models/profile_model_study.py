@@ -41,7 +41,6 @@ import importlib.util
 import json
 import math
 import os
-import re
 import shutil
 import sys
 import time as _clock
@@ -59,8 +58,6 @@ SCHEMA = 4
 REPOSITORY = Path(__file__).resolve().parents[2]
 SEED_STUDY = REPOSITORY / "workflow" / "efit_numerics" / "seed_basin.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
-
-_OUTPUT_TIME = re.compile(r"\.(\d{5})(?:_(\d{3}))?$")
 
 
 @dataclass(frozen=True)
@@ -217,10 +214,10 @@ def scientific_for(model: Model):
 
 
 def _output_time_ms(path: Path) -> float | None:
-    match = _OUTPUT_TIME.search(path.name)
-    if match is None:
-        return None
-    return float(int(match.group(1))) + float(int(match.group(2) or 0)) / 1000.0
+    from vaft.code.efit.slice_name import file_name_microseconds
+
+    microseconds = file_name_microseconds(path)
+    return None if microseconds is None else microseconds / 1000.0
 
 
 def _phase_map(constraints: Any, times: np.ndarray, current_cut: float) -> tuple[dict[int, dict[str, Any]], float]:

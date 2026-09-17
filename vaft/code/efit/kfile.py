@@ -36,6 +36,7 @@ from vaft.validation.efit_channels import condemned_channels, decide_efit_channe
 from vaft.validation.magnetics import unusable_channels_at
 
 from .efund import table_machine_era
+from .slice_name import encode_time_suffix, time_to_microseconds
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
 
@@ -1043,10 +1044,8 @@ def generate_kfile(
         # exact microsecond remainder when there is one (0.3051 -> 00305_100,
         # 0.30632 -> 00306_320).  The remainder used to be truncated to 0.1 ms,
         # so slices closer than that collided and never matched their a-file.
-        slice_us = int(round(time[time_idx] * 1.0e6))
-        filename = f"k0{shotnumber}.{slice_us // 1000:05d}"
-        if slice_us % 1000:
-            filename = f"{filename}_{slice_us % 1000:03d}"
+        slice_us = time_to_microseconds(time[time_idx])
+        filename = f"k0{shotnumber}.{encode_time_suffix(slice_us)}"
 
         # Write the kfile
         #        filename=f'k0{shotnumber}.00{time[time_idx]*1e+5:.0f}'
