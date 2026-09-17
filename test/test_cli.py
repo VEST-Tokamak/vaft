@@ -80,3 +80,63 @@ def test_summary_sources_lists_the_catalog(capsys):
         for line in printed.splitlines()
         if line.startswith(("main", "public"))
     )
+
+
+def test_export_cli_forwards_to_the_database_api(monkeypatch, tmp_path, capsys):
+    calls = {}
+
+    def fake_export(shot, source, **kwargs):
+        calls["args"] = (shot, source, kwargs)
+        return {name: tmp_path / name for name in kwargs["backend"]}
+
+    monkeypatch.setattr("vaft.database.export", fake_export)
+    exit_code = cli_main([
+        "export", "--shot", "41672", "--source", "public",
+        "--backend", "imas-nc", "omas-json", "geqdsk", "--output", str(tmp_path),
+    ])
+
+    assert exit_code == 0
+    assert calls["args"] == (41672, "public", {
+        "backend": ["imas-nc", "omas-json", "geqdsk"], "output": str(tmp_path),
+        "overwrite": False, "cache": "auto", "transport": "auto",
+    })
+    assert capsys.readouterr().out.splitlines() == [
+        f"{name}: {tmp_path / name}" for name in ("imas-nc", "omas-json", "geqdsk")
+    ]
+
+
+def test_export_cli_reports_errors_and_explains_every_backend(monkeypatch, capsys):
+    import pytest
+
+    from vaft.cli import export as export_cli
+    from vaft.database._export import BACKENDS
+
+    def refuse(*_args, **_kwargs):
+        raise FileExistsError("omas_1.json already exists; pass overwrite=True")
+
+    monkeypatch.setattr("vaft.database.export", refuse)
+    assert export_cli.main(["--shot", "1", "--backend", "omas-json"]) == 1
+    assert "already exists" in capsys.readouterr().err
+
+    assert list(export_cli.BACKEND_HELP) == list(BACKENDS)
+    with pytest.raises(SystemExit):
+        export_cli.main(["--help"])
+    help_text = capsys.readouterr().out
+    for name in BACKENDS:
+        assert name in help_text
+    assert "NOT an IMAS Data Entry" in help_text and "NOT the IMAS netCDF convention" in help_text
+    with pytest.raises(SystemExit) as raised:
+        export_cli.main(["--shot", "1", "--backend", "nc"])
+    assert raised.value.code == 2
+
+
+def test_export_cli_imports_nothing_heavy_before_parsing():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, vaft.cli.export; "
+        "heavy = sorted(m for m in sys.modules if m.startswith(('vaft.omas', 'vaft.database', 'imas', 'omas'))); "
+        "assert not heavy, heavy"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=300)

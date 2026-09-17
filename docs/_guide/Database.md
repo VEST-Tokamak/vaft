@@ -186,6 +186,36 @@ path = db.path("omas", shot=39915)
 Set `VAFT_FILEDB_DIR` when the configuration uses that environment reference. The audit helpers are
 read-only and propose legacy-to-canonical mappings without moving data.
 
+## Exporting a shot as local files
+
+A shot on HSDS is a folder (`master.h5` plus one image per IDS), so `hsget` cannot fetch it whole.
+`vaft export` stages the shot once and writes every requested format from that one copy:
+
+```bash
+vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
+```
+
+```python
+vaft.database.export(41672, source="public", backend=["imas-nc", "omas-json", "geqdsk"])
+```
+
+| backend | written as | format |
+| --- | --- | --- |
+| `imas-hdf5` | `imas_<shot>_hdf5/` | native IMAS HDF5 Data Entry, copied as stored |
+| `imas-nc` | `imas_<shot>.nc` | IMAS netCDF convention (IMAS-Python) |
+| `omas-json` | `omas_<shot>.json` | OMAS JSON |
+| `omas-hdf5` | `omas_<shot>.h5` | OMAS single-file HDF5, not an IMAS Data Entry |
+| `omas-nc` | `omas_<shot>.nc` | OMAS flat netCDF, not the IMAS convention |
+| `geqdsk` | `geqdsk_<shot>/` | one g-file per equilibrium time slice |
+
+Artifacts go directly under `--output` (default: the current directory). Existing ones are refused
+unless `--overwrite` is given, and a backend that fails leaves nothing behind. The converted backends
+read occurrence 0 and refuse a shot that stores other occurrences; `imas-hdf5` keeps them all.
+Export reads the DD version the IDS were stored with (the newest one when stages wrote different
+minor versions) and never converts across a major version: a shot mixing DD 3 and DD 4 IDS is
+refused, and `geqdsk` needs a DD 3 shot, because DD 4 flips the psi sign convention (COCOS 17).
+Both netCDF backends need the `netCDF4` package.
+
 ## Saving to HSDS
 
 ```python

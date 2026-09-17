@@ -481,6 +481,13 @@ vaft plot plasma_current_time --shot 39915 --out ip.png    # render to a file
 vaft plot equilibrium_overview --shot 39915 --option time_slice=4
 ```
 
+`vaft export` downloads a shot once and writes it as portable local files
+(`imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`, `omas-nc`, `geqdsk`):
+
+```bash
+vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
+```
+
 ```python
 ods = vaft.database.load(39915)                       # reads main
 legacy = vaft.database.load(39915, source="public")   # legacy reference

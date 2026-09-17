@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Literal, Mapping, MutableMapping, Optional
+from typing import Any, Iterable, Literal, Mapping, MutableMapping, Optional, Sequence
 import re
 import warnings
 
@@ -460,6 +460,30 @@ GFILE_HEADER_PATTERN = re.compile(
     r"#\s*(?P<shot>\d+)\s+(?P<time>\d+(?:\.\d+)?)\s*(?P<unit>ms)?\b",
     re.IGNORECASE,
 )
+
+
+def geqdsk_filenames(shot: int, times: Sequence[float]) -> list[str]:
+    """Return one EFIT-style ``g<shot>.<time_ms>`` name per slice, in order.
+
+    Times quantize to whole milliseconds, so two slices can share a name. Every
+    member of a colliding group then gets ``_<k>`` (its rank within the group,
+    in slice order): the names stay deterministic, none overwrites another, and
+    :data:`GFILE_NAME_PATTERN` still reads shot and time from each.
+    """
+    base = [f"g{int(shot):06d}.{int(round(float(t) * 1000.0)):05d}" for t in times]
+    counts: dict[str, int] = {}
+    for name in base:
+        counts[name] = counts.get(name, 0) + 1
+    seen: dict[str, int] = {}
+    names = []
+    for name in base:
+        if counts[name] == 1:
+            names.append(name)
+            continue
+        rank = seen.get(name, 0)
+        seen[name] = rank + 1
+        names.append(f"{name}_{rank}")
+    return names
 
 
 def _header_shot_time(source: Path) -> tuple[int, Optional[float]]:
