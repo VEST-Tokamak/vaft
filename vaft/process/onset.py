@@ -1560,8 +1560,10 @@ def _active_window(
     # qualifying runs -> segments
     kept: list[tuple[int, int]] = []
     rejected: list[tuple[float, str, RunFeatures]] = []
+    n_rejected = 0  # the list is capped at MAX_REJECTED_RUNS; the count is not
     for start, stop in _runs(above):
         if stop - start < hold:
+            n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[start]), "persistence", _brief_run(t, y, baseline, start, stop)))
             continue
@@ -1574,11 +1576,12 @@ def _active_window(
         elif feats.integral < float(min_integral_fraction) * total:
             why = "integral"
         if why is not None:
+            n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[start]), why, feats))
             continue
         kept.append((start, stop))
-    evidence["n_rejected"] = len(rejected)
+    evidence["n_rejected"] = n_rejected
     if not kept:
         return empty(("no_onset",))
 
@@ -1945,6 +1948,7 @@ def zero_crossing_after_excursion(
         "prefilter_samples": int(prefilter_samples), "bridge_samples": int(bridge_samples),
     }
     rejected: list[tuple[float, str, RunFeatures]] = []
+    n_rejected = 0  # the list is capped at MAX_REJECTED_RUNS; the count is not
     excursion = None
     for start, stop in _runs(above):
         t_start = float(t[start])
@@ -1956,9 +1960,10 @@ def zero_crossing_after_excursion(
         else:
             excursion = (start, stop)
             break
+        n_rejected += 1
         if len(rejected) < MAX_REJECTED_RUNS:
             rejected.append((t_start, why, _brief_run(t, excess, 0.0, start, stop)))
-    evidence["n_rejected"] = len(rejected)
+    evidence["n_rejected"] = n_rejected
     if excursion is None:
         return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
                            flags=("no_onset", "no_excursion_at_anchor", *ref_flags),
