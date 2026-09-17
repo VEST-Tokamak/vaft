@@ -275,6 +275,9 @@ def load_ods(
         ods = load_omas_nc(
             str(descriptor.paths[0]), consistency_check=False, imas_version=version
         )
+        # Same normalization as the JSON/HDF5 branches, so one ODS reads back
+        # alike from every OMAS container.
+        _promote_code_parameters(ods)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
     if descriptor.format in {"omas_json", "omas_hdf5"}:
         from omas import ODS

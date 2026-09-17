@@ -97,7 +97,7 @@ vaft.database.open(shot, *, source="public", representation="omas", paths=None,
 vaft.database.save(data, shot, *, target="public", representation=None,
                    occurrence=None, imas_version=None, derived_cache="auto")
 vaft.database.export(shot, source=None, *, backend, output=None, overwrite=False,
-                     occurrence=0, imas_version=None, cache="auto", transport="auto")
+                     occurrence=0, cache="auto", transport="auto")
 ```
 
 `export()` stages a shot once and writes any of `imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`,

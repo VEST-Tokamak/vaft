@@ -372,7 +372,7 @@ def get_summary_preset(name):
 
 
 def export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0,
-           imas_version=None, cache="auto", transport="auto"):
+           cache="auto", transport="auto"):
     """Export one shot from an HSDS source as portable local files.
 
     ``backend`` is one name or several of ``imas-hdf5``, ``imas-nc``,
@@ -385,6 +385,8 @@ def export(shot, source=None, *, backend, output=None, overwrite=False, occurren
     The shot is staged once however many backends are requested. ``imas-hdf5``
     is a copy of that staged entry, with no ODS round-trip; the converted
     backends read occurrence 0 only and refuse a shot that stores others.
+    Every backend is read in the IMAS DD version the shot is stored in; export
+    never converts between DD versions.
 
     Returns ``{backend: path}`` in the order requested.
     """
@@ -397,7 +399,6 @@ def export(shot, source=None, *, backend, output=None, overwrite=False, occurren
         output=output,
         overwrite=overwrite,
         occurrence=occurrence,
-        imas_version=imas_version,
         cache=cache,
         transport=transport,
     )

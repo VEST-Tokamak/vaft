@@ -70,9 +70,13 @@ def _atomic(target: Path, *, overwrite: bool) -> Iterator[Path]:
 
     A failed backend leaves neither a partial artifact nor a damaged previous
     one. The partial keeps the target's name as its suffix, because the
-    writers choose their format from the extension.
+    writers choose their format from the extension. On overwrite the previous
+    artifact is renamed aside first and deleted only once the new one is in
+    place, so a failed swap (a locked file on Windows) restores it.
     """
-    partial = target.with_name(f".{uuid.uuid4().hex[:12]}.partial.{target.name}")
+    token = uuid.uuid4().hex[:12]
+    partial = target.with_name(f".{token}.partial.{target.name}")
+    previous = target.with_name(f".{token}.previous.{target.name}")
     try:
         yield partial
         if not partial.exists():
@@ -80,49 +84,77 @@ def _atomic(target: Path, *, overwrite: bool) -> Iterator[Path]:
         if target.exists() or target.is_symlink():
             if not overwrite:
                 raise FileExistsError(f"{target} already exists; pass overwrite=True")
-            if target.is_dir() and not target.is_symlink():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-        os.replace(partial, target)
+            os.replace(target, previous)
+        try:
+            os.replace(partial, target)
+        except BaseException:
+            if previous.exists() or previous.is_symlink():
+                os.replace(previous, target)
+            raise
     finally:
-        if partial.is_dir() and not partial.is_symlink():
-            shutil.rmtree(partial, ignore_errors=True)
-        elif partial.exists() or partial.is_symlink():
-            partial.unlink()
+        for leftover in (partial, previous):
+            _remove(leftover)
 
 
-def _ids_names(entry: Path, version: str) -> list[str]:
-    """IDS names linked from ``master.h5``.
+def _remove(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path, ignore_errors=True)
+    elif path.exists() or path.is_symlink():
+        path.unlink()
 
-    Occurrences other than 0 appear there as ``<ids>_<n>`` links; they are
-    found through ``list_all_occurrences`` instead, so only names the data
-    dictionary knows are returned.
+
+def _stored_ids(entry: Path, version: str) -> list[str]:
+    """IDS names to convert from a staged entry, refusing anything a conversion would drop.
+
+    ``master.h5`` links each stored IDS image by name, occurrence ``n > 0`` as
+    ``<ids>_<n>``. The converted backends carry occurrence 0 of IDS the data
+    dictionary ``version`` defines; any other stored link is an error rather
+    than a silent omission -- including an IDS stored only at ``n > 0``.
+    ``dataset_description``, which newer DDs intentionally omit, only warns.
     """
+    import re
+    import warnings
+
     import h5py
     import imas
 
     factory = imas.IDSFactory(version)
+    names: set[str] = set()
+    occurrences: dict[str, list[int]] = {}
+    undefined: list[str] = []
     with h5py.File(entry / "master.h5", "r") as master:
-        return sorted(name for name in master.keys() if factory.exists(name))
-
-
-def _require_single_occurrence(entry: Path, names: list[str], version: str) -> None:
-    """Refuse a converted export when any IDS holds an occurrence other than 0."""
-    import imas
-
-    extra: dict[str, list[int]] = {}
-    with imas.DBEntry("imas:hdf5?path=" + str(entry), "r", dd_version=version) as db:
-        for name in names:
-            others = [int(value) for value in db.list_all_occurrences(name) if int(value) != 0]
-            if others:
-                extra[name] = others
-    if extra:
-        detail = "; ".join(f"{name}: {values}" for name, values in sorted(extra.items()))
+        links = [
+            key for key in master
+            if isinstance(master.get(key, getlink=True), h5py.ExternalLink)
+        ]
+    for key in links:
+        match = re.fullmatch(r"(?P<ids>.+)_(?P<occurrence>\d+)", key)
+        if factory.exists(key):
+            names.add(key)
+        elif match and factory.exists(match["ids"]):
+            occurrences.setdefault(match["ids"], []).append(int(match["occurrence"]))
+        elif (match["ids"] if match else key) == "dataset_description":
+            warnings.warn(
+                f"dataset_description is not defined in IMAS DD {version}; "
+                "the converted backends omit it (imas-hdf5 keeps it)",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        else:
+            undefined.append(key)
+    problems = []
+    if occurrences:
+        detail = "; ".join(f"{name}: {sorted(values)}" for name, values in sorted(occurrences.items()))
+        problems.append(f"IDS occurrences other than 0 ({detail})")
+    if undefined:
+        problems.append(f"IDS not defined in IMAS DD {version} ({', '.join(sorted(undefined))})")
+    if problems:
         raise ValueError(
-            "This shot stores IDS occurrences other than 0, which the converted "
-            f"backends do not carry ({detail}). Export 'imas-hdf5' for a lossless copy."
+            "This shot stores " + " and ".join(problems) + ", which the converted "
+            "backends cannot carry. Export 'imas-hdf5' for a lossless copy"
+            + "."
         )
+    return sorted(names)
 
 
 def _write_geqdsk(ods: Any, shot: int, directory: Path) -> None:
@@ -148,7 +180,6 @@ def export(
     output: str | Path | None = None,
     overwrite: bool = False,
     occurrence: int = 0,
-    imas_version: str | None = None,
     cache: str | Path = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
 ) -> dict[str, Path]:
@@ -161,10 +192,10 @@ def export(
 
     names = _backends(backend)
     semantic = [name for name in names if BACKENDS[name][1]]
-    if occurrence != 0 and semantic:
+    if occurrence != 0:
         raise ValueError(
-            f"occurrence={occurrence!r} is not supported for {', '.join(semantic)}; "
-            "these backends export occurrence 0 only (use 'imas-hdf5' for a lossless copy)"
+            f"occurrence={occurrence!r} is not supported; export reads occurrence 0 "
+            "('imas-hdf5' copies every stored occurrence as it is)"
         )
     directory = resolve(source)
     shot = int(shot)
@@ -184,14 +215,14 @@ def export(
         staging.stage_imas_shot(
             directory, shot, entry, requested_ids=None, cache=cache, transport=transport
         )
-        version = imas_version or _imas_version_hdf5(entry / "master.h5")
+        # Always the stored DD: export converts formats, never DD versions, and
+        # IMAS-Python refuses a cross-major read anyway.
+        version = _imas_version_hdf5(entry / "master.h5")
         if version is None:
             from vaft.imas import IMAS_DD_VERSION_CONVERSION
 
             version = IMAS_DD_VERSION_CONVERSION
-        ids_names = _ids_names(entry, version)
-        if semantic:
-            _require_single_occurrence(entry, ids_names, version)
+        ids_names = _stored_ids(entry, version) if semantic else []
 
         ods = None
         if any(name in _ODS_BACKENDS for name in names):

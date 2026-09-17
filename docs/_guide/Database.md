@@ -211,7 +211,8 @@ vaft.database.export(41672, source="public", backend=["imas-nc", "omas-json", "g
 Artifacts go directly under `--output` (default: the current directory). Existing ones are refused
 unless `--overwrite` is given, and a backend that fails leaves nothing behind. The converted backends
 read occurrence 0 and refuse a shot that stores other occurrences; `imas-hdf5` keeps them all.
-Both netCDF backends need the `netCDF4` package.
+Every backend keeps the IMAS DD version the shot is stored in. Both netCDF backends need the
+`netCDF4` package.
 
 ## Saving to HSDS
 

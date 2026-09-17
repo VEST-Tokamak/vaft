@@ -45,7 +45,6 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", help="destination directory (default: current directory)")
     parser.add_argument("--overwrite", action="store_true", help="replace existing artifacts")
-    parser.add_argument("--imas-version", help="IMAS DD version to read with (default: as stored)")
     parser.add_argument("--cache", default="auto", help="HSDS file cache: auto, off, or a directory")
     parser.add_argument(
         "--transport", default="auto", choices=("auto", "canonical", "h5image"),
@@ -67,7 +66,6 @@ def main(argv: Iterable[str] | None = None) -> int:
             backend=args.backend,
             output=args.output,
             overwrite=args.overwrite,
-            imas_version=args.imas_version,
             cache=args.cache,
             transport=args.transport,
         )

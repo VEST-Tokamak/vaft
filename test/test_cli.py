@@ -98,7 +98,7 @@ def test_export_cli_forwards_to_the_database_api(monkeypatch, tmp_path, capsys):
     assert exit_code == 0
     assert calls["args"] == (41672, "public", {
         "backend": ["imas-nc", "omas-json", "geqdsk"], "output": str(tmp_path),
-        "overwrite": False, "imas_version": None, "cache": "auto", "transport": "auto",
+        "overwrite": False, "cache": "auto", "transport": "auto",
     })
     assert capsys.readouterr().out.splitlines() == [
         f"{name}: {tmp_path / name}" for name in ("imas-nc", "omas-json", "geqdsk")

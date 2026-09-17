@@ -153,8 +153,9 @@ def test_default_output_is_the_working_directory(fake_hsds, monkeypatch, tmp_pat
 
 
 def test_converted_backends_refuse_other_occurrences(fake_hsds, monkeypatch, remote_entry, tmp_path):
-    with pytest.raises(ValueError, match="occurrence 0 only"):
-        vaft.database.export(SHOT, "public", backend="omas-json", output=tmp_path, occurrence=1)
+    for backend in ("omas-json", "imas-hdf5"):
+        with pytest.raises(ValueError, match="occurrence=1 is not supported"):
+            vaft.database.export(SHOT, "public", backend=backend, output=tmp_path, occurrence=1)
 
     remote = tmp_path / "remote"
     shutil.copytree(remote_entry, remote)
@@ -175,6 +176,88 @@ def test_converted_backends_refuse_other_occurrences(fake_hsds, monkeypatch, rem
     # The native copy keeps every occurrence.
     written = vaft.database.export(SHOT, "public", backend="imas-hdf5", output=out, cache="off")
     assert (written["imas-hdf5"] / "equilibrium_2.h5").is_file()
+
+
+def test_an_ids_stored_only_at_a_later_occurrence_is_refused(fake_hsds, monkeypatch, remote_entry, tmp_path):
+    # wall exists only as occurrence 1: master.h5 links it as ``wall_1``.
+    remote = tmp_path / "remote"
+    with imas.DBEntry("imas:hdf5?path=" + str(remote_entry), "r", dd_version=DD) as source:
+        equilibrium, wall = source.get("equilibrium"), source.get("wall")
+    remote.mkdir()
+    with imas.DBEntry("imas:hdf5?path=" + str(remote), "x", dd_version=DD) as entry:
+        entry.put(equilibrium, 0)
+        entry.put(wall, 1)
+
+    def fake_hsget(uri, target):
+        shutil.copy2(remote / uri.rsplit("/", 1)[-1], target)
+        return target
+
+    monkeypatch.setattr(staging, "run_hsget", fake_hsget)
+    out = tmp_path / "out"
+    for backend in ("omas-json", "imas-nc"):
+        with pytest.raises(ValueError, match=r"wall: \[1\]"):
+            vaft.database.export(SHOT, "public", backend=backend, output=out, cache="off")
+    assert not out.exists() or not any(out.iterdir())
+
+
+def _master_with_links(root: Path, names) -> Path:
+    root.mkdir()
+    with h5py.File(root / "master.h5", "w") as master:
+        for name in names:
+            master[name] = h5py.ExternalLink(f"{name}.h5", f"/{name}")
+        master["not_a_link"] = h5py.SoftLink("/")
+    return root
+
+
+def test_stored_ids_refuses_what_the_requested_dd_does_not_define(tmp_path):
+    entry = _master_with_links(tmp_path / "dd4", ["equilibrium", "plasma_profiles"])
+    assert _export._stored_ids(entry, "4.0.0") == ["equilibrium", "plasma_profiles"]
+    # A DD4 link read as DD3 would vanish from imas-nc; refuse instead of dropping it.
+    with pytest.raises(ValueError, match=r"not defined in IMAS DD 3.41.0 \(plasma_profiles\)"):
+        _export._stored_ids(entry, "3.41.0")
+
+
+def test_stored_ids_only_warns_for_dataset_description_absent_from_the_dd(tmp_path):
+    entry = _master_with_links(tmp_path / "dd", ["dataset_description", "equilibrium"])
+    with pytest.warns(RuntimeWarning, match="dataset_description is not defined in IMAS DD 4.1.1"):
+        assert _export._stored_ids(entry, "4.1.1") == ["equilibrium"]
+    assert _export._stored_ids(entry, "3.41.0") == ["dataset_description", "equilibrium"]
+
+
+def test_a_failed_overwrite_swap_restores_the_previous_artifact(fake_hsds, monkeypatch, tmp_path):
+    previous = tmp_path / f"imas_{SHOT}_hdf5"
+    previous.mkdir()
+    (previous / "keep.txt").write_text("previous export", encoding="utf-8")
+    real_replace = os.replace
+
+    def locked(source, destination):
+        if ".partial." in Path(source).name:
+            raise PermissionError("[WinError 32] file in use")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(_export.os, "replace", locked)
+    with pytest.raises(PermissionError):
+        vaft.database.export(
+            SHOT, "public", backend="imas-hdf5", output=tmp_path, cache="off", overwrite=True
+        )
+    assert sorted(p.name for p in tmp_path.iterdir()) == [previous.name]
+    assert (previous / "keep.txt").read_text(encoding="utf-8") == "previous export"
+
+
+def test_omas_netcdf_restores_code_parameters_like_json_and_hdf5(tmp_path):
+    from omas import ODS
+    from omas.omas_core import CodeParameters
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.ids_properties.homogeneous_time"] = 2
+    block = CodeParameters()
+    block["cocos"] = 11
+    ods["equilibrium.code.parameters"] = block
+    for suffix in (".json", ".h5", ".nc"):
+        target = vaft.omas.save(ods, tmp_path / f"cp{suffix}")
+        restored = vaft.omas.load(target, imas_version=DD)
+        assert isinstance(restored["equilibrium.code.parameters"], CodeParameters), suffix
+        assert restored["equilibrium.code.parameters"]["cocos"] == 11, suffix
 
 
 def test_invalid_requests_fail_before_staging(fake_hsds, monkeypatch, tmp_path):
