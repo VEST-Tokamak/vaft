@@ -67,6 +67,14 @@ def _valid_input_range(config: Mapping[str, Any], diagnostic: str) -> tuple[floa
     return low, high
 
 
+def _mask_detector_voltage(voltage: Any, config: Mapping[str, Any], diagnostic: str) -> np.ndarray:
+    """Detector voltage with samples outside the valid input range set to NaN."""
+    voltage = np.array(voltage, dtype=float)
+    low, high = _valid_input_range(config, diagnostic)
+    voltage[~(np.isfinite(voltage) & (voltage >= low) & (voltage <= high))] = np.nan
+    return voltage
+
+
 def _detector_power(voltage: Any, config: Mapping[str, Any], diagnostic: str) -> np.ndarray:
     """Calibrate detector voltage to power [W], NaN outside the valid input range."""
     voltage = np.asarray(voltage, dtype=float)
@@ -119,10 +127,16 @@ def _ec_power_on(
     else:
         time = forward_time
 
-    # Voltages, not powers, are brought onto the output grid: the detector
-    # voltage is the band-limited physical signal, and the mask has to act on
-    # it before the log calibration.  On the native 25 kHz grid this is a
-    # bit-for-bit interpolation at the sample instants.
+    # The mask acts on the native samples, before any resampling: a -5 V spike
+    # interpolated or anti-alias filtered onto a coarser grid would smear into
+    # neighbouring in-range voltages and calibrate to kilowatts that never
+    # existed.  Masked samples become NaN, which resample_to_time treats as
+    # gaps; the voltages (the band-limited physical signal) are what is
+    # resampled, and the calibration below masks once more on the output grid.
+    forward_voltage = _mask_detector_voltage(forward_voltage, forward_config, FORWARD_DIAGNOSTIC)
+    reflected_voltage = _mask_detector_voltage(
+        reflected_voltage, reflected_config, REFLECTED_DIAGNOSTIC
+    )
     if time is not forward_time:
         forward_voltage = resample_to_time(forward_time, forward_voltage, time)
     if not (
