@@ -80,7 +80,16 @@ def run_neo(
         config=configuration,
         code="neo",
     )
-    native = collect_neo_outputs(workdir)
+    # The parser refuses a table whose width disagrees with the species count
+    # (a partial write, usually). That refusal is this run's failure, so it is
+    # reported the way every other failure is -- through `ok`, and raised only
+    # under `check` -- rather than escaping a caller that asked not to be
+    # aborted.
+    unreadable: Optional[str] = None
+    try:
+        native = collect_neo_outputs(workdir)
+    except ValueError as error:
+        native, unreadable = None, str(error)
     result = NEOResult(
         returncode=returncode,
         workdir=workdir,
@@ -93,6 +102,7 @@ def run_neo(
             "parameters": dict(inputs.parameters),
             "inputs": dict(inputs.provenance),
             "version": None if native is None else native.version,
+            **({} if unreadable is None else {"output_error": unreadable}),
         },
     )
     if check and not result.ok:
@@ -110,6 +120,8 @@ def _failure_message(result: NEOResult, log: Path) -> str:
     native = result.outputs_native
     if result.returncode != 0:
         reason = f"NEO exited with status {result.returncode}"
+    elif result.provenance.get("output_error"):
+        reason = "NEO's output could not be read: " + str(result.provenance["output_error"])
     elif native is not None and native.errors:
         reason = "NEO rejected the case: " + "; ".join(native.errors)
     elif native is not None and native.transport is not None:

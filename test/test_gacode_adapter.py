@@ -439,6 +439,33 @@ def test_a_failed_run_is_returned_rather_than_raised_when_asked(tmp_path, instal
     assert result.logs and result.logs[0].is_file()
 
 
+def test_an_unreadable_table_is_a_failed_run_not_an_escaped_error(
+    tmp_path, installation, monkeypatch
+):
+    """``check=False`` asks not to be aborted, yet the parser's refusal of a
+    wrong-width table (a partial write) was raised straight through it (cold
+    review transport F12)."""
+    import vaft.code.gacode.neo.runner as runner
+
+    write_launchable_stub(installation / "neo" / "bin" / "neo", exit_code=0)
+    config = NEOConfig(home=str(installation), platform="CI_CPU")
+    staged = prepare_neo_case(_profile(), tmp_path / "case", config)
+
+    def partial_write(executable, arguments, *, cwd, log_path, config, code):
+        (Path(staged.workdir) / "out.neo.transport").write_text(
+            "0.5 1.0 2.0\n", encoding="utf-8"
+        )
+        log_path.write_text("", encoding="utf-8")
+        return 0, log_path
+
+    monkeypatch.setattr(runner, "run_gacode", partial_write)
+    result = run_neo(staged, config, check=False)
+    assert not result.ok and result.outputs_native is None
+    assert "out.neo.transport has 3 columns" in result.provenance["output_error"]
+    with pytest.raises(NEOExecutionError, match="could not be read.*3 columns"):
+        run_neo(staged, config)
+
+
 def test_the_run_records_what_produced_it(tmp_path, installation):
     write_launchable_stub(installation / "neo" / "bin" / "neo", exit_code=1)
     config = NEOConfig(home=str(installation), platform="CI_CPU")
