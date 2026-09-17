@@ -1,0 +1,574 @@
+# How a VEST EFIT fit terminates today (#171)
+
+Issue #171 asks for VEST's EFIT solver configuration to be characterized and
+then stated explicitly instead of inherited. This directory is the
+characterization half. It changes nothing: it runs the routine configuration
+over each reference shot's full constraint window at the routine cadence and
+records *why* every slice stopped where it did.
+
+```bash
+PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \
+    python workflow/efit_numerics/baseline_termination.py \
+        --output /scratch/baseline --markdown /scratch/baseline.md
+```
+
+Shots default to the reference set's magnetics arm
+(`workflow/efit_reference_set/`). The remote and raw databases are not
+readable from a developer machine today, so the baseline is what the packaged
+products support; widening it is follow-up work, not a blocker.
+
+## The unit is a discharge, not a slice
+
+A slice that fails in the boundary finder during the ramp and a slice that
+fits in the flat-top are different facts about the same configuration, and a
+summary that averaged them would report neither. So every slice is classified
+before it is counted:
+
+- **phase** — plasma or vacuum, by the writer's own `CUTIP` current cut, so
+  the classification is the one EFIT already applies.
+- **exit path** — `iconvr=2` (the chi-square criterion), exhaustion of
+  `MXITER`, or a solver error.
+- **acceptance failures** — the numbered criteria `chkerr` reports, so "did
+  not converge" is replaced by which of EFIT's twenty-two criteria was
+  violated.
+- **null solutions** — the residual falling below 1e-5 while the
+  Grad-Shafranov error stays above 0.1. That is not a fit, and counting it as
+  one would flatter every summary it entered.
+
+## Two things about the log that mislead if taken at face value
+
+**The `chi2` in the iteration line is not the fit's chi-square.** After the
+first step it collapses to ~1e-7 on slices whose a-file reports 200. The
+baseline therefore keeps the first and last values under their own names and
+takes EFIT's own answer, the a-file's `chisq`, as the chi-square. Anything
+that reported the log value as the chi-square would report convergence where
+there is none.
+
+**A slice with no a-file is not a slice with a bad fit.** Roughly half the
+plasma slices never write one, and a summary over a-files alone silently
+drops them. The log is what says how many slices there were.
+
+## What the baseline found
+
+The routine configuration, over each reference shot's whole discharge, with
+the channel decisions the diagnostics assessment implies:
+
+| shot | window [s] | plasma slices | wrote an a-file | collapsed | exits on chi-square | exits on a solver error | accepted | iterations (med) | a-file chi2 (med) | GS error (med) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 39915 | 0.306–0.331 | 22 | 7 | 9 | 13 | 9 | **0** | 11 | 74.4 | 0.0089 |
+| 41524 | 0.315–0.336 | 21 | 5 | 13 | 8 | 13 | **0** | 11 | 131 | 0.317 |
+| 41672 | 0.312–0.352 | 34 | 19 | 7 | 27 | 7 | **0** | 11 | 22.8 | 0.0082 |
+
+Every plasma slice on every shot sits above the 5 kA cut, so none of this is a
+vacuum artefact. **No slice on any shot is accepted.** The acceptance failures
+are dominated by #21 (Bp not consistent) and #5 (minor radius out of range),
+with #1 (chi-square above SAICON's 80) on a minority.
+
+Gating the condemned channels changed one shot and not the others: on 39915 it
+moved the median chi-square from 59.1 to 74.4 and cost one a-file, while 41524
+and 41672 were unchanged to three significant figures. The condemned probes
+matter on one discharge and not measurably on the other two, which is worth
+knowing before a study attributes a difference to a setting.
+
+The two conclusions that shape what should be scanned next:
+
+**The fit never reaches the tolerance it is given.** Every k-file writes
+`ERROR = 1e-5`. The Grad-Shafranov error at exit is 0.008 to 0.3, three to
+four orders above it, and the loop leaves on the chi-square criterion after
+eleven iterations on all three shots. `ERRMIN` and `SAICON` — the two settings that decide this
+— were not written at all until #171's configuration work, so EFIT's own
+defaults of 1e-2 and 80 have been in force throughout. That is the mechanism,
+and it is now settable.
+
+**Termination is not the only thing failing.** Only 7 of 22, 5 of 21 and 19 of
+34 plasma slices produce an equilibrium at all; the rest end in the boundary
+finder or collapse to a null solution, neither of which a termination setting
+can fix. Those belong to initialization (#196) and to the
+computational domain (#459), and separating them from the termination
+question is a precondition for scanning either. A scan that varied `ERRMIN`
+across slices that never produced an equilibrium would measure nothing.
+
+## Why no slice is accepted: the envelope, not the termination settings
+
+`chkerr` does not only ask whether the fit converged. It tests every solution
+against the `&incheck` bounds EFIT reads from `mhdin.dat` in the table
+directory, and those bounds are dimensioned for a machine. EFIT's compiled-in
+values are DIII-D's (`aminor_min = 30 cm`, `rcntr_min = 90 cm`); the packaged
+VEST table softens them part-way, to 25 cm and 30 cm. VEST does not reach
+them. `acceptance_envelope.py` audits the bounds against what the reference
+set actually produced:
+
+| a-file scalar | failure | packaged bound | VEST median | VEST range | rejected by the bound |
+| --- | --- | --- | --- | --- | --- |
+| `aminor` | #5 | 25 … 75 | 23.1 | 7.6 … 29.4 | **21 of 38** |
+| `rcntr` | #7 | 30 … 160 | 33.5 | 18.0 … 39.8 | **9 of 38** |
+| `rcurrt` | #8 | 30 … 160 | 31.8 | 17.9 … 37.0 | **11 of 38** |
+| `elong`, `zcntr`, `zcurrt`, `li`, `qstar` | #6, #9, #10, #2, #13 | — | — | — | 0 of 38 |
+
+Counts exclude collapsed reconstructions, which write zeros and are correctly
+rejected by any floor. **A VEST plasma is rejected for being small**, and no
+termination setting can move that.
+
+The proposed envelope is derived from the machine, never fitted to a
+discharge — the same rule the Green-table work had to keep.
+`vest_acceptance_envelope` takes the limiter outline from the canonical static
+ODS (R 0.104–0.760 m, Z ±1.185 m) and the grid, and sets `aminor_max` to half
+the limiter's radial extent, `aminor_min` to five grid cells (below which a
+boundary is not resolved), and the centre and centroid bounds to the limiter
+inset by `aminor_min`. It rejects none of the 38 reconstructions. The physics
+bounds — `li`, `betap`, `qstar`, elongation — and the consistency tolerances
+are left exactly as they were: what those should be is a separate argument,
+and moving them alongside the geometry would confound the two.
+
+`write_mhdin` emits an `&incheck` block when an envelope is passed. Until
+#649 that was only ever exercised by a study: `regenerate_legacy_table.py`
+passed no envelope, so a generated table carried no `&incheck` at all, and the
+bundled table carried a hand-preserved legacy block with the bounds above. The
+generator now derives and passes it, and the bundled table carries the result,
+so the measurements below are what the routine pipeline does rather than what
+a harness could do. The Green tables themselves are byte-identical either way:
+`incheck` is read in exactly one place in the whole EFIT/EFUND source,
+`efit/read_namelist.F90`, and EFUND never sees it.
+
+### Measured: the envelope works, and it is not enough
+
+The baseline was rerun against a table directory identical to the packaged one
+byte for byte except for its `&incheck` block — same Green tables, same
+geometry, same constraints, same executable.
+
+**The three geometric failures disappear completely.** #5, #7 and #8 are gone
+from every shot; nothing else moved. The derived envelope does exactly what it
+was meant to and has no side effects.
+
+**Acceptance does not change.** Not one slice becomes acceptable, because
+failure **#21 fires on every slice that produces an equilibrium** — 7 of 7,
+5 of 5, 19 of 19 — and one failure is enough to set `lflag`.
+
+| | packaged envelope | VEST envelope |
+| --- | --- | --- |
+| a-files written | 7 / 5 / 19 | 7 / 5 / 19 |
+| accepted | 0 | 0 |
+| failures #5, #7, #8 | 21, 9, 11 slices | **none** |
+| failure #21 | every slice | every slice |
+
+### Measured again, with the virial gate ignored (issue #649)
+
+The virial consistency checks are ill-conditioned at VEST's aspect ratio and
+cannot decide the question they are asked, so they no longer gate acceptance.
+Rerunning with that policy and nothing else changed:
+
+| | packaged envelope | + VEST geometry | + virial gate ignored |
+| --- | --- | --- | --- |
+| a-files written | 31 | 31 | 31 |
+| **accepted** | **0** | **0** | **18** |
+| failures #5, #7, #8 | 41 slices | none | none |
+| failures #20, #21 | every slice | every slice | none |
+| failure #1 | 13 slices | 13 slices | 13 slices |
+
+Per shot: 4 of 7 on 39915, 2 of 5 on 41524, 12 of 19 on 41672. **These are the
+first accepted VEST reconstructions in this line of work.**
+
+## What the termination settings are worth (issue #171)
+
+Six of the parameters that decide when a VEST fit stops were EFIT's own
+defaults that VAFT never wrote. `termination_scan.py` sweeps the five that
+are settable, one axis at a time, over the three reference discharges.
+
+| configuration | accepted | equilibria | collapsed | hit cap | iterations | chi2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| **routine** | **29** | 49 | 22 | 0 | 9.8 | 51.2 |
+| `SAICON = 60` | 27 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `SAICON = 40` | 24 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `ERRMIN = 3e-3` | 30 | 50 | 22 | 0 | 13.2 | 45.4 |
+| `ERRMIN = 1e-3` | 29 | 49 | 22 | 6 | 22.5 | 51.2 |
+| `NXITER = 3` | 27 | 41 | 6 | 39 | 102.8 | 33.2 |
+| `MXITER = 25` | 29 | 49 | 22 | 1 | 9.8 | 51.2 |
+| `MXITER = 200` | 29 | 49 | 22 | 0 | 9.8 | 51.2 |
+| `RELAX = 0.7` | 30 | 50 | 22 | 0 | 13.2 | 45.4 |
+
+**Nothing here is worth changing.** `SAICON` is monotonically worse downward;
+`MXITER` is inert in both directions; `ERRMIN = 1e-3` costs 1.8x the runtime
+for no acceptance at all, which measures the writer's own note that it moves a
+fit "from under a minute to about three"; `NXITER = 3` loses eight equilibria
+and drives thirty-nine slices into the iteration cap for 6.9x the runtime.
+
+`RELAX` was refined over 0.4 to 0.95 before being ruled out. It changes the
+iteration count monotonically -- 21.8 at 0.4 down to 10.2 at 0.95, which is
+what dividing `errorm` should do -- and the entire acceptance difference is
+**one slice on 41672**, present at 0.6, 0.7 and 0.85 and absent at 0.5, 0.8,
+0.9 and 0.95. A non-monotonic one-slice difference is a threshold wobble, not
+an effect.
+
+So the answer #171 asked for is that the inherited defaults are already the
+right ones. That is now a measured claim rather than an unexamined
+inheritance, which was the point.
+
+### The chi-square that remains is not a termination problem
+
+`#1`, chi-square above `SAICON = 80`, is the only acceptance failure left, and
+no setting above moves it. The apparent improvements in the table are
+selection, not fit: compared **slice by slice on the slices both
+configurations produced**, chi-square is identical to within one percent.
+
+| | slices in both | chi2 improved | worsened | unchanged |
+| --- | --- | --- | --- | --- |
+| `NXITER = 3` | 41 | 0 | 0 | **41** |
+| `ERRMIN = 3e-3` | 49 | 0 | 0 | **49** |
+| `RELAX = 0.7` | 49 | 0 | 0 | **49** |
+
+`NXITER = 3`'s median falls from 51.2 to 33.2 only because the eight slices it
+failed to reconstruct were the poorly-fitted ones.
+
+`MXITER` is the cleanest evidence: if the fit were being cut short, 200
+iterations would beat 100. They are identical, and 25 is identical too with
+one slice reaching the cap. **The solver is converging, not being truncated** --
+it reaches the best fit it can and that best is above 80.
+
+Lowering chi-square therefore means changing what produces the residual: which
+constraint families carry independent information (#663), how much freedom the
+profile model has (#579), and the pressure deficit (#386). Raising `SAICON`
+above 80 was deliberately not scanned: it would reduce `#1` by definition
+without changing a single reconstruction, and whether 80 is the right bar for
+VEST is a physics argument rather than something a termination scan can settle.
+
+Nothing is discarded either way. VEST runs `ierchk = 1`, so `efit.F90` writes
+both the a-file and the g-file whatever `lflag` says, and VAFT's own
+`EFITSliceStatus` never reads `jflag` -- the two verdicts are recorded side by
+side. The thirty-two rejected slices are on disk with their chi-square and
+their global quantities, so whether 80 is the right bar can be asked of the
+data that already exists.
+
+### Re-baselined with the envelope actually shipped (issue #852)
+
+The three tables above were measured by a harness deriving its own envelope.
+Once the bundled table carried it (#849), the baseline was re-run unchanged.
+Two things had moved, and only one of them is the envelope:
+
+| shot | window [s] | plasma | a-files | **accepted** | iterations (med) | chi2 (med) | GS error (med) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 39915 | 0.306–0.331 | 22 | 18 | **10** | 10 | 32.4 | 0.0085 |
+| 41524 | 0.315–0.336 | 20 | 11 | **4** | 11 | 81 | 0.293 |
+| 41672 | 0.312–0.352 | 35 | 33 | **16** | 8.5 | 22.8 | 0.0078 |
+| | | **77** | **62** | **30** | | | |
+
+Against the 31 a-files and 18 accepted recorded above: **the yield itself
+doubled**, and that is not the envelope's doing. The seed moved inboard to
+0.32 m (#660), the vacuum cut rose to 15 kA (#708) and the coilset became
+twenty-six groups on a regenerated table (#708, #719) in between. The envelope
+decides acceptance; those three decide how many slices produce an equilibrium
+at all, and a reader comparing the two tables should not attribute the change
+to one cause.
+
+What remains is what the previous section predicted: **`#1`, chi-square above
+`SAICON = 80`, is the only acceptance failure left** — four slices on 39915,
+five on 41524, eleven on 41672. Every geometric and virial criterion passes
+everywhere.
+
+That is the acceptance question closed and the fit-quality question opened. It
+should not be read as a quality result: 15 of 77 plasma slices still end in
+`bound` or `findax`, and 29 collapse to a null solution — the residual falls
+below 1e-5 while the Grad-Shafranov error stays above 0.1. Neither is
+something an acceptance bound touches, and the GS error at exit is still three
+to four orders above the 1e-5 every k-file asks for.
+
+What remains is a single criterion, and it is the right one: **#1, chi-square
+above `SAICON = 80`**, on exactly the 13 slices that are not accepted. Every
+other criterion passes on every slice. The acceptance question has gone from
+"nothing passes, for six different reasons, three of them arithmetic" to "one
+well-posed fit-quality threshold rejects 13 of 31" — which is precisely what
+the termination scan is for, and it is now a meaningful scan.
+
+**What this does not say.** An accepted slice is not a correct one. Poloidal
+beta is still about 0.007 across all of them, and #386's pressure deficit is
+untouched by any of this. Acceptance now means "converged, with a geometry the
+machine can contain and a chi-square under threshold", which is what EFIT's
+criteria were always meant to mean, and no more.
+
+### What #21 actually is
+
+`beta_li.F90:874` computes it as the relative disagreement between the virial
+estimate of beta_p — from the Shafranov integrals and the **measured**
+diamagnetic flux — and the equilibrium's own beta_p:
+
+```
+sbpp  = (s1 + s2*(1 - rttt/rcentr))/2 - exmui     ! exmui carries the measured diamagnetic flux
+delbp = |(sbpp - betap)/sbpp|                     ! rejected when >= delbp_diff = 0.08
+```
+
+Across the 31 equilibria it runs 0.43 to 4.27, median **0.85** — eleven times
+its tolerance. That is not a tolerance that needs adjusting. It is issue #386:
+the reconstruction's beta_p is about 0.007 while the virial estimate from the
+measured diamagnetic flux is of order one, because under `legacy_weight` the
+diamagnetic constraint is emitted weightless and the fit never constrains
+pressure.
+
+This is the pressure deficit #386 records, and it is real. But `delbp` cannot
+measure it: `sbpp` is a difference of two terms near 0.8 leaving 0.01 to 0.2,
+negative on three slices, with a median cancellation of twelvefold; and the
+second branch divides by `alpha - 1`, which VEST measures at 0.22 to 0.51 and
+falling. Issue #649 records the analysis and the decision: at VEST's aspect
+ratio these two checks do not gate acceptance. The quantities are still
+computed and written to the a-file, so nothing is lost to anyone who wants
+them — only the automatic rejection stops.
+
+**#386 therefore no longer blocks acceptance**, though it remains an open
+defect and every accepted slice still carries essentially no pressure.
+
+## What the termination settings can and cannot do
+
+Reading `fit.F90` and `response_matrix.F90` against the baseline narrows this
+sharply. Under `ICONVR = 2` the exit test is five nested conditions, and two
+of them are inert for VEST: `saisq <= SAICON` and `|saisq - saiold| <= 0.10`
+both compare the ~1e-7 linear-solve residual, not the physical chi-square. The
+exit therefore reduces to a hard-coded minimum of eight iterations **and**
+`errorm <= ERRMIN`, which is why every slice leaves at about eleven.
+
+Two consequences for any scan:
+
+- **`ERRMIN` is the only active gate.** The `ERROR = 1e-5` the k-file writes is
+  compared at `fit.F90:236`, but the path it gates also requires
+  `chisq <= SAIMIN`, and `ERRMIN` at 1e-2 always fires first.
+- **`SAICON` cannot bind while `NXITER = 1`**, because `chisqr` then runs only
+  on the first outer pass and `chisq` holds the linear residual thereafter.
+  Raising `NXITER` restores the physical chi-square to the test as a side
+  effect, so the two must be scanned together, never `SAICON` alone.
+
+## What comes next, in order
+
+1. **Termination scan** — now well posed. One criterion rejects the remaining
+   13 slices, chi-square above `SAICON`, and the settings that bear on it are
+   exactly the ones this issue names.
+2. **#386 in parallel** — the pressure deficit no longer blocks acceptance but
+   is still a defect: every accepted slice carries a poloidal beta of about
+   0.007 against a virial estimate of order one.
+3. **Termination scan, in detail** — `ERRMIN` first, since it is the only active gate,
+   then `NXITER` with `SAICON` (which cannot bind without it), then `MXITER`
+   and `RELAX`. Keep `MXITER × NXITER` below 500: EFIT indexes its
+   per-iteration diagnostic arrays by the cumulative counter against a
+   compiled-in bound of 515 with no runtime clamp.
+3. **Then #196**, holding the pinned configuration fixed, on the slices this
+   baseline shows failing in initialization.
+4. **Then #468, #459 and #579**, each with the other two fixed.
+
+## The first-slice seed and the convergence basin (#588)
+
+`seed_basin.py` varies the seed and nothing else — no `ICINIT`, no termination
+setting — because #588 requires that seed geometry, temporal continuation and
+stopping criteria stay separable or nothing can be attributed. Three
+discharges, the routine seed as row one, one axis at a time.
+
+### The seed could not be varied independently, and that is the first finding
+
+`EFITInitializationConfig.rzero` drove **three** namelist quantities: `RELIP`
+(where the seed ellipse sits), `RZERO` (the reference major radius) and
+`RCENTR`, which sets `BTOR = (B_t R)_measured / RCENTR`. A radial sweep
+therefore moved the seed, the normalisation and the vacuum toroidal field
+together. `ellipse_rzero` now drives `RELIP` alone, and setting it to `None`
+restores the old coupling, so the pre-#588 k-file is still reproducible
+byte-for-byte. The results below are from the corrected sweep; the first one
+was discarded.
+
+### The basin is narrow, and the routine seed sits near its outboard edge
+
+Routine totals across the three discharges: 31 equilibria, 18 accepted.
+
+| seed change | equilibria | accepted | slices recovered | slices lost |
+| --- | --- | --- | --- | --- |
+| `ellipse_rzero` 0.30 (inboard) | **38** | **21** | 13 | 4 |
+| `ellipse_rzero` 0.35 | 35 | 19 | 10 | 5 |
+| routine, 0.40 | 31 | 18 | — | — |
+| `ellipse_rzero` 0.45 | 22 | 19 | 6 | 16 |
+| `ellipse_rzero` 0.50 (outboard) | 15 | 15 | 3 | 20 |
+| `zzero` −0.05 m | 18 | 7 | 4 | 17 |
+| `minor_radius` 0.20 | 34 | 22 | 4 | 2 |
+
+Moving the seed 5 cm outboard costs slices on every shot; 10 cm outboard
+halves the yield. Moving it 5–10 cm inboard gains on every shot. A 5 cm
+**vertical** offset costs 13 slices on 41672 alone, which is worth stating
+because that axis was expected to do nothing by symmetry.
+
+The asymmetry has a physical reading: the reconstructions put VEST's plasma
+centre at R ≈ 0.32 m, so a seed at 0.40 m starts outboard of where the plasma
+actually is, and pushing it further out leaves the basin.
+
+### The collapse block is not a seed problem
+
+Of the 29 slices that produce nothing, **only four are ever recovered by any
+seed**, and every one of them sits at the trailing edge of its block —
+position 0 or 1 from the end, adjacent to where the fit starts working:
+
+| shot | collapse block | ever recovered |
+| --- | --- | --- |
+| 39915 | 307–315 (9 slices) | 315 |
+| 41524 | 315–327 (13) | 327 |
+| 41672 | 315–321 (7) | 320, 321 |
+
+The seed can move the boundary between the failing and working phases by a
+slice or two. It cannot touch the block. Across a threefold range in minor
+radius, a factor of two in elongation, ±10 cm radially and ±5 cm vertically,
+86 % of the collapse block is untouched. **That population belongs to #459**,
+with the 17 `findax` losses, not to initialization.
+
+### Refining the region, and the new default
+
+The coarse sweep is on a 5 cm grid, which is too coarse to say where the good
+region begins or ends — a single best point on that grid is not an optimum.
+So the radial axis was re-run at 2 cm over the same three discharges and the
+same 77 plasma slices. The rerun of 0.30 m reproduces the coarse row exactly,
+so the differences between neighbouring points are solver behaviour, not run
+noise.
+
+| `ellipse_rzero` | equilibria | accepted | recovered | lost |
+| --- | --- | --- | --- | --- |
+| 0.28 | 31 | 14 | 9 | 7 |
+| 0.30 | 38 | 21 | 13 | 4 |
+| **0.32** | **39** | **22** | 11 | **2** |
+| 0.34 | 33 | 18 | 6 | 3 |
+| 0.36 | 34 | 19 | 8 | 4 |
+| routine, 0.40 | 31 | 18 | — | — |
+
+Two things are established and one is not. Established: the whole 0.30–0.36 m
+region beats the routine seed, and below 0.30 m the gain disappears — 0.28 m
+is back to the routine's 31 equilibria with four fewer accepted. Not
+established: a point inside the region. The response is not smooth, 0.34 m
+falls back to 33 while 0.36 m recovers to 34, and one or two slices out of 77
+is not a resolvable difference.
+
+**The routine default is now `ellipse_rzero = 0.32 m`, and only that field.**
+`rzero` stays at 0.40 m, so `RZERO`, `RCENTR` and the `BTOR` derived from it
+are untouched; `test_the_inboard_seed_default_moves_relip_and_nothing_else`
+compares the two k-files line by line and fails if anything else moves. The
+argument for 0.32 m specifically is physical rather than fitted: the reference
+set's own reconstructions put the current centroid at a median of 31.8 cm and
+the boundary centre at 33.5 cm, so 0.40 m seeds the ellipse at the *vessel's*
+centre and asks the solver to walk inboard on every slice. That it is also the
+best measured point is corroboration, not the argument. Read no more precision
+into the second digit than 77 slices from three discharges can carry.
+
+One trap found while making the change: `generate_constraints_ods` writes its
+own hard-coded `RELIP = 0.4` into the ODS `code.parameters` tree, beside
+`RZERO`, `AELIP` and `EELIP`. The k-file writer overrides all of them from the
+configuration — which is why the sweep varied anything at all — but nothing
+said so, so that is pinned too.
+
+### What this leaves for #196
+
+Temporal continuation still has a case — a warm start might carry a converged
+solution into the block from the working side, which is a different mechanism
+from re-seeding. But #588's premise, that the first slice must be seeded into
+a good basin before continuation can help, is now answered: the basin is
+narrow and off-centre, and a better seed is available and justified.
+
+## The computational domain and the grid (#459)
+
+`domain_grid.py` runs #459's 2×2 over the three reference discharges: the
+routine box against a reduced one, at 129×129 against 129×257.
+
+### What EFIT's grid contract actually is
+
+Phase 1A's questions have answers, and they are all in the source rather than
+in the documentation.
+
+- **`nw` and `nh` are runtime arguments**, `argv(1)` and `argv(2)`
+  (`efit.F90:93-104`), and `nh` defaults to `nw`. A rectangular grid needs no
+  rebuild; `efit 129 257` is enough. Both are read with an `i4` format, so
+  9999 is the ceiling.
+- **The Green table file name encodes the grid and only the grid**
+  (`table_name_ch`, `tables.F90:34`), so a 129×257 run looks for
+  `ec129257.ddd` and fails loudly if it is absent.
+- **EFIT has no independent notion of the box.** It reads `rgrid` and `zgrid`
+  out of the table (`tables.F90:158`) and derives `drgrid`, `dzgrid` and
+  `darea` from them (`setup_data_fetch.F90:579`). The domain is whatever EFUND
+  baked in, from `&in5`'s `rleft`, `rright`, `zbotto` and `ztop`
+  (`efund_read.f90:200,301-304`).
+- **So two tables for the same grid and different boxes are named
+  identically**, and running against the wrong one is undetectable from EFIT's
+  output. The manifest EFUND writes beside the table is the only record, and
+  `verify_table` reads it before any case runs.
+- `EFUNDConfig` already carried `nw`, `nh` and the four box edges; the
+  regeneration workflow exposed only the grid, and now exposes the box too.
+- One hazard not exercised here: `npoint`, which sizes the boundary-point
+  arrays, is chosen from `nw` alone (`efit.F90:114-120`), so it does not grow
+  with `nh`.
+
+`rleft` is 0.05 m in every case. #459's text quotes the current box as
+starting at R = 0; it never has, because the Green functions are singular on
+the machine axis.
+
+### The 2×2, over 82 plasma slices
+
+| case | domain (m) | grid | cell (mm) | aspect | produced | accepted | collapsed | `bound` | `findax` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | R 0.05–1.2, Z ±1.5 | 129×129 | 9.0 × 23.4 | 2.61 | **46** | **30** | 29 | 41 | 2 |
+| B | R 0.05–1.0, Z ±1.35 | 129×129 | 7.4 × 21.1 | 2.84 | 36 | 23 | 29 | 33 | 13 |
+| C | R 0.05–1.2, Z ±1.5 | 129×257 | 9.0 × 11.7 | 1.30 | 44 | 28 | 29 | 47 | 4 |
+| D | R 0.05–1.0, Z ±1.35 | 129×257 | 7.4 × 10.5 | 1.42 | 36 | 23 | 29 | 33 | 13 |
+
+**Neither lever recovers a slice.** The reduced domain costs ten equilibria
+and the finer grid costs two. B and D are identical on every count on every
+shot, so once the box is reduced the grid changes nothing at all.
+
+**The reduced domain fails in the way the box predicts.** `findax` rejects a
+separatrix point that lands within two cells of the grid edge
+(`find_axis.F90:308-311`); bringing the edge in from |Z| = 1.5 m to 1.35 m
+takes those failures from 2 to 13. The proposal in #459 was to trim unused
+vacuum volume, and on this evidence the volume is not unused.
+
+**The collapse block is untouched.** 29 slices collapse in every one of the
+four cases — the same 29 that #588 showed no seed can rescue. Initialization,
+the domain and the grid have now each been ruled out. That block is not a
+spatial-discretisation problem.
+
+The shots do not agree in detail: 41672 gains two accepted slices from the
+reduced domain while 39915 and 41524 lose five and four. A recommendation from
+three discharges would be premature, and #459 asks for full-discharge evidence
+across more of them before a default moves.
+
+### How much the reconstruction itself moves
+
+Comparing only slices both cases reconstructed, the resolution change (C − A)
+moves every global quantity by well under a percent:
+
+| quantity | largest median change across the three shots |
+| --- | --- |
+| chi-square | 0 exactly |
+| minor radius, area, volume, elongation, axis R | ≤ 0.06 % |
+| q95, qstar, β_p | ≤ 0.17 % |
+| li | 0.26 % |
+| Grad-Shafranov error | 2.1 % |
+
+The one place the grid does show is the **magnetic axis height**, and it shows
+as quantisation rather than as a different equilibrium: on 39915 every
+compared slice moves by 1.1718 cm, which is half the coarse Z cell
+(23.4375 mm) to five digits, and the same 1.1718 cm appears as the largest
+single change on both other shots. `zm` sits at zero on an up-down symmetric
+machine, so its *relative* change is not reported — dividing a centimetre by a
+median of 37 microns produces a number in the millions of percent, which is
+arithmetic and not physics.
+
+### A defect in the log reading, found here and fixed
+
+`bound` can reject a slice **before its first Picard iteration**, printing only
+`ERROR in bound at r=..., t=...`. `parse_slices` delimited slices on the
+iteration counter alone, so it handed those errors to the *previous* slice and
+dropped the slice itself. On 39915 the run ends with two such rejections, so a
+converged slice was carrying two failures that were not its own and the
+denominator was 22 where EFIT had processed 24.
+
+The parser now opens a slice when a solver error names a time the current
+slice does not have. **This changes the denominators of the earlier
+studies**: the reference set has 82 plasma slices, not 77, and case A here
+produces 46 equilibria where the merged #171 baseline reported 31. Both
+studies' *relative* comparisons stand, because every row was read by the same
+parser; the absolute counts in the baseline and seed reports predate the fix.
+
+### An open question this raised
+
+Case A is the routine box and the routine grid, and it still produces 46
+equilibria against the merged baseline's 31. The two runs differ in two things
+at once — a freshly generated Green table instead of the packaged one, and a
+freshly generated `mhdin.dat` geometry instead of the packaged one — so which
+is responsible is not established here. #194's A/B compared the tables alone
+on four slices and found no difference; this is the first evidence that
+something in that pair matters on the marginal slices, and it matters more
+than either lever #459 set out to test. It needs its own controlled A/B.

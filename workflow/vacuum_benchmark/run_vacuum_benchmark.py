@@ -45,9 +45,12 @@ from vaft.validation.vacuum_benchmark import (
 
 
 def _load(path: Path) -> Any:
-    from omas import load_omas_json
+    # `vaft.omas.load`, not `load_omas_json`: canonical stage products are
+    # gzipped, which this script's own usage example above has always spelled
+    # and `load_omas_json` has never been able to read.
+    from vaft.omas import load
 
-    return load_omas_json(str(path), consistency_check=False)
+    return load(path)
 
 
 def _machine_era(shot: int | None) -> str | None:
@@ -137,7 +140,11 @@ def main(argv: list[str] | None = None) -> int:
             rejected.append({"shot": shot, "reason": str(error)})
 
     payload = {
-        "schema_version": 1,
+        # 4 (#752): the case records are schema 5 and their plasma_free_evidence
+        # schema 4 -- the embedded timing summary carries duty_cycle.  3 (#409):
+        # the retired detectors' legacy block is gone; 2 had changed the case
+        # records' shape.
+        "schema_version": 4,
         "configuration": {
             "resistance_scale": args.resistance_scale,
             "n_tau": args.n_tau,
