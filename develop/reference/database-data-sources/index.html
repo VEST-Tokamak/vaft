@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a6cd17e</code>. What is described
+  <code>a154e08</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -457,6 +457,67 @@ when conversion is required.</p>
 
 <p>Set <code class="language-plaintext highlighter-rouge">VAFT_FILEDB_DIR</code> when the configuration uses that environment reference. The audit helpers are
 read-only and propose legacy-to-canonical mappings without moving data.</p>
+
+<h2 id="exporting-a-shot-as-local-files">Exporting a shot as local files</h2>
+
+<p>A shot on HSDS is a folder (<code class="language-plaintext highlighter-rouge">master.h5</code> plus one image per IDS), so <code class="language-plaintext highlighter-rouge">hsget</code> cannot fetch it whole.
+<code class="language-plaintext highlighter-rouge">vaft export</code> stages the shot once and writes every requested format from that one copy:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft <span class="nb">export</span> <span class="nt">--shot</span> 41672 <span class="nt">--source</span> public <span class="nt">--backend</span> imas-nc omas-json geqdsk
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">export</span><span class="p">(</span><span class="mi">41672</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">imas-nc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">omas-json</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">geqdsk</span><span class="sh">"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>backend</th>
+      <th>written as</th>
+      <th>format</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas-hdf5</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_&lt;shot&gt;_hdf5/</code></td>
+      <td>native IMAS HDF5 Data Entry, copied as stored</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas-nc</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_&lt;shot&gt;.nc</code></td>
+      <td>IMAS netCDF convention (IMAS-Python)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-json</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.json</code></td>
+      <td>OMAS JSON</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-hdf5</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.h5</code></td>
+      <td>OMAS single-file HDF5, not an IMAS Data Entry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-nc</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.nc</code></td>
+      <td>OMAS flat netCDF, not the IMAS convention</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">geqdsk</code></td>
+      <td><code class="language-plaintext highlighter-rouge">geqdsk_&lt;shot&gt;/</code></td>
+      <td>one g-file per equilibrium time slice</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Artifacts go directly under <code class="language-plaintext highlighter-rouge">--output</code> (default: the current directory). Existing ones are refused
+unless <code class="language-plaintext highlighter-rouge">--overwrite</code> is given, and a backend that fails leaves nothing behind. The converted backends
+read occurrence 0 and refuse a shot that stores other occurrences; <code class="language-plaintext highlighter-rouge">imas-hdf5</code> keeps them all.
+Export reads the DD version the IDS were stored with (the newest one when stages wrote different
+minor versions) and never converts across a major version: a shot mixing DD 3 and DD 4 IDS is
+refused, and <code class="language-plaintext highlighter-rouge">geqdsk</code> needs a DD 3 shot, because DD 4 flips the psi sign convention (COCOS 17).
+Both netCDF backends need the <code class="language-plaintext highlighter-rouge">netCDF4</code> package.</p>
 
 <h2 id="saving-to-hsds">Saving to HSDS</h2>
 
@@ -940,7 +1001,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
     </nav>
 </aside>
 
@@ -1058,7 +1119,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 03:57:06 +0000"
+        "time": "2026-09-17 05:27:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
