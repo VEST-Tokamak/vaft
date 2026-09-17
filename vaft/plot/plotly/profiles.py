@@ -28,13 +28,14 @@ def add_profile_1d(
     cell = {"row": row, "col": col} if row is not None else {}
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
     labelled = judged = 0
+    start = len(figure.data)
     for series, label in zip(model.series, labels):
         if add_series(figure, series, name=label, uncertainty=uncertainty, validity=validity,
                       legend=legend is not False, **cell, **style):
             labelled += 1
             if not series.role:
                 judged += 1
-    _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell)
+    _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell, start)
     for line in model.reference_lines:
         figure.add_vline(
             x=line.x,
