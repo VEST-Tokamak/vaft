@@ -2869,3 +2869,40 @@ def test_nubeam_windows_commands_name_a_path_that_exists():
     wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
     # The harness needs --nubeam-root and refuses any platform but Darwin/Linux.
     assert "run-local-validation.sh --case" not in wrapper
+
+
+@requires_bash
+def test_nubeam_macos_derives_the_gcc_major_from_the_selected_gfortran(tmp_path):
+    """Cold review install F3: gcc-15/g++-15 were literals; Homebrew's gcc is 16.
+
+    Every macOS user with a current Homebrew died at "GCC executables were not
+    found" before anything was built.
+    """
+    text = (NUBEAM_DIR / "macos.sh").read_text(encoding="utf-8")
+    assert not re.search(r"(gcc|g\+\+|gfortran)-\d+", _executable_source(NUBEAM_DIR / "macos.sh"))
+    start = text.index("select_homebrew_compilers() {")
+    function = text[start: text.index("\n}\n", start) + 3]
+    keg = tmp_path / "gcc" / "bin"
+    keg.mkdir(parents=True)
+    for name, body in (("gfortran", "echo 16.2.0"), ("gcc-16", ":"), ("g++-16", ":"), ("gcc-15", ":")):
+        (keg / name).write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+        (keg / name).chmod(0o755)
+    script = (
+        "set -euo pipefail\ndie() { printf 'DIE: %s\\n' \"$*\" >&2; exit 1; }\n"
+        + function
+        + 'select_homebrew_compilers "$1"; printf \'%s\\n\' "$FC" "$CC" "$CXX"\n'
+    )
+
+    def select():
+        return subprocess.run(
+            [BASH, "-c", script, "x", str(keg.parent)], capture_output=True, text=True, timeout=60
+        )
+
+    chosen = select()
+    assert chosen.returncode == 0, chosen.stderr
+    assert chosen.stdout.split() == [str(keg / "gfortran"), str(keg / "gcc-16"), str(keg / "g++-16")]
+
+    (keg / "g++-16").unlink()
+    refused = select()
+    assert refused.returncode == 1
+    assert "g++-16" in refused.stderr and "brew reinstall gcc" in refused.stderr
