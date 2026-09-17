@@ -436,6 +436,119 @@ def test_rotation_is_left_absent_when_a_species_lacks_it():
 
 
 # --------------------------------------------------------------------------
+# The sqrt(psi_N) proxy under core_profiles grid.rho_tor_norm
+# --------------------------------------------------------------------------
+
+
+def _with_proxy_profile_grid(ods):
+    """48224 with its kinetic grid relabelled the way a pre-#420 writer stored it.
+
+    The profiles stay where they are physically; only the number stored under
+    ``grid.rho_tor_norm`` becomes ``sqrt(psi_N)`` at each point.
+    """
+    import copy
+
+    bad = copy.deepcopy(ods)
+    eq = bad["equilibrium.time_slice.0.profiles_1d"]
+    psi = np.asarray(eq["psi"], dtype=float)
+    proxy = np.sqrt(np.clip((psi - psi[0]) / (psi[-1] - psi[0]), 0.0, None))
+    phi = np.asarray(eq["phi"], dtype=float)
+    true_rho = np.sqrt(np.abs(phi / phi[-1]))
+    assert np.max(np.abs(proxy - true_rho)) > 0.05, "the case must distinguish the two"
+    grid = "core_profiles.profiles_1d.0.grid"
+    # The sample's kinetic grid is the equilibrium's, so the proxy at each kinetic
+    # point is exactly the square root of that point's own psi_N.
+    np.testing.assert_allclose(np.asarray(bad[f"{grid}.psi"], dtype=float), psi)
+    bad[f"{grid}.rho_tor_norm"] = proxy
+    return bad
+
+
+@requires_sample
+@pytest.mark.parametrize("coordinate", ["psi", "rho_pol_norm"])
+def test_a_proxy_kinetic_grid_is_carried_through_psi_n(ods_48224, coordinate):
+    """Cold review transport F2: ne was +83 % at rho 0.7, labelled ``measured``."""
+    truth = prepare_gacode_profile(ods_48224, rho_max=0.95)
+    assert truth.provenance["profile_grid"]["kind"] == "measured"
+
+    bad = _with_proxy_profile_grid(ods_48224)
+    grid = "core_profiles.profiles_1d.0.grid"
+    if coordinate == "rho_pol_norm":
+        bad[f"{grid}.rho_pol_norm"] = np.asarray(bad[f"{grid}.rho_tor_norm"]).copy()
+        del bad[f"{grid}.psi"]
+    got = prepare_gacode_profile(bad, rho_max=0.95)
+
+    np.testing.assert_allclose(got.ne, truth.ne, rtol=2e-3)
+    np.testing.assert_allclose(got.te, truth.te, rtol=2e-3)
+    np.testing.assert_allclose(got.ni, truth.ni, rtol=2e-3)
+    assert got.provenance["profile_grid"]["kind"] == "derived"
+    assert "proxy" in got.provenance["profile_grid"]["source"]
+    assert "proxy" in got.provenance["ne"]["grid"]
+
+
+@requires_sample
+def test_a_proxy_kinetic_grid_copied_from_a_proxy_equilibrium_is_recognised(ods_48224):
+    """What the <= 0.6 writer left: both arrays the proxy, no psi on the kinetic grid."""
+    import copy
+
+    truth = prepare_gacode_profile(ods_48224, rho_max=0.95)
+    bad = copy.deepcopy(ods_48224)
+    eq = "equilibrium.time_slice.0.profiles_1d"
+    grid = "core_profiles.profiles_1d.0.grid"
+    psi = np.asarray(bad[f"{eq}.psi"], dtype=float)
+    phi = np.asarray(bad[f"{eq}.phi"], dtype=float)
+    # Non-uniform in psi_N, so the uniform-grid default cannot be what recognises it.
+    psi_norm = np.linspace(0.0, 1.0, psi.size) ** 1.5
+    true_rho = np.sqrt(np.abs(phi / phi[-1]))
+    stored_psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+    for name in ("psi", "phi", "q", "r_inboard", "r_outboard"):
+        bad[f"{eq}.{name}"] = np.interp(
+            psi_norm, stored_psi_norm, np.asarray(bad[f"{eq}.{name}"], dtype=float)
+        )
+    for name in list(bad[eq].keys()):
+        values = np.asarray(bad[f"{eq}.{name}"])
+        if values.ndim == 1 and values.size == psi.size and name not in (
+            "psi", "phi", "q", "r_inboard", "r_outboard"
+        ):
+            bad[f"{eq}.{name}"] = np.interp(psi_norm, stored_psi_norm, values.astype(float))
+    bad[f"{eq}.rho_tor_norm"] = np.sqrt(psi_norm)
+    cp = "core_profiles.profiles_1d.0"
+    source_rho = np.asarray(ods_48224[f"{grid}.rho_tor_norm"], dtype=float)
+    new_true_rho = np.interp(psi_norm, stored_psi_norm, true_rho)
+    for leaf in (
+        "electrons.density_thermal", "electrons.temperature",
+        "ion.0.density_thermal", "ion.0.temperature", "ion.0.velocity.toroidal",
+    ):
+        bad[f"{cp}.{leaf}"] = np.interp(
+            new_true_rho, source_rho, np.asarray(ods_48224[f"{cp}.{leaf}"], dtype=float)
+        )
+    bad[f"{grid}.rho_tor_norm"] = np.sqrt(psi_norm)
+    del bad[f"{grid}.psi"]
+
+    got = prepare_gacode_profile(bad, rho_max=0.95)
+    assert got.provenance["profile_grid"]["kind"] == "derived"
+    np.testing.assert_allclose(
+        np.interp(truth.rho, got.rho, got.ne), truth.ne, rtol=5e-3
+    )
+
+
+@requires_sample
+def test_a_kinetic_grid_nothing_can_vouch_for_says_so(ods_48224):
+    import copy
+
+    bare = copy.deepcopy(ods_48224)
+    cp = "core_profiles.profiles_1d.0"
+    del bare[f"{cp}.grid.psi"]
+    # Every other point, so it is not recognisably the equilibrium's own array.
+    for leaf in (
+        "grid.rho_tor_norm", "electrons.density_thermal", "electrons.temperature",
+        "ion.0.density_thermal", "ion.0.temperature", "ion.0.velocity.toroidal",
+    ):
+        bare[f"{cp}.{leaf}"] = np.asarray(ods_48224[f"{cp}.{leaf}"], dtype=float)[::2]
+    profile = prepare_gacode_profile(bare, rho_max=0.95)
+    assert profile.provenance["profile_grid"]["kind"] == "unverified"
+
+
+# --------------------------------------------------------------------------
 # Review findings: signs, the toroidal flux, and the field's time
 # --------------------------------------------------------------------------
 
