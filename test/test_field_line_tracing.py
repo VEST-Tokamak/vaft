@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.process.equilibrium import make_equilibrium_field_interpolator, trace_field_line
+from vaft.process.equilibrium import (
+    connection_length_map,
+    make_equilibrium_field_interpolator,
+    make_vacuum_field_interpolator,
+    trace_field_line,
+)
 from vaft.process.camera_geometry import trajectory_world_points
 from vaft.omas.process_wrapper import compute_field_line_trace, compute_camera_visible_field_line_overlay
 from vaft.omas import plot_camera_visible_image_field_line as plot_camera_visible_field_line
@@ -303,3 +308,177 @@ def test_plot_camera_visible_field_line_can_include_efit_overlay():
     assert "LCFS" in labels
     assert "Magnetic axis" in labels
     plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# The vacuum-field interpolator and the connection length it feeds (#230)
+# ---------------------------------------------------------------------------
+
+BOX_R = np.array([0.1, 0.8, 0.8, 0.1, 0.1])
+BOX_Z = np.array([-0.5, -0.5, 0.5, 0.5, -0.5])
+R0_B0 = 0.06  # [T m], VEST's own product to within a few percent
+
+
+def _vacuum_field(b_r_value: float = 0.0, b_z_value: float = 0.0, n_grid: int = 41):
+    r = np.linspace(0.1, 0.8, n_grid)
+    z = np.linspace(-0.5, 0.5, n_grid)
+    shape = (r.size, z.size)
+    return (
+        make_vacuum_field_interpolator(
+            r, z, np.full(shape, b_r_value), np.full(shape, b_z_value), R0_B0
+        ),
+        r,
+        z,
+    )
+
+
+def test_the_vacuum_interpolator_gives_the_toroidal_field_exactly():
+    """$B_\\varphi = R_0B_0/R$ is not interpolated, so it carries no grid error."""
+    field, _, _ = _vacuum_field()
+    radius = np.array([0.15, 0.37, 0.4, 0.79])
+    _, _, b_phi = field(radius, np.zeros_like(radius))
+    np.testing.assert_allclose(b_phi, R0_B0 / radius, rtol=1e-15)
+
+
+def test_the_vacuum_interpolator_takes_scalars_and_arrays_alike():
+    """`trace_field_line` calls it one point at a time; the map calls it in bulk."""
+    field, _, _ = _vacuum_field(b_z_value=1e-3)
+    scalar = field(0.4, 0.0)
+    array = field(np.array([0.4]), np.array([0.0]))
+    for one, many in zip(scalar, array):
+        np.testing.assert_allclose(float(one), float(many[0] if np.ndim(many) else many))
+
+
+def test_the_vacuum_interpolator_rejects_a_field_that_does_not_fit_its_grid():
+    r = np.linspace(0.1, 0.8, 11)
+    z = np.linspace(-0.5, 0.5, 13)
+    with pytest.raises(ValueError, match=r"must both be \(11, 13\)"):
+        make_vacuum_field_interpolator(r, z, np.zeros((11, 13)), np.zeros((13, 11)), R0_B0)
+
+
+def test_a_purely_toroidal_line_closes_and_is_reported_as_saturated():
+    """No poloidal field means a circle: it never reaches a wall, and saying so
+    is the difference between a long connection length and an unbounded one."""
+    field, _, _ = _vacuum_field()
+    result = connection_length_map(
+        np.array([0.4]), np.array([0.0]), field,
+        wall_r=BOX_R, wall_z=BOX_Z, max_length_m=10.0,
+    )
+    assert result["length_m"][0] == pytest.approx(20.0)
+    assert bool(result["saturated"][0])
+    assert not bool(result["outside"][0])
+
+
+def test_one_toroidal_turn_measures_its_own_circumference():
+    """The arc bookkeeping against a length nobody has to trust: 2 pi R."""
+    field, _, _ = _vacuum_field()
+    turn = 2.0 * np.pi * 0.4
+    result = connection_length_map(
+        np.array([0.4]), np.array([0.0]), field,
+        wall_r=BOX_R, wall_z=BOX_Z, dphi=np.deg2rad(1.0), max_length_m=turn,
+    )
+    assert result["forward_m"][0] == pytest.approx(turn, rel=1e-6)
+
+
+def test_a_uniform_vertical_field_walks_the_line_to_the_roof():
+    """A known pitch over a known height: the length follows from geometry
+    alone, so this checks the integration and not just its self-consistency."""
+    b_z = 6e-4
+    field, _, _ = _vacuum_field(b_z_value=b_z)
+    pitch = b_z / (R0_B0 / 0.4)
+    expected = 2.0 * 0.5 / pitch  # both directions, half a metre of travel each
+    result = connection_length_map(
+        np.array([0.4]), np.array([0.0]), field,
+        wall_r=BOX_R, wall_z=BOX_Z, dphi=np.deg2rad(1.0), max_length_m=1e4,
+    )
+    assert result["length_m"][0] == pytest.approx(expected, rel=1e-3)
+    assert not bool(result["saturated"][0])
+
+
+def test_a_seed_outside_the_wall_has_no_connection_length():
+    """`nan`, not zero: a point outside the vessel has no answer rather than
+    the shortest one, and zero would read as the shortest."""
+    field, _, _ = _vacuum_field()
+    result = connection_length_map(
+        np.array([0.9, 0.4]), np.array([0.0, 0.0]), field,
+        wall_r=BOX_R, wall_z=BOX_Z, max_length_m=5.0,
+    )
+    assert np.isnan(result["length_m"][0])
+    assert bool(result["outside"][0])
+    assert np.isfinite(result["length_m"][1])
+    assert not bool(result["outside"][1])
+
+
+def test_the_map_keeps_the_shape_of_its_seeds():
+    field, r, z = _vacuum_field(b_z_value=6e-4)
+    mesh_r, mesh_z = np.meshgrid(r[::8], z[::8], indexing="ij")
+    result = connection_length_map(
+        mesh_r, mesh_z, field, wall_r=BOX_R, wall_z=BOX_Z, max_length_m=20.0,
+    )
+    for key in ("length_m", "forward_m", "backward_m", "saturated", "outside"):
+        assert result[key].shape == mesh_r.shape, key
+
+
+def test_tracing_many_seeds_at_once_agrees_with_tracing_them_one_at_a_time():
+    """The vectorised stepper is the same integrator as `trace_field_line`, so
+    a grid of seeds must not quietly answer differently from a loop over them."""
+    field, r, z = _vacuum_field(b_z_value=4e-4)
+    seeds_r = np.array([0.30, 0.40, 0.55])
+    seeds_z = np.array([0.0, 0.1, -0.2])
+    together = connection_length_map(
+        seeds_r, seeds_z, field, wall_r=BOX_R, wall_z=BOX_Z,
+        dphi=np.deg2rad(1.0), max_length_m=1e4,
+    )
+    for index, (seed_r, seed_z) in enumerate(zip(seeds_r, seeds_z)):
+        trace = trace_field_line(
+            float(seed_r), float(seed_z), 0.0, field,
+            dphi=np.deg2rad(1.0), max_length_m=1e4, direction="both",
+            wall_r=BOX_R, wall_z=BOX_Z,
+        )
+        assert together["length_m"][index] == pytest.approx(
+            float(trace["arc_length_m"][-1]), rel=2e-3
+        )
+
+
+def test_the_map_rejects_a_step_or_a_limit_that_cannot_advance():
+    field, _, _ = _vacuum_field()
+    for kwargs, message in (
+        ({"dphi": 0.0}, "dphi must be positive"),
+        ({"max_length_m": 0.0}, "max_length_m must be positive"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            connection_length_map(
+                np.array([0.4]), np.array([0.0]), field,
+                wall_r=BOX_R, wall_z=BOX_Z, **kwargs,
+            )
+
+
+def test_the_map_rejects_seed_arrays_that_do_not_line_up():
+    field, _, _ = _vacuum_field()
+    with pytest.raises(ValueError, match="same shape"):
+        connection_length_map(
+            np.array([0.4, 0.5]), np.array([0.0]), field, wall_r=BOX_R, wall_z=BOX_Z,
+        )
+
+
+def test_a_line_whose_field_gives_out_has_no_length_rather_than_a_partial_one():
+    """Found in review: a step that produced a non-finite point was counted as a
+    wall hit and reported the length it had reached. Nothing is known about where
+    such a line ends, so it has no length."""
+
+    def field_that_fails_above(z_limit):
+        def b_field(R, Z):
+            R = np.asarray(R, dtype=float)
+            Z = np.asarray(Z, dtype=float)
+            b_z = np.where(Z > z_limit, np.nan, 6e-4)
+            return np.zeros_like(R), b_z * np.ones_like(R), R0_B0 / R
+        return b_field
+
+    result = connection_length_map(
+        np.array([0.4, 0.4]), np.array([0.0, -0.45]), field_that_fails_above(0.2),
+        wall_r=BOX_R, wall_z=BOX_Z, dphi=np.deg2rad(1.0), max_length_m=1e4,
+    )
+    # the first seed drifts up into the region where the field gives out
+    assert np.isnan(result["forward_m"][0])
+    assert np.isnan(result["length_m"][0])
+    assert not bool(result["outside"][0])

@@ -15,6 +15,7 @@ import numpy as np
 
 from vaft.formula.statistics import rms
 
+from ..compat import is_executable, resolve_executable
 from ._executables import executable_from_home, missing_home_message
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
@@ -33,12 +34,25 @@ class CHEASEConfig:
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    nideal: int = 11
+    # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
+    # in `cotrol` on anything outside it, before any equilibrium work. 6 is
+    # upstream's own default (`preset.f90:104`) and the value every VAFT caller
+    # that actually runs CHEASE already passed by hand. The VEST `jsk95`
+    # workflow uses 11, which only its own CHEASE revision accepts; pass
+    # `nideal=11` explicitly for it.
+    nideal: int = 6
     nw: int = 513
-    # --- jsk95 parity knobs (defaults reproduce eqdsk.py run_mode='jsk95') ---
-    epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}; jsk95 uses 10
-    q95_constraint: bool = True  # drive QSPEC/CSSPEC from q at psi_N=sqrt(q95_psin)
-    q95_psin: float = 0.95  # jsk95 constraint location (qloc = sqrt(this))
+    epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
+
+    #: Normalized poloidal flux at which CHEASE is told to match q.
+    #:
+    #: 0.95 is the conventional q95 surface. ``None`` constrains q on axis
+    #: instead, which is what CHEASE does with ``CSSPEC=0``.
+    #:
+    #: This replaces the former ``q95_constraint``/``q95_psin`` pair, which
+    #: sampled q at ``sqrt(0.95) = 0.9747`` rather than at 0.95 -- see
+    #: :func:`_csspec_from_psi_norm`.
+    q_constraint_psi_norm: Optional[float] = 0.95
     ncscal: int = 1  # CHEASE current-scaling mode
     edge_zero: bool = True  # zero positive edge pprime, flatten FF' inward
     boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
@@ -445,8 +459,30 @@ def _resolve_boundary(rz: np.ndarray, config: "CHEASEConfig") -> np.ndarray:
     return _smooth_boundary_fft(rz, int(config.boundary_fft_num))
 
 
+def _csspec_from_psi_norm(psi_norm: float) -> float:
+    """CHEASE's ``CSSPEC`` for a constraint at normalized poloidal flux *psi_norm*.
+
+    ``CSSPEC`` is not a flux label. CHEASE looks it up on its own radial mesh
+    ``s``, and ``norept.f90`` defines that mesh and inverts it in the same
+    routine::
+
+        ZS(J1) = SQRT(1 - PSIISO(J1)/SPSIM)        ! s = sqrt(psi_norm)
+        ICS    = ISRCHFGE(KN, ZS, 1, CSSPEC)       ! CSSPEC is located in ZS
+        zpsinorm = zs**2 ;  xscal = csspec**2      ! and psi_norm = CSSPEC^2
+
+    So the one square root here is a coordinate transform, nothing more:
+    constraining q at ``psi_norm`` means ``CSSPEC = sqrt(psi_norm)``.
+
+    The legacy VEST workflow applied this square root *twice* -- it sampled q
+    at ``sqrt(0.95)`` and then wrote ``CSSPEC = 0.95**0.25`` -- which is
+    self-consistent but constrains the surface at ``psi_norm = 0.9747``, not
+    the conventional q95 surface at 0.95.
+    """
+    return float(np.sqrt(psi_norm))
+
+
 def _edge_zero_profiles(
-    psin: np.ndarray, pprime: np.ndarray, ffprim: np.ndarray, qloc: float
+    psin: np.ndarray, pprime: np.ndarray, ffprim: np.ndarray, constraint_psi_norm: float
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """Zero non-physical edge pprime reversals, flatten FF' inward (eqdsk.py:566-573).
 
@@ -460,8 +496,9 @@ def _edge_zero_profiles(
     literal ``> 0`` test would zero the ENTIRE profile. Testing against the bulk
     sign (median) reproduces eqdsk's intent regardless of the COCOS convention.
 
-    ``qloc`` is nudged outward exactly as eqdsk.py does when a reversed point
-    falls between ``qloc`` and 0.3 (inert for jsk95 since qloc = sqrt(0.95) > 0.3).
+    ``constraint_psi_norm`` is nudged outward exactly as the donor does when a
+    reversed point falls between it and 0.3. That branch is inert for any
+    edge constraint, since 0.95 > 0.3; it fires only for a near-axis one.
     """
     pp = np.array(pprime, dtype=float, copy=True)
     ff = np.array(ffprim, dtype=float, copy=True)
@@ -472,11 +509,11 @@ def _edge_zero_profiles(
     for i in range(lenp):
         ii = lenp - i - 1
         if pp[ii] * bulk_sign < 0.0:  # reversed relative to the bulk => non-physical
-            if qloc < psin[ii] < 0.3:
-                qloc = float(psin[ii] + 0.1)
+            if constraint_psi_norm < psin[ii] < 0.3:
+                constraint_psi_norm = float(psin[ii] + 0.1)
             pp[ii] = 0.0
             ff[ii] = ff[ii + 1]
-    return pp, ff, qloc
+    return pp, ff, constraint_psi_norm
 
 
 def _chease_mesh_params(nideal: int) -> dict[str, int]:
@@ -509,11 +546,17 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     pressure = _profile(geqdsk["PRES"], NCHEASE)
     ffprim = _profile(geqdsk["FFPRIM"], NCHEASE)
 
-    # jsk95 parity: constraint location qloc = sqrt(q95_psin); may be nudged
-    # outward by edge-zeroing exactly as eqdsk.py chease_params/make_chease_expeq.
-    qloc = float(np.sqrt(config.q95_psin)) if config.q95_constraint else 0.0
+    # The flux surface q is matched on, in psi_norm. Edge-zeroing may nudge it
+    # outward, exactly as the donor's chease_params/make_chease_expeq does.
+    constraint_psi_norm = (
+        float(config.q_constraint_psi_norm)
+        if config.q_constraint_psi_norm is not None
+        else 0.0
+    )
     if config.edge_zero:
-        pprime, ffprim, qloc = _edge_zero_profiles(psin, pprime, ffprim, qloc)
+        pprime, ffprim, constraint_psi_norm = _edge_zero_profiles(
+            psin, pprime, ffprim, constraint_psi_norm
+        )
 
     # CHEASE's inverse-equilibrium EXPEQ convention uses a negative-definite
     # pressure-gradient drive and the opposite FF' sign from EFIT/GEQDSK after
@@ -544,17 +587,18 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
 
     q = np.asarray(geqdsk["QPSI"], dtype=float).reshape(-1)
     sign_q = np.sign(float(geqdsk["CURRENT"])) * np.sign(float(geqdsk["BCENTR"]))
-    if config.q95_constraint and config.ncscal == 1 and q.size >= 4:
-        # jsk95 double-sqrt: q is sampled at psi_N = sqrt(q95_psin) (NOT q95_psin),
-        # and CSSPEC = sqrt(qloc) = q95_psin**0.25. See eqdsk.py:1717/763/698.
+    if config.q_constraint_psi_norm is not None and config.ncscal == 1 and q.size >= 4:
+        # q is sampled at the constraint surface itself, and CSSPEC is that same
+        # surface expressed on CHEASE's radial mesh.
         from scipy.interpolate import interp1d
 
         x_q = np.linspace(0.0, 1.0, q.size)
-        q_at = float(interp1d(x_q, q, kind="cubic", fill_value="extrapolate")(qloc))
+        q_of_psi_norm = interp1d(x_q, q, kind="cubic", fill_value="extrapolate")
+        q_at = float(q_of_psi_norm(constraint_psi_norm))
         qval = q_at * sign_q
-        csspec = float(np.sqrt(qloc))
+        csspec = _csspec_from_psi_norm(constraint_psi_norm)
     else:
-        # Legacy adapter behavior: constrain on-axis q, CSSPEC disabled.
+        # No flux-surface constraint: CHEASE matches q on axis (CSSPEC = 0).
         qval = float(q[0] * sign_q) if q.size else 1.0
         csspec = 0.0
     return {
@@ -564,7 +608,7 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         "CURRT": current,
         "QSPEC": qval,
         "CSSPEC": csspec,
-        "QLOC": qloc,
+        "CONSTRAINT_PSI_NORM": constraint_psi_norm,
         # CHEASE sees already-normalized COCOS-02 inputs. Keeping these
         # experimental sign fields positive avoids a second sign flip inside
         # CHEASE's inverse solver.
@@ -669,8 +713,8 @@ def _default_input_name(source: Any) -> str:
 def _resolve_executable(config: CHEASEConfig) -> Path | None:
     candidates = []
     if config.executable:
-        candidate = Path(config.executable).expanduser()
-        return candidate if candidate.exists() and os.access(candidate, os.X_OK) else None
+        candidate = resolve_executable(Path(config.executable).expanduser())
+        return candidate if candidate is not None and is_executable(candidate) else None
     environment = {**os.environ, **dict(config.env)}
     home_executable = executable_from_home(
         environment.get(CHEASE_HOME_ENV),
@@ -689,8 +733,12 @@ def _resolve_executable(config: CHEASEConfig) -> Path | None:
         env_candidate = Path(env_path).expanduser()
         candidates.append(env_candidate / "chease" if env_candidate.is_dir() else env_candidate)
     for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return candidate
+        # `is_executable` requires a regular file, where the previous
+        # `exists()` accepted a directory -- which is executable on POSIX and
+        # then fails inside `subprocess.run`.
+        resolved = resolve_executable(candidate)
+        if resolved is not None and is_executable(resolved):
+            return resolved
     return None
 
 
@@ -878,6 +926,7 @@ def _resample_closed_curve(rz: np.ndarray, count: int = 256) -> np.ndarray:
 def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle: str):
     """Boundary and limiter outlines for one equilibrium, as geometry layers."""
     from vaft.plot import GeometryLayer
+    from vaft.plot.presentation import EQUILIBRIUM_ROLE
 
     layers = []
     rb = np.asarray(geqdsk.get("RBBBS", []), dtype=float)
@@ -891,6 +940,7 @@ def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle:
                 kind="polyline",
                 label=f"{label} boundary",
                 style={"color": color, "linestyle": linestyle, "lw": 1.8},
+                role=EQUILIBRIUM_ROLE,
             )
         )
     rl = np.asarray(geqdsk.get("RLIM", []), dtype=float)
@@ -989,7 +1039,7 @@ def _create_comparison_plot(original: Any, refined: Any, target: Path) -> Path:
 
 def _read_optional(path: Path) -> str:
     try:
-        return path.read_text(errors="replace")
+        return path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return ""
 
@@ -1024,15 +1074,36 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
 
     env = os.environ.copy()
     env.update(dict(config.env))
-    completed = subprocess.run(
-        [str(executable), *config.args],
-        cwd=str(inputs.workdir),
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            [str(executable), *config.args],
+            cwd=str(inputs.workdir),
+            env=env,
+            text=True,
+            capture_output=True,
+            # CHEASE writes its own diagnostics, so the bytes on these pipes are
+            # a foreign program's, not this repository's. Decoding them at the
+            # host locale turns a *completed* solve into a UnicodeDecodeError on
+            # any non-UTF-8 console -- cp949, for one -- after the refined
+            # equilibrium is already on disk. The log below is written as UTF-8,
+            # so reading as UTF-8 is also what makes the round trip symmetric,
+            # and `replace` keeps one bad character from discarding the run.
+            encoding="utf-8",
+            errors="replace",
+            timeout=config.timeout,
+            check=False,
+        )
+    except OSError as error:
+        # The file resolved and passed the executability probe and the operating
+        # system still refused to start it. A configuration problem raises above;
+        # this is a runtime one, so it is reported the way a non-zero exit is,
+        # rather than as a traceback out of a notebook cell.
+        completed = subprocess.CompletedProcess(
+            [str(executable), *config.args],
+            returncode=1,
+            stdout="",
+            stderr=f"CHEASE could not be launched ({executable}): {error}",
+        )
     log_path = inputs.workdir / "chease.log"
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
 

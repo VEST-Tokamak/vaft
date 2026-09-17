@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs
@@ -17,7 +18,8 @@ TES_COMPATIBILITY_ENV = "RTES"
 
 def _resolve_executable(config: TESConfig) -> str:
     if config.executable:
-        exe = Path(config.executable).expanduser()
+        requested = Path(config.executable).expanduser()
+        exe = resolve_executable(requested) or requested
     else:
         home_executable = executable_from_home(
             os.environ.get(TES_HOME_ENV),
@@ -41,7 +43,7 @@ def _resolve_executable(config: TESConfig) -> str:
         )
     if not exe.is_file():
         raise FileNotFoundError(f"rtes binary not found: {exe}")
-    if not os.access(exe, os.X_OK):
+    if not is_executable(exe):
         raise PermissionError(f"rtes binary is not executable: {exe}")
     return str(exe)
 
@@ -64,15 +66,36 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     env = os.environ.copy()
     env.update(dict(config.env))
 
-    completed = subprocess.run(
-        cmd,
-        cwd=str(inputs.workdir),
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            cmd,
+            cwd=str(inputs.workdir),
+            env=env,
+            text=True,
+            capture_output=True,
+            # A foreign program's bytes; see the note in vaft.code.chease.
+            encoding="utf-8",
+            errors="replace",
+            timeout=config.timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        result = collect_tes_outputs(inputs.workdir, config)
+        result.returncode = 124
+        stdout_str = (
+            exc.stdout.decode("utf-8", "replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
+        stderr_str = (
+            exc.stderr.decode("utf-8", "replace")
+            if isinstance(exc.stderr, bytes)
+            else (exc.stderr or "")
+        )
+        timeout_msg = f"rtes timed out after {config.timeout} seconds"
+        result.stdout = stdout_str
+        result.stderr = f"{stderr_str}\n{timeout_msg}" if stderr_str else timeout_msg
+        return result
 
     result = collect_tes_outputs(inputs.workdir, config)
     result.returncode = completed.returncode

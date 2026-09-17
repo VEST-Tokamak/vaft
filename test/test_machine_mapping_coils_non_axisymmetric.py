@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
-from vaft.machine_mapping.coil_geometry_3d import (
+from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
     CoilExcitation,
     load_vest_3d_coil_config,
 )
