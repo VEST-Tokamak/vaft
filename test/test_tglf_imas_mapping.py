@@ -427,3 +427,46 @@ def test_the_derived_signs_are_recorded_as_derived(surfaces):
     assert local.provenance["sign_it"]["kind"] == "derived"
     # On VEST 48224 torfluxa < 0 and q > 0, which is what makes both +1.
     assert (local.sign_bt, local.sign_it) == (1.0, 1.0)
+
+
+@requires_sample
+@pytest.mark.parametrize(
+    "flip_q, flip_flux, expected",
+    [
+        (False, False, (1.0, 1.0)),
+        (True, False, (1.0, -1.0)),
+        (True, True, (-1.0, 1.0)),
+        (False, True, (-1.0, -1.0)),
+    ],
+)
+def test_sign_it_follows_the_signed_q_as_gacodes_ipccw_does(
+    profile, flip_q, flip_flux, expected
+):
+    """Cold review transport F1: taken from |q|, SIGN_IT could never differ from SIGN_BT.
+
+    ``expro_locsim.f90:202-203``: ``btccw = -signb``, ``ipccw = -signq*signb``.
+    """
+    import dataclasses
+
+    changed = dataclasses.replace(
+        profile,
+        q=-profile.q if flip_q else profile.q,
+        torfluxa=-profile.torfluxa if flip_flux else profile.torfluxa,
+    )
+    local = prepare_tglf_input(changed, 0.5)
+    assert (local.sign_bt, local.sign_it) == expected
+    # Q_LOC stays |q|, as locpargen writes it.
+    assert local.q_loc == pytest.approx(prepare_tglf_input(profile, 0.5).q_loc)
+    assert local.q_loc > 0.0
+
+
+@requires_sample
+def test_a_q_that_changes_sign_has_no_current_direction(profile):
+    import dataclasses
+
+    from vaft.code.gacode.tglf import LocalConversionError
+
+    q = np.array(profile.q, dtype=float)
+    q[: q.size // 2] *= -1.0
+    with pytest.raises(LocalConversionError, match="changes sign"):
+        prepare_tglf_input(dataclasses.replace(profile, q=q), 0.5)
