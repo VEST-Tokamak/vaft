@@ -4560,7 +4560,8 @@ def straight_field_line_tables(
        whichever way the surface was traced.
     5. Drop samples closer than ``minimum_separation``, which a
        near-stagnation point in the geometric angle can produce.
-    6. Close the period by repeating the first entry shifted by ``2 pi``.
+    6. Close the period by repeating the first entry shifted by ``2 pi``, in
+       the direction the straight-field-line angle runs along the table.
 
     Limitations
     -----------
@@ -4626,9 +4627,13 @@ def straight_field_line_tables(
                 f"flux surface {column} collapses to {lab_line.size} distinct "
                 "geometric angles, so it cannot be relabelled"
             )
+        # A surface traced clockwise leaves the straight-field-line angle
+        # DEcreasing along the (increasing) geometric one, so its period closes
+        # 2 pi below the first entry, not above it.
+        direction = 1.0 if sfl_line[-1] >= sfl_line[0] else -1.0
         tables.append((
             np.r_[lab_line, lab_line[0] + 2.0 * np.pi],
-            np.r_[sfl_line, sfl_line[0] + 2.0 * np.pi],
+            np.r_[sfl_line, sfl_line[0] + direction * 2.0 * np.pi],
         ))
     return tuple(tables)
 
