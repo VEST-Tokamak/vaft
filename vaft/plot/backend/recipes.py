@@ -4406,9 +4406,18 @@ def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
             "include_stored",
         )
         passed = {key: options[key] for key in keys if key in options}
+        if passed.get("models") is not None:
+            # A misspelt model is the caller's mistake, not missing data: it is
+            # refused here so the fallback below cannot hide it.
+            from vaft.omas.neoclassical import MODELS as known_models
+
+            asked = (passed["models"],) if isinstance(passed["models"], str) else tuple(passed["models"])
+            unknown = [name for name in asked if name not in known_models]
+            if unknown:
+                raise ValueError(f"model must be one of {known_models}; got {unknown!r}")
         try:
             models = bootstrap_models(ods, **passed)
-        except ValueError:
+        except ValueError as error:
             # The analytic models need an effective charge, and the provider
             # refuses to invent one. A solver result already in the ODS is still
             # worth drawing on its own, so fall back to it rather than showing
@@ -4421,6 +4430,15 @@ def _build_neoclassical_bootstrap(ods: Any, **options: Any) -> Profile1D:
             )
             if stored is None:
                 raise
+            # The provider's reason is the only account of why the analytic
+            # curves are missing (no z_eff, no ion temperature, ...); swallowed,
+            # the figure silently showed the stored curve alone (cold review
+            # plot F3).
+            warnings.warn(
+                f"analytic bootstrap models not drawn, only the stored profile: {error}",
+                UserWarning,
+                stacklevel=2,
+            )
             models = stored
 
     grid = np.asarray(models["rho_tor_norm"], dtype=float)
