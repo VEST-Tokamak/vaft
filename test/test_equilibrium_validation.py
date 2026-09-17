@@ -236,6 +236,12 @@ def test_an_undeclared_convention_is_indeterminate_not_a_pass(sample):
 def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
     from vaft.omas.efit_quality import fit_quality_metrics
 
+    # Grading needs a statistical uncertainty model on record (#891); the
+    # fixture's Ip is made ten sigma off in its plasma-only residual, which is
+    # what the recomputed Ip chi-square measures.
+    efit = copy.deepcopy(efit)
+    efit["equilibrium.code.parameters.uncertainty_model"] = "standard_deviation"
+    efit["equilibrium.time_slice.0.constraints.ip.measured_error_upper"] = 10.0
     metrics = fit_quality_metrics(efit, time_slice=0)
     fit = validate_magnetic_fit(efit, time_slice=0)
     for family in ("bpol_probe", "flux_loop"):
@@ -244,11 +250,21 @@ def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
         assert fit[family]["chi_squared_sum"] == metrics["families"][family]["chi_squared_sum"]
     assert fit["pf_current"]["status"] == NOT_AVAILABLE and fit["pf_current"]["fit_role"] == "prescribed"
     # The fixture's Ip constraint is ten sigma off, beyond the registered fail tolerance.
-    assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == 10.0
+    assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == pytest.approx(10.0)
     assert fit["ip"]["status"] == FAIL and describe("diagnostic_fit.ip").tolerance[1] < 10.0
     assert fit["diamagnetic_flux"]["status"] == NOT_AVAILABLE
     assert fit["global"]["chi_squared_reduced"] == metrics["chi_squared_reduced"]
     assert fit["global"]["status"] == PASS
+
+
+def test_diagnostic_fit_is_not_graded_without_a_statistical_sigma(efit):
+    # The same fixture with no uncertainty model on record: every sigma-normalized
+    # grade is not available, and the physical residual is still there.
+    fit = validate_magnetic_fit(efit, time_slice=0)
+    for check in ("bpol_probe", "flux_loop", "ip", "global"):
+        assert fit[check]["status"] == NOT_AVAILABLE, check
+        assert fit[check]["uncertainty_model"] == "unknown"
+    assert fit["ip"]["residual"] == pytest.approx(100.0)
 
 
 def test_convergence_is_kept_apart_from_fit_and_from_validity(sample, efit):

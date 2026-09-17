@@ -52,6 +52,7 @@ shaped.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import math
 from typing import Any, Mapping
 
@@ -81,11 +82,13 @@ __all__ = [
     "classify_fit_role",
     "constraint_state",
     "constraint_table",
+    "constraint_uncertainty_model",
     "convergence_metrics",
     "efit_quality_metrics",
     "family_chi_squared_sum",
     "fit_quality_metrics",
     "fitted_mask",
+    "ip_chi_squared_record",
     "normalizable_mask",
     "normalized_residuals",
     "run_test_z",
@@ -133,6 +136,28 @@ EFIT_DEFAULTS = {
 #: with a TODO in the source questioning it.  No namelist can change it.
 EFIT_MINITE = 8
 
+#: How the plasma-current chi-square is defined here, and why it is not EFIT's.
+#:
+#: EFIT solves the Ip row as a plasma-only current -- its right-hand side is the
+#: measured current with no vessel term (``response_matrix.F90``), so the
+#: reconstructed ``ipmhd`` reproduces ``ipmeas`` to roundoff -- but the
+#: chi-square it *reports* is recomputed after the fit by ``chisqr``
+#: (``update_parameters.F90``), which adds ``sum(VCURRT)`` to the model for any
+#: ``IVESEL > 0``.  That reporting assumes a Rogowski enclosing every vessel
+#: segment.  VEST's plasma current is the inner Rogowski, which links none, so
+#: the reported ``chipasma`` is ``(sum(VCURRT)/sigma_Ip)**2`` and nothing about
+#: the fit.  The recomputed value uses the reconstructed plasma-only current
+#: EFIT itself wrote (m-file ``cpasma`` = ``ipmhd``).
+IP_CHI_SQUARED_CONVENTION = "plasma_only_inner_rogowski"
+
+#: Uncertainty models under which a normalized residual is a statement about
+#: the measurement.  Under ``legacy_weight`` the submitted sigma is the
+#: reciprocal of a hand-chosen weight -- a 0.05 T probe carries a 1000 T sigma --
+#: so a chi-square or a z is small by construction and grading it would report a
+#: pass that means nothing (issue #891).  Anything not recorded is unknown and
+#: is treated the same way.
+STATISTICAL_UNCERTAINTY_MODELS = frozenset({"standard_deviation"})
+
 
 # ---------------------------------------------------------------------------
 # ODS access primitives
@@ -166,6 +191,61 @@ def _array(ods: Any, path: str) -> np.ndarray | None:
         return None
     array = np.asarray(value, dtype=float).reshape(-1)
     return array if array.size else None
+
+
+def ip_chi_squared_record(
+    measured: float, reconstructed: float, sigma: float, reported: float
+) -> dict[str, Any]:
+    """The plasma-current chi-square recomputed from the plasma-only residual.
+
+    ``reported`` is the value EFIT wrote (m-file ``chipasma``) and is kept, so
+    the correction never hides what the code said; ``vessel_accounting_term``
+    is the part of it that the prescribed vessel current contributed.  See
+    :data:`IP_CHI_SQUARED_CONVENTION`.
+    """
+    residual = measured - reconstructed
+    if np.isfinite(residual) and np.isfinite(sigma) and sigma > 0:
+        z = float(residual / sigma)
+        chi = float(z * z)
+        source = "recomputed_plasma_only"
+    else:
+        z = float("nan")
+        chi = float("nan")
+        source = "unavailable"
+    return {
+        "chi_squared": chi,
+        "z": z,
+        "chi_squared_efit_reported": float(reported),
+        "vessel_accounting_term": float(reported - chi)
+        if np.isfinite(reported) and np.isfinite(chi)
+        else float("nan"),
+        "convention": IP_CHI_SQUARED_CONVENTION,
+        "source": source,
+    }
+
+
+def constraint_uncertainty_model(ods: Any) -> str:
+    """The uncertainty model the submitted constraints were written under.
+
+    Read from an explicit ``uncertainty_model`` record on
+    ``equilibrium.code.parameters`` -- either the nested tree or, as on a
+    pipeline product, the serialized JSON string.  Nothing is inferred from the
+    numbers: a product that does not say is ``"unknown"``.
+    """
+    value = _get(ods, "equilibrium.code.parameters.uncertainty_model")
+    if isinstance(value, str) and value:
+        return value
+    payload = path_value(ods, "equilibrium.code.parameters", None)
+    if isinstance(payload, str):
+        try:
+            decoded = json.loads(payload)
+        except (TypeError, ValueError):
+            decoded = None
+        if isinstance(decoded, dict):
+            recorded = decoded.get("uncertainty_model")
+            if isinstance(recorded, str) and recorded:
+                return recorded
+    return "unknown"
 
 
 def slice_times(ods: Any) -> np.ndarray:
@@ -435,20 +515,60 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     scalars: dict[str, Any] = {}
     for family in ("ip", "diamagnetic_flux"):
         root = f"equilibrium.time_slice.{time_slice}.constraints.{family}"
-        chi = _scalar(_get(ods, f"{root}.chi_squared"))
-        if not np.isfinite(chi):
-            continue
+        reported = _scalar(_get(ods, f"{root}.chi_squared"))
         measured = _scalar(_get(ods, f"{root}.measured"))
         reconstructed = _scalar(_get(ods, f"{root}.reconstructed"))
         weight = _scalar(_get(ods, f"{root}.weight"))
+        if family == "ip":
+            # EFIT's reported Ip chi-square carries the prescribed vessel
+            # current; recompute it from the residual it actually fitted.  The
+            # sigma is EFIT's own (m-file `sigpasma`); a product without it
+            # still carries EFIT's processed weight FWTCUR/sigma with FWTCUR = 1,
+            # so the Ip constraint is never dropped for want of the first.
+            sigma = _scalar(_get(ods, f"{root}.measured_error_upper"))
+            sigma_source = "measured_error_upper"
+            if not (np.isfinite(sigma) and sigma > 0) and np.isfinite(weight) and weight > 0:
+                sigma, sigma_source = 1.0 / weight, "reciprocal_weight"
+            record = ip_chi_squared_record(measured, reconstructed, sigma, reported)
+            if record["source"] == "unavailable":
+                # Nothing to recompute from: keep EFIT's value, labelled as such,
+                # rather than losing the constraint.
+                chi = reported
+                z = (
+                    float(math.copysign(math.sqrt(chi), measured - reconstructed))
+                    if np.isfinite(chi) and chi >= 0
+                    else float("nan")
+                )
+            else:
+                chi, z = record["chi_squared"], record["z"]
+            extra = {
+                key: record[key]
+                for key in (
+                    "chi_squared_efit_reported",
+                    "vessel_accounting_term",
+                    "convention",
+                    "source",
+                )
+            }
+            extra["sigma"] = sigma
+            extra["sigma_source"] = sigma_source
+        else:
+            chi = reported
+            z = (
+                float(math.copysign(math.sqrt(chi), measured - reconstructed))
+                if np.isfinite(chi) and chi >= 0
+                else float("nan")
+            )
+            extra = {}
+        if not np.isfinite(chi):
+            continue
         scalars[family] = {
             "measured": measured,
             "reconstructed": reconstructed,
             "chi_squared": chi,
-            "z": float(math.copysign(math.sqrt(chi), measured - reconstructed))
-            if chi >= 0
-            else float("nan"),
+            "z": z,
             "sigma_from_weight": float(1.0 / weight) if weight else float("nan"),
+            **extra,
         }
         total_chi += chi
         fitted_channels += 1
@@ -477,6 +597,8 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     return {
         "families": families,
         "scalars": scalars,
+        "uncertainty_model": constraint_uncertainty_model(ods),
+        "ip_chi_squared_convention": IP_CHI_SQUARED_CONVENTION,
         "chi_squared_total": float(total_chi),
         "degrees_of_freedom": dof,
         "degrees_of_freedom_inputs": dof_inputs,
@@ -655,6 +777,42 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     # family here. The two totals are therefore close but not equal by design.
     error_block["chi_squared_comparable_to_family_sum"] = False
 
+    # The a-file total is written after the fit by `chisqr`, whose Ip term adds
+    # the prescribed vessel currents for any IVESEL > 0 although the solve
+    # fitted a plasma-only current (see IP_CHI_SQUARED_CONVENTION).  EFIT's
+    # verdict above is left exactly as EFIT stated it; this is the same total
+    # and the same criterion #1 with that one term recomputed, reported beside
+    # it rather than instead of it.
+    ivesel = _scalar(
+        _get(ods, f"{parameters}.in1.ivesel", _get(ods, f"{parameters}.IN1.ivesel"))
+    )
+    ip_root = f"{root}.constraints.ip"
+    ip_record = ip_chi_squared_record(
+        _scalar(_get(ods, f"{ip_root}.measured")),
+        _scalar(_get(ods, f"{ip_root}.reconstructed")),
+        _scalar(_get(ods, f"{ip_root}.measured_error_upper")),
+        _scalar(_get(ods, f"{ip_root}.chi_squared")),
+    )
+    corrected_total = (
+        float(chisq_value - ip_record["vessel_accounting_term"])
+        if np.isfinite(chisq_value) and np.isfinite(ip_record["vessel_accounting_term"])
+        else float("nan")
+    )
+    corrected_margin = (
+        float(corrected_total / chisq_limit)
+        if np.isfinite(corrected_total) and np.isfinite(chisq_limit) and chisq_limit
+        else float("nan")
+    )
+    error_block["efit_chi_squared_includes_prescribed_vessel_current"] = (
+        bool(ivesel > 0) if np.isfinite(ivesel) else None
+    )
+    error_block["ip_chi_squared"] = ip_record
+    error_block["chi_squared_total_vessel_corrected"] = corrected_total
+    error_block["chi_squared_margin_vessel_corrected"] = corrected_margin
+    error_block["criterion_1_vessel_corrected_passed"] = (
+        bool(corrected_margin < 1.0) if np.isfinite(corrected_margin) else None
+    )
+
     # B3: how the solve actually terminated.
     #
     # For iconvr == 2 -- EFIT's default and VEST's mode -- the outer loop is
@@ -671,6 +829,13 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     # by construction.  The discriminator that carries information is whether
     # the run stopped that way at all, or instead exhausted its iterations.
     iterations = _scalar(_get(ods, f"{root}.convergence.iterations_n"))
+    # The stop test compares the solve's own chi-square, which carries no
+    # vessel term for a prescribed-current run; the reported total does.
+    stop_margin = (
+        corrected_margin
+        if np.isfinite(corrected_margin)
+        else error_block["chi_squared_margin"]
+    )
     cap, cap_source = _setting("mxiter")
     cap = abs(cap)
     hit_cap = bool(
@@ -691,8 +856,8 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
             and not hit_cap
             and error_block["within_acceptance_tolerance"]
             and (
-                not np.isfinite(error_block["chi_squared_margin"])
-                or error_block["chi_squared_margin"] < 1.0
+                not np.isfinite(stop_margin)
+                or stop_margin < 1.0
             )
         )
         if iconvr == 2
@@ -732,14 +897,16 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     ip_values = [
         _scalar(_get(ods, f"{root}.global_quantities.ip")),
         _scalar(_get(ods, f"{root}.constraints.ip.reconstructed")),
-        _scalar(_get(ods, f"{parameters}.aeqdsk.cpasma")),
+        # `cpasma` is an m-file name; the a-file carries the same plasma-only
+        # current as `ipmhd`, and reading `cpasma` there returned NaN always.
+        _scalar(_get(ods, f"{parameters}.aeqdsk.ipmhd")),
     ]
     self_consistency: dict[str, Any] = {
         "ip_relative_spread": relative_spread(ip_values),
         "ip_sources": {
             "global_quantities": ip_values[0],
             "constraint_reconstructed": ip_values[1],
-            "aeqdsk_cpasma": ip_values[2],
+            "aeqdsk_ipmhd": ip_values[2],
         },
     }
     psi = _get(ods, f"{root}.profiles_2d.0.psi")
