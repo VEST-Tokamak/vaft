@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4b867c3</code>. What is described
+  <code>a6cd17e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -473,10 +473,13 @@ because it is the idiom the VEST mappers already use
 
 <p><strong>Limitations.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">filtfilt</code> needs <code class="language-plaintext highlighter-rouge">3 * (numtaps - 1) + 1</code> samples; a record or finite
-run shorter than that is returned unfiltered, with a warning, rather than
-padded.  The filter assumes evenly spaced samples; on an irregular grid the
-design rate is a fiction, which <code class="language-plaintext highlighter-rouge">resample_to_time</code> refuses for you.</p>
+<p><code class="language-plaintext highlighter-rouge">filtfilt</code> needs <code class="language-plaintext highlighter-rouge">3 * numtaps + 1</code> samples; a record or finite run
+shorter than that is returned unfiltered rather than padded, and nothing is
+interpolated or invented in its place. One warning per call summarizes how
+many runs and samples were left unfiltered, so a caller can tell a single
+stray sample from most of the record.  The filter assumes evenly spaced
+samples; on an irregular grid the design rate is a fiction, which
+<code class="language-plaintext highlighter-rouge">resample_to_time</code> refuses for you.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -2125,7 +2128,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-17 03:16:29 +0000"
+        "time": "2026-09-17 03:57:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
