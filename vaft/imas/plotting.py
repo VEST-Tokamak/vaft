@@ -21,6 +21,11 @@ the IDS they declare to an OMAS ODS on the way, through
 :meth:`vaft.imas.access.IDSEntry.as_ods_for`; ``available_plots(obj,
 detail=True)`` marks them.  Use :func:`available_plots` to see which plots a
 particular object can produce.
+
+Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+IMAS Data Dictionary paths it reads, and ``extract_<stem>(source, ...)``
+returns the view model undrawn, the same one ``vaft.omas.extract_<stem>``
+builds from an ODS.
 """
 
 from __future__ import annotations
@@ -31,7 +36,91 @@ from vaft.plot.backend.render import render_entries
 
 from .entries import normalize_entries
 
+
+def plot_nbi_profile_electron_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to electrons against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_electron_heating` from native IMAS input.
+    """
+    return render("nbi_profile_electron_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_ion_heating(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam power density to ions against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_ion_heating` from native IMAS input.
+    """
+    return render("nbi_profile_ion_heating", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_nbi_profile_current_drive(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Beam-driven parallel current density against normalized toroidal flux.
+
+    Reads a NUBEAM result mapped into ``core_sources`` by
+    :func:`vaft.machine_mapping.core_sources.core_sources_from_nubeam`; the NBI
+    entry is found by its identifier, or named with ``source=``.
+
+    Renders with :func:`vaft.plot.nbi_profile_current_drive` from native IMAS input.
+    """
+    return render("nbi_profile_current_drive", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_neoclassical_profile_bootstrap_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Bootstrap current density from each neoclassical model on one radial axis.
+
+    The Sauter and Redl formulas against whatever solver result the ODS
+    carries (:func:`vaft.validation.neoclassical.bootstrap_models`), one
+    series per model, so the models are compared on one radial axis.
+
+    Renders with :func:`vaft.plot.neoclassical_profile_bootstrap_current` from native IMAS input.
+    """
+    return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
+
 __all__ = ["available_plots", "normalize_entries", "render"]
+
+
+from .interactive import (  # noqa: E402  public entry points, issues #261 and #482
+    plot_diagnostics_time_interactive,
+    plot_equilibrium_interactive,
+)
+
+__all__ += ["plot_diagnostics_time_interactive", "plot_equilibrium_interactive"]
 
 
 def render(
@@ -42,8 +131,13 @@ def render(
     show: bool = False,
     label: str | Sequence[str] = "shot",
     **options: Any,
-) -> tuple[Any, Any]:
-    """Build the view model for ``name`` from a native IMAS ``source`` and render it."""
+) -> Any:
+    """Build the view model for ``name`` from a native IMAS ``source`` and render it.
+
+    ``backend="plotly"`` among the options draws with Plotly and returns a
+    :class:`plotly.graph_objects.Figure` (no ``ax=``); the default is
+    Matplotlib's ``(Figure, Axes)``.  See :mod:`vaft.plot.backends`.
+    """
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,
         namespace="vaft.imas", subject="ids", **options,
@@ -173,6 +267,51 @@ def plot_camera_visible_image_frame(
     Renders with :func:`vaft.plot.camera_visible_image_frame` from native IMAS input.
     """
     return render("camera_visible_image_frame", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_fluctuation(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One FAST-camera frame with its local temporal background removed.
+
+    Renders with :func:`vaft.plot.camera_visible_image_fluctuation` from native IMAS input.
+    """
+    return render("camera_visible_image_fluctuation", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_image_mhd_power(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Per-pixel MHD-band power normalised by the local average emission.
+
+    Renders with :func:`vaft.plot.camera_visible_image_mhd_power` from native IMAS input.
+    """
+    return render("camera_visible_image_mhd_power", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_camera_visible_spectrogram(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Time-frequency map of the camera intensity summed over one image region.
+
+    Renders with :func:`vaft.plot.camera_visible_spectrogram` from native IMAS input.
+    """
+    return render("camera_visible_spectrogram", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_charge_exchange_geometry_poloidal(
@@ -348,7 +487,7 @@ def plot_diagnostics_overview(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Time histories of every diagnostic subject, one panel each, in a fixed grid: a diagnostic absent from the input is a labelled empty panel, so the figure has the same shape on every shot. Channels the source flagged invalid are excluded by default.
+    """Time histories of every diagnostic subject, one panel each; a diagnostic absent from the input is left out and the grid shrinks (issue #476), and members= picks the panels by name (issue #482). Channels the source flagged invalid are excluded by default.
 
     Renders with :func:`vaft.plot.diagnostics_overview` from native IMAS input.
     """
@@ -475,6 +614,25 @@ def plot_equilibrium_field_psi(
     return render("equilibrium_field_psi", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_equilibrium_field_2d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid (issue #483).
+
+    ``field=`` chooses it -- ``psi`` (default), ``j_tor``, ``pressure``,
+    ``b_field_r``, ``b_field_z``, ``b_field_tor`` -- deriving what the slice
+    does not store on a private copy; ``overlay=`` chooses what is drawn over
+    it from ``coils``, ``passive``, ``wall``, ``boundary``, ``axis``.
+    Renders with :func:`vaft.plot.equilibrium_field_2d` from native IMAS input.
+    """
+    return render("equilibrium_field_2d", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_equilibrium_field_psi_vacuum(
     source: Any,
     *,
@@ -488,6 +646,24 @@ def plot_equilibrium_field_psi_vacuum(
     Renders with :func:`vaft.plot.equilibrium_field_psi_vacuum` from native IMAS input.
     """
     return render("equilibrium_field_psi_vacuum", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_vacuum_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One quantity of the coils' and vessel's vacuum field, at one instant.
+
+    ``field=`` chooses among ``psi``, ``b_poloidal``, ``decay_index`` and
+    ``breakdown``; ``time_index=`` steps along the PF time base.
+
+    Renders with :func:`vaft.plot.vacuum_field` from native IMAS input.
+    """
+    return render("vacuum_field", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_equilibrium_geometry_boundary(
@@ -985,6 +1161,61 @@ def plot_flux_loop_time_flux(
     return render("flux_loop_time_flux", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_flux_loop_spatial_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
+    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    the inboard and outboard loops as two panels, ``"theta"`` one panel
+    against the poloidal angle about the layout centre (``centre=``).
+    Renders with :func:`vaft.plot.flux_loop_spatial_flux` from native IMAS input.
+    """
+    return render("flux_loop_spatial_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mirnov_spatial_phase(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """Toroidal phase of each fluctuation band at one time, with the fitted n lines.
+
+    ``time=`` snaps to a stored sample; ``frequencies=`` names the bands (the
+    strongest ``num_modes=`` are chosen otherwise); ``show_fit=False`` draws
+    the measured points alone.  Needs two probes at distinct toroidal angles
+    that both recorded a waveform, which ``available_plots`` states.
+    Renders with :func:`vaft.plot.mirnov_spatial_phase` from native IMAS input.
+    """
+    return render("mirnov_spatial_phase", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_b_field_probe_spatial_field(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> Any:
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
+    reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
+    Renders with :func:`vaft.plot.b_field_probe_spatial_field` from native IMAS input.
+    """
+    return render("b_field_probe_spatial_field", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_flux_loop_time_voltage(
     source: Any,
     *,
@@ -1240,6 +1471,21 @@ def plot_magnetics_overview_vacuum(
     return render("magnetics_overview_vacuum", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_ntms_time_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Classical tearing index Delta-prime against time, one trace per rational surface; a positive value is a tearing-unstable surface.
+
+    Renders with :func:`vaft.plot.ntms_time_delta_prime` from native IMAS input.
+    """
+    return render("ntms_time_delta_prime", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mhd_linear_time_energy_perturbed(
     source: Any,
     *,
@@ -1253,6 +1499,81 @@ def plot_mhd_linear_time_energy_perturbed(
     Renders with :func:`vaft.plot.mhd_linear_time_energy_perturbed` from native IMAS input.
     """
     return render("mhd_linear_time_energy_perturbed", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_displacement(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """DCON displacement eigenfunction against normalized flux, one trace per poloidal harmonic; amplitudes are normalized to the peak because DCON's eigenvector normalization is arbitrary.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_displacement` from native IMAS input.
+    """
+    return render("mhd_linear_profile_displacement", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_b_field_perturbed(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Normal perturbed field per poloidal harmonic against normalized flux, derived from the DCON eigenfunction as i(m - nq) xi.grad(psi).
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_b_field_perturbed` from native IMAS input.
+    """
+    return render("mhd_linear_profile_b_field_perturbed", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_resonant_flux(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Pitch-resonant flux per rational surface against normalized poloidal flux, derived from the mapped perturbed flux by the jump across each singular surface rather than read from the IDS.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_resonant_flux` from native IMAS input.
+    """
+    return render("mhd_linear_profile_resonant_flux", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_profile_island_width(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Saturated island width per rational surface against normalized poloidal flux, in psi_N as GPEC reports it, derived from the resonant flux.
+
+    Renders with :func:`vaft.plot.mhd_linear_profile_island_width` from native IMAS input.
+    """
+    return render("mhd_linear_profile_island_width", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_mhd_linear_overview_eigenfunction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The DCON eigenfunction of the least-stable mapped mode: displacement and normal perturbed field per poloidal harmonic.
+
+    Renders with :func:`vaft.plot.mhd_linear_overview_eigenfunction` from native IMAS input.
+    """
+    return render("mhd_linear_overview_eigenfunction", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_mirnov_spectrogram(
@@ -1315,6 +1636,99 @@ def plot_passive_structure_geometry_poloidal(
     return render("passive_structure_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_passive_structure_geometry_wall_mode(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """One segment-local wall eigenmode coloured onto the passive structure.
+
+    Options: ``segment`` (id, default the first), ``mode`` (index within the
+    segment, default 0), ``basis`` (a precomputed ``WallModeBasis``),
+    ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_geometry_wall_mode` from native IMAS input.
+    """
+    return render(
+        "passive_structure_geometry_wall_mode", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_overview_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Reduced-wall response error against retained order (vaft #494).
+
+    Options: ``rows`` (precomputed convergence rows), ``drive``, ``rules``,
+    ``orders``, ``metrics``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_reduction` from native IMAS input.
+    """
+    return render(
+        "passive_structure_overview_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_passive_structure_field_wall_reduction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Full, reduced or difference wall flux map on the equilibrium region.
+
+    Options: ``which`` (``full``/``reduced``/``difference``), ``selection`` or
+    ``rule``+``M``, ``time``, ``grid_shape``, ``remap_em_coupling``.  Renders
+    with :func:`vaft.plot.passive_structure_field_wall_reduction` from native IMAS input.
+    """
+    return render(
+        "passive_structure_field_wall_reduction", source, ax=ax, show=show, label=label, **options
+    )
+
+
+def plot_pf_plasma_geometry_poloidal(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """The plasma-current elements of ``pf_plasma`` coloured by current.
+
+    Options: ``time`` (instant; default the largest total current).
+    Renders with :func:`vaft.plot.pf_plasma_geometry_poloidal` from native IMAS input.
+    """
+    return render("pf_plasma_geometry_poloidal", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_passive_structure_overview_wall_time(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Decay-time spectrum of the passive wall's segment-wise eigenmodes.
+
+    Options: ``max_modes`` per segment, ``whole_wall`` (draw the whole-wall
+    spectrum, default True), ``basis``, ``remap_em_coupling``.  Renders with
+    :func:`vaft.plot.passive_structure_overview_wall_time` from native IMAS input.
+    """
+    return render(
+        "passive_structure_overview_wall_time", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_pf_coil_geometry_poloidal(
     source: Any,
     *,
@@ -1343,6 +1757,24 @@ def plot_pf_coil_time_current(
     Renders with :func:`vaft.plot.pf_coil_time_current` from native IMAS input.
     """
     return render("pf_coil_time_current", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_passive_structure_time_current(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Eddy current in the passive structure, summed over loops.
+
+    Renders with :func:`vaft.plot.passive_structure_time_current` from native
+    IMAS input.
+    """
+    return render(
+        "passive_structure_time_current", source, ax=ax, show=show, label=label, **options
+    )
 
 
 def plot_pf_coil_time_current_turns(
@@ -1683,6 +2115,10 @@ __all__ += [
     "plot_camera_visible_image_efit_overlay",
     "plot_camera_visible_image_field_line",
     "plot_camera_visible_image_frame",
+    "plot_camera_visible_image_fluctuation",
+    "plot_neoclassical_profile_bootstrap_current",
+    "plot_camera_visible_image_mhd_power",
+    "plot_camera_visible_spectrogram",
     "plot_charge_exchange_geometry_poloidal",
     "plot_charge_exchange_profile_ion_temperature",
     "plot_charge_exchange_profile_velocity_tor",
@@ -1702,8 +2138,10 @@ __all__ += [
     "plot_electron_temperature_field",
     "plot_electron_temperature_profile",
     "plot_electron_temperature_time",
+    "plot_equilibrium_field_2d",
     "plot_equilibrium_field_psi",
     "plot_equilibrium_field_psi_vacuum",
+    "plot_vacuum_field",
     "plot_equilibrium_geometry_boundary",
     "plot_equilibrium_geometry_topview",
     "plot_equilibrium_overview",
@@ -1737,6 +2175,9 @@ __all__ += [
     "plot_equilibrium_time_w_mhd",
     "plot_equilibrium_time_w_tot",
     "plot_flux_loop_time_flux",
+    "plot_flux_loop_spatial_flux",
+    "plot_mirnov_spatial_phase",
+    "plot_b_field_probe_spatial_field",
     "plot_flux_loop_time_voltage",
     "plot_impa_overview",
     "plot_impa_profile_field",
@@ -1754,13 +2195,28 @@ __all__ += [
     "plot_magnetics_overview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
+    "plot_mhd_linear_overview_eigenfunction",
+    "plot_mhd_linear_profile_b_field_perturbed",
+    "plot_mhd_linear_profile_displacement",
+    "plot_mhd_linear_profile_island_width",
+    "plot_mhd_linear_profile_resonant_flux",
+    "plot_nbi_profile_current_drive",
+    "plot_nbi_profile_electron_heating",
+    "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
+    "plot_ntms_time_delta_prime",
     "plot_mirnov_spectrogram",
     "plot_mirnov_spectrum",
     "plot_mirnov_time_voltage",
     "plot_passive_structure_geometry_poloidal",
+    "plot_passive_structure_field_wall_reduction",
+    "plot_passive_structure_geometry_wall_mode",
+    "plot_passive_structure_overview_wall_reduction",
+    "plot_passive_structure_overview_wall_time",
+    "plot_pf_plasma_geometry_poloidal",
     "plot_pf_coil_geometry_poloidal",
     "plot_pf_coil_time_current",
+    "plot_passive_structure_time_current",
     "plot_pf_coil_time_current_turns",
     "plot_plasma_current_time",
     "plot_soft_x_rays_geometry_lines_of_sight",
@@ -1784,3 +2240,12 @@ __all__ += [
     "plot_thomson_scattering_time_electron_temperature",
     "plot_wall_geometry_poloidal",
 ]
+
+# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` and
+# ``extract_<stem>(source, ...)``, generated from the registry the ``plot_*``
+# above are written against.
+from vaft.plot.backend.facade import install_facades as _install_facades  # noqa: E402
+
+__all__ += list(_install_facades(
+    globals(), normalize=normalize_entries, namespace="vaft.imas", subject="ids",
+))

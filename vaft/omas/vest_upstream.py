@@ -11,26 +11,32 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
+import traceback
 from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 from omas import ODS
 
 from vaft.database import raw as raw_db
+from vaft.database.sources import STAGE_REPLICATION
+from vaft.process.signal_processing import SignalRepairError
 from vaft.database._local import load_ods
 from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
-from vaft.machine_mapping.impa import impa as impa_mapper, impa_expected_fields
+from vaft.machine_mapping.impa import (
+    impa as impa_mapper,
+    impa_expected_fields,
+    impa_probe_indices,
+    resolve_impa_config,
+)
 from vaft.machine_mapping.langmuir_probes import langmuir_probes
 from vaft.machine_mapping.magnetics import (
-    LIMITER_SHUNT_CHANNELS,
-    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
-    TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
     fluctuation_mirnov_channel_definitions,
+    toroidal_mirnov_reference_channels,
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
     vfit_magnetics_static,
@@ -53,6 +59,7 @@ from vaft.machine_mapping.utils import (
     resolve_diagnostics_time_policies,
 )
 from vaft.omas import save
+from vaft.validation.imas import is_condemned_channel
 from vaft.omas.process_wrapper import compute_eddy_currents
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
@@ -107,12 +114,28 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def _disabled_pf_coils() -> list[str]:
-    import scipy.io
+def _disabled_pf_coils(shot: int) -> list[str]:
+    """Circuits with no acquisition channel at all, as of this shot's era.
 
-    info = scipy.io.loadmat(resolve_geometry_asset("Coil_info.mat"))
-    active = {int(value) for value in np.asarray(info["CoilNumber"]).reshape(-1)}
-    return [f"PF{index}" for index in range(1, PF_COIL_COUNT + 1) if index not in active]
+    Read from `vest.yaml`'s `pf_active.processing.coil_field_codes`, which is
+    where the channel map lives since #708. It used to come from the
+    five-entry `Coil_info.mat`, which reported PF2 as permanently disabled --
+    when in fact PF2 is acquired on field 4, and was simply unused by the
+    shots anyone had looked at.
+
+    "Disabled" here means *no channel is known*, which is a statement about
+    the machine. It is not the same as *this discharge left the coil cold*,
+    which is a statement about the discharge and is carried by the current
+    waveform itself.
+    """
+    from vaft.machine_mapping.pf_active import coil_field_code_by_index
+
+    acquirable = coil_field_code_by_index(shot)
+    return [
+        f"PF{index}"
+        for index in range(1, PF_COIL_COUNT + 1)
+        if (index - 1) not in acquirable
+    ]
 
 
 def _read_raw_payload(path: Path) -> dict[str, Any]:
@@ -159,14 +182,25 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     vfit_pf_active_static(ods, shot=era.reference_shot)
     pf_passive(ods)
     em_coupling(ods, shot=era.reference_shot)
+    # Deliberately un-gated (shot=0, the inventory). A static product describes
+    # a machine *era*, and the phase-reference Mirnov boundary (shot 35520)
+    # falls inside the first era, whose reference_shot is 43016 -- so no single
+    # shot represents that era's magnetics truthfully. Per-shot availability is
+    # applied in `build_shot_components`, which rebuilds this IDS with the shot
+    # rather than copying it.
     vfit_magnetics_static(ods)
     vfit_tf_static(ods)
     ods["wall.ids_properties.comment"] = (
         f"VEST static wall; machine era {era.name}"
     )
+    # Prefix the era; keep the mapper's reciprocity/provenance clause so a
+    # product says which coupling asset it carries (issues #347/#373).
+    mapper_comment = str(ods["em_coupling.ids_properties.comment"])
+    _, _, reciprocity = mapper_comment.partition("; mutual_passive_passive ")
     ods["em_coupling.ids_properties.comment"] = (
         f"VEST electromagnetic coupling; machine era {era.name}; "
         f"PF geometry {era.pf_geometry}"
+        + (f"; mutual_passive_passive {reciprocity}" if reciprocity else "")
     )
     # pf_active, pf_passive, magnetics, and tf each have a dynamic counterpart
     # that legitimately sets homogeneous_time=1 once it adds a `.time` node
@@ -220,13 +254,13 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
         "channel_status": {
             "pf_active": {
                 "status": "success",
-                "disabled_channels": _disabled_pf_coils(),
+                "disabled_channels": _disabled_pf_coils(era.reference_shot),
             }
         },
         "quality_summary": {
             "missing": [],
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(era.reference_shot),
             "rejected": [],
             "unavailable": [],
         },
@@ -470,14 +504,8 @@ def _validate_diagnostics_time_coordinates(
             # can expose the corresponding unset time leaf as its scalar
             # default, so decide whether a native coordinate exists from the
             # waveform first rather than validating that placeholder.
-            validity_path = f"{base}.validity"
-            validity = (
-                int(get_path(ods, validity_path))
-                if path_exists(ods, validity_path)
-                else 0
-            )
             voltage_data = np.asarray(get_path(ods, data_path)).reshape(-1)
-            if validity < 0 or voltage_data.size == 0:
+            if is_condemned_channel(ods, base) or voltage_data.size == 0:
                 continue
             voltage_time = np.asarray(get_path(ods, time_path), dtype=float).reshape(-1)
             if voltage_time.size == 0:
@@ -701,7 +729,16 @@ def build_diagnostics_ods(
         component = ODS(consistency_check=False)
         try:
             mapper(component)
-        except (raw_db.RawSignalUnavailableError, FileNotFoundError) as error:
+        except (
+            raw_db.RawSignalUnavailableError,
+            FileNotFoundError,
+            SignalRepairError,
+        ) as error:
+            # A fully saturated waveform is a property of the shot, not a fault
+            # in the run: refusing to reconstruct one is correct, but it makes
+            # that component unavailable rather than the whole stage. Letting it
+            # escape cost 88 shots their entire diagnostics product for one
+            # clipped diamagnetic-flux signal.
             statuses[name] = {"status": "unavailable", "reason": str(error), **details}
             return
         _copy_ids(ods, component, ids_names)
@@ -729,7 +766,7 @@ def build_diagnostics_ods(
                 target_time=policy_grid("pf_active"),
             ),
         ),
-        disabled_channels=_disabled_pf_coils(),
+        disabled_channels=_disabled_pf_coils(shot),
     )
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
@@ -804,7 +841,13 @@ def build_diagnostics_ods(
     )
     magnetics_channels = [
         int(channel["field_code"]) for channel in vest_equilibrium_magnetics_channel_definitions()
-    ] + [int(channel["field_code"]) for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS] + [
+    ] + [
+        # Gated, like the fluctuation list below: a channel the mapper declines
+        # to map past its last operational shot is not a channel the archive is
+        # missing, and reporting it as one pins component_status at "partial"
+        # for every modern shot.
+        int(channel["field_code"]) for channel in toroidal_mirnov_reference_channels(int(shot))
+    ] + [
         int(channel["field_code"]) for channel in LIMITER_SHUNT_CHANNELS
     ]
     if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
@@ -819,7 +862,13 @@ def build_diagnostics_ods(
         "magnetics",
         ("magnetics",),
         lambda component: (
-            _copy_ids(component, static, ("magnetics",)),
+            # Rebuilt with the shot rather than copied from the era static:
+            # the static carries the un-gated inventory, and copying it would
+            # publish phase-reference channels the machine no longer had while
+            # `vfit_mirnov_raw_dynamic` gated them out -- leaving the array at
+            # different indices depending on whether a product came from this
+            # pipeline or from a fresh mapping.
+            vfit_magnetics_static(component, shot),
             vfit_magnetics_dynamic(
                 component,
                 shot,
@@ -836,67 +885,6 @@ def build_diagnostics_ods(
         missing_channels=missing_magnetics_channels,
     )
     grids["magnetics"] = policy_grid("magnetics")
-
-    # IMPA extends magnetics.b_field_pol_probe, so the component is seeded from
-    # the magnetics IDS built above and copied back.  A failed IMPA calibration
-    # must never discard valid magnetics data.
-    impa_status: dict[str, Any] = {}
-
-    impa_policy = policies["impa"]
-
-    def _map_impa(component: ODS) -> None:
-        _copy_ids(component, ods, ("magnetics",))
-        impa_status.update(
-            impa_mapper(
-                component,
-                shot,
-                impa_policy.tstart,
-                impa_policy.tend,
-                impa_policy.dt,
-                raw_source=raw_path,
-            )
-        )
-
-    # This shot's own era may not wire every channel (the 2022-04-23 block
-    # runs seven, not eight); use the same effective per-shot field list the
-    # mapper reads, not the unfiltered default, so an intentionally-absent
-    # channel is not reported as missing.
-    impa_fields = sorted(impa_expected_fields(shot))
-    missing_impa_channels = sorted(
-        field for field in impa_fields if field not in archived_fields
-    )
-    if "magnetics" in ods:
-        run_component(
-            "impa",
-            ("magnetics",),
-            _map_impa,
-            component_status="partial" if missing_impa_channels else "success",
-            missing_channels=missing_impa_channels,
-        )
-        if impa_status:
-            statuses["impa"].update(
-                {
-                    "calibration_status": impa_status.get("status"),
-                    "checks": impa_status.get("checks", {}),
-                    "reasons": impa_status.get("reasons", []),
-                    "geometry_method": impa_status.get("geometry_method"),
-                    "r0": impa_status.get("r0"),
-                    "geometry_nrmse": impa_status.get("geometry_nrmse"),
-                    "calibration_window": impa_status.get("provenance", {}).get(
-                        "calibration_window"
-                    ),
-                }
-            )
-            # A rejected self-calibration is a real quality outcome, not a
-            # successful mapping.
-            if impa_status.get("status") == "invalid":
-                statuses["impa"]["status"] = "partial"
-    else:
-        statuses["impa"] = {
-            "status": "unavailable",
-            "reason": "magnetics IDS is unavailable, so IMPA channels cannot be appended",
-            "missing_channels": missing_impa_channels,
-        }
 
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
@@ -961,11 +949,205 @@ def build_diagnostics_ods(
         "quality_summary": {
             "missing": sorted(unavailable + missing_channels),
             "repaired": [],
-            "disabled": _disabled_pf_coils(),
+            "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
         },
     }
+    return ods, manifest
+
+
+def _impa_realized_grid(ods: ODS) -> np.ndarray | None:
+    """Return the axis the IMPA channels actually realized, if any.
+
+    The mapper clips its window to real source coverage rather than
+    extrapolating, so the realized axis -- not the requested one -- is what the
+    product's coordinate and manifest must describe.
+    """
+    for node in ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe"):
+        # Guarded: asking `impa_probe_indices` about an absent node would
+        # materialize it, and this ODS is the product that gets written.
+        if not path_exists(ods, node):
+            continue
+        for index in impa_probe_indices(ods, node):
+            path = f"{node}.{index}.field.time"
+            if path_exists(ods, path):
+                return np.asarray(get_path(ods, path), dtype=float).reshape(-1)
+    return None
+
+
+def _impa_configuration_sha256(config: Mapping[str, Any]) -> str:
+    """Hash the shot's resolved IMPA machine description.
+
+    The IMPA product is published into its own source with no static product
+    beside it, so the wiring and geometry priors it was built from have to be
+    identifiable from the product itself (issue #305).
+    """
+    payload = json.dumps(config, sort_keys=True, default=str).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def build_impa_ods(
+    *,
+    shot: int,
+    raw_source: str | Path,
+    tstart: float | None = None,
+    tend: float | None = None,
+    dt: float | None = None,
+    run: int = 1,
+    time_policies: Mapping[str, Any] | None = None,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone IMPA product for one shot (issue #305).
+
+    IMPA is an insertable, campaign-dependent diagnostic: raw fields may exist
+    while the array is withdrawn, its geometry is self-calibrated per shot, and
+    its Bz sensors are still being qualified (#154, #304).  Those are poor
+    invariants for the baseline `magnetics` product, so the array gets its own
+    stage and its own HSDS source instead of being appended to the diagnostics
+    one.
+
+    The product is self-contained rather than a copy of the baseline shot: the
+    mapper appends after whatever probes are already present, so on a fresh ODS
+    the Hall channels land at ``b_field_tor_probe.0..n`` and the vertical-field
+    sensors at ``b_field_pol_probe.0..n``, and nothing here reads the
+    diagnostics product.  Composing the two for analysis is explicit and lives
+    in :mod:`vaft.database.composition`.  :func:`build_eddy_ods` follows the same
+    rule: it solves against the diagnostics product but stores only the
+    ``pf_passive`` it owns.
+    """
+    raw_path = Path(raw_source)
+    if not raw_path.exists():
+        raise FileNotFoundError(f"Raw dump not found: {raw_path}")
+
+    shot = int(shot)
+    policies = resolve_diagnostics_time_policies(
+        analysis_override={"tstart": tstart, "tend": tend, "dt": dt},
+        overrides=time_policies,
+    )
+    policy = policies["impa"]
+    era = machine_era_for_shot(shot)
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST IMPA; machine era {era.name}",
+            "pulse_datetime": _archived_pulse_datetime(raw_path),
+        },
+    )
+
+    config = resolve_impa_config(shot)
+    # This shot's own era may not wire every channel (the 2022-04-23 block runs
+    # seven, not eight), so an intentionally-absent channel is not missing.
+    expected_fields = sorted(impa_expected_fields(shot, config))
+    archived_fields = _archived_field_codes(raw_path)
+    missing_channels = sorted(
+        field for field in expected_fields if field not in archived_fields
+    )
+
+    manifest: dict[str, Any] = {
+        "schema_version": 1,
+        "stage": "impa",
+        "shot": shot,
+        "machine_version": era.name,
+        "status": "unavailable",
+        "input": {
+            "raw_sha256": sha256_file(raw_path),
+            "impa_configuration_sha256": _impa_configuration_sha256(config),
+        },
+        "configuration": {
+            "tstart": float(policy.tstart),
+            "tend": float(policy.tend),
+            "dt": float(policy.dt),
+            "run": int(run),
+            "time_policies": time_policies or {},
+            "expected_fields": expected_fields,
+        },
+        "time_grid": {},
+        "calibration": {},
+        "channel_status": {},
+        "quality_summary": {
+            "missing": [f"impa:field-{field}" for field in missing_channels],
+            "repaired": [],
+            "disabled": [],
+            "rejected": [],
+            "unavailable": [],
+        },
+    }
+
+    # No wired channel was archived at all: the array was not recording for this
+    # shot, which is a normal outcome for an insertable diagnostic and not a
+    # fault in the run.
+    if not any(field in archived_fields for field in expected_fields):
+        manifest["quality_summary"]["unavailable"] = ["impa"]
+        manifest["reason"] = "no wired IMPA channel is archived for this shot"
+        return ods, manifest
+
+    try:
+        status = impa_mapper(
+            ods, shot, policy.tstart, policy.tend, policy.dt, raw_source=raw_path
+        )
+    except (
+        raw_db.RawSignalUnavailableError,
+        FileNotFoundError,
+        SignalRepairError,
+    ) as error:
+        manifest["quality_summary"]["unavailable"] = ["impa"]
+        manifest["reason"] = str(error)
+        return ods, manifest
+
+    grid = _impa_realized_grid(ods)
+    if grid is not None:
+        if grid.size > 1 and np.any(np.diff(grid) <= 0.0):
+            raise ValueError("impa diagnostics time must be strictly monotonic")
+        _validate_realized_axis("impa", grid, policy)
+        ods["magnetics.time"] = grid
+        ods["magnetics.ids_properties.homogeneous_time"] = 1
+        manifest["time_grid"] = {"impa": _realized_window(grid)}
+    else:
+        # No channel produced a waveform, so the product carries geometry and
+        # validity only. Per the DD's homogeneous_time rule an IDS with no
+        # `.time` node is 2, not unset -- the same statement `build_static_ods`
+        # makes for the static product.
+        ods["magnetics.ids_properties.homogeneous_time"] = 2
+
+    calibration_status = status.get("status")
+    manifest["calibration"] = {
+        "status": calibration_status,
+        "checks": status.get("checks", {}),
+        "reasons": status.get("reasons", []),
+        "orientation": status.get("orientation"),
+        "ids_node": status.get("ids_node"),
+        "geometry_method": status.get("geometry_method"),
+        "r0": status.get("r0"),
+        "geometry_nrmse": status.get("geometry_nrmse"),
+        "fitted_pitch": status.get("fitted_pitch"),
+        "incident_angle_deg": status.get("incident_angle_deg"),
+        "calibration_window": status.get("provenance", {}).get("calibration_window"),
+        "provenance": status.get("provenance", {}),
+    }
+    manifest["channel_status"] = {
+        "channels": status.get("channels", {}),
+        "bz_channels": status.get("bz_channels", {}),
+        "missing_channels": missing_channels,
+    }
+
+    # A rejected self-calibration is a real quality outcome, and the product it
+    # produced is kept locally with the verdict on it -- but it is not published
+    # (issue #305): `rejected` is not a replicable status, so the IMPA source
+    # never presents an unqualified geometry as a measurement.
+    if calibration_status == "invalid":
+        manifest["status"] = "rejected"
+        manifest["quality_summary"]["rejected"] = ["impa"]
+    elif calibration_status == "warning" or missing_channels:
+        manifest["status"] = "partial"
+    else:
+        manifest["status"] = "success"
     return ods, manifest
 
 
@@ -979,7 +1161,35 @@ def build_eddy_ods(
     filament_fraction: list[float],
     dt_sub: float = 5e-5,
 ) -> tuple[ODS, dict[str, Any]]:
-    """Compute target-shot passive currents from finalized input ODSs."""
+    """Compute target-shot passive currents from finalized input ODSs.
+
+    The returned product holds only what this stage owns --
+    ``STAGE_REPLICATION["eddy"].ids`` plus ``dataset_description`` -- so the
+    local product and the projection :func:`vaft.database.replication._project`
+    publishes are the same set rather than two that can drift.  The solve itself
+    runs on the full diagnostics ODS, because
+    :func:`~vaft.omas.process_wrapper.compute_eddy_currents` needs
+    ``pf_active``, ``pf_passive`` and ``em_coupling`` together; the projection
+    happens after it.
+
+    Two things survive that look like the thing being removed:
+
+    ``dataset_description`` is copied from the diagnostics ODS rather than
+    rebuilt.  It identifies the data entry, and the two products are the same
+    entry -- minting a second one here would need a ``run`` this builder is
+    never given, and a ``run`` that disagreed with the diagnostics replica of
+    the same shot would be a silent pairing error.
+
+    ``pf_passive.loop.*`` geometry still comes from the static product and still
+    travels.  The rule is that a product carries no top-level IDS it does not
+    own, not that it carries no static-derived bytes: ``static`` has no per-shot
+    destination, so geometry stripped from inside an owned IDS would reach no
+    reader at all.
+
+    Analysis that needs ``magnetics`` or ``pf_active`` alongside these currents
+    composes the two products explicitly, in
+    :func:`vaft.database.composition.compose_stage_products`.
+    """
     if not (len(filament_r) == len(filament_z) == len(filament_fraction)):
         raise ValueError("Filament r, z, and fraction lists must have the same length")
     diagnostics_path = Path(diagnostics_ods)
@@ -1012,6 +1222,12 @@ def build_eddy_ods(
     # compute_eddy_currents() just added one, so this must become 1 to match.
     if "pf_passive.time" in ods:
         ods["pf_passive.ids_properties.homogeneous_time"] = 1
+
+    # `ods` is the diagnostics ODS the solve ran on; the product is not.  The
+    # owned set is read from the replication registry rather than restated, so
+    # the two cannot disagree about what this stage publishes.
+    product = ODS(consistency_check=False)
+    _copy_ids(product, ods, ("dataset_description",) + STAGE_REPLICATION["eddy"].ids)
     manifest = {
         "schema_version": 1,
         "stage": "eddy",
@@ -1028,7 +1244,7 @@ def build_eddy_ods(
         ],
         "dt_sub": float(dt_sub),
     }
-    return ods, manifest
+    return product, manifest
 
 
 def build_mhd_linear_ods(
@@ -1193,7 +1409,7 @@ def build_gpec_ideal_ods(
     """
     from vaft.code.gpec import _runtime as gpec_runtime
     from vaft.code.gpec import read_coil_in
-    from vaft.machine_mapping.coil_geometry_3d import (
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
         VEST_3D_COIL_SETS,
         CoilExcitation,
     )
@@ -1302,15 +1518,867 @@ def build_gpec_ideal_ods(
     return ods, manifest
 
 
+def _external_profile_manifest(stage: str, shot: int, run: int, era_name: str) -> dict[str, Any]:
+    """The manifest shape shared by the externally-uploaded profile stages."""
+    return {
+        "schema_version": 1,
+        "stage": stage,
+        "shot": int(shot),
+        "machine_version": era_name,
+        # Absence is the default outcome. Most VEST shots carry no external
+        # profile upload at all, and that is a normal result rather than a
+        # failure, so the stage starts unavailable and is promoted only once a
+        # mapper has actually written channels.
+        "status": "unavailable",
+        "input": {},
+        "configuration": {"run": int(run)},
+        "quality_summary": {
+            "missing": [],
+            "repaired": [],
+            "disabled": [],
+            "rejected": [],
+            "unavailable": [stage],
+        },
+    }
+
+
+def build_thomson_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone Thomson scattering product for one shot.
+
+    The mapper resolves its own `.mat` file across the layouts VEST has used
+    over the years, so an explicit ``mat_file`` is an override rather than a
+    requirement.  A shot with no upload yields a provenance-only product whose
+    manifest says ``unavailable``: the stage is optional, so that is recorded
+    and replication skips it rather than failing the run.
+    """
+    from vaft.machine_mapping.thomson_scattering import thomson_scattering
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST Thomson scattering; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("thomson", shot, run, era.name)
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        thomson_scattering(ods, shot, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        # No upload for this shot. Distinguished from a malformed one: the
+        # mapper raises FileNotFoundError only after exhausting every layout.
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["thomson_scattering.channel"]) if "thomson_scattering.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
+def build_ces_ods(
+    *,
+    shot: int,
+    data_root: str | Path | None = None,
+    mat_file: str | Path | None = None,
+    options: str = "ces",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the standalone charge-exchange product for one shot.
+
+    ``options`` selects which external layout is read (``ces`` for
+    ``CES_{shot}.mat``, ``ids`` for ``IDS_{shot}.mat``); both land in the same
+    ``charge_exchange`` IDS.  Presence of this product is what later routes a
+    shot's kinetic reconstruction to `kinetic-efit` rather than `electron-efit`,
+    so an absent upload must be recorded rather than inferred.
+    """
+    from vaft.machine_mapping.charge_exchange import charge_exchange
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST charge exchange; machine era {era.name}",
+        },
+    )
+    manifest = _external_profile_manifest("ces", shot, run, era.name)
+    manifest["configuration"]["options"] = options
+    if mat_file is not None:
+        manifest["input"]["mat_file"] = str(mat_file)
+
+    try:
+        charge_exchange(ods, shot, options=options, data_root=data_root, mat_file=mat_file)
+    except FileNotFoundError as error:
+        manifest["error"] = f"{type(error).__name__}: {error}"
+        return ods, manifest
+
+    channels = len(ods["charge_exchange.channel"]) if "charge_exchange.channel" in ods else 0
+    if channels:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        manifest["channels"] = channels
+    return ods, manifest
+
+
+#: How far a profile time may sit from the reconstructed slice it is mapped
+#: against.  Tighter than the 1 ms the profile layer resolves its own samples
+#: within (`vaft.process.profile`), because the failure modes are not
+#: symmetric: a profile with no equilibrium is counted and visible, while one
+#: mapped onto the wrong equilibrium is a number nobody can tell is wrong.
+#: Refusing a 1 ms match costs a slice; accepting a misaligned one costs the
+#: result's meaning.
+EQUILIBRIUM_TIME_TOLERANCE_MS = 0.5
+
+#: How CHEASE names the equilibrium it refined, per shot and millisecond.
+#: EFIT's convention is a five-digit, zero-padded time, so the padding has to be
+#: in the format spec rather than typed out as literal zeros -- a discharge at
+#: or past 1000 ms would otherwise build a six-digit suffix that matches no file
+#: and be indistinguishable from having no equilibrium at all.
+GEQDSK_NAME_TEMPLATE = "g0{shot}.{time_ms:05d}"
+
+
+def build_core_profiles_ods(
+    *,
+    shot: int,
+    thomson_product: str | Path,
+    ces_product: str | Path | None = None,
+    efit_product: str | Path | None = None,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    geqdsk_dir: str | Path | None = None,
+    geqdsk_template: str = GEQDSK_NAME_TEMPLATE,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Map Thomson (and CES, when present) onto an equilibrium grid.
+
+    One slice is built per Thomson time that has an equilibrium to map against.
+    A time the ion diagnostic actually covers becomes a kinetic slice; every
+    other time stays electron-only and is stripped of slice-total pressure,
+    because a total computed with a phantom Ti=Te would read as measured to
+    anything that later loads this product.
+
+    The manifest records how many of each were built.  That count is what routes
+    the reconstruction afterwards -- a product with no kinetic slice can only
+    support the `electron-efit` lineage -- so it is written down rather than
+    re-derived by each consumer.
+    """
+    import omas as _omas
+
+    from vaft.code.efit import build_kinetic_core_profiles
+    from vaft.data import read_geqdsk
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.process import profile as _profile
+    from vaft.process.equilibrium import as_equilibrium
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    ods, _ = load_ods(Path(thomson_product))
+    if ces_product is not None and Path(ces_product).exists():
+        ion, _ = load_ods(Path(ces_product))
+        if "charge_exchange" in ion:
+            ods["charge_exchange"] = ion["charge_exchange"]
+
+    manifest = _external_profile_manifest("core_profiles", shot, run, era.name)
+    manifest["input"] = {
+        "thomson_product": str(thomson_product),
+        "ces_product": str(ces_product) if ces_product is not None else None,
+        "efit_product": str(efit_product) if efit_product is not None else None,
+        "geqdsk_dir": str(geqdsk_dir) if geqdsk_dir is not None else None,
+    }
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
+
+    if "thomson_scattering.time" not in ods:
+        manifest["error"] = "the Thomson product carries no thomson_scattering.time"
+        return ods, manifest
+
+    # Test the full path, not the parent: reading `charge_exchange.channel`
+    # off an ODS that has the IDS but no channels would materialize the node,
+    # and `flat()` does not show an empty one, so the damage is silent.
+    has_ion = (
+        "charge_exchange.channel" in ods
+        and len(ods["charge_exchange.channel"]) > 0
+    )
+    times_ms = np.asarray(ods["thomson_scattering.time"], dtype=float) * 1e3
+
+    # A re-run must not leave a stale slice behind: the mix of kinetic and
+    # electron-only slices depends on which CES product was available, and that
+    # can change between runs.
+    if "core_profiles" in ods:
+        del ods["core_profiles"]
+
+    # Preferred source of the psi map: the EFIT stage's own product, mapped per
+    # Thomson time to its nearest reconstructed slice. `geqdsk_dir` remains for
+    # a CHEASE directory that predates the stage, but it ties this stage to a
+    # filesystem layout it does not own, and the kinetic stages already read the
+    # equilibrium out of the product instead.
+    solution = None
+    eq_times_ms = None
+    if efit_product is not None:
+        # A path that does not resolve is a caller error, not an absent
+        # equilibrium. Falling through to `geqdsk_dir` would report "no
+        # equilibrium" for every time and never mention the typo.
+        if not Path(efit_product).exists():
+            manifest["error"] = f"the efit product is missing: {efit_product}"
+            return ods, manifest
+        solution, _ = load_ods(Path(efit_product))
+        eq_times_ms = _time_array_ms(solution, "equilibrium.time")
+        if eq_times_ms is None:
+            # Present but unusable is not the same as absent, and it is the
+            # common case: a shot whose EFIT stage is `no_output` -- 48224 --
+            # produces exactly this. Reporting it as "no equilibrium at every
+            # time" would blame the time bases for a product that was never
+            # reconstructed.
+            manifest["error"] = (
+                f"the efit product carries no equilibrium.time: {efit_product}"
+            )
+            return ods, manifest
+
+    n_kinetic = 0
+    n_electron = 0
+    missing_equilibrium: list[float] = []
+    for time_ms in times_ms:
+        geq = None
+        if solution is not None:
+            index = int(np.argmin(np.abs(eq_times_ms - float(time_ms))))
+            # Nearest is not the same as close. On 48226 the Thomson window
+            # (298-307 ms) and the reconstructed window (308-311 ms) do not
+            # overlap at all, and an unguarded argmin mapped every profile onto
+            # an equilibrium 7-10 ms away while reporting nothing missing.
+            if abs(float(eq_times_ms[index]) - float(time_ms)) > equilibrium_tolerance_ms:
+                geq = None
+            else:
+                try:
+                    geq = from_equilibrium(as_equilibrium(solution, time_index=index))
+                except Exception as error:  # noqa: BLE001 - one bad slice is a missing one
+                    # Recorded once. "An unusable slice is a missing one" holds
+                    # for one slice; when every slice fails for the same
+                    # structural reason the count alone reads as a time-base
+                    # mismatch rather than an unreadable equilibrium.
+                    manifest.setdefault(
+                        "equilibrium_error", f"{type(error).__name__}: {error}"
+                    )
+                    geq = None
+        elif geqdsk_dir is not None:
+            path = Path(geqdsk_dir) / geqdsk_template.format(
+                shot=shot, time_ms=int(time_ms)
+            )
+            if path.exists():
+                try:
+                    geq = read_geqdsk(path)
+                except Exception:  # noqa: BLE001 - a bad g-file is a missing one here
+                    geq = None
+        if geq is None:
+            missing_equilibrium.append(round(float(time_ms), 3))
+            continue
+
+        built_kinetic = False
+        if has_ion:
+            try:
+                # require_ion: only where the ion diagnostic actually covers this
+                # time. Without it a time with no ion data would silently take
+                # the Ti=Te fallback and be indistinguishable from a measured one.
+                build_kinetic_core_profiles(
+                    ods,
+                    geq,
+                    float(time_ms),
+                    ion_index=0,
+                    require_thomson=True,
+                    require_ion=True,
+                    ti_te_fallback=False,
+                )
+                built_kinetic = True
+                n_kinetic += 1
+            except Exception:  # noqa: BLE001 - no ion coverage here; fall back
+                built_kinetic = False
+
+        if not built_kinetic:
+            try:
+                mapped = _profile.equilibrium_mapping_thomson_scattering(ods, geq)
+                n_e_fn, t_e_fn, *_ = _profile.profile_fitting_thomson_scattering(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    Te_order=2,
+                    Ne_order=2,
+                    fitting_function_te="polynomial",
+                    fitting_function_ne="exponential",
+                )
+                _profile.core_profiles(
+                    ods,
+                    float(time_ms),
+                    mapped,
+                    n_e_fn,
+                    t_e_fn,
+                    geq=geq,
+                    ti_te_fallback=False,
+                )
+                n_electron += 1
+            except Exception:  # noqa: BLE001 - one failed fit is not a failed stage
+                continue
+
+    # Once, not per slice: the call takes the whole IDS, so running it inside
+    # the loop reprocessed every slice built so far on each pass.
+    try:
+        _omas.omas_physics.core_profiles_pressures(ods, update=True)
+    except Exception:  # noqa: BLE001 - pressures are derived, not measured
+        pass
+
+    _profile.strip_electron_only_pressure(ods)
+
+    manifest["slices"] = {
+        "kinetic": n_kinetic,
+        "electron_only": n_electron,
+        "no_equilibrium": len(missing_equilibrium),
+    }
+    # Named so the reconstruction stages can read their own eligibility off the
+    # manifest instead of reloading and re-inspecting the product.
+    manifest["supports_kinetic_efit"] = n_kinetic > 0
+    if n_kinetic or n_electron:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+    else:
+        manifest["quality_summary"]["missing"] = [
+            f"core_profiles:t={t}ms" for t in missing_equilibrium[:20]
+        ]
+    return ods, manifest
+
+
+def _time_array_ms(ods: ODS, path: str) -> np.ndarray | None:
+    """A time array in milliseconds, or ``None`` when there is not one.
+
+    Total where the obvious form is not: the path may be absent, may resolve
+    through a scalar parent, or may itself be a bare float that ``len`` refuses
+    -- and every caller here is an optional stage that must record rather than
+    raise.
+    """
+    if not _path_present(ods, path):
+        return None
+    try:
+        values = np.asarray(ods[path], dtype=float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    return values * 1e3 if values.size else None
+
+
+def _path_present(ods: ODS, path: str) -> bool:
+    """Whether ``path`` exists, answering False where ``in`` would raise.
+
+    OMAS resolves a membership test segment by segment, so asking about a deep
+    path whose parent turned out to be a scalar raises instead of returning
+    False.  A reloaded product is exactly where that happens -- the shape it
+    was saved with is not guaranteed to be the shape the caller assumes.
+    """
+    try:
+        return path in ods
+    except (AttributeError, TypeError, KeyError, IndexError, ValueError):
+        return False
+
+
+def _has_kinetic_slice(ods: ODS) -> bool:
+    """Whether any core_profiles slice carries a measured ion temperature.
+
+    The same predicate :func:`vaft.process.profile.strip_electron_only_pressure`
+    uses to decide which slices may keep a total pressure, so the two cannot
+    disagree about what counts as kinetic.
+    """
+    # `in` is not total over a reloaded product. OMAS walks the path segment by
+    # segment, so a membership test whose parent resolves to a scalar raises
+    # `AttributeError: 'float' object has no attribute 'omas_data'` rather than
+    # answering False -- and `core_profiles` being present says nothing about
+    # whether `profiles_1d` is a populated AoS.
+    if not _path_present(ods, "core_profiles.profiles_1d"):
+        return False
+    try:
+        count = len(ods["core_profiles.profiles_1d"])
+    except TypeError:  # an AoS that is not a list is an AoS with no slices
+        return False
+    return any(
+        _path_present(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature")
+        for index in range(count)
+    )
+
+
+def build_kinetic_efit_ods(
+    *,
+    shot: int,
+    stage: str,
+    core_profiles_product: str | Path,
+    constraints_product: str | Path,
+    efit_product: str | Path,
+    time_ms: float | None = None,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    workdir: str | Path | None = None,
+    executable: str | None = None,
+    encoding: str = "raw6",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Reconstruct a kinetic-pressure equilibrium from products already on disk.
+
+    Nothing is read from outside the FileDB.  The base magnetic kfile is built
+    by :func:`vaft.code.efit.generate_kfile` -- the default path through
+    ``prepare_kinetic_efit_inputs`` -- from the EFIT stage's own *constraints*
+    product, and the R -> psi_N map comes from the magnetic EFIT *solution*
+    through :func:`vaft.data.eqdsk.from_equilibrium`, so no g-file has to be
+    located on a filesystem the stage does not own.
+
+    Those are two different products and both are `equilibrium`, which is why
+    they are not merged: the constraints product carries
+    ``code.parameters`` (the ``IN1`` namelist ``generate_kfile`` reads) and
+    ``time_slice.*.constraints``, while the solution carries the flux map.  The
+    psi map travels as ``geq``, which ``run_kinetic_chain`` already takes
+    separately from the ODS, so neither has to overwrite the other.
+
+    ``stage`` is ``electron_efit`` or ``kinetic_efit``, and it must agree with
+    what the core-profile product actually measured: the ion diagnostic is what
+    separates a measured Ti from one assumed through a Ti/Te ratio, and a run
+    that quietly produced the other kind would be published into the wrong
+    lineage.  A mismatch is recorded, not raised, because both stages are asked
+    for and only one of them can apply to a given shot.
+    """
+    from vaft.code.efit.kinetic import KineticEFITConfig, run_kinetic_chain
+    from vaft.data.eqdsk import from_equilibrium, to_omas
+    from vaft.process.equilibrium import as_equilibrium
+
+    if stage not in ("electron_efit", "kinetic_efit"):
+        raise ValueError(f"stage must be electron_efit or kinetic_efit; got {stage!r}")
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest(stage, shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "constraints_product": str(constraints_product),
+        "efit_product": str(efit_product),
+    }
+    manifest["configuration"]["encoding"] = encoding
+
+    out = ODS(consistency_check=False)
+    dataset_description(
+        out,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": f"VEST {stage.replace('_', ' ')}; machine era {era.name}",
+        },
+    )
+
+    def unavailable(reason: str) -> tuple[ODS, dict[str, Any]]:
+        manifest["error"] = reason
+        return out, manifest
+
+    for label, path in (
+        ("core_profiles", core_profiles_product),
+        ("constraints", constraints_product),
+        ("efit", efit_product),
+    ):
+        if not Path(path).exists():
+            return unavailable(f"the {label} product is missing: {path}")
+
+    ods, _ = load_ods(Path(core_profiles_product))
+    # What decides the lineage is whether a slice was actually built with a
+    # measured ion temperature, not whether the product happens to carry a
+    # `charge_exchange` IDS. On 48226 it carries one and has no kinetic slice
+    # at all -- the ion diagnostic covers 298-307 ms and the equilibrium does
+    # not -- so keying off the IDS refused `electron_efit` for a product only
+    # `electron_efit` can serve, while `kinetic_efit` could not serve it
+    # either. Both lineages declined the same shot.
+    has_kinetic = _has_kinetic_slice(ods)
+    wants_kinetic = stage == "kinetic_efit"
+    if has_kinetic != wants_kinetic:
+        measured = "with" if has_kinetic else "without"
+        return unavailable(
+            f"this shot's profiles were built {measured} a measured ion "
+            f"temperature, so it belongs to the other lineage, not {stage}"
+        )
+    if "thomson_scattering" not in ods:
+        return unavailable("the core-profile product carries no thomson_scattering")
+
+    # What `generate_kfile` actually reads is the EFIT stage's *constraints*
+    # product: `code.parameters` holds the IN1 namelist (TABLE_DIR/INPUT_DIR)
+    # and `time_slice.*.constraints` the measurements already folded in from
+    # magnetics. The efit *output* product cannot stand in for it -- its
+    # `code.parameters` records collection provenance instead, and on products
+    # written before #642 it is a flat string rather than a tree.
+    constraints, _ = load_ods(Path(constraints_product))
+    if "equilibrium" not in constraints:
+        return unavailable("the constraints product carries no equilibrium")
+    ods["equilibrium"] = constraints["equilibrium"]
+
+    # The solution stays out of the ODS on purpose: it is `equilibrium` too, so
+    # merging it would overwrite the constraints the kfile is built from. It
+    # only has to reach `geq`, which is a separate argument.
+    solution, _ = load_ods(Path(efit_product))
+    if (
+        "equilibrium.time_slice" not in solution
+        or not len(solution["equilibrium.time_slice"])
+    ):
+        return unavailable("the efit product carries no equilibrium time slice")
+
+    # `time_slice` existing does not guarantee `time` does, and argmin over an
+    # empty array raises. Every other bad-input path here records and returns,
+    # so this one must too -- an optional stage that raises fails the whole run
+    # instead of being skipped.
+    if "equilibrium.time" not in solution:
+        return unavailable("the efit product carries no equilibrium.time")
+    eq_times = np.asarray(solution["equilibrium.time"], dtype=float).reshape(-1) * 1e3
+    if eq_times.size == 0:
+        return unavailable("the efit product's equilibrium.time is empty")
+
+    if time_ms is None:
+        # Same two forms this file just stopped trusting: `in` is not total
+        # over a reloaded product, and a single time saved as a scalar makes
+        # `len` raise out of a stage contracted never to raise.
+        profile_times = _time_array_ms(ods, "core_profiles.time")
+        if profile_times is None:
+            return unavailable("no core_profiles slice to reconstruct at")
+        # The best-aligned slice, not the first one. Which profile time happens
+        # to come first says nothing about which has an equilibrium to be
+        # reconstructed against, and with a sub-millisecond tolerance an
+        # arbitrary choice refuses shots a better-aligned slice would serve.
+        offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
+        time_ms = float(profile_times[int(np.argmin(offsets))])
+
+    time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
+    manifest["configuration"]["time_ms"] = float(time_ms)
+    manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
+    # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
+    # near miss in a discharge this short -- it is a different plasma. Refuse
+    # rather than produce a number nobody can tell is meaningless.
+    offset = abs(float(eq_times[time_index]) - float(time_ms))
+    if offset > equilibrium_tolerance_ms:
+        return unavailable(
+            f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
+            f"profile time ({time_ms:.1f} ms), beyond the "
+            f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+        )
+
+    # The psi this carries is the ODS's, in weber (#278/#281), where a g-file's
+    # is weber per radian -- measured on 48224, SIMAG and SIBRY come out exactly
+    # 2*pi larger. It does not matter *here*, because every consumer normalizes:
+    # psi_N = (psi - SIMAG)/(SIBRY - SIMAG) in `_psin_of_r`, and psi_norm /
+    # rho_pol_norm / rho_tor_norm in the profile mapper, so a global factor -- or
+    # a COCOS sign flip -- cancels in numerator and denominator alike. Verified
+    # against the packaged g-file: psi_N agrees to 2e-16. Anything that later
+    # wants *absolute* psi off this object has to convert first.
+    try:
+        geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
+    except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
+        return unavailable(f"cannot build a psi map from the equilibrium: {error}")
+
+    # A caller-supplied workdir is the caller's to keep. One we invent is ours to
+    # remove: EFIT leaves a kfile and its outputs per PLASMA scale, and this stage
+    # is registered for every shot, so leaking one directory per shot would fill
+    # the filesystem the products themselves live on.
+    ephemeral = workdir is None
+    work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
+    try:
+        config = KineticEFITConfig(
+            executable=executable,
+            workdir=work,
+            shot=shot,
+            time_ms=float(time_ms),
+            encoding=encoding,
+            # 'auto' is the VEST policy ratio, and it only applies when the ODS
+            # has no ion data -- which is exactly the electron_efit case.
+            ti_te_ratio="auto",
+        )
+        try:
+            chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
+        except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
+            manifest["status"] = "failed"
+            manifest["error"] = f"{type(error).__name__}: {error}"
+            manifest["traceback"] = traceback.format_exc()
+            return out, manifest
+
+        result = chain["kinetic_efit"]
+        manifest["reconstruction"] = {
+            "status": result.status,
+            "converged": bool(result.converged),
+            "scale": result.scale,
+            "chi2": result.chi2,
+            "reason": result.reason,
+        }
+        if result.status == "skipped":
+            return unavailable(result.reason or "EFIT executable is not configured")
+        if not result.converged or result.gfile is None:
+            manifest["status"] = "no_output"
+            manifest["error"] = result.reason or "no PLASMA scale converged"
+            return out, manifest
+
+        # Read the g-file before the workdir goes away.
+        to_omas(read_geqdsk_file(result.gfile), ods=out)
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        # Recording a path under a directory about to be deleted would name a
+        # file nobody can open; the name is what identifies the reconstruction.
+        manifest["output_gfile"] = (
+            Path(result.gfile).name if ephemeral else str(result.gfile)
+        )
+        return out, manifest
+    finally:
+        if ephemeral:
+            shutil.rmtree(work, ignore_errors=True)
+
+
+def read_geqdsk_file(path: str | Path):
+    """Read a g-file. Thin indirection so the builder stays import-light."""
+    from vaft.data import read_geqdsk
+
+    return read_geqdsk(path)
+
+
+def build_neoclassical_ods(
+    *,
+    shot: int,
+    state: str | Path,
+    run_directory: str | Path,
+    time: float | None = None,
+    time_index: int = 0,
+    z_eff: float | None = None,
+    ion_index: int = 0,
+    rho_max: float | None = 0.95,
+    lineage: str = "kinetic",
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Build the ``neoclassical`` stage product from one NEO run (#550 phase 8).
+
+    ``state`` is the qualified kinetic state the run was made from and
+    ``run_directory`` the directory NEO wrote into. The product holds what NEO
+    produced -- ``core_profiles.j_bootstrap`` and the ``core_transport`` fluxes --
+    plus the identity of the state it came from, not a copy of that state: the
+    arrangement the per-product stability sources use, and what keeps this product
+    from re-publishing profiles the kinetic stage already owns.
+
+    The state is qualified before anything is mapped. A state that does not qualify
+    raises, because a product built from an input the rule rejects would be exactly
+    the unqualified promotion #550 defers: the rule has to gate the write, not merely
+    describe it afterwards.
+
+    ``lineage`` is the caller's statement of which reconstruction the state came from,
+    and it is an argument rather than something read back because no ODS records it:
+    an electron-only fit with an assumed Ti/Te ratio carries an ion temperature that
+    looks exactly like a measured one. Only the kinetic lineage has a destination
+    today -- ``kinetic-efit/neoclassical`` in
+    :data:`vaft.database.sources.STAGE_REPLICATION` -- so anything else is refused
+    here rather than published into a source that would misdescribe it.
+
+    Returns the product and its manifest. The manifest records the readiness result
+    in full, so the assumptions a number rests on -- an assumed Z_eff above all --
+    travel with the number rather than living in whoever ran it.
+    """
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.machine_mapping.neoclassical import (
+        core_profiles_from_neo,
+        core_transport_from_neo,
+    )
+    from vaft.validation.neoclassical import input_readiness
+
+    shot = int(shot)
+    if lineage != "kinetic":
+        raise ValueError(
+            f"lineage {lineage!r} has no neoclassical destination; only 'kinetic' is "
+            "wired, because the ion temperature NEO needs is measured only on that "
+            "lineage. Add a source to vaft.database.sources.STAGE_REPLICATION before "
+            "promoting another."
+        )
+    state_path = Path(state)
+    source_state, _ = load_ods(state_path)
+
+    readiness = input_readiness(
+        source_state,
+        time=time,
+        time_index=time_index if time is None else None,
+        rho_max=rho_max,
+        z_eff=z_eff,
+        ion_index=ion_index,
+    )
+    if not readiness["qualified"]:
+        reasons = "; ".join(
+            f"{check['name']}: {check['detail']}"
+            for check in readiness["requirements"]
+            if not check["satisfied"]
+        )
+        raise ValueError(
+            f"shot {shot} does not qualify for neoclassical promotion ({reasons}). "
+            "vaft.validation.neoclassical.input_readiness is the rule; a state that "
+            "fails it is not promoted with a caveat, it is not promoted."
+        )
+
+    native = collect_neo_outputs(run_directory)
+    if native is None or not native.solved:
+        missing = "no NEO output in that directory" if native is None else (
+            "the run did not solve: " + ", ".join(native.errors or native.missing())
+        )
+        raise ValueError(f"shot {shot} has no usable NEO result ({missing})")
+
+    resolved = readiness["provenance"].get("time", {})
+    slice_time = float(
+        resolved.get("equilibrium_time", time if time is not None else 0.0)
+    )
+    b0 = _vacuum_field_at(source_state, resolved.get("equilibrium_index", 0))
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": (
+                f"VEST neoclassical transport from NEO; machine era "
+                f"{machine_era_for_shot(shot).name}"
+            ),
+        },
+    )
+    profiles = core_profiles_from_neo(
+        ods, native, time=slice_time, time_index=0, b0=b0
+    )
+    transport = core_transport_from_neo(ods, native, time=slice_time, time_index=0)
+
+    written = tuple(profiles["written"]) + tuple(transport["written"])
+    # The bootstrap current is what this product is for. A run that mapped only the
+    # fluxes -- because no vacuum field was available to normalise by, say -- is a
+    # partial result, and calling it "success" would publish a product the summary
+    # then produces no row for, indistinguishable from a shot never run.
+    if "j_bootstrap" in written:
+        status = "success"
+    elif written:
+        status = "partial"
+    else:
+        status = "empty"
+    manifest = {
+        "schema_version": 1,
+        "stage": "neoclassical",
+        "shot": shot,
+        "machine_version": machine_era_for_shot(shot).name,
+        "status": status,
+        "input": {
+            "state": state_path.name,
+            "state_sha256": sha256_file(state_path),
+            # The run directory's *name* only: an absolute path is meaningless on
+            # every machine but the one that ran it, and this manifest is published.
+            "run_name": Path(run_directory).name,
+        },
+        "solver": {
+            "code": "neo",
+            **{key: str(value) for key, value in (native.version or {}).items()},
+            "surfaces": int(native.grid.n_radial) if native.grid is not None else 0,
+        },
+        "lineage": lineage,
+        "time_s": slice_time,
+        "vacuum_b0_t": None if b0 is None else float(b0),
+        "written": list(written),
+        "skipped": list(profiles["skipped"]) + list(transport["skipped"]),
+        "readiness": _jsonable(readiness),
+    }
+    return ods, manifest
+
+
+def _vacuum_field_at(ods: ODS, index: Any) -> float | None:
+    """The vacuum field of one equilibrium slice, by index rather than by position."""
+    try:
+        field = np.ravel(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
+    except Exception:
+        return None
+    if field.size == 0:
+        return None
+    # A single stored value applies to every slice; otherwise index it. Never
+    # position 0 for a later slice -- that error has been made twice already
+    # in this chain (PR #696).
+    if field.size == 1:
+        return float(field[0])
+    position = int(index or 0)
+    return float(field[position]) if position < field.size else None
+
+
+def _jsonable(value: Any) -> Any:
+    """Plain types only: a manifest is written as JSON and read back by a pipeline."""
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating,)):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return [_jsonable(item) for item in value.tolist()]
+    return value
+
+
+def write_neoclassical_product(
+    ods: ODS,
+    manifest: Mapping[str, Any],
+    native: Any,
+    *,
+    output: str | Path,
+    metadata: str | Path,
+    compression: str | None = None,
+) -> Path:
+    """Write the stage product, its manifest, and NEO's own result beside them.
+
+    #527's principle: the solver-native result is preserved alongside the queryable
+    one. The standardized product is what the database and every query read; the
+    native JSON is there for the question the mapping did not anticipate -- NEO's own
+    normalisation, its Sauter and Redl columns, the surfaces it actually solved --
+    and is never the query contract, which is why it sits beside the product rather
+    than inside it.
+
+    Returns the path the native result was written to.
+    """
+    write_stage_product(
+        ods, dict(manifest), output=output, metadata=metadata, compression=compression
+    )
+    native_path = Path(output).with_suffix("")
+    native_path = native_path.with_name(native_path.name + ".neo.json")
+    return native.write_json(native_path)
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],
     *,
     output: str | Path,
     metadata: str | Path,
+    compression: str | None = None,
 ) -> None:
-    """Write deterministic ODS and manifest products."""
-    output_path = save(ods, output)
+    """Write deterministic ODS and manifest products.
+
+    ``compression`` names an HDF5 filter (``"gzip"``) for ``.h5``/``.hdf5``
+    outputs. It changes the container encoding, not the data, so the recorded
+    ``output.sha256`` legitimately differs from an uncompressed product built
+    from the same ODS -- that hash identifies the file, not the physics.
+    """
+    output_path = save(ods, output, compression=compression)
     final_manifest = dict(manifest)
     final_manifest["output"] = {
         "name": output_path.name,

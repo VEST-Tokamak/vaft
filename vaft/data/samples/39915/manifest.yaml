@@ -49,8 +49,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10484739
-    sha256: 236bc1d7ed167690b4eefe7bd291872bc07e9e0aaa87cdc28141f83b8fdc25d2
+    size: 11047928
+    sha256: 5e49ed0abb129e9d51398496567b5be8362ecea02b8cf981f6d21c67b1fba1b3
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,16 +58,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11922516
-    sha256: e166c909ebf4e197c007b1e0749118e5d456a4e9b2d7806d15a720eee120c2b6
+    size: 11922608
+    sha256: 73126eee8c473b64005a03bb3d0b81b03951c6ea0f8c7aafc7275a9f129bcf2b
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
   canonical_sha256: ba20eeef791ce7a212497053e527db620ffd88652a7794b8184e816e8d7143b0
   canonical_policy: repository-only
+  normalizations:
+  - equilibrium_psi_weber
   equilibrium_time_slices: 0
-  materialized_leaves: 19576
+  materialized_leaves: 19578
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -117,6 +119,7 @@ generation:
       population_peak_factor: 4.0
     condemned:
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+  equilibrium_cocos: 11
 semantic_comparison:
   paths:
   - wall.*
@@ -182,3 +185,18 @@ corrections:
     so a regeneration now reproduces this value rather than reverting it. The stage
     hashes above are therefore unchanged and still describe the run that produced
     the rest of the artifact.'
+- change: semantic emission selector (emission=)
+  field: spectrometer_uv.channel.2.processed_line.3.{label,wavelength_central}
+  from: CII_3726 / 372.6e-9
+  to: CII_4267 / 426.7e-9
+  reason: '3726 Angstrom is the well-known [O II] line, which processed_line.5 of
+    the same channel already and correctly claims; the representative visible C II
+    line the filterscope observes is near 4267 Angstrom. The old pair therefore
+    named two different species at one wavelength, which a species-aware selector
+    would have resolved to the wrong ion. Applied in place rather than by rerunning
+    the pipeline, for the same reason as the #288 correction: the mapper writes both
+    leaves as constants from vaft.machine_mapping.spectrometer_uv.SIGNALS, and no
+    stage output depends on either, so the intensity series recorded from DAQ field
+    142 is untouched. SIGNALS was corrected in the same change, so a regeneration
+    reproduces these values rather than reverting them, and the stage hashes still
+    describe the run that produced the rest of the artifact.'

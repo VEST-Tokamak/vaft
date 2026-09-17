@@ -264,6 +264,11 @@ def load_ods(
                 ods.load(str(plain_path), consistency_check=False)
         else:
             ods.load(str(source_path), consistency_check=False)
+        if descriptor.format == "omas_hdf5":
+            # JSON cannot hold bytes, so only the HDF5 branch needs this, and
+            # scoping it keeps a full-ODS walk off the JSON path.
+            _decode_byte_strings(ods)
+        _promote_code_parameters(ods)
         return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
 
     temporary: Path | None = None
@@ -286,6 +291,82 @@ def load_ods(
     finally:
         if temporary is not None:
             remove_directory(temporary)
+
+
+def _as_text(value):
+    """Return ``value`` re-stated as text, or ``None`` if it holds no bytes.
+
+    Handles a single byte string -- ``numpy.bytes_`` is a ``bytes`` subclass --
+    and an array of them, which is how an ``STR_1D`` leaf comes back. Both the
+    fixed-width form (``dtype.kind == "S"``) and the object-array form HDF5 uses
+    for variable-length strings are covered; matching only one would leave the
+    other holding bytes.
+
+    The result is a ``<U`` array rather than an object array, because that is
+    what OMAS's checker produces (``value.astype(str)``) and what the JSON path
+    therefore yields. An object array would carry the same characters and still
+    compare unequal by dtype, which is the asymmetry this exists to remove.
+    """
+    import numpy as np
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    if not isinstance(value, np.ndarray):
+        return None
+
+    items = value.ravel().tolist()
+    if value.dtype.kind == "S":
+        pass
+    elif value.dtype.kind == "O" and items and all(
+        isinstance(item, bytes) for item in items
+    ):
+        # Every element, not any: one stray byte string in a mixed array would
+        # otherwise take `str()` to the rest and quietly rewrite numbers as text.
+        pass
+    else:
+        return None
+
+    if value.ndim == 0:
+        # A zero-dimensional array is a scalar leaf. Returning a 0-d array here
+        # would leave it comparing unequal by type against the JSON path, which
+        # is the asymmetry this exists to remove.
+        return items[0].decode("utf-8", "replace")
+
+    decoded = [item.decode("utf-8", "replace") for item in items]
+    # `dtype=str` rather than letting NumPy infer: an empty leaf would otherwise
+    # come back `float64`, turning a string leaf numeric.
+    return np.array(decoded, dtype=str).reshape(value.shape)
+
+
+def _decode_byte_strings(ods) -> None:
+    """Re-state an HDF5 artifact's byte strings as ``str``, in place.
+
+    HDF5 stores strings as bytes and JSON has no bytes type, so the same ODS
+    loads back with different string types depending only on which container it
+    was written to. OMAS's consistency checker is what normally reconciles that,
+    and this loader deliberately runs without it so a non-conformant artifact
+    still opens -- which leaves the container leaking into the data.
+
+    That leak is not cosmetic. `replicate_stage` validates a publication by
+    comparing the replica against the product it sent; with the product read
+    here and the replica read through the checker, every string leaf differs by
+    type alone and the publication is recorded as unvalidated (#734).
+    """
+    for path, value in list(ods.flat().items()):
+        decoded = _as_text(value)
+        if decoded is not None:
+            ods[path] = decoded
+
+
+def _promote_code_parameters(ods) -> None:
+    """Turn every flat ``<ids>.code.parameters`` branch into a ``CodeParameters``.
+
+    The load half of the pair in :mod:`vaft.imas.code_parameters`; the save
+    half is what decides which of a mixed block an entry sees (#478, #642).
+    """
+    from ..imas.code_parameters import promote_in_place
+
+    promote_in_place(ods)
 
 
 class IMASHandle(AbstractContextManager["IMASHandle"]):

@@ -11,6 +11,7 @@ from vaft.database.filedb import (
     FileDBConfigError,
     FileDBPathError,
     GPECCode,
+    StabilityProduct,
     audit_legacy_filedb,
 )
 
@@ -27,13 +28,23 @@ def test_complete_canonical_directory_grammar(tmp_path):
     assert (
         db.omas("static", machine_version="vest-2019") == root / "omas/static/vest-2019"
     )
-    for stage in ("diagnostics", "eddy", "efit", "chease"):
+    for stage in ("diagnostics", "eddy"):
         assert db.omas(stage, shot=39915) == root / f"omas/{stage}/39915"
-    assert db.efit(39915) == root / "efit/39915"
-    assert db.chease(39915) == root / "chease/39915"
+    # A reconstruction and its refinement belong to one equilibrium family, so
+    # the family is a path segment rather than something a reader has to infer.
+    for stage in ("efit", "chease"):
+        assert (
+            db.omas(stage, shot=39915, family="magnetic")
+            == root / f"omas/{stage}/magnetic/39915"
+        )
+    assert db.efit(39915, family="magnetic") == root / "efit/magnetic/39915"
+    assert db.chease(39915, family="magnetic") == root / "chease/magnetic/39915"
     assert db.pipeline("preflight", artifact="metadata") == root / "pipeline/preflight/metadata"
-    for code in ("dcon", "rdcon", "stride", "ideal-gpec"):
-        assert db.gpec(code, 39915, 1) == root / f"gpec/{code}/39915/n=1"
+    for product in ("dcon-peeling", "dcon-kink", "rdcon", "stride", "ideal-gpec"):
+        assert (
+            db.gpec(product, 39915, 1, family="magnetic", refinement="chease")
+            == root / f"gpec/magnetic/chease/{product}/39915/n=1"
+        )
 
     assert not root.exists(), "path resolution must not materialize directories"
 
@@ -53,13 +64,13 @@ def test_raw_shot_directory_is_flat_and_rejects_artifact_subdirectories(tmp_path
 def test_every_artifact_class_is_supported_without_materialization(tmp_path, artifact):
     db = FileDB(tmp_path / "FileDB")
 
-    path = db.omas("efit", shot=39915, artifact=artifact)
+    path = db.omas("efit", shot=39915, family="magnetic", artifact=artifact)
 
-    assert path == tmp_path / "FileDB/omas/efit/39915" / artifact
+    assert path == tmp_path / "FileDB/omas/efit/magnetic/39915" / artifact
     assert not path.exists()
 
 
-@pytest.mark.parametrize("code", list(GPECCode))
+@pytest.mark.parametrize("code", list(StabilityProduct))
 @pytest.mark.parametrize("mode", [1, 2, 6])
 @pytest.mark.parametrize(
     "artifact",
@@ -68,22 +79,32 @@ def test_every_artifact_class_is_supported_without_materialization(tmp_path, art
 def test_gpec_supports_every_code_mode_and_artifact_class_without_materialization(
     tmp_path, code, mode, artifact
 ):
-    """DCON/RDCON/STRIDE need distinct modes per code (unlike legacy's shared
-    scan list) and the full artifact-class set to store input namelists,
-    solver output, logs, and run metadata for each (code, mode) cell."""
+    """Every product needs distinct modes (unlike legacy's shared scan list) and
+    the full artifact-class set to store input namelists, solver output, logs,
+    and run metadata for each cell."""
     db = FileDB(tmp_path / "FileDB")
     root = tmp_path / "FileDB"
 
-    path = db.gpec(code, 39915, mode, artifact=artifact)
+    path = db.gpec(
+        code, 39915, mode, family="magnetic", refinement="chease", artifact=artifact
+    )
 
-    assert path == root / f"gpec/{code.value}/39915/n={mode}/{artifact}"
+    assert (
+        path
+        == root / f"gpec/magnetic/chease/{code.value}/39915/n={mode}/{artifact}"
+    )
     assert not path.exists()
 
 
 def test_gpec_multiple_modes_of_the_same_code_do_not_collide(tmp_path):
     db = FileDB(tmp_path / "FileDB")
 
-    paths = {db.gpec(GPECCode.RDCON, 39915, mode) for mode in (1, 2, 3, 4, 5, 6)}
+    paths = {
+        db.gpec(
+            StabilityProduct.RDCON, 39915, mode, family="magnetic", refinement="chease"
+        )
+        for mode in (1, 2, 3, 4, 5, 6)
+    }
 
     assert len(paths) == 6
 
@@ -95,11 +116,18 @@ def test_enum_arguments_and_same_shot_resolve_without_collisions(tmp_path):
         db.legacy("thomson", 39915),
         db.omas("diagnostics", shot=39915),
         db.omas("eddy", shot=39915),
-        db.omas("efit", shot=39915),
-        db.omas("chease", shot=39915),
-        db.efit(39915),
-        db.chease(39915),
-        db.gpec(GPECCode.DCON, 39915, 1, artifact=ArtifactClass.OUTPUT),
+        db.omas("efit", shot=39915, family="magnetic"),
+        db.omas("chease", shot=39915, family="magnetic"),
+        db.efit(39915, family="magnetic"),
+        db.chease(39915, family="magnetic"),
+        db.gpec(
+            StabilityProduct.DCON_PEELING,
+            39915,
+            1,
+            family="magnetic",
+            refinement="chease",
+            artifact=ArtifactClass.OUTPUT,
+        ),
     }
 
     assert len(paths) == 9
@@ -124,10 +152,42 @@ def test_enum_arguments_and_same_shot_resolve_without_collisions(tmp_path):
             {"subdomain": "static", "machine_version": None},
             "machine_version",
         ),
-        (("gpec",), {"code": "gpec", "shot": 39915, "mode": 1}, "GPEC code"),
-        (("gpec",), {"code": "dcon", "shot": 39915, "mode": 0}, "toroidal mode"),
+        (
+            ("gpec",),
+            {"product": "gpec", "shot": 39915, "mode": 1,
+             "family": "magnetic", "refinement": "chease"},
+            "stability product",
+        ),
+        (
+            ("gpec",),
+            {"product": "dcon-peeling", "shot": 39915, "mode": 0,
+             "family": "magnetic", "refinement": "chease"},
+            "toroidal mode",
+        ),
+        # A dimension the domain does not carry must be refused, not ignored:
+        # silence would file the product under a lineage it does not belong to.
+        (
+            ("gpec",),
+            {"code": "dcon", "product": "dcon-peeling", "shot": 39915, "mode": 1,
+             "family": "magnetic", "refinement": "chease"},
+            "code is not valid",
+        ),
+        (
+            ("raw",),
+            {"shot": 39915, "family": "magnetic"},
+            "family is not valid",
+        ),
+        (
+            ("omas",),
+            {"subdomain": "diagnostics", "shot": 39915, "family": "magnetic"},
+            "family is not valid",
+        ),
         (("pipeline",), {"subdomain": "preflight", "shot": 39915}, "shot is not valid"),
-        (("efit",), {"shot": 39915, "artifact": "result"}, "artifact class"),
+        (
+            ("efit",),
+            {"shot": 39915, "family": "magnetic", "artifact": "result"},
+            "artifact class",
+        ),
     ],
 )
 def test_invalid_path_requests_fail_actionably(tmp_path, args, kwargs, message):
@@ -275,8 +335,10 @@ def test_migration_audit_detects_all_risks_without_writes(tmp_path):
     stability = next(
         entry for entry in report.entries if entry.source.endswith("result.dat")
     )
+    # The legacy tree recorded no edge treatment, so the cell is filed under the
+    # legacy `dcon` product rather than guessed into `dcon-peeling`/`dcon-kink`.
     assert stability.proposed_target == str(
-        target_root / "gpec/dcon/39915/n=1/work/0.319/result.dat"
+        target_root / "gpec/magnetic/chease/dcon/39915/n=1/work/0.319/result.dat"
     )
     payload = report.to_dict()
     assert payload["dry_run"] is True
@@ -294,7 +356,7 @@ def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
     (source_omas / "39915_efit.json").write_text("new efit", encoding="utf-8")
     (source_omas / "39915_eddy.json").write_text("new eddy", encoding="utf-8")
 
-    existing_file = target_root / "omas/efit/39915/output/39915_efit.json"
+    existing_file = target_root / "omas/efit/magnetic/39915/output/39915_efit.json"
     existing_file.parent.mkdir(parents=True)
     existing_file.write_text("existing efit", encoding="utf-8")
     broken_symlink = target_root / "omas/eddy/39915/output/39915_eddy.json"
@@ -327,7 +389,9 @@ def test_production_pipeline_resolves_every_path_through_filedb():
         / "workflow"
         / "automatic_pipeline_1_routine_data_processing"
     )
-    assert "from vaft.database.filedb import FileDB" in (workflow / "paths.py").read_text(encoding="utf-8")
+    paths_source = (workflow / "paths.py").read_text(encoding="utf-8")
+    assert "from vaft.database.filedb import" in paths_source
+    assert "FileDB" in paths_source
 
     # The rules themselves must go through PipelinePaths. paths.py names the
     # legacy root in its prose, so only the Snakefile is scanned for it.
@@ -345,18 +409,26 @@ def test_stage_product_names_come_from_the_resolver_not_the_caller():
     `{shot}_efit.json.gz`, pipeline 1's `efit.json`, and the retired
     workflow/main's `{stage}.json.gz`. A caller that appends its own file name
     is how a fourth appears.
+
+    The container has since moved to `.json.gz` (#813), which makes the name
+    coincide with the retired workflow/main spelling. That is a coincidence of
+    encoding, not a return to that grammar: the path around it is the canonical
+    lineage one, and it is still the resolver that produces it.
     """
     db = FileDB("/srv/vest.filedb")
 
-    assert db.omas_product("efit", shot=39915) == Path(
-        "/srv/vest.filedb/omas/efit/39915/output/efit.json"
+    assert db.omas_product("efit", shot=39915, family="magnetic") == Path(
+        "/srv/vest.filedb/omas/efit/magnetic/39915/output/efit.json.gz"
     )
-    assert db.omas_product("mhd_linear", shot=39915) == Path(
-        "/srv/vest.filedb/omas/mhd_linear/39915/output/mhd_linear.json"
+    assert db.omas_product(
+        "mhd_linear", shot=39915, family="magnetic",
+        refinement="chease", product="dcon-kink",
+    ) == Path(
+        "/srv/vest.filedb/omas/mhd_linear/magnetic/chease/dcon-kink/39915/output/mhd_linear.json.gz"
     )
     # static is versioned by machine era rather than by shot.
     assert db.omas_product("static", machine_version="v3") == Path(
-        "/srv/vest.filedb/omas/static/v3/output/static.json"
+        "/srv/vest.filedb/omas/static/v3/output/static.json.gz"
     )
 
 
@@ -364,8 +436,8 @@ def test_manifest_and_replication_record_are_separate_artifacts():
     """A finalized local product says nothing about whether it was replicated."""
     db = FileDB("/srv/vest.filedb")
 
-    manifest = db.omas_manifest("chease", shot=39915)
-    replication = db.omas_replication_record("chease", shot=39915)
+    manifest = db.omas_manifest("chease", shot=39915, family="magnetic")
+    replication = db.omas_replication_record("chease", shot=39915, family="magnetic")
 
     assert manifest.parent == replication.parent
     assert manifest != replication
@@ -380,7 +452,15 @@ def test_stage_product_rejects_a_stage_outside_the_canonical_grammar():
 
 
 def test_pipeline_paths_do_not_rebuild_stage_product_names():
-    """PipelinePaths must ask the resolver rather than append a file name."""
+    """PipelinePaths must ask the resolver rather than append a file name.
+
+    Every container in circulation is checked, not just the current default: a
+    guard spelled against one suffix stops guarding the moment the default
+    moves, which is silent and is the worst thing a guard can do. The set is
+    derived from the declarations so a new container is covered on arrival.
+    """
+    from vaft.database.filedb import OMAS_PRODUCT_SUFFIX, OMAS_PRODUCT_SUFFIXES
+
     workflow = (
         Path(__file__).parents[1]
         / "workflow"
@@ -389,5 +469,66 @@ def test_pipeline_paths_do_not_rebuild_stage_product_names():
     )
     text = workflow.read_text(encoding="utf-8")
 
+    suffixes = {OMAS_PRODUCT_SUFFIX, ".json"} | set(OMAS_PRODUCT_SUFFIXES.values())
     for stage in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal"):
-        assert f'"output") / "{stage}.json"' not in text, stage
+        for suffix in suffixes:
+            assert f'"output") / "{stage}{suffix}"' not in text, (stage, suffix)
+
+
+def test_the_legacy_audit_still_expects_uncompressed_shot_first_products():
+    """The legacy tree's containers must not follow the canonical one (#813).
+
+    `_DEFAULT_EXPECTED_PRODUCTS` describes the *pre-canonical* shot-first tree,
+    whose products were written as plain JSON and are never rewritten -- that
+    tree is a read-only record. Moving these to `.json.gz` alongside
+    `OMAS_PRODUCT_SUFFIX` would make the audit look for files that have never
+    existed and report every shot as missing its products.
+    """
+    from vaft.database.filedb import _DEFAULT_EXPECTED_PRODUCTS
+
+    assert _DEFAULT_EXPECTED_PRODUCTS["diagnostics_ods"].endswith(".json")
+    assert not _DEFAULT_EXPECTED_PRODUCTS["diagnostics_ods"].endswith(".json.gz")
+    for key in ("eddy_ods", "efit_ods", "chease_ods"):
+        assert _DEFAULT_EXPECTED_PRODUCTS[key].endswith(".json")
+        assert not _DEFAULT_EXPECTED_PRODUCTS[key].endswith(".json.gz")
+    # The raw dump is the one that legitimately is gzipped, and always was.
+    assert _DEFAULT_EXPECTED_PRODUCTS["raw_dump"].endswith(".json.gz")
+
+
+def test_only_hdf5_stages_can_be_written_with_a_compression_filter():
+    """`vaft.omas.save` raises on `compression=` with a JSON target (#813).
+
+    The filter is an HDF5 dataset property; gzipped JSON is already compressed
+    and has nowhere to put one. The single caller that passes `compression=` is
+    pipeline 2's external-diagnostic ingest, which reads it from the stage
+    manifest -- so if one of its trees ever stopped being HDF5, that call would
+    start raising for every shot of it. Checked here rather than discovered on
+    a server.
+    """
+    import sys
+
+    from vaft.database.filedb import OMAS_PRODUCT_SUFFIX, OMAS_PRODUCT_SUFFIXES
+
+    ingest = (
+        Path(__file__).parents[1]
+        / "workflow"
+        / "automatic_pipeline_2_corrective_data_update"
+    )
+    sys.path.insert(0, str(ingest))
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "_ingest_external_diagnostics", ingest / "ingest_external_diagnostics.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(ingest))
+
+    for tree in module.DIAGNOSTIC_TREES:
+        suffix = OMAS_PRODUCT_SUFFIXES.get(tree, OMAS_PRODUCT_SUFFIX)
+        assert suffix in {".h5", ".hdf5"}, (
+            f"{tree!r} is ingested with a compression filter but declares "
+            f"{suffix!r}; vaft.omas.save would raise for every shot of it."
+        )

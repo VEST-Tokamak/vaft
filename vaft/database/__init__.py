@@ -7,6 +7,12 @@ catalog, the ``main`` default and the read-only rule for the legacy ``public``
 namespace all live in :mod:`vaft.database.sources`; ``directory=`` and
 ``target=`` remain accepted as deprecated aliases of ``source=``.
 
+Sources are read one at a time and never merged: :func:`load` on ``main``
+returns ``main``.  Analysis that wants an optional diagnostic alongside the
+baseline -- IMPA, whose sparse source is described in :mod:`vaft.database.sources`
+-- asks for both through :func:`vaft.database.compose`, which keeps the source of
+every channel visible.
+
 Canonical local FileDB paths live in :mod:`vaft.database.filedb`; local
 OMAS/IMAS artifact loading remains exposed through :mod:`vaft.omas` and
 :mod:`vaft.imas`.
@@ -14,7 +20,8 @@ OMAS/IMAS artifact loading remains exposed through :mod:`vaft.omas` and
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from importlib import import_module
 from typing import Literal
 import warnings
@@ -27,6 +34,8 @@ __all__ = [
     "filedb",
     "sources",
     "replication",
+    "composition",
+    "compose",
     "production_qa",
     "plotting",
     "load",
@@ -271,6 +280,7 @@ def save(
     occurrence: int | Mapping[str, int] | None = None,
     imas_version: str | None = None,
     derived_cache: Literal["auto", "none", "imas-images", "omas", "both"] = "auto",
+    finalize_master: Callable[[Path], None] | None = None,
 ):
     """Write an OMAS ODS or native IDS to remote HSDS storage.
 
@@ -278,6 +288,12 @@ def save(
     ``main``. The legacy ``public`` source is read-only and is refused here, so
     a lineage cannot be overwritten by falling back to it. ``target`` and
     ``directory`` are deprecated aliases for ``source``.
+
+    ``finalize_master`` is handed the local ``master.h5`` after the payload is
+    remote and immediately before the master replaces the one already there.
+    Replication uses it to merge the pre-write master's links in locally, so a
+    stage write never leaves an observably stage-only master behind. It applies
+    to the OMAS path only; the native IDS writer owns its own layout.
     """
     from .sources import resolve
 
@@ -289,6 +305,12 @@ def save(
             f"representation={representation!r} does not match the supplied object"
         )
     if inferred == "imas":
+        if finalize_master is not None:
+            raise TypeError(
+                "finalize_master applies to the OMAS write path only; the native "
+                "IDS writer manages its own master. Passing it here would be a "
+                "silent no-op."
+            )
         from .ids import save as save_ids
 
         return save_ids(
@@ -306,6 +328,7 @@ def save(
     return save_ods(
         data,
         shot,
+        finalize_master=finalize_master,
         source=source,
         occurrence=mapped,
         imas_version=imas_version,
@@ -361,13 +384,21 @@ def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups
 
 
 def __getattr__(name: str):
+    # Composing two sources is an explicit request, never something `load` does
+    # on its own (issue #305); the helper is exposed here so asking for it is as
+    # easy as asking for one source, not so that anything does it implicitly.
+    if name == "compose":
+        value = getattr(import_module(".composition", __name__), "compose")
+        globals()[name] = value
+        return value
     if name in __all__:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-    # Plot adapters (issue #63): resolved lazily so importing vaft.database
-    # pulls in neither the plotting stack nor Matplotlib.
-    if name.startswith("plot_") or name == "available_plots":
+    # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
+    # resolved lazily so importing vaft.database pulls in neither the
+    # plotting stack nor Matplotlib.
+    if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots":
         plotting = import_module(".plotting", __name__)
         try:
             value = getattr(plotting, name)
@@ -395,7 +426,12 @@ def __dir__():
     # stack in; a plain import never does -- only dir() pays for completion.
     names = set(globals()) | set(__all__)
     try:
-        names |= set(dir(import_module(".plotting", __name__)))
+        # Only what __getattr__ above resolves: the adapters and discovery,
+        # not the plotting module's own helpers (render, extract, dd).
+        names |= {
+            name for name in dir(import_module(".plotting", __name__))
+            if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots"
+        }
     except Exception:  # pragma: no cover - the plotting stack is optional at dir() time
         pass
     return sorted(n for n in names if not n.startswith("_"))

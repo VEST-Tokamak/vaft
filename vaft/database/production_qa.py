@@ -165,14 +165,26 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ),
         ValidationPlot("equilibrium_field_psi", required=False),
     ),
-    # Deliberately minimal: only `n_tor` and DCON's `energy_perturbed` reach the
-    # IDS today. RDCON/STRIDE's Delta-prime has no IDS slot and survives only in
-    # the stage manifest, so it is recorded as a metric rather than invented into
-    # a figure.
+    # DCON's eigenfunction now reaches the IDS as well as `n_tor` and
+    # `energy_perturbed`, so it gets a figure. RDCON/STRIDE's Delta-prime still
+    # has no `mhd_linear` slot and survives only in the stage manifest, so it
+    # stays a recorded metric rather than being invented into a figure.
     "mhd_linear": (
         ValidationPlot(
             plot="mhd_linear_time_energy_perturbed",
             filename="stability_energy_perturbed.png",
+        ),
+        # The resistive half of the suite (#170). DCON's energy above is the
+        # ideal result; this is what RDCON and STRIDE actually compute, and it
+        # has no slot under `toroidal_mode` -- it lives in `ntms`.
+        #
+        # Optional, because a DCON-only configuration is a legitimate run: the
+        # shipped `gpec.modules` can be any subset, and a shot with no resistive
+        # solver has nothing to draw here rather than a missing figure.
+        ValidationPlot(
+            plot="ntms_time_delta_prime",
+            filename="stability_delta_prime.png",
+            required=False,
         ),
         # Issue #173 phase 1: which (module, mode, time) cells actually ran and
         # succeeded, independent of the #170 IDS-contract work -- its data is
@@ -183,6 +195,15 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             plot="mhd_linear_run_coverage",
             filename="stability_run_coverage.png",
             kind="raw",
+            required=False,
+        ),
+        # The eigenfunction reaches the IDS only when DCON's companion `match`
+        # ran (it is what writes solutions.bin), which is a legitimate thing for
+        # an installation not to have -- so this is optional, and its absence is
+        # recorded as a skip rather than failing the stage.
+        ValidationPlot(
+            plot="mhd_linear_overview_eigenfunction",
+            filename="stability_eigenfunction.png",
             required=False,
         ),
     ),
@@ -205,6 +226,15 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             filename="chease_profile_validity.png",
         ),
     ),
+}
+
+#: Stages whose validation figures need an IDS the stage does not own, and the
+#: stages that own it.  The eddy figures forward-model the magnetic response of
+#: the whole vacuum current system, so they need `pf_active` and `magnetics`
+#: alongside the `pf_passive` the eddy product carries.  Declared here rather
+#: than in the driver, so a figure that grows a dependency is a registry edit.
+STAGE_PLOT_COMPANIONS: dict[str, tuple[str, ...]] = {
+    "eddy": ("diagnostics",),
 }
 
 
@@ -418,15 +448,29 @@ def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
 
     cells = manifest.get("modules_modes") or {}
     rows: list[tuple[str, int, float, str]] = []
+    unparsed: list[str] = []
     for key, cell in cells.items():
         match = _COVERAGE_KEY_RE.match(key)
         if not match:
+            unparsed.append(key)
             continue
         try:
             time_value = float(match.group("time"))
         except ValueError:
+            unparsed.append(key)
             continue
         rows.append((match.group("module"), int(match.group("mode")), time_value, str(cell.get("status", "unknown"))))
+    if unparsed:
+        # The regex is anchored at both ends, so a key whose shape changed used
+        # to vanish from the coverage plot silently -- the panel simply drew
+        # fewer cells, which looks exactly like a run that produced fewer. A
+        # coverage plot that quietly omits coverage is worse than no plot.
+        raise ValueError(
+            f"stage manifest has {len(unparsed)} coverage cell(s) this reader "
+            f"cannot parse, e.g. {sorted(unparsed)[:3]}; expected "
+            "'t={time}/{module}/n={mode}'. The key shape changed, or the "
+            "manifest was written by a different version."
+        )
     if not rows:
         raise ValueError("stage manifest carries no modules_modes coverage cells")
 
@@ -472,10 +516,9 @@ def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
 
 def _use_non_interactive_backend() -> None:
     """Automated workflows must never need a display or a writable ``$HOME``."""
-    os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
-    import matplotlib
+    from vaft.plot.environment import use_non_interactive_backend
 
-    matplotlib.use("Agg", force=False)
+    use_non_interactive_backend()
 
 
 def _sha256(path: Path) -> str:

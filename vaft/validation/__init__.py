@@ -21,6 +21,7 @@ Layout::
     equilibrium.py    the unified equilibrium report (#72), the reference implementation
     magnetics.py      magnetics signal quality (#189)
     vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
+    wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
@@ -71,10 +72,34 @@ _ARTIFACT_EXPORTS = (
 #: ``vaft.validation.validate_equilibrium``.  Lazy, like everything else here.
 _EQUILIBRIUM_EXPORTS = ("validate_equilibrium",)
 
+#: The regime classifier (#76): which cohort a reconstructed slice belongs to.
+#: Its own module, because it answers a different question from
+#: ``validate_equilibrium`` -- not "is this reconstruction sound" but "what was
+#: the plasma doing", which is what makes a soundness result interpretable.
+_REGIME_EXPORTS = (
+    "PHASES",
+    "RegimeLabels",
+    "classify_equilibrium_regime",
+    "classify_equilibrium_regimes",
+)
+
+#: The join (#76): a regime label beside how EFIT ended that slice. Separate
+#: from the classifier because it needs an EFIT run's log, which the
+#: classifier deliberately does not.
+_COHORT_EXPORTS = (
+    "FAILURE_MODES",
+    "CohortJoin",
+    "SliceOutcome",
+    "join_regime_and_termination",
+    "summarize_by_cohort",
+)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
     *_EQUILIBRIUM_EXPORTS,
+    *_REGIME_EXPORTS,
+    *_COHORT_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -101,6 +126,20 @@ def __getattr__(name: str):
         from . import equilibrium
 
         value = getattr(equilibrium, name)
+        globals()[name] = value
+        return value
+
+    if name in _REGIME_EXPORTS:
+        from . import equilibrium_regime
+
+        value = getattr(equilibrium_regime, name)
+        globals()[name] = value
+        return value
+
+    if name in _COHORT_EXPORTS:
+        from . import equilibrium_cohorts
+
+        value = getattr(equilibrium_cohorts, name)
         globals()[name] = value
         return value
 

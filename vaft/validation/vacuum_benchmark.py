@@ -52,7 +52,6 @@ from typing import Any, Iterable, Mapping, Sequence, TYPE_CHECKING
 
 import numpy as np
 
-from vaft.formula.statistics import sigma_threshold_crossing
 from vaft.ods_access import path_value
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,10 +60,20 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "BenchmarkError",
     "DEFAULT_HISTORY_TIME_CONSTANTS",
+    "ARRAY_CONTRADICTION_FLOOR",
+    "ARRAY_CONTRADICTION_FRACTION",
+    "ARRAY_CONTRADICTION_MIN_SCORED",
+    "ARRAY_CONTRADICTION_SIGMA",
+    "BENCHMARK_CASE_SCHEMA",
+    "MIN_ARRAY_MEMBERS",
     "MIN_COIL_DRIVE_FRACTION",
+    "MIN_WITNESSES",
+    "PLASMA_FREE_EVIDENCE_SCHEMA",
     "coil_drive_check",
     "PlasmaFreeInterval",
     "aggregate_benchmark",
+    "array_contradiction_fractions",
+    "array_contradictions",
     "benchmark_wall_currents",
     "plasma_free_interval",
     "run_benchmark_case",
@@ -80,21 +89,64 @@ DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
 
 #: Smallest fraction of the shot's peak PF current that must appear inside the
 #: validation window for a plasma-free eddy score to mean anything (see
-#: :func:`coil_drive_check`).  Measured through the benchmark's own validation
-#: windows on the packaged samples: 39915 reaches 0.34 of its shot peak (the
-#: peak itself comes during the plasma phase), while 41524 reaches 0.003 --
-#: its solenoid fires ~0.8 ms *after* the Ip detector triggers, so its nominal
-#: plasma-free window carries no drive at all and no model can pass or fail
-#: on it.  Over the full pre-onset stretch the driven shots sit at 0.99-1.00.
+#: :func:`coil_drive_check`).  The gate is independent of how the interval was
+#: found, and it earned its place on 41524: the legacy Ip discharge detector
+#: fired on PF pickup ~0.8 ms *before* the solenoid, so the nominal plasma-free
+#: window carried 0.003 of the shot's drive and the eddy score there was a
+#: ratio of two noise numbers.  With the interval ending at the plasma onset
+#: of the shared timing policy (#409) the packaged shots 39915, 41524 and
+#: 41672 all reach 1.00 of their shot peak inside the window; the gate stays,
+#: for the shot whose coils genuinely fire late.
 MIN_COIL_DRIVE_FRACTION = 0.10
 
-#: Sigma above the early-record noise band at which the plasma current is
-#: considered to have emerged.  Matches the residual-onset convention in
-#: :mod:`vaft.omas.vacuum_magnetics` so the two detectors speak the same way.
-ONSET_SIGMA = 5.0
+#: Fraction of the record whose plasma current sets the reference noise band
+#: the residual current inside a plasma-free interval is reported against.
+IP_REFERENCE_FRACTION = 0.2
 
-#: Fraction of the record used as the reference noise band for that detector.
-ONSET_REFERENCE_FRACTION = 0.2
+#: A B-probe whose departure from the interpolation of its two nearest array
+#: neighbours exceeds this robust-z -- against the spread of departures of
+#: the probes independent of it at that instant -- contradicts its array; see
+#: :func:`array_contradictions`.  Conditioning for the scored spread, not a
+#: verdict on the channel.  Measured over the benchmark's plasma-free window
+#: on the packaged 39915 (the one shot the benchmark runs on today): in the
+#: first pass C4-04 contradicts its outboard array for 0.75 of the window and
+#: drags its neighbours C2-04, C4-06 and C4-03 to 0.55-0.71 with it; once
+#: leave-one-out has removed C4-04 every other probe sits at or below 0.005.
+#: ``test_the_array_contradiction_margin_holds_on_the_packaged_shot`` keeps
+#: both halves of that gap under test.
+ARRAY_CONTRADICTION_SIGMA = 20.0
+#: Fraction of its scorable samples a probe must contradict its array for.
+ARRAY_CONTRADICTION_FRACTION = 0.05
+#: Floor on the departure scale, as a fraction of the array's amplitude, so a
+#: quiet instant cannot make numerical texture significant.
+ARRAY_CONTRADICTION_FLOOR = 0.01
+#: Independent probes (neither predicting a probe nor predicted from it) that
+#: must set its scale; below this the sigma would degrade to an absolute test.
+MIN_WITNESSES = 3
+#: Fewest probes an array needs: with seven, every member has at least three
+#: witnesses, and leave-one-out has an array left to judge.
+MIN_ARRAY_MEMBERS = 7
+#: Fraction of the window a probe must be scorable on (usable in itself and in
+#: both neighbours) before its contradiction fraction means anything.
+ARRAY_CONTRADICTION_MIN_SCORED = 0.5
+
+#: Schema of ``plasma_free_evidence`` (#409).  4: the embedded plasma-timing
+#: summary carries ``duty_cycle``, how much of the window the chosen detector
+#: was above threshold (#752) -- a fifth of the corpus's light windows are
+#: envelopes with gaps, so the boundary's extent alone does not say what it
+#: bounded.  3: the boundary comes from the shared plasma-timing policy with
+#: its provenance, and nothing else -- the two retired detectors (the legacy
+#: Ip discharge detector and a sigma crossing of the current, both of which
+#: fired on PF pickup) that schema 2 still reported under ``legacy`` are gone
+#: with them.
+PLASMA_FREE_EVIDENCE_SCHEMA = 4
+
+#: Schema of a :func:`run_benchmark_case` record.  5 follows the evidence
+#: schema again (its ``plasma_timing`` block carries ``duty_cycle``); 4
+#: followed it too (the ``legacy`` block a case's ``plasma_free_evidence``
+#: carried is gone); 3: ``channels.flagged`` and the conditioned ``metrics.summary.scored``
+#: block (its ``count`` excludes flagged probes); 2 followed the evidence schema.
+BENCHMARK_CASE_SCHEMA = 5
 
 
 class BenchmarkError(ValueError):
@@ -144,11 +196,12 @@ def _signal(ods: Any, path: str) -> np.ndarray | None:
     return array if array.size >= 2 else None
 
 
+
+
 def plasma_free_interval(
     ods: Any,
     *,
-    sigma: float = ONSET_SIGMA,
-    reference_fraction: float = ONSET_REFERENCE_FRACTION,
+    reference_fraction: float = IP_REFERENCE_FRACTION,
 ) -> PlasmaFreeInterval:
     """The interval of a shot over which no plasma contributes, with evidence.
 
@@ -157,20 +210,25 @@ def plasma_free_interval(
     and #190 treats as the cleanest case there is.  A shot that does form one
     contributes the stretch before it.
 
-    Two independent detectors bound that stretch and the **earlier** wins:
+    The boundary is the plasma-free boundary of the shared timing policy
+    (:func:`vaft.omas.plasma_timing.plasma_timing`, issue #409): the plasma
+    window's onset -- the slow H-alpha line when it is usable, optical, so the
+    coil-firing pickup every magnetic diagnostic carries cannot trigger it --
+    or the plasma-current principal pulse when that starts earlier, since a
+    plasma-*free* stretch wants the earliest evidence of plasma from any
+    source.  The interval is half-open, ``[start, boundary)``, on every grid.
 
-    * the pipeline's own Ip-based discharge detector,
-      :func:`vaft.machine_mapping.magnetics.vfit_plasma_mgods_startend`, which
-      is deliberately conservative;
-    * the first time the measured current leaves the noise band of the leading
-      part of the record, by the same sigma rule the residual-onset analysis
-      uses.
-
-    Taking the earlier is what keeps plasma out of a nominally plasma-free
-    interval, and it establishes the boundary from the signals rather than from
-    a fixed clock time.
+    A shot is a vacuum case only on evidence: no plasma current recorded at
+    all, or a current whose principal pulse the detector examined and found
+    absent.  A current the product marks unusable, or one the policy cannot
+    read, cannot certify a plasma-free interval and raises
+    :class:`BenchmarkError`.  ``reference_fraction`` sets the early stretch
+    of the current whose noise band the residual current inside the
+    interval is reported against.
     """
-    from vaft.machine_mapping.magnetics import vfit_plasma_mgods_startend
+    from vaft.omas.plasma_timing import PlasmaTimingError, plasma_timing
+    from vaft.omas.vacuum_magnetics import plasma_free_boundary
+    from vaft.validation.imas import resolve_signal_time
 
     time = _signal(ods, "pf_active.time")
     if time is None:
@@ -179,35 +237,40 @@ def plasma_free_interval(
         )
     record = (float(time[0]), float(time[-1]))
 
-    ip_time = _signal(ods, "magnetics.ip.0.time")
     ip_data = _signal(ods, "magnetics.ip.0.data")
+    ip_time = resolve_signal_time(ods, "magnetics.ip.0") if ip_data is not None else None
+    has_ip = ip_time is not None and ip_data is not None and ip_time.size == ip_data.size
     evidence: dict[str, Any] = {
-        "method": "earliest of the pipeline Ip discharge detector and a "
-        f"{sigma:g}-sigma crossing of the leading-record noise band",
+        "schema_version": PLASMA_FREE_EVIDENCE_SCHEMA,
+        "method": "plasma-free boundary of the shared timing policy: the plasma "
+        "window's onset (H-alpha by label, validated fast line, plasma-current "
+        "principal pulse) or the current's principal pulse when it starts earlier",
         "record": list(record),
     }
 
-    coarse = float("nan")
-    if ip_time is not None and ip_data is not None and ip_time.size == ip_data.size:
-        start, end = vfit_plasma_mgods_startend(ods)
-        if start >= 0 and end > start:
-            coarse = float(start)
-        span = float(ip_time[-1] - ip_time[0])
-        reference = ip_time < ip_time[0] + reference_fraction * span
-        fine = sigma_threshold_crossing(ip_time, ip_data, reference, sigma=sigma)
-        evidence.update(
-            {
-                "discharge_detector_onset": coarse,
-                "sigma_crossing_onset": float(fine),
-            }
-        )
-        onsets = [value for value in (coarse, float(fine)) if np.isfinite(value)]
-        onset = min(onsets) if onsets else float("nan")
-    else:
+    boundary = float("nan")
+    if not has_ip:
         evidence["reason"] = "no usable magnetics.ip waveform"
-        onset = float("nan")
+    else:
+        try:
+            timing = plasma_timing(ods)
+        except (PlasmaTimingError, ValueError, TypeError) as exc:
+            raise BenchmarkError(
+                f"the plasma current cannot certify a plasma-free interval: {exc}"
+            ) from exc
+        evidence["plasma_timing"] = timing.summary()
+        if timing.found:
+            boundary, source = plasma_free_boundary(timing)
+            evidence.update({"boundary": boundary, "boundary_source": source})
+        elif "ip_unusable" in timing.flags or timing.ip is None:
+            raise BenchmarkError(
+                "the plasma current is marked unusable, so no plasma-free interval can be "
+                f"certified ({timing.fallback_reason})"
+            )
+        else:
+            evidence["reason"] = f"no source shows a plasma ({timing.fallback_reason})"
 
-    if not np.isfinite(onset) or onset <= record[0]:
+    if not np.isfinite(boundary) or boundary <= record[0]:
         interval = PlasmaFreeInterval(
             start=record[0],
             end=record[1],
@@ -215,17 +278,20 @@ def plasma_free_interval(
             plasma_free_evidence=evidence,
         )
     else:
+        # The boundary itself: the half-open evaluation window then excludes
+        # every sample at or after it on whichever grid a consumer reads.
+        evidence["boundary_on_pf_grid"] = bool(np.any(np.isclose(time, boundary, rtol=0.0, atol=1e-9)))
         interval = PlasmaFreeInterval(
             start=record[0],
-            end=float(onset),
+            end=min(boundary, record[1]),
             case_type="pre_plasma",
             plasma_free_evidence=evidence,
         )
 
-    if ip_time is not None and ip_data is not None and ip_time.size == ip_data.size:
+    if has_ip:
         from vaft.formula.statistics import noise_band
 
-        inside = (ip_time >= interval.start) & (ip_time <= interval.end)
+        inside = (ip_time >= interval.start) & (ip_time < interval.end)
         span = float(ip_time[-1] - ip_time[0])
         reference = ip_time < ip_time[0] + reference_fraction * span
         centre, width = noise_band(ip_data[reference])
@@ -309,24 +375,32 @@ def wall_time_constants(ods: Any) -> np.ndarray:
     """The passive structure's L/R decay times, slowest first.
 
     The eddy solve integrates ``M dI/dt = -R I - L dI_active/dt``, so the
-    homogeneous decay is governed by the eigenvalues of ``-M^-1 R`` and the
-    slowest of them sets how long the solver's assumed initial state persists.
-    Reading them from the same matrices the solver builds means the history
-    requirement below is derived from the wall model actually in use, not from
-    a guessed number.
+    homogeneous decay is governed by the generalized eigenvalues of the
+    ``(R, L)`` pencil, and the slowest of them sets how long the solver's
+    assumed initial state persists.  They are read from the same
+    segment-wise wall eigenbasis the reduced-wall work builds (vaft #473):
+    at full rank the reduced inductance ``L_r = V^T L V`` with ``R_r = I``
+    has exactly the global spectrum, so the QA and the basis cannot report
+    two different walls.
     """
-    from vaft.omas.process_wrapper import compute_impedance_matrices_ods
+    from vaft.omas.process_wrapper import compute_wall_mode_basis_ods, compute_impedance_matrices_ods
+    from vaft.process.wall_modes import WallModeError, global_time_constants
 
-    resistance, _coupling, inductance = compute_impedance_matrices_ods(ods, [])
-    eigenvalues = np.linalg.eigvals(-np.linalg.solve(inductance, resistance))
-    rates = np.abs(eigenvalues.real)
-    rates = rates[rates > 0.0]
-    if rates.size == 0:
+    try:
+        basis = compute_wall_mode_basis_ods(ods)
+        _resistance, _coupling, inductance = compute_impedance_matrices_ods(ods, [])
+        taus = global_time_constants(basis, inductance)
+    except WallModeError as exc:
+        raise BenchmarkError(
+            "the passive structure has no well-posed decaying modes: " + str(exc)
+        ) from exc
+    taus = taus[np.isfinite(taus) & (taus > 0.0)]
+    if taus.size == 0:
         raise BenchmarkError(
             "the passive structure has no decaying mode; its resistance or "
             "inductance matrix is degenerate"
         )
-    return np.sort(1.0 / rates)[::-1]
+    return np.sort(taus)[::-1]
 
 
 def solver_history_check(
@@ -502,6 +576,171 @@ def _static_model(ods: Any) -> dict[str, Any]:
     }
 
 
+def _probe_arrays(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    min_members: int,
+    exclude: Iterable[str] = (),
+):
+    """The B-probe arrays a window can be scored on: ``(members, time, inside, Y, floor)``.
+
+    Probes sharing a radius form an array ordered by height.  ``Y`` holds each
+    member's measured samples inside the window with the samples the
+    diagnostics assessment marked unusable set to ``nan`` -- the same mask
+    every other consumer applies through
+    :func:`~vaft.omas.vacuum_magnetics.evaluation_mask` -- so a masked stretch
+    can neither be judged nor serve as a neighbour's prediction.
+    """
+    lo, hi = float(window[0]), float(window[1])
+    dropped = set(exclude)
+    arrays: dict[float, list[Any]] = {}
+    for channel in channels:
+        if channel.kind != "b_field_pol_probe" or channel.name in dropped:
+            continue
+        arrays.setdefault(round(float(channel.r), 3), []).append(channel)
+    for members in arrays.values():
+        members = sorted(members, key=lambda channel: float(channel.z))
+        if len(members) < int(min_members):
+            continue
+        time = np.asarray(members[0].time, dtype=float)
+        members = [
+            m for m in members
+            if np.asarray(m.time).shape == time.shape and np.allclose(np.asarray(m.time), time)
+        ]
+        inside = (time >= lo) & (time < hi)
+        if len(members) < int(min_members) or inside.sum() < 2:
+            continue
+        Y = np.array([
+            np.where(np.asarray(m.usable, dtype=bool), np.asarray(m.measured, dtype=float), np.nan)[inside]
+            for m in members
+        ])
+        with np.errstate(invalid="ignore"):
+            amplitude = float(np.nanmedian([
+                np.nanpercentile(np.abs(row[np.isfinite(row)]), 99) if np.isfinite(row).any() else np.nan
+                for row in Y
+            ]))
+        floor = ARRAY_CONTRADICTION_FLOOR * amplitude if np.isfinite(amplitude) else 0.0
+        yield members, time, inside, Y, floor
+
+
+def _contradiction_fractions(
+    members, Y: np.ndarray, floor: float, *, sigma: float, min_scored: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-probe fraction of scorable samples over ``sigma``, and the mask of those samples.
+
+    A probe scorable on fewer than ``min_scored`` of the window is ``nan``:
+    its fraction would be a statement about a stretch too short to mean the
+    same thing as its neighbours'.
+    """
+    from vaft.validation.magnetics import array_contradiction_scores
+
+    scores = array_contradiction_scores(
+        [float(m.z) for m in members], Y, floor=floor, min_witnesses=MIN_WITNESSES
+    )
+    finite = np.isfinite(scores)
+    contradicting = finite & (scores > float(sigma))
+    counted = finite.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        fractions = np.where(
+            counted >= float(min_scored) * Y.shape[1], contradicting.sum(axis=1) / counted, np.nan
+        )
+    return fractions, contradicting
+
+
+def array_contradiction_fractions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    min_members: int = MIN_ARRAY_MEMBERS,
+    exclude: Iterable[str] = (),
+) -> dict[str, float]:
+    """Fraction of its scorable samples each probe contradicts its array for.
+
+    One pass, no removal: the numbers :func:`array_contradictions` decides on
+    in its first round, so a test can show the gap between the probe it flags
+    and the rest.  ``exclude`` drops probes (already flagged ones) from their
+    arrays before scoring.  Probes that cannot be scored are absent.
+    """
+    fractions: dict[str, float] = {}
+    for members, _time, _inside, Y, floor in _probe_arrays(
+        channels, window, min_members=min_members, exclude=exclude
+    ):
+        values, _mask = _contradiction_fractions(
+            members, Y, floor, sigma=sigma, min_scored=ARRAY_CONTRADICTION_MIN_SCORED
+        )
+        for m, value in zip(members, values):
+            if np.isfinite(value):
+                fractions[m.name] = float(value)
+    return fractions
+
+
+def array_contradictions(
+    channels: Iterable[Any],
+    window: tuple[float, float],
+    *,
+    sigma: float = ARRAY_CONTRADICTION_SIGMA,
+    fraction: float = ARRAY_CONTRADICTION_FRACTION,
+    min_members: int = MIN_ARRAY_MEMBERS,
+) -> list[dict[str, Any]]:
+    """Probes that contradict their own array over the plasma-free window.
+
+    B-probes sharing a radius form an array ordered by height; over a window
+    without plasma the field is smooth over a few centimetres, so a probe whose
+    reading departs from the interpolation of its two nearest neighbours --
+    scored by :func:`vaft.validation.magnetics.array_contradiction_scores` --
+    for more than ``fraction`` of its scorable samples is instrumentation, not
+    a wall-model result.  A contradicting probe drags its neighbours'
+    departures up with it, so among the probes over the fraction the one
+    flagged is the one whose removal leaves the array most consistent
+    (leave-one-out); it is removed and the array scored again, in the order
+    flagged.  When the array is too short for leave-one-out to be tried
+    (``min_members`` probes left) no probe is attributed.  Conditioning
+    evidence for :func:`run_benchmark_case`, which keeps a flagged probe out
+    of the scored spread and reports it; it never touches the artifact's
+    validity.
+    """
+    flagged: list[dict[str, Any]] = []
+    for members, time, inside, Y, floor in _probe_arrays(channels, window, min_members=min_members):
+        remaining = list(range(len(members)))
+
+        def scored(indices):
+            return _contradiction_fractions(
+                [members[i] for i in indices], Y[indices], floor,
+                sigma=sigma, min_scored=ARRAY_CONTRADICTION_MIN_SCORED,
+            )
+
+        fractions, contradicting = scored(remaining)
+        # Leave-one-out needs an array of at least min_members left to judge.
+        while len(remaining) > int(min_members):
+            candidates = [k for k, value in enumerate(fractions) if np.isfinite(value) and value > float(fraction)]
+            if not candidates:
+                break
+            without: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+            for k in candidates:
+                without[k] = scored(remaining[:k] + remaining[k + 1:])
+            def left_behind(k: int) -> float:
+                values = without[k][0]
+                return float(np.nanmax(values)) if np.isfinite(values).any() else 0.0
+            worst = min(candidates, key=lambda k: (left_behind(k), -fractions[k]))
+            probe = members[remaining[k := worst]]
+            stretch = time[inside][contradicting[worst]]
+            flagged.append(
+                {
+                    "channel": probe.name,
+                    "kind": probe.kind,
+                    "reason": "array_contradiction",
+                    "fraction": float(fractions[worst]),
+                    "from": float(stretch[0]),
+                    "to": float(stretch[-1]),
+                }
+            )
+            remaining.pop(worst)
+            fractions, contradicting = without[worst]
+    return flagged
+
+
 def run_benchmark_case(
     ods: Any,
     *,
@@ -574,8 +813,12 @@ def run_benchmark_case(
         window=validation_window,
         validity_window=validation_window,
     )
+    flagged = array_contradictions(channels, validation_window)
     metrics = vacuum_residual_metrics(
-        channels, window=validation_window, min_samples=min_samples
+        channels,
+        window=validation_window,
+        min_samples=min_samples,
+        scored_exclude=[entry["channel"] for entry in flagged],
     )
 
     excluded = [
@@ -584,7 +827,7 @@ def run_benchmark_case(
         if row["status"] != "evaluated"
     ]
     return {
-        "schema_version": 1,
+        "schema_version": BENCHMARK_CASE_SCHEMA,
         "shot": None if shot is None else int(shot),
         "machine_era": machine_era,
         "case_type": interval.case_type,
@@ -613,6 +856,10 @@ def run_benchmark_case(
                 row["name"] for row in metrics["channels"] if row["status"] == "evaluated"
             ],
             "excluded": excluded,
+            # Evaluated and reported, but kept out of the scored spread: the
+            # diagnostics assessment says the probe contradicts its own array
+            # (a sensor finding, not a wall-model one).
+            "flagged": flagged,
         },
         "metrics": metrics,
     }
@@ -667,6 +914,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """
     rows: list[dict[str, Any]] = []
     undriven: list[str] = []
+    flagged_channels: dict[str, list[str]] = {}
     listed = list(cases)
     for position, case in enumerate(listed):
         label = str(case.get("shot") if case.get("shot") is not None else position)
@@ -677,6 +925,14 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         driven = bool(case.get("coil_drive", {}).get("sufficiently_driven", True))
         if not driven:
             undriven.append(label)
+        # A probe the case flagged as contradicting its own array is a sensor
+        # finding: it is listed for inspection and named, and kept out of
+        # the cross-case spreads exactly as it was kept out of the case's own.
+        flagged_names = {
+            entry["channel"] for entry in case.get("channels", {}).get("flagged", []) or []
+        }
+        if flagged_names:
+            flagged_channels[label] = sorted(flagged_names)
         for row in case.get("metrics", {}).get("channels", []):
             if row["status"] != "evaluated":
                 continue
@@ -689,6 +945,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
                     "excitation": excitation,
                     "machine_era": str(case.get("machine_era") or "unknown"),
                     "driven": driven,
+                    "flagged": row["name"] in flagged_names,
                     "improvement": row["improvement"],
                     "normalized_residual": row["normalized_residual"],
                     "correlation": row["correlation"],
@@ -704,9 +961,11 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
             "reason": "no case produced an evaluated channel",
         }
 
-    scored = [row for row in rows if row["driven"]]
+    scored = [row for row in rows if row["driven"] and not row["flagged"]]
     return {
-        "schema_version": 1,
+        # 2: flagged_channels, and rows carry `flagged`; flagged rows are
+        # listed in the cross-tabs but kept out of the summary spreads.
+        "schema_version": 2,
         "case_count": len(listed),
         "channel_rows": len(rows),
         "by_case": _group(rows, "case"),
@@ -715,6 +974,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         "by_excitation": _group(rows, "excitation"),
         "by_machine_era": _group(rows, "machine_era"),
         "undriven_cases": undriven,
+        "flagged_channels": flagged_channels,
         "summary": {
             "median_improvement": _median([row["improvement"] for row in scored]),
             "improved_fraction": float(

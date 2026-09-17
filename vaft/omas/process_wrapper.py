@@ -6,6 +6,7 @@ from pathlib import Path
 
 from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 from vaft.process import (
+    calc_grid,
     compute_br_bz_phi,
     compute_response_matrix,
     compute_impedance_matrices,
@@ -13,6 +14,7 @@ from vaft.process import (
     compute_vacuum_fields_1d,
     time_derivative,
     psi_to_rz,
+    parallel_current_from_toroidal,
     volume_average,
     poloidal_field_at_boundary,
     calculate_average_boundary_poloidal_field,
@@ -23,6 +25,8 @@ from vaft.process import (
     calculate_reconstructed_diamagnetic_flux,
     calculate_diamagnetism,
     prepare_boundary_for_shafranov,
+    virial_alpha_conformal_annulus,
+    virial_alpha_thin_annulus,
     extract_flux_surface_contours,
     make_equilibrium_field_interpolator,
     project_points,
@@ -35,11 +39,24 @@ from vaft.formula.equilibrium import poloidal_field_factor
 from vaft.omas.general import ods_cocos
 from vaft.formula import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    virial_alpha_approx_from_kappa,
+    elongation_from_RZ_boundary,
     virial_bongard_from_S_alpha_mu,
     virial_lao_from_S_alpha_mu_rt,
     virial_beta_pd_from_S_mu_rt,
     kinetic_energy_from_beta_p_B_pa_V_p,
     magnetic_energy_from_li_B_pa_V_p,
+    virial_beta_p_from_volume,
+    virial_closure_denominators,
+    virial_full_123_from_S_alpha_rt,
+    virial_identity_residuals,
+    virial_li_from_volume,
+    virial_muihat_from_Bt_R0_dphi,
+    virial_normalized_residual,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_residual_rms,
 )
 from vaft.omas import find_matching_time_indices
 from vaft.omas.update import update_equilibrium_boundary
@@ -48,8 +65,7 @@ import logging
 import vaft.process
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# A library module must not configure the root logger (see vaft.database.raw).
 logger = logging.getLogger(__name__)
 
 GEOMETRY_TYPE_POLYGON = 1
@@ -60,49 +76,61 @@ DT_SUB = 5e-5
 COINCIDENT_SOURCE_TOL = 1e-6
 
 def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) -> Tuple[ndarray, ndarray, ndarray]:
-    """Compute magnetic field components (Br, Bz, Phi) on a grid using OMAS data structure.
-    
+    """Green's-function response of an ``(R, Z)`` grid to every coil and loop.
+
+    These are **response matrices per unit source current**, not fields: each
+    array is ``(n_grid_points, n_coils + n_loops)``, and a field follows from
+    contracting one with the currents at a time of interest.  ``calc_grid``
+    names them that way; this wrapper long said "magnetic field components",
+    which is what a reader would reasonably act on and be wrong.
+
     Args:
         ods: OMAS data structure with PF coil and loop data
         xvar: Radial coordinates
         zvar: Vertical coordinates
 
     Returns:
-        Tuple of (Br, Bz, Phi) matrices
+        Tuple of ``(Br, Bz, Phi)`` response matrices, in that order.
 
     Raises:
         KeyError: If required ODS data is missing
+        ValueError: If the coil or loop geometry cannot be read
     """
     try:
         pf = ods['pf_active']
         pfp = ods['pf_passive']
 
-        # Extract coil data
-        coil_turns = np.array([
+        # Extract coil data.  These stay plain lists: coils carry different
+        # numbers of elements (VEST's ten hold 158, 100, 16, 16, 24, 24, 48,
+        # 48, 48, 48), so np.array() on them raises on the ragged nesting --
+        # and calc_grid asks for List[List[float]] anyway.
+        coil_turns = [
             [pf[f'coil.{i}.element.{j}.turns_with_sign'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
-        coil_r = np.array([
+        ]
+        coil_r = [
             [pf[f'coil.{i}.element.{j}.geometry.rectangle.r'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
-        coil_z = np.array([
+        ]
+        coil_z = [
             [pf[f'coil.{i}.element.{j}.geometry.rectangle.z'] for j in range(len(pf[f'coil.{i}.element']))]
             for i in range(len(pf['coil']))
-        ])
+        ]
 
-        # Extract loop data
+        # Extract loop data.  The outlines are ragged for the same reason: a
+        # polygon loop carries its own vertex count, a rectangular one an
+        # empty list.
         loop_geometry_type = np.array([
             pfp[f'loop.{i}.element[0].geometry.geometry_type'] for i in range(len(pfp['loop']))
         ])
-        loop_outline_r = np.array([
+        loop_outline_r = [
             pfp[f'loop.{i}.element[0].geometry.outline.r'] if loop_geometry_type[i] == GEOMETRY_TYPE_POLYGON else []
             for i in range(len(pfp['loop']))
-        ])
-        loop_outline_z = np.array([
+        ]
+        loop_outline_z = [
             pfp[f'loop.{i}.element[0].geometry.outline.z'] if loop_geometry_type[i] == GEOMETRY_TYPE_POLYGON else []
             for i in range(len(pfp['loop']))
-        ])
+        ]
         loop_rectangle_r = np.array([
             pfp[f'loop.{i}.element[0].geometry.rectangle.r'] if loop_geometry_type[i] == GEOMETRY_TYPE_RECTANGLE else 0.0
             for i in range(len(pfp['loop']))
@@ -117,8 +145,10 @@ def compute_grid_ods(ods: Dict[str, Any], xvar: List[float], zvar: List[float]) 
             loop_geometry_type, loop_outline_r, loop_outline_z,
             loop_rectangle_r, loop_rectangle_z
         )
-    except KeyError as e:
-        logger.error(f"Missing required data in ODS: {e}")
+    except (KeyError, ValueError) as e:
+        # KeyError alone let a NameError and a ragged-array ValueError
+        # escape a handler that looked like it was catching them.
+        logger.error(f"Could not read the coil and loop geometry from the ODS: {e}")
         raise
 
 def compute_point_response_ods(
@@ -296,6 +326,39 @@ def compute_grid_response_ods(
         logger.error(f"Error during computation: {e}")
         raise
 
+def _vacuum_sources(ods: ODS) -> Tuple[List[float], List[float], List[float], List[int]]:
+    """Every current-carrying filament of the machine, as the field sees it.
+
+    Coil elements enter individually with their signed turns; a passive loop
+    enters once, at its outline centroid (or its rectangle centre). ``groups``
+    says which coil or loop each filament belongs to, so a response matrix can
+    be summed back down to one column per source.
+
+    This is exactly what a vacuum response depends on besides the observation
+    points, which is why :func:`_machine_fingerprint` keys its cache on it.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    nbcoil, nbloop = len(pf["coil"]), len(pfp["loop"])
+    src_r, src_z, turns, groups = [], [], [], []
+    for ii in range(nbcoil):
+        for jj in range(len(pf[f"coil.{ii}.element"])):
+            src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
+            src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
+            turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
+            groups.append(ii)
+    for ii in range(nbloop):
+        geometry = pfp[f"loop.{ii}.element[0].geometry"]
+        if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
+            src_r.append(float(np.mean(geometry["outline.r"])))
+            src_z.append(float(np.mean(geometry["outline.z"])))
+        else:
+            src_r.append(float(geometry["rectangle.r"]))
+            src_z.append(float(geometry["rectangle.z"]))
+        turns.append(1.0)
+        groups.append(nbcoil + ii)
+    return src_r, src_z, turns, groups
+
+
 def compute_point_response_matrices_ods(
     ods: ODS,
     rz: List[List[float]],
@@ -346,23 +409,7 @@ def compute_point_response_matrices_ods(
         nbcoil = len(pf["coil"])
         nbloop = len(pfp["loop"])
 
-        src_r, src_z, turns, groups = [], [], [], []
-        for ii in range(nbcoil):
-            for jj in range(len(pf[f"coil.{ii}.element"])):
-                src_r.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.r"]))
-                src_z.append(float(pf[f"coil.{ii}.element.{jj}.geometry.rectangle.z"]))
-                turns.append(float(pf[f"coil.{ii}.element.{jj}.turns_with_sign"]))
-                groups.append(ii)
-        for ii in range(nbloop):
-            geometry = pfp[f"loop.{ii}.element[0].geometry"]
-            if geometry["geometry_type"] == GEOMETRY_TYPE_POLYGON:
-                src_r.append(float(np.mean(geometry["outline.r"])))
-                src_z.append(float(np.mean(geometry["outline.z"])))
-            else:
-                src_r.append(float(geometry["rectangle.r"]))
-                src_z.append(float(geometry["rectangle.z"]))
-            turns.append(1.0)
-            groups.append(nbcoil + ii)
+        src_r, src_z, turns, groups = _vacuum_sources(ods)
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
@@ -509,6 +556,104 @@ def compute_impedance_matrices_ods(
         logger.error(f"Missing required data in ODS: {e}")
         raise
 
+def compute_wall_mode_basis_ods(
+    ods: ODS,
+    *,
+    gap_factor: float | None = None,
+    record: bool = False,
+    remap_em_coupling: bool = False,
+    **options: Any,
+):
+    """Segment-wise wall eigenmode basis of this ODS's passive structure (vaft #473).
+
+    Segments come from :func:`vaft.machine_mapping.wall_segments.segment_loops`
+    (by loop name, split at Z gaps), the matrices from
+    :func:`compute_impedance_matrices_ods` with no plasma columns, and the
+    basis from :func:`vaft.process.wall_modes.build_wall_mode_basis`; the
+    keyword ``options`` go to the latter.
+
+    The basis refuses a passive-passive inductance that is not symmetric to
+    1e-6 (relative).  An ODS whose ``em_coupling`` was materialized before the
+    mapper learned to symmetrize (issue #347) carries a 1.27e-3 asymmetry;
+    ``remap_em_coupling=True`` rebuilds ``em_coupling`` through
+    :func:`vaft.machine_mapping.em_coupling.em_coupling`, the sanctioned
+    repair, before building.
+
+    ``record=True`` appends the basis's identity to ``em_coupling.code.parameters``
+    (``key=value`` lines, the convention the mapper itself uses) -- never under
+    ``pf_passive``, whose loops are compared bitwise against the reference
+    geometry.  Provenance carries the geometry/coupling description, the
+    resistance calibration in force, the segmentation version and digest, and
+    the basis digest, so a stored basis names the wall it was built on.
+    """
+    from vaft.machine_mapping.wall_segments import (
+        GAP_FACTOR,
+        SEGMENT_DEFINITION_VERSION,
+        segment_digest,
+        segment_loops,
+    )
+    from vaft.process.wall_modes import build_wall_mode_basis
+
+    if remap_em_coupling:
+        from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
+
+        shot = None
+        try:
+            shot = int(ods["dataset_description.data_entry.pulse"])
+        except (KeyError, ValueError, TypeError):
+            pass
+        _map_em_coupling(ods, shot=shot)
+
+    R_mat, _L_mat, M_mat = compute_impedance_matrices_ods(ods, [])
+    segments = segment_loops(ods, gap_factor=GAP_FACTOR if gap_factor is None else gap_factor)
+
+    provenance: dict[str, str] = {
+        "segment_definition_version": SEGMENT_DEFINITION_VERSION,
+        "segment_digest": segment_digest(segments),
+        "gap_factor": f"{GAP_FACTOR if gap_factor is None else gap_factor:g}",
+        "n_elements": str(len(ods["pf_passive.loop"])),
+    }
+    try:
+        import vaft
+
+        provenance["vaft_version"] = str(vaft.__version__)
+    except Exception:  # pragma: no cover
+        pass
+    comment = ods.get("em_coupling.ids_properties.comment", None) if "em_coupling" in ods else None
+    if comment:
+        provenance["em_coupling_comment"] = str(comment)
+    code_parameters = ods.get("em_coupling.code.parameters", None) if "em_coupling" in ods else None
+    if code_parameters:
+        for line in str(code_parameters).splitlines():
+            if line.startswith("passive_passive_input_asymmetry="):
+                provenance["em_coupling_input_asymmetry"] = line.split("=", 1)[1]
+    try:
+        from vaft.machine_mapping.wall_resistance import identify_calibration
+
+        calibration = identify_calibration(ods)
+        key = calibration["key"] if isinstance(calibration, dict) else getattr(calibration, "key", None)
+        provenance["resistance_calibration"] = str(key) if key is not None else "unidentified"
+    except Exception as exc:  # a wall whose resistances match no vintage is still a wall
+        provenance["resistance_calibration"] = f"unidentified ({type(exc).__name__})"
+
+    basis = build_wall_mode_basis(R_mat, M_mat, segments, provenance=provenance, **options)
+
+    if record:
+        lines = [
+            f"wall_mode_basis_digest={basis.digest()}",
+            f"wall_mode_segment_definition_version={SEGMENT_DEFINITION_VERSION}",
+            f"wall_mode_segment_digest={provenance['segment_digest']}",
+            f"wall_mode_normalization={basis.provenance['normalization']}",
+            f"wall_mode_sign_rule={basis.provenance['sign_rule']}",
+            f"wall_mode_resistance_calibration={provenance['resistance_calibration']}",
+            f"wall_mode_input_asymmetry={basis.provenance['input_asymmetry']}",
+        ]
+        existing = str(ods.get("em_coupling.code.parameters", "") or "")
+        kept = [l for l in existing.splitlines() if l and not l.startswith("wall_mode_")]
+        ods["em_coupling.code.parameters"] = "\n".join(kept + lines) + "\n"
+    return basis
+
+
 def compute_eddy_currents(
     ods: ODS,
     plasma: List[Tuple[float, float]],
@@ -561,6 +706,92 @@ def compute_eddy_currents(
         logger.error(f"Missing required data in ODS: {e}")
         raise
 
+def compute_startup_loop_voltage_ods(
+    ods: ODS,
+    rz: Tuple[float, float] = (0.4, 0.0),
+    mode: str = "vacuum",
+) -> Tuple[ndarray, ndarray]:
+    """Loop voltage at one point, from the vacuum flux it sees.
+
+    ``V_loop = -dpsi/dt`` at ``rz``.  This is the electric-field drive available
+    for Townsend breakdown, and it is a *model* quantity: it comes from the coil
+    and eddy currents, not from a flux loop.  Compare it against the measured
+    ``magnetics.flux_loop.{i}.voltage`` rather than substituting one for the other.
+
+    Args:
+        ods: structure carrying pf_active and pf_passive currents and geometry.
+        rz: observation point ``(R, Z)`` in metres. VEST's startup reference is
+            near the vessel centre, ``(0.4, 0.0)``.
+        mode: ``'vacuum'`` (coils and eddy currents), ``'pf_active'`` or
+            ``'pf_passive'`` to isolate one contribution.
+
+    Returns:
+        ``(time, v_loop)`` in seconds and volts.
+
+    Raises:
+        ValueError: if the flux solution is entirely non-finite, which happens
+            when the eddy-current solve fell back to its NaN path.
+    """
+    from vaft.process import time_derivative
+
+    time_arr, psi_out, _, _ = compute_point_vacuum_fields_ods(
+        ods, rz=[(float(rz[0]), float(rz[1]))], mode=mode
+    )
+    psi = np.asarray(psi_out, dtype=float)[:, 0]
+    if not np.isfinite(psi).any():
+        raise ValueError(
+            "the vacuum flux at this point is entirely non-finite; the eddy-current "
+            "solve produced NaN (singular impedance matrix)"
+        )
+    return np.asarray(time_arr, dtype=float), -time_derivative(time_arr, psi)
+
+
+def compute_decay_index_ods(
+    ods: ODS,
+    time: float,
+    z: float = 0.0,
+    r_range: Tuple[float, float] = (0.25, 0.65),
+    n_points: int = 41,
+    mode: str = "vacuum",
+) -> Tuple[ndarray, ndarray]:
+    """Field decay index along a radial line at one instant.
+
+    ``n = -(R / B_z) * dB_z/dR`` -- the quantity that decides whether a startup
+    configuration is vertically stable.  Conventionally ``0 < n < 1.5`` is the
+    passively stable window: below zero the plasma is vertically unstable, above
+    1.5 it loses radial position control.
+
+    Args:
+        ods: structure carrying pf_active and pf_passive currents and geometry.
+        time: instant to evaluate, in seconds. Pass the identified breakdown
+            time rather than relying on a default.
+        z: height of the radial line [m].
+        r_range: inclusive ``(R_min, R_max)`` span [m].
+        n_points: samples across ``r_range``.
+        mode: as :func:`compute_startup_loop_voltage_ods`.
+
+    Returns:
+        ``(r_line, n_index)``. Entries where ``B_z`` crosses zero are ``nan``:
+        the index is undefined there, and dividing through would produce a
+        spike that reads as physics.
+    """
+    r_line = np.linspace(float(r_range[0]), float(r_range[1]), int(n_points))
+    time_arr, _, _, bz_out = compute_point_vacuum_fields_ods(
+        ods, rz=[(float(r), float(z)) for r in r_line], mode=mode
+    )
+    time_arr = np.asarray(time_arr, dtype=float)
+    index = int(np.argmin(np.abs(time_arr - float(time))))
+    bz_line = np.asarray(bz_out, dtype=float)[index]
+    if not np.isfinite(bz_line).any():
+        raise ValueError(
+            "the vertical field on this line is entirely non-finite; the "
+            "eddy-current solve produced NaN (singular impedance matrix)"
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        n_index = -r_line * np.gradient(bz_line, r_line) / bz_line
+    return r_line, np.where(np.isfinite(n_index), n_index, np.nan)
+
+
 def compute_point_vacuum_fields_ods(
     ods: ODS,
     rz: List[Tuple[float, float]] = [(0.4, 0.0)],
@@ -609,13 +840,24 @@ def compute_point_vacuum_fields_ods(
            bz_c.shape[1] != expected_sources:
             raise RuntimeError(f"Response matrix shape mismatch. Expected: {expected_sources}, Got: {psi_c.shape[1]}")
 
-        # Construct current array based on mode
+        # Construct current array based on mode.  Each waveform is read once and
+        # stacked, rather than subscripted per time sample: the per-sample form
+        # cost 2.4 million IMAS path parses on a 2500-sample, 960-source shot to
+        # read 960 arrays, which was ~26 s against 0.16 s for the response
+        # matrices it feeds.  The two blocks stay under their own guards so that
+        # ``mode="pf_active"`` still works on an ODS carrying no passive-loop
+        # current -- reading everything and slicing afterwards would not.
         coil_loop_curr = np.zeros((nbt, nbcoil + nbloop))
-        for t in range(nbt):
-            if mode in ['vacuum', 'pf_active']:
-                coil_loop_curr[t, :nbcoil] = [pf[f"coil.{i_coil}.current.data"][t] for i_coil in range(nbcoil)]
-            if mode in ['vacuum', 'pf_passive']:
-                coil_loop_curr[t, nbcoil:] = [pfp[f"loop.{i_loop}.current"][t] for i_loop in range(nbloop)]
+        if mode in ['vacuum', 'pf_active']:
+            coil_loop_curr[:, :nbcoil] = np.column_stack(
+                [np.asarray(pf[f"coil.{i_coil}.current.data"], dtype=float)
+                 for i_coil in range(nbcoil)]
+            )
+        if mode in ['vacuum', 'pf_passive']:
+            coil_loop_curr[:, nbcoil:] = np.column_stack(
+                [np.asarray(pfp[f"loop.{i_loop}.current"], dtype=float)
+                 for i_loop in range(nbloop)]
+            )
 
         # Compute vacuum fields
         psi_out, br_out, bz_out = vaft.process.compute_vacuum_fields_1d(
@@ -633,6 +875,429 @@ def compute_point_vacuum_fields_ods(
     except KeyError as e:
         logger.error(f"Missing required data in ODS: {e}")
         raise
+
+#: Response matrices for one grid and one machine, keyed by both.  They are a
+#: pure function of geometry, so a time slider pays for them once instead of on
+#: every frame -- 2.4 s against 2.1 ms for the contraction that uses them.
+_VACUUM_MAP_CACHE: dict[tuple, tuple] = {}
+
+#: How many cached grids to keep.  Each is (n_points x n_sources) floats three
+#: times over, ~97 MB at 65x65 on VEST, so this is deliberately small.
+_VACUUM_MAP_CACHE_LIMIT = 4
+
+#: Vessel currents solved from one PF programme, keyed by that programme and
+#: the machine.  A plot that hands the evaluator a private copy of the ODS each
+#: time -- which is how a recipe avoids mutating its caller's -- would otherwise
+#: repeat the same two-second eddy solve on every frame.
+_VACUUM_EDDY_CACHE: dict[tuple, tuple] = {}
+
+#: Two entries: each holds one current per loop per sample, ~19 MB on VEST.
+_VACUUM_EDDY_CACHE_LIMIT = 2
+
+
+def clear_vacuum_field_cache() -> None:
+    """Release the cached vacuum response matrices and eddy solves.
+
+    Together they can hold a few hundred megabytes for a session; a notebook
+    that is done sliding through a start-up can give that back without
+    reaching into private names.
+    """
+    _VACUUM_MAP_CACHE.clear()
+    _VACUUM_EDDY_CACHE.clear()
+    _CONNECTION_LENGTH_CACHE.clear()
+
+
+def _machine_fingerprint(ods: ODS, sources: Optional[tuple] = None) -> tuple:
+    """What the response matrices depend on, besides the observation points.
+
+    Derived from :func:`_vacuum_sources` rather than restated, so a cached
+    matrix can never outlive a geometry change it did not notice.  ``sources``
+    lets a caller that has already extracted them pass them in: the
+    extraction is 1480 path reads on VEST, and one evaluation asks three
+    times.
+    """
+    src_r, src_z, turns, groups = sources if sources is not None else _vacuum_sources(ods)
+    return (
+        np.asarray(src_r, dtype=float).tobytes(),
+        np.asarray(src_z, dtype=float).tobytes(),
+        np.asarray(turns, dtype=float).tobytes(),
+        tuple(groups),
+    )
+
+
+def _vacuum_response(ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None):
+    """Cached ``(Psi, Bz, Br)`` response of one grid to every coil and loop."""
+    key = (
+        _machine_fingerprint(ods, sources),
+        r_axis.tobytes(),
+        z_axis.tobytes(),
+    )
+    cached = _VACUUM_MAP_CACHE.get(key)
+    if cached is None:
+        mesh_r, mesh_z = np.meshgrid(r_axis, z_axis, indexing="ij")
+        points = np.column_stack([mesh_r.ravel(), mesh_z.ravel()]).tolist()
+        cached = compute_point_response_matrices_ods(ods, points)
+        if len(_VACUUM_MAP_CACHE) >= _VACUUM_MAP_CACHE_LIMIT:
+            _VACUUM_MAP_CACHE.pop(next(iter(_VACUUM_MAP_CACHE)))
+        _VACUUM_MAP_CACHE[key] = cached
+    return cached
+
+
+def _solve_or_recall_eddy_currents(ods: ODS, sources: Optional[tuple] = None) -> None:
+    """Fill in ``pf_passive`` currents, reusing an identical earlier solve.
+
+    The vessel's response is fixed by the machine and the PF programme, so two
+    ODS objects carrying the same coil waveforms have the same answer.  Solving
+    it again costs about two seconds, which is most of what an interactive
+    frame would otherwise spend.
+    """
+    pf = ods["pf_active"]
+    time_base = np.asarray(pf["time"], dtype=float)
+    coil_currents = np.column_stack([
+        np.asarray(pf[f"coil.{i}.current.data"], dtype=float)
+        for i in range(len(pf["coil"]))
+    ]) if len(pf["coil"]) else np.zeros((time_base.size, 0))
+    key = (_machine_fingerprint(ods, sources), time_base.tobytes(), coil_currents.tobytes())
+
+    cached = _VACUUM_EDDY_CACHE.get(key)
+    if cached is None:
+        compute_eddy_currents(ods, plasma=[], ip=[])
+        pfp = ods["pf_passive"]
+        cached = (
+            np.asarray(pfp["time"], dtype=float),
+            np.column_stack([np.asarray(pfp[f"loop.{i}.current"], dtype=float)
+                             for i in range(len(pfp["loop"]))]),
+        )
+        if len(_VACUUM_EDDY_CACHE) >= _VACUUM_EDDY_CACHE_LIMIT:
+            _VACUUM_EDDY_CACHE.pop(next(iter(_VACUUM_EDDY_CACHE)))
+        _VACUUM_EDDY_CACHE[key] = cached
+        return
+
+    passive_time, loop_currents = cached
+    ods["pf_passive.time"] = passive_time
+    for index in range(loop_currents.shape[1]):
+        ods[f"pf_passive.loop.{index}.current"] = loop_currents[:, index]
+
+
+def _vacuum_currents(ods: ODS, indices) -> ndarray:
+    """Coil and passive-loop currents at the given samples of the PF time base.
+
+    Returns ``(len(indices), nbcoil + nbloop)``, ordered ``[coils..., loops...]``
+    to match the response matrices' columns.
+
+    Every waveform is read once and then indexed, rather than re-read per
+    sample: on VEST that is 960 IMAS path parses instead of 960 per time, which
+    is the difference between a slider that moves and one that stutters.
+    """
+    pf, pfp = ods["pf_active"], ods["pf_passive"]
+    take = np.asarray(indices, dtype=int).ravel()
+    columns = [np.asarray(pf[f"coil.{i}.current.data"], dtype=float)[take]
+               for i in range(len(pf["coil"]))]
+    columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take]
+                for i in range(len(pfp["loop"]))]
+    return np.column_stack(columns)
+
+
+#: How much one cached grid's response may occupy, in bytes.  Three dense
+#: (n_points x n_columns) float64 matrices, one column per coil or loop, so it
+#: grows with the fourth power of the resolution -- 97 MB at 65 on VEST's 960
+#: columns, 383 MB at 129.
+_VACUUM_RESPONSE_BUDGET = 200 * 1024 ** 2
+
+
+def _refuse_oversized_grid(
+    ods: ODS, r_axis: ndarray, z_axis: ndarray, sources: Optional[tuple] = None
+) -> None:
+    """Refuse a grid whose cached response would not fit, naming one that does.
+
+    Silently allocating several hundred megabytes -- and then keeping it, since
+    the point of the cache is to keep it -- is worse than saying no.
+
+    The estimate counts what is cached: :func:`compute_point_response_matrices_ods`
+    sums a coil's elements into one column, so the width is the number of
+    coils and loops, not of filaments -- on VEST 960 against 1480.  Counting
+    filaments overstated the cost by half and refused grids that fit.
+    """
+    groups = (sources if sources is not None else _vacuum_sources(ods))[3]
+    columns = len(set(groups))
+    needed = 3 * r_axis.size * z_axis.size * columns * 8
+    if needed <= _VACUUM_RESPONSE_BUDGET:
+        return
+    affordable = int(np.sqrt(_VACUUM_RESPONSE_BUDGET / (3 * columns * 8)))
+    raise ValueError(
+        f"a {r_axis.size}x{z_axis.size} grid over {columns} coils and loops "
+        f"needs {needed / 1024 ** 2:.0f} MB of cached response matrices, above "
+        f"the {_VACUUM_RESPONSE_BUDGET / 1024 ** 2:.0f} MB budget; "
+        f"resolution={affordable} fits"
+    )
+
+
+def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
+    """The default ``(R, Z)`` grid: the limiter's bounding box.
+
+    The limiter is the region the field is being read for -- where breakdown
+    happens and where a null has to sit -- so that is what the map covers.  It
+    is not source-free: on VEST several hundred coil filaments lie inside it,
+    and a grid point landing on one reads a meaningless spike.  That is a
+    question for the contour levels, not for the extent.
+    """
+    try:
+        wall_r = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+        wall_z = np.asarray(
+            ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    except (KeyError, ValueError, IndexError):
+        wall_r = wall_z = np.asarray([])
+    if wall_r.size < 3:
+        # No wall: fall back to the filaments' own extent, which at least
+        # brackets the machine.
+        src_r, src_z, _, _ = _vacuum_sources(ods)
+        wall_r, wall_z = np.asarray(src_r), np.asarray(src_z)
+    return (
+        np.linspace(max(float(wall_r.min()), 1e-3), float(wall_r.max()), int(resolution)),
+        np.linspace(float(wall_z.min()), float(wall_z.max()), int(resolution)),
+    )
+
+
+def compute_vacuum_field_map(
+    ods: ODS,
+    *,
+    time: float,
+    grid: Optional[Tuple[ndarray, ndarray]] = None,
+    resolution: int = 65,
+) -> Dict[str, ndarray]:
+    """Vacuum flux and poloidal field on an ``(R, Z)`` grid at one time.
+
+    Everything the startup maps are drawn from -- the flux surfaces, |B_p|, the
+    decay index, the breakdown figure of merit -- comes from this one
+    evaluation, so they are guaranteed to describe the same field.
+
+    The response of the grid to each coil and loop is a pure function of
+    geometry, so it is built once and cached; a different ``time`` then costs
+    only the contraction with that instant's currents.  On VEST that is seconds
+    once against milliseconds a frame, which is what makes a time slider usable.
+
+    Only vacuum sources contribute: coils and vessel eddy currents, no plasma.
+    Above roughly 10 kA of plasma current the map stops describing the machine.
+
+    Parameters
+    ----------
+    ods
+        Needs ``pf_active`` currents; passive-loop currents are solved with
+        :func:`compute_eddy_currents` if they are not already stored.
+    time
+        Seconds.  Snapped to the nearest stored sample, not interpolated; the
+        sample actually used comes back in the result.
+    grid
+        ``(r_axis, z_axis)``.  Defaults to the limiter's bounding box at
+        ``resolution`` points a side.
+    resolution
+        Points per axis for the default grid.  Cost grows as its square: the
+        cached matrices are three arrays of ``resolution**2 x n_sources``.
+
+    Returns
+    -------
+    dict
+        ``r``, ``z`` (the axes), and ``psi`` [Wb], ``b_r``, ``b_z`` [T],
+        ``dpsi_dt`` [Wb/s], each shaped ``(len(r), len(z))``; plus ``time``,
+        the stored sample used, and ``time_index``, its position on the PF time
+        base.
+
+    Notes
+    -----
+    ``psi`` is full weber, as the Green's functions return it, not weber per
+    radian -- see :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`.
+    """
+    # Extracted once and handed down: the eddy key, the budget and the
+    # response key all derive from the same filaments.
+    sources = _vacuum_sources(ods)
+    if "time" not in ods["pf_passive"]:
+        # Geometry-only samples carry no passive-loop waveform; solve it rather
+        # than refusing, matching compute_null_ods.
+        _solve_or_recall_eddy_currents(ods, sources)
+
+    if grid is None:
+        r_axis, z_axis = _vacuum_map_grid(ods, resolution)
+    else:
+        r_axis = np.asarray(grid[0], dtype=float).ravel()
+        z_axis = np.asarray(grid[1], dtype=float).ravel()
+        if r_axis.size == 0 or z_axis.size == 0:
+            raise ValueError("grid axes must each hold at least one point")
+
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    index = int(np.argmin(np.abs(time_base - float(time))))
+
+    _refuse_oversized_grid(ods, r_axis, z_axis, sources)
+    psi_response, bz_response, br_response = _vacuum_response(ods, r_axis, z_axis, sources)
+    width = len(ods["pf_active.coil"]) + len(ods["pf_passive.loop"])
+    psi_response = psi_response[:, :width]
+    shape = (r_axis.size, z_axis.size)
+
+    # dpsi/dt comes from the model's own flux at the neighbouring samples, so
+    # the induced electric field belongs to the same field as everything else
+    # rather than being spliced in from a measured loop voltage.  All three
+    # samples are read in one pass over the waveforms.
+    lo, hi = max(index - 1, 0), min(index + 1, time_base.size - 1)
+    behind, currents, ahead = _vacuum_currents(ods, (lo, index, hi))
+
+    psi = (psi_response @ currents).reshape(shape)
+    b_z = (bz_response[:, :width] @ currents).reshape(shape)
+    b_r = (br_response[:, :width] @ currents).reshape(shape)
+
+    span = float(time_base[hi] - time_base[lo])
+    if span > 0.0:
+        dpsi_dt = ((psi_response @ (ahead - behind)) / span).reshape(shape)
+    else:
+        dpsi_dt = np.zeros(shape)
+
+    return {
+        "r": r_axis,
+        "z": z_axis,
+        "psi": psi,
+        "b_r": b_r,
+        "b_z": b_z,
+        "dpsi_dt": dpsi_dt,
+        "time": float(time_base[index]),
+        "time_index": index,
+    }
+
+#: Connection-length maps, keyed by the field they were traced through, the
+#: toroidal product, the wall and the tracing settings.
+#: One map is a few thousand traced lines and costs seconds; a reader comparing
+#: two instants, or a recipe drawing the Lloyd margin beside the field it comes
+#: from, would otherwise pay for the same trace twice.
+_CONNECTION_LENGTH_CACHE: dict[tuple, Dict[str, ndarray]] = {}
+
+#: Four entries. Each is five float or bool arrays over the grid -- small beside
+#: the response matrices, so the limit is about staleness, not memory.
+_CONNECTION_LENGTH_CACHE_LIMIT = 4
+
+
+def _vacuum_toroidal_product(ods: ODS, instant: float) -> float:
+    """``tf.b_field_tor_vacuum_r`` at the stored sample nearest ``instant``.
+
+    The TF product is on its own time base, sampled far more slowly than the PF
+    programme, so it is matched by time and not by index (the trap that
+    ``vaft`` has hit most often).
+    """
+    missing = (
+        "tf.b_field_tor_vacuum_r is required for a connection length; without "
+        "the toroidal field a field line has no pitch to follow"
+    )
+    try:
+        product = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
+        tf_time = np.asarray(ods["tf.time"], dtype=float)
+    except (KeyError, ValueError) as error:
+        raise ValueError(missing) from error
+    # An OMAS read of an absent path materialises an empty node instead of
+    # raising, so "absent" and "empty" arrive here as the same thing.
+    if product.size == 0 or tf_time.size == 0:
+        raise ValueError(missing)
+    return float(product[int(np.argmin(np.abs(tf_time - instant)))])
+
+
+def compute_connection_length_map_ods(
+    ods: ODS,
+    *,
+    time: float,
+    resolution: int = 33,
+    dphi_deg: float = 2.0,
+    max_length_m: float = 150.0,
+) -> Dict[str, ndarray]:
+    """Connection length over the vacuum field's grid, at one instant.
+
+    Traces a field line from every grid point in both directions until it
+    strikes the limiter, which is the quantity a breakdown threshold needs and
+    the one VAFT could not previously supply (issue #230).  The field is the
+    vacuum field -- coils and vessel, no plasma -- because before breakdown
+    there is nothing else.
+
+    Args:
+        ods: OMAS data structure carrying ``pf_active``, ``pf_passive``, ``tf``
+            and ``wall``, with the vessel currents already solved.
+        time: Instant to evaluate, snapped to the nearest stored PF sample [s].
+        resolution: Points per axis of the tracing grid [-].
+        dphi_deg: Fixed step in toroidal angle [deg].
+        max_length_m: Path length at which to stop each direction [m].
+
+    Returns:
+        The mapping :func:`vaft.process.equilibrium.connection_length_map`
+        returns -- ``length_m``, ``forward_m``, ``backward_m``, ``saturated``
+        and ``outside`` -- plus the ``r`` and ``z`` axes it was evaluated on and
+        the ``time`` and ``time_index`` actually used.
+
+    Raises:
+        ValueError: The toroidal field product or the limiter outline is missing.
+
+    Notes:
+        A map is much more expensive than the field it is traced through: the
+        field is one contraction of a cached response, milliseconds, while this
+        steps thousands of lines and costs seconds.  The default grid is
+        therefore coarser than the field map's, and the result is cached by the
+        field it was traced through, the toroidal product, the wall and the
+        tracing settings -- never by machine geometry alone, which every shot on
+        one machine shares.  Measured on VEST's
+        packaged shot at the breakdown onset: 6.5 s at 33x33, 22 s at 65x65.
+    """
+    grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
+    product = _vacuum_toroidal_product(ods, grid["time"])
+
+    try:
+        wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+        wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    except (KeyError, ValueError) as error:
+        raise ValueError(
+            "a limiter outline is required for a connection length; without a wall "
+            "nothing terminates a field line"
+        ) from error
+
+    # Keyed on what the length is a function of -- the field on this grid, the
+    # toroidal product and the wall -- and not on the machine's geometry: every
+    # VEST shot shares that geometry, so a geometry key hands one shot's lengths
+    # to the next shot that asks at the same sample index.
+    key = (
+        grid["r"].tobytes(),
+        grid["z"].tobytes(),
+        np.ascontiguousarray(grid["b_r"]).tobytes(),
+        np.ascontiguousarray(grid["b_z"]).tobytes(),
+        product,
+        wall_r.tobytes(),
+        wall_z.tobytes(),
+        float(dphi_deg),
+        float(max_length_m),
+    )
+    cached = _CONNECTION_LENGTH_CACHE.get(key)
+    if cached is None:
+        from vaft.process.equilibrium import (
+            connection_length_map,
+            make_vacuum_field_interpolator,
+        )
+
+        b_field = make_vacuum_field_interpolator(
+            grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
+        )
+        mesh_r, mesh_z = np.meshgrid(grid["r"], grid["z"], indexing="ij")
+        cached = connection_length_map(
+            mesh_r,
+            mesh_z,
+            b_field,
+            wall_r=wall_r,
+            wall_z=wall_z,
+            dphi=np.deg2rad(float(dphi_deg)),
+            max_length_m=float(max_length_m),
+        )
+        if len(_CONNECTION_LENGTH_CACHE) >= _CONNECTION_LENGTH_CACHE_LIMIT:
+            _CONNECTION_LENGTH_CACHE.pop(next(iter(_CONNECTION_LENGTH_CACHE)))
+        _CONNECTION_LENGTH_CACHE[key] = cached
+
+    return {
+        **cached,
+        "r": grid["r"],
+        "z": grid["z"],
+        "time": grid["time"],
+        "time_index": grid["time_index"],
+    }
+
 
 def compute_null_ods(ods, time):
     """Compute poloidal flux (psi) on grid at given time using coil and eddy currents.
@@ -986,6 +1651,22 @@ def compute_core_profile_2d(
     
     return profile_RZ, R_grid, Z_grid, psiN_RZ, cp_time
 
+
+def _per_radian_cocos(ods):
+    """The declared COCOS index re-expressed for psi already scaled to Wb/rad.
+
+    Every field derivation here first multiplies psi by
+    :func:`ods_psi_to_wb_per_radian_factor`, so the Sauter prefactor must carry
+    the orientation sign only.  A declared 11-18 index would divide by 2*pi a
+    second time (issue #478); its 1-8 sibling has the same signs without the
+    exponent.  ``None`` stays ``None``: the historical per-radian default.
+    """
+    index = ods_cocos(ods)
+    if index is None:
+        return None
+    return index - 10 if index >= 11 else index
+
+
 def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float:
     """Compute magnetic energy from ODS.
     
@@ -1071,7 +1752,7 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     # B_R = k (1/R) dpsi/dZ, B_Z = -k (1/R) dpsi/dR, with
     # k = sigma_RphiZ sigma_Bp / (2*pi)**e_Bp.  IMAS declares psi in weber
     # (COCOS 11), so a labelled ODS needs the 2*pi that a Wb/rad one does not.
-    k = poloidal_field_factor(ods_cocos(ods))
+    k = poloidal_field_factor(_per_radian_cocos(ods))
     B_R = k * (1.0 / Rm_safe) * dpsi_dZ
     B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
@@ -1099,9 +1780,269 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     return W_B
 
 
+def _vest_toroidal_field_sign() -> float:
+    """The direction of VEST's vacuum toroidal field, from the machine layer.
+
+    Converting a *measured* diamagnetic flux into mu_i is linear in the toroidal
+    field, so it needs that field's direction -- and the stored quantities cannot
+    supply it. ``profiles_1d.f`` has a reliable magnitude and an unreliable sign
+    (shot 39915 stores +0.0598 in the packaged sample and -0.0598 in the
+    database, with an identical measurement, and the database declares no
+    COCOS); ``vacuum_toroidal_field.b0`` is the reverse, uniformly positive
+    across the history but drifting up to 39% in magnitude within one shot
+    (#325). So the magnitude comes from ``|F_boundary|`` and the direction from
+    here.
+
+    Read from :data:`vaft.machine_mapping.BT_SIGN_VEST_TO_IMAS` rather than
+    restated: that record is the one place this machine fact lives, it carries
+    the evidence behind it, and it is marked ``confirmed=False`` pending #298.
+    A second copy here would be a second thing to change if #298 comes back
+    reversed -- and the copy would not know it was provisional.
+    """
+    from vaft.machine_mapping import BT_SIGN_VEST_TO_IMAS
+
+    return float(BT_SIGN_VEST_TO_IMAS.sign)
+
+
+def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
+    """The measured diamagnetic flux at one equilibrium slice time, or NaN.
+
+    Never raises: the measured loop is optional evidence here, and an ODS
+    without magnetics must still produce every equilibrium-derived quantity.
+    The same linear interpolation and edge-clamping as
+    :func:`compute_diamagnetic_flux_measured_vs_computed`, so the two agree on
+    what "the measurement at this slice" means.
+    """
+    try:
+        if (
+            "magnetics.diamagnetic_flux.0.data" not in ods
+            or "magnetics.time" not in ods
+            or not len(ods["magnetics.diamagnetic_flux"])
+        ):
+            return np.nan
+        t_mag = np.asarray(ods["magnetics.time"], float)
+        flux = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
+        if t_mag.size < 2 or flux.size != t_mag.size:
+            return np.nan
+        eq_ts = ods["equilibrium.time_slice"][eq_idx]
+        t_eq = float(eq_ts["time"]) if "time" in eq_ts else np.nan
+        if not np.isfinite(t_eq) and "equilibrium.time" in ods:
+            times = np.asarray(ods["equilibrium.time"], float)
+            if eq_idx < times.size:
+                t_eq = float(times[eq_idx])
+        if not np.isfinite(t_eq):
+            return np.nan
+        return float(
+            interp1d(
+                t_mag, flux, kind="linear", bounds_error=False,
+                fill_value=(flux[0], flux[-1]),
+            )(t_eq)
+        )
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        # Only what a missing, short or malformed magnetics IDS raises. A bare
+        # `except Exception` here would make a bug in this function look exactly
+        # like an ODS with no diamagnetic loop, on every slice of every shot.
+        logger.debug("Time slice %s: measured diamagnetic flux unavailable: %s", eq_idx, exc)
+        return np.nan
+
+
+def _virial_disagreement_block(pairs):
+    """Pairwise differences between the three closures, report-only.
+
+    On consistent inputs all three agree exactly, so every difference is
+    evidence about the inputs rather than about the closures. The 12-vs-13 and
+    23-vs-13 differences are the informative ones at low aspect ratio: pair_13
+    is the only closure that does not use RT/R0, so its distance from the other
+    two is a direct measure of RT sensitivity (#546 s8).
+    """
+    out = {}
+    for left, right in (("12", "13"), ("12", "23"), ("13", "23")):
+        beta_l, li_l = pairs[left]
+        beta_r, li_r = pairs[right]
+        out[f"delta_beta_{left}_{right}"] = (
+            float(beta_l - beta_r)
+            if np.isfinite(beta_l) and np.isfinite(beta_r)
+            else np.nan
+        )
+        out[f"delta_li_{left}_{right}"] = (
+            float(li_l - li_r) if np.isfinite(li_l) and np.isfinite(li_r) else np.nan
+        )
+    return out
+
+
+def _virial_pair_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0, omitted):
+    """One pairwise closure plus the residual of the identity it left out.
+
+    ``omitted`` is ``"e1"``, ``"e2"`` or ``"e3"``: the relation the pair did not
+    use, and therefore the only one whose residual carries information. The two
+    it did use close to machine precision by construction.
+    """
+    index = {"e1": 0, "e2": 1, "e3": 2}[omitted]
+    if not (np.isfinite(beta_p) and np.isfinite(li)):
+        return {
+            "beta_p": np.nan,
+            "li": np.nan,
+            "omitted_identity": omitted.upper(),
+            "residual": np.nan,
+            "residual_normalized": np.nan,
+        }
+    residuals = virial_identity_residuals(
+        beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0
+    )
+    lhs, rhs = _virial_identity_sides(
+        beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0
+    )[index]
+    return {
+        "beta_p": float(beta_p),
+        "li": float(li),
+        "omitted_identity": omitted.upper(),
+        "residual": float(residuals[index]),
+        "residual_normalized": float(
+            virial_normalized_residual(residuals[index], lhs, rhs)
+        ),
+    }
+
+
+def _virial_identity_sides(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
+    """The two sides of each identity, for the residual normalization scale."""
+    return (
+        (3.0 * beta_p + li - mu_i, S1 + S2),
+        (beta_p + li + mu_i, rt_over_r0 * S2),
+        (beta_p - (alpha - 1.0) * li - mu_i, S3),
+    )
+
+
+def _virial_identity_block(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0):
+    """Evaluate all three identities directly, without inverting anything.
+
+    This is the closure-independent evidence (#546 s6): whether the
+    equilibrium's own volume-integral beta_p, li and mu_i satisfy the three
+    relations. A closure being singular says nothing about these.
+    """
+    # Only E2 involves RT/R0. Voiding E1 and E3 when the current centroid is
+    # undetermined would silence the identities in exactly the ill-conditioned
+    # case this evidence exists for, so each residual stands or falls on its own
+    # inputs and the aggregate is taken over the ones that stand.
+    residuals = virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)
+    sides = _virial_identity_sides(beta_p, li, mu_i, S1, S2, S3, alpha, rt_over_r0)
+    normalized = [
+        virial_normalized_residual(r, lhs, rhs)
+        for r, (lhs, rhs) in zip(residuals, sides)
+    ]
+    available = [value for value in normalized if np.isfinite(value)]
+    rms = (
+        float(np.sqrt(np.mean(np.asarray(available, float) ** 2)))
+        if available
+        else np.nan
+    )
+    return {
+        "e1": float(residuals[0]), "e2": float(residuals[1]), "e3": float(residuals[2]),
+        "e1_normalized": float(normalized[0]),
+        "e2_normalized": float(normalized[1]),
+        "e3_normalized": float(normalized[2]),
+        "rms": rms,
+        "identities_available": len(available),
+    }
+
+
+def _virial_conditioning_block(alpha, rt_denominator_ratio, rt_over_r0):
+    """Which closures can be inverted here, and how far each is from failing.
+
+    The identities themselves never become singular; only the inversions do
+    (#546 s10). RT is the one whose conditioning is not a function of alpha:
+    its denominator is an integral over a sign-changing integrand, so
+    ``rt_denominator_ratio`` is what says whether RT/R0 means anything.
+
+    ``pair_12`` is deliberately absent from the denominators: it is built from
+    the two relations that never mention alpha and has nothing to divide by.
+    """
+    pair_13, pair_23, lao_li, full_123 = (
+        virial_closure_denominators(alpha)
+        if np.isfinite(alpha)
+        else (np.nan, np.nan, np.nan, np.nan)
+    )
+    denominators = {
+        "pair_13": float(pair_13),
+        "pair_23": float(pair_23),
+        "lao_li": float(lao_li),
+        "full_123": float(full_123),
+    }
+    # Distance is measured in alpha, not in the raw denominator: lao_li divides
+    # by (alpha-1) and full_123 by 4*(alpha-1), so comparing the denominators
+    # directly would call one near-singular and the other safe at an alpha where
+    # both are equally ill-conditioned.
+    singular_at = {"pair_13": 2.0 / 3.0, "pair_23": 0.0, "lao_li": 1.0, "full_123": 1.0}
+    return {
+        "denominators": denominators,
+        "distance_to_singularity": {
+            name: (abs(alpha - root) if np.isfinite(alpha) else np.nan)
+            for name, root in singular_at.items()
+        },
+        "singular_at": singular_at,
+        "rt_denominator_ratio": float(rt_denominator_ratio),
+        "rt_over_r0_available": bool(np.isfinite(rt_over_r0)),
+    }
+
+
+def _virial_empty_row(alpha_method: str = "volume"):
+    """A row for a slice nothing could be computed for, with every key present.
+
+    The shape a caller sees must not depend on whether the slice had a boundary:
+    a consumer walking the documented structure would otherwise raise KeyError
+    on exactly the slices it most needs to report as undecided.
+    """
+    nan = float("nan")
+    pair = lambda omitted: {  # noqa: E731 - a literal, not a strategy
+        "beta_p": nan, "li": nan, "omitted_identity": omitted,
+        "residual": nan, "residual_normalized": nan,
+    }
+    return {
+        "s_1": nan, "s_2": nan, "s_3": nan, "alpha": nan,
+        "alpha_method": alpha_method,
+        "alpha_sources": {
+            "volume": nan, "kappa": nan, "annulus": nan, "annulus_thin": nan,
+        },
+        "kappa": nan,
+        "B_pa": nan, "beta_p": nan, "li": nan,
+        "W_mag": nan, "W_kin": nan, "V_p": nan,
+        "mui_hat": nan, "mui_from_flux": nan, "mui": nan, "rt": nan, "phi_dia_comp": nan,
+        "beta_p_vir": nan, "li_vir": nan, "beta_pd_vir": nan,
+        "virial_lao": {"beta_p": nan, "li": nan},
+        "virial_bongard": {"beta_p": nan, "li": nan},
+        "beta_p_vir_lao": nan, "li_vir_lao": nan,
+        "beta_p_vir_bongard": nan, "li_vir_bongard": nan,
+        "volume": {"beta_p": nan, "li": nan, "mu_i": nan},
+        "pair_12": pair("E3"), "pair_13": pair("E2"), "pair_23": pair("E1"),
+        "full_123": {"beta_p": nan, "li": nan, "mu_i": nan},
+        "identity": _virial_identity_block(nan, nan, nan, nan, nan, nan, nan, nan),
+        "conditioning": _virial_conditioning_block(nan, nan, nan),
+        "mu_i_sources": {
+            "volume": nan, "full_123": nan, "measured": nan,
+            "measured_diamagnetic_flux": nan,
+        },
+        "measured_mu_i_closures": {
+            name: {"beta_p": nan, "li": nan}
+            for name in ("pair_12", "pair_13", "pair_23")
+        },
+        "disagreement": _virial_disagreement_block(
+            {"12": (nan, nan), "13": (nan, nan), "23": (nan, nan)}
+        ),
+    }
+
+
+#: How the virial closure coefficient alpha is obtained.  ``"volume"`` is the
+#: volume integral over the plasma -- exact, but it needs the internal poloidal
+#: field, so a filament or current-element reconstruction cannot supply it.
+#: The others are the Bongard (2016) approximations, which need only the
+#: boundary shape or the field on and just inside the LCFS.
+ALPHA_METHODS: tuple[str, ...] = ("volume", "kappa", "annulus", "annulus_thin")
+
+
 def compute_virial_equilibrium_quantities_ods(
     ods: ODS,
     time_slice: Optional[int] = None,
+    alpha_method: str = "volume",
+    annulus_thickness: float = 0.1,
 ) -> Dict[str, Any]:
     """
     Compute Shafranov/virial equilibrium quantities from an arbitrary equilibrium.
@@ -1120,16 +2061,34 @@ def compute_virial_equilibrium_quantities_ods(
              For μ̂_i, delta_phi uses measured diamagnetic flux when present:
              magnetics.diamagnetic_flux.0.data interpolated at equilibrium time
         time_slice: Time slice index (None = all slices).
+        alpha_method: Which alpha reaches the closures, one of ALPHA_METHODS.
+             "volume" (default) is the volume integral over the plasma: exact,
+             but it needs the internal poloidal field, so a filament or
+             current-element reconstruction cannot supply it. "kappa" is the
+             Bongard (2016) alpha_1 = 2 kappa^2/(1 + kappa^2) from the boundary
+             elongation alone; "annulus" is alpha_2, from the field in a thin
+             annulus conformal to the LCFS; "annulus_thin" is the analytic
+             thickness -> 0 limit of "annulus". Every method is evaluated and
+             reported under "alpha_sources" whatever this selects, so the
+             alternatives stay visible.
+        annulus_thickness: Annulus width for alpha_method="annulus", as a
+             fraction of the distance from the boundary centre.
 
     Returns:
         Dict mapping time_slice index -> dict of computed quantities (s_1, s_2, s_3,
-        alpha, B_pa, beta_p, li, W_mag, W_kin, V_p, mui_hat).
+        alpha, B_pa, beta_p, li, W_mag, W_kin, V_p, mui_hat), plus "alpha_sources"
+        holding every alpha method, the "kappa" they used, and the
+        "alpha_method" actually applied.
 
     Raises:
         KeyError: If required equilibrium or boundary data is missing.
     """
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         raise KeyError("equilibrium.time_slice not found in ODS")
+    if alpha_method not in ALPHA_METHODS:
+        raise ValueError(
+            f"alpha_method must be one of {ALPHA_METHODS}; got {alpha_method!r}."
+        )
 
     slices_to_process = (
         list(range(len(ods["equilibrium.time_slice"])))
@@ -1187,19 +2146,15 @@ def compute_virial_equilibrium_quantities_ods(
             logger.warning(
                 "Time slice %s: empty boundary.outline, skipping virial computation", eq_idx
             )
-            out[eq_idx] = {
-                "s_1": np.nan, "s_2": np.nan, "s_3": np.nan, "alpha": np.nan,
-                "B_pa": np.nan, "beta_p": np.nan, "li": np.nan,
-                "W_mag": np.nan, "W_kin": np.nan, "V_p": np.nan, "mui_hat": np.nan,
-            }
+            out[eq_idx] = _virial_empty_row(alpha_method)
             nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                      if not np.isfinite(np.asarray(out[eq_idx][k], float))]
             if nans:
                 logger.warning("Time slice %s: virial quantities are NaN or non-finite: %s", eq_idx, nans)
             continue
 
-        B_p_bdry, _, _ = poloidal_field_at_boundary(
-            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
+        B_p_bdry, B_R_bdry, B_Z_bdry = poloidal_field_at_boundary(
+            R_grid_1d, Z_grid_1d, psi_RZ, R_bdry, Z_bdry, cocos=_per_radian_cocos(ods)
         )
         B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -1220,7 +2175,7 @@ def compute_virial_equilibrium_quantities_ods(
             Rm_safe = np.where(Rm == 0.0, np.nan, Rm)
             # Same Eq. 20 coefficient as the boundary field a few lines above:
             # feeding shafranov_integrals one of each mixes conventions.
-            k_grid = poloidal_field_factor(ods_cocos(ods))
+            k_grid = poloidal_field_factor(_per_radian_cocos(ods))
             B_R_grid = k_grid * (1.0 / Rm_safe) * dpsi_dZ
             B_Z_grid = -k_grid * (1.0 / Rm_safe) * dpsi_dR
 
@@ -1290,9 +2245,11 @@ def compute_virial_equilibrium_quantities_ods(
         # Non-rotating branch: p_tot = p(psi)
         p_2d = np.zeros_like(psi_RZ, dtype=float)
         p_boundary = 0.0
+        pressure_is_mapped = False
         if "profiles_1d.pressure" in eq_ts:
             p_1d = np.asarray(eq_ts["profiles_1d.pressure"], float)
             if psiN_1d is not None and p_1d.size == psiN_1d.size:
+                pressure_is_mapped = True
                 p_2d, _ = psi_to_rz(psiN_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
                 order_p = np.argsort(psiN_1d)
                 p_boundary = float(np.interp(1.0, psiN_1d[order_p], p_1d[order_p]))
@@ -1333,10 +2290,13 @@ def compute_virial_equilibrium_quantities_ods(
             F_boundary=F_boundary if np.isfinite(F_boundary) else None,
             cell_weights=cell_weights,
         )
-        alpha = float(vol_terms["alpha"]) if np.isfinite(vol_terms["alpha"]) else np.nan
+        alpha_volume = (
+            float(vol_terms["alpha"]) if np.isfinite(vol_terms["alpha"]) else np.nan
+        )
         RT = float(vol_terms["rt"]) if np.isfinite(vol_terms["rt"]) else np.nan
         phi_dia_comp = float(vol_terms["phi_dia_comp"]) if np.isfinite(vol_terms["phi_dia_comp"]) else np.nan
         V_p = float(vol_terms["volume"]) if np.isfinite(vol_terms["volume"]) else np.nan
+        rt_den_ratio = float(vol_terms.get("rt_denominator_ratio", np.nan))
 
         # Boundary terms (S1,S2,S3), using same B_ref = B_pa and weighted volume
         S1, S2, S3, _alpha_check = shafranov_integrals(
@@ -1355,19 +2315,109 @@ def compute_virial_equilibrium_quantities_ods(
             volume=V_p if np.isfinite(V_p) and V_p > 0 else None,
         )
         S1, S2, S3 = float(S1), float(S2), float(S3)
+        if not np.isfinite(alpha_volume):
+            alpha_volume = float(_alpha_check)
+
+        # The Bongard (2016) approximations. Both are evaluated whenever the
+        # slice supports them, whatever `alpha_method` asks for, so a caller can
+        # see the alternatives instead of trusting one blind -- they disagree by
+        # more than the paper's spread suggests, and which is the better one is
+        # a property of the geometry (vfit #36).
+        # From the outline, not from `boundary.elongation`: that node is copied
+        # from the last profiles_1d.elongation sample by
+        # update_equilibrium_boundary, i.e. the outermost *resolved* flux
+        # surface, which sits inside the LCFS on a coarse psi grid. alpha_1 is
+        # defined on the boundary elongation and was validated against the
+        # traced contour, so the outline is the definition here and the stored
+        # node is only a fallback.
+        kappa = np.nan
+        try:
+            kappa = float(elongation_from_RZ_boundary(R_bdry, Z_bdry))
+        except (ValueError, ZeroDivisionError):
+            kappa = np.nan
+        if (not np.isfinite(kappa) or kappa <= 0.0) and "boundary.elongation" in eq_ts:
+            try:
+                kappa = float(eq_ts["boundary.elongation"])
+            except (KeyError, TypeError, ValueError):
+                kappa = np.nan
+        alpha_kappa = (
+            float(virial_alpha_approx_from_kappa(kappa)) if np.isfinite(kappa) else np.nan
+        )
+
+        annulus = virial_alpha_conformal_annulus(
+            R_mesh, Z_mesh, B_R_grid, B_Z_grid, R_bdry, Z_bdry,
+            thickness=annulus_thickness,
+        )
+        alpha_annulus = float(annulus["alpha"])
+        if not annulus["valid"]:
+            logger.warning(
+                "Time slice %s: annulus alpha unavailable (%s)",
+                eq_idx, annulus["reason"],
+            )
+        alpha_annulus_thin = float(
+            virial_alpha_thin_annulus(R_bdry, Z_bdry, B_R_bdry, B_Z_bdry)
+        )
+
+        alpha_by_method = {
+            "volume": alpha_volume,
+            "kappa": alpha_kappa,
+            "annulus": alpha_annulus,
+            "annulus_thin": alpha_annulus_thin,
+        }
+        alpha = alpha_by_method[alpha_method]
         if not np.isfinite(alpha):
-            alpha = float(_alpha_check)
+            logger.warning(
+                "Time slice %s: alpha_method=%r is unavailable here; the closures "
+                "that divide by alpha will abstain.",
+                eq_idx, alpha_method,
+            )
 
-        B_t0 = np.nan
-        if "equilibrium.vacuum_toroidal_field.b0" in ods:
-            B_t0 = float(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).flat[0])
-        elif "global_quantities.magnetic_axis.b_field_tor" in eq_ts:
-            B_t0 = float(eq_ts["global_quantities.magnetic_axis.b_field_tor"])
-
+        # mu_i as the three virial relations define it, and as
+        # docs/_guide/Equilibrium.md states it: the volume integral of
+        # B_tv^2 - B_t^2, positive for a diamagnetic plasma.
+        #
+        # This is NOT computed_diamagnetism_from_phi, the EFIT xmui port, which
+        # is its negative: B_tv^2 - B_t^2 ~ -2*F_b*(F - F_b)/R^2 while
+        # Phi = int (B_t - B_tv) dA. Feeding the flux sign to the closures puts
+        # a systematic 2*mu_i into every identity residual -- on an exact
+        # Solov'ev equilibrium the residuals are (-0.675, +0.675, -0.675)
+        # that way against (+0.0005, +0.0003, +0.0001) with this definition,
+        # and on the packaged sample it turned every closure's l_i negative.
+        # The flux quantity is kept beside it under a name that says so.
         mui = np.nan
-        if np.isfinite(phi_dia_comp) and np.isfinite(B_t0) and np.isfinite(V_p) and np.isfinite(B_pa):
-            if V_p > 0.0 and B_pa > 0.0:
-                mui = computed_diamagnetism_from_phi(phi_dia_comp, B_t0, R_0, V_p, B_pa)
+        mui_from_flux = np.nan
+        # The conversion needs B_t * R_0, which is F at the boundary -- not b0
+        # times this slice's radius. b0 is defined at vacuum_toroidal_field.r0,
+        # a fixed 0.4 m, while R_0 here is the geometric axis, which moves from
+        # 0.3989 to 0.2426 within the packaged shot. Pairing the two made this
+        # quantity drift away from the volume mu_i it is the negative of: the
+        # ratio ran -0.974 to -0.594 across those eight slices instead of
+        # holding near -1, a 41% error by the last one. With F at the boundary
+        # the spread is -0.977 to -0.982, which is the genuine first-order
+        # (F - F_b)/F_b term and all that a single flux can resolve.
+        #
+        # No fallback to b0: a slice without F at the boundary cannot have this
+        # converted correctly, and the old pairing is what it would fall back to.
+        if (
+            np.isfinite(phi_dia_comp)
+            and np.isfinite(F_boundary)
+            and np.isfinite(R_0) and R_0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(B_pa) and B_pa > 0.0
+        ):
+            mui_from_flux = computed_diamagnetism_from_phi(
+                phi_dia_comp, F_boundary / R_0, R_0, V_p, B_pa
+            )
+        if (
+            np.isfinite(B_pa) and B_pa > 0.0
+            and np.isfinite(V_p) and V_p > 0.0
+            and np.isfinite(F_boundary)
+        ):
+            _dV = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            # nan_to_num on the *difference*, so a cell whose F is NaN
+            # contributes nothing rather than contributing its vacuum term alone.
+            _diff = (F_boundary / R_safe) ** 2 - (F_2d / R_safe) ** 2
+            mui = float(np.sum(np.nan_to_num(_diff, nan=0.0) * _dV) / (B_pa**2 * V_p))
 
         RT_over_R0 = np.nan
         if np.isfinite(RT) and R_0 != 0.0:
@@ -1392,7 +2442,10 @@ def compute_virial_equilibrium_quantities_ods(
                 beta_p_lao, li_lao = virial_lao_from_S_alpha_mu_rt(
                     S1, S2, S3, alpha, mui, RT_over_R0
                 )
-                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+                # The flux-sign quantity: virial_beta_pd_from_S_mu_rt is written
+                # for mu_i_hat, so feeding it the volume mu_i would return
+                # beta_p - 2*mu_i. This keeps the number develop computed.
+                beta_pd_vir = virial_beta_pd_from_S_mu_rt(S1, S2, mui_from_flux, RT_over_R0)
             except ValueError:
                 beta_p_lao, li_lao, beta_pd_vir = np.nan, np.nan, np.nan
         if np.isfinite(alpha) and np.isfinite(mui):
@@ -1402,6 +2455,120 @@ def compute_virial_equilibrium_quantities_ods(
                 )
             except ValueError:
                 beta_p_bongard, li_bongard = np.nan, np.nan
+
+        # The three pairwise closures and the full solve (#546 s2, s4). Unlike
+        # the historical pair above these return NaN at a singular denominator
+        # rather than raising or returning a large finite number, so no
+        # try/except is needed and an indeterminate closure stays indeterminate.
+        beta_p_12, li_12 = (
+            virial_pair_12_from_S_mu_rt(S1, S2, mui, RT_over_R0)
+            if np.isfinite(mui) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_13, li_13 = (
+            virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui)
+            if np.isfinite(alpha) and np.isfinite(mui)
+            else (np.nan, np.nan)
+        )
+        beta_p_23, li_23 = (
+            virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mui, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(mui) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_full, li_full, mui_full = (
+            virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan, np.nan)
+        )
+
+        # Volume-integral beta_p, li and mu_i (#546 s6). These invert nothing,
+        # so they are the one set of values a singular closure cannot spoil, and
+        # the identity residuals built on them are the primary self-consistency
+        # evidence.
+        beta_p_volume = np.nan
+        li_volume = np.nan
+        if np.isfinite(B_pa) and B_pa > 0.0 and np.isfinite(V_p) and V_p > 0.0:
+            # V_p is a nansum, so a non-finite cell contributes nothing to it.
+            # The numerators use np.sum, so they must be given zeros there or a
+            # single degenerate cell -- the R=0 column the field fallback marks
+            # NaN on purpose -- would void the whole slice.
+            dV_cells = np.nan_to_num(np.asarray(vol_terms["dV"], float), nan=0.0)
+            b_p_sq = np.nan_to_num(
+                np.asarray(vol_terms["b_p_squared"], float), nan=0.0
+            )
+            # b_p_squared is B_R^2 + B_Z^2, so the square root is exact and the
+            # helper squares it straight back; the round trip buys the shared
+            # definition of l_i and costs nothing else.
+            li_volume = float(
+                virial_li_from_volume(np.sqrt(b_p_sq), dV_cells, B_pa, V_p)
+            )
+            # p_2d is zeros when no pressure profile could be mapped. Zero is a
+            # defensible default for the surface integrals, but as the headline
+            # beta_p it would assert that this equilibrium has no pressure --
+            # and virial_identity would grade that assertion as a force-balance
+            # violation instead of reporting that it cannot be evaluated.
+            if pressure_is_mapped:
+                beta_p_volume = float(
+                    virial_beta_p_from_volume(
+                        np.nan_to_num(p_2d, nan=0.0), dV_cells, B_pa, V_p
+                    )
+                )
+        # mu_i has three separable sources and they must not be collapsed
+        # (#546 s9): the volume/equilibrium-derived one already computed above,
+        # the one the full three-relation solve predicts, and the measured
+        # diamagnetic loop.
+        mui_measured = np.nan
+        delta_phi_measured = _virial_measured_diamagnetic_flux(ods, eq_idx)
+        # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
+        # and F's sign is not trustworthy across sources, so each contributes
+        # only what it is good for. See _vest_toroidal_field_sign.
+        _b_t_for_flux = (
+            _vest_toroidal_field_sign() * abs(F_boundary) / R_0
+            if np.isfinite(F_boundary) and R_0
+            else np.nan
+        )
+        if (
+            np.isfinite(delta_phi_measured)
+            and np.isfinite(_b_t_for_flux)
+            and np.isfinite(R_0)
+            and np.isfinite(B_pa)
+            and B_pa > 0.0
+            and np.isfinite(V_p)
+            and V_p > 0.0
+        ):
+            # Negated: virial_muihat_from_Bt_R0_dphi is the flux convention (the
+            # `hat`), and the closures below now take the volume one, the same
+            # as the equilibrium's own mu_i above. Leaving it on the flux sign
+            # made the measured-vs-reconstructed comparison mixed-convention --
+            # self-consistently wrong before this became a comparison of two
+            # different things.
+            #
+            # The remaining approximation is first order in (F - F_b)/F_b,
+            # which no single flux measurement can improve on -- not a sign
+            # ambiguity. The sign is settled: the measurement carries it, in
+            # the convention test/test_diamagnetic_flux_sign.py pins.
+            mui_measured = -float(
+                virial_muihat_from_Bt_R0_dphi(
+                    _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
+                )
+            )
+        # The same three closures again, on the measured mu_i, so the comparison
+        # against the reconstruction is like for like.
+        beta_p_12_m, li_12_m = (
+            virial_pair_12_from_S_mu_rt(S1, S2, mui_measured, RT_over_R0)
+            if np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
+        beta_p_13_m, li_13_m = (
+            virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mui_measured)
+            if np.isfinite(alpha) and np.isfinite(mui_measured)
+            else (np.nan, np.nan)
+        )
+        beta_p_23_m, li_23_m = (
+            virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mui_measured, RT_over_R0)
+            if np.isfinite(alpha) and np.isfinite(mui_measured) and np.isfinite(RT_over_R0)
+            else (np.nan, np.nan)
+        )
 
         # Keep backward-compatible top-level beta_p/li mapped to Lao version.
         beta_p = float(beta_p_lao) if np.isfinite(beta_p_lao) else np.nan
@@ -1418,9 +2585,21 @@ def compute_virial_equilibrium_quantities_ods(
 
         out[eq_idx] = {
             "s_1": S1, "s_2": S2, "s_3": S3, "alpha": alpha,
+            "alpha_method": alpha_method,
+            "alpha_sources": {
+                "volume": alpha_volume,
+                "kappa": alpha_kappa,
+                "annulus": alpha_annulus,
+                "annulus_thin": alpha_annulus_thin,
+            },
+            "kappa": float(kappa) if np.isfinite(kappa) else np.nan,
             "B_pa": B_pa, "beta_p": beta_p, "li": li,
             "W_mag": W_mag, "W_kin": W_kin, "V_p": V_p,
-            "mui_hat": float(mui) if np.isfinite(mui) else np.nan,  # backward-compatible key
+            # `hat` names the flux convention throughout this codebase, so this
+            # key keeps the flux quantity it has always carried; `mui` is the
+            # volume one the relations use. They are negatives of each other.
+            "mui_hat": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
+            "mui_from_flux": float(mui_from_flux) if np.isfinite(mui_from_flux) else np.nan,
             "mui": float(mui) if np.isfinite(mui) else np.nan,
             "rt": RT,
             "phi_dia_comp": phi_dia_comp,
@@ -1439,6 +2618,46 @@ def compute_virial_equilibrium_quantities_ods(
             "li_vir_lao": float(li_lao) if np.isfinite(li_lao) else np.nan,
             "beta_p_vir_bongard": float(beta_p_bongard) if np.isfinite(beta_p_bongard) else np.nan,
             "li_vir_bongard": float(li_bongard) if np.isfinite(li_bongard) else np.nan,
+            # --- #546: the closure-and-consistency structure -----------------
+            # Every key above is kept as it was; the summary preset, the plot
+            # recipes and the validation layer all read them by name.
+            "volume": {
+                "beta_p": beta_p_volume,
+                "li": li_volume,
+                "mu_i": float(mui) if np.isfinite(mui) else np.nan,
+            },
+            "pair_12": _virial_pair_block(
+                beta_p_12, li_12, mui, S1, S2, S3, alpha, RT_over_R0, "e3"
+            ),
+            "pair_13": _virial_pair_block(
+                beta_p_13, li_13, mui, S1, S2, S3, alpha, RT_over_R0, "e2"
+            ),
+            "pair_23": _virial_pair_block(
+                beta_p_23, li_23, mui, S1, S2, S3, alpha, RT_over_R0, "e1"
+            ),
+            "full_123": {
+                "beta_p": float(beta_p_full) if np.isfinite(beta_p_full) else np.nan,
+                "li": float(li_full) if np.isfinite(li_full) else np.nan,
+                "mu_i": float(mui_full) if np.isfinite(mui_full) else np.nan,
+            },
+            "identity": _virial_identity_block(
+                beta_p_volume, li_volume, mui, S1, S2, S3, alpha, RT_over_R0
+            ),
+            "conditioning": _virial_conditioning_block(alpha, rt_den_ratio, RT_over_R0),
+            "mu_i_sources": {
+                "volume": float(mui) if np.isfinite(mui) else np.nan,
+                "full_123": float(mui_full) if np.isfinite(mui_full) else np.nan,
+                "measured": mui_measured,
+                "measured_diamagnetic_flux": delta_phi_measured,
+            },
+            "measured_mu_i_closures": {
+                "pair_12": {"beta_p": beta_p_12_m, "li": li_12_m},
+                "pair_13": {"beta_p": beta_p_13_m, "li": li_13_m},
+                "pair_23": {"beta_p": beta_p_23_m, "li": li_23_m},
+            },
+            "disagreement": _virial_disagreement_block(
+                {"12": (beta_p_12, li_12), "13": (beta_p_13, li_13), "23": (beta_p_23, li_23)}
+            ),
         }
         nans = [k for k in ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li", "W_mag", "W_kin")
                  if not np.isfinite(np.asarray(out[eq_idx][k], float))]
@@ -1604,7 +2823,8 @@ def compute_diamagnetism(ods, time_index=0):
     R_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim1"], float)
     Z_grid = np.asarray(eq_slice["profiles_2d.0.grid.dim2"], float)
     # poloidal_field_at_boundary below needs psi in Wb/rad (issue #236).
-    _psi_factor = ods_psi_to_wb_per_radian_factor(eq_slice)
+    # The whole ODS, not the bare slice: the declared COCOS lives at the root.
+    _psi_factor = ods_psi_to_wb_per_radian_factor(ods, time_index)
     psi_RZ = _ensure_rz_shape(
         np.asarray(eq_slice["profiles_2d.0.psi"], float), R_grid, Z_grid
     ) * _psi_factor
@@ -1640,7 +2860,7 @@ def compute_diamagnetism(ods, time_index=0):
     R_bdry = np.asarray(eq_slice["boundary.outline.r"], float)
     Z_bdry = np.asarray(eq_slice["boundary.outline.z"], float)
     B_p_bdry, _, _ = poloidal_field_at_boundary(
-        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=ods_cocos(ods)
+        R_grid, Z_grid, psi_RZ, R_bdry, Z_bdry, cocos=_per_radian_cocos(ods)
     )
     B_pa = float(calculate_average_boundary_poloidal_field(R_bdry, Z_bdry, B_p_bdry))
 
@@ -2375,7 +3595,7 @@ def compute_field_line_trace(
     field_data = _equilibrium_field_slice_data(time_slice)
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"], cocos=ods_cocos(ods),
+        field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
     )
 
     wall_r = wall_z = None
@@ -2510,4 +3730,175 @@ def _plot_vacuum_field_quantities(time_arr, psi_out, br_out, bz_out, rz, mode):
             suptitle=f"Vacuum Field Quantities at Each Time Step (Mode: {mode})",
         ),
         figsize=(10, 8),
+    )
+
+def compute_parallel_current_from_toroidal(
+    ods,
+    shell_current_tor,
+    rho_tor_norm,
+    *,
+    time_index: int = 0,
+    b0: Optional[float] = None,
+):
+    """Convert a shell toroidal driven current using an equilibrium in *ods*.
+
+    The ODS-facing counterpart of
+    :func:`vaft.process.equilibrium.parallel_current_from_toroidal`: it pulls
+    ``f``, ``gm1`` and ``gm5`` off ``equilibrium.time_slice[].profiles_1d``,
+    interpolates them onto the shell centres implied by *rho_tor_norm*, and
+    hands them over.
+
+    This is the generic path, for any code that reports a toroidal driven
+    current on its own radial grid. A solver that publishes its *own*
+    flux-surface averages -- NUBEAM does -- should prefer those, since they
+    describe the surfaces it actually integrated over; this path is then an
+    independent cross-check rather than the primary source.
+
+    Parameters
+    ----------
+    ods : ODS
+        Must carry ``equilibrium.time_slice[time_index].profiles_1d`` with
+        ``rho_tor_norm``, ``f``, ``gm1``, ``gm5``, ``volume`` and ``area``.
+        Those averages are *derived* leaves: a raw g-file read does not have
+        them until the flux-surface trace has run.
+    shell_current_tor : array_like
+        Toroidal current per shell [A], one value per interval of
+        *rho_tor_norm*.
+    rho_tor_norm : array_like
+        Shell boundaries, ``len(shell_current_tor) + 1`` values.
+    time_index : int, optional
+        Equilibrium time slice.
+    b0 : float, optional
+        Overrides ``equilibrium.vacuum_toroidal_field.b0``.
+
+    Returns
+    -------
+    ParallelCurrentResult
+
+    Raises
+    ------
+    ValueError
+        When the equilibrium lacks ``gm1``/``gm5``, rather than substituting a
+        geometry-free approximation.
+    """
+    base = f"equilibrium.time_slice.{time_index}.profiles_1d"
+    required = ("rho_tor_norm", "f", "gm1", "gm5", "volume", "area")
+    missing = [name for name in required
+               if ods.get(f"{base}.{name}", None) is None]
+    if missing:
+        raise ValueError(
+            f"equilibrium slice {time_index} is missing {', '.join(missing)}; "
+            "gm1 and gm5 are derived leaves that a flux-surface trace writes. "
+            "Supply an equilibrium that carries them, or use the solver's own "
+            "flux-surface averages."
+        )
+
+    rho_eq = np.asarray(ods[f"{base}.rho_tor_norm"], dtype=float)
+    order = np.argsort(rho_eq)
+    rho_eq = rho_eq[order]
+
+    def _on(grid, name):
+        values = np.asarray(ods[f"{base}.{name}"], dtype=float)[order]
+        return np.interp(grid, rho_eq, values)
+
+    edges = np.asarray(rho_tor_norm, dtype=float)
+    dI = np.asarray(shell_current_tor, dtype=float)
+    if edges.size != dI.size + 1:
+        raise ValueError(
+            f"rho_tor_norm has {edges.size} points; expected {dI.size + 1} "
+            "boundaries for that many shells"
+        )
+    centres = 0.5 * (edges[:-1] + edges[1:])
+
+    if b0 is None:
+        raw = ods.get("equilibrium.vacuum_toroidal_field.b0", None)
+        if raw is None:
+            raise ValueError(
+                "no b0: pass it, or set equilibrium.vacuum_toroidal_field.b0"
+            )
+        finite = np.atleast_1d(np.asarray(raw, dtype=float))
+        finite = finite[np.isfinite(finite)]
+        if not finite.size:
+            raise ValueError("equilibrium.vacuum_toroidal_field.b0 is not finite")
+        b0 = float(finite[0])
+
+    return parallel_current_from_toroidal(
+        dI,
+        f=_on(centres, "f"),
+        gm1=_on(centres, "gm1"),
+        gm5=_on(centres, "gm5"),
+        shell_volume=np.diff(_on(edges, "volume")),
+        b0=b0,
+        shell_area=np.diff(_on(edges, "area")),
+    )
+
+
+
+def compute_grad_shafranov_residual(
+    ods: Any,
+    *,
+    time_slice: int = 0,
+    n_surfaces: int = 32,
+    psi_norm_max: float = 0.99,
+):
+    """How well one stored equilibrium satisfies its own Grad-Shafranov equation.
+
+    Reads ``profiles_2d.0`` and the ``dpressure_dpsi``/``f_df_dpsi`` profiles of
+    ``time_slice`` and returns a
+    :class:`~vaft.process.equilibrium.GradShafranovResidual`.
+
+    This is a different question from the one EFIT's ``a``-file answers.  What
+    VAFT elsewhere calls the "Grad-Shafranov error" is EFIT's own
+    iteration-to-iteration delta, ``max|psi - psi_prev|`` over the grid -- a
+    statement about convergence.  This measures whether the flux map that came
+    out is consistent with the ``p'`` and ``FF'`` that went in, which a
+    comfortably converged reconstruction can still fail.
+
+    The flux convention is handled here rather than left to the caller: the
+    equation takes its textbook form only for per-radian psi, so a
+    DD-conformant ODS storing full weber is converted first (psi scaled by
+    ``ods_psi_to_wb_per_radian_factor``, each psi-derivative by its reciprocal).
+    Getting that wrong moves the two sides apart by ``(2*pi)**2``, which is why
+    it is not an option.
+    """
+    from vaft.process.equilibrium import grad_shafranov_residual
+
+    slice_node = ods["equilibrium.time_slice"][int(time_slice)]
+    grid = slice_node["profiles_2d.0.grid"]
+    r_grid = np.asarray(grid["dim1"], dtype=float).ravel()
+    z_grid = np.asarray(grid["dim2"], dtype=float).ravel()
+    psi_grid = _read_psi_grid(slice_node, r_grid, z_grid)
+
+    profiles = slice_node["profiles_1d"]
+    missing = [
+        leaf for leaf in ("psi", "dpressure_dpsi", "f_df_dpsi") if leaf not in profiles
+    ]
+    if missing:
+        raise ValueError(
+            f"equilibrium slice {time_slice} is missing {', '.join(missing)}; the "
+            "residual needs the flux map and the p' and FF' profiles that produced it"
+        )
+
+    # Everything into Wb/rad, where Delta* psi = -mu0 R^2 p' - FF' holds as written.
+    factor = ods_psi_to_wb_per_radian_factor(ods, int(time_slice))
+    globals_node = slice_node["global_quantities"] if "global_quantities" in slice_node else {}
+    psi_axis = globals_node.get("psi_axis") if hasattr(globals_node, "get") else None
+    psi_boundary = globals_node.get("psi_boundary") if hasattr(globals_node, "get") else None
+
+    boundary = slice_node["boundary"] if "boundary" in slice_node else {}
+    outline = boundary["outline"] if "outline" in boundary else {}
+
+    return grad_shafranov_residual(
+        psi_grid * factor,
+        r_grid,
+        z_grid,
+        boundary_r=outline["r"] if "r" in outline else None,
+        boundary_z=outline["z"] if "z" in outline else None,
+        psi_1d=np.asarray(profiles["psi"], dtype=float) * factor,
+        pprime=np.asarray(profiles["dpressure_dpsi"], dtype=float) / factor,
+        ffprime=np.asarray(profiles["f_df_dpsi"], dtype=float) / factor,
+        psi_axis=None if psi_axis is None else float(psi_axis) * factor,
+        psi_boundary=None if psi_boundary is None else float(psi_boundary) * factor,
+        n_surfaces=n_surfaces,
+        psi_norm_max=psi_norm_max,
     )
