@@ -152,7 +152,7 @@ VEST Data Analysis Platform
 ### Available IMAS IDSs in the VEST Database
 
 **Experimental:**
-`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
+`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `ec_launchers` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
 
 **Modelling:**
 `wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` · `mhd_linear` (DCON/RDCON)

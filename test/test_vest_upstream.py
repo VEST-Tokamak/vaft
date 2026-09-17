@@ -202,6 +202,13 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert "barometry" in ods
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
+    # No ECH detector fields (27/28) in the dump: EC power is unavailable, not
+    # zero, and leaves no realized grid behind (issue #165).
+    ec_status = diagnostics_manifest["channel_status"]["ec_launchers"]
+    assert ec_status["status"] == "unavailable"
+    assert "field 27" in ec_status["reason"]
+    assert "ec_launchers" not in ods
+    assert "ec_power" not in diagnostics_manifest["time_grid"]["components"]
 
 
 def test_diagnostics_ods_carries_the_raw_dumps_pulse_datetime(tmp_path):

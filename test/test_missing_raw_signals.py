@@ -30,6 +30,7 @@ def test_required_signal_error_identifies_the_missing_waveform():
         ("vaft.machine_mapping.barometry", "vfit_barometry_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 12),
         ("vaft.machine_mapping.tf", "vfit_tf_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 1),
         ("vaft.machine_mapping.spectrometer_uv", "vfit_filterscope", ({}, 39915, 0.2, 0.4, 4e-5), 101),
+        ("vaft.machine_mapping.ec_launchers", "ec_launchers_dynamic", ({}, 39915, 0.2, 0.4, 4e-5), 27),
     ],
 )
 def test_diagnostic_mappers_do_not_replace_missing_raw_data_with_zeros(
