@@ -72,6 +72,30 @@ class RDCONOptions:
     z_eff: float = 2.0
     ln_lambda: float = 17.0
 
+    def __post_init__(self) -> None:
+        # Checked here, where the caller's mistake is, rather than after RDCON
+        # has already run: a malformed triple used to raise out of the suite
+        # between the solver and its companion, and a descending coordinate
+        # was interpolated as if it were sorted.
+        if not self.has_kinetic_profiles:
+            return
+        sizes = {
+            name: len(getattr(self, name)) for name in ("psi_norm", "t_e", "n_e")
+        }
+        if len(set(sizes.values())) != 1:
+            raise ValueError(
+                "RDCONOptions psi_norm, t_e and n_e must have one length; got "
+                + ", ".join(f"{name}: {size}" for name, size in sizes.items())
+            )
+        coordinate = [float(value) for value in self.psi_norm]
+        if len(coordinate) < 2 or any(
+            not later > earlier for earlier, later in zip(coordinate, coordinate[1:])
+        ):
+            raise ValueError(
+                "RDCONOptions.psi_norm must be strictly increasing (core to edge); "
+                "reverse an outboard-in profile together with its t_e and n_e"
+            )
+
     @property
     def has_kinetic_profiles(self) -> bool:
         return (

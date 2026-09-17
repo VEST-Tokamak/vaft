@@ -215,3 +215,69 @@ def test_a_value_that_is_not_false_is_left_alone(tmp_path):
     path.write_text("&GAL_OUTPUT\n    bin_delmatch=foo\n/\n", encoding="utf-8")
     assert enable_rdcon_matching_output(path) is False
     assert "bin_delmatch=foo" in path.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# malformed profiles (cold review stability F2)
+# ---------------------------------------------------------------------------
+
+def test_mismatched_profiles_are_refused_when_the_options_are_built():
+    """They used to raise out of the suite after RDCON had already run."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.raises(ValueError, match="one length"):
+        RDCONOptions(t_e=t_e, n_e=n_e[:-1], psi_norm=psi_norm)
+
+
+def test_a_descending_coordinate_is_refused_when_the_options_are_built():
+    """np.interp took it silently and gave every surface the same end value."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.raises(ValueError, match="strictly increasing"):
+        RDCONOptions(t_e=t_e[::-1], n_e=n_e[::-1], psi_norm=psi_norm[::-1])
+
+
+def _stub_surfaces(monkeypatch, surfaces):
+    import types
+
+    import vaft.code.gpec._matching_output as matching
+
+    monkeypatch.setattr(
+        matching,
+        "read_pest3_matching_output",
+        lambda run_dir, solver, mode: types.SimpleNamespace(psi_n_rational=surfaces),
+    )
+
+
+def test_a_cold_plateau_leaves_the_template_alone(tmp_path, monkeypatch):
+    """Spitzer diverges at T_e = 0, and `eta=..., inf` went into rmatch.in."""
+    from vaft.code.gpec._solvers import write_rmatch_resistive_layers
+
+    psi_norm, t_e, n_e = _profiles()
+    t_e = np.where(psi_norm > 0.8, 0.0, t_e)
+    template = data_path("gpec/rmatch.in").read_bytes()
+    (tmp_path / "rmatch.in").write_bytes(template)
+    _stub_surfaces(monkeypatch, [0.5, 0.9])
+
+    report = write_rmatch_resistive_layers(
+        tmp_path, 1, RDCONOptions(t_e=t_e, n_e=n_e, psi_norm=psi_norm)
+    )
+    assert "eta" in report["skipped"]
+    assert (tmp_path / "rmatch.in").read_bytes() == template
+
+
+def test_a_refusal_from_the_profiles_does_not_leave_the_suite(tmp_path, monkeypatch):
+    """Options built some other way (a duck-typed object) still cannot abort
+    the case between RDCON and its companion."""
+    import types
+
+    from vaft.code.gpec._solvers import write_rmatch_resistive_layers
+
+    psi_norm, t_e, n_e = _profiles()
+    template = data_path("gpec/rmatch.in").read_bytes()
+    (tmp_path / "rmatch.in").write_bytes(template)
+    _stub_surfaces(monkeypatch, [0.5, 0.9])
+    options = types.SimpleNamespace(
+        psi_norm=psi_norm, t_e=t_e, n_e=n_e[:-1], ion_mass_amu=1.0, z_eff=2.0, ln_lambda=17.0
+    )
+    report = write_rmatch_resistive_layers(tmp_path, 1, options)
+    assert report["skipped"].startswith("ValueError")
+    assert (tmp_path / "rmatch.in").read_bytes() == template
