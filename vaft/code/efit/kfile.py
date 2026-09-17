@@ -620,6 +620,19 @@ def generate_constraints_ods(
             recovery = partial(
                 gaussian_probe_recovery, mode=int(fit), families=families, uncertainty="legacy"
             )
+    # Recovery and the applier index ``time_slice.{i}`` with the decisions'
+    # own position, so decisions made on another grid would be applied to the
+    # wrong slices without a sound.  Match by time, to the microsecond the
+    # k-file name resolves.
+    decision_times = np.asarray(decisions.times, dtype=float).ravel()
+    slice_times = np.asarray(EQ["time"], dtype=float).ravel()
+    if decision_times.shape != slice_times.shape or not np.allclose(
+        decision_times, slice_times, rtol=0.0, atol=0.5e-6
+    ):
+        raise ValueError(
+            "channel decisions were made for other times than the constraint slices: "
+            f"decisions.times={decision_times.tolist()} vs equilibrium.time={slice_times.tolist()}"
+        )
     if recovery is not None:
         decisions = recovery(EQ, decisions)
     apply_channel_decisions(
