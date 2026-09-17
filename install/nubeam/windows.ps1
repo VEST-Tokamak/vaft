@@ -4,6 +4,12 @@
     able to run it.
 
 .DESCRIPTION
+    EXPERIMENTAL. This wrapper has not been run end to end in the form shipped
+    here: no Windows host was available when it was last changed, so its
+    PowerShell is verified by reading only. The recipe it drives (windows.sh)
+    can also be run directly from a UCRT64 shell. Treat a success report from
+    this script as something to confirm with -CheckOnly.
+
     Builds an existing NUBEAM source tree with the MinGW-w64 toolchain from
     MSYS2, downloads and builds the three NTCC dependency modules it needs
     (PSPLINE, PREACT, XPLASMA), stages the PREACT and ADAS reaction databases,
@@ -127,6 +133,7 @@ $Executables = @('nubeam_comp_exec')
 # -Uninstall.
 $GeneratedPaths = @('local', 'build\windows-x86_64')
 $ManifestName = '.nubeam-install-manifest'
+$WrapperLogName = 'windows.ps1.log'
 
 $prefixToken = Get-Msys2PackagePrefix -MinGWEnvironment $MinGWEnvironment
 $Packages = @(
@@ -212,6 +219,8 @@ anything there. Nothing was removed.
             Write-Result -Status SKIP -Name $relative -Detail 'not present'
         }
     }
+    $wrapperLog = Join-Path $source (Join-Path 'build' $WrapperLogName)
+    if (Test-Path -LiteralPath $wrapperLog -PathType Leaf) { Remove-Item -LiteralPath $wrapperLog -Force }
     # Parents go only when nothing is left in them.
     foreach ($relative in @('vendor\ntcc', 'vendor', 'build')) {
         $target = Join-Path $source $relative
@@ -286,7 +295,8 @@ you, and never downloads anything without that switch.
 
 $source = Assert-SourceCheckout -SourcePath $SourcePath -Project 'NUBEAM' `
     -ExpectedFiles @('Makefile', 'nubeam_comp_exec')
-Write-RevisionResult -Project 'NUBEAM' -SourcePath $source
+$revision = Get-SourceRevision -SourcePath $source
+Write-RevisionResult -Project 'NUBEAM' -Revision $revision
 
 $prefix = Get-NubeamPrefix -Source $source
 $binDirectory = Join-Path $prefix 'bin'
@@ -333,9 +343,14 @@ Write-Step 'Building NUBEAM and its NTCC dependencies'
 Write-Host 'This takes roughly an hour on a first run, most of it in PREACT.'
 Write-Host ''
 
-$logDirectory = Join-Path $source 'build\windows-x86_64'
+# The wrapper's log goes beside the recipe's build directory, not inside it:
+# windows.sh refuses a build\windows-x86_64 that exists without its manifest,
+# so creating that directory here made every first run fail at the recipe's
+# own guard, and --resume cannot bypass that arm.
+$buildDirectory = Join-Path $source 'build\windows-x86_64'
+$logDirectory = Join-Path $source 'build'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-$logPath = Join-Path $logDirectory 'windows.ps1.log'
+$logPath = Join-Path $logDirectory $WrapperLogName
 
 $steps = @(
     'set -e',
@@ -354,7 +369,7 @@ $exitCode = Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -C
     } -LogPath $logPath -AllowFailure
 
 if ($exitCode -ne 0) {
-    Stop-WithGuidance "The NUBEAM build failed (exit $exitCode). The full log is at $logPath and at $logDirectory\install.log."
+    Stop-WithGuidance "The NUBEAM build failed (exit $exitCode). The full log is at $logPath and at $buildDirectory\install.log."
 }
 
 $missing = @()
@@ -362,7 +377,7 @@ foreach ($name in $Executables) {
     if (-not (Test-Path -LiteralPath (Join-Path $binDirectory "$name.exe"))) { $missing += $name }
 }
 if ($missing.Count -gt 0) {
-    Stop-WithGuidance "The build reported success but did not produce: $($missing -join ', '). See $logDirectory\install.log."
+    Stop-WithGuidance "The build reported success but did not produce: $($missing -join ', '). See $buildDirectory\install.log."
 }
 Write-Result -Status PASS -Name 'Executables' -Detail (($Executables | ForEach-Object { "$_.exe" }) -join ', ')
 
@@ -376,7 +391,7 @@ Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $
 Write-InstallManifest -Prefix $prefix -Record @{
     code        = $CodeName
     source      = $source
-    revision    = (Get-SourceRevision -SourcePath $source)
+    revision    = $revision
     netcdf      = $NetcdfHome
     msys2       = $root
     environment = $MinGWEnvironment

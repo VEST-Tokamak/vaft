@@ -2768,3 +2768,88 @@ def test_nubeam_windows_uninstall_spares_hand_placed_ntcc_sources():
     already_there = function.index('[[ -d "$destination" ]] && return 0')
     recorded = function.index("printf 'managed_dir\\t%s\\n' \"$destination\" >> \"$MANIFEST\"")
     assert already_there < recorded < function.index('cp -R "$candidate"')
+
+
+_ALL_POWERSHELL = (
+    *(INSTALL / name for name in POWERSHELL_SCRIPTS),
+    NUBEAM_DIR / "windows.ps1",
+)
+_POWERSHELL_OPERATORS = {
+    "join", "f", "eq", "ne", "not", "and", "or", "replace", "split", "match",
+    "notmatch", "like", "contains", "notcontains", "gt", "lt", "ge", "le", "in",
+}
+_POWERSHELL_COMMON_PARAMETERS = {"ErrorAction", "Verbose", "WarningAction", "OutVariable"}
+
+
+def _common_powershell_signatures() -> dict[str, set[str]]:
+    text = _executable_source(INSTALL / "_external_code_common.ps1")
+    signatures = {}
+    for match in re.finditer(r"(?m)^function ([A-Za-z0-9-]+) \{", text):
+        body = text[match.end():]
+        following = re.search(r"(?m)^function ", body)
+        body = body[: following.start()] if following else body
+        block = re.search(r"(?s)\bparam\((.*?)\n    \)", body)
+        one_line = re.search(r"\bparam\(([^\n]*)\)", body)
+        declared = (block or one_line).group(1) if (block or one_line) else ""
+        signatures[match.group(1)] = set(re.findall(r"\$(\w+)", declared))
+    return signatures
+
+
+def test_shared_powershell_helpers_are_called_with_parameters_they_declare():
+    """Cold review install F1: a parameter the helper does not have stops the build.
+
+    nubeam\\windows.ps1 called `Write-RevisionResult -SourcePath $source`; the
+    helper declares -Project and -Revision. Under $ErrorActionPreference =
+    'Stop' that binding error ended every real NUBEAM build on Windows.
+    """
+    signatures = _common_powershell_signatures()
+    assert signatures["Write-RevisionResult"] == {"Project", "Revision"}
+    for path in _ALL_POWERSHELL:
+        text = _executable_source(path).replace("`\n", " ")
+        if "_external_code_common.ps1" not in text and path.name != "_external_code_common.ps1":
+            continue  # the VAFT bootstrap has helpers of its own under these names
+        for name, declared in signatures.items():
+            for call in re.finditer(rf"(?m)(?<![\w-]){re.escape(name)}((?: [^\n|]*)?)$|(?<![\w-]){re.escape(name)} ([^\n|]*)\|", text):
+                arguments = call.group(1) or call.group(2) or ""
+                if arguments.lstrip().startswith("{"):
+                    continue  # the definition itself
+                # Message text such as "rerun with -Recreate" is not a parameter.
+                arguments = re.sub(r"'[^']*'|\"[^\"]*\"", "''", arguments)
+                # Nor is what a nested call in parentheses is given.
+                while re.search(r"\([^()]*\)", arguments):
+                    arguments = re.sub(r"\([^()]*\)", "''", arguments)
+                used = set(re.findall(r"(?<=\s)-([A-Za-z]\w*)", arguments))
+                unknown = used - declared - _POWERSHELL_OPERATORS - _POWERSHELL_COMMON_PARAMETERS
+                assert not unknown, f"{path.name}: {name} has no parameter {sorted(unknown)}"
+
+
+def test_nubeam_windows_wrapper_does_not_create_the_directory_its_recipe_refuses():
+    """Cold review install F2: the wrapper's log directory was the recipe's BUILD_DIR.
+
+    windows.sh dies on a build/windows-x86_64 that exists without a manifest,
+    and the wrapper created exactly that for its log before calling it.
+    """
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert 'BUILD_DIR="$ROOT_DIR/build/windows-x86_64"' in recipe
+    assert 'elif [[ -e "$BUILD_DIR" ]]; then' in recipe
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    assert "$logDirectory = Join-Path $source 'build'\n" in wrapper
+    created = re.findall(r"New-Item -ItemType Directory -Path (\$\w+)", wrapper)
+    assert created == ["$logDirectory"]
+
+
+def test_toolchain_installation_returns_only_the_msys2_root():
+    """Cold review install F7: bare `& winget install` leaked into the return value."""
+    text = _executable_source(INSTALL / "_external_code_common.ps1")
+    body = text[text.index("function Install-Msys2Toolchain {"):]
+    body = body[: body.index("\nfunction ", 1)]
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("& ") or stripped.startswith("Invoke-Msys2 "):
+            assert re.search(r"\| (Out-Host|Out-Null)$", stripped), stripped
+
+
+def test_nubeam_windows_recipe_says_it_is_experimental():
+    assert "EXPERIMENTAL" in (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    readme = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
+    assert "Experimental and unverified" in readme

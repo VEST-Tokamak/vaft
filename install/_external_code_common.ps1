@@ -280,7 +280,10 @@ pass -Msys2Root if it is already installed somewhere unusual.
 '@
         }
         Write-Step 'Installing MSYS2 with winget ...'
-        & winget install --id MSYS2.MSYS2 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity
+        # To the host, not the pipeline: a native command's output inside a
+        # function is part of its return value, and this function's value is
+        # the MSYS2 root that callers bind to a [string] parameter.
+        & winget install --id MSYS2.MSYS2 --exact --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Host
         # winget does not refresh this process's environment, so discovery has
         # to run again rather than reuse anything from before.
         $root = Find-Msys2Root -Explicit $Explicit -MinGWEnvironment $MinGWEnvironment
