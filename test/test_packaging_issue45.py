@@ -57,6 +57,7 @@ def test_runtime_configuration_is_declared_as_package_data():
         "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in package_data
     )
     assert "data/geometry/VEST_em_coupling_pf_versions.npz" in package_data
+    assert "data/geometry/VEST_passive_wall_2409.npz" in package_data
     assert "data/efit/*" not in package_data
     assert "data/imas/*.nc" not in package_data
     assert "data/legacy/*.csv" not in package_data
@@ -100,6 +101,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
         in manifest
     )
     assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
+    assert "include vaft/data/geometry/VEST_passive_wall_2409.npz" in manifest
     assert "include vaft/data/geometry/*.yaml" in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
     assert "include vaft/data/gpec/*.in" in manifest

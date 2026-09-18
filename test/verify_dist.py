@@ -17,6 +17,7 @@ _ALLOWED_DATA_FILES = {
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
     "geometry/VEST_em_coupling_pf_versions.npz",
+    "geometry/VEST_passive_wall_2409.npz",
     "geometry/VEST_static_geometry.json.gz",
     "geometry/camera_visible/intrinsics.json",
     "geometry/camera_visible/pose_34764.json",

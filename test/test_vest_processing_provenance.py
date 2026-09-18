@@ -45,8 +45,8 @@ def test_fl10_compensation_enabled_flag_tracks_the_mode(shot, enabled):
 @pytest.mark.parametrize(
     ("shot", "pf1", "pf5"),
     [
-        (45964, -5.0e4, -1.0e4),
-        (45965, -1.0e4, -1.0e4),
+        (45895, -5.0e4, -1.0e4),
+        (45896, -1.0e4, -1.0e4),
         (48371, -1.0e4, -1.0e4),
         (48372, -1.0e4, -5.0e3),
     ],
@@ -78,14 +78,25 @@ def test_equilibrium_magnetics_era_is_recoverable(shot, daq_mode, probe_baseline
     assert record["probe_baseline_end"] == probe_baseline
 
 
-def test_shot_39204_geometry_gap_is_visible_in_provenance():
-    record = vest_processing_provenance(39204)["equilibrium_magnetics"]
-    assert record["geometry_supported"] is False
-    assert record["required_geometry_version"] == "2310"
+def test_the_probe_wiring_and_recorded_faults_are_in_provenance():
+    """Which raw field fed each probe, and which probe was known broken, is
+    recoverable per shot (#956); 39204 is supported like its neighbours."""
+    record = vest_processing_provenance(36000)["equilibrium_magnetics"]
+    assert record["geometry_supported"] is True
+    assert record["required_geometry_version"] is None
+    assert record["wiring"]["layout"] == "pre-39438"
+    assert {entry["index"] for entry in record["wiring"]["probe_overrides"]} == {35, 47}
+    assert record["wiring"]["revision"]["revision_bounds"] == {"from_shot": None, "to_shot": 39437}
+    assert [(f["kind"], f["index"]) for f in record["known_faults"]] == [("b_field_pol_probe", 35)]
 
-    supported = vest_processing_provenance(39205)["equilibrium_magnetics"]
-    assert supported["geometry_supported"] is True
-    assert supported["required_geometry_version"] is None
+    modern = vest_processing_provenance(39438)["equilibrium_magnetics"]
+    assert modern["wiring"] == {
+        "layout": "2409",
+        "probe_overrides": [],
+        "revision": {"context": "VEST equilibrium_magnetics wiring", "revision_index": None, "revision_bounds": None},
+    }
+    assert modern["known_faults"] == []
+    assert vest_processing_provenance(39204)["equilibrium_magnetics"]["geometry_supported"] is True
 
 
 @pytest.mark.parametrize("shot", [43760, 43761, 46403, 46404, 47117, 48372])

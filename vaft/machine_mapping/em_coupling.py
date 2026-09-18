@@ -15,6 +15,11 @@ from vaft.machine_mapping.pf_active import (
     pf_geometry_version_for_shot,
     vfit_pf_active_static,
 )
+from vaft.machine_mapping.pf_passive import (
+    append_wall_loops,
+    load_wall_2409_additions,
+    wall_geometry_version_for_shot,
+)
 from vaft.machine_mapping.static_geometry import load_static_ods
 
 
@@ -236,6 +241,30 @@ def _symmetrize_passive_coupling(mutual_pp: np.ndarray, *, source: str) -> tuple
     return (mutual_pp + mutual_pp.T) / 2.0, asymmetry
 
 
+def _extend_to_wall(
+    mutual_pa: np.ndarray, mutual_pp: np.ndarray, *, pf_version: str, wall_version: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Append the wall's additional rows to the 950-loop base matrices.
+
+    The additions asset carries the new rows against every loop, base and new
+    (`workflow/em_coupling/import_wall_2409.py`); the base-by-new block is the
+    transpose of their base columns, so the result is reciprocal exactly when
+    the base block is.
+    """
+    if wall_version == "1512":
+        return mutual_pa, mutual_pp
+    additions = load_wall_2409_additions()
+    rows = np.asarray(additions["mutual_passive_passive_rows"], dtype=float)
+    n_base = mutual_pp.shape[0]
+    if rows.shape[1] != n_base + rows.shape[0]:
+        raise ValueError(
+            f"wall {wall_version} rows span {rows.shape[1]} loops; the base coupling has {n_base}"
+        )
+    extended_pp = np.block([[mutual_pp, rows[:, :n_base].T], [rows[:, :n_base], rows[:, n_base:]]])
+    extended_pa = np.vstack([mutual_pa, additions["mutual_passive_active"][pf_version]])
+    return extended_pa, extended_pp
+
+
 def em_coupling(
     ods: Any,
     source: str | Path | None = None,
@@ -243,16 +272,20 @@ def em_coupling(
     *,
     shot: int | None = None,
 ) -> None:
-    """Populate canonical, PF-geometry-versioned VEST coupling data.
+    """Populate canonical, PF- and wall-versioned VEST coupling data.
 
-    All matrices come from a compact packaged asset selected by the same shot
-    boundary as :func:`pf_active`. An explicitly supplied legacy ODS remains
-    accepted as an override for passive geometry and its passive-passive matrix.
+    All matrices come from compact packaged assets selected by the same shot
+    boundaries as :func:`pf_active` and :func:`pf_passive`: the 950-loop base,
+    plus the wall 2409 rows from shot 43017. An explicitly supplied legacy ODS
+    remains accepted as an override for the base passive geometry and its
+    passive-passive matrix.
     """
     if shot is None and options is not None:
         shot = options.get("shot")
     reference_path = _resolve_reference(source, options)
     reference = load_static_ods(reference_path)
+    wall_version = wall_geometry_version_for_shot(shot)
+    append_wall_loops(reference, wall_version)
     geometry_version = pf_geometry_version_for_shot(shot)
     versioned, asset_provenance = _load_versioned_coupling(DEFAULT_VERSIONED_COUPLING)
     mutual_aa = versioned[f"mutual_active_active_{geometry_version}"]
@@ -270,11 +303,31 @@ def em_coupling(
         if "em_coupling.mutual_passive_passive" in reference
         else packaged_mutual_pp
     )
-    if mutual_pp.shape != (n_passive, n_passive):
+    n_added = (
+        len(load_wall_2409_additions()["loops"]) if wall_version != "1512" else 0
+    )
+    # A wall 2409 product passed back in already carries the added rows; its
+    # matrix is used as it stands and only the base is ever extended.
+    reference_extended = n_added > 0 and mutual_pp.shape == (n_passive + n_added,) * 2
+    if mutual_pp.shape != (n_passive, n_passive) and not reference_extended:
         raise ValueError(
             "Reference mutual_passive_passive matrix has incompatible shape "
             f"{mutual_pp.shape}; expected ({n_passive}, {n_passive})"
         )
+    if n_added and not reference_extended and Path(reference_path) != Path(DEFAULT_REFERENCE_ODS):
+        # The added rows were computed against the packaged base loops; a
+        # reference with other base geometry would get rows for a wall it
+        # does not have.
+        packaged = load_static_ods(DEFAULT_REFERENCE_ODS)
+        for index in range(n_passive):
+            if _static_signature(reference[f"pf_passive.loop.{index}"]) != _static_signature(
+                packaged[f"pf_passive.loop.{index}"]
+            ):
+                raise ValueError(
+                    f"reference {reference_path} has base loop {index + 1} unlike the packaged "
+                    f"wall, but shot {shot} is on wall {wall_version}, whose added coupling "
+                    "rows were computed against the packaged base loops"
+                )
     # Reciprocity is a property of the physics, not of the file the matrix came
     # from, so it is enforced on whichever source won above (issue #347).
     mutual_pp, passive_asymmetry = _symmetrize_passive_coupling(
@@ -284,6 +337,22 @@ def em_coupling(
             else str(DEFAULT_VERSIONED_COUPLING.name)
         ),
     )
+    if reference_extended:
+        mutual_pa, _ = _extend_to_wall(
+            mutual_pa, packaged_mutual_pp, pf_version=geometry_version, wall_version=wall_version
+        )
+    else:
+        mutual_pa, mutual_pp = _extend_to_wall(
+            mutual_pa, mutual_pp, pf_version=geometry_version, wall_version=wall_version
+        )
+    n_passive = mutual_pp.shape[0]
+    present = len(ods["pf_passive.loop"]) if "pf_passive.loop" in ods else 0
+    if present and present != n_passive:
+        raise ValueError(
+            f"pf_passive carries {present} loops, but shot {shot} is on wall "
+            f"{wall_version}, whose coupling has {n_passive} rows; populate it with "
+            f"pf_passive(ods, shot={shot}) so both select the same wall (issue #956)"
+        )
     _validate_coordinate_order(
         ods,
         reference,
@@ -322,7 +391,8 @@ def em_coupling(
         )
     ods["em_coupling.ids_properties.comment"] = (
         "VEST electromagnetic coupling for PF geometry "
-        f"{geometry_version}; selected for shot {shot if shot is not None else 'unspecified'}"
+        f"{geometry_version} and wall {wall_version}; selected for shot "
+        f"{shot if shot is not None else 'unspecified'}"
         f"; {reciprocity}"
     )
     # DD-sanctioned home for the numeric record, so a consumer can see how far
@@ -334,6 +404,12 @@ def em_coupling(
             f"passive_passive_symmetrized={'true' if symmetrized else 'false'}",
             f"passive_passive_input_asymmetry={passive_asymmetry:.6e}",
             *_coupling_provenance_lines(None if from_reference else asset_provenance),
+            f"wall_geometry={wall_version}",
+            *(
+                [f"wall_additions_generator={load_wall_2409_additions()['provenance'].get('generator')}"]
+                if wall_version != "1512"
+                else []
+            ),
         ]
     ) + "\n"
     # em_coupling has no dynamic counterpart in VAFT, so per the DD's

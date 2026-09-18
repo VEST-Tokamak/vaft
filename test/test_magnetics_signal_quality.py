@@ -34,6 +34,7 @@ from vaft.validation.magnetics import (
     magnetics_quality_metrics,
     offset_jump_samples,
     project_validity,
+    recorded_faults_for,
     spike_intervals,
     unusable_channels_at,
     validate_magnetics_signals,
@@ -790,3 +791,68 @@ def test_array_contradiction_scores_judge_interior_probes_against_their_neighbou
     waveforms[3, 10] = np.nan
     scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
     assert np.isnan(scores[2:5, 10]).all()
+
+
+# ---------------------------------------------------------------------------
+# Recorded hardware faults (issue #956)
+# ---------------------------------------------------------------------------
+
+def test_a_recorded_fault_condemns_a_channel_the_detectors_cannot_see():
+    """A broken input can produce a smooth, plausible-looking waveform (VEST's
+    Z=+0.06 probe before 36481 did); the record, not the detectors, says so."""
+    ods = _ods(probes={0: _clean(), 1: _clean(seed=3)})
+    reason = "Z=+0.06 probe acquisition broken"
+
+    report = validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 0): reason})
+
+    assert report[0].validity == VALIDITY_INVALID
+    assert report[0].valid_fraction == 0.0
+    assert "known_fault" in _reasons(report[0])
+    assert reason in report[0].reason
+    assert report[1].validity == VALIDITY_VALID
+
+
+def test_a_recorded_fault_does_not_vote_in_its_family():
+    """Its level is not evidence about its healthy neighbours."""
+    ods = _one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 5.0e-4)))
+
+    report = validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 4): "broken"})
+
+    assert "amplitude_over_family_median" in report[4].metrics
+    assert all(q.metrics["amplitude_over_family_median"] == pytest.approx(1.0, rel=0.05) for q in report[:4])
+
+
+def test_efit_drops_a_recorded_fault_through_validity_alone():
+    ods = _ods(probes={0: _clean(), 1: _clean(seed=7)})
+    project_validity(ods, validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 0): "broken"}))
+    equilibrium = ods["equilibrium"]
+    equilibrium["time"] = np.array([TIME[100]])
+    for channel in (0, 1):
+        equilibrium[f"time_slice.0.constraints.bpol_probe.{channel}.measured"] = 1.0e-3
+        equilibrium[f"time_slice.0.constraints.bpol_probe.{channel}.weight"] = 1.0
+
+    assert apply_validity_exclusions(ods, equilibrium) == {("b_field_pol_probe", 0): [0]}
+    assert equilibrium["time_slice.0.constraints.bpol_probe.1.weight"] == 1.0
+
+
+def test_a_re_assessment_of_a_vest_product_keeps_its_recorded_fault():
+    """Any later caller that re-runs the assessment (the vacuum quality gate,
+    the stage evidence) must reach the diagnostics stage's verdict, not undo
+    it: the record is looked up from the product's own pulse."""
+    probes = {index: _clean(seed=index) for index in range(36)}
+    ods = _ods(probes=probes)
+    ods["dataset_description.data_entry.machine"] = "VEST"
+    ods["dataset_description.data_entry.pulse"] = 34125
+
+    assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35)}
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 0.0
+    assert validate_magnetics_signals(ods, known_faults={})[35].valid_fraction == 1.0
+
+    ods["dataset_description.data_entry.pulse"] = 36481
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 1.0
+
+
+def test_an_ods_that_names_no_vest_pulse_has_no_recorded_faults():
+    ods = _ods(probes={0: _clean()})
+    assert recorded_faults_for(ods) == {}
+    assert "dataset_description" not in ods  # the lookup did not materialize it

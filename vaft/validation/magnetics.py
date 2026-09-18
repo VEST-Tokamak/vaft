@@ -105,6 +105,7 @@ from vaft.validation.model import ValidationStatus
 
 __all__ = [
     "ChannelQuality",
+    "recorded_faults_for",
     "MagneticsQualityConfig",
     "QualityEvent",
     "QUANTITY_BY_KIND",
@@ -916,6 +917,8 @@ def _whole_record_reason(found: _Detections) -> str:
     """Why a channel was condemned outright, when it was -- every cause, joined."""
     reasons = {reason for _interval, reason in found.hard}
     parts: list[str] = []
+    if "known_fault" in reasons:
+        parts.append(f"recorded as broken for this shot: {found.metrics['known_fault']}")
     if "implausible_magnitude" in reasons:
         parts.append(
             f"amplitude {found.metrics['amplitude']:.3g} exceeds the physical ceiling; "
@@ -932,13 +935,42 @@ def _whole_record_reason(found: _Detections) -> str:
     return "; ".join(parts)
 
 
+def recorded_faults_for(source: Any) -> dict[tuple[str, int], str]:
+    """The channels recorded as broken for the pulse *source* describes.
+
+    Only a VEST pulse has such a record
+    (:func:`vaft.machine_mapping.magnetics.known_magnetics_faults`); anything
+    else -- a synthetic ODS, another machine, a product without
+    ``dataset_description`` -- has none.
+    """
+    machine = lookup(source, "dataset_description.data_entry.machine")
+    pulse = lookup(source, "dataset_description.data_entry.pulse")
+    if pulse is None or str(machine or "").strip().upper() != "VEST":
+        return {}
+    from vaft.machine_mapping.magnetics import known_magnetics_faults
+
+    return known_magnetics_faults(int(pulse))
+
+
 def validate_magnetics_signals(
     source: Any,
     *,
     config: MagneticsQualityConfig | None = None,
     kinds: Iterable[str] = tuple(QUANTITY_BY_KIND),
+    known_faults: Mapping[tuple[str, int], str] | None | object = "from_pulse",
 ) -> tuple[ChannelQuality, ...]:
     """Assess every equilibrium magnetics channel's processed waveform.
+
+    ``known_faults`` maps ``(kind, index)`` to the reason a channel's
+    acquisition is recorded as broken for this shot (for VEST,
+    :func:`vaft.machine_mapping.magnetics.known_magnetics_faults`). Such a
+    record is condemned outright -- it is an assessment of this datum, made
+    once from the raw signals rather than rediscovered per shot -- and does not
+    vote in the family review, where its level would move the median its
+    healthy neighbours are judged against. The default, ``"from_pulse"``,
+    looks the record up from the ODS's own ``dataset_description`` (a VEST
+    pulse), so every re-assessment of a product reaches the verdict the
+    diagnostics stage wrote; ``None`` or ``{}`` assesses the waveforms alone.
 
     Nothing is written: the result is a report, and :func:`project_validity`
     puts the standardized part of it into the IDS.  Channels carrying no
@@ -952,6 +984,8 @@ def validate_magnetics_signals(
     in plasma breakdown, and only the rest of the array can tell them apart.
     """
     settings = config or MagneticsQualityConfig()
+    if isinstance(known_faults, str) and known_faults == "from_pulse":
+        known_faults = recorded_faults_for(source)
     kinds = tuple(kinds)  # iterated twice below; a generator would run dry
     order: list[tuple[str, int, str, str, str]] = []
     unavailable: dict[tuple[str, int], ChannelQuality] = {}
@@ -973,9 +1007,15 @@ def validate_magnetics_signals(
             # rather than assumed identical.
             voltage = read_validity(source, f"magnetics.{kind}.{index}.voltage")
             seed = VALIDITY_VALID if voltage is None else min(VALIDITY_VALID, int(voltage))
-            detections[(kind, index)] = _detect(
-                *waveform, config=settings, seed=seed, kind=kind
-            )
+            found = _detect(*waveform, config=settings, seed=seed, kind=kind)
+            fault = (known_faults or {}).get((kind, index))
+            if fault is not None:
+                found = replace(
+                    found,
+                    hard=found.hard + (((0, found.data.size), "known_fault"),),
+                    metrics={**found.metrics, "known_fault": str(fault)},
+                )
+            detections[(kind, index)] = found
 
     coherent = _coherent_jump_times(detections, settings)
     _population_review(source, detections, settings)
