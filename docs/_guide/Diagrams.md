@@ -89,6 +89,35 @@ These charts show the *boundaries* of an operating space. For how measured disch
 onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
 analysis).
 
+## Single-particle motion
+
+Gyration and guiding-centre drifts, drawn in the island family's style and 3-D camera. Every orbit
+is **integrated from the Lorentz force** by `vaft.formula.boris_orbit`, and every drift arrow is the
+drift formula of `vaft.formula.particle`. The tests require the integrated guiding centre to move at
+the formula's velocity, so the figure cannot show a drift that the orbit does not make.
+
+```python
+vaft.diagram.exb_drift(mass_ratio=4.0)
+vaft.diagram.curvature_drift()
+vaft.diagram.magnetization_current()
+vaft.diagram.toroidal_drift(aspect_ratio=2.2)
+```
+
+| | |
+| --- | --- |
+| ![E x B drift]({{ '/assets/diagrams/exb_drift.svg' | relative_url }}) | ![curvature drift]({{ '/assets/diagrams/curvature_drift.svg' | relative_url }}) |
+| ![magnetization current]({{ '/assets/diagrams/magnetization_current.svg' | relative_url }}) | ![toroidal drift]({{ '/assets/diagrams/toroidal_drift.svg' | relative_url }}) |
+
+| Diagram | Shows | Arrows from |
+| --- | --- | --- |
+| E×B drift | An ion and an electron at equal energy in crossed uniform fields. The orbits differ in size, but the drift is the same, so no current flows | `exb_drift_velocity` |
+| Curvature and ∇B drift | An ion spirals along a field line of $B_0R_0/R\,\hat\phi$ and drifts along $+z$ | `grad_b_drift_velocity` + `curvature_drift_velocity` |
+| Magnetization current | Gyro-currents cancel inside a region. At its edge the diamagnetic $\mathbf{J}_M = \nabla\times\mathbf{M}$ survives | the binned current of the integrated orbits |
+| Toroidal drift | ∇B and curvature drifts separate charge. The resulting vertical $\mathbf{E}$ drives an outward $\mathbf{E}\times\mathbf{B}$, so a purely toroidal field cannot confine | the drift formulas at the drawn cross-section |
+
+The units are normalised ($|q| = 1$, $B = 1$, $m_e = 1$). The ion-to-electron mass ratio is reduced (4 by
+default) so that both orbits are visible; the figures state this.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

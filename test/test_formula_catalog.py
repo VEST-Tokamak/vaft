@@ -78,6 +78,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # 5 + 7 = 12.  #888 added the Lloyd figure of merit E_phi B_phi / B_p
         # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
         "startup": 18,
+        "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
