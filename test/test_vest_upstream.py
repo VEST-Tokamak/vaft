@@ -34,15 +34,29 @@ from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibri
     ("shot", "expected"),
     [
         (43016, "vest-pre-43017-pf1906"),
-        (43017, "vest-43017-45957-pf1906"),
-        (45957, "vest-43017-45957-pf1906"),
-        (45958, "vest-45958-45966-pf2507"),
-        (45966, "vest-45958-45966-pf2507"),
-        (45967, "vest-45967-plus-pf2507"),
+        (43017, "vest-43017-45967-pf1906"),
+        (45967, "vest-43017-45967-pf1906"),
+        (45968, "vest-45968-plus-pf2507"),
     ],
 )
 def test_machine_era_boundaries_are_explicit(shot, expected):
     assert machine_era_for_shot(shot).name == expected
+
+
+@pytest.mark.parametrize(
+    ("shot", "pf", "wall"),
+    [(43016, "1906", "1512"), (43017, "1906", "2409"), (45967, "1906", "2409"), (45968, "2507", "2409")],
+)
+def test_each_era_names_the_conductors_its_shots_select(shot, pf, wall):
+    """An era's declared geometry is what the mappers pick for its shots (#956)."""
+    from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
+    from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
+
+    era = machine_era_for_shot(shot)
+    assert (era.pf_geometry, era.wall_geometry) == (pf, wall)
+    for probe in {era.reference_shot, shot, era.first_shot or shot, era.last_shot or shot}:
+        assert pf_geometry_version_for_shot(probe) == era.pf_geometry
+        assert wall_geometry_version_for_shot(probe) == era.wall_geometry
 
 
 def test_default_diagnostics_grid_is_half_open_and_25_khz():
@@ -76,7 +90,7 @@ def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
 
 
 def test_static_product_is_not_a_reference_shot_container():
-    ods, manifest = build_static_ods("vest-45958-45966-pf2507")
+    ods, manifest = build_static_ods("vest-45968-plus-pf2507")
 
     assert set(ods.keys()) == {
         "wall",
@@ -90,7 +104,10 @@ def test_static_product_is_not_a_reference_shot_container():
     assert "pf_active.time" not in ods
     assert "pf_passive.time" not in ods
     assert "pf_passive.loop.0.current" not in ods
-    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+    # Wall 2409: the 950 base loops plus fifteen SUS316LN elements (#956).
+    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (965, 965)
+    assert manifest["machine_era"]["wall_geometry"] == "2409"
+    assert manifest["input"]["wall_additions"]["name"] == "VEST_passive_wall_2409.npz"
     # PF2 left this list in #708: it has an acquisition channel (field 4) and
     # shot 46742 uses it. The four that remain have no channel at all -- the
     # donor gives PF3/PF4 the same code as PF5 and none of the four a gain --
@@ -114,7 +131,7 @@ def test_static_product_marks_time_independent_ids_as_such():
     `wall` and `em_coupling` have no dynamic counterpart at all, so they are
     fixed at the source instead.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     for ids_name in ("wall", "em_coupling", "pf_active", "pf_passive", "magnetics", "tf"):
         assert ods[f"{ids_name}.ids_properties.homogeneous_time"] == 2
@@ -128,7 +145,7 @@ def test_static_wall_completeness():
     never populated; the outline is a genuinely closed polygon but the DD's
     `closed` flag was never set to say so.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     description = ods["wall.description_2d.0"]
     assert description["type.index"] == 1
@@ -890,3 +907,63 @@ def test_the_diagnostics_product_carries_no_ids_it_does_not_own(tmp_path):
     assert top_level <= set(STAGE_REPLICATION["diagnostics"].ids), sorted(
         top_level - set(STAGE_REPLICATION["diagnostics"].ids)
     )
+
+
+def _built_static(tmp_path, shot):
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    return static_path
+
+
+def test_a_langmuir_era_gap_leaves_the_rest_of_the_product(tmp_path):
+    """42138-42144 and 42641 have no known mid-assembly bias or tip geometry
+    (#152). Refusing to guess is right; losing magnetics, PF and every other
+    diagnostic of the shot over it is not (#989)."""
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    ramp = np.linspace(1.0, 2.0, 200).tolist()
+    _write_raw_dump(raw, shot, {12: ramp, 99: ramp, 100: ramp})
+
+    ods, manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=_built_static(tmp_path, shot),
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    langmuir = manifest["channel_status"]["langmuir_probes"]
+    assert langmuir["status"] == "unavailable"
+    assert "unresolved era gap" in langmuir["reason"]
+    assert "optional" not in langmuir  # a real gap in the record: the stage is partial
+    assert manifest["status"] == "partial"
+    assert manifest["channel_status"]["barometry"]["status"] == "success"
+    assert "langmuir_probes" not in ods
+    assert "barometry" in ods
+
+
+def test_a_langmuir_configuration_bug_still_fails_the_stage(tmp_path, monkeypatch):
+    """Only the documented gap is a component's absence; an overlap or a
+    missing key is a broken configuration and must stop the run."""
+    from vaft.machine_mapping.langmuir_probes import LangmuirProbeConfigError
+    from vaft.omas import vest_upstream
+
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+
+    def broken(*args, **kwargs):
+        raise LangmuirProbeConfigError("Overlapping langmuir_probes.mid shot_era_overrides apply to shot 42140")
+
+    monkeypatch.setattr(vest_upstream, "langmuir_probes", broken)
+    with pytest.raises(LangmuirProbeConfigError, match="Overlapping"):
+        build_diagnostics_ods(
+            shot=shot,
+            raw_source=raw,
+            static_ods=_built_static(tmp_path, shot),
+            tstart=0.0,
+            tend=0.005,
+            dt=4e-5,
+        )

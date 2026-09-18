@@ -86,6 +86,13 @@ surrogate = ["onnxruntime"]
 # the wheel carries compiled libraries, and every other workflow works without
 # it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
 tokamaker = ["openfusiontoolkit"]
+# The neural-network backend of vaft.process.ml (#669). Importing vaft.process.ml
+# needs none of it: the dataset, split, artifact and registry contract run on
+# NumPy, and torch is imported only when a ModelSpec names backend="torch". onnx
+# is what torch's exporter writes with; onnxruntime checks the exported graph.
+# Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
+# the CPU wheel explicitly instead (package-ci.yml).
+ml = ["torch", "onnx", "onnxruntime"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -138,6 +145,7 @@ vaft = [
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
   "data/geometry/VEST_em_coupling_pf_versions.npz",
+  "data/geometry/VEST_passive_wall_2409.npz",
   "data/geometry/VEST_static_geometry.json.gz",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",

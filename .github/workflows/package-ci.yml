@@ -87,6 +87,16 @@ jobs:
       - name: Install vaft with dev dependencies
         run: python -m pip install -e ".[dev]"
 
+      # The torch backend of vaft.process.ml (#669) is in the core selection,
+      # and without torch its tests skip -- which would let a broken training
+      # loop or an ONNX export that disagrees with its model pass the gate green,
+      # as the onnxruntime note in pyproject.toml warns. The CPU wheel, because
+      # the default Linux wheel pulls gigabytes of CUDA this job never uses.
+      - name: Install the CPU torch backend for vaft.process.ml
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install onnx
+
       # A separate step, before the suite, because it is the cheapest possible
       # signal and its failure mode is unambiguous: a name that does not exist
       # cannot be a flake, an environment difference, or a tolerance. F821 was

@@ -36,7 +36,7 @@ from paths import FILEDB, SHOT_FIRST, PipelinePaths  # noqa: E402
 BASE_DIR = "/srv/vest.filedb/public"
 FAMILY = "magnetic"
 SHOT = 41234
-MACHINE_VERSION = "vest-45967-plus-pf2507"
+MACHINE_VERSION = "vest-45968-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
 
 

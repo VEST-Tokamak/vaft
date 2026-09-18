@@ -20,7 +20,12 @@ PF_WIDTH_BY_COIL = [0.0172, 0.04, 0.028, 0.028, 0.042, 0.042, 0.042, 0.042, 0.04
 PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.93]
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
-PF_GEOMETRY_2507_FIRST_SHOT = 45958
+#: First shot on the rebuilt PF6/PF7 (VFIT DiscretizedCoilGeometry ver_2507).
+#: Shots 45950-45967 run every ~12 minutes on 2025-06-30 and 45968 follows on
+#: 2025-07-07, so the coils could only have been rebuilt in that week-long
+#: access; VFIT's own selection is ``shot > 45967``. The 45958 used before
+#: #956 had no recorded source.
+PF_GEOMETRY_2507_FIRST_SHOT = 45968
 
 
 def _candidate_geometry_roots() -> list[Path]:

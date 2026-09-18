@@ -11,7 +11,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 
 | Directory | Files | Purpose |
 | --- | --- | --- |
-| `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
+| `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_passive_wall_2409.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `samples/39915/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | One compact logical reference dataset in paired OMAS and native IMAS representations |
 | `samples/39915/source/` | frozen raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs through the EFIT stage |
@@ -56,7 +56,7 @@ The directory mixes four kinds of file, and issue #194 needs them told apart:
 | --- | --- | --- |
 | Legacy Green table (generated, provenance unrecorded) | `ec129129.ddd`, `ep129129.ddd`, `rv129129.ddd`, `rfcoil.ddd`, `brzgfc.dat`, `mhdout.dat` | The table the routine pipeline reconstructs with. 16 F-coil groups (PF1 as eight axial segments, PF5/6/9/10 upper and lower, one rectangle each), 950 vessel segments, 11 flux loops, 64 probes, 129×129 on R 0.05–1.2 m, Z ±1.5 m. Which EFUND build produced it, and when, is not recoverable; `vaft.code.efit.efund.table_identity()` reports it as `unrecorded` and identifies it by the hash of its `mhdin.dat`. `brzgfc.dat` is not read by EFIT. |
 | EFUND input | `mhdin.dat` | An NSTX-derived header with `device='VEST'`. It lists `islpfc` under `&in5`, which the current EFUND rejects (the variable belongs to `&in3`), so this file cannot be fed to the current EFUND as it stands; `vaft.code.efit.efund.write_mhdin` writes the canonical equivalent. |
-| EFIT inputs that are not Green tables | `lim.dat`, `dprobe.dat`, `rfcoil.txt` | `lim.dat` is the limiter outline EFIT reads from `TABLE_DIR`. `dprobe.dat` is not read by this EFIT. `rfcoil.txt` is a text rendering kept for reference. |
+| EFIT inputs that are not Green tables | `lim.dat`, `dprobe.dat`, `rfcoil.txt` | `lim.dat` is the limiter outline EFIT reads from `TABLE_DIR`; it must equal the wall outline in `VEST_static_geometry.json.gz`, whose radial faces are at R = 0.105 m and 0.761 m so that no EFIT grid column sits on either (#965, guarded by `test/test_limiter_grid_clearance.py`). The packaged samples under `samples/` and database replicas built before #965 still carry the old 0.104–0.760 m wall, because their equilibria were reconstructed against it; apply `vaft.machine_mapping.wall.wall(ods)` before handing one to a solver. `dprobe.dat` is not read by this EFIT. `rfcoil.txt` is a text rendering kept for reference. |
 | Reference outputs and stubs | `a039915.00319`, `g039915.*`, `g039020.*`, `g040330.*`, `efund_run_command.sh` | Stored pipeline reconstructions used by tests and the table A/B; the shell stub is superseded by `vaft.code.efit.efund`. |
 
 A freshly generated table carries an `efund_table_manifest.json`; see
@@ -101,9 +101,23 @@ first conductor only, so the SUS–tungsten cross block violated reciprocity by
 exactly zero. The asset's `provenance` key (a JSON record: generator, date,
 commit, source and geometry digests, the factor, the convention) says so, and
 `workflow/em_coupling/regenerate_passive_coupling.py --verify` checks it.
+`VEST_passive_wall_2409.npz` holds the fifteen SUS316LN conductors (20 x 6 mm
+at Z = -1.164 m, named `W12`) that the passive wall gained at shot 43017, and
+their coupling rows against the 950 base loops, each other and both PF
+geometries (issue #956). Only their geometry comes from VFIT
+(`VEST_WallLimiterGeometry_ver_2409`); every coupling entry is computed with
+the filament Green function, self-term and passive-active routine that
+reproduce the 950-loop asset above to 1e-13, and VFIT's own matrices are
+compared (agreement 0.05-0.9 %), not copied.
+`workflow/em_coupling/import_wall_2409.py --verify` rebuilds and checks it;
+`pf_passive(ods, shot=...)` and `em_coupling(ods, shot=...)` append the
+additions from 43017 on.
 `VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
 for API compatibility, while its source metadata, channel order, and
-calibration values reflect the production 2409 magnetic geometry.
+calibration values reflect the production 2409 magnetic geometry. It fixes
+probe *positions* only: which raw field feeds a position is per shot, from
+`equilibrium_magnetics.processing.wiring` in `vaft/machine_mapping/vest.yaml`
+(shots up to 39437 swap fields 170 and 225 at Z = +0.06 / -0.42, issue #956).
 
 `gpec/vest_UP.dat`, `gpec/vest_MID.dat`, and `gpec/vest_LOW.dat` are the
 canonical VEST non-axisymmetric 3D coil geometries in GPEC coil format. Each

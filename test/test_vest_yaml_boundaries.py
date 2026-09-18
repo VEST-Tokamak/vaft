@@ -80,11 +80,12 @@ def test_plasma_current_effective_resistance_is_late_era_value_post_17455(shot):
 @pytest.mark.parametrize(
     ("shot", "expected_pf1_gain"),
     [
-        (45964, -5.0e4),
-        (45965, -1.0e4),
+        (45895, -5.0e4),
+        (45896, -1.0e4),
+        (45964, -1.0e4),
     ],
 )
-def test_pf1_gain_boundary_45965_regression(shot, expected_pf1_gain):
+def test_pf1_gain_boundary_45896_regression(shot, expected_pf1_gain):
     coil_gains = resolve_vest_diagnostic(shot, "pf_active")["processing"]["coil_gains"]
     assert float(coil_gains[0]) == pytest.approx(expected_pf1_gain)
 
@@ -161,7 +162,7 @@ def test_magnetics_and_plasma_current_boundaries_differ_by_one_shot():
     [
         0, 17454, 17455, 19286, 19287, 20258, 20259, 38109, 38110, 38360, 38361,
         38400, 38401, 41445, 41446, 41451, 41452, 41659, 41660, 42850, 42851,
-        43684, 43685, 43760, 43761, 45964, 45965, 46402, 46403, 46404, 47116, 47117,
+        43684, 43685, 43760, 43761, 45895, 45896, 45964, 45965, 46402, 46403, 46404, 47116, 47117,
         48371, 48372, 60000,
     ],
 )

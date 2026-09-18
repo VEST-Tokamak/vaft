@@ -67,9 +67,11 @@ def test_the_catalog_counts_the_known_public_surface():
         "virial": 33,
         "stability": 26,
         "green": 16,
-        "atomic": 3,
+        "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
         "statistics": 22,
         "magnetics": 2,
+        # #781 child A: Romero's exact transformer identities.
+        "transformer": 7,
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
@@ -77,7 +79,11 @@ def test_the_catalog_counts_the_known_public_surface():
         # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
         # 5 + 7 = 12.  #888 added the Lloyd figure of merit E_phi B_phi / B_p
         # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
-        "startup": 18,
+        # #783 3.2/3.6-3.8 closed the lumped plasma circuit -- resistivity,
+        # ring resistance, circular inductance, dIp/dt and the L/R time:
+        # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
+        # fill: 23 + 5 = 28.
+        "startup": 28,
         "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())

@@ -34,6 +34,7 @@ _SUBMODULES = {
     "magnetics": ".magnetics",
     "neoclassical": ".neoclassical",
     "startup": ".startup",
+    "transformer": ".transformer",
     "particle": ".particle",
 }
 
@@ -56,6 +57,7 @@ _IMPORT_ORDER = (
     "magnetics",
     "neoclassical",
     "startup",
+    "transformer",
     "particle",
 )
 

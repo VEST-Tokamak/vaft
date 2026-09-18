@@ -34,6 +34,7 @@ from vaft.validation.magnetics import (
     magnetics_quality_metrics,
     offset_jump_samples,
     project_validity,
+    recorded_faults_for,
     spike_intervals,
     unusable_channels_at,
     validate_magnetics_signals,
@@ -550,6 +551,18 @@ def test_both_causes_and_the_seed_are_all_named():
 
 @pytest.fixture(scope="module")
 def packaged():
+    """The detectors' own verdict on the packaged 39915: recorded faults off,
+    so what these tests measure is what the waveform check finds by itself."""
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    return ods, validate_magnetics_signals(ods, known_faults={})
+
+
+@pytest.fixture(scope="module")
+def packaged_as_run():
+    """The verdict a routine re-assessment reaches: the detectors plus the
+    faults vest.yaml records for the pulse (C4-04 on every shot, #977)."""
     from vaft.omas.sample import sample_ods
 
     ods = sample_ods()
@@ -571,7 +584,10 @@ def test_the_detector_does_not_reject_known_usable_vest_magnetics(packaged):
     usable = _measuring(report)
 
     assert len(present) == 74, "63 B-probes and 11 flux loops carry a processed field"
-    assert len(usable) == 73, "all but the one probe the population contradicts"
+    assert len(usable) == 72, (
+        "all but the probe the population contradicts (H3-08) and the one its "
+        "array contradicts (C4-04, #977)"
+    )
     assert all(quality.metrics["first_valid_time"] == pytest.approx(0.26) for quality in usable)
 
 
@@ -587,7 +603,7 @@ def test_the_one_probe_the_population_contradicts_is_rejected_outright(packaged)
     condemned = [
         q
         for q in report
-        if q.status is not ValidationStatus.NOT_AVAILABLE and q.valid_fraction == 0.0
+        if q.status is not ValidationStatus.NOT_AVAILABLE and "population_outlier" in _reasons(q)
     ]
     assert [q.name for q in condemned] == ["MagneticFieldProbe_H3-08_Bz"]
     (probe,) = condemned
@@ -606,7 +622,12 @@ def test_the_population_margin_holds_on_the_packaged_shot(packaged):
     factor = MagneticsQualityConfig().population_peak_factor
     voters = [q for q in report if "amplitude_over_family_median" in q.metrics]
     healthy = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction > 0.0]
-    condemned = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction == 0.0]
+    # The margin is the family review's own: C4-04 is condemned by its array
+    # (#977) at 0.85x its family median, which is exactly what this rule
+    # cannot see.
+    condemned = [
+        q.metrics["amplitude_over_family_median"] for q in voters if "population_outlier" in _reasons(q)
+    ]
     assert max(healthy) < 0.75 * factor
     assert min(condemned) > 5.0 * factor
 
@@ -631,14 +652,15 @@ def test_the_packaged_shot_stops_measuring_at_0_34_seconds(packaged):
     assert all(quality.valid_fraction == pytest.approx(0.8, abs=0.01) for quality in present)
 
 
-def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(packaged):
+def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(packaged_as_run):
     """Every reconstructed slice of the packaged shot lies inside the measured
     span, so the held tail costs no constraint its weight.  What the quality
-    layer does change is the one probe the population contradicts: EFIT
-    submitted H3-08 at every slice, and it now loses its weight at every
-    slice -- and nothing else does.
+    layer does change is the probe the population contradicts, H3-08, and the
+    probe vest.yaml records as a fault, C4-04 (#977): EFIT submitted both at
+    every slice, both now lose their weight at every slice -- and nothing
+    else does.
     """
-    ods, report = packaged
+    ods, report = packaged_as_run
     project_validity(ods, report)
 
     slice_times = np.asarray(ods["equilibrium.time"], dtype=float)
@@ -646,8 +668,9 @@ def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(package
 
     equilibrium = ods["equilibrium"]
     excluded = apply_validity_exclusions(ods, equilibrium)
-    assert set(excluded) == {("b_field_pol_probe", 25)}
-    assert excluded[("b_field_pol_probe", 25)] == list(range(slice_times.size))
+    assert set(excluded) == {("b_field_pol_probe", 25), ("b_field_pol_probe", 45)}
+    for key in excluded:
+        assert excluded[key] == list(range(slice_times.size))
 
 
 def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
@@ -661,12 +684,14 @@ def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
     assert summary["present"] == 74
     # Every present channel but one is usable over part of the record; none is
     # usable over all of it, because they all share the held tail.  The one is
-    # the probe the population contradicts, condemned for the whole record.
-    assert summary["usable"] == 73
+    # the probe the population contradicts, condemned for the whole record,
+    # and the one its array contradicts (C4-04, #977).
+    assert summary["usable"] == 72
     assert summary["fully_usable"] == 0
     assert summary["events"]["held_tail"] == 74
     assert summary["events"]["implausible_magnitude"] == 1
     assert summary["events"]["population_outlier"] == 1
+    assert summary["events"]["array_contradiction"] == 1
     assert set(metrics["families"]) >= {"inboard", "outboard", "side", "inboard_flux_loop"}
     assert metrics["configuration"]["significance_floor"] == (
         MagneticsQualityConfig().significance_floor
@@ -705,8 +730,10 @@ def test_efit_only_asks_about_the_families_it_submits():
 @pytest.mark.parametrize("shot", [41524, 41672])
 def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     """H3-08 is bad in all three packaged shots, at 21-69x the B-probe median;
-    a few outboard probes join it on the higher-current shots.  No flux loop
-    is ever implicated."""
+    a few outboard probes join it on the higher-current shots, and the array
+    review (#977) adds the probes their arrays contradict -- 7 more on 41524,
+    11 on 41672, among them the lower inboard H3 set.  No flux loop is ever
+    implicated."""
     import vaft
     import vaft.omas
 
@@ -722,7 +749,7 @@ def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     ]
     assert "MagneticFieldProbe_H3-08_Bz" in {q.name for q in condemned}
     assert all(q.kind == "b_field_pol_probe" for q in condemned)
-    assert 1 <= len(condemned) <= 8
+    assert 1 <= len(condemned) <= 20
 
 
 def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
@@ -734,14 +761,16 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
 
     ods, report = packaged
     project_validity(ods, report)
-    assert _condemned_channels(ods, nbprobe=76) == {25}
+    # H3-08 (25) by its family, C4-04 (45) by its array (#977); the held tail
+    # condemns nothing.
+    assert _condemned_channels(ods, nbprobe=76) == {25, 45}
     from vaft.validation.imas import is_condemned_channel
 
     assert {
         i
         for i in range(len(ods["magnetics.b_field_pol_probe"]))
         if is_condemned_channel(ods, f"magnetics.b_field_pol_probe.{i}.field")
-    } == {25}
+    } == {25, 45}
 
 
 def test_every_consumer_agrees_with_the_interpretation_layer(packaged):
@@ -790,3 +819,70 @@ def test_array_contradiction_scores_judge_interior_probes_against_their_neighbou
     waveforms[3, 10] = np.nan
     scores = array_contradiction_scores(heights, waveforms, floor=1e-3)
     assert np.isnan(scores[2:5, 10]).all()
+
+
+# ---------------------------------------------------------------------------
+# Recorded hardware faults (issue #956)
+# ---------------------------------------------------------------------------
+
+def test_a_recorded_fault_condemns_a_channel_the_detectors_cannot_see():
+    """A broken input can produce a smooth, plausible-looking waveform (VEST's
+    Z=+0.06 probe before 36481 did); the record, not the detectors, says so."""
+    ods = _ods(probes={0: _clean(), 1: _clean(seed=3)})
+    reason = "Z=+0.06 probe acquisition broken"
+
+    report = validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 0): reason})
+
+    assert report[0].validity == VALIDITY_INVALID
+    assert report[0].valid_fraction == 0.0
+    assert "known_fault" in _reasons(report[0])
+    assert reason in report[0].reason
+    assert report[1].validity == VALIDITY_VALID
+
+
+def test_a_recorded_fault_does_not_vote_in_its_family():
+    """Its level is not evidence about its healthy neighbours."""
+    ods = _one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 5.0e-4)))
+
+    report = validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 4): "broken"})
+
+    assert "amplitude_over_family_median" in report[4].metrics
+    assert all(q.metrics["amplitude_over_family_median"] == pytest.approx(1.0, rel=0.05) for q in report[:4])
+
+
+def test_efit_drops_a_recorded_fault_through_validity_alone():
+    ods = _ods(probes={0: _clean(), 1: _clean(seed=7)})
+    project_validity(ods, validate_magnetics_signals(ods, known_faults={("b_field_pol_probe", 0): "broken"}))
+    equilibrium = ods["equilibrium"]
+    equilibrium["time"] = np.array([TIME[100]])
+    for channel in (0, 1):
+        equilibrium[f"time_slice.0.constraints.bpol_probe.{channel}.measured"] = 1.0e-3
+        equilibrium[f"time_slice.0.constraints.bpol_probe.{channel}.weight"] = 1.0
+
+    assert apply_validity_exclusions(ods, equilibrium) == {("b_field_pol_probe", 0): [0]}
+    assert equilibrium["time_slice.0.constraints.bpol_probe.1.weight"] == 1.0
+
+
+def test_a_re_assessment_of_a_vest_product_keeps_its_recorded_fault():
+    """Any later caller that re-runs the assessment (the vacuum quality gate,
+    the stage evidence) must reach the diagnostics stage's verdict, not undo
+    it: the record is looked up from the product's own pulse."""
+    probes = {index: _clean(seed=index) for index in range(36)}
+    ods = _ods(probes=probes)
+    ods["dataset_description.data_entry.machine"] = "VEST"
+    ods["dataset_description.data_entry.pulse"] = 34125
+
+    # The record is the machine's, not this ODS's: C4-04 (45) is recorded on
+    # every shot (#977) whether or not a synthetic ODS carries that many probes.
+    assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35), ("b_field_pol_probe", 45)}
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 0.0
+    assert validate_magnetics_signals(ods, known_faults={})[35].valid_fraction == 1.0
+
+    ods["dataset_description.data_entry.pulse"] = 36481
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 1.0
+
+
+def test_an_ods_that_names_no_vest_pulse_has_no_recorded_faults():
+    ods = _ods(probes={0: _clean()})
+    assert recorded_faults_for(ods) == {}
+    assert "dataset_description" not in ods  # the lookup did not materialize it

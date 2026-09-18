@@ -39,13 +39,15 @@ def _write_raw_dump(path, shot, fields):
 @pytest.mark.parametrize(
     ("shot", "expected"),
     [
-        (45964, -5.0e4),
-        (45965, -1.0e4),
+        (45895, -5.0e4),
+        (45896, -1.0e4),
+        (45964, -1.0e4),
     ],
 )
-def test_pf1_gain_boundary_45965_is_preserved(shot, expected):
-    """Regression protection for behavior that was already correct on
-    develop, so inserting the new 48372 revision cannot disturb it."""
+def test_pf1_gain_boundary_45896_is_preserved(shot, expected):
+    """PF1's gain changes at 45896, not at the donor's 45965: the field-59
+    raw scale moved fivefold across the 2025-06-17 -> 06-23 access while the
+    flux loops did not (issue #956)."""
     assert _coil_gain_by_index(shot)[PF1_INDEX] == pytest.approx(expected)
 
 

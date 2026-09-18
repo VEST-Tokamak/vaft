@@ -160,7 +160,7 @@ def test_the_shipped_acceptance_envelope_is_the_machine_s_own(static_ods):
     assert bundled["dbpli_diff"] == IGNORE_CRITERION
     # And the floor is the resolved-cell one, well under VEST's own minor radius.
     assert bundled["aminor_min"] < 10.0
-    assert bundled["aminor_max"] == pytest.approx(32.8, abs=0.1)
+    assert bundled["aminor_max"] == pytest.approx(32.8)   # (0.761 - 0.105) / 2 since #965
 
 
 def test_the_shipped_namelist_no_longer_matches_the_recorded_efund_input(manifest):
@@ -204,7 +204,7 @@ def test_a_table_from_another_era_is_refused(tmp_path):
     """#805: the mismatch that reconstructed shot 46742 against wrong coils.
 
     The packaged table is `vest-pre-43017-pf1906`. Shot 46742 is
-    `vest-45967-plus-pf2507`, where twenty-four filaments belong to PF6
+    `vest-45968-plus-pf2507`, where twenty-four filaments belong to PF6
     instead of PF7 and sit 16 cm further out in z. Running it against the
     packaged table produced two g-files from twenty-five slices, both of them
     vacuum -- no plasma equilibrium at all -- where the era-matched table
@@ -218,7 +218,7 @@ def test_a_table_from_another_era_is_refused(tmp_path):
     with pytest.raises(ValueError, match="was built for machine era"):
         generate_constraints_ods(
             None, 46742, str(tmp_path), str(TABLE_DIRECTORY) + "/", [], [], [],
-            expected_table_era="vest-45967-plus-pf2507",
+            expected_table_era="vest-45968-plus-pf2507",
         )
 
 

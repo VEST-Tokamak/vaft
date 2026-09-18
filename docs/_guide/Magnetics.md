@@ -119,8 +119,13 @@ Raw signals consumed, by DAQ field code:
 | 207, 241, 209, 171 | The four toroidal Mirnov reference probes |
 
 Probe and flux-loop channels come from the packaged geometry tables
-(`vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml`, `MD.yaml`, `table.yaml`), **not**
-from `vest.yaml`. Shot-number-dependent behaviour that silently changes results:
+(`vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml`, `MD.yaml`, `table.yaml`); `vest.yaml`
+revises them per shot only where the wiring changed (`equilibrium_magnetics.processing.wiring`:
+through shot 39437 the Z = +0.06 and Z = -0.42 outboard probes read fields 170 and 225, the reverse
+of the 2409 layout) and records channels known to be broken (`known_faults`: the Z = +0.06 probe up
+to 36480 and for 36822-36905, and probe C4-04 at Z = -0.34 on every shot, #977), which the magnetics
+validation marks invalid. Both are in
+`vest_processing_provenance(shot)`. Shot-number-dependent behaviour that silently changes results:
 
 - Rogowski mutual inductance is `2.8e-4` below shot 17455 and `5.0e-4` from 17455 on.
 - The $I_p$ sign is flipped for shot ≥ 20259.

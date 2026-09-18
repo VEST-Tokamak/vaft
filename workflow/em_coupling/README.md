@@ -93,3 +93,42 @@ with `em_coupling` re-mapped from the repaired asset
 (`generation.em_coupling` in each manifest records the asset digest, the
 replaced asymmetry, and that the passive-loop currents remain those the
 frozen eddy stage solved against the old matrix).
+
+# Wall 2409: fifteen more conductors from shot 43017 (issue #956)
+
+`vaft/data/geometry/VEST_passive_wall_2409.npz` is built by
+`import_wall_2409.py` and holds only what wall 2409 adds to the 950 loops
+above -- SUS316LN elements 20 x 6 mm at Z = -1.164 m, R = 0.24-0.52 m,
+named `W12` -- so the 950-loop assets, and every hash recorded against them,
+are untouched.
+
+| key | shape | source |
+|---|---|---|
+| `loops` | 15 records (JSON) | VFIT `VEST_WallLimiterGeometry_ver_2409` rows 951-965; nominal SUS resistivity and hoop resistance |
+| `mutual_passive_passive_rows` | 15 × 965 | computed |
+| `mutual_passive_active_1906` / `_2507` | 15 × 10 | computed |
+| `provenance` | JSON string | sources, their SHA-256, VFIT commit, conventions, VFIT agreement |
+
+"Computed" means with the method that reproduces the shipped 950-loop asset,
+which the script re-establishes before every build: off-diagonal passive
+entries are `green_r` times μ_r (1.04 when either conductor is SUS; 2.6e-13
+against the shipped block), the self-term is
+`μ_r μ0 R (ln(8R/√(A/π)) − 7/4)` (3e-16 against the shipped diagonal), and
+passive-active entries are `vaft.process.compute_mutual_passive_active` on
+the PF mapper's coil geometry (7e-14 against both shipped blocks). VFIT's
+matrices for the same elements -- `MatrixWallandPF_Cl_sim_ver_2409` (PF 1906)
+and `_2511` (PF 2507, whose last fifteen elements equal 2409's) -- use a
+different kernel and self-term and are compared, not copied: 0.2 % on the
+cross block after restoring the 1.04 factor VFIT's kernel omits on
+SUS-tungsten pairs (the defect repaired above), 0.05 % inside the new block,
+0.9 % against the coils.
+
+```
+PYTHONPATH=. python workflow/em_coupling/import_wall_2409.py --verify
+PYTHONPATH=. python workflow/em_coupling/import_wall_2409.py --write     # needs ~/git/VFIT_VEST-Equilibrium-Code
+```
+
+`--verify` recomputes every coupling entry from the asset's own loops, so it
+needs no VFIT checkout; with one present it also rebuilds from the sources.
+The eras that use it are `vest-43017-45967-pf1906` and
+`vest-45968-plus-pf2507` (`vaft.omas.vest_upstream.VEST_MACHINE_ERAS`).
