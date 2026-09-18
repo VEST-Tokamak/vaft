@@ -4625,3 +4625,134 @@ def compute_grad_shafranov_residual(
         n_surfaces=n_surfaces,
         psi_norm_max=psi_norm_max,
     )
+
+
+def compute_romero_flux_balance_ods(
+    ods: ODS,
+    *,
+    R_p,
+    I_ni,
+    time_range: Optional[Tuple[float, float]] = None,
+) -> Dict[str, Any]:
+    """Romero's voltage and volt-second balance over the equilibrium slices of a shot.
+
+    Reads the plasma current and boundary flux of every ``equilibrium``
+    time slice in ``time_range``, brings the flux to Romero's convention, takes
+    the internal inductance from the poloidal-field energy, and hands the
+    histories to :func:`vaft.process.equilibrium.romero_flux_balance` (issue
+    #781).
+
+    Args:
+        ods: OMAS data structure with an ``equilibrium`` carrying
+            ``profiles_2d.0.psi`` on each slice. Not modified: the inductance is
+            derived on a copy.
+        R_p: Plasma resistance, one value or one per selected slice [Ohm].
+        I_ni: Non-inductively driven current, one value or one per selected
+            slice; ``0`` asserts a purely Ohmic discharge [A]. Required, as in
+            the process function.
+        time_range: ``(t_start, t_end)`` inclusive, in seconds. ``None`` takes
+            every slice; a slice with zero or missing current then raises, so
+            the flux-closure window must be chosen, not assumed.
+
+    Returns:
+        The process function's mapping, plus ``time_index`` (the slices used),
+        ``psi_per_radian`` (the stored convention detected), ``flux_sign``
+        (the factor, ``+1`` or ``-1``, that brought the stored flux to
+        Romero's sign), ``R0`` (the radius ``li_3`` was normalised by),
+        ``li_3``, and ``R_closing`` -- the resistance that would close the
+        instantaneous balance, ``(V_B - V_I) / (I_p - I_ni)``.
+
+    Raises:
+        ValueError: Fewer than three usable slices, a slice with no current or
+            no derivable ``li_3``, slices that disagree on the flux sign, or any
+            rejection by the process function.
+
+    Notes:
+        ``psi_C`` is not integrated from a current density, which the packaged
+        equilibria do not carry: it is ``psi_B + L_i I_p``, Romero's exact
+        eqs. (35)-(36), with ``L_i = mu0 R0 li_3 / 2`` and ``li_3`` recomputed
+        from ``int B_p^2 dV`` by
+        :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
+        rather than read from the stored leaf, whose normalising radius is not
+        recorded. The flux sign is set per slice from
+        ``(psi_axis - psi_boundary) * I_p``, which has the sign of
+        ``psi_C - psi_B`` for any monotonic profile -- the data decide it, not
+        an assumed COCOS.
+
+        On the packaged samples ``R_closing`` is 2-50 micro-ohm and falls
+        through each discharge, the size of a Spitzer estimate at a few tens of
+        eV. Two symptoms mark slices to cut from the window: ``li_3`` running
+        away (41672 reaches 2.4-12 after 0.345 s, as the reconstruction
+        collapses) and a negative ``R_closing``. ``Phi_B`` and
+        ``Phi_B_direct`` differ by a few percent at 1 ms sampling with gaps,
+        which is the differencing and not the physics.
+    """
+    import copy
+
+    from vaft.formula.constants import MU0
+    from vaft.omas.update import (
+        resolve_reference_major_radius,
+        update_equilibrium_global_quantities_beta_li,
+    )
+    from vaft.process.equilibrium import as_equilibrium, romero_flux_balance
+
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    selected = [
+        i for i, t in enumerate(times)
+        if time_range is None or (time_range[0] <= t <= time_range[1])
+    ]
+    if len(selected) < 3:
+        raise ValueError(
+            f"{len(selected)} equilibrium slices in {time_range}; the balance needs three"
+        )
+
+    work = copy.deepcopy(ods)
+    update_equilibrium_global_quantities_beta_li(work, time_slice=selected)
+    r0 = float(resolve_reference_major_radius(work))
+
+    ip, psi_b, li_3, signs, per_radian = [], [], [], [], []
+    for idx in selected:
+        ts = work["equilibrium.time_slice"][idx]
+        current = float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        if not np.isfinite(current) or current == 0.0:
+            raise ValueError(
+                f"equilibrium slice {idx} (t = {times[idx]:.4f} s) has no plasma current; "
+                "restrict time_range to the flux-closure window"
+            )
+        if "global_quantities.li_3" not in ts:
+            raise ValueError(f"li_3 could not be derived for equilibrium slice {idx}")
+        axis = float(ts["global_quantities.psi_axis"])
+        boundary = float(ts["global_quantities.psi_boundary"])
+        stored_per_radian = bool(as_equilibrium(work, time_index=idx).convention.psi_per_radian)
+        ip.append(current)
+        psi_b.append(boundary * (2.0 * np.pi if stored_per_radian else 1.0))
+        li_3.append(float(ts["global_quantities.li_3"]))
+        signs.append(np.sign((axis - boundary) * current))
+        per_radian.append(stored_per_radian)
+
+    if len(set(signs)) != 1 or signs[0] == 0.0 or len(set(per_radian)) != 1:
+        raise ValueError(
+            "the equilibrium slices disagree on the flux convention "
+            f"(sign {sorted(set(signs))}, per-radian {sorted(set(per_radian))})"
+        )
+    flux_sign = float(signs[0])
+    ip_arr, li_arr = np.asarray(ip), np.asarray(li_3)
+    psi_b_romero = flux_sign * np.asarray(psi_b)
+    l_i = 0.5 * MU0 * r0 * li_arr
+    psi_c_romero = psi_b_romero + l_i * ip_arr
+
+    out = romero_flux_balance(
+        times[selected], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
+    )
+    driven = np.broadcast_to(np.asarray(I_ni, dtype=float), ip_arr.shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        closing = (out["V_B"] - out["V_I"]) / (ip_arr - driven)
+    out.update(
+        time_index=np.asarray(selected),
+        psi_per_radian=per_radian[0],
+        flux_sign=flux_sign,
+        R0=r0,
+        li_3=li_arr,
+        R_closing=closing,
+    )
+    return out
