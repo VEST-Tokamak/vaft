@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Generate soft X-ray and camera IDSs from the consolidated FileDB archive.
+"""Generate soft X-ray, camera and ShotLog IDSs from the consolidated FileDB archive.
 
 Once ``consolidate_external_diagnostics.py`` has laid the raw data out under
 ``{root}/legacy/{diagnostic}/{shot}/``, both machine mappings can read a whole
@@ -53,11 +53,19 @@ DIAGNOSTIC_TREES = {
     "soft_x_rays": "soft_x_rays",
     "camera_visible": "camera_visible",
     "camera_visible_fluctuation": "camera_visible",
+    # Per-shot ShotLog records written by `python -m vaft.cli shotlog extract`
+    # (#995); the stage is `shotlog`, the IDS it publishes is pulse_schedule.
+    "shotlog": "pulse_schedule",
 }
 
 RESERVED_TREES = ("camera_visible_fluctuation",)
 
 REGISTRY_NAME = "ingested_shots.json"
+#: Shots built between registry writes. Each write re-reads and merges the
+#: whole registry, which is harmless for a few hundred camera shots and
+#: quadratic for the ShotLog's ~44k; an interrupted run loses at most this many
+#: entries, whose products are simply rebuilt next time.
+REGISTRY_SAVE_EVERY = 500
 MANIFEST_NAME = "manifest.json"
 
 #: The product container is no longer chosen here. Each of these stages
@@ -124,6 +132,8 @@ def _channel_count(ods: Any, tree: str) -> int | None:
     try:
         if tree.startswith("camera"):
             return len(ods["camera_visible.channel.0.detector.0.frame"])
+        if tree == "shotlog":
+            return len(ods["pulse_schedule.event"])
         return len(ods["soft_x_rays.channel"])
     except (KeyError, IndexError, ValueError):
         return None
@@ -175,6 +185,18 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
             provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             provenance = {}
+    record_path = data_root / str(shot) / "metadata" / "shotlog.json"
+    if tree == "shotlog" and record_path.exists():
+        # The record is this product's whole input; pin its bytes and origin.
+        import hashlib
+
+        payload = record_path.read_bytes()
+        record = json.loads(payload)
+        provenance = {
+            "record": str(record_path.relative_to(root)),
+            "record_sha256": hashlib.sha256(payload).hexdigest(),
+            "workbook": record.get("source", {}),
+        }
 
     manifest = {
         "schema_version": 1,
@@ -230,6 +252,36 @@ def save_registry(path: Path, registry: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _input_fingerprint(root: Path, tree: str, shot: int) -> str | None:
+    """sha256 of what a shot's product is built from, where one file is all of it.
+
+    Only the ShotLog has that: its record is rewritten whenever the month's
+    workbook is re-extracted (the operator fills a card in later, a parser fix
+    lands), so an entry is trusted only while the record it saw is unchanged.
+    """
+    if tree != "shotlog":
+        return None
+    import hashlib
+
+    path = root / "legacy" / tree / str(shot) / "metadata" / "shotlog.json"
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+
+def _unavailable_errors(trees: Sequence[str]) -> tuple[type[BaseException], ...]:
+    """Errors that mean "this shot has nothing to map", not "the run broke".
+
+    Only the ShotLog raises these routinely: it has a record for every shot
+    since 2013, but a trigger card only from 2023. Imported only when a
+    shotlog tree is being built, so soft X-ray and camera runs never depend
+    on the pulse_schedule package.
+    """
+    if "shotlog" not in trees:
+        return ()
+    from vaft.machine_mapping.pulse_schedule import PulseScheduleUnavailableError
+
+    return (PulseScheduleUnavailableError,)
+
+
 def ingest(
     root: Path,
     trees: Sequence[str],
@@ -248,7 +300,10 @@ def ingest(
     """
     from vaft.omas.vest_upstream import write_stage_product
 
-    summary: dict[str, Any] = {"succeeded": 0, "failed": 0, "skipped": 0, "failures": []}
+    summary: dict[str, Any] = {
+        "succeeded": 0, "failed": 0, "skipped": 0, "unavailable": 0, "failures": [],
+    }
+    unavailable_errors = _unavailable_errors(trees)
 
     for tree in trees:
         # One registry per tree, so a camera run and a soft X-ray run touch
@@ -263,9 +318,16 @@ def ingest(
             available = available[:limit]
         LOGGER.info("%s: %d shots to build", tree, len(available))
 
+        pending = 0
         for shot in available:
             key = f"{tree}/{shot}"
-            if not force and key in registry and registry[key].get("status") == "success":
+            fingerprint = _input_fingerprint(root, tree, shot)
+            recorded = registry.get(key, {})
+            if (
+                not force
+                and recorded.get("status") in {"success", "unavailable"}
+                and recorded.get("input_sha256") == fingerprint
+            ):
                 summary["skipped"] += 1
                 continue
             if dry_run:
@@ -284,6 +346,11 @@ def ingest(
                     metadata=_filedb(root).omas_manifest(tree, shot=shot),
                     compression=manifest.get("storage", {}).get("compression"),
                 )
+            except unavailable_errors as exc:
+                registry[key] = {"status": "unavailable", "reason": str(exc),
+                                 "input_sha256": fingerprint,
+                                 "at": datetime.now(timezone.utc).isoformat()}
+                summary["unavailable"] += 1
             except Exception as exc:  # noqa: BLE001 - one bad shot must not stop the run
                 reason = f"{type(exc).__name__}: {exc}"
                 LOGGER.error("%s failed: %s", key, reason)
@@ -298,9 +365,16 @@ def ingest(
                     "measured": manifest["measured"]["count"],
                     "at": manifest["generated_at"],
                 }
+                if fingerprint is not None:
+                    registry[key]["input_sha256"] = fingerprint
                 summary["succeeded"] += 1
                 LOGGER.info("%s -> %s (%s measured)", key, output_dir,
                             manifest["measured"]["count"])
+            pending += 1
+            if pending >= REGISTRY_SAVE_EVERY:
+                save_registry(registry_path, registry)
+                pending = 0
+        if pending:
             save_registry(registry_path, registry)
 
     return summary
@@ -365,8 +439,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     LOGGER.info(
-        "Done: %d succeeded, %d failed, %d already present",
-        summary["succeeded"], summary["failed"], summary["skipped"],
+        "Done: %d succeeded, %d failed, %d unavailable, %d already present",
+        summary["succeeded"], summary["failed"], summary["unavailable"], summary["skipped"],
     )
     for failure in summary["failures"][:20]:
         LOGGER.info("  failed %s/%s: %s", failure["tree"], failure["shot"], failure["reason"])
