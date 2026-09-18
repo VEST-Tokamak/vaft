@@ -76,3 +76,23 @@ def test_the_loop_voltage_is_minus_the_lenz_voltage_of_the_toroidal_field():
     np.testing.assert_allclose(
         loop_voltage_from_total_flux(t, psi, psi_per_radian=False), -lenz, rtol=1e-12
     )
+
+
+def test_a_greens_function_flux_gives_the_greens_field_with_the_documented_cocos():
+    # vaft.formula.green's Conventions section: cocos=13 reproduces the
+    # Green's-function B_z; the default is 2 pi too large, cocos=11 flips it.
+    from vaft.formula.equilibrium import vertical_magnetic_field_from_psi
+    from vaft.formula.green import green_br_bz_exact, green_psi_exact
+
+    r = np.linspace(0.2, 0.8, 601)
+    z = np.zeros_like(r)
+    psi = np.asarray(green_psi_exact(r, z, 0.5, 0.1), float)
+    _, b_z = green_br_bz_exact(r, z, 0.5, 0.1)
+    interior = slice(5, -5)
+
+    def ratio(cocos):
+        return np.median(vertical_magnetic_field_from_psi(psi, r, z, cocos=cocos)[interior] / b_z[interior])
+
+    assert ratio(13) == pytest.approx(1.0, rel=1e-3)
+    assert ratio(11) == pytest.approx(-1.0, rel=1e-3)
+    assert ratio(None) == pytest.approx(2 * np.pi, rel=1e-3)
