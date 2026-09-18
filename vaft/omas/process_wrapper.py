@@ -4707,6 +4707,12 @@ def compute_romero_flux_balance_ods(
         )
 
     work = copy.deepcopy(ods)
+    for idx in selected:
+        # A stored li_3 has an unrecorded normalising radius; if the updater
+        # skips a slice it must show up as missing, not as that stale leaf.
+        slice_gq = work["equilibrium.time_slice"][idx]
+        if "global_quantities.li_3" in slice_gq:
+            del slice_gq["global_quantities.li_3"]
     update_equilibrium_global_quantities_beta_li(work, time_slice=selected)
     r0 = float(resolve_reference_major_radius(work))
 

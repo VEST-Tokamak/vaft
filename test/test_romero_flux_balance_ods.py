@@ -99,3 +99,20 @@ def test_a_window_reaching_a_currentless_slice_is_refused():
             )
     finally:
         logging.disable(logging.NOTSET)
+
+
+def test_a_stale_stored_li_3_is_never_used(monkeypatch):
+    # If the recompute skips a slice, the leaf already in the ODS must not
+    # stand in for it: its normalising radius is unknown.
+    import vaft.omas.update as update
+
+    ods = sample_ods(39915)
+    for idx in range(3):
+        ods[f"equilibrium.time_slice.{idx}.global_quantities.li_3"] = 0.5
+    monkeypatch.setattr(update, "update_equilibrium_global_quantities_beta_li", lambda *a, **k: None)
+    logging.disable(logging.WARNING)
+    try:
+        with pytest.raises(ValueError, match="li_3 could not be derived"):
+            compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=0.0, time_range=(0.316, 0.318))
+    finally:
+        logging.disable(logging.NOTSET)
