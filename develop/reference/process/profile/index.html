@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d15d1</code>. What is described
+  <code>29e215a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/profile.py"><code class="language-plaintext highlighter-rouge">vaft/process/profile.py</code></a>:
-11 public functions.  The category overview and notation come from the module
+15 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("profile.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -322,6 +322,8 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
+  <li><a href="#compare_flux_mapping"><code>compare_flux_mapping</code></a> &mdash; Map one diagnostic’s channels through several equilibria, to see how much the mapping moves them.
+</li>
   <li><a href="#core_profiles"><code>core_profiles</code></a> &mdash; Evaluate fitted kinetic profiles on the equilibrium grid and store them as a <code class="language-plaintext highlighter-rouge">profiles_1d</code> slice.
 </li>
   <li><a href="#core_profiles_from_eq"><code>core_profiles_from_eq</code></a> &mdash; Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and an axis <code class="language-plaintext highlighter-rouge">T_e</code>.
@@ -329,6 +331,8 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
   <li><a href="#core_profiles_from_eq_ratio"><code>core_profiles_from_eq_ratio</code></a> &mdash; Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and a fixed <code class="language-plaintext highlighter-rouge">n_e/T_e</code>.
 </li>
   <li><a href="#equilibrium_mapping_charge_exchange"><code>equilibrium_mapping_charge_exchange</code></a> &mdash; Map charge-exchange channel positions into the equilibrium’s radial coordinates.
+</li>
+  <li><a href="#equilibrium_mapping_points"><code>equilibrium_mapping_points</code></a> &mdash; Map arbitrary <code class="language-plaintext highlighter-rouge">(R, Z)</code> points into the equilibrium’s radial coordinates.
 </li>
   <li><a href="#equilibrium_mapping_thomson_scattering"><code>equilibrium_mapping_thomson_scattering</code></a> &mdash; Map Thomson scattering channel positions into the equilibrium’s radial coordinates.
 </li>
@@ -338,6 +342,10 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
 </li>
   <li><a href="#pedestal_top"><code>pedestal_top</code></a> &mdash; Pedestal-top position of a profile, from an EPED-style fit.
 </li>
+  <li><a href="#profile_fit_report_charge_exchange"><code>profile_fit_report_charge_exchange</code></a> &mdash; Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> and report how well each fit reproduces its channels.
+</li>
+  <li><a href="#profile_fit_report_thomson_scattering"><code>profile_fit_report_thomson_scattering</code></a> &mdash; Fit Thomson <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> and report how well each fit reproduces its channels.
+</li>
   <li><a href="#profile_fitting_charge_exchange"><code>profile_fitting_charge_exchange</code></a> &mdash; Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> profiles in a chosen radial coordinate.
 </li>
   <li><a href="#profile_fitting_thomson_scattering"><code>profile_fitting_thomson_scattering</code></a> &mdash; Fit Thomson-scattering <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> profiles in a chosen radial coordinate.
@@ -345,6 +353,68 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
   <li><a href="#strip_electron_only_pressure"><code>strip_electron_only_pressure</code></a> &mdash; Drop slice-total pressure from every core_profiles slice with no ion temperature.
 </li>
 </ul>
+
+<h3 id="compare_flux_mapping"><code class="language-plaintext highlighter-rouge">compare_flux_mapping</code></h3>
+
+<p class="formula-signature"><code>compare_flux_mapping(ods, equilibria, *, diagnostic='thomson_scattering', time=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Map one diagnostic’s channels through several equilibria, to see how much the mapping moves them.</p>
+
+<p>A profile’s radial coordinate is borrowed from an equilibrium, so two
+reconstructions of the same instant – a magnetics-only EFIT and a kinetic
+one, say – place the same channel at different <code class="language-plaintext highlighter-rouge">psi_norm</code> and
+<code class="language-plaintext highlighter-rouge">rho_tor_norm</code>.  This maps the channels through each and returns the
+records side by side, keyed as the equilibria were.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries the diagnostic’s channel positions.</p>
+</td></tr>
+  <tr><td><code>equilibria</code></td><td>mapping of str to GEQDSK, ODS or mapping</td><td>-</td><td><p>The equilibria to compare, each anything <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code> accepts; a path to a GEQDSK file is read with <code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.read_geqdsk</code> when that reader is available.</p>
+</td></tr>
+  <tr><td><code>diagnostic</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"thomson_scattering"</code> or <code class="language-plaintext highlighter-rouge">"charge_exchange"</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>float, optional</td><td>s</td><td><p>Map each ODS equilibrium through its slice nearest this time (as the mappers’ <code class="language-plaintext highlighter-rouge">time</code>); <code class="language-plaintext highlighter-rouge">None</code> keeps each one’s first slice.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to MappedPositions</td><td>-</td><td><p>One record per equilibrium, in the order given, NaN outside that equilibrium’s LCFS.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    An unknown <code class="language-plaintext highlighter-rouge">diagnostic</code>.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The channels’ <code class="language-plaintext highlighter-rouge">(R, Z)</code> are the same for every equilibrium; only the flux
+map changes.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Each ODS equilibrium contributes its first time slice unless <code class="language-plaintext highlighter-rouge">time</code> is
+given; pass the diagnostic’s time to pair the slices by time.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The mappers <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code> and <code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code>, applied once per equilibrium.
+</li>
+</ol>
 
 <h3 id="core_profiles"><code class="language-plaintext highlighter-rouge">core_profiles</code></h3>
 
@@ -642,7 +712,7 @@ by <code class="language-plaintext highlighter-rouge">sqrt(p(0) / (2 C e))</code
 
 <h3 id="equilibrium_mapping_charge_exchange"><code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code></h3>
 
-<p class="formula-signature"><code>equilibrium_mapping_charge_exchange(ods, geq)</code></p>
+<p class="formula-signature"><code>equilibrium_mapping_charge_exchange(ods, geq, *, time=None)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -656,7 +726,9 @@ the same mapping, from <code class="language-plaintext highlighter-rouge">charge
   <tbody>
   <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries the channel positions, as <code class="language-plaintext highlighter-rouge">.data</code> leaves (what the VEST mapper writes) or as bare values.</p>
 </td></tr>
-  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS (first time slice), or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS, or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>float, optional</td><td>s</td><td><p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>: the ODS slice nearest this time; <code class="language-plaintext highlighter-rouge">None</code> keeps the first.</p>
 </td></tr>
   </tbody>
 </table>
@@ -699,9 +771,65 @@ normalized poloidal flux and <code class="language-plaintext highlighter-rouge">
 <p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.  A channel whose
 position is a time series is mapped at its first sample only.</p>
 
+<h3 id="equilibrium_mapping_points"><code class="language-plaintext highlighter-rouge">equilibrium_mapping_points</code></h3>
+
+<p class="formula-signature"><code>equilibrium_mapping_points(geq, r, z, *, time=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Map arbitrary <code class="language-plaintext highlighter-rouge">(R, Z)</code> points into the equilibrium’s radial coordinates.</p>
+
+<p>The mapping <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code> applies to the
+channel positions, applied to points the caller names – a dense set along
+a diagnostic chord, say, to draw a fitted flux function against major
+radius.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code> accepts.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major radius of each point.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height of each point.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>float, optional</td><td>s</td><td><p>As <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>: the ODS slice nearest this time; <code class="language-plaintext highlighter-rouge">None</code> keeps the first.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>MappedPositions</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">psi_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> and, when derivable, <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> of every point; NaN outside the LCFS.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">geq</code> is not an equilibrium the mapper can read.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One equilibrium time slice of an ODS is used: the first, unless <code class="language-plaintext highlighter-rouge">time</code>
+names another.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The same interpolation and normalisation as <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.
+</li>
+</ol>
+
 <h3 id="equilibrium_mapping_thomson_scattering"><code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code></h3>
 
-<p class="formula-signature"><code>equilibrium_mapping_thomson_scattering(ods, geq)</code></p>
+<p class="formula-signature"><code>equilibrium_mapping_thomson_scattering(ods, geq, *, time=None)</code></p>
 
 <p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
@@ -712,7 +840,9 @@ position is a time series is mapped at its first sample only.</p>
   <tbody>
   <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">thomson_scattering.channel[:].position.r</code> and <code class="language-plaintext highlighter-rouge">.z</code>.</p>
 </td></tr>
-  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS (first time slice), or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+  <tr><td><code>geq</code></td><td>GEQDSK, ODS or mapping</td><td>-</td><td><p>A <code class="language-plaintext highlighter-rouge">vaft.data.GEQDSK</code>, an OMAS equilibrium ODS, or a legacy <code class="language-plaintext highlighter-rouge">fluxSurfaces</code> mapping.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>float, optional</td><td>s</td><td><p>For an ODS, map through the equilibrium slice nearest this time (paired by time, not by index); <code class="language-plaintext highlighter-rouge">None</code> keeps the first slice. Ignored for a GEQDSK or mapping, which is one instant.</p>
 </td></tr>
   </tbody>
 </table>
@@ -762,7 +892,8 @@ bare <code class="language-plaintext highlighter-rouge">psi_norm</code> array un
 for a GEQDSK or ODS whose <code class="language-plaintext highlighter-rouge">q</code> is missing, non-finite or gives a
 non-monotonic toroidal flux; a fit requested in that coordinate then
 raises <code class="language-plaintext highlighter-rouge">CoordinateUnavailableError</code> rather than falling back.
-Only the first equilibrium time slice of an ODS is used.</p>
+One equilibrium time slice of an ODS is used: the first, unless <code class="language-plaintext highlighter-rouge">time</code>
+names another.</p>
 
 <h3 id="export_electron_profile_txt"><code class="language-plaintext highlighter-rouge">export_electron_profile_txt</code></h3>
 
@@ -999,6 +1130,193 @@ that is the intended answer, not a failure.  The fit is unweighted in
   <li>Migration decision D-05 (2026-09-06): no fixed canonical pedestal boundary; pedestal top from an EPED-style profile fit when profiles are available, fallback 0.85 otherwise, and every reduction records which method produced it.
 </li>
   <li>The seven-parameter model and its parameter box are ported from the pedestal-fitting study in <code class="language-plaintext highlighter-rouge">hsyun_GPEC</code> (<code class="language-plaintext highlighter-rouge">sample/transp_example/pedestal_fitting.ipynb</code>).  The older <code class="language-plaintext highlighter-rouge">kinetic_analysis.ped_fitting</code> modified tanh is deliberately not carried over.  Its slope term multiplies the tanh across the whole domain, so the curve runs away in both directions – with that function’s own defaults it reaches -3750 at x = 0.70, i.e. inside its own 0.7-1.0 fit window, and bounding the slope does not remove it.  It also cannot fit an all-negative profile such as a rotation: for a narrow-range one its parameter box inverts outright, and otherwise the seed falls outside the box and SciPy refuses it.
+</li>
+</ol>
+
+<h3 id="profile_fit_report_charge_exchange"><code class="language-plaintext highlighter-rouge">profile_fit_report_charge_exchange</code></h3>
+
+<p class="formula-signature"><code>profile_fit_report_charge_exchange(ods, time_ms, mapped_positions=None, Ti_order=3, Vtor_order=3, uncertainty_option=1, rho_points=100, fitting_function_ti='polynomial', fitting_function_vtor='polynomial', ion_index=0, time_tolerance_ms=1.0, clamp_to_measured_span=True, *, coordinate='rho_tor_norm')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Fit charge-exchange <code class="language-plaintext highlighter-rouge">T_i</code> and <code class="language-plaintext highlighter-rouge">V_tor</code> and report how well each fit reproduces its channels.</p>
+
+<p>The ion twin of <code class="language-plaintext highlighter-rouge">profile_fit_report_thomson_scattering</code>, around the
+fit <code class="language-plaintext highlighter-rouge">profile_fitting_charge_exchange</code> makes.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">charge_exchange.time</code> and per-channel ion <code class="language-plaintext highlighter-rouge">t_i</code> and <code class="language-plaintext highlighter-rouge">velocity_tor</code> with <code class="language-plaintext highlighter-rouge">data_error_upper</code>.</p>
+</td></tr>
+  <tr><td><code>time_ms</code></td><td>float</td><td>ms</td><td><p>Time to fit at.</p>
+</td></tr>
+  <tr><td><code>mapped_positions</code></td><td>MappedPositions</td><td>-</td><td><p>Channel positions from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code>.</p>
+</td></tr>
+  <tr><td><code>Ti_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">T_i</code>.</p>
+</td></tr>
+  <tr><td><code>Vtor_order</code></td><td>int, optional</td><td>-</td><td><p>Polynomial order for <code class="language-plaintext highlighter-rouge">V_tor</code>.</p>
+</td></tr>
+  <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">1</code> weights the fit by the per-channel uncertainties.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Points of the grid the report’s <code class="language-plaintext highlighter-rouge">curve</code> is sampled on.</p>
+</td></tr>
+  <tr><td><code>fitting_function_ti</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">T_i</code>.</p>
+</td></tr>
+  <tr><td><code>fitting_function_vtor</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">V_tor</code>.</p>
+</td></tr>
+  <tr><td><code>ion_index</code></td><td>int, optional</td><td>-</td><td><p>Which ion of each channel.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_ms</code></td><td>float, optional</td><td>ms</td><td><p>Largest distance to the nearest charge-exchange sample.</p>
+</td></tr>
+  <tr><td><code>clamp_to_measured_span</code></td><td>bool, optional</td><td>-</td><td><p>Hold the fit at its end values outside the measured span.</p>
+</td></tr>
+  <tr><td><code>coordinate</code></td><td>str, optional</td><td>-</td><td><p>Which coordinate of the mapping to fit in.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to FitReport</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">{"t_i": ..., "velocity_tor": ...}</code>, values in eV and m/s.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No charge-exchange sample within tolerance; an unknown <code class="language-plaintext highlighter-rouge">coordinate</code>.
+CoordinateUnavailableError
+    The mapping cannot supply <code class="language-plaintext highlighter-rouge">coordinate</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Fit exactly as <code class="language-plaintext highlighter-rouge">profile_fitting_charge_exchange</code> does; each
+quantity keeps its own channel set.</li>
+  <li>Record why each refused channel was refused: a non-finite value or
+position, or a non-finite or non-positive sigma while other channels
+carry usable ones.  When no channel carries a usable sigma the fitter
+gives all of them a uniform one, and the report notes it.</li>
+  <li>Residuals, chi-square and <code class="language-plaintext highlighter-rouge">nu = N - k</code> as in <code class="language-plaintext highlighter-rouge">FitReport</code>, with
+the sigmas the fit was weighted with.</li>
+</ol>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Independent, symmetric one-sigma uncertainties.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>With <code class="language-plaintext highlighter-rouge">clamp_to_measured_span</code> the curve is flat outside the measured
+span, which no channel constrains; the residuals only test the span.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The fitting kernel [FIT]; chi-square from <code class="language-plaintext highlighter-rouge">vaft.formula.statistics.chi_squared</code> (Bevington &amp; Robinson).
+</li>
+</ol>
+
+<h3 id="profile_fit_report_thomson_scattering"><code class="language-plaintext highlighter-rouge">profile_fit_report_thomson_scattering</code></h3>
+
+<p class="formula-signature"><code>profile_fit_report_thomson_scattering(ods, time_ms, mapped_positions=None, Te_order=3, Ne_order=3, uncertainty_option=1, rho_points=100, fitting_function_te='polynomial', fitting_function_ne='polynomial', time_tolerance_ms=1.0, enforce_physical=True, *, coordinate='rho_tor_norm')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Fit Thomson <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> and report how well each fit reproduces its channels.</p>
+
+<p>The same fit <code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code> makes, with the
+same arguments, returned as one <code class="language-plaintext highlighter-rouge">FitReport</code> per quantity: every
+channel with its normalised residual, the chi-square over the channels
+the fit used, the degrees of freedom, and the reason each refused channel
+was refused.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">thomson_scattering.time</code> and per-channel <code class="language-plaintext highlighter-rouge">t_e</code> / <code class="language-plaintext highlighter-rouge">n_e</code> data with <code class="language-plaintext highlighter-rouge">data_error_upper</code>.</p>
+</td></tr>
+  <tr><td><code>time_ms</code></td><td>float</td><td>ms</td><td><p>Time to fit at; the nearest Thomson sample within <code class="language-plaintext highlighter-rouge">time_tolerance_ms</code></p>
+</td></tr>
+  <tr><td><code>mapped_positions</code></td><td>MappedPositions</td><td>-</td><td><p>Channel positions from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code>.</p>
+</td></tr>
+  <tr><td><code>Te_order</code></td><td>int, optional</td><td>-</td><td><p>Starting order for <code class="language-plaintext highlighter-rouge">T_e</code>.</p>
+</td></tr>
+  <tr><td><code>Ne_order</code></td><td>int, optional</td><td>-</td><td><p>Starting order for <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>uncertainty_option</code></td><td>int, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">1</code> weights the fit by the per-channel uncertainties.</p>
+</td></tr>
+  <tr><td><code>rho_points</code></td><td>int, optional</td><td>-</td><td><p>Points of the uniform grid the report’s <code class="language-plaintext highlighter-rouge">curve</code> is sampled on.</p>
+</td></tr>
+  <tr><td><code>fitting_function_te</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">T_e</code>, as <code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code>.</p>
+</td></tr>
+  <tr><td><code>fitting_function_ne</code></td><td>str, optional</td><td>-</td><td><p>Model for <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_ms</code></td><td>float, optional</td><td>ms</td><td><p>Largest distance to the nearest Thomson sample.</p>
+</td></tr>
+  <tr><td><code>enforce_physical</code></td><td>bool, optional</td><td>-</td><td><p>Reduce the order until the profile is physical inside the LCFS.</p>
+</td></tr>
+  <tr><td><code>coordinate</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">rho_tor_norm</code>, <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> or <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to FitReport</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">{"t_e": ..., "n_e": ...}</code>; residuals are dimensionless, values in eV and m^-3.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    No Thomson sample within tolerance; an unknown <code class="language-plaintext highlighter-rouge">coordinate</code>.
+CoordinateUnavailableError
+    The mapping cannot supply <code class="language-plaintext highlighter-rouge">coordinate</code>.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Fit exactly as <code class="language-plaintext highlighter-rouge">profile_fitting_thomson_scattering</code> does.</li>
+  <li>For each channel record why it was refused: a non-finite value, a
+non-finite or non-positive sigma, an unmapped position (outside the LCFS
+or the equilibrium grid), or – Thomson measures both quantities on one
+channel – the other quantity’s refusal.</li>
+  <li><code class="language-plaintext highlighter-rouge">r_i = (y_i - f(x_i)) / sigma_i</code> at every used channel, with the sigma
+the fit was weighted with (after its floors); <code class="language-plaintext highlighter-rouge">chi2 = sum r_i^2</code>;
+<code class="language-plaintext highlighter-rouge">nu = N - k</code> (see <code class="language-plaintext highlighter-rouge">FitReport</code> for <code class="language-plaintext highlighter-rouge">k</code>).</li>
+</ol>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The stored <code class="language-plaintext highlighter-rouge">data_error_upper</code> is a symmetric one-sigma uncertainty and
+the channels are independent; <code class="language-plaintext highlighter-rouge">chi2 / nu ~ 1</code> then means the model and
+the uncertainties agree.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A channel refused because of its partner quantity is not a statement about
+its own measurement.  The residual is taken against the returned,
+non-negative-clipped curve; where clipping bit, <code class="language-plaintext highlighter-rouge">r_i</code> is larger than the
+optimiser saw.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The fitting kernel [FIT]; chi-square and its reduced form from <code class="language-plaintext highlighter-rouge">vaft.formula.statistics.chi_squared</code> (Bevington &amp; Robinson).
 </li>
 </ol>
 
@@ -1442,7 +1760,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_electron_profile_txt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_electron_profile_txt</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_ti_te_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_ti_te_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#pedestal_top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pedestal_top</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#strip_electron_only_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">strip_electron_only_pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#compare_flux_mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compare_flux_mapping</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq</a></li><li class="page-toc-item page-toc-level-3"><a href="#core_profiles_from_eq_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">core_profiles_from_eq_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_points</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_mapping_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_mapping_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_electron_profile_txt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_electron_profile_txt</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_ti_te_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_ti_te_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#pedestal_top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pedestal_top</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fit_report_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fit_report_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fit_report_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fit_report_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_charge_exchange</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile_fitting_thomson_scattering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">profile_fitting_thomson_scattering</a></li><li class="page-toc-item page-toc-level-3"><a href="#strip_electron_only_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">strip_electron_only_pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1560,7 +1878,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:41:23 +0000"
+        "time": "2026-09-18 15:50:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

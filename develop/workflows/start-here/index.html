@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d15d1</code>. What is described
+  <code>29e215a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -319,8 +319,8 @@ repository.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ml</code></td>
-      <td>torch, onnx, onnxruntime</td>
-      <td>the neural-network backend of <code class="language-plaintext highlighter-rouge">vaft.process.ml</code> and ONNX export; datasets, splits, the NumPy reference backend and resolving a published model need no extra</td>
+      <td>torch, onnx, onnxruntime, scikit-learn, skl2onnx</td>
+      <td>the <code class="language-plaintext highlighter-rouge">torch</code> and <code class="language-plaintext highlighter-rouge">sklearn</code> backends of <code class="language-plaintext highlighter-rouge">vaft.process.ml</code> and ONNX export; datasets, splits, the <code class="language-plaintext highlighter-rouge">numpy</code> backend and resolving a published model need no extra</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">dev</code></td>
@@ -478,6 +478,24 @@ neither ships nor downloads:</p>
 with no variable set. <code class="language-plaintext highlighter-rouge">onnxruntime</code> is optional
 (<code class="language-plaintext highlighter-rouge">pip install 'vaft[surrogate]'</code>) and is needed only to <em>run</em> a network; deciding whether a model
 applies to a given plasma needs neither the runtime nor a prediction, and is the question to ask first.</p>
+
+<p>VAFT’s own trained models are a third kind. <code class="language-plaintext highlighter-rouge">vaft.process.ml</code> trains them, and
+<a href="https://github.com/VEST-Tokamak/vaft-nn"><code class="language-plaintext highlighter-rouge">vaft-nn</code></a> publishes them. This is a <strong>private registry
+repository</strong>: each version’s manifest and hashes are in git, and the weights are GitHub Release
+assets. Point VAFT at a checkout of it the same way:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+<span class="nb">export </span><span class="nv">VAFT_NN_HOME</span><span class="o">=</span>~/git/vaft-nn         <span class="c"># registry: models/&lt;name&gt;/releases.yaml + manifests</span>
+<span class="nb">export </span><span class="nv">VAFT_NN_CACHE</span><span class="o">=</span>~/scratch/vaft-nn    <span class="c"># optional; default is the platform cache directory</span>
+gh auth login                             <span class="c"># once; fetching reuses the GitHub CLI's login</span>
+python <span class="nb">install</span>/check_vaft_nn.py           <span class="c"># registry, cache and gh access, layer by layer</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.ml.fetch_model(name, version=...)</code> downloads a release into the cache.
+Alternatively, <code class="language-plaintext highlighter-rouge">load_model(..., fetch=True)</code> fetches on a cache miss. Either way, a file is accepted
+only if its SHA-256 matches the manifest the registry pins. VAFT never reads or stores a GitHub token
+itself. Training and inference with the <code class="language-plaintext highlighter-rouge">torch</code> and <code class="language-plaintext highlighter-rouge">sklearn</code> backends need
+<code class="language-plaintext highlighter-rouge">pip install 'vaft[ml]'</code>; resolving and verifying a model does not.</p>
 
 <p>On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:</p>
@@ -789,7 +807,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:41:23 +0000"
+        "time": "2026-09-18 15:50:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

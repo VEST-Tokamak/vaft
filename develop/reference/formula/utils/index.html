@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d15d1</code>. What is described
+  <code>29e215a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/utils.py"><code class="language-plaintext highlighter-rouge">vaft/formula/utils.py</code></a>:
-11 public functions.  The category overview and notation come from the module
+12 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("utils.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -304,6 +304,8 @@ the formula module.</p>
   <li><a href="#make_fit_function"><code>make_fit_function</code></a> &mdash; Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
 </li>
   <li><a href="#normalize_profile"><code>normalize_profile</code></a> &mdash; Linear normalisation of a profile between its axis and boundary values.
+</li>
+  <li><a href="#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a> &mdash; Normalised inverse gradient scale length $a/L_y$ of a sampled profile.
 </li>
   <li><a href="#trapz_integral"><code>trapz_integral</code></a> &mdash; Definite integral $\int y\,dx$ by the trapezoidal rule.
 </li>
@@ -743,6 +745,64 @@ positive and decay monotonically when the polynomial is decreasing.</p>
 packaged VEST samples do contain – warns and returns <code class="language-plaintext highlighter-rouge">nan</code> rather than
 propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
 
+<h3 id="normalized_gradient_scale_length"><code class="language-plaintext highlighter-rouge">normalized_gradient_scale_length</code></h3>
+
+<p class="formula-signature"><code>normalized_gradient_scale_length(x, y, a)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Normalised inverse gradient scale length $a/L_y$ of a sampled profile.</p>
+
+\[\frac{a}{L_y} = -\frac{a}{y}\,\frac{dy}{dx}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>np.ndarray</td><td>m</td><td><p>Radial coordinate, 1-D and monotonic, e.g. minor radius $r$.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>np.ndarray</td><td>any</td><td><p>Profile sampled on <code class="language-plaintext highlighter-rouge">x</code> along its last axis, e.g. $T_e$ or $n_e$; shape <code class="language-plaintext highlighter-rouge">(..., len(x))</code>.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Normalising length, in the unit of <code class="language-plaintext highlighter-rouge">x</code>; for a gyrokinetic input the minor radius.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>$a/L_y$ at every sample, of the shape of <code class="language-plaintext highlighter-rouge">y</code>; <code class="language-plaintext highlighter-rouge">nan</code> where <code class="language-plaintext highlighter-rouge">y</code> is zero or non-finite, with a <code class="language-plaintext highlighter-rouge">RuntimeWarning</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>Positive for a profile that falls with <code class="language-plaintext highlighter-rouge">x</code> – the usual peaked core
+profile – so a larger number is a steeper drive.  <code class="language-plaintext highlighter-rouge">x</code> and <code class="language-plaintext highlighter-rouge">a</code> must
+share a unit and <code class="language-plaintext highlighter-rouge">x</code> must be the radius $a$ normalises: on $\rho_N$ or
+$\sqrt{\psi_N}$ pass <code class="language-plaintext highlighter-rouge">a = 1</code> and the result is $-d\ln y/d\rho$, which
+differs from $a/L_y$ by the Jacobian $d\rho/dr$.  The same holds for
+$a/L_{T_e}$, $a/L_{n_e}$ and $a/L_{p}$: only the profile changes.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>The derivative is <code class="language-plaintext highlighter-rouge">numpy.gradient(y, x, axis=-1)</code>, identical to
+<code class="language-plaintext highlighter-rouge">gradient</code> for a 1-D profile: second-order central differences in
+the interior, first-order one-sided at the two ends.  Differentiation
+amplifies noise, and dividing by <code class="language-plaintext highlighter-rouge">y</code> amplifies it again where the
+profile is small – the edge – so smooth or fit the profile first.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>gradient</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909 (the $a/L_T$, $a/L_n$ drive inputs of TGLF).
+</li>
+</ol>
+
 <h3 id="trapz_integral"><code class="language-plaintext highlighter-rouge">trapz_integral</code></h3>
 
 <p class="formula-signature"><code>trapz_integral(x, y)</code></p>
@@ -890,7 +950,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_poloidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_poloidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_toroidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_toroidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_volume_weighted_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_volume_weighted_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#eped_tanh_bounds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">eped_tanh_bounds</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#gp_fit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gp_fit</a></li><li class="page-toc-item page-toc-level-3"><a href="#gradient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gradient</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_fit_function" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_fit_function</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#calculate_peaking_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_peaking_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_poloidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_poloidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_toroidal_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_toroidal_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_volume_weighted_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_volume_weighted_average</a></li><li class="page-toc-item page-toc-level-3"><a href="#eped_tanh_bounds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">eped_tanh_bounds</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#gp_fit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gp_fit</a></li><li class="page-toc-item page-toc-level-3"><a href="#gradient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gradient</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_fit_function" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_fit_function</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalized_gradient_scale_length" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalized_gradient_scale_length</a></li><li class="page-toc-item page-toc-level-3"><a href="#trapz_integral" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trapz_integral</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1008,7 +1068,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:41:23 +0000"
+        "time": "2026-09-18 15:50:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

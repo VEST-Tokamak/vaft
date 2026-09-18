@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d15d1</code>. What is described
+  <code>29e215a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
-5 public functions.  The category overview and notation come from the module
+6 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -290,6 +290,8 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
 
 <ul class="formula-index">
   <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+</li>
+  <li><a href="#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a> &mdash; Impurity-to-electron density ratio that produces a given effective charge.
 </li>
   <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
 </li>
@@ -366,6 +368,66 @@ models with an impurity transport solve).</p>
   <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
 </li>
   <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+</li>
+</ol>
+
+<h3 id="impurity_fraction_from_effective_charge"><code class="language-plaintext highlighter-rouge">impurity_fraction_from_effective_charge</code></h3>
+
+<p class="formula-signature"><code>impurity_fraction_from_effective_charge(z_eff, z_impurity)</code></p>
+
+<p>Impurity-to-electron density ratio that produces a given effective charge.</p>
+
+\[\frac{n_I}{n_e} = \frac{Z_{\mathrm{eff}} - 1}{Z_I\,(Z_I - 1)}\]
+
+<p>the inverse of <code class="language-plaintext highlighter-rouge">z_eff_from_n_s_Z_s</code> for one fully ionised impurity of
+charge $Z_I$ in a hydrogenic main ion.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>z_eff</code></td><td>float or array-like</td><td>-</td><td><p>Effective charge, within $[1, Z_I]$.</p>
+</td></tr>
+  <tr><td><code>z_impurity</code></td><td>float</td><td>-</td><td><p>Impurity charge $Z_I$, greater than one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>$n_I/n_e$, of the shape of <code class="language-plaintext highlighter-rouge">z_eff</code>; the main-ion fraction is $n_H/n_e = 1 - Z_I\,n_I/n_e$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">z_impurity</code> not greater than one, or <code class="language-plaintext highlighter-rouge">z_eff</code> non-finite or
+    outside $[1, Z_I]$, where no non-negative density pair exists.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Quasi-neutrality $n_e = n_H + Z_I n_I$ and exactly two ion species: a
+hydrogenic main ion ($Z = 1$, any isotope) and one impurity in a single
+charge state.  Those two conditions and the definition
+$Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I$ fix both fractions.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One impurity only: a measured $Z_{\mathrm{eff}}$ does not determine a
+mixture, so the answer is the fraction of the named impurity that would
+alone account for it.  At $Z_{\mathrm{eff}} = 2$ that is $1/30$ for
+carbon but $1/5402$ for fully stripped tungsten.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>z_eff_from_n_s_Z_s</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 2 (collisions, resistivity and the effective charge).
 </li>
 </ol>
 
@@ -738,7 +800,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#mean_charge_from_charge_state_densities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mean_charge_from_charge_state_densities</a></li><li class="page-toc-item page-toc-level-3"><a href="#z_eff_from_n_s_Z_s" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">z_eff_from_n_s_Z_s</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#impurity_fraction_from_effective_charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">impurity_fraction_from_effective_charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#mean_charge_from_charge_state_densities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mean_charge_from_charge_state_densities</a></li><li class="page-toc-item page-toc-level-3"><a href="#z_eff_from_n_s_Z_s" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">z_eff_from_n_s_Z_s</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -856,7 +918,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:41:23 +0000"
+        "time": "2026-09-18 15:50:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

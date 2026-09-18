@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d15d1</code>. What is described
+  <code>29e215a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -296,11 +296,11 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/utils/">utils</a></td>
-    <td><code>vaft.formula.utils</code></td><td>11</td><td>Utility functions for plasma physics calculations.</td>
+    <td><code>vaft.formula.utils</code></td><td>12</td><td>Utility functions for plasma physics calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>82</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>84</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -316,7 +316,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td>
-    <td><code>vaft.formula.atomic</code></td><td>5</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
+    <td><code>vaft.formula.atomic</code></td><td>6</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/statistics/">statistics</a></td>
@@ -398,7 +398,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="utils">Utils</h2>
 
-<p>Utility functions for plasma physics calculations. — <a href="/vaft/develop/reference/formula/utils/">11 functions</a>.</p>
+<p>Utility functions for plasma physics calculations. — <a href="/vaft/develop/reference/formula/utils/">12 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a> &mdash; Peaking factor, central value over volume average.
@@ -421,13 +421,15 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/utils/#normalize_profile"><code>normalize_profile</code></a> &mdash; Linear normalisation of a profile between its axis and boundary values.
 </li>
+  <li><a href="/vaft/develop/reference/formula/utils/#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a> <em>(convention)</em> &mdash; Normalised inverse gradient scale length $a/L_y$ of a sampled profile.
+</li>
   <li><a href="/vaft/develop/reference/formula/utils/#trapz_integral"><code>trapz_integral</code></a> &mdash; Definite integral $\int y\,dx$ by the trapezoidal rule.
 </li>
 </ul>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">82 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">84 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -490,6 +492,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#ec_heating_power_from_I_ec_V_ec"><code>ec_heating_power_from_I_ec_V_ec</code></a> &mdash; Electron-cyclotron launched power $P_{ec} = I_{ec}V_{ec}$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#electron_pressure"><code>electron_pressure</code></a> <em>(convention)</em> &mdash; Electron thermal pressure from density and temperature, $p_e = n_e T_e$.
+</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#elongation_from_RZ_boundary"><code>elongation_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Boundary elongation $\kappa$ from the extremal points of a contour.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#exact_volume_from_RZ_contour"><code>exact_volume_from_RZ_contour</code></a> <em>(convention)</em> &mdash; Plasma volume from a closed $(R, Z)$ contour by Green’s theorem.
@@ -499,6 +503,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#inductive_voltage_from_dW_magdt_I_p"><code>inductive_voltage_from_dW_magdt_I_p</code></a> <em>(convention)</em> &mdash; Inductive voltage from the rate of change of magnetic energy.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#inverse_aspect_ratio_from_a_R"><code>inverse_aspect_ratio_from_a_R</code></a> &mdash; Inverse aspect ratio $\varepsilon = a/R$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#ion_pressure"><code>ion_pressure</code></a> <em>(convention)</em> &mdash; Ion thermal pressure of one species from density and temperature, $p_i = n_i T_i$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#kadomtsev_constraint_from_engineering_exponents"><code>kadomtsev_constraint_from_engineering_exponents</code></a> &mdash; Residual of the Kadomtsev high-beta constraint on engineering exponents.
 </li>
@@ -787,10 +793,12 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="atomic">Atomic</h2>
 
-<p>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11. — <a href="/vaft/develop/reference/formula/atomic/">5 functions</a>.</p>
+<p>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11. — <a href="/vaft/develop/reference/formula/atomic/">6 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/atomic/#fractional_abundances"><code>fractional_abundances</code></a> <em>(convention)</em> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+</li>
+  <li><a href="/vaft/develop/reference/formula/atomic/#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a> &mdash; Impurity-to-electron density ratio that produces a given effective charge.
 </li>
   <li><a href="/vaft/develop/reference/formula/atomic/#interpolate_adf11"><code>interpolate_adf11</code></a> <em>(convention)</em> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
 </li>
@@ -1262,7 +1270,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:41:23 +0000"
+        "time": "2026-09-18 15:50:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
