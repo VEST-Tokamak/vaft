@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a020da8</code>. What is described
+  <code>4a6a506</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -290,6 +290,16 @@ used in plasma physics calculations.</p>
   <tr><td>E</td><td>complete elliptic integral of second kind</td><td>-</td></tr>
   </tbody>
 </table>
+
+<p><strong>Every flux these functions return is full weber</strong>, <code class="language-plaintext highlighter-rouge">psi = mu0 G</code> per
+ampere – the physical flux through the toroidal circle, which grows toward
+a positive current – not the per-radian g-file family.  Hand such a flux to
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.vertical_magnetic_field_from_psi</code> and the
+other field helpers with <code class="language-plaintext highlighter-rouge">cocos=13</code> ($k = -1/2\pi$, the factor
+<code class="language-plaintext highlighter-rouge">psi_per_radian=False</code> gives
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.poloidal_field_factor</code>).  Their default is
+$2\pi$ too large, and <code class="language-plaintext highlighter-rouge">cocos=11</code> has the right size but the opposite
+sign: IMAS flux grows <em>away</em> from a positive current (#354).</p>
 
 <h2 id="functions">Functions</h2>
 
@@ -1401,7 +1411,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 17:52:39 +0000"
+        "time": "2026-09-18 19:03:51 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
