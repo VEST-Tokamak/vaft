@@ -69,13 +69,11 @@ def test_a_second_toroidal_plane_sees_the_island_shifted_by_n_delta_phi(eq):
     result = synthetic_island_soft_x_rays(eq, spec, both, time=t0, emissivity_profile=_profile)
     np.testing.assert_allclose(result.planes, [0.0, delta_phi])
     helicity = result.topology.helicity
-    # Independent of the code's formula: in COCOS 11 a flux rising outward means
-    # Ip along +phi, and F > 0 means B_phi along +phi, so B_Z < 0 on the outboard
-    # midplane and phi falls as theta* rises: sigma = -sign(Ip Bt) = -1. (The
-    # record's own ``ip`` is not used: the Solov'ev export stores it with the
-    # opposite sign, a separate defect.)
-    assert eq.psi_boundary > eq.psi_axis and np.all(eq.f > 0)
-    assert helicity == -1
+    # Independent of the code's formula: Ip and B_phi both along +phi make
+    # B_Z < 0 on the outboard midplane, so phi falls as theta* rises:
+    # sigma = -sign(Ip Bt).
+    assert eq.ip > 0 and eq.bt0 > 0
+    assert helicity == -int(np.sign(eq.ip * eq.bt0))
     # xi = m theta* - sigma n phi - omega t: the second plane at t0 is the first
     # plane at t0 + sigma n delta_phi / omega.
     shifted = synthetic_island_soft_x_rays(eq, spec, _fan(0.0),
