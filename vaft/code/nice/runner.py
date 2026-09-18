@@ -8,31 +8,49 @@ import os
 from pathlib import Path
 import subprocess
 
+from ...compat import is_executable, resolve_executable
+from .._executables import (
+    ExecutableNotLaunchable,
+    executable_from_home,
+    missing_home_message,
+)
 from .config import NiceConfig, NiceInputs, NiceResult
 from .outputs import collect_nice_outputs
+
+
+NICE_HOME_ENV = "NICEHOME"
+#: Where a NICE CMake build leaves ``nice_recon``, most usual first; the
+#: upstream project has no install step, so ``$NICEHOME`` is the source tree.
+NICE_HOME_LAYOUTS = (Path("build/nice_recon"), Path("run/nice_recon"), Path("nice_recon"))
 
 
 def resolve_nice_executable(config: NiceConfig) -> Path:
     if config.executable:
         path = Path(config.executable).expanduser()
-    else:
-        root = config.nice_home or os.environ.get("NICEHOME")
-        if not root:
-            raise ValueError(
-                "NICE is not configured: set NiceConfig.executable or $NICEHOME"
+        resolved = resolve_executable(path)
+        if resolved is None:
+            raise FileNotFoundError(f"NICE executable not found: {path}")
+        if not is_executable(resolved):
+            raise PermissionError(f"NICE executable is not executable: {resolved}")
+        return resolved
+    root = config.nice_home or {**os.environ, **dict(config.env)}.get(NICE_HOME_ENV)
+    if not root or not str(root).strip():
+        raise FileNotFoundError(
+            missing_home_message(
+                home_variable=NICE_HOME_ENV,
+                relative_path=NICE_HOME_LAYOUTS[0],
+                code_name="NICE",
             )
-        root = Path(root).expanduser()
-        candidates = (
-            root / "build" / "nice_recon",
-            root / "run" / "nice_recon",
-            root / "nice_recon",
         )
-        path = next((p for p in candidates if p.is_file()), candidates[0])
-    if not path.is_file():
-        raise FileNotFoundError(f"NICE executable not found: {path}")
-    if not os.access(path, os.X_OK):
-        raise PermissionError(f"NICE executable is not executable: {path}")
-    return path
+    root = Path(root).expanduser()
+    layout = next(
+        (rel for rel in NICE_HOME_LAYOUTS if resolve_executable(root / rel) is not None),
+        NICE_HOME_LAYOUTS[0],
+    )
+    # Raises the same FileNotFoundError/PermissionError every adapter does.
+    return executable_from_home(
+        root, home_variable=NICE_HOME_ENV, relative_path=layout, code_name="NICE"
+    )
 
 
 def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
@@ -72,6 +90,10 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
             returncode = completed.returncode
         except subprocess.TimeoutExpired:
             timed_out, returncode = True, 124
+        except (FileNotFoundError, PermissionError):
+            raise
+        except OSError as error:
+            raise ExecutableNotLaunchable(f"cannot launch {exe}: {error}") from error
     stdout = stdout_file.read_text(encoding="utf-8", errors="replace")
     stderr = stderr_file.read_text(encoding="utf-8", errors="replace")
     manifest = dict(inputs.manifest)

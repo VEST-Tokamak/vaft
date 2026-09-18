@@ -580,3 +580,30 @@ def test_two_time_shared_conditioner_keeps_time_index_and_channel_identity(tmp_p
                 diagnostic_source="equilibrium_constraints",
             ),
         )
+
+
+def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    from vaft.code.nice.runner import resolve_nice_executable
+
+    monkeypatch.delenv("NICEHOME", raising=False)
+    with pytest.raises(FileNotFoundError, match=r"\$NICEHOME"):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path))
+
+    home = tmp_path / "nice"
+    with pytest.raises(FileNotFoundError, match="build/nice_recon"):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path, nice_home=home))
+
+    exe = home / "run" / ("nice_recon.exe" if sys.platform == "win32" else "nice_recon")
+    exe.parent.mkdir(parents=True)
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(0o755)
+    monkeypatch.setenv("NICEHOME", str(home))
+    assert resolve_nice_executable(NiceConfig(workdir=tmp_path)) == exe
+
+    if os.name == "posix":
+        exe.chmod(0o644)
+        with pytest.raises(PermissionError):
+            resolve_nice_executable(NiceConfig(workdir=tmp_path, executable=exe))
