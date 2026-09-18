@@ -52,6 +52,7 @@ class Marker:
     kind: str
     shots: tuple[int, ...] = ()
     reference: int | None = None
+    references: tuple[int, ...] = ()
 
 
 def _normalise(text: Any) -> str:
@@ -84,19 +85,36 @@ def derive_session(sheet_name: str, source: Path) -> tuple[str | None, str]:
 
 
 def _marker(value: Any, row: int) -> Marker | None:
-    text = str(value if value is not None else "").replace("\n", " ").strip()
-    reference = REFERENCE_RE.search(text)
-    if reference:
-        return Marker(row=row, kind="reference", reference=int(reference.group(1)))
-    exact = SHOT_RE.match(text)
-    if exact:
-        return Marker(row=row, kind="shots", shots=(int(exact.group(1)),))
-    interval = SHOT_RANGE_RE.match(text)
-    if interval:
-        first, last = int(interval.group(1)), int(interval.group(2))
-        if first <= last and last - first <= MAX_SHOT_RANGE:
-            return Marker(row=row, kind="shots", shots=tuple(range(first, last + 1)))
-    return None
+    raw = str(value if value is not None else "")
+    text = raw.replace("\n", " ").strip()
+    if REFERENCE_RE.search(text):
+        # "ref.\n37911 38740" names two; every number after the word counts.
+        tail = text[REFERENCE_RE.search(text).start():]
+        numbers = tuple(int(number) for number in re.findall(r"\d{3,6}", tail))
+        return Marker(row=row, kind="reference", reference=numbers[0], references=numbers)
+    # The whole cell first: a range is often broken across lines ("4169\n~4173").
+    parts = [text] if (SHOT_RE.match(text) or SHOT_RANGE_RE.match(text)) else re.split(r"[\n,]+", raw)
+    shots: list[int] = []
+    # Otherwise one cell can log several shots, one per line or comma-separated
+    # ("39853\n39854\n39855"); each part must be a shot or a forward range.
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        exact = SHOT_RE.match(part)
+        interval = SHOT_RANGE_RE.match(part)
+        if exact:
+            shots.append(int(exact.group(1)))
+        elif interval:
+            first, last = int(interval.group(1)), int(interval.group(2))
+            if not (first <= last and last - first <= MAX_SHOT_RANGE):
+                return None
+            shots.extend(range(first, last + 1))
+        else:
+            return None
+    if not shots:
+        return None
+    return Marker(row=row, kind="shots", shots=tuple(dict.fromkeys(shots)))
 
 
 def _cell_record(cell: Any) -> dict[str, Any]:
@@ -117,12 +135,20 @@ def _block_cells(ws: Any, start: int, end: int) -> list[dict[str, Any]]:
     ]
 
 
-def _title_between(ws: Any, start: int, end: int) -> str | None:
-    """Find a likely operator title without mistaking a repeated header for one."""
+def _title_between(ws: Any, start: int, end: int, column_a_only: bool = False) -> str | None:
+    """Find a likely operator title without mistaking a repeated header for one.
+
+    On the modern card the operator's title is always in column A; anything
+    else between two cards (a reference card's ``VB``/``filter`` row) is not.
+    """
     header_terms = ("shot", "tf", "p/s", "charging", "remark", "diagnostic", "gas injection")
     titles: list[str] = []
     for row in ws.iter_rows(min_row=max(1, start), max_row=max(0, end), max_col=SCAN_MAX_COLUMNS):
         values = [str(cell.value).strip() for cell in row if cell.value is not None and str(cell.value).strip()]
+        if column_a_only:
+            first = row[0].value if row else None
+            if len(values) != 1 or first is None or str(first).strip() != values[0]:
+                continue
         if len(values) > 2:
             continue
         for value in values:
@@ -391,6 +417,18 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     experiment_date, session_id = derive_session(sheet_name, source)
     card_extractor = schema.get("extractor") == "modern_card"
     markers = [marker for row in range(1, ws.max_row + 1) if (marker := _marker(ws.cell(row, 1).value, row))]
+    marked = {marker.row for marker in markers}
+    # A column-A cell of digits and separators that is not a marker is a shot
+    # number the parser could not read (a reversed range, "43782/3"). Its card
+    # is lost, so it is reported for review rather than skipped in silence.
+    unreadable = [
+        {"cell": f"A{row}", "raw": str(value)}
+        for row in range(1, ws.max_row + 1)
+        if row not in marked
+        and (value := ws.cell(row, 1).value) is not None
+        and re.fullmatch(r"[\d\s,~/\-\u2013]+", str(value))
+        and re.search(r"\d{3,6}", str(value))
+    ]
     groups: list[dict[str, Any]] = []
     active_group: dict[str, Any] | None = None
     previous_end = 0
@@ -398,11 +436,11 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
 
     for marker in markers:
         if marker.kind == "reference" and marker.reference is not None:
-            references.append(marker.reference)
+            references.extend(marker.references or (marker.reference,))
             continue
         next_rows = [candidate.row for candidate in markers if candidate.row > marker.row]
         end = (min(next_rows) - 1) if next_rows else ws.max_row
-        title = _title_between(ws, previous_end + 1, marker.row - 1)
+        title = _title_between(ws, previous_end + 1, marker.row - 1, column_a_only=card_extractor)
         if active_group is None or title:
             group_index = len(groups) + 1
             active_group = {
@@ -434,7 +472,12 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
                 existing[shot_number] = item
             if card is not None:
                 _apply_card(item, card)
-        previous_end = end
+        # Where the next title search starts. `end` runs to the next shot
+        # number, which left every later search an empty range and put a whole
+        # sheet in one run group. A card knows where it ends; other templates
+        # keep the old span (their title rows are not yet told apart from
+        # remark rows -- #995 increment 2).
+        previous_end = block_end
 
     if groups and references:
         groups[-1]["references"].extend(_reference_entries(references))
@@ -457,6 +500,8 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
         "run_groups": groups,
     }
     _apply_overrides(dataset, overrides_path)
+    if unreadable:
+        dataset["review"]["unreadable_shot_cells"] = unreadable
     errors = validate_dataset(dataset, registry)
     if errors:
         dataset["review"]["validation_errors"] = errors

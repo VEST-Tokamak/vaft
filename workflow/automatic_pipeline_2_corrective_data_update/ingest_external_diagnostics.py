@@ -247,6 +247,21 @@ def save_registry(path: Path, registry: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _input_fingerprint(root: Path, tree: str, shot: int) -> str | None:
+    """sha256 of what a shot's product is built from, where one file is all of it.
+
+    Only the ShotLog has that: its record is rewritten whenever the month's
+    workbook is re-extracted (the operator fills a card in later, a parser fix
+    lands), so an entry is trusted only while the record it saw is unchanged.
+    """
+    if tree != "shotlog":
+        return None
+    import hashlib
+
+    path = root / "legacy" / tree / str(shot) / "metadata" / "shotlog.json"
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+
 def _unavailable_errors() -> tuple[type[BaseException], ...]:
     """Errors that mean "this shot has nothing to map", not "the run broke".
 
@@ -296,7 +311,13 @@ def ingest(
 
         for shot in available:
             key = f"{tree}/{shot}"
-            if not force and key in registry and registry[key].get("status") in {"success", "unavailable"}:
+            fingerprint = _input_fingerprint(root, tree, shot)
+            recorded = registry.get(key, {})
+            if (
+                not force
+                and recorded.get("status") in {"success", "unavailable"}
+                and recorded.get("input_sha256") == fingerprint
+            ):
                 summary["skipped"] += 1
                 continue
             if dry_run:
@@ -317,6 +338,7 @@ def ingest(
                 )
             except unavailable_errors as exc:
                 registry[key] = {"status": "unavailable", "reason": str(exc),
+                                 "input_sha256": fingerprint,
                                  "at": datetime.now(timezone.utc).isoformat()}
                 summary["unavailable"] += 1
             except Exception as exc:  # noqa: BLE001 - one bad shot must not stop the run
@@ -333,6 +355,8 @@ def ingest(
                     "measured": manifest["measured"]["count"],
                     "at": manifest["generated_at"],
                 }
+                if fingerprint is not None:
+                    registry[key]["input_sha256"] = fingerprint
                 summary["succeeded"] += 1
                 LOGGER.info("%s -> %s (%s measured)", key, output_dir,
                             manifest["measured"]["count"])

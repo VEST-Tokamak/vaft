@@ -94,6 +94,11 @@ def modern_workbook(path: Path, sheets: dict[str, list[dict[str, Any]]], title: 
             ws.cell(1, 1, title)
             row = 2
         for card in cards:
+            card = dict(card)
+            title_before = card.pop("title_before", None)
+            if title_before:
+                ws.cell(row, 1, title_before)  # an operator's run-group title
+                row += 1
             row = write_card(ws, row, **card)
     workbook.save(path)
     return path

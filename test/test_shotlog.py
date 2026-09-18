@@ -174,6 +174,34 @@ def test_a_reference_card_is_a_reference_not_the_previous_shots_settings(tmp_pat
     assert references == [43013]
 
 
+def test_one_card_can_log_several_shots_and_a_bad_one_is_reported(tmp_path):
+    source = modern_workbook(tmp_path / "ShotLog_2023_06 #39853-39856.xlsx", {"230624": [
+        {"shot": "39853\n39854\n39855", "diagnostics": {"IF": "490-510"}},
+        {"shot": "41538-41440"},  # reversed: unreadable, not silently skipped
+        {"shot": "41560\n~41561"},  # a range broken across lines is still one range
+        {"shot": 39856},
+    ]})
+    dataset = convert_sheet(source, "230624", REGISTRY)
+    shots = _shots(dataset)
+    assert sorted(shots) == [39853, 39854, 39855, 39856, 41560, 41561]
+    assert shots[39855]["planned_configuration"]["timing"][0]["window_ms"] == [490, 510]
+    assert [item["raw"] for item in dataset["review"]["unreadable_shot_cells"]] == ["41538-41440"]
+
+
+def test_a_title_between_cards_opens_a_run_group_and_card_rows_do_not(tmp_path):
+    source = modern_workbook(tmp_path / "ShotLog_2024_08 #43481-43484.xlsx", {"240821": [
+        {"shot": 43481},
+        {"shot": 43482},
+        # A reference card's two-cell rows ("VB", "filter") are not titles.
+        {"shot": "REF!!!\n43013", "diagnostics": {"TS": 326}},
+        {"shot": 43483, "title_before": "오믹 방전 만들기/ BZn"},
+        {"shot": 43484},
+    ]}, title="Coil 전류 테스트")
+    dataset = convert_sheet(source, "240821", REGISTRY)
+    groups = [(group["title"]["raw"], [shot["shot"] for shot in group["shots"]]) for group in dataset["run_groups"]]
+    assert groups == [("Coil 전류 테스트", [43481, 43482]), ("오믹 방전 만들기/ BZn", [43483, 43484])]
+
+
 def test_session_documents_are_reproducible(modern):
     assert convert_sheet(modern, "250915", REGISTRY) == convert_sheet(modern, "250915", REGISTRY)
 
@@ -279,6 +307,19 @@ def test_the_trigger_table_is_on_the_daq_clock_in_the_shape_sxr_reads(tmp_path, 
     assert table[46591]["SXR"] == {"start_time_ms": 285, "end_time_ms": 285, "source_shot": 46590}
     assert "SXR1" not in table[46591]
     assert table[46590]["TP"] == {"measured_position_m": [0.7], "source_shot": 46590}
+
+
+def test_a_shots_own_sxr1_beats_an_inherited_bare_sxr_in_the_table(tmp_path):
+    modern_workbook(tmp_path / "ShotLog_2025_09 #46590-46591.xlsx", {"250915": [
+        {"shot": 46590, "diagnostics": {"SXR1": "500-501"}},
+        {"shot": 46591, "diagnostics": {"SXR1": "485-535"}},
+    ]})
+    _, records, _ = _records(tmp_path)
+    # Simulate the other spelling on the earlier card: a bare SXR carried in.
+    carried = dict(records[46591]["effective_timing"][0], identifier="SXR", inherited=True, source_shot=46590,
+                   window_ms=[500, 501])
+    records[46591]["effective_timing"].append(carried)
+    assert trigger_table(records)["shots"][46591]["SXR"]["start_time_ms"] == 285
 
 
 def test_a_shot_in_two_workbooks_takes_the_one_whose_span_covers_it(tmp_path):

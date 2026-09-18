@@ -132,5 +132,12 @@ def test_the_corrective_ingest_builds_products_and_records_the_rest(filedb):
     assert manifest["measured"]["count"] >= 4
     assert manifest["provenance"]["record"] == "legacy/shotlog/46590/metadata/shotlog.json"
     assert len(manifest["provenance"]["record_sha256"]) == 64
-    # A shot with nothing to schedule is not retried on every run.
+    # A shot with nothing to schedule is not retried on every run...
     assert ingest.ingest(filedb.root, ["shotlog"])["skipped"] == 3
+    # ...until its record changes (the card filled in later, a parser fix).
+    record_file = filedb.root / "legacy/shotlog/46590/metadata/shotlog.json"
+    record = json.loads(record_file.read_text())
+    record["effective_timing"] = record["effective_timing"][:1]
+    record_file.write_text(json.dumps(record))
+    rerun = ingest.ingest(filedb.root, ["shotlog"])
+    assert (rerun["succeeded"], rerun["skipped"]) == (1, 2)

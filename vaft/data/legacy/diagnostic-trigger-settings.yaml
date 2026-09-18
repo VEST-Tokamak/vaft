@@ -3144,6 +3144,69 @@ shots:
       measured_position_m:
       - 0.8
       source_shot: 39852
+  39853:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39853
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39853
+  39854:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39854
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39854
+  39855:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39855
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39855
+  39856:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39856
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39855
+  39857:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39857
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39855
+  39858:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39858
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39855
+  39859:
+    SXR:
+      start_time_ms: 300
+      end_time_ms: 301
+      source_shot: 39859
+    TP:
+      measured_position_m:
+      - 0.8
+      source_shot: 39855
   39860:
     SXR:
       start_time_ms: 300
@@ -11388,6 +11451,16 @@ shots:
       measured_position_m:
       - 0.75
       source_shot: 40727
+  40728:
+    TP:
+      measured_position_m:
+      - 0.75
+      source_shot: 40728
+  40729:
+    TP:
+      measured_position_m:
+      - 0.75
+      source_shot: 40729
   40730:
     TP:
       measured_position_m:
@@ -14496,6 +14569,40 @@ shots:
       start_time_ms: 108
       end_time_ms: 108
       source_shot: 41264
+  41270:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41270
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41270
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41270
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41270
+  41271:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41271
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41271
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41271
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41271
   41272:
     HXR:
       start_time_ms: 300
@@ -14513,6 +14620,159 @@ shots:
       start_time_ms: 108
       end_time_ms: 108
       source_shot: 41272
+  41273:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41273
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41273
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41273
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41273
+  41274:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41274
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41274
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41274
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41274
+  41275:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41275
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41275
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41275
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41275
+  41276:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41276
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41276
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41276
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41276
+  41277:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41277
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41277
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41277
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41277
+  41278:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41278
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41278
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41278
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41278
+  41279:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41279
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41279
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41279
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41279
+  41280:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41280
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41280
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41280
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41280
+  41281:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41281
+    IDS:
+      start_time_ms: 290
+      end_time_ms: 291
+      source_shot: 41281
+    TP:
+      measured_position_m:
+      - 0.7
+      source_shot: 41281
+    TS:
+      start_time_ms: 108
+      end_time_ms: 108
+      source_shot: 41281
   41282:
     HXR:
       start_time_ms: 300
@@ -15397,6 +15657,16 @@ shots:
       start_time_ms: 300
       end_time_ms: 340
       source_shot: 41484
+  41485:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41485
+  41486:
+    HXR:
+      start_time_ms: 300
+      end_time_ms: 340
+      source_shot: 41486
   41487:
     HXR:
       start_time_ms: 300
@@ -31976,6 +32246,16 @@ shots:
       end_time_ms: 335
       source_shot: 43960
   45164:
+    SXR:
+      start_time_ms: 285
+      end_time_ms: 335
+      source_shot: 43960
+  45165:
+    SXR:
+      start_time_ms: 285
+      end_time_ms: 335
+      source_shot: 43960
+  45166:
     SXR:
       start_time_ms: 285
       end_time_ms: 335

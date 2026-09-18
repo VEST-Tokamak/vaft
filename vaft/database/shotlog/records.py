@@ -184,17 +184,19 @@ def trigger_table(records: dict[int, dict[str, Any]], offset_ms: int | float = D
     shots: dict[int, dict[str, Any]] = {}
     for shot, record in records.items():
         entry: dict[str, Any] = {}
+        # Under an alias two logged labels compete for one key (SXR1 -> SXR).
+        # The shot's own value beats an inherited one, then the most recently
+        # set wins -- never whichever happened to be iterated last.
+        rank: dict[str, tuple[bool, int]] = {}
         for timing in record["effective_timing"]:
             if timing["system"] != "diagnostic" or timing.get("window_ms") is None:
                 continue
             start, end = timing["window_ms"]
             label = TABLE_ALIASES.get(timing["identifier"], timing["identifier"])
-            if label != timing["identifier"] and any(
-                other["identifier"] == label and other["system"] == "diagnostic"
-                and other.get("window_ms") is not None
-                for other in record["effective_timing"]
-            ):
+            priority = (not timing.get("inherited"), int(timing.get("source_shot", shot)))
+            if label in rank and rank[label] >= priority:
                 continue
+            rank[label] = priority
             entry[label] = {
                 "start_time_ms": to_daq_ms(start, offset_ms),
                 "end_time_ms": to_daq_ms(end, offset_ms),

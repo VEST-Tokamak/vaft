@@ -103,6 +103,22 @@ def archive_workbooks(source_dir: str | Path, filedb: FileDB, *, dry_run: bool =
     now = datetime.now(timezone.utc).isoformat()
     summary = {"copied": [], "unchanged": [], "replaced": [], "excluded": len(discovery.excluded)}
 
+    try:
+        _archive_each(discovery, root, manifest, summary, now, dry_run)
+    finally:
+        # Written even when a copy fails part-way (the operator saved the
+        # workbook mid-copy): a superseded file already moved aside must keep
+        # its history entry, and earlier workbooks their records.
+        manifest["excluded"] = discovery.excluded
+        manifest["source_dir"] = str(source_dir)
+        manifest["updated_at"] = now
+        if not dry_run:
+            _atomic_write(manifest_path, _json_bytes(manifest))
+    return summary
+
+
+def _archive_each(discovery, root: Path, manifest: dict[str, Any], summary: dict[str, Any],
+                  now: str, dry_run: bool) -> None:
     for workbook in discovery.included:
         # NFC so the archive reads the same on the Linux server as on macOS.
         relative = f"{workbook.year:04d}/{unicodedata.normalize('NFC', workbook.path.name)}"
@@ -143,13 +159,6 @@ def archive_workbooks(source_dir: str | Path, filedb: FileDB, *, dry_run: bool =
             "last_shot": workbook.last_shot,
             "archived_at": now,
         }
-
-    manifest["excluded"] = discovery.excluded
-    manifest["source_dir"] = str(source_dir)
-    manifest["updated_at"] = now
-    if not dry_run:
-        _atomic_write(manifest_path, _json_bytes(manifest))
-    return summary
 
 
 def write_extraction(
