@@ -153,8 +153,8 @@ def neutral_density_from_pressure(p_Pa, T_gas_K=300.0):
     Raises
     ------
     ValueError
-        Infinite, zero or negative pressure or temperature; ``nan`` passes
-        through as a missing value.
+        Non-finite (``nan`` included), zero or negative pressure or
+        temperature. Mask a gauge trace's gaps before calling.
 
     Convention
     ----------
@@ -213,8 +213,8 @@ def atomic_inventory_from_molecular_gas(n_molecular_m3, atoms_per_molecule=2):
     Raises
     ------
     ValueError
-        Infinite, zero or negative density or atom count; ``nan`` passes
-        through as a missing value.
+        Non-finite (``nan`` included), zero or negative density or atom
+        count.
 
     Convention
     ----------

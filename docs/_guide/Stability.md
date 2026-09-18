@@ -57,9 +57,14 @@ yourself and hand them over.
 import vaft
 
 ods = vaft.omas.sample_ods()
-eq  = ods['equilibrium']['time_slice'][0]['global_quantities']
 
-beta_N = eq['beta_normal']
+# The packaged sample stores q_95 but not beta_normal; derive it (and beta_pol, beta_tor, li_3)
+# from the stored equilibrium. A database shot whose equilibrium stage ran already carries it.
+if 'equilibrium.time_slice.0.global_quantities.beta_normal' not in ods:
+    vaft.omas.update_equilibrium_global_quantities_beta_li(ods, time_slice=0)
+
+eq     = ods['equilibrium.time_slice.0.global_quantities']
+beta_N = eq['beta_normal']        # [%·m·T/MA]
 q_95   = eq['q_95']
 
 d_beta, beta_N_crit = vaft.formula.kink_stability_criterion(q_95, beta_N)
@@ -69,15 +74,16 @@ d_bN,   bN_crit     = vaft.formula.beta_stability_boundary(beta_N, q_95)
 Every criterion returns a `(margin, critical_value)` pair, and the margin is literally
 `value - critical`. A **positive** margin therefore means the plasma sits **above** the boundary:
 
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 ```python
-alpha        = vaft.formula.ballooning_alpha_from_p_B_R(p, B, R)   # alpha = -2 mu0 R (dp/dR) / B^2
+alpha        = vaft.formula.ballooning_alpha_from_p_B_R(p, B, R, q)   # alpha = -2 mu0 R q^2 (dp/dR) / B^2
 s            = vaft.formula.shear_from_r_q(r, q)                   # s = (r/q) dq/dr
 d_alpha, a_c = vaft.formula.ballooning_stability_criterion(alpha, s)   # alpha_crit = 0.6 s
 
 unstable = d_alpha > 0        # alpha has crossed the ideal ballooning boundary
 ```
 
-$$ \alpha = -\frac{2\mu_0 R}{B^2}\frac{dp}{dR}, \qquad \alpha_{\rm crit} = 0.6\,s, \qquad
+$$ \alpha = -\frac{2\mu_0 R\,q^2}{B^2}\frac{dp}{dR}, \qquad \alpha_{\rm crit} = 0.6\,s, \qquad
    s = \frac{r}{q}\frac{dq}{dr} $$
 
 ## Density limit
@@ -93,6 +99,7 @@ is conventionally formed with the **line-averaged** electron density. Both argum
 
 ## The combined margin helper, and its one trap
 
+<!-- docs-snippet: skip fragment (placeholder name n_e is never defined on the page) -->
 ```python
 beta_margin, q_margin, density_margin = vaft.formula.plasma_stability_margins(
     beta_N, q_95, n_e, n_G
@@ -116,8 +123,9 @@ Troyon-type relation expressed in two different unit conventions. Do not mix the
 The equilibrium IDS already carries $\beta_N$ and $q_{95}$ per time slice, so the whole-discharge view
 needs no formula call:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
-ods = vaft.database.load_ods(39915, directory="public")
+ods = vaft.database.load_ods(39915, source="public")
 
 vaft.omas.plot_equilibrium_time_beta_n(ods)
 vaft.omas.plot_equilibrium_time_q95(ods)
@@ -132,6 +140,7 @@ excursion coincides with a disruption.
 The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson *et al.*, Nucl. Fusion
 **29**, 1989) is available for overlaying on that space:
 
+<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 ```python
 qa_ref, li_ref = vaft.formula.empirical_li_qa()          # 18 surveyed points
 li             = vaft.formula.li_from_qa_empirical(qa)   # piecewise-linear interpolation
@@ -157,6 +166,7 @@ The installation root is read from the **`GPECHOME`** environment variable unles
 
 ## Configure, prepare, run
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 from pathlib import Path
 from vaft.code import GPECCaseInputs, GPECSuiteConfig, run_gpec_suite_case
@@ -223,6 +233,7 @@ A prepared case materialises one directory per module and mode:
 so the DCON $n=1$ run of the case above lands in `.../linear_stability/00340/dcon/nn=1/`. Collect the
 products of a whole case with:
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 from vaft.code import collect_gpec_suite_outputs
 
@@ -238,6 +249,7 @@ The result is a dict keyed by module name (`dcon`, `rdcon`, `stride`, `gpec`).
 `outputs`. The `ok` property is true when `status` is `completed` or `stable` **and**
 `returncode == 0`, so inspect it per module rather than trusting the suite-level return code alone:
 
+<!-- docs-snippet: skip fragment (placeholder name result is never defined on the page) -->
 ```python
 for record in result.records:
     print(record.module, record.mode, record.status, record.ok, record.reason)
@@ -254,6 +266,7 @@ make the cell a failure. A run that produced no usable output is still `failed`,
 GPEC's EFIT reader is fixed-column and rejects headers that EFIT itself will happily write. If a case
 fails at the file-reading stage, normalise the header first:
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.code import format_gfile_header_for_gpec
 

@@ -304,6 +304,7 @@ A `connection ok` message confirms you are connected. See the [detailed guide](h
 
 ### Basic Usage
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -406,6 +407,7 @@ they have a home there.
 `result.ok` property. Use `result.usable` and `result.slice_statuses` when the
 scientific usability of the generated equilibria matters:
 
+<!-- docs-snippet: skip fragment (placeholder name result is never defined on the page) -->
 ```python
 for status in result.slice_statuses:
     print(status.time, status.overall_status, status.failure_codes)
@@ -421,6 +423,7 @@ each status round-trips through JSON with `to_dict()` and `from_dict()`.
 Routine k-file settings are available as typed, validated objects instead of
 generator literals. Defaults preserve the existing VEST routine semantics:
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.code import (
     EFITConfig,
@@ -488,6 +491,7 @@ vaft plot equilibrium_overview --shot 39915 --option time_slice=4
 vaft export --shot 41672 --source public --backend imas-nc omas-json geqdsk
 ```
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 ods = vaft.database.load(39915)                       # reads main
 legacy = vaft.database.load(39915, source="public")   # legacy reference
@@ -506,6 +510,7 @@ to avoid the many requests made by `hsget`. Use `transport="canonical"` to
 bypass derived images or `transport="h5image"` to require them. Direct lazy
 `open()` always keeps canonical selection-based access.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 with vaft.database.open(39915, paths="equilibrium") as ods:
     psi = ods["equilibrium.time_slice.0.profiles_2d.0.psi"]
@@ -514,6 +519,7 @@ with vaft.database.open(39915, paths="equilibrium") as ods:
 The lazy API supports occurrence 0 in this first version. Native IDS use the
 explicit remote representation:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 equilibrium = vaft.database.load(
     39915, representation="imas", paths="equilibrium"
@@ -530,6 +536,7 @@ IMAS handle. It returns a read-only, lazy `IDSToplevel`; each requested leaf is
 read directly from the corresponding HSDS IDS domain. This first version
 supports occurrence 0 and an exact stored IMAS DD version.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 with vaft.database.open(
     39915, representation="imas", paths="equilibrium"
@@ -540,6 +547,7 @@ with vaft.database.open(
 Local artifacts are deliberately separate from the HSDS API. They are
 content-detected rather than selected by a format flag:
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 ```python
 ods = vaft.omas.load("./shot/master.h5")
 with vaft.imas.load("./equilibrium.nc") as entry:
@@ -549,6 +557,7 @@ with vaft.imas.load("./equilibrium.nc") as entry:
 
 ### Profile Fitting
 
+<!-- docs-snippet: skip fragment (placeholder name geq is never defined on the page) -->
 ```python
 # Map Thomson scattering data onto the equilibrium's radial coordinates, then fit profiles (rho_tor_norm by default)
 mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)

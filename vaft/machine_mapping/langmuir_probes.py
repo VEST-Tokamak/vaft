@@ -445,15 +445,22 @@ def apply_langmuir_probe_measured_positions(
 
     Defaults to the bundled ``vaft/data/legacy/langmuir_probe_positions.csv``
     table (per-shot mid/upper probe radial positions from the VEST shot log)
-    when ``csv_path`` is not given. Non-blocking by design: a missing/
-    unreadable CSV or a shot absent from it only logs at INFO and returns --
-    it must never prevent the raw-signal path (n_e/t_e) from being processed
-    and stored. Only ``position.r`` is touched; ``n_e``/``t_e``/``time`` are
+    when ``csv_path`` is not given. Non-blocking by design: it must never
+    prevent the raw-signal path (n_e/t_e) from being processed and stored, so
+    nothing here raises. A shot absent from the table logs at INFO -- most
+    shots have no entry. A table that is *missing* logs a WARNING, because
+    then the same shot maps to a different ODS than on an installation that
+    has it, and an INFO record is invisible at the default level. Only ``position.r`` is touched; ``n_e``/``t_e``/``time`` are
     never re-derived here.
     """
     path = Path(csv_path) if csv_path is not None else DEFAULT_POSITION_CSV
     if not path.exists():
-        logger.info("Measured-position CSV %s not found for shot %s; leaving position.r unset.", path, shot)
+        logger.warning(
+            "Measured-position CSV %s not found; langmuir_probes.embedded[].position.r is left unset "
+            "for shot %s. The default table ships with VAFT, so a missing one means an incomplete "
+            "installation; pass position_csv_path/csv_path to use another.",
+            path, shot,
+        )
         return
 
     try:
