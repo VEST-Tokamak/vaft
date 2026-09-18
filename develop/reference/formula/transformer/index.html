@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4a6a506</code>. What is described
+  <code>e657912</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/transformer.py"><code class="language-plaintext highlighter-rouge">vaft/formula/transformer.py</code></a>:
-7 public functions.  The category overview and notation come from the module
+8 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("transformer.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -334,6 +334,8 @@ $V_B$ turns a ramp-up into a ramp-down.</p>
   <li><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R</code></a> &mdash; Rate of change of the plasma current, Romero’s exact balance.
 </li>
   <li><a href="#resistive_voltage_from_R_p_I_p_I_ni"><code>resistive_voltage_from_R_p_I_p_I_ni</code></a> &mdash; Resistive voltage of the plasma, net of non-inductive current drive.
+</li>
+  <li><a href="#romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau"><code>romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau</code></a> &mdash; State rates of Romero’s first-order current-diffusion closure.
 </li>
 </ul>
 
@@ -731,6 +733,94 @@ Spitzer ring resistance is an estimate of the first.</p>
 </li>
 </ol>
 
+<h3 id="romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau"><code class="language-plaintext highlighter-rouge">romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau</code></h3>
+
+<p class="formula-signature"><code>romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(I_p_A, L_i_H, V_CB_V, V_B_V, V_R_V, k, tau_s)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>State rates of Romero’s first-order current-diffusion closure.</p>
+
+\[L_i\,\dot I_p = 2(V_B - V_R) + V,\qquad
+  I_p\,\dot L_i = 2(V_R - V_B) - 2V,\qquad
+  \dot V \simeq -\frac{V}{\tau} + \frac{k}{\tau}(V_R - V_B)\]
+
+<p>with $V = V_C - V_B$: the two exact identities of
+<code class="language-plaintext highlighter-rouge">plasma_current_rate_from_L_i_V_B_V_C_V_R</code> and
+<code class="language-plaintext highlighter-rouge">internal_inductance_rate_from_I_p_V_R_V_C</code> rewritten in $V$, and a
+first-order relaxation of $V$ that closes them.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite and non-zero.</p>
+</td></tr>
+  <tr><td><code>L_i_H</code></td><td>float or np.ndarray</td><td>H</td><td><p>Dimensional internal inductance, finite and positive.</p>
+</td></tr>
+  <tr><td><code>V_CB_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>$V = V_C - V_B$, the equilibrium-surface voltage relative to the boundary, finite.</p>
+</td></tr>
+  <tr><td><code>V_B_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Boundary loop voltage, finite.</p>
+</td></tr>
+  <tr><td><code>V_R_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage, finite.</p>
+</td></tr>
+  <tr><td><code>k</code></td><td>float or np.ndarray</td><td>-</td><td><p>Closure gain, finite.</p>
+</td></tr>
+  <tr><td><code>tau_s</code></td><td>float or np.ndarray</td><td>s</td><td><p>Closure time constant, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>dI_p_dt</code></td><td>float or np.ndarray</td><td>A/s</td><td><p>Rate of change of the plasma current.</p>
+</td></tr>
+  <tr><td><code>dL_i_dt</code></td><td>float or np.ndarray</td><td>H/s</td><td><p>Rate of change of the internal inductance.</p>
+</td></tr>
+  <tr><td><code>dV_CB_dt</code></td><td>float or np.ndarray</td><td>V/s</td><td><p>Rate of change of $V_C - V_B$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input, a zero current, a non-positive internal inductance
+    or a non-positive time constant.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Romero’s signs, as in the module docstring.  The first two rates are
+exact; only $\dot V$ is modelled.  The fixed point is $V = 0$ and
+$V_R = V_B$ – a flat loop-voltage profile – for any $k \ne 1$ and
+$\tau$: there $L_i$ and $I_p$ are both steady.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Eq. (41) is a first-order approximation of current
+diffusion, and $k$ and $\tau$ are identified per device and regime by
+fitting the model to measured histories (Romero’s JET fits); nothing here
+supplies them.  With $k = 0$ the relative voltage simply decays as
+$e^{-t/\tau}$.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One radial mode: a current profile that relaxes on two time scales, or a
+sawtoothing core, is outside it.  $V_R$ is an input, so an $R_p$ that
+depends on the evolving profile must be updated by the caller.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>plasma_current_rate_from_L_i_V_B_V_C_V_R
+internal_inductance_rate_from_I_p_V_R_V_C</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eqs. (41)-(45).
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -842,7 +932,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#current_weighted_flux_from_psi_j_dS" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_weighted_flux_from_psi_j_dS</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_I_p_dL_i_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_I_p_dL_i_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_from_psi_C_psi_B_I_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_from_psi_C_psi_B_I_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_rate_from_I_p_V_R_V_C" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_rate_from_I_p_V_R_V_C</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_rate_from_L_i_V_B_V_C_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_voltage_from_R_p_I_p_I_ni" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_voltage_from_R_p_I_p_I_ni</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#current_weighted_flux_from_psi_j_dS" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_weighted_flux_from_psi_j_dS</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_I_p_dL_i_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_I_p_dL_i_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_from_psi_C_psi_B_I_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_from_psi_C_psi_B_I_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_rate_from_I_p_V_R_V_C" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_rate_from_I_p_V_R_V_C</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_rate_from_L_i_V_B_V_C_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_voltage_from_R_p_I_p_I_ni" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_voltage_from_R_p_I_p_I_ni</a></li><li class="page-toc-item page-toc-level-3"><a href="#romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -960,7 +1050,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 19:03:51 +0000"
+        "time": "2026-09-18 19:20:17 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
