@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>29e215a</code>. What is described
+  <code>af1188a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/startup.py"><code class="language-plaintext highlighter-rouge">vaft/formula/startup.py</code></a>:
-28 public functions.  The category overview and notation come from the module
+30 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("startup.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -381,6 +381,10 @@ disagreement: every function below takes $|E_\parallel|$.</p>
   <li><a href="#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a> &mdash; Geometric centre and minor radius of the limiter aperture.
 </li>
   <li><a href="#townsend_breakdown_field"><code>townsend_breakdown_field</code></a> &mdash; Breakdown threshold field of a gas, by inverting the Townsend closure.
+</li>
+  <li><a href="#townsend_breakdown_field_for_gas"><code>townsend_breakdown_field_for_gas</code></a> &mdash; Breakdown threshold field of a catalogued fill gas, pressure in pascal.
+</li>
+  <li><a href="#townsend_coefficients_for_gas"><code>townsend_coefficients_for_gas</code></a> &mdash; Townsend similarity coefficients of a catalogued fill gas, in SI.
 </li>
   <li><a href="#townsend_ionization_coefficient"><code>townsend_ionization_coefficient</code></a> &mdash; Townsend first ionisation coefficient of a gas in a field.
 </li>
@@ -2266,6 +2270,190 @@ townsend_ionization_coefficient</p>
 </li>
 </ol>
 
+<h3 id="townsend_breakdown_field_for_gas"><code class="language-plaintext highlighter-rouge">townsend_breakdown_field_for_gas</code></h3>
+
+<p class="formula-signature"><code>townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Breakdown threshold field of a catalogued fill gas, pressure in pascal.</p>
+
+\[E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}\]
+
+<p><code class="language-plaintext highlighter-rouge">townsend_breakdown_field</code> with the $A$, $B$ pair of
+<code class="language-plaintext highlighter-rouge">townsend_coefficients_for_gas</code>.  For <code class="language-plaintext highlighter-rouge">gas="H2"</code> this is
+<code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code>, bit for bit.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>p_Pa</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Neutral fill pressure, finite and positive.</p>
+</td></tr>
+  <tr><td><code>connection_length_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Connection length of an open field line, finite and positive.</p>
+</td></tr>
+  <tr><td><code>gas</code></td><td>str</td><td>-</td><td><p>Exact catalogue key: <code class="language-plaintext highlighter-rouge">"H2"</code>, <code class="language-plaintext highlighter-rouge">"He"</code> or <code class="language-plaintext highlighter-rouge">"Ar"</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>V/m</td><td><p>Threshold field, <code class="language-plaintext highlighter-rouge">nan</code> where $A\,p\,L \le 1$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A gas that is not in the catalogue; a non-finite, zero or negative
+    pressure; an infinite, zero or negative connection length.  A <code class="language-plaintext highlighter-rouge">nan</code>
+    connection length passes through as a missing value.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Pressure in <strong>pascal</strong>, converted to torr and evaluated against the
+per-torr pair, exactly as <code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code> does, so the
+hydrogen entry reproduces it to the last bit rather than to rounding.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>No gas is easiest everywhere: the ordering depends on where the fill
+sits on its Paschen curve.  Over 100 m of connection length argon’s
+larger $A$ puts its threshold below hydrogen’s at 3 mPa, and its larger
+$B$ puts it above hydrogen’s by 30 mPa; helium’s small $A$ gives it no
+threshold at all at 3 mPa and the lowest one of the three from 7 mPa
+up.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Inherits the catalogue’s scatter: see
+<code class="language-plaintext highlighter-rouge">townsend_coefficients_for_gas</code> for the range the pairs span in the
+literature.  Pure gases only; a mixture is not a weighted average of
+these pairs.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Deuterium is not catalogued.  Says nothing about pre-ionisation or
+burn-through, as for <code class="language-plaintext highlighter-rouge">townsend_breakdown_field</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>$A\,p\,L \le 1$ warns and returns <code class="language-plaintext highlighter-rouge">nan</code> elementwise, from the same
+private kernel as the other two spellings, so the warning blames the
+caller’s line.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>townsend_coefficients_for_gas
+townsend_breakdown_field
+lloyd_breakdown_field</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>Yu. P. Raizer, <em>Gas Discharge Physics</em>, Springer (1991), Sec. 4.2.
+</li>
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+</li>
+</ol>
+
+<h3 id="townsend_coefficients_for_gas"><code class="language-plaintext highlighter-rouge">townsend_coefficients_for_gas</code></h3>
+
+<p class="formula-signature"><code>townsend_coefficients_for_gas(gas)</code></p>
+
+<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Townsend similarity coefficients of a catalogued fill gas, in SI.</p>
+
+\[A_{SI} = \frac{100\,A_{\mathrm{cm\,Torr}}}{P_T},\qquad
+  B_{SI} = \frac{100\,B_{\mathrm{cm\,Torr}}}{P_T}\]
+
+<p>with $P_T$ = <code class="language-plaintext highlighter-rouge">vaft.formula.constants.PA_PER_TORR</code> pascal per torr,
+ready to pass to <code class="language-plaintext highlighter-rouge">townsend_ionization_coefficient</code>.</p>
+
+<p>========  ==========================  =============================
+<code class="language-plaintext highlighter-rouge">gas</code>   $A$, $B$ [cm^-1 Torr^-1,   source
+          V cm^-1 Torr^-1]
+========  ==========================  =============================
+<code class="language-plaintext highlighter-rouge">"H2"</code>  5.1, 125                    Lloyd et al. 1991
+<code class="language-plaintext highlighter-rouge">"He"</code>  3, 34                       Raizer 1991
+<code class="language-plaintext highlighter-rouge">"Ar"</code>  12, 180                     Raizer 1991; Howatson
+========  ==========================  =============================</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>gas</code></td><td>str</td><td>-</td><td><p>Exact catalogue key: <code class="language-plaintext highlighter-rouge">"H2"</code>, <code class="language-plaintext highlighter-rouge">"He"</code> or <code class="language-plaintext highlighter-rouge">"Ar"</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>A</code></td><td>float</td><td>m^-1 Pa^-1</td><td><p>Townsend similarity coefficient.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>float</td><td>V m^-1 Pa^-1</td><td><p>Townsend similarity coefficient.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A gas that is not in the catalogue, including <code class="language-plaintext highlighter-rouge">"D2"</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Keys are chemical formulas matched exactly, so <code class="language-plaintext highlighter-rouge">"h2"</code> and
+<code class="language-plaintext highlighter-rouge">"hydrogen"</code> are refused rather than guessed at.  The table stores the
+published per-torr pair and converts on the way out, for the reason the
+module docstring gives: a rounded SI pair costs half a percent where a
+spherical tokamak’s prefill sits.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>Empirical fit.  Each pair is a single-exponential fit over a limited
+$E/p$ range, and the literature for one gas scatters by up to a factor of
+two in $B$ depending on that range – Massarczyk et al. collect 34 to 60
+V/(cm Torr) for helium and 133 to 320 for argon.  Refitting argon’s own
+data over a different $pd$ range gives $A = 3.6$, $B = 52$ (Norman et
+al.).  A pair is a representative value, not a measurement of VEST’s gas.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Deuterium is not catalogued: its measured coefficients are not
+hydrogen’s (Rose 1956), and Lloyd applies his hydrogen pair to both
+isotopes by approximation.  Use <code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code> for that
+approximation deliberately, or pass a measured pair to
+<code class="language-plaintext highlighter-rouge">townsend_breakdown_field</code>.  Helium’s $B$ is confirmed against
+Raizer through Massarczyk et al.’s Table I; its $A$ is Raizer’s value as
+quoted in secondary sources, not read from the table directly.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>townsend_ionization_coefficient
+townsend_breakdown_field_for_gas</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>Yu. P. Raizer, <em>Gas Discharge Physics</em>, Springer (1991), Sec. 4.2.
+</li>
+  <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+</li>
+  <li>A. M. Howatson, <em>An Introduction to Gas Discharges</em>, Pergamon, as cited by [5].
+</li>
+  <li>R. Massarczyk et al., arXiv:1612.07170 (2016), Table I.
+</li>
+  <li>R. Norman et al., arXiv:2107.07521 (2021), Table 1.
+</li>
+  <li>D. J. Rose, Phys. Rev. 104 (1956) 273.
+</li>
+</ol>
+
 <h3 id="townsend_ionization_coefficient"><code class="language-plaintext highlighter-rouge">townsend_ionization_coefficient</code></h3>
 
 <p class="formula-signature"><code>townsend_ionization_coefficient(E_parallel, p_Pa, A, B)</code></p>
@@ -2577,7 +2765,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_ionization_fraction_from_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_ionization_fraction_from_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#ionization_fraction_from_n_e_n_D0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ionization_fraction_from_n_e_n_D0</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#lr_time_from_L_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lr_time_from_L_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_circular_from_R0_a_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_circular_from_R0_a_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_barrier_from_P_RI_n_0_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_barrier_from_P_RI_n_0_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistivity_from_n_e_nu_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistivity_from_n_e_nu_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_ionization_fraction_from_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_ionization_fraction_from_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#ionization_fraction_from_n_e_n_D0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ionization_fraction_from_n_e_n_D0</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#lr_time_from_L_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lr_time_from_L_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_circular_from_R0_a_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_circular_from_R0_a_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_barrier_from_P_RI_n_0_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_barrier_from_P_RI_n_0_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistivity_from_n_e_nu_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistivity_from_n_e_nu_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field_for_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field_for_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_coefficients_for_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_coefficients_for_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -2695,7 +2883,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 15:50:15 +0000"
+        "time": "2026-09-18 17:09:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
