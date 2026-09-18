@@ -246,7 +246,12 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
 
     # Map to 2D grid and compute averages
     n_e_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
-    n_e_vol_avg, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)  # [m^-3]
+    from vaft.omas.process_wrapper import _slice_plasma_weights
+
+    n_e_vol_avg, _ = volume_average(
+        n_e_RZ, psiN_RZ, R_grid, Z_grid,
+        weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+    )  # [m^-3]
     # Ensure scalar
     if isinstance(n_e_vol_avg, np.ndarray):
         n_e_vol_avg = float(n_e_vol_avg[0] if len(n_e_vol_avg) > 0 else n_e_vol_avg)
@@ -837,10 +842,17 @@ def compute_bremsstrahlung_power(
     
     # Compute volume integrals: P_B = ∫_V S_B dV
     # Using volume_average: returns (average, volume), so integral = average * volume
-    p_avg_pressure, V = volume_average(S_B_pressure_RZ, psiN_RZ, R_grid, Z_grid)
+    from vaft.omas.process_wrapper import _slice_plasma_weights
+
+    plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ)
+    p_avg_pressure, V = volume_average(
+        S_B_pressure_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+    )
     P_B_pressure = float(p_avg_pressure * V)  # [W]
     
-    p_avg_electron, _ = volume_average(S_B_electron_RZ, psiN_RZ, R_grid, Z_grid)
+    p_avg_electron, _ = volume_average(
+        S_B_electron_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+    )
     P_B_electron = float(p_avg_electron * V)  # [W]
     
     return P_B_pressure, P_B_electron
