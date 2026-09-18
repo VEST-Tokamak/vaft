@@ -142,6 +142,22 @@ def _submission_environment() -> dict[str, str]:
     }
 
 
+#: Variables srun reads as option defaults that describe the *enclosing* step
+#: or job rather than the step being launched. Inherited through
+#: ``--export=ALL`` from a caller that is itself a step (``srun python ...``),
+#: the outer CPU binding makes the new step fail with "CPU binding outside of
+#: job step allocation" (measured on Slurm 22.05), and an outer per-CPU memory
+#: default conflicts with ``--mem``.
+_STEP_INHERITED = (
+    "SLURM_CPU_BIND", "SLURM_MEM_BIND", "SLURM_DISTRIBUTION", "SLURM_CPUS_PER_TASK",
+    "SLURM_MEM_PER_CPU", "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_GPU", "SRUN_CPUS_PER_TASK",
+)
+
+
+def _step_environment(environment: dict[str, str]) -> dict[str, str]:
+    return {key: value for key, value in environment.items() if not key.startswith(_STEP_INHERITED)}
+
+
 def _cpus(request: ExecutionRequest) -> int:
     resources = request.resources
     return int(resources.ntasks) * int(resources.threads_per_task or 1)
@@ -310,7 +326,7 @@ class SlurmBackend:
             argv.append("--overlap")
         argv += [*self.extra_args, "--", *(str(part) for part in request.command)]
 
-        environment = execution_environment(request)
+        environment = _step_environment(execution_environment(request))
         log_path = Path(request.log_path) if request.log_path is not None else None
         started = time.monotonic()
         if log_path is None:

@@ -111,6 +111,7 @@ _FAKES = {
         record(sys.argv[-1], "CANCELLED by 501|0:15")
     """,
     "srun": """
+        (state / "srun_env.json").write_text(json.dumps(dict(os.environ)))
         command = sys.argv[sys.argv.index("--") + 1:]
         os.execvp(command[0], command)
     """,
@@ -485,6 +486,21 @@ def test_a_step_launched_from_a_step_overlaps(tmp_path, slurm, monkeypatch):
     SlurmBackend().run(_python(_workdir(tmp_path), "pass"))
     (srun,) = slurm("srun")
     assert "--overlap" in srun
+
+
+def test_a_step_does_not_inherit_the_enclosing_steps_binding(tmp_path, slurm, monkeypatch):
+    """`srun python driver.py` exports its own CPU mask; the new step must not reuse it."""
+    monkeypatch.setenv("SLURM_JOB_ID", "4242")
+    monkeypatch.setenv("SLURM_STEP_ID", "0")
+    for name, value in {
+        "SLURM_CPU_BIND": "quiet,mask_cpu:0xFF", "SLURM_CPU_BIND_LIST": "0xFF",
+        "SLURM_MEM_PER_CPU": "1000", "SLURM_CPUS_PER_TASK": "8", "SRUN_CPUS_PER_TASK": "8",
+    }.items():
+        monkeypatch.setenv(name, value)
+    SlurmBackend().run(_python(_workdir(tmp_path), "pass", resources=ResourceRequest(memory_mb=512)))
+    environment = json.loads((slurm.directory / "srun_env.json").read_text())
+    assert not [key for key in environment if key.startswith(("SLURM_CPU_BIND", "SLURM_MEM_PER", "SLURM_CPUS_PER", "SRUN_"))]
+    assert environment["SLURM_JOB_ID"] == "4242"
 
 
 def test_a_step_timeout_interrupts_srun_and_is_returned(tmp_path, slurm, monkeypatch):
