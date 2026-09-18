@@ -319,7 +319,7 @@ ORDER = (
     "profile_fit_report_thomson_scattering",
     "plot_charge_exchange_profile_fit",
     "electron_pressure",
-    "effective_charge",
+    "z_eff_from_n_s_Z_s",
     "update_equilibrium_derived_profiles(ods)",
     "plot_equilibrium_overview_histories",
     "plot_equilibrium_time_shape(ods)",
@@ -396,7 +396,7 @@ def test_the_kinetic_apis_are_used(book):
 def test_the_derived_state_formulas_are_used(book):
     executable = _executable(book)
     for api in ("vaft.formula.electron_pressure", "vaft.formula.ion_pressure",
-                "vaft.formula.effective_charge", "vaft.formula.impurity_fraction_from_effective_charge",
+                "vaft.formula.z_eff_from_n_s_Z_s", "vaft.formula.impurity_fraction_from_effective_charge",
                 "vaft.formula.normalized_gradient_scale_length",
                 "vaft.formula.electron_collisionality_sauter",
                 "vaft.formula.rho_star_from_M_T_B_R_epsilon"):
@@ -460,7 +460,9 @@ def test_the_rho_proxy_is_checked_before_and_after_derivation(executed):
 def test_the_efit_weighting_is_shown_as_it_is(executed):
     printed = _printed(executed)
     assert "total chi-square" in printed
-    assert "Ip share of chi-square: 1.0000000000" in printed
+    assert "Ip chi-square as EFIT reported it" in printed
+    assert "vessel accounting term" in printed
+    assert "Ip chi-square, plasma-only residual" in printed
     assert "sigma EFIT used" in printed
     assert "diamagnetic flux: measured -" in printed
 

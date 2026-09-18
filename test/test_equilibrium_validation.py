@@ -137,15 +137,15 @@ def test_aggregation_never_collapses_the_undecided_into_a_pass():
 
 
 def test_not_available_is_distinct_from_pass_and_from_fail(report):
-    # The sample carries EFIT's reconstructed values (m-file replay, #952).
-    # Every magnetic family passes only because legacy_weight gives EFIT a
-    # sigma of weight*1e4 (1000 T on a probe); Ip fails because EFIT's reported
-    # Ip chi-square adds the prescribed vessel current (#918). No kinetic data.
-    assert report["summary"]["diagnostic_fit"] == FAIL
+    # The sample carries EFIT's reconstructed values (m-file replay, #952), but
+    # the k-files recorded no uncertainty model: residuals normalised by the
+    # legacy sigma (weight * 1e4, 1000 T on a probe) are not graded (#891), so
+    # every fitted family is not available rather than a pass. No kinetic data.
+    assert report["summary"]["diagnostic_fit"] == NOT_AVAILABLE
     fit = report["diagnostic_fit"]
-    assert fit["ip"]["status"] == FAIL
-    for family in ("bpol_probe", "flux_loop", "pf_current"):
-        assert fit[family]["status"] == PASS, family
+    for family in ("ip", "bpol_probe", "flux_loop", "pf_current"):
+        assert fit[family]["status"] == NOT_AVAILABLE, family
+        assert "uncertainty model" in fit[family]["slices"][0]["reason"], family
     kinetic = report["independent_validation"]["kinetic_pressure"]
     assert kinetic["status"] == NOT_AVAILABLE
     assert "core_profiles" in kinetic["slices"][0]["reason"]

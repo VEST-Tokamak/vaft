@@ -181,8 +181,11 @@ diamagnetic flux --- measured; vessel currents --- modelled; the limiter ---
 geometry.
 
 Then the honest part, which the notebook prints rather than asserts. On these
-samples the total $\chi^2$ is the $I_p$ term, although the reconstructed $I_p$
-equals the measured one to float precision (#918). EFIT's $\sigma$ is its
+samples EFIT reports an $I_p$ $\chi^2$ of about 200 although the reconstructed
+$I_p$ equals the measured one to float precision: all of it is the vessel term
+of a Rogowski that encloses the vessel, and VEST's inner Rogowski does not
+(#918). VAFT recomputes the plasma-only residual, which is essentially zero.
+What remains is dominated by the probes and is tiny, because EFIT's $\sigma$ is its
 weight times $10^4$: about 1000 T for a probe, while the diagnostic recorded
 1%. The ratio is of order $10^6$. The weights, not the diagnostics, set the
 fit. And the diamagnetic loop was submitted as $|\Delta\Phi|$ at weight
