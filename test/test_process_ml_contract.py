@@ -424,7 +424,9 @@ def test_hash_split_never_moves_a_group_when_others_are_added():
     a, b = ml.split_groups(base, spec), ml.split_groups(grown, spec)
     assert all(b.assignment[g] == p for g, p in a.assignment.items())
     # the permutation split does not promise this, which is why hash exists
-    assert ml.split_groups(grown, ml.SplitSpec(seed=7, method="hash")).spec.to_dict()["method"] == "hash"
+    perm_a = ml.split_groups(base, ml.SplitSpec(seed=7))
+    perm_b = ml.split_groups(grown, ml.SplitSpec(seed=7))
+    assert any(perm_b.assignment[g] != p for g, p in perm_a.assignment.items())
     shares = np.bincount([list(b.partitions).index(p) for p in b.assignment.values()], minlength=3) / 60
     assert abs(shares[0] - 0.7) < 0.2
 
@@ -695,7 +697,7 @@ def test_repository_is_read_from_the_registry_origin(tmp_path):
 def test_a_score_model_is_not_calibrated_on_the_samples_it_was_fitted_on():
     ds, split, _ = _trained()
     knn = ml.train_model(ds, split, ml.ModelSpec(architecture="knn_distance", task="k", backend="numpy")).artifact
-    with pytest.raises(ml.ModelContractError, match="in-sample"):
+    with pytest.raises(ml.ModelContractError, match="fitted on"):
         ml.calibrate_threshold(knn, ds, split, partition="train")
     assert ml.calibrate_threshold(knn, ds, split).partition == "validation"
 
@@ -727,3 +729,66 @@ def test_a_failed_swap_keeps_the_previous_cache(tmp_path, monkeypatch):
     with pytest.raises(ml.ModelResolutionError, match="disk full"):
         resolver._swap_into_place(staging, target)
     assert (target / "old").read_text() == "old"
+
+
+def test_a_different_split_cannot_leak_training_groups_into_a_holdout():
+    ds, split, result = _trained()
+    other = ml.split_groups(ds, ml.SplitSpec(seed=99))
+    leaking = [p for p in ("validation", "test")
+               if set(other.groups(p)) & set(result.split.groups("train"))]
+    assert leaking  # seed 99 moves some training shots into a holdout
+    for partition in leaking:
+        with pytest.raises(ml.ModelContractError, match="fitted on"):
+            ml.evaluate_model(result.artifact, ds, other, partition)
+        with pytest.raises(ml.ModelContractError, match="fitted on"):
+            ml.calibrate_threshold(result.artifact, ds, other, partition=partition)
+    # the model's own training partition may still be evaluated: training metrics
+    assert ml.evaluate_model(result.artifact, ds, split, "train").n_samples > 0
+
+
+def test_evaluate_and_calibrate_check_columns_like_predict():
+    fspec = ml.FeatureSpec(feature_names=tuple("abcdef"), blocks={"s1": ("a", "b", "c"), "s2": ("d", "e", "f")})
+    base = _toy()
+    table = ml.build_dataset(base.inputs, base.groups, spec=base.spec, feature_spec=fspec)
+    split = ml.split_groups(table, ml.SplitSpec(seed=1))
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="s1", backend="numpy", hyperparameters={"n_components": 2})
+    model = ml.train_model(table.select_block("s1"), split, spec).artifact
+    wrong = table.select_block("s2")
+    with pytest.raises(ml.ModelContractError, match="columns"):
+        ml.evaluate_model(model, wrong, split)
+    with pytest.raises(ml.ModelContractError, match="columns"):
+        ml.calibrate_threshold(model, wrong, split)
+
+
+def test_blocked_knn_matches_brute_force(monkeypatch):
+    from vaft.process.ml._backends import numpy as backend
+
+    rng = np.random.default_rng(3)
+    ref = rng.standard_normal((57, 4))
+    queries = rng.standard_normal((23, 4))
+    brute = np.sqrt(np.sort(((queries[:, None] - ref[None]) ** 2).sum(-1), axis=1)[:, 2])
+    self_d = ((ref[:, None] - ref[None]) ** 2).sum(-1)
+    np.fill_diagonal(self_d, np.inf)
+    brute_self = np.sqrt(np.sort(self_d, axis=1)[:, 2])
+    monkeypatch.setattr(backend, "_KNN_BLOCK", 5)
+    monkeypatch.setattr(backend, "_KNN_REFERENCE_BLOCK", 7)
+    np.testing.assert_allclose(backend._kth_distance(queries, ref, 3, exclude_self=False), brute, atol=1e-9)
+    np.testing.assert_allclose(backend._kth_distance(ref, ref, 3, exclude_self=True), brute_self, atol=1e-9)
+
+
+def test_fetch_keeps_only_pinned_files_and_accepts_a_concurrent_winner(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    registry, cache = _publish(tmp_path, versions=("0.1.0",))
+    release = tmp_path / "release"
+    shutil.copytree(cache / "toy_ae" / "0.1.0", release)
+    (release / "notes.txt").write_text("not pinned")
+    monkeypatch.setattr(resolver, "_download_release", _fake_release(release))
+    ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=cache)
+    assert not (cache / "toy_ae" / "0.1.0" / "notes.txt").exists()
+
+    def lose_the_race(staging, target):
+        raise ml.ModelResolutionError("could not move: directory not empty")
+
+    monkeypatch.setattr(resolver, "_swap_into_place", lose_the_race)
+    assert ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=cache).version == "0.1.0"

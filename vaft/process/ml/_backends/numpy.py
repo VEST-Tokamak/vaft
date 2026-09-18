@@ -15,8 +15,10 @@ import numpy as np
 from .._types import ModelContractError
 from . import Backend, mse
 
-#: Query rows per block in the k-NN distance computation, bounding memory.
+#: Query and reference rows per block in the k-NN distance computation; a
+#: block's distance matrix is at most 1024 x 8192 float64 (64 MiB).
 _KNN_BLOCK = 1024
+_KNN_REFERENCE_BLOCK = 8192
 
 
 def _pack(**arrays) -> bytes:
@@ -44,12 +46,21 @@ def _kth_distance(queries: np.ndarray, reference: np.ndarray, k: int, exclude_se
     ref_sq = np.einsum("ij,ij->i", reference, reference)
     for start in range(0, len(queries), _KNN_BLOCK):
         block = queries[start:start + _KNN_BLOCK]
-        sq = np.einsum("ij,ij->i", block, block)[:, None] + ref_sq[None, :] - 2.0 * block @ reference.T
-        np.maximum(sq, 0.0, out=sq)
-        if exclude_self:
-            rows = np.arange(len(block))
-            sq[rows, start + rows] = np.inf
-        scores[start:start + len(block)] = np.sqrt(np.partition(sq, k - 1, axis=1)[:, k - 1])
+        block_sq = np.einsum("ij,ij->i", block, block)[:, None]
+        rows = np.arange(len(block))
+        nearest = np.full((len(block), 0), np.inf)  # running k smallest squared distances
+        for r0 in range(0, len(reference), _KNN_REFERENCE_BLOCK):
+            chunk = reference[r0:r0 + _KNN_REFERENCE_BLOCK]
+            sq = block_sq + ref_sq[None, r0:r0 + len(chunk)] - 2.0 * block @ chunk.T
+            np.maximum(sq, 0.0, out=sq)
+            if exclude_self:
+                own = start + rows - r0
+                inside = (own >= 0) & (own < len(chunk))
+                sq[rows[inside], own[inside]] = np.inf
+            merged = np.concatenate([nearest, sq], axis=1)
+            keep = min(k, merged.shape[1])
+            nearest = np.partition(merged, keep - 1, axis=1)[:, :keep]
+        scores[start:start + len(block)] = np.sqrt(np.sort(nearest, axis=1)[:, k - 1])
     return scores
 
 

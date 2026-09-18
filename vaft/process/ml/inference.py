@@ -56,6 +56,16 @@ def _forward(model, x: np.ndarray, available: np.ndarray | None = None) -> dict[
     return outputs
 
 
+def _check_columns(model, dataset: DatasetArtifact) -> None:
+    """Refuse a dataset whose named columns differ from the model's."""
+    names = dataset.feature_spec.feature_names if isinstance(dataset, FeatureDataset) else dataset.spec.input_names
+    if names and model.input_names and tuple(names) != tuple(model.input_names):
+        raise ModelContractError(
+            f"dataset columns {list(names)[:4]}... differ from the columns model "
+            f"{model.name!r} was trained on {list(model.input_names)[:4]}..."
+        )
+
+
 def predict(model, data):
     """Run a model on new data and stamp the result with its exact identity.
 
@@ -103,12 +113,7 @@ def predict(model, data):
     Machine-independent.
     """
     if isinstance(data, DatasetArtifact):
-        names = data.feature_spec.feature_names if isinstance(data, FeatureDataset) else data.spec.input_names
-        if names and model.input_names and tuple(names) != tuple(model.input_names):
-            raise ModelContractError(
-                f"dataset columns {list(names)[:4]}... differ from the columns model "
-                f"{model.name!r} was trained on {list(model.input_names)[:4]}..."
-            )
+        _check_columns(model, data)
         x = np.asarray(data.inputs)
         available = data.available
         groups, meta = data.groups, dict(data.sample_meta)

@@ -250,8 +250,11 @@ def _swap_into_place(staging: Path, target: Path) -> None:
             os.replace(target, retired)
         os.replace(staging, target)
     except OSError as error:
-        if retired is not None and retired.exists() and not target.exists():
-            os.replace(retired, target)
+        if retired is not None and retired.exists():
+            if not target.exists():
+                os.replace(retired, target)
+            else:
+                shutil.rmtree(retired, ignore_errors=True)
         raise ModelResolutionError(f"could not move the verified download into {target}: {error}") from error
     if retired is not None:
         shutil.rmtree(retired, ignore_errors=True)
@@ -328,7 +331,19 @@ def fetch_model(name, *, version=None, stage=None, registry=None, cache=None, en
             raise ModelResolutionError(
                 f"release assets of {name} {version} do not match the registry manifest: " + "; ".join(problems)
             )
-        _swap_into_place(staging, target)
+        # Only files the registry pins enter the cache.
+        for extra in [p for p in staging.iterdir() if p.name not in manifest["files"]]:
+            if extra.is_dir():
+                shutil.rmtree(extra)
+            else:
+                extra.unlink()
+        try:
+            _swap_into_place(staging, target)
+        except ModelResolutionError:
+            # A concurrent fetch of the same version may have won the swap;
+            # its copy is as good as ours if it verifies.
+            if _cache_problems(target, manifest):
+                raise
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)

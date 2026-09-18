@@ -114,7 +114,7 @@ def check_cache(registry: Optional[str], cache: Optional[str]) -> CheckResult:
     import yaml
 
     cache_root = Path(cache).expanduser() if cache else resolver.default_cache_root()
-    ready, absent = [], []
+    ready, absent, broken = [], [], []
     for name in _models(root):
         try:
             index = yaml.safe_load((root / "models" / name / "releases.yaml").read_text(encoding="utf-8")) or {}
@@ -125,8 +125,14 @@ def check_cache(registry: Optional[str], cache: Optional[str]) -> CheckResult:
             try:
                 resolver.resolve_model(name, version=version, registry=root, cache=cache_root)
                 ready.append(f"{name} {version}")
-            except Exception:  # noqa: BLE001
-                absent.append(f"{name} {version}")
+            except Exception as error:  # noqa: BLE001
+                # Nothing cached yet is normal; a cached copy that differs is not.
+                (broken if "differs" in str(error) else absent).append(f"{name} {version}")
+    if broken:
+        return CheckResult(
+            label, FAIL, f"{cache_root}: cached files differ from the registry: {', '.join(broken[:5])}",
+            "Re-fetch them: vaft.process.ml.fetch_model(name, version=...) replaces a bad copy.",
+        )
     if not ready and not absent:
         return CheckResult(label, SKIP, f"nothing published to cache ({cache_root})")
     if absent:

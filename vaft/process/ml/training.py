@@ -263,6 +263,30 @@ def train_model(dataset, split, model_spec, config=None, *, name=None, train_mas
     )
 
 
+def _fitted_groups(model) -> tuple[str | None, set[str]]:
+    """The train-partition name and groups a model records, if it records them."""
+    train_partition = model.training.get("config", {}).get("train_partition")
+    groups = model.training.get("split", {}).get("groups", {}).get(train_partition, ())
+    return train_partition, {str(g) for g in groups}
+
+
+def _check_holdout(model, split: Split, partition: str, *, allow_train_partition: bool) -> None:
+    """Refuse a partition that contains groups the model was fitted on.
+
+    Compared by *group*, not by partition name: a split made with another seed,
+    or re-made after the corpus grew, can put training shots into "test".
+    """
+    train_partition, fitted = _fitted_groups(model)
+    if allow_train_partition and partition == train_partition:
+        return
+    overlap = sorted(set(split.groups(partition)) & fitted)
+    if overlap:
+        raise ModelContractError(
+            f"partition {partition!r} of this split holds {len(overlap)} group(s) model {model.name!r} was "
+            f"fitted on ({overlap[:5]}); use the split it was trained with (TrainingResult.split)"
+        )
+
+
 def _metrics(artifact: ModelArtifact, outputs, dataset: DatasetArtifact, mask: np.ndarray) -> dict:
     if not mask.any():
         return {}
@@ -312,6 +336,13 @@ def evaluate_model(model, dataset, split, partition="test", *, metrics=None):
         :class:`DatasetArtifact` of the evaluated samples; evaluated overall
         and per group, and merged into the built-in metrics [-].
 
+    Raises
+    ------
+    ModelContractError
+        When the partition holds groups the model was fitted on (other than
+        evaluating the training partition itself, which reports training
+        metrics), or the dataset's columns differ from the model's.
+
     Returns
     -------
     EvaluationResult
@@ -325,8 +356,10 @@ def evaluate_model(model, dataset, split, partition="test", *, metrics=None):
     -------------
     Machine-independent.
     """
-    from .inference import _forward
+    from .inference import _check_columns, _forward
 
+    _check_columns(model, dataset)
+    _check_holdout(model, split, partition, allow_train_partition=True)
     outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
     mask = split.mask(dataset, partition) & dataset.available_mask
     labels = dataset.group_labels
@@ -397,9 +430,10 @@ def calibrate_threshold(
     ModelContractError
         When the output is not a per-sample scalar, the population is empty,
         ``quantile`` is outside ``(0, 1)``, ``mask`` is given without a
-        ``population`` description, or a score model is calibrated on the
-        partition it was fitted on -- a k-NN scores its own training samples
-        against themselves, so that threshold would be too low; use
+        ``population`` description, the dataset's columns differ from the
+        model's, or the partition holds groups the model was fitted on -- a
+        model scores its own training samples in-sample (a k-NN against
+        themselves), so that threshold would be too low; use
         ``TrainingResult.train_scores`` for a training-population statistic.
 
     Defaults
@@ -411,16 +445,12 @@ def calibrate_threshold(
     -------------
     Machine-independent.
     """
-    from .inference import _forward
+    from .inference import _check_columns, _forward
 
     if not 0.0 < quantile < 1.0:
         raise ModelContractError(f"quantile must be in (0, 1); got {quantile}")
-    fitted_on = model.training.get("config", {}).get("train_partition")
-    if model.kind == "score" and partition == fitted_on:
-        raise ModelContractError(
-            f"a score model scores the samples it was fitted on in-sample; calibrate on another partition "
-            f"than {partition!r}, or use TrainingResult.train_scores"
-        )
+    _check_columns(model, dataset)
+    _check_holdout(model, split, partition, allow_train_partition=False)
     outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
     if output not in outputs or outputs[output].ndim != 1:
         raise ModelContractError(f"output {output!r} is not a per-sample scalar of this model")
