@@ -42,6 +42,8 @@ _SUBMODULES = {
     "fluctuation": ".fluctuation",
     "impa": ".impa",
     "langmuir": ".langmuir",
+    "line_of_sight": ".line_of_sight",
+    "magnetic_island": ".magnetic_island",
     "magnetics": ".magnetics",
     "numerical": ".numerical",
     "onset": ".onset",
@@ -86,6 +88,8 @@ _IMPORT_ORDER = (
     "wall_modes",
     "coils_non_axisymmetric",
     "camera_fluctuation",
+    "line_of_sight",
+    "magnetic_island",
     # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
     "ml",
 )

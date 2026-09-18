@@ -95,7 +95,10 @@ __all__ = [
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
     "find_rational_surfaces",
+    "StraightFieldLineMap",
     "lab_to_straight_field_line",
+    "straight_field_line_angle_on_grid",
+    "straight_field_line_map",
     "straight_field_line_tables",
     "resistive_layer_at",
     "resistive_layer_parameters",
@@ -5164,3 +5167,428 @@ def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
     angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
     result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
     return float(result) if np.ndim(theta_lab) == 0 else result
+
+
+class StraightFieldLineMap:
+    """The PEST straight-field-line angle of one flux map, evaluable anywhere.
+
+    Built by :func:`straight_field_line_map`; see that function for the
+    definition, the construction and its limits.  Holds a table of the
+    flux surfaces sampled on rays from the magnetic axis, indexed by
+    ``sqrt(psi_norm)`` and the geometric angle, and a bicubic spline of the
+    flux itself.  Every method takes points in metres and broadcasts.
+    """
+
+    def __init__(self, spline, psi_axis, psi_boundary, magnetic_axis, x_levels,
+                 theta, rho, nu, rho_boundary):
+        self._spline = spline
+        self.psi_axis = float(psi_axis)
+        self.psi_boundary = float(psi_boundary)
+        self.magnetic_axis = (float(magnetic_axis[0]), float(magnetic_axis[1]))
+        self.sqrt_psi_norm = x_levels
+        self.theta_geometric = theta
+        self.rho = rho
+        self.nu = nu
+        self.rho_boundary = rho_boundary
+        pad = 4
+        theta_ext = np.concatenate((theta[-pad:] - 2.0 * np.pi, theta, theta[:pad] + 2.0 * np.pi))
+        nu_ext = np.concatenate((nu[:, -pad:], nu, nu[:, :pad]), axis=1)
+        rho_b_ext = np.concatenate((rho_boundary[-pad:], rho_boundary, rho_boundary[:pad]))
+        self._nu_spline = RectBivariateSpline(x_levels, theta_ext, nu_ext)
+        self._theta_ext = theta_ext
+        self._rho_b_ext = rho_b_ext
+        self._outboard = None
+
+    def outboard_radius(self, psi_norm):
+        """Major radius where each normalized flux surface crosses the outboard midplane [m].
+
+        Tabulated once on 2049 points of the outboard ray from the axis to the
+        boundary, where the normalized flux is monotonic, and inverted by
+        linear interpolation; well below a tenth of a millimetre on a
+        machine-sized grid.
+        """
+        if self._outboard is None:
+            ra, za = self.magnetic_axis
+            rho = np.linspace(0.0, self.rho_boundary[0], 2049)
+            psin = np.maximum.accumulate(self.psi_norm(ra + rho, np.full_like(rho, za)))
+            psin[0] = 0.0
+            self._outboard = (psin, ra + rho)
+        psin, radius = self._outboard
+        return np.interp(np.asarray(psi_norm, float), psin, radius)
+
+    def psi(self, r, z):
+        """Flux at the points, from the bicubic spline [flux unit of the map]."""
+        return self._spline.ev(np.asarray(r, float), np.asarray(z, float))
+
+    def psi_norm(self, r, z):
+        """Normalized flux at the points [-]."""
+        return (self.psi(r, z) - self.psi_axis) / (self.psi_boundary - self.psi_axis)
+
+    def grad_psi(self, r, z):
+        """``|grad psi|`` at the points [flux unit per metre]."""
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        return np.hypot(self._spline.ev(r, z, dx=1), self._spline.ev(r, z, dy=1))
+
+    def geometric_angle(self, r, z):
+        """``atan2(z - z_axis, r - r_axis)`` wrapped to ``[0, 2 pi)`` [rad]."""
+        ra, za = self.magnetic_axis
+        return np.mod(np.arctan2(np.asarray(z, float) - za, np.asarray(r, float) - ra), 2.0 * np.pi)
+
+    def inside(self, r, z):
+        """True inside the boundary surface, measured along the axis ray [bool]."""
+        ra, za = self.magnetic_axis
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        radius = np.hypot(r - ra, z - za)
+        edge = np.interp(self.geometric_angle(r, z), self._theta_ext, self._rho_b_ext)
+        return radius <= edge
+
+    def theta_star(self, r, z):
+        """Straight-field-line angle in ``[0, 2 pi)``; NaN outside the boundary [rad]."""
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        theta = self.geometric_angle(r, z)
+        x = np.sqrt(np.clip(self.psi_norm(r, z), 0.0, 1.0))
+        x = np.clip(x, self.sqrt_psi_norm[0], self.sqrt_psi_norm[-1])
+        nu = self._nu_spline.ev(x, theta)
+        return np.where(self.inside(r, z), _wrap_turn(theta + nu), np.nan)
+
+    def surface(self, psi_norm, n_theta: int | None = None):
+        """One flux surface on the geometric-angle grid, solved exactly.
+
+        Returns a dict with ``theta`` (geometric), ``theta_star``, ``r``,
+        ``z`` and ``grad_psi`` on that grid, and ``weight``, the integrand
+        ``dl / (R |grad psi|)`` per unit geometric angle.
+        """
+        theta = (self.theta_geometric if n_theta is None
+                 else np.linspace(0.0, 2.0 * np.pi, int(n_theta), endpoint=False))
+        rho, weight = _solve_rays(self._spline, self.psi_axis, self.psi_boundary,
+                                  self.magnetic_axis, theta,
+                                  np.interp(theta, self._theta_ext, self._rho_b_ext),
+                                  np.array([float(psi_norm)]))
+        nu = _integrate_periodic_rate(weight[0])
+        ra, za = self.magnetic_axis
+        r = ra + rho[0] * np.cos(theta)
+        z = za + rho[0] * np.sin(theta)
+        return {
+            "theta": theta,
+            "theta_star": _wrap_turn(theta + nu),
+            "r": r,
+            "z": z,
+            "grad_psi": self.grad_psi(r, z),
+            "weight": weight[0],
+        }
+
+
+def _wrap_turn(angle):
+    """Wrap into ``[0, 2 pi)``; ``np.mod`` returns ``2 pi`` for a tiny negative."""
+    wrapped = np.mod(angle, 2.0 * np.pi)
+    return np.where(wrapped >= 2.0 * np.pi, wrapped - 2.0 * np.pi, wrapped)
+
+
+def _refine_o_point(spline, axis, r, z):
+    """The flux spline's own O-point nearest a supplied axis.
+
+    A recorded axis is usually the solver's, a fraction of a cell from the
+    stationary point of the gridded flux, and rays from it see the flux fall
+    before it rises. Newton steps on the spline gradient move it there; a step
+    that leaves the two neighbouring cells is refused and the recorded axis
+    kept.
+    """
+    r0, z0 = float(axis[0]), float(axis[1])
+    cell = max(float(np.max(np.diff(r))), float(np.max(np.diff(z))))
+    rc, zc = r0, z0
+    for _ in range(30):
+        gr, gz = float(spline.ev(rc, zc, dx=1)), float(spline.ev(rc, zc, dy=1))
+        hrr = float(spline.ev(rc, zc, dx=2))
+        hzz = float(spline.ev(rc, zc, dy=2))
+        hrz = float(spline.ev(rc, zc, dx=1, dy=1))
+        det = hrr * hzz - hrz * hrz
+        if det <= 0.0:
+            return np.array([r0, z0])
+        dr = (hzz * gr - hrz * gz) / det
+        dz = (hrr * gz - hrz * gr) / det
+        rc, zc = rc - dr, zc - dz
+        if np.hypot(rc - r0, zc - z0) > 2.0 * cell:
+            return np.array([r0, z0])
+        if np.hypot(dr, dz) < 1e-12 * cell:
+            break
+    return np.array([rc, zc])
+
+
+def _ray_boundary(spline, psi_axis, psi_boundary, axis, theta, rho_max):
+    """Distance from the axis to ``psi_norm = 1`` along each ray."""
+    ra, za = axis
+    samples = np.linspace(0.0, 1.0, 801)[1:]
+    out = np.empty(theta.size)
+    for k, (angle, limit) in enumerate(zip(theta, rho_max)):
+        rho = samples * limit
+        psin = (spline.ev(ra + rho * np.cos(angle), za + rho * np.sin(angle)) - psi_axis) / (
+            psi_boundary - psi_axis)
+        crossed = np.nonzero(psin >= 1.0)[0]
+        if crossed.size == 0:
+            raise ValueError(
+                "the boundary flux is not reached before the grid edge at geometric angle "
+                f"{angle:.3f} rad; the flux map must contain the whole boundary surface"
+            )
+        j = crossed[0]
+        if j and np.any(np.diff(psin[: j + 1]) < -1e-9):
+            raise ValueError(
+                "normalized flux is not monotonic along the ray at geometric angle "
+                f"{angle:.3f} rad; the surfaces are not star-shaped about the axis"
+            )
+        lo = rho[j - 1] if j else 0.0
+        hi = rho[j]
+        p_lo = psin[j - 1] if j else 0.0
+        out[k] = lo + (1.0 - p_lo) * (hi - lo) / (psin[j] - p_lo)
+    return out
+
+
+def _solve_rays(spline, psi_axis, psi_boundary, axis, theta, rho_edge, levels):
+    """Radius of each normalized level along each ray, and the PEST weight there.
+
+    Returns ``rho`` and ``weight``, both ``(levels, theta)``; the weight is
+    ``rho / (R dpsi_norm/drho)``, which is ``dl / (R |grad psi|)`` per unit
+    geometric angle up to the surface's constant flux normalisation.
+    """
+    ra, za = axis
+    span = psi_boundary - psi_axis
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    samples = np.linspace(0.0, 1.0, 401)
+    rho_s = samples[:, None] * rho_edge[None, :]
+    psin_s = (spline.ev(ra + rho_s * cos_t, za + rho_s * sin_t) - psi_axis) / span
+    psin_s[0] = 0.0
+    rho = np.empty((levels.size, theta.size))
+    for k in range(theta.size):
+        rho[:, k] = np.interp(levels, np.maximum.accumulate(psin_s[:, k]), rho_s[:, k])
+    for _ in range(3):
+        r = ra + rho * cos_t
+        z = za + rho * sin_t
+        value = (spline.ev(r, z) - psi_axis) / span - levels[:, None]
+        slope = (cos_t * spline.ev(r, z, dx=1) + sin_t * spline.ev(r, z, dy=1)) / span
+        rho = np.clip(rho - value / slope, 0.0, rho_edge[None, :])
+    r = ra + rho * cos_t
+    z = za + rho * sin_t
+    slope = (cos_t * spline.ev(r, z, dx=1) + sin_t * spline.ev(r, z, dy=1)) / span
+    return rho, rho / (r * slope)
+
+
+def _integrate_periodic_rate(weight):
+    """``theta* - theta`` from the PEST rate on a uniform periodic grid.
+
+    ``d theta*/d theta = weight / mean(weight)``, so the difference has a
+    zero-mean periodic derivative; it is integrated spectrally and pinned to
+    zero at the first sample (the outboard midplane).
+    """
+    rate = weight / np.mean(weight) - 1.0
+    n = rate.size
+    coeff = np.fft.rfft(rate)
+    k = np.fft.rfftfreq(n, d=1.0 / n)
+    integral = np.zeros_like(coeff)
+    integral[1:] = coeff[1:] / (1j * k[1:])
+    if n % 2 == 0:
+        integral[-1] = 0.0
+    nu = np.fft.irfft(integral, n)
+    return nu - nu[0]
+
+
+def straight_field_line_map(
+    psi,
+    r,
+    z,
+    psi_axis: float,
+    psi_boundary: float,
+    magnetic_axis,
+    *,
+    n_theta: int = 256,
+    n_surfaces: int = 96,
+    sqrt_psi_norm_min: float = 0.02,
+) -> StraightFieldLineMap:
+    """The PEST straight-field-line poloidal angle of a flux map, built once.
+
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)``, in any storage family:
+        only ratios and the geometry enter [Wb or Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the magnetic axis, in the unit of *psi* [Wb or Wb/rad].
+    psi_boundary : float
+        Flux on the boundary surface, in the unit of *psi* [Wb or Wb/rad].
+    magnetic_axis : sequence of float
+        ``(R, Z)`` of the magnetic axis, the origin of the geometric angle [m].
+    n_theta : int, optional
+        Geometric-angle samples per surface, uniform on one period [-].
+    n_surfaces : int, optional
+        Tabulated surfaces, uniform in ``sqrt(psi_norm)`` [-].
+    sqrt_psi_norm_min : float, optional
+        Innermost tabulated surface, as ``sqrt(psi_norm)``; points closer to
+        the axis take its angle offset [-].
+
+    Returns
+    -------
+    StraightFieldLineMap
+        An object evaluating ``theta_star``, ``psi_norm``, ``grad_psi`` and
+        the boundary test at arbitrary points, and solving any single surface
+        exactly with ``surface(psi_norm)`` [-].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped ``(len(r), len(z))``, the axis and boundary
+        flux coincide, the boundary surface leaves the grid, or a surface is
+        not star-shaped about the axis.
+
+    Convention
+    ----------
+    **The PEST angle**, in which field lines are straight:
+    ``theta* = 2 pi int dl/(R |grad psi|) / oint dl/(R |grad psi|)`` along a
+    flux surface, so ``d phi / d theta* = q`` on every surface. The poloidal
+    current function and the flux normalisation are constant on a surface and
+    cancel, which is why neither ``F`` nor the COCOS storage family is needed.
+
+    **Origin and direction are geometric, not COCOS.** ``theta* = 0`` on the
+    outboard midplane ray (``Z = Z_axis``, ``R > R_axis``) and it increases in
+    the same sense as ``atan2(Z - Z_axis, R - R_axis)``: outboard, top,
+    inboard, bottom. Whether that is the direction of the poloidal field
+    depends on the equilibrium's current direction, which a caller forming a
+    helical phase must take from the field, not from this angle.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Fit a bicubic spline to the flux.
+    2. Move the axis to the spline's O-point. Along each geometric-angle ray
+       from it, find where the normalized flux reaches one, rejecting a ray on
+       which it is not monotonic.
+    3. On every tabulated surface, solve the ray radius by Newton iteration on
+       the spline and form ``rho / (R d psi_norm / d rho)``, which is
+       ``dl / (R |grad psi|)`` per unit geometric angle.
+    4. Integrate the rate spectrally into ``theta* - theta``, zero at the
+       outboard midplane.
+    5. Spline that periodic offset over ``(sqrt(psi_norm), theta)``.
+
+    Limitations
+    -----------
+    The supplied axis is moved to the flux spline's own O-point when that is
+    within two cells of it, so the angle's origin is the axis of the map as
+    gridded, not the solver's; ``StraightFieldLineMap.magnetic_axis`` records
+    where it went. Needs surfaces that every ray from the axis crosses once, which holds for
+    the nested surfaces of a tokamak inside its boundary but not beyond an
+    X-point, so the boundary surface itself must be closed on the grid. Inside
+    the innermost tabulated surface the angle offset is frozen at that
+    surface's value; the angle is undefined on the axis itself. Accuracy is
+    set by the flux spline, not by the table, because every surface is solved
+    on the spline rather than on grid contours.
+
+    Provenance
+    ----------
+    .. [1] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the PEST
+       coordinate system this angle belongs to.
+    .. [2] Sauter and Medvedev, Comput. Phys. Commun. 184, 293 (2013), for the
+       straight-field-line relation ``d phi / d theta* = q``.
+    """
+    psi = np.asarray(psi, dtype=float)
+    r = np.asarray(r, dtype=float).reshape(-1)
+    z = np.asarray(z, dtype=float).reshape(-1)
+    if psi.shape != (r.size, z.size):
+        raise ValueError(f"psi shape {psi.shape} must equal (len(r), len(z)) = {(r.size, z.size)}.")
+    if psi_boundary == psi_axis:
+        raise ValueError("psi_boundary must differ from psi_axis to normalize.")
+    axis = np.asarray(magnetic_axis, dtype=float).reshape(-1)
+    if axis.size != 2 or not np.all(np.isfinite(axis)):
+        raise ValueError(f"magnetic_axis must be a finite (R, Z) pair, not {magnetic_axis!r}")
+    spline = RectBivariateSpline(r, z, psi)
+    axis = _refine_o_point(spline, axis, r, z)
+    theta = np.linspace(0.0, 2.0 * np.pi, int(n_theta), endpoint=False)
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    # Distance to the grid edge along each ray, a hard bound for the search.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        to_r = np.where(cos_t > 0, (r[-1] - axis[0]) / cos_t,
+                        np.where(cos_t < 0, (r[0] - axis[0]) / cos_t, np.inf))
+        to_z = np.where(sin_t > 0, (z[-1] - axis[1]) / sin_t,
+                        np.where(sin_t < 0, (z[0] - axis[1]) / sin_t, np.inf))
+    rho_max = np.minimum(to_r, to_z)
+    rho_edge = _ray_boundary(spline, psi_axis, psi_boundary, axis, theta, rho_max)
+    x_levels = np.linspace(float(sqrt_psi_norm_min), 1.0, int(n_surfaces))
+    rho, weight = _solve_rays(spline, psi_axis, psi_boundary, axis, theta, rho_edge, x_levels**2)
+    nu = np.array([_integrate_periodic_rate(row) for row in weight])
+    return StraightFieldLineMap(spline, psi_axis, psi_boundary, axis, x_levels, theta, rho, nu, rho_edge)
+
+
+def straight_field_line_angle_on_grid(
+    psi,
+    r,
+    z,
+    psi_axis: float,
+    psi_boundary: float,
+    magnetic_axis,
+    *,
+    n_theta: int = 256,
+    n_surfaces: int = 96,
+    sqrt_psi_norm_min: float = 0.02,
+) -> np.ndarray:
+    """The PEST straight-field-line angle on every node of a flux map.
+
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb or Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the magnetic axis, in the unit of *psi* [Wb or Wb/rad].
+    psi_boundary : float
+        Flux on the boundary surface, in the unit of *psi* [Wb or Wb/rad].
+    magnetic_axis : sequence of float
+        ``(R, Z)`` of the magnetic axis [m].
+    n_theta : int, optional
+        Geometric-angle samples per surface, as in
+        :func:`straight_field_line_map` [-].
+    n_surfaces : int, optional
+        Tabulated surfaces, as in :func:`straight_field_line_map` [-].
+    sqrt_psi_norm_min : float, optional
+        Innermost tabulated surface, as ``sqrt(psi_norm)`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``theta*`` shaped ``(len(r), len(z))``, in ``[0, 2 pi)`` inside the
+        boundary and NaN outside it [rad].
+
+    Convention
+    ----------
+    The angle of :func:`straight_field_line_map`: PEST, zero on the outboard
+    midplane, increasing in the sense of ``atan2(Z - Z_axis, R - R_axis)``.
+    The array is indexed major radius first, like the flux map.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Node values only; a caller that needs the angle between nodes should keep
+    the map from :func:`straight_field_line_map` and evaluate it there, since
+    interpolating a wrapped angle across its ``2 pi`` seam is wrong.
+
+    Provenance
+    ----------
+    .. [1] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), through
+       :func:`straight_field_line_map`.
+    """
+    sfl = straight_field_line_map(psi, r, z, psi_axis, psi_boundary, magnetic_axis,
+                                  n_theta=n_theta, n_surfaces=n_surfaces,
+                                  sqrt_psi_norm_min=sqrt_psi_norm_min)
+    rr, zz = np.meshgrid(np.asarray(r, float).reshape(-1), np.asarray(z, float).reshape(-1), indexing="ij")
+    return sfl.theta_star(rr, zz)
