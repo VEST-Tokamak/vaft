@@ -460,23 +460,64 @@ def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():
 
 def test_kinetic_sample_48224_carries_three_distinct_equilibria():
     equilibria = vaft.omas.sample_equilibria(48224)
-    assert list(equilibria) == ["efit_reference", "efit_kinetic", "chease"]
-    q_axis = {}
-    for label, ods in equilibria.items():
+    assert list(equilibria) == ["efit_magnetic", "efit_kinetic", "chease"]
+    gq = "equilibrium.time_slice.0.global_quantities"
+    for ods in equilibria.values():
         np.testing.assert_allclose(ods["equilibrium.time"], [0.3])
-        q_axis[label] = float(ods["equilibrium.time_slice.0.global_quantities.q_axis"])
-        assert abs(float(ods["equilibrium.time_slice.0.global_quantities.ip"])) > 1.0e5
-    psi = {
-        label: np.asarray(ods["equilibrium.time_slice.0.profiles_2d.0.psi"])
-        for label, ods in equilibria.items()
+        assert abs(float(ods[f"{gq}.ip"])) > 1.0e5
+    assert equilibria["chease"]["equilibrium.time_slice.0.profiles_2d.0.psi"].shape == (513, 513)
+    magnetic, kinetic = equilibria["efit_magnetic"], equilibria["efit_kinetic"]
+    # the magnetic run has no pressure constraint; the kinetic run fits six points
+    assert "pressure" not in magnetic["equilibrium.time_slice.0.constraints"]
+    pressure = kinetic["equilibrium.time_slice.0.constraints.pressure"]
+    assert len(pressure) == 6
+    for j in range(6):
+        for leaf in ("measured", "reconstructed", "chi_squared", "position.psi"):
+            assert np.isfinite(float(pressure[f"{j}.{leaf}"])), (j, leaf)
+    # the pressure points roughly double beta_p on the same magnetics and Ip
+    assert float(kinetic[f"{gq}.beta_pol"]) == pytest.approx(0.0290, rel=0.01)
+    assert float(magnetic[f"{gq}.beta_pol"]) == pytest.approx(0.0148, rel=0.01)
+    assert float(kinetic[f"{gq}.ip"]) == float(magnetic[f"{gq}.ip"])
+    # EFIT's chi-square is the plasma-current term; the probes are weighted out
+    root = "equilibrium.time_slice.0.constraints"
+    assert float(magnetic[f"{root}.ip.chi_squared"]) == pytest.approx(686.53, rel=1e-4)
+    probes = magnetic[f"{root}.bpol_probe"]
+    assert sum(float(probes[f"{j}.chi_squared"]) for j in range(len(probes))) < 1e-3
+    # flux loops are stored in Wb like the other samples
+    loops = magnetic[f"{root}.flux_loop"]
+    enabled = [j for j in range(len(loops)) if float(loops[f"{j}.weight"]) > 0]
+    assert len(enabled) == 4
+
+
+def test_kinetic_sample_48224_pressure_weight_scan():
+    scan = vaft.omas.sample_pressure_weight_scan(48224)
+    assert list(scan) == [0.1, 1.0, 10.0]
+    manifest = vaft.data.sample_manifest(48224)
+    assert manifest["pressure_weight_scan"]["factors"] == [0.1, 1.0, 10.0]
+    nominal = vaft.omas.sample_equilibria(48224)["efit_kinetic"]
+    psi = "equilibrium.time_slice.0.profiles_2d.0.psi"
+    np.testing.assert_array_equal(scan[1.0][psi], nominal[psi])
+    weights = {
+        factor: float(ods["equilibrium.time_slice.0.constraints.pressure.0.weight"])
+        for factor, ods in scan.items()
     }
-    assert psi["chease"].shape == (513, 513)
-    assert not np.allclose(psi["efit_reference"], psi["efit_kinetic"])
-    # the pressure constraint moves the axis q, and CHEASE keeps the kinetic one
-    assert q_axis["efit_reference"] > 2.0 * q_axis["efit_kinetic"]
-    assert q_axis["chease"] == pytest.approx(q_axis["efit_kinetic"], rel=0.02)
+    assert weights == pytest.approx({0.1: 0.1, 1.0: 1.0, 10.0: 10.0})
+    # uniform scaling of the only constraint on p' leaves the fit unchanged
+    for factor in (0.1, 10.0):
+        reference = np.asarray(scan[1.0][psi])
+        np.testing.assert_allclose(scan[factor][psi], reference, rtol=0, atol=1e-6 * np.abs(reference).max())
+    import matplotlib
+
+    matplotlib.use("Agg")
+    figure, axes = vaft.omas.plot_equilibrium_overview_pressure_weight_scan(scan)
+    assert np.size(axes) >= 4
+    import matplotlib.pyplot as plt
+
+    plt.close(figure)
 
 
 def test_sample_equilibria_rejects_a_sample_without_them():
     with pytest.raises(ValueError, match="declares no equilibria"):
         vaft.omas.sample_equilibria(39915)
+    with pytest.raises(ValueError, match="declares no pressure-weight scan"):
+        vaft.omas.sample_pressure_weight_scan(39915)

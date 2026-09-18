@@ -177,3 +177,14 @@ def test_indexing_reaches_both_scalars_and_arrays(afile):
     assert isinstance(afile["cmpr2"], np.ndarray)
     assert "terror" in afile and "cmpr2" in afile
     assert "no_such_field" not in afile
+
+
+def test_a_three_digit_exponent_without_its_e_is_read():
+    """Fortran's ``Ew.d`` drops the ``E`` of a three-digit exponent (seen on 48224)."""
+    from vaft.data.aeqdsk import _fortran_real
+
+    assert _fortran_real("0.114019191-312") == pytest.approx(0.114019191e-312)
+    assert _fortran_real("-0.5+100") == -0.5e100
+    assert _fortran_real(" 0.1E-02".strip()) == 1e-3
+    with pytest.raises(ValueError):
+        _fortran_real("abc")
