@@ -84,18 +84,25 @@ __all__ = [
     "CompositeDrive",
     "critical_island_width",
     "DELTA_E_COMBINATIONS",
+    "dominant_mode",
+    "DominantMode",
     "edge_overlap_metric",
     "EdgeOverlap",
     "energy_norm_matrix",
+    "finite_width_delta",
     "group_coincident_islands",
     "helical_phase_sweep",
     "island_overlap_width",
     "island_pairs",
     "IslandOverlap",
     "IslandPairs",
+    "jump_width",
+    "JumpWidthModel",
     "LEGACY_WINDOWS",
+    "lundquist_number",
     "nearest_surface_spacing",
     "NEGATIVE_EIGENVALUE_POLICIES",
+    "PAPER_JUMP_WIDTH",
     "penetration_ratio",
     "q_composite_table",
     "reduce_delta_e",
@@ -109,6 +116,7 @@ __all__ = [
     "ResonantJump",
     "ResonantWindow",
     "rms_resonant_field",
+    "shielded_field",
     "SINGULAR_OFFSET",
     "SURFACE_MEMBERSHIPS",
     "SurfaceMember",
@@ -2523,3 +2531,363 @@ def resonant_geometric_factor(delta, phi_res, n_tor: int) -> np.ndarray:
             "it is a real geometric factor, so this pair is not from one run"
         )
     return np.real(ratio)
+
+
+# --------------------------------------------------------------------------
+# Resistive response: the Lundquist number, the layer width it sets, and
+# what a finite-width layer does to the resonant field
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class JumpWidthModel:
+    """A resistive-layer width law ``w = floor + scale * S**(-1/3)``.
+
+    A named parameter set rather than a default, because the numbers are one
+    paper's fit and not a property of the physics. :data:`PAPER_JUMP_WIDTH`
+    is the set the legacy scan used.
+    """
+
+    floor: float
+    scale: float
+    name: str = ""
+
+    def __post_init__(self) -> None:
+        for label, value in (("floor", self.floor), ("scale", self.scale)):
+            if not np.isfinite(value) or value < 0.0:
+                raise ValueError(f"the jump-width {label} must be finite and non-negative, not {value!r}")
+
+
+#: The law the legacy resistive scan used, ``3.4e-4 + 0.5 S**(-1/3)`` in
+#: normalized poloidal flux. Exported so an old result can be reproduced
+#: deliberately; nothing here falls back to it.
+PAPER_JUMP_WIDTH = JumpWidthModel(floor=3.4e-4, scale=0.5, name="paper")
+
+
+@dataclass(frozen=True)
+class DominantMode:
+    """The leading direction of an area-weighted coupling matrix."""
+
+    singular_value: float
+    control_vector: np.ndarray
+    response_vector: np.ndarray
+
+
+def lundquist_number(tau_resistive, tau_alfven) -> np.ndarray:
+    """The Lundquist number, the resistive over the Alfven time.
+
+    Parameters
+    ----------
+    tau_resistive : array_like
+        Resistive diffusion time per rational surface [s].
+    tau_alfven : array_like
+        Alfven time per rational surface [s].
+
+    Returns
+    -------
+    ndarray
+        ``S = tau_r / tau_a`` per surface [-].
+
+    Raises
+    ------
+    ValueError
+        The two disagree in shape, or a time is not finite and positive.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Check both times are finite, positive and the same shape.
+    2. Divide.
+
+    Provenance
+    ----------
+    .. [legacy] ``library/resistive_gpec_metrics.py::lundquist_number``
+       (branch ``codex/transp``).
+    """
+    resistive = np.atleast_1d(np.asarray(tau_resistive, dtype=float))
+    alfven = np.atleast_1d(np.asarray(tau_alfven, dtype=float))
+    if resistive.shape != alfven.shape:
+        raise ValueError(f"{resistive.shape} resistive times against {alfven.shape} Alfven times")
+    for label, values in (("resistive", resistive), ("Alfven", alfven)):
+        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+            raise ValueError(f"every {label} time must be finite and positive")
+    return resistive / alfven
+
+
+def jump_width(lundquist, model: JumpWidthModel) -> np.ndarray:
+    """The resistive-layer width a Lundquist number implies.
+
+    Parameters
+    ----------
+    lundquist : array_like
+        Lundquist number per rational surface [-].
+    model : JumpWidthModel
+        The width law. **Required**: the coefficients are one paper's fit,
+        not a property of the physics, so there is no default to fall back
+        on [n/a].
+
+    Returns
+    -------
+    ndarray
+        Full layer width per surface, in normalized poloidal flux [-].
+
+    Raises
+    ------
+    ValueError
+        A Lundquist number is not finite and positive.
+
+    Convention
+    ----------
+    ``w = floor + scale * S**(-1/3)``. The ``S**(-1/3)`` scaling is the
+    resistive-inertial layer's; the floor keeps the width finite as ``S``
+    grows, where the pure scaling would shrink the layer below the grid.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Check the Lundquist numbers are finite and positive.
+    2. Apply the model's law.
+
+    Provenance
+    ----------
+    .. [legacy] ``resistive_gpec_metrics.py::jump_width_from_lundquist``,
+       which carried the paper's coefficients as keyword defaults -- so a
+       caller who never chose a model got one anyway.
+    """
+    if not isinstance(model, JumpWidthModel):
+        raise TypeError(
+            f"model must be a JumpWidthModel, not {type(model).__name__}; "
+            "PAPER_JUMP_WIDTH reproduces the legacy scan"
+        )
+    values = np.atleast_1d(np.asarray(lundquist, dtype=float))
+    if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+        raise ValueError("every Lundquist number must be finite and positive")
+    return model.floor + model.scale * np.power(values, -1.0 / 3.0)
+
+
+def finite_width_delta(psi_norm, field, rational_psi_norm, widths) -> np.ndarray:
+    """The jump in a field's radial derivative across a finite-width layer.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Radial grid, strictly increasing [-].
+    field : array_like
+        The resonant harmonic on that grid, complex [T].
+    rational_psi_norm : array_like
+        Where each layer is centred [-].
+    widths : array_like
+        Each layer's full width [-].
+
+    Returns
+    -------
+    ndarray
+        ``d field / d psi`` at ``psi_s + w/2`` minus at ``psi_s - w/2``, one
+        complex value per surface [T].
+
+    Raises
+    ------
+    ValueError
+        The grid and the field disagree in length, the grid is not strictly
+        increasing or has fewer than three points, a value is not finite, a
+        width is not positive, or a layer's window reaches past the grid.
+
+    Convention
+    ----------
+    **A difference of derivatives, not an integral**, and **not normalized**.
+    The legacy docstring called this an integration across the layer; it
+    evaluates the derivative at the two layer edges and subtracts. And it is
+    the raw jump, in the field's own units -- not GPEC's unitless ``Delta``,
+    which is this jump scaled by ``area / (2 pi chi1)`` and evaluated at
+    GPEC's ``sing_spot`` rather than at a physical layer edge
+    (:func:`resonant_delta`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Differentiate the field on its grid.
+    2. Interpolate the derivative to each layer's two edges.
+    3. Subtract inner from outer.
+
+    Limitations
+    -----------
+    The derivative is a finite difference on the stored grid, so a window
+    narrower than a few grid spacings samples the layer's own structure
+    rather than the solution either side of it. A caller with a resistive
+    layer thinner than the grid resolves has to refine the grid first.
+
+    Provenance
+    ----------
+    .. [legacy] ``resistive_gpec_metrics.py::finite_width_delta``.
+    """
+    grid = np.atleast_1d(np.asarray(psi_norm, dtype=float))
+    values = np.atleast_1d(np.asarray(field, dtype=complex))
+    centres = np.atleast_1d(np.asarray(rational_psi_norm, dtype=float))
+    width = np.atleast_1d(np.asarray(widths, dtype=float))
+    if grid.ndim != 1 or grid.size < 3:
+        raise ValueError(f"the grid needs at least three points, not {grid.size}")
+    if values.shape != grid.shape:
+        raise ValueError(f"{grid.size} grid points against {values.size} field values")
+    if centres.shape != width.shape:
+        raise ValueError(f"{centres.size} surfaces against {width.size} widths")
+    if not (np.all(np.isfinite(grid)) and np.all(np.isfinite(values))
+            and np.all(np.isfinite(centres)) and np.all(np.isfinite(width))):
+        raise ValueError("an input holds a non-finite value")
+    if np.any(np.diff(grid) <= 0.0):
+        raise ValueError("the grid must be strictly increasing")
+    if np.any(width <= 0.0):
+        raise ValueError("every layer width must be positive")
+    inner, outer = centres - width / 2.0, centres + width / 2.0
+    if np.any(inner < grid[0]) or np.any(outer > grid[-1]):
+        raise ValueError(
+            "a layer's window reaches past the grid, so its derivative there "
+            "would be extrapolated rather than sampled"
+        )
+    derivative = np.gradient(values, grid)
+
+    def at(points):
+        return np.interp(points, grid, derivative.real) + 1j * np.interp(points, grid, derivative.imag)
+
+    return at(outer) - at(inner)
+
+
+def shielded_field(delta, self_inductance) -> np.ndarray:
+    """The field a finite-width layer's shielding current produces.
+
+    Parameters
+    ----------
+    delta : array_like
+        The derivative jump per surface, from :func:`finite_width_delta`,
+        complex [T].
+    self_inductance : array_like
+        The surfaces' self-inductance matrix, square and matching ``delta``.
+        **Required** [n/a].
+
+    Returns
+    -------
+    ndarray
+        ``L @ delta``, complex [T].
+
+    Raises
+    ------
+    ValueError
+        The matrix is not square, does not match ``delta``, or holds a
+        non-finite value.
+
+    Convention
+    ----------
+    The legacy returned ``delta`` itself when no inductance was supplied --
+    a derivative jump relabelled as a shielded field, with nothing in the
+    result to say the multiplication had not happened. There is no such
+    fallback here: without the inductance there is no shielded field.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Check the matrix matches the surfaces.
+    2. Multiply.
+
+    Provenance
+    ----------
+    .. [legacy] ``resistive_gpec_metrics.py::shielded_field_from_delta``.
+    """
+    jump = np.atleast_1d(np.asarray(delta, dtype=complex))
+    matrix = np.asarray(self_inductance, dtype=complex)
+    if matrix.shape != (jump.size, jump.size):
+        raise ValueError(
+            f"the inductance is {matrix.shape} but there are {jump.size} surfaces; "
+            "it must be square and one row per surface"
+        )
+    if not np.all(np.isfinite(matrix)) or not np.all(np.isfinite(jump)):
+        raise ValueError("the inductance or the jump holds a non-finite value")
+    return matrix @ jump
+
+
+def dominant_mode(coupling, *, response_area=None, control_area=None) -> DominantMode:
+    """The leading direction of a coupling matrix, weighted by surface area.
+
+    Parameters
+    ----------
+    coupling : array_like
+        Response-by-control coupling, complex [n/a].
+    response_area : array_like, optional
+        Area per response row. Unweighted when omitted [m^2].
+    control_area : array_like, optional
+        Area per control column. Unweighted when omitted [m^2].
+
+    Returns
+    -------
+    DominantMode
+        The leading singular value, and the control and response vectors in
+        the unweighted basis [n/a].
+
+    Raises
+    ------
+    ValueError
+        The matrix is not 2-D, an area does not match its dimension, or an
+        area is not finite and positive.
+
+    Convention
+    ----------
+    Rows are weighted by ``sqrt(area)`` and columns divided by it, so the
+    decomposition is of ``W_r M W_c**-1`` and the vectors are mapped back
+    through the weights. The returned control vector is the right singular
+    vector itself -- ``vh[0].conj()`` -- and a projection onto it is
+    ``np.vdot(control_vector, x)``, which conjugates it; that is not the
+    ``vh.conj() @ x`` defect :func:`edge_overlap_metric` once had.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Check the areas **before** taking their square root.
+    2. Weight rows and columns, decompose, map the leading pair back.
+
+    Provenance
+    ----------
+    .. [legacy] ``resistive_gpec_metrics.py::dominant_mode``. Its guard,
+       ``np.any(np.sqrt(area) <= 0)``, is defeated by a negative area:
+       ``sqrt`` of one is ``nan``, ``nan <= 0`` is ``False``, and the error
+       surfaced later as ``SVD did not converge`` rather than naming the area.
+    """
+    matrix = np.asarray(coupling, dtype=complex)
+    if matrix.ndim != 2:
+        raise ValueError(f"the coupling must be 2-D, not {matrix.ndim}-D")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("the coupling holds a non-finite value")
+
+    def weights(area, size, label):
+        if area is None:
+            return np.ones(size)
+        values = np.atleast_1d(np.asarray(area, dtype=float))
+        if values.shape != (size,):
+            raise ValueError(f"{values.size} {label} areas against {size} {label}s")
+        # Checked on the area, not on its root: sqrt of a negative is nan,
+        # and nan <= 0 is False.
+        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+            raise ValueError(f"every {label} area must be finite and positive")
+        return np.sqrt(values)
+
+    rows = weights(response_area, matrix.shape[0], "response")
+    columns = weights(control_area, matrix.shape[1], "control")
+    weighted = rows[:, None] * matrix / columns[None, :]
+    left, singular, right = np.linalg.svd(weighted, full_matrices=False)
+    return DominantMode(
+        singular_value=float(singular[0]),
+        control_vector=right[0].conj() / columns,
+        response_vector=left[:, 0] / rows,
+    )
