@@ -9,6 +9,16 @@ Notation
 G      : Green's function                              [-]
 K      : complete elliptic integral of first kind      [-]
 E      : complete elliptic integral of second kind     [-]
+
+Conventions
+-----------
+**Every flux these functions return is full weber**, ``psi = mu0 G`` per
+ampere: the IMAS Data Dictionary family (COCOS 11-18), not the per-radian
+g-file family.  Hand such a flux to
+:func:`vaft.formula.equilibrium.vertical_magnetic_field_from_psi` and the
+other field helpers with ``cocos=11`` (or ``psi_per_radian=False`` to
+:func:`vaft.formula.equilibrium.poloidal_field_factor`); their per-radian
+default would make the field $2\pi$ too large (#354).
 """
 
 import warnings

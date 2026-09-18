@@ -479,7 +479,9 @@ def q_from_flux_surface_averages(
 
 
 def q_from_phi(psi: np.ndarray,
-               phi: np.ndarray) -> np.ndarray:
+               phi: np.ndarray,
+               *,
+               psi_per_radian: bool = False) -> np.ndarray:
     r"""Safety factor $q$ as the flux derivative $d\Phi/d\psi$.
 
     $$q = \frac{d\Phi}{d\psi}$$
@@ -487,9 +489,13 @@ def q_from_phi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux profile, monotonic, full weber [Wb].
+        Poloidal flux profile, monotonic; full weber unless
+        ``psi_per_radian`` [Wb].
     phi : np.ndarray
         Toroidal flux enclosed by the same surfaces [Wb].
+    psi_per_radian : bool, optional
+        True when ``psi`` is per radian (COCOS 1-8, a g-file flux); it is then
+        multiplied by $2\pi$ first [-].
 
     Returns
     -------
@@ -499,11 +505,11 @@ def q_from_phi(psi: np.ndarray,
     Convention
     ----------
     Sauter and Medvedev define $q = \sigma_{\rho\theta\varphi}\sigma_{B_p}
-    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies neither sign nor
-    $2\pi$: it is exact, up to the orientation sign, for ``psi`` in full weber
-    (the IMAS Data Dictionary flux, COCOS 11-18, $e_{B_p}=1$), and returns
-    $2\pi q$ when ``psi`` is per radian (COCOS 1-8, $e_{B_p}=0$, the g-file
-    flux) -- multiply such a ``psi`` by $2\pi$ first.  This is the inverse of
+    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies no orientation sign.
+    It is exact, up to that sign, for ``psi`` in full weber (the IMAS Data
+    Dictionary flux, COCOS 11-18, $e_{B_p}=1$), the default; for a per-radian
+    ``psi`` (COCOS 1-8, $e_{B_p}=0$, the g-file flux) pass
+    ``psi_per_radian=True``, without which the result is $2\pi q$.  This is the inverse of
     :func:`toroidal_flux_from_q_psi`, which integrates on the same full-weber
     grid.  :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which
     family an ODS stores.  Tracked in #354.
@@ -520,6 +526,7 @@ def q_from_phi(psi: np.ndarray,
            Eq. (17) and Table I.
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.4.
     """
+    psi = np.asarray(psi, dtype=float) * (2.0 * np.pi if psi_per_radian else 1.0)
     return gradient(psi, phi)
 
 
@@ -2726,7 +2733,9 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
 # ------------------------------------------------------------------
 # Flux Consumption
 # ------------------------------------------------------------------
-def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
+def surface_poloidal_flux_from_psi_boundary(
+    psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
 
     $$\Phi_{\mathrm{surface}} = 2\pi\,\psi_b$$
@@ -2734,7 +2743,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     Parameters
     ----------
     psi_boundary : np.ndarray or float
-        Poloidal flux at the plasma boundary [Wb/rad].
+        Poloidal flux at the plasma boundary; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is already full weber (the IMAS flux,
+        COCOS 11-18), which is then returned unchanged [-].
 
     Returns
     -------
@@ -2745,8 +2758,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     ----------
     Converts a per-radian boundary flux (COCOS 1-8, EFIT g-file, VFIT) to the full
     flux that flux-consumption bookkeeping uses.  An IMAS full-weber
-    ``global_quantities.psi_boundary`` (COCOS 11-18) must not be passed: the
-    result would be $2\pi$ too large.  Tracked in #354.
+    ``global_quantities.psi_boundary`` (COCOS 11-18) needs
+    ``psi_per_radian=False``; without it the result is $2\pi$ too large.
+    The default stays per radian so existing callers do not move (#354);
+    :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which family
+    an ODS stores.
 
     Physical interpretation
     -----------------------
@@ -2759,9 +2775,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     .. [2] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Table I.
     """
-    return psi_boundary * 2 * np.pi
+    return psi_boundary * (2 * np.pi if psi_per_radian else 1.0)
 
-def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarray) -> float:
+def loop_voltage_from_total_flux(
+    time_slice: np.ndarray, psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Surface loop voltage from the time series of boundary flux.
 
     $$V_{\mathrm{loop}} = \frac{d\Phi_{\mathrm{surface}}}{dt} = 2\pi\,\frac{d\psi_b}{dt}$$
@@ -2771,7 +2789,11 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     time_slice : np.ndarray
         Time of each sample, monotonic [s].
     psi_boundary : np.ndarray
-        Boundary poloidal flux at each time [Wb/rad].
+        Boundary poloidal flux at each time; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is full weber (the IMAS flux, COCOS
+        11-18) [-].
 
     Returns
     -------
@@ -2780,14 +2802,18 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
 
     Convention
     ----------
-    Assumes ``psi_boundary`` per radian, as :func:`surface_poloidal_flux_from_psi_boundary`
-    does; a full-weber IMAS flux gives a voltage $2\pi$ too large.  The sign is
+    ``psi_boundary`` is per radian by default, as for
+    :func:`surface_poloidal_flux_from_psi_boundary`; pass
+    ``psi_per_radian=False`` for a full-weber IMAS flux, which the default
+    would make $2\pi$ too large.  The sign is
     that of $d\psi_b/dt$ in the supplied COCOS, so a discharge with positive
     current and the usual $\sigma_{B_p}$ shows negative $V_{loop}$ during ramp-up.
-    Tracked in `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_, which is
-    the disagreement with :func:`toroidal_electric_field` over both sign and flux
-    normalisation.  The start-up chain in :mod:`vaft.formula.startup` sidesteps it
-    by taking a field magnitude; that choice is not a resolution of #354.
+    That sign is the opposite of Lenz's $V = -\dot\psi$, which
+    :func:`toroidal_electric_field` and :mod:`vaft.formula.transformer` use:
+    on the same full-weber flux, ``loop_voltage_from_total_flux(t, psi,
+    psi_per_radian=False)`` is $-2\pi R\,E_\varphi$ at the boundary, and $-V_B$
+    when the flux is already in Romero's sign.  The start-up chain in :mod:`vaft.formula.startup`
+    sidesteps the sign by taking a field magnitude.
 
     Physical interpretation
     -----------------------
@@ -2808,7 +2834,7 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     toroidal_electric_field
     vaft.formula.startup.breakdown_margin
     """
-    return gradient(time_slice, psi_boundary) * 2 * np.pi
+    return gradient(time_slice, psi_boundary) * (2 * np.pi if psi_per_radian else 1.0)
 
 def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
     r"""Inductive voltage from the rate of change of magnetic energy.
