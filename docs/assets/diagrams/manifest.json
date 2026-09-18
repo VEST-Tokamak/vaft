@@ -1,0 +1,21 @@
+{
+  "diagrams": {
+    "magnetic_island_3d.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
+      "source_sha256": "f345abf8b2681ce6ebc83f5e8c64ddaa89a37679fa3eb7b37dd6c9d7538354d9",
+      "svg_sha256": "bbdab57d56d7f6439a68142bd31165838d64f812643953706141f92cd6f55ac6"
+    },
+    "magnetic_island_poloidal.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='poloidal')",
+      "source_sha256": "be8534b5dbde46c980d5cbe9ac058c704a2ee74c1d364b523c848a09e18e9941",
+      "svg_sha256": "b0a768f6ce5003a6705dfd65b5e8b7b8d4a3fa18ad82da83d53c6ec7d1450e6d"
+    },
+    "magnetic_island_top.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='top')",
+      "source_sha256": "a26421956d32fd987bb00d829c39dc4c28bd01eb85605810509e0cba93d359b2",
+      "svg_sha256": "a85413e10890cda20091d79abcbc12f6f7c79ecb7f76798e82013a61fe49671b"
+    }
+  },
+  "generator": "python -m vaft.diagram.build",
+  "note": "source_sha256 hashes the render recipe and the generated TikZ document; --check compares it without TeX."
+}

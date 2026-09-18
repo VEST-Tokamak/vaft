@@ -1,0 +1,47 @@
+% VAFT diagram template (TikZ renderer).
+% Authored source: the colours and styles every vaft.diagram scene refers to.
+% The renderer replaces the body-slot line inside tikzpicture with generated drawing
+% commands; nothing else in this file is generated.
+\def\pgfsysdriver{pgfsys-dvisvgm.def}
+\documentclass[tikz,border=4pt]{standalone}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta}
+\definecolor{islandblue}{RGB}{28,103,210}
+\definecolor{islanddark}{RGB}{22,55,116}
+\definecolor{qblue}{RGB}{96,164,232}
+\definecolor{meshgray}{RGB}{150,150,150}
+\tikzset{
+  >=Latex,
+  every picture/.style={line cap=round,line join=round,font=\large},
+  lcfs/.style={line width=0.95pt},
+  surface/.style={gray!55,line width=0.42pt},
+  rational/.style={islandblue!80!black,dashed,line width=0.65pt},
+  passing/.style={islandblue!45,line width=0.5pt},
+  island/.style={islandblue,line width=0.52pt},
+  separatrix/.style={islandblue,line width=0.95pt},
+  opoint/.style={fill=islandblue},
+  xpoint/.style={draw=islanddark,line width=0.8pt},
+  width arrow/.style={<->,line width=0.65pt},
+  leader/.style={->,line width=0.55pt},
+  axis/.style={->,line width=0.65pt},
+  label/.style={},
+  title/.style={font=\huge},
+  subtitle/.style={font=\normalsize,text=black!75},
+  note/.style={font=\normalsize,text=gray!75!black,align=center},
+  o locus/.style={islandblue,line width=1.15pt},
+  x locus/.style={islanddark,densely dashed,line width=0.95pt},
+  o locus hidden/.style={islandblue,line width=0.7pt,opacity=0.3},
+  x locus hidden/.style={islanddark,densely dashed,line width=0.6pt,opacity=0.3},
+  mesh/.style={meshgray,line width=0.35pt},
+  mesh hidden/.style={meshgray,line width=0.3pt,opacity=0.3},
+  machine/.style={line width=0.95pt},
+  machine fill/.style={fill=gray!6,draw=none},
+  hole/.style={fill=white,draw=none},
+  cut/.style={black!70,dash dot,line width=0.7pt},
+  inset frame/.style={draw=black!25,rounded corners=2pt},
+}
+\begin{document}
+\begin{tikzpicture}
+%%VAFT-BODY%%
+\end{tikzpicture}
+\end{document}
