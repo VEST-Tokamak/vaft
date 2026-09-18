@@ -235,7 +235,12 @@ def outcomes(tmp_path_factory) -> dict:
     runner.write_text(RUNNER, encoding="utf-8")
     # PYTHONPATH pins the checkout under test even when an editable install of
     # another checkout is present; the runner asserts that it won.
-    env = dict(os.environ, MPLBACKEND="Agg", PYTHONPATH=str(ROOT), MPLCONFIGDIR=str(work / "mpl"))
+    # PYTHONIOENCODING: a sample that prints a Greek letter must not depend on
+    # the console code page of the host (Windows runners default to cp1252).
+    env = dict(
+        os.environ, MPLBACKEND="Agg", PYTHONPATH=str(ROOT), MPLCONFIGDIR=str(work / "mpl"),
+        PYTHONIOENCODING="utf-8",
+    )
     done = subprocess.run(
         [sys.executable, str(runner), str(job), str(out)],
         cwd=cwd, env=env, capture_output=True, text=True, timeout=900,
@@ -310,9 +315,23 @@ def test_signature_markers_mean_what_they_say():
 # --- execution ----------------------------------------------------------------
 
 
+#: Fences that run everywhere except on native Windows, where a platform
+#: limitation outside VAFT stops them.  Keyed by (page, line); the entry is the
+#: limitation, so a fix upstream can retire it.
+WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
+    ("README.ko.md", 256): (
+        "imas_core cannot close the HDF5 entry it just wrote on Windows "
+        "(al_close_pulse, ALBackendException); the same limitation is why "
+        "vaft.imas scratch cleanup is best-effort there (0.6.2 notes)"
+    ),
+}
+
+
 @pytest.mark.parametrize("fence", _executed(), ids=lambda f: f"{f['page']}:{f['line']}")
 def test_the_snippet_runs_offline_on_the_packaged_sample(fence, outcomes):
     key = (fence["page"], fence["line"])
+    if os.name == "nt" and key in WINDOWS_LIMITATIONS:
+        pytest.xfail(WINDOWS_LIMITATIONS[key])
     assert key in outcomes, f"{key} was never reached by the runner"
     failure = outcomes[key]
     assert failure is None, (
