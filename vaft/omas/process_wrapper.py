@@ -2282,16 +2282,62 @@ def _per_radian_cocos(ods):
     return index - 10 if index >= 11 else index
 
 
-def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float:
-    """Compute magnetic energy from ODS.
-    
+def compute_magnetic_energy(
+    ods: ODS,
+    time_slice: Optional[int] = None,
+    *,
+    components: str = "total",
+    write_fields: bool = False,
+) -> float:
+    """Magnetic field energy inside the last closed flux surface, by component.
+
+    ``W = int B^2 / (2 mu0) dV`` over the inside of ``boundary.outline``,
+    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and
+    ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant.
+
+    Which energy that is matters more than the arithmetic:
+
+    ========== ========================================= ==================
+    components integrand                                 39915, t = 0.316 s
+    ========== ========================================= ==================
+    "total"    B_R^2 + B_Z^2 + B_phi^2 (the default)     12.4 kJ
+    "poloidal" B_R^2 + B_Z^2                             0.44 kJ
+    "toroidal" B_phi^2, vacuum F                         12.0 kJ
+    ========== ========================================= ==================
+
+    The poloidal energy is the one the internal inductance, the virial
+    ``W_mag = li B_pa^2 V / (2 mu0)`` and Romero's inductive voltage are made
+    of (``L_i I_p^2 / 2``): on the packaged 39915 and 41672 slices it matches
+    ``mu0 R0 li_3 I_p^2 / 4`` from the surface integral to 0.3-1.2 %.  The toroidal part is the vacuum field's energy
+    over the plasma volume: it follows the volume, not the current, and it
+    carries no diamagnetic or paramagnetic correction because ``F`` is not
+    ``F(psi)``.  So the default total is dominated by a term that says nothing
+    about the plasma current (issue #652), and a time derivative of it is not
+    an inductive voltage.
+
     Args:
-        ods: OMAS data structure
-        time_slice: Time slice index (None = use first available)
-    
+        ods: OMAS data structure.
+        time_slice: Time slice index (None = the first).
+        components: ``"total"``, ``"poloidal"`` or ``"toroidal"``.
+        write_fields: When true, also store ``profiles_2d.0.b_field_r``,
+            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the constant-``F``
+            toroidal field included.  Off by default: the function used to do
+            this silently. For the fields themselves prefer
+            :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`,
+            which uses the real ``F(psi)``.
+
     Returns:
-        float: Magnetic energy [J]
+        float: Magnetic energy of the requested components [J].
+
+    Raises:
+        KeyError: Missing psi map, reference field or reference radius.
+        ValueError: An unknown ``components``, an unexpected psi shape, or a
+            zero plasma volume.
     """
+    if components not in ("total", "poloidal", "toroidal"):
+        raise ValueError(
+            f"components must be 'total', 'poloidal' or 'toroidal'; got {components!r}"
+        )
     from vaft.formula.constants import MU0
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
@@ -2376,21 +2422,47 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     F_ref = B0 * R0
     B_PHI = F_ref / Rm_safe
 
-    # Total B^2
-    B2 = B_R**2 + B_Z**2 + B_PHI**2
+    if components == "poloidal":
+        B2 = B_R**2 + B_Z**2
+    elif components == "toroidal":
+        B2 = B_PHI**2
+    else:
+        B2 = B_R**2 + B_Z**2 + B_PHI**2
 
-    # Normalize psi for plasma mask via volume_average()
-    psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
-
-    # Magnetic energy density and volume integral (use provided volume_average)
     w_mag_RZ = B2 / (2.0 * MU0)  # [J/m^3]
-    w_avg, V = volume_average(w_mag_RZ, psiN_RZ, R_grid, Z_grid)
-    W_B = float(w_avg * V)  # [J]
 
-    # Store computed fields back into ODS (optional but useful for diagnostics/plotting)
-    eq_ts['profiles_2d.0.b_field_r'] = B_R
-    eq_ts['profiles_2d.0.b_field_z'] = B_Z
-    eq_ts['profiles_2d.0.b_field_tor'] = B_PHI
+    # The plasma is the inside of the boundary outline.  A normalised-flux
+    # mask alone is not: every grid cell whose psi happens to lie between the
+    # axis and boundary values passes it, including cells by the central
+    # solenoid and the PF coils where B_p is large -- on 41672 at 0.338 s
+    # that put 23.6 kJ of "poloidal plasma energy" where L_i I_p^2 / 2 is 0.6.
+    outline_r = np.asarray(eq_ts['boundary.outline.r'], float) if 'boundary.outline.r' in eq_ts else np.asarray([])
+    outline_z = np.asarray(eq_ts['boundary.outline.z'], float) if 'boundary.outline.z' in eq_ts else np.asarray([])
+    finite = np.isfinite(outline_r) & np.isfinite(outline_z) if outline_r.size == outline_z.size else np.asarray([], bool)
+    if finite.sum() >= 3:
+        from vaft.process.equilibrium import fractional_cell_weights_from_boundary
+
+        weights = fractional_cell_weights_from_boundary(
+            Rm, Zm, outline_r[finite], outline_z[finite], samples_per_axis=5
+        )
+        cell_area = np.outer(np.gradient(R_grid), np.gradient(Z_grid))
+        d_volume = 2.0 * np.pi * np.where(np.isfinite(Rm_safe), Rm_safe, 0.0) * cell_area * weights
+        if not np.any(d_volume > 0.0):
+            raise ValueError("Total plasma volume is zero.")
+        W_B = float(np.nansum(w_mag_RZ * d_volume))  # [J]
+    else:
+        logger.warning(
+            "time slice %s has no boundary outline; masking the plasma by normalised "
+            "flux alone, which also admits cells outside the boundary.", eq_idx
+        )
+        psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+        w_avg, V = volume_average(w_mag_RZ, psiN_RZ, R_grid, Z_grid)
+        W_B = float(w_avg * V)  # [J]
+
+    if write_fields:
+        eq_ts['profiles_2d.0.b_field_r'] = B_R
+        eq_ts['profiles_2d.0.b_field_z'] = B_Z
+        eq_ts['profiles_2d.0.b_field_tor'] = B_PHI
 
     return W_B
 
