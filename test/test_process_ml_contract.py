@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,7 @@ def _trained(dataset=None, seed=1):
     dataset = dataset or _toy()
     split = ml.split_groups(dataset, ml.SplitSpec(seed=seed))
     spec = ml.ModelSpec(
-        architecture="pca_autoencoder", task="toy_ae", backend="linear", hyperparameters={"n_components": 2}
+        architecture="pca_autoencoder", task="toy_ae", backend="numpy", hyperparameters={"n_components": 2}
     )
     return dataset, split, ml.train_model(dataset, split, spec)
 
@@ -192,7 +193,7 @@ def test_ridge_recovers_a_linear_map_and_evaluates_per_group():
     y = (x.reshape(400, -1) @ w).reshape(400, 2, 2)
     ds = ml.build_dataset(x, np.repeat(np.arange(20), 20), targets=y, spec=ml.DatasetSpec(name="r", task="t"))
     split = ml.split_groups(ds)
-    model = ml.train_model(ds, split, ml.ModelSpec(architecture="ridge", task="r", backend="linear")).artifact
+    model = ml.train_model(ds, split, ml.ModelSpec(architecture="ridge", task="r", backend="numpy")).artifact
     evaluation = ml.evaluate_model(model, ds, split, "test")
     assert evaluation.metrics["r2"] > 0.999
     assert set(evaluation.per_group) == set(split.groups("test"))
@@ -202,7 +203,7 @@ def test_ridge_recovers_a_linear_map_and_evaluates_per_group():
 def test_supervised_architecture_without_targets_is_refused():
     ds = _toy()
     with pytest.raises(ml.ModelContractError, match="needs targets"):
-        ml.train_model(ds, ml.split_groups(ds), ml.ModelSpec(architecture="ridge", task="r", backend="linear"))
+        ml.train_model(ds, ml.split_groups(ds), ml.ModelSpec(architecture="ridge", task="r", backend="numpy"))
 
 
 def test_calibration_flags_the_expected_share_and_is_carried_by_predict():
@@ -234,7 +235,7 @@ def test_unknown_backend_and_architecture_are_named():
     with pytest.raises(ml.ModelContractError, match="unknown ML backend"):
         ml.train_model(ds, split, ml.ModelSpec(architecture="x", task="t", backend="jax"))
     with pytest.raises(ml.ModelContractError, match="no architecture"):
-        ml.train_model(ds, split, ml.ModelSpec(architecture="transformer", task="t", backend="linear"))
+        ml.train_model(ds, split, ml.ModelSpec(architecture="transformer", task="t", backend="numpy"))
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +300,7 @@ def test_calibrating_drops_the_saved_identity(tmp_path):
     assert recalibrated.resolved_identity().resolved_by == "in-memory"
 
 
-def test_linear_backend_cannot_export(tmp_path):
+def test_numpy_backend_cannot_export(tmp_path):
     _, _, result = _trained()
     with pytest.raises(ml.ModelContractError, match="cannot export"):
         ml.export_model(result.artifact, tmp_path / "x")
@@ -409,3 +410,385 @@ def test_importing_the_ml_package_loads_no_ml_framework():
     )
     loaded = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.strip()
     assert loaded == ""
+
+
+# ---------------------------------------------------------------------------
+# Contract extensions for #973 / #991 (all toy-sized)
+# ---------------------------------------------------------------------------
+
+
+def test_hash_split_never_moves_a_group_when_others_are_added():
+    base = _toy(n_groups=40)
+    grown = _toy(n_groups=60)
+    spec = ml.SplitSpec(seed=7, method="hash")
+    a, b = ml.split_groups(base, spec), ml.split_groups(grown, spec)
+    assert all(b.assignment[g] == p for g, p in a.assignment.items())
+    # the permutation split does not promise this, which is why hash exists
+    perm_a = ml.split_groups(base, ml.SplitSpec(seed=7))
+    perm_b = ml.split_groups(grown, ml.SplitSpec(seed=7))
+    assert any(perm_b.assignment[g] != p for g, p in perm_a.assignment.items())
+    shares = np.bincount([list(b.partitions).index(p) for p in b.assignment.values()], minlength=3) / 60
+    assert abs(shares[0] - 0.7) < 0.2
+
+
+def test_hash_split_honours_pins_and_depends_on_the_seed():
+    ds = _toy(n_groups=30)
+    a = ml.split_groups(ds, ml.SplitSpec(seed=1, method="hash", fixed={"40000": "test"}))
+    c = ml.split_groups(ds, ml.SplitSpec(seed=2, method="hash"))
+    assert a.assignment["40000"] == "test"
+    assert dict(a.assignment) != dict(c.assignment)
+    with pytest.raises(ml.ModelContractError, match="method"):
+        ml.SplitSpec(method="random")
+
+
+def test_knn_scores_exclude_the_sample_itself_on_training_data():
+    ds, split, _ = _trained()
+    spec = ml.ModelSpec(architecture="knn_distance", task="knn", backend="numpy", hyperparameters={"k": 1})
+    result = ml.train_model(ds, split, spec)
+    assert result.artifact.kind == "score" and result.artifact.outputs == ("score",)
+    assert np.all(result.train_scores > 0)  # never its own zero distance
+    # predicting the same rows does NOT exclude them: distance 0 to themselves
+    fitted = ds.subset(result.train_indices)
+    assert np.allclose(ml.predict(result.artifact, fitted).outputs["score"], 0.0, atol=1e-6)
+    outlier = ds.inputs[:1] + 50.0
+    assert ml.predict(result.artifact, outlier).outputs["score"][0] > result.train_scores.max()
+
+
+def test_train_mask_cleans_the_training_set_and_is_recorded():
+    ds, split, _ = _trained()
+    knn = ml.train_model(ds, split, ml.ModelSpec(architecture="knn_distance", task="k", backend="numpy"))
+    keep = np.zeros(ds.n_samples, dtype=bool)
+    cut = np.quantile(knn.train_scores, 0.9)
+    keep[knn.train_indices[knn.train_scores <= cut]] = True
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="ae", backend="numpy", hyperparameters={"n_components": 2})
+    cleaned = ml.train_model(ds, split, spec, train_mask=keep, train_mask_record={"method": "knn_q90"})
+    record = cleaned.artifact.training["train_mask"]
+    assert record["n_kept"] == keep.sum() and record["n_removed"] == record["n_train_partition"] - keep.sum()
+    assert record["record"] == {"method": "knn_q90"}
+    assert set(cleaned.train_indices) == set(np.flatnonzero(keep))
+
+
+def test_unavailable_samples_are_neither_scored_nor_used():
+    base = _toy()
+    missing = np.zeros(base.n_samples, dtype=bool)
+    missing[::7] = True
+    x = base.inputs.copy()
+    x[missing] = np.nan
+    ds = ml.build_dataset(x, base.groups, spec=base.spec, available=~missing)
+    assert np.all(ds.inputs[missing] == 0.0)
+    with pytest.raises(ml.ModelContractError, match="available"):
+        ml.build_dataset(x, base.groups, spec=base.spec)
+    split = ml.split_groups(ds, ml.SplitSpec(seed=1))
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="ae", backend="numpy", hyperparameters={"n_components": 2})
+    result = ml.train_model(ds, split, spec)
+    assert not np.any(missing[result.train_indices])
+    model = result.artifact.with_calibration(ml.calibrate_threshold(result.artifact, ds, split, quantile=0.5))
+    out = ml.predict(model, ds).outputs
+    assert np.all(np.isnan(out["score"][missing])) and not np.any(out["score_exceeds"][missing])
+    assert np.array_equal(out["available"], ~missing)
+    assert ml.evaluate_model(model, ds, split).n_samples == int((split.mask(ds, "test") & ~missing).sum())
+    win = ml.window_dataset(ds, window=5, step=5)
+    assert win.available is not None and not win.available.all()
+
+
+def test_calibration_on_a_masked_population_records_it():
+    ds, split, result = _trained()
+    stage1 = ml.calibrate_threshold(result.artifact, ds, split, quantile=0.8, name="stage1")
+    candidates = ml.predict(result.artifact.with_calibration(stage1), ds).outputs["stage1_exceeds"]
+    stage2 = ml.calibrate_threshold(
+        result.artifact, ds, split, quantile=0.5, name="stage2", mask=candidates, population="stage1_exceeds"
+    )
+    assert stage2.population == "stage1_exceeds"
+    assert stage2.n_samples == int((split.mask(ds, "validation") & candidates).sum())
+    with pytest.raises(ml.ModelContractError, match="population"):
+        ml.calibrate_threshold(result.artifact, ds, split, mask=candidates)
+
+
+def test_evaluate_accepts_task_metrics_overall_and_per_group():
+    ds, split, result = _trained()
+    ev = ml.evaluate_model(
+        result.artifact, ds, split, metrics=lambda out, sub: {"n": len(sub.inputs), "max_score": out["score"].max()}
+    )
+    assert ev.metrics["n"] == ev.n_samples
+    assert sum(m["n"] for m in ev.per_group.values()) == ev.n_samples
+
+
+def test_per_channel_normalisation_pools_the_named_axes():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((200, 10, 3)) * np.array([1.0, 10.0, 100.0])
+    ds = ml.build_dataset(x, np.repeat(np.arange(20), 10), spec=ml.DatasetSpec(name="c", task="t"))
+    split = ml.split_groups(ds)
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="c", backend="numpy", hyperparameters={"n_components": 3})
+    model = ml.train_model(ds, split, spec, ml.TrainingConfig(normalize_axes=(1,))).artifact
+    assert model.normalization["input_std"].shape == (1, 3)
+    assert model.training["config"]["normalize_axes"] == [1]
+    with pytest.raises(ml.ModelContractError):
+        ml.TrainingConfig(normalize_axes=(0,))
+
+
+def test_closed_form_backends_refuse_augmentation_and_losses():
+    ds, split, _ = _trained()
+    ml.register_augmentation("toy_identity", lambda x, y, rng: (x, y))
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="ae", backend="numpy")
+    with pytest.raises(ml.ModelContractError, match="iterative"):
+        ml.train_model(ds, split, spec, ml.TrainingConfig(augmentation="toy_identity"))
+    with pytest.raises(ml.ModelContractError, match="not registered"):
+        ml.train_model(ds, split, spec, ml.TrainingConfig(augmentation="nope"))
+    with pytest.raises(ml.ModelContractError, match="loss"):
+        ml.train_model(ds, split, ml.ModelSpec(architecture="pca_autoencoder", task="ae", backend="numpy",
+                                               hyperparameters={"loss": "mse"}))
+
+
+def test_registration_guards():
+    with pytest.raises(ml.ModelContractError, match="does not accept"):
+        ml.register_architecture("toy", object, kind="supervised", backend="numpy")
+    with pytest.raises(ml.ModelContractError, match="kind"):
+        ml.register_architecture("toy", object, kind="classifier")
+    with pytest.raises(ml.ModelContractError, match="built-in"):
+        ml.register_loss("mse", object)
+
+
+def test_saved_dataset_round_trips_and_detects_edits(tmp_path):
+    fspec = ml.FeatureSpec(feature_names=tuple("abcdef"), blocks={"s1": ("a", "b")}, version="v")
+    base = _toy()
+    ds = ml.build_dataset(base.inputs, base.groups, spec=base.spec, feature_spec=fspec,
+                          sample_meta=dict(base.sample_meta), available=np.arange(base.n_samples) % 5 != 0)
+    assert ml.save_dataset(ds, tmp_path / "d") == ds.fingerprint
+    loaded = ml.load_dataset(tmp_path / "d")
+    assert isinstance(loaded, ml.FeatureDataset) and loaded.fingerprint == ds.fingerprint
+    assert loaded.groups.dtype.kind == "i"
+    record = json.loads((tmp_path / "d" / "dataset.json").read_text())
+    record["fingerprint"] = "0" * 64
+    (tmp_path / "d" / "dataset.json").write_text(json.dumps(record))
+    with pytest.raises(ml.ModelContractError, match="fingerprint"):
+        ml.load_dataset(tmp_path / "d")
+
+
+def test_model_card_and_applicability_reach_the_manifest(tmp_path):
+    _, _, result = _trained()
+    ml.save_model_artifact(result.artifact, tmp_path / "a", version="0.1.0",
+                           model_card={"intended_use": "toy"}, applicability={"shots": [1, 2]})
+    manifest = json.loads((tmp_path / "a" / "manifest.json").read_text())
+    assert manifest["kind"] == "model" and manifest["model_card"] == {"intended_use": "toy"}
+    assert manifest["applicability"] == {"shots": [1, 2]}
+
+
+def _bundle(tmp_path, version="0.1.0"):
+    ds, split, result = _trained()
+    knn = ml.train_model(ds, split, ml.ModelSpec(architecture="knn_distance", task="toy_knn", backend="numpy")).artifact
+    bundle = ml.ModelBundle(
+        name="toy_two_stage",
+        members={"stage1": result.artifact, "stage2": knn},
+        composition={"order": ["stage1", "stage2"], "event_rule": "toy_v0"},
+    )
+    return ds, ml.save_model_bundle(bundle, tmp_path / "bundle" / version, version=version)
+
+
+def test_bundle_round_trips_with_member_identities(tmp_path):
+    ds, saved = _bundle(tmp_path)
+    directory = tmp_path / "bundle" / "0.1.0"
+    assert all("/" not in p.name for p in directory.iterdir())  # flat: every file is a release asset
+    loaded = ml.load_model_bundle(directory)
+    assert loaded.identity.manifest_sha256 == saved.identity.manifest_sha256
+    assert loaded.composition["event_rule"] == "toy_v0"
+    member = loaded.members["stage2"]
+    assert member.identity.bundle == "toy_two_stage@0.1.0#stage2"
+    assert member.identity.bundle_manifest_sha256 == saved.identity.manifest_sha256
+    np.testing.assert_array_equal(
+        ml.predict(member, ds).outputs["score"], ml.predict(saved.members["stage2"], ds).outputs["score"]
+    )
+
+
+def test_a_tampered_bundle_member_is_refused(tmp_path):
+    _bundle(tmp_path)
+    _flip_last_byte(tmp_path / "bundle" / "0.1.0" / "stage1.weights.npz")
+    with pytest.raises(ml.ModelResolutionError, match="stage1.weights.npz"):
+        ml.load_model_bundle(tmp_path / "bundle" / "0.1.0")
+
+
+def test_a_bundle_resolves_from_the_registry(tmp_path):
+    _, saved = _bundle(tmp_path)
+    registry, cache = tmp_path / "vaft-nn", tmp_path / "cache"
+    target = registry / "models" / "toy_two_stage" / "versions" / "0.1.0"
+    target.mkdir(parents=True)
+    shutil.copy(tmp_path / "bundle" / "0.1.0" / "manifest.json", target / "manifest.json")
+    shutil.copytree(tmp_path / "bundle" / "0.1.0", cache / "toy_two_stage" / "0.1.0")
+    (registry / "models" / "toy_two_stage" / "releases.yaml").write_text(yaml.safe_dump({
+        "schema_version": 0, "model": "toy_two_stage", "stages": {"production": "0.1.0"},
+        "versions": [{"version": "0.1.0", "status": "validated",
+                      "manifest_sha256": saved.identity.manifest_sha256}],
+    }))
+    loaded = ml.load_model("toy_two_stage", stage="production", registry=registry, cache=cache)
+    assert isinstance(loaded, ml.ModelBundle)
+    assert loaded.identity.stage == "production" and loaded.identity.version == "0.1.0"
+    assert loaded.members["stage1"].identity.bundle_manifest_sha256 == saved.identity.manifest_sha256
+
+
+# ---------------------------------------------------------------------------
+# Fetching release assets (the gh call itself is replaced)
+# ---------------------------------------------------------------------------
+
+
+def _fake_release(source_dir, tamper=False):
+    def download(repository, tag, destination):
+        assert tag == "toy_ae-v0.1.0"
+        for path in source_dir.iterdir():
+            shutil.copy(path, destination / path.name)
+        if tamper:
+            _flip_last_byte(destination / "weights.npz")
+    return download
+
+
+def test_fetch_downloads_verifies_and_caches(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    registry, cache = _publish(tmp_path, versions=("0.1.0",))
+    release = tmp_path / "release"
+    shutil.copytree(cache / "toy_ae" / "0.1.0", release)
+    shutil.rmtree(cache / "toy_ae" / "0.1.0")
+    monkeypatch.setattr(resolver, "_download_release", _fake_release(release))
+    with pytest.raises(ml.ModelResolutionError, match="fetch_model"):
+        ml.load_model("toy_ae", version="0.1.0", registry=registry, cache=cache)
+    model = ml.load_model("toy_ae", stage="production", registry=registry, cache=cache, fetch=True)
+    assert model.identity.version == "0.1.0" and model.identity.stage == "production"
+    assert not [p for p in (cache / "toy_ae").iterdir() if p.name.startswith(".")]  # no staging left
+
+
+def test_fetch_refuses_assets_that_differ_and_leaves_the_cache_alone(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    registry, cache = _publish(tmp_path, versions=("0.1.0",))
+    release = tmp_path / "release"
+    shutil.copytree(cache / "toy_ae" / "0.1.0", release)
+    before = sorted(p.name for p in (cache / "toy_ae" / "0.1.0").iterdir())
+    monkeypatch.setattr(resolver, "_download_release", _fake_release(release, tamper=True))
+    with pytest.raises(ml.ModelResolutionError, match="do not match"):
+        ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=cache)
+    assert sorted(p.name for p in (cache / "toy_ae" / "0.1.0").iterdir()) == before
+    assert ml.resolve_model("toy_ae", version="0.1.0", registry=registry, cache=cache).version == "0.1.0"
+
+
+def test_fetch_without_the_github_cli_says_what_to_install(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    registry, cache = _publish(tmp_path, versions=("0.1.0",))
+    monkeypatch.setattr(resolver.shutil, "which", lambda name: None)
+    with pytest.raises(ml.ModelResolutionError, match="gh auth login"):
+        ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=tmp_path / "empty")
+
+
+def test_default_cache_follows_the_platform_and_the_override(tmp_path):
+    from vaft.process.ml import resolver
+
+    assert resolver.default_cache_root({"VAFT_NN_CACHE": str(tmp_path)}) == tmp_path
+    assert resolver.default_cache_root({}).name == "vaft-nn"
+
+
+def test_repository_is_read_from_the_registry_origin(tmp_path):
+    from vaft.process.ml import resolver
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "remote", "add", "origin",
+                    "git@github.com:someone/vaft-nn-fork.git"], check=True)
+    assert resolver._repository(tmp_path) == "someone/vaft-nn-fork"
+    assert resolver._repository(tmp_path / "missing") == resolver.DEFAULT_REPOSITORY
+
+
+def test_a_score_model_is_not_calibrated_on_the_samples_it_was_fitted_on():
+    ds, split, _ = _trained()
+    knn = ml.train_model(ds, split, ml.ModelSpec(architecture="knn_distance", task="k", backend="numpy")).artifact
+    with pytest.raises(ml.ModelContractError, match="fitted on"):
+        ml.calibrate_threshold(knn, ds, split, partition="train")
+    assert ml.calibrate_threshold(knn, ds, split).partition == "validation"
+
+
+def test_load_hashes_the_bytes_it_reads_even_without_verification(tmp_path):
+    _, _, result = _trained()
+    ml.save_model_artifact(result.artifact, tmp_path / "a", version="0.1.0")
+    _flip_last_byte(tmp_path / "a" / "normalization.npz")
+    with pytest.raises(ml.ModelResolutionError, match="normalization.npz"):
+        ml.load_model_artifact(tmp_path / "a", verify=False)
+
+
+def test_a_failed_swap_keeps_the_previous_cache(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    target, staging = tmp_path / "v", tmp_path / "staging"
+    target.mkdir()
+    (target / "old").write_text("old")
+    staging.mkdir()
+    (staging / "new").write_text("new")
+    real_replace = resolver.os.replace
+
+    def failing(src, dst):
+        if Path(src) == staging:
+            raise OSError("disk full")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(resolver.os, "replace", failing)
+    with pytest.raises(ml.ModelResolutionError, match="disk full"):
+        resolver._swap_into_place(staging, target)
+    assert (target / "old").read_text() == "old"
+
+
+def test_a_different_split_cannot_leak_training_groups_into_a_holdout():
+    ds, split, result = _trained()
+    other = ml.split_groups(ds, ml.SplitSpec(seed=99))
+    leaking = [p for p in ("validation", "test")
+               if set(other.groups(p)) & set(result.split.groups("train"))]
+    assert leaking  # seed 99 moves some training shots into a holdout
+    for partition in leaking:
+        with pytest.raises(ml.ModelContractError, match="fitted on"):
+            ml.evaluate_model(result.artifact, ds, other, partition)
+        with pytest.raises(ml.ModelContractError, match="fitted on"):
+            ml.calibrate_threshold(result.artifact, ds, other, partition=partition)
+    # the model's own training partition may still be evaluated: training metrics
+    assert ml.evaluate_model(result.artifact, ds, split, "train").n_samples > 0
+
+
+def test_evaluate_and_calibrate_check_columns_like_predict():
+    fspec = ml.FeatureSpec(feature_names=tuple("abcdef"), blocks={"s1": ("a", "b", "c"), "s2": ("d", "e", "f")})
+    base = _toy()
+    table = ml.build_dataset(base.inputs, base.groups, spec=base.spec, feature_spec=fspec)
+    split = ml.split_groups(table, ml.SplitSpec(seed=1))
+    spec = ml.ModelSpec(architecture="pca_autoencoder", task="s1", backend="numpy", hyperparameters={"n_components": 2})
+    model = ml.train_model(table.select_block("s1"), split, spec).artifact
+    wrong = table.select_block("s2")
+    with pytest.raises(ml.ModelContractError, match="columns"):
+        ml.evaluate_model(model, wrong, split)
+    with pytest.raises(ml.ModelContractError, match="columns"):
+        ml.calibrate_threshold(model, wrong, split)
+
+
+def test_blocked_knn_matches_brute_force(monkeypatch):
+    from vaft.process.ml._backends import numpy as backend
+
+    rng = np.random.default_rng(3)
+    ref = rng.standard_normal((57, 4))
+    queries = rng.standard_normal((23, 4))
+    brute = np.sqrt(np.sort(((queries[:, None] - ref[None]) ** 2).sum(-1), axis=1)[:, 2])
+    self_d = ((ref[:, None] - ref[None]) ** 2).sum(-1)
+    np.fill_diagonal(self_d, np.inf)
+    brute_self = np.sqrt(np.sort(self_d, axis=1)[:, 2])
+    monkeypatch.setattr(backend, "_KNN_BLOCK", 5)
+    monkeypatch.setattr(backend, "_KNN_REFERENCE_BLOCK", 7)
+    np.testing.assert_allclose(backend._kth_distance(queries, ref, 3, exclude_self=False), brute, atol=1e-9)
+    np.testing.assert_allclose(backend._kth_distance(ref, ref, 3, exclude_self=True), brute_self, atol=1e-9)
+
+
+def test_fetch_keeps_only_pinned_files_and_accepts_a_concurrent_winner(tmp_path, monkeypatch):
+    from vaft.process.ml import resolver
+
+    registry, cache = _publish(tmp_path, versions=("0.1.0",))
+    release = tmp_path / "release"
+    shutil.copytree(cache / "toy_ae" / "0.1.0", release)
+    (release / "notes.txt").write_text("not pinned")
+    monkeypatch.setattr(resolver, "_download_release", _fake_release(release))
+    ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=cache)
+    assert not (cache / "toy_ae" / "0.1.0" / "notes.txt").exists()
+
+    def lose_the_race(staging, target):
+        raise ml.ModelResolutionError("could not move: directory not empty")
+
+    monkeypatch.setattr(resolver, "_swap_into_place", lose_the_race)
+    assert ml.fetch_model("toy_ae", version="0.1.0", registry=registry, cache=cache).version == "0.1.0"

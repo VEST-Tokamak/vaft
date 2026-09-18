@@ -85,8 +85,14 @@ DEFINITIONAL = frozenset({
     "calibrate_threshold",
     "dataset_fingerprint",
     "evaluate_model",
+    "load_dataset",
     "load_model",
+    "load_model_bundle",
     "predict",
+    "register_architecture",
+    "register_augmentation",
+    "register_loss",
+    "save_dataset",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -177,7 +183,9 @@ PIPELINE = frozenset({
     "pixelwise_spectrogram",
     "subtract_temporal_background",
     # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "fetch_model",
     "resolve_model",
+    "save_model_bundle",
     "split_groups",
     "train_model",
     "window_dataset",

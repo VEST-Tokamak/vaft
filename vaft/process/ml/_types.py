@@ -32,6 +32,7 @@ __all__ = [
     "ModelIdentity",
     "CalibrationResult",
     "ModelArtifact",
+    "ModelBundle",
     "EvaluationResult",
     "InferenceResult",
 ]
@@ -163,6 +164,9 @@ class DatasetArtifact:
     unsupervised dataset or ``(n, *target_shape)`` for paired supervision.
     ``groups`` holds the independent unit of every sample; ``sample_meta``
     carries per-sample arrays (time, window start) that travel with subsets.
+    ``available`` marks samples whose inputs exist at all -- an absent
+    diagnostic is *unavailable*, which is neither a zero nor a normal sample;
+    ``None`` means every sample is available.
     ``fingerprint`` is the SHA-256 :func:`dataset_fingerprint` returns.
     """
 
@@ -171,6 +175,7 @@ class DatasetArtifact:
     groups: np.ndarray
     targets: np.ndarray | None = None
     sample_meta: Mapping[str, np.ndarray] = field(default_factory=dict)
+    available: np.ndarray | None = None
     fingerprint: str = ""
 
     def __post_init__(self):
@@ -179,6 +184,11 @@ class DatasetArtifact:
             raise ModelContractError(f"{len(self.groups)} groups for {n} samples")
         if self.targets is not None and len(self.targets) != n:
             raise ModelContractError(f"{len(self.targets)} targets for {n} samples")
+        if self.available is not None:
+            available = np.asarray(self.available)
+            if available.dtype != bool or available.shape != (n,):
+                raise ModelContractError(f"available must be a boolean array of shape ({n},)")
+            object.__setattr__(self, "available", available)
         for key, value in dict(self.sample_meta).items():
             if len(value) != n:
                 raise ModelContractError(f"sample_meta[{key!r}] has {len(value)} rows for {n} samples")
@@ -200,6 +210,28 @@ class DatasetArtifact:
     def group_labels(self) -> np.ndarray:
         """Groups as strings, the form a :class:`Split` assigns."""
         return np.asarray([str(g) for g in self.groups])
+
+    @property
+    def available_mask(self) -> np.ndarray:
+        """``available``, with ``None`` read as every sample available."""
+        return np.ones(self.n_samples, dtype=bool) if self.available is None else self.available
+
+    def subset(self, indices) -> "DatasetArtifact":
+        """The samples at ``indices``, with their groups, metadata and availability.
+
+        The subset's ``fingerprint`` is empty: it is a view for evaluation, not a
+        dataset a model should record as its training data.
+        """
+        idx = np.asarray(indices)
+        return dataclasses.replace(
+            self,
+            inputs=self.inputs[idx],
+            groups=np.asarray(self.groups)[idx],
+            targets=None if self.targets is None else self.targets[idx],
+            sample_meta={k: np.asarray(v)[idx] for k, v in self.sample_meta.items()},
+            available=None if self.available is None else self.available[idx],
+            fingerprint="",
+        )
 
     def replace(self, **changes) -> "DatasetArtifact":
         return dataclasses.replace(self, **changes)
@@ -247,7 +279,13 @@ class SplitSpec:
 
     ``fractions`` are shares of *groups*, not of samples.  ``fixed`` pins named
     groups to a partition (a hand-picked test campaign) before the seeded
-    random assignment distributes the rest.
+    assignment distributes the rest.
+
+    ``method`` chooses that assignment.  ``"permutation"`` permutes the sorted
+    groups and cuts at the fractions: exact shares, but adding one group can
+    move others.  ``"hash"`` places each group by a hash of ``(seed, group)``
+    alone: shares are only expected values, but a group never changes
+    partition when others are added -- what a growing shot database needs.
     """
 
     fractions: Mapping[str, float] = field(
@@ -255,6 +293,7 @@ class SplitSpec:
     )
     seed: int = 0
     fixed: Mapping[str, str] = field(default_factory=dict)
+    method: str = "permutation"
 
     def __post_init__(self):
         fractions = {str(k): float(v) for k, v in dict(self.fractions).items()}
@@ -267,11 +306,18 @@ class SplitSpec:
         unknown = sorted(set(fixed.values()) - set(fractions))
         if unknown:
             raise ModelContractError(f"SplitSpec.fixed names unknown partitions {unknown}")
+        if self.method not in ("permutation", "hash"):
+            raise ModelContractError(f"SplitSpec.method must be 'permutation' or 'hash'; got {self.method!r}")
         object.__setattr__(self, "fractions", MappingProxyType(fractions))
         object.__setattr__(self, "fixed", MappingProxyType(fixed))
 
     def to_dict(self) -> dict:
-        return {"fractions": dict(self.fractions), "seed": self.seed, "fixed": dict(self.fixed)}
+        return {
+            "fractions": dict(self.fractions),
+            "seed": self.seed,
+            "fixed": dict(self.fixed),
+            "method": self.method,
+        }
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -369,11 +415,27 @@ class TrainingConfig:
     early_stopping_patience: int | None = 10
     normalize_inputs: bool = True
     normalize_targets: bool = True
+    #: Sample axes (1-based, as in ``inputs.shape``) pooled into one mean/std;
+    #: ``()`` is per element, ``(1,)`` on ``(n, time, channel)`` is per channel.
+    normalize_axes: tuple[int, ...] = ()
+    target_normalize_axes: tuple[int, ...] = ()
+    augmentation: str | None = None
+    device: str = "cpu"
     train_partition: str = "train"
     validation_partition: str | None = "validation"
 
+    def __post_init__(self):
+        for key in ("normalize_axes", "target_normalize_axes"):
+            axes = tuple(int(a) for a in getattr(self, key))
+            if any(a < 1 for a in axes):
+                raise ModelContractError(f"{key} are sample axes counted from 1; got {axes}")
+            object.__setattr__(self, key, axes)
+
     def to_dict(self) -> dict:
-        return dataclasses.asdict(self)
+        record = dataclasses.asdict(self)
+        record["normalize_axes"] = list(self.normalize_axes)
+        record["target_normalize_axes"] = list(self.target_normalize_axes)
+        return record
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -394,6 +456,9 @@ class ModelIdentity:
     status: str | None = None
     resolved_by: str = "in-memory"
     source: str | None = None
+    #: For a member of a :class:`ModelBundle`: the bundle's ``name@version`` and manifest hash.
+    bundle: str | None = None
+    bundle_manifest_sha256: str | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -411,6 +476,8 @@ class CalibrationResult:
     partition: str
     n_samples: int
     groups: tuple[str, ...] = ()
+    #: How the calibration population was restricted within the partition, if at all.
+    population: str | None = None
 
     def to_dict(self) -> dict:
         return {**dataclasses.asdict(self), "groups": list(self.groups)}
@@ -431,7 +498,7 @@ class ModelArtifact:
     state: bytes
     input_shape: tuple[int, ...]
     target_shape: tuple[int, ...] | None
-    supervised: bool
+    kind: str
     outputs: tuple[str, ...]
     normalization: Mapping[str, np.ndarray] = field(default_factory=dict)
     input_names: tuple[str, ...] = ()
@@ -448,6 +515,10 @@ class ModelArtifact:
         object.__setattr__(self, "input_names", tuple(self.input_names))
         for key in ("normalization", "training", "metrics", "calibration"):
             object.__setattr__(self, key, _frozen_mapping(getattr(self, key)))
+
+    @property
+    def supervised(self) -> bool:
+        return self.kind == "supervised"
 
     @property
     def state_sha256(self) -> str:
@@ -482,6 +553,41 @@ class TrainingResult:
     history: Mapping[str, tuple[float, ...]]
     split: Split
     best_epoch: int | None
+    #: Dataset indices the model was fitted on (train partition, available, ``train_mask``).
+    train_indices: np.ndarray | None = None
+    #: For a ``score`` model whose backend can leave a sample out (the k-NN), the
+    #: score of each fitted sample computed *without* it -- what training-set
+    #: cleaning needs; ``None`` where only in-sample scores exist (the SVM).
+    train_scores: np.ndarray | None = None
+
+
+@dataclass(frozen=True, kw_only=True, eq=False)
+class ModelBundle:
+    """Several fitted models released as one logical model.
+
+    A two-stage detector publishes its stages together: one version, one
+    manifest pinning every member.  ``members`` maps a role (``"stage1"``) to
+    its artifact; ``composition`` is a free, JSON-serialisable record of how
+    the task combines them (stage order, event-rule version).  Combining the
+    members is task code; the bundle only keeps them together and identified.
+    """
+
+    name: str
+    members: Mapping[str, ModelArtifact]
+    composition: Mapping[str, Any] = field(default_factory=dict)
+    identity: ModelIdentity | None = None
+
+    def __post_init__(self):
+        if not self.members:
+            raise ModelContractError("a ModelBundle needs at least one member")
+        for role in self.members:
+            if not role or not role.replace("_", "").isalnum():
+                raise ModelContractError(f"bundle member role {role!r} must be an identifier")
+        object.__setattr__(self, "members", MappingProxyType(dict(self.members)))
+        object.__setattr__(self, "composition", _frozen_mapping(self.composition))
+
+    def replace(self, **changes) -> "ModelBundle":
+        return dataclasses.replace(self, **changes)
 
 
 @dataclass(frozen=True, kw_only=True)
