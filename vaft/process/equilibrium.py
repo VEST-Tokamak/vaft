@@ -80,6 +80,7 @@ _PARAMETRIC_EXPORTS = (
     "derive_radial_coordinates",
     "evaluate_miller",
     "evaluate_solovev",
+    "find_stationary_points",
     "fit_miller_sequence",
     "fit_miller_surface",
     "solovev_to_equilibrium",
