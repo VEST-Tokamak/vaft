@@ -174,7 +174,7 @@ def check_build_toolchain(*, required: bool) -> CheckResult:
         status = FAIL if required else WARN
         return CheckResult(label, status, f"missing {', '.join(missing)}", "Install them (macOS: brew install cmake gcc).")
     try:
-        version = subprocess.run(["gfortran", "--version"], capture_output=True, text=True, timeout=20, check=False).stdout.splitlines()[0]
+        version = subprocess.run(["gfortran", "--version"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20, check=False).stdout.splitlines()[0]
     except Exception:
         version = "gfortran"
     return CheckResult(label, PASS, version)
@@ -271,7 +271,7 @@ def check_capabilities(prefix: Optional[str], build_tree: Optional[str]) -> Chec
         cache = None
         for root in (build_tree, prefix):
             if root and (Path(root).expanduser() / "CMakeCache.txt").is_file():
-                cache = (Path(root).expanduser() / "CMakeCache.txt").read_text(errors="replace")
+                cache = (Path(root).expanduser() / "CMakeCache.txt").read_text(encoding="utf-8", errors="replace")
                 break
         if cache is None:
             return CheckResult(label, SKIP, "no build manifest or CMakeCache.txt to read")
@@ -325,7 +325,7 @@ def _run_with_stack(command: list[str], *, cwd: Path, timeout: int, stack_kb: in
     if not IS_WINDOWS:
         shell = f"ulimit -s {int(stack_kb)} 2>/dev/null; exec \"$@\""
         command = ["bash", "-c", shell, "efit-check", *command]
-    return subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, errors="replace", timeout=timeout, check=False)
+    return subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False)
 
 
 def check_efund_smoke(executables: dict[str, Path], source: Optional[str], *, skip: bool) -> CheckResult:
@@ -344,7 +344,7 @@ def check_efund_smoke(executables: dict[str, Path], source: Optional[str], *, sk
         completed = _run_with_stack([str(efund), str(SMOKE_GRID)], cwd=workdir, timeout=600)
     except subprocess.TimeoutExpired:
         return CheckResult(label, FAIL, "efund did not finish within 600 s", f"The run directory is {workdir}.")
-    (workdir / "run_green.out").write_text(completed.stdout + completed.stderr)
+    (workdir / "run_green.out").write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode != 0:
         return CheckResult(label, FAIL, first_error_line(completed.stdout + completed.stderr) or f"efund exited {completed.returncode}", f"The run directory is {workdir}.")
     nsilop, magpri, nfsum, nesum, nvsum = SMOKE_COUNTS
@@ -379,7 +379,7 @@ def check_efit_starts(executables: dict[str, Path]) -> CheckResult:
         return CheckResult(label, SKIP, "no efit to start")
     workdir = Path(scratch_directory("vaft-efit-check-"))
     try:
-        completed = subprocess.run([str(efit), "129"], cwd=str(workdir), input="", capture_output=True, text=True, errors="replace", timeout=60, check=False)
+        completed = subprocess.run([str(efit), "129"], cwd=str(workdir), input="", capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False)
     except subprocess.TimeoutExpired:
         shutil.rmtree(workdir, ignore_errors=True)
         return CheckResult(label, PASS, "started and waited for input")

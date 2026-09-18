@@ -424,7 +424,8 @@ bash install/install_gpec.sh   --source ~/git/GPEC
 
 Each builds the code, installs into `<source>/vaft-install`, writes
 `vaft-external-install.json` recording the revision and the exact build command,
-and finishes by running the matching checker. Both accept `--check-only`,
+and finishes by running the matching checker and adopting its exit status
+(the binaries are installed either way, so a failure can be examined). Both accept `--check-only`,
 `--uninstall`, `--jobs N` and `--allow-dirty`, and both refuse a source tree
 with uncommitted changes unless you pass that last one, because a build from a
 dirty tree has no revision you can state.
@@ -510,7 +511,7 @@ install, not things a script installs behind you.
 | `-MaterializeSymlinks` | CHEASE only. Replace symbolic-link placeholders with copies of their targets. |
 | `-NoEnvironmentWiring` | Do not set `CHEASEHOME` / `GPECHOME`; print the command instead. |
 | `-CheckOnly` | Run the checker and change nothing. |
-| `-Uninstall` | Remove the prefix and the environment variable. Your source tree is untouched. |
+| `-Uninstall` | Remove what the installer put into the prefix, and the environment variable. The prefix directory itself goes only if the installer created it and nothing else is left in it. Your source tree is untouched. |
 
 #### What gets installed, and where
 
@@ -624,8 +625,16 @@ GPEC tree will show a few untracked executables. CHEASE ignores `chease` but not
 `chease.exe`, for the same reason. Neither installer changes a tracked file
 unless you pass `-MaterializeSymlinks`.
 
-`-Uninstall` removes the prefix and the environment variable. It never touches
-your source tree, MSYS2, or anything `pacman` installed.
+`-Uninstall` removes what the installer put into the prefix (`bin`, `build`,
+`deps`, `logs`, `shim` and its two records) and the environment variable. It
+refuses a directory that carries no record of this installer, leaves any other
+file it finds there, and removes the prefix directory itself only when the
+installer created it. It never touches your source tree, MSYS2, or anything
+`pacman` installed.
+
+For the same reason an install refuses a `-Prefix` (POSIX: `--prefix`) that
+already exists, is not empty and was not created by the installer: give each
+code a directory of its own rather than a shared one such as `~/.local`.
 
 ## Per-code notes
 
@@ -900,7 +909,7 @@ and exits with status 2.
 | `--jobs N` | Parallel build jobs. |
 | `--skip-tests` | Do not run EFIT's `ctest` suite after the build. |
 | `--check-only` | Run `install/check_efit.py` and change nothing. |
-| `--uninstall` | Remove the build directory and prefix this script created. The source tree is untouched. |
+| `--uninstall` | Remove the build directory this script configured and what it installed into the prefix; the prefix directory itself only if this script created it and it is then empty. The source tree is untouched. |
 
 The build is configured as `Release` with `TEST_EFUND=ON` so that both
 executables, `efit` and `efund`, come out of **one** configure of **one**
