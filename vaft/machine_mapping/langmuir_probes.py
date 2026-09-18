@@ -108,6 +108,12 @@ class LangmuirProbeEraGapError(LangmuirProbeConfigError):
     Langmuir component as unavailable and keeps the rest of the product
     (#989), whereas every other :class:`LangmuirProbeConfigError` -- an
     overlap, a missing key, an unknown gas -- still fails it.
+
+    The whole component is dropped, every assembly with it, because the
+    assemblies are mapped in one pass. That loses nothing only while no
+    assembly has a gap in a shot where another assembly is installed;
+    ``test_no_langmuir_era_gap_falls_where_another_assembly_is_installed``
+    keeps the table that way.
     """
 
 
