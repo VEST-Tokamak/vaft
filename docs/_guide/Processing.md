@@ -710,8 +710,8 @@ dependency, so install it before calling.
    `logging` instead.
 5. **Importing `vaft.process` pulls in `matplotlib` and `ipywidgets`** — both are module-level imports
    in `magnetics.py`.
-6. The `electromagnetics` module prints a Numba warning on import when Numba is absent. **Numba is never
-   actually used**, so installing it changes nothing.
+6. **Numba is optional.** No module uses it yet. It is the `vaft[accel]` extra, reserved for
+   acceleration work that measurements justify (#1013).
 
 ---
 

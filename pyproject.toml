@@ -26,7 +26,6 @@ classifiers = [
 ]
 
 dependencies = [
-  "astropy==6.1.7",
   "cryptography>=42.0.0",
   "fortranformat",
   "f90nml>=1.4.4",
@@ -39,7 +38,6 @@ dependencies = [
   "matplotlib>=3.7.3,<4",
   "plotly>=5.24,<7",
   "mysql-connector-python>=8.4.0",
-  "numba",
   "numpy>=2.0.0,<3",
   "omas==0.94.2",
   "openpyxl",
@@ -93,6 +91,14 @@ tokamaker = ["openfusiontoolkit"]
 # Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
 # the CPU wheel explicitly instead (package-ci.yml).
 ml = ["torch", "onnx", "onnxruntime"]
+# Numba is reserved for measured acceleration work (#1013) and is not a runtime
+# dependency: no VAFT module imports it yet. It used to be required, but
+# electromagnetics.py only checked whether it imported and printed a warning when
+# it did not. Keeping it required would cost every install a compiled
+# dependency, and on Python 3.15 its missing wheels would block installation
+# entirely. A kernel that later adopts it must keep a NumPy fallback that
+# produces the same result, and must import numba lazily inside that kernel.
+accel = ["numba"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
