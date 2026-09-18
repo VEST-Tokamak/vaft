@@ -1153,6 +1153,31 @@ def _diamagnetic_config(shot: int) -> dict[str, Any]:
     return resolve_vest_diagnostic(shot, "diamagnetic_flux")
 
 
+def diamagnetic_field_for_shot(shot: int) -> int | None:
+    """The raw field carrying the diamagnetic (TF Rogowski) signal, or ``None``.
+
+    ``None`` when `vest.yaml` records no usable sensor for the shot -- none
+    installed yet, or a known fault period (#993).
+    """
+    source = _diamagnetic_config(shot).get("source")
+    if not source or source.get("field") is None:
+        return None
+    return int(source["field"])
+
+
+def _diamagnetic_field(shot: int, signal_name: str) -> int:
+    """Like :func:`diamagnetic_field_for_shot`, raising where there is none."""
+    field_code = diamagnetic_field_for_shot(shot)
+    if field_code is None:
+        reason = _diamagnetic_config(shot).get("unavailable_reason") or (
+            "vest.yaml records no diamagnetic sensor for this shot"
+        )
+        raise raw_db.RawSignalUnavailableError(
+            shot, "diamagnetic", str(reason), signal_name=signal_name
+        )
+    return field_code
+
+
 def _saturation_runs(mask: np.ndarray) -> list[tuple[int, int]]:
     """Return inclusive ``(start, stop)`` index pairs for each saturated run."""
     indices = np.flatnonzero(mask)
@@ -1231,7 +1256,7 @@ def diamagnetic_saturation_report(
     #215) so that saturation is detected in exactly one place.
     """
     config = _diamagnetic_config(shot)
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic flux")
     limits = config["processing"]["saturation_repair"]
     temp_time, raw_values = raw_db.require_signal(
         _safe_vest_load(shot, field_code, raw_source),
@@ -1278,7 +1303,7 @@ def vest_diamagnetic_rogowski_current(
     config = _diamagnetic_config(shot)
     processing = config["processing"]
     limits = processing["saturation_repair"]
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic hi-sensitivity TF Rogowski coil")
 
     time, raw_values = raw_db.require_signal(
         _safe_vest_load(shot, field_code, raw_source),
@@ -1319,7 +1344,7 @@ def vest_diamagnetic_flux_detailed(
     inspected at each integration without reimplementing the chain elsewhere.
     """
     config = _diamagnetic_config(shot)
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic flux")
     processing = config["processing"]
     limits = processing["saturation_repair"]
     temp_time, raw_values = raw_db.require_signal(
@@ -2324,8 +2349,17 @@ def vfit_magnetics_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
-) -> None:
-    """Populate dynamic magnetics nodes from required raw waveforms."""
+) -> dict[str, str]:
+    """Populate dynamic magnetics nodes from required raw waveforms.
+
+    Returns ``{signal: reason}`` for the signals left out because they could
+    not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
+    loop is one channel with its own acquisition history (#993): when it
+    carries nothing usable (pinned at the ADC rail for the whole record, or
+    not archived) its node is simply not written, rather than the probes,
+    flux loops and Ip going down with it. Nothing is fabricated; the caller
+    records the reason.
+    """
     context = _prepare_magnetics_context(
         shot,
         tstart,
@@ -2350,7 +2384,19 @@ def vfit_magnetics_dynamic(
     _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     _map_ip(ods, context.target_time, ip_time, ip)
-    _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
+    left_out: dict[str, str] = {}
+    try:
+        _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
+    except (raw_db.RawSignalUnavailableError, SignalRepairError) as error:
+        # _map_diamagnetic_flux writes nothing before its last step, so there
+        # is no partial node to remove. Only the loop's own field (and its
+        # clip repair) raise these two types here; an Ip failure happened
+        # above and still fails the IDS. Reading live SQL without a raw
+        # archive, a failed query also reaches here as "unavailable": the
+        # pipeline reads archived dumps, where absent means absent.
+        left_out["diamagnetic_flux"] = str(error)
+        warnings.warn(f"shot {shot}: diamagnetic flux left out: {error}", RuntimeWarning, stacklevel=2)
+    return left_out
 
 
 def vfit_magnetics_for_shot(
@@ -2526,6 +2572,7 @@ __all__ = [
     "vest_diamagnetic_flux",
     "vest_diamagnetic_flux_detailed",
     "vest_equilibrium_magnetics_channel_definitions",
+    "diamagnetic_field_for_shot",
     "fluctuation_mirnov_channel_definitions",
     "fluctuation_mirnov_gain_by_identifier",
     "fluctuation_mirnov_probe_indices",

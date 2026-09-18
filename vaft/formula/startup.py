@@ -519,6 +519,192 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     return _maybe_scalar(field, p_Pa, connection_length_m)
 
 
+#: Townsend coefficients by gas, per metre and per torr: the published
+#: per-centimetre pair times 100, kept in torr for the reason the module
+#: docstring gives.  Hydrogen is
+#: Lloyd's pair so the gas-keyed threshold for ``"H2"`` *is* Lloyd's threshold,
+#: not a second opinion about it.  Deuterium is deliberately absent: its
+#: measured coefficients differ from hydrogen's (Rose 1956), and no single
+#: pair was found that a source states for tokamak-relevant $E/p$.
+_TOWNSEND_GASES = {
+    "H2": (_LLOYD_A_PER_M_TORR, _LLOYD_B_V_PER_M_TORR),
+    "He": (300.0, 3400.0),
+    "Ar": (1200.0, 18000.0),
+}
+
+
+def _townsend_gas(gas):
+    """Look a gas up by its exact key, or say which keys exist."""
+    try:
+        return _TOWNSEND_GASES[gas]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"no Townsend coefficients for gas {gas!r}; known gases are "
+            f"{sorted(_TOWNSEND_GASES)}.  Pass A and B to "
+            "townsend_breakdown_field for any other gas."
+        ) from None
+
+
+def townsend_coefficients_for_gas(gas):
+    r"""Townsend similarity coefficients of a catalogued fill gas, in SI.
+
+    $$A_{SI} = \frac{100\,A_{\mathrm{cm\,Torr}}}{P_T},\qquad
+      B_{SI} = \frac{100\,B_{\mathrm{cm\,Torr}}}{P_T}$$
+
+    with $P_T$ = :data:`vaft.formula.constants.PA_PER_TORR` pascal per torr,
+    ready to pass to :func:`townsend_ionization_coefficient`.
+
+    ========  ==========================  =============================
+    ``gas``   $A$, $B$ [cm^-1 Torr^-1,   source
+              V cm^-1 Torr^-1]
+    ========  ==========================  =============================
+    ``"H2"``  5.1, 125                    Lloyd et al. 1991
+    ``"He"``  3, 34                       Raizer 1991
+    ``"Ar"``  12, 180                     Raizer 1991; Howatson
+    ========  ==========================  =============================
+
+    Parameters
+    ----------
+    gas : str
+        Exact catalogue key: ``"H2"``, ``"He"`` or ``"Ar"`` [-].
+
+    Returns
+    -------
+    A : float
+        Townsend similarity coefficient [m^-1 Pa^-1].
+    B : float
+        Townsend similarity coefficient [V m^-1 Pa^-1].
+
+    Raises
+    ------
+    ValueError
+        A gas that is not in the catalogue, including ``"D2"``.
+
+    Convention
+    ----------
+    Keys are chemical formulas matched exactly, so ``"h2"`` and
+    ``"hydrogen"`` are refused rather than guessed at.  The table stores the
+    published per-torr pair and converts on the way out, for the reason the
+    module docstring gives: a rounded SI pair costs half a percent where a
+    spherical tokamak's prefill sits.
+
+    Validity
+    --------
+    Empirical fit.  Each pair is a single-exponential fit over a limited
+    $E/p$ range, and the literature for one gas scatters by up to a factor of
+    two in $B$ depending on that range -- Massarczyk et al. collect 34 to 60
+    V/(cm Torr) for helium and 133 to 320 for argon.  Refitting argon's own
+    data over a different $pd$ range gives $A = 3.6$, $B = 52$ (Norman et
+    al.).  A pair is a representative value, not a measurement of VEST's gas.
+
+    Limitations
+    -----------
+    Deuterium is not catalogued: its measured coefficients are not
+    hydrogen's (Rose 1956), and Lloyd applies his hydrogen pair to both
+    isotopes by approximation.  Use :func:`lloyd_breakdown_field` for that
+    approximation deliberately, or pass a measured pair to
+    :func:`townsend_breakdown_field`.  Helium's $B$ is confirmed against
+    Raizer through Massarczyk et al.'s Table I; its $A$ is Raizer's value as
+    quoted in secondary sources, not read from the table directly.
+
+    References
+    ----------
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+    .. [3] A. M. Howatson, *An Introduction to Gas Discharges*, Pergamon, as cited by [5].
+    .. [4] R. Massarczyk et al., arXiv:1612.07170 (2016), Table I.
+    .. [5] R. Norman et al., arXiv:2107.07521 (2021), Table 1.
+    .. [6] D. J. Rose, Phys. Rev. 104 (1956) 273.
+
+    See Also
+    --------
+    townsend_ionization_coefficient
+    townsend_breakdown_field_for_gas
+    """
+    A_per_m_torr, B_per_m_torr = _townsend_gas(gas)
+    return A_per_m_torr / PA_PER_TORR, B_per_m_torr / PA_PER_TORR
+
+
+def townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas):
+    r"""Breakdown threshold field of a catalogued fill gas, pressure in pascal.
+
+    $$E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}$$
+
+    :func:`townsend_breakdown_field` with the $A$, $B$ pair of
+    :func:`townsend_coefficients_for_gas`.  For ``gas="H2"`` this is
+    :func:`lloyd_breakdown_field`, bit for bit.
+
+    Parameters
+    ----------
+    p_Pa : float or np.ndarray
+        Neutral fill pressure, finite and positive [Pa].
+    connection_length_m : float or np.ndarray
+        Connection length of an open field line, finite and positive [m].
+    gas : str
+        Exact catalogue key: ``"H2"``, ``"He"`` or ``"Ar"`` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Threshold field, ``nan`` where $A\,p\,L \le 1$ [V/m].
+
+    Raises
+    ------
+    ValueError
+        A gas that is not in the catalogue; a non-finite, zero or negative
+        pressure; an infinite, zero or negative connection length.  A ``nan``
+        connection length passes through as a missing value.
+
+    Convention
+    ----------
+    Pressure in **pascal**, converted to torr and evaluated against the
+    per-torr pair, exactly as :func:`lloyd_breakdown_field` does, so the
+    hydrogen entry reproduces it to the last bit rather than to rounding.
+
+    Physical interpretation
+    -----------------------
+    No gas is easiest everywhere: the ordering depends on where the fill
+    sits on its Paschen curve.  Over 100 m of connection length argon's
+    larger $A$ puts its threshold below hydrogen's at 3 mPa, and its larger
+    $B$ puts it above hydrogen's by 30 mPa; helium's small $A$ gives it no
+    threshold at all at 3 mPa and the lowest one of the three from 7 mPa
+    up.
+
+    Validity
+    --------
+    Empirical fit.  Inherits the catalogue's scatter: see
+    :func:`townsend_coefficients_for_gas` for the range the pairs span in the
+    literature.  Pure gases only; a mixture is not a weighted average of
+    these pairs.
+
+    Limitations
+    -----------
+    Deuterium is not catalogued.  Says nothing about pre-ionisation or
+    burn-through, as for :func:`townsend_breakdown_field`.
+
+    Numerical notes
+    ---------------
+    $A\,p\,L \le 1$ warns and returns ``nan`` elementwise, from the same
+    private kernel as the other two spellings, so the warning blames the
+    caller's line.
+
+    References
+    ----------
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+
+    See Also
+    --------
+    townsend_coefficients_for_gas
+    townsend_breakdown_field
+    lloyd_breakdown_field
+    """
+    A_per_m_torr, B_per_m_torr = _townsend_gas(gas)
+    p_torr = _require_positive("p_Pa", p_Pa) / PA_PER_TORR
+    field = _breakdown_field(p_torr, connection_length_m, A_per_m_torr, B_per_m_torr)
+    return _maybe_scalar(field, p_Pa, connection_length_m)
+
+
 def breakdown_margin(E_parallel, E_breakdown):
     r"""Available drive relative to the Lloyd breakdown threshold.
 

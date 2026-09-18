@@ -246,6 +246,11 @@ from .renderers.lines import (
     equilibrium_time_diamagnetic_flux,
     equilibrium_time_li,
     equilibrium_time_major_radius,
+    equilibrium_time_minor_radius,
+    equilibrium_time_elongation,
+    equilibrium_time_triangularity,
+    equilibrium_time_triangularity_upper,
+    equilibrium_time_triangularity_lower,
     equilibrium_time_plasma_current,
     equilibrium_time_q0,
     equilibrium_time_q95,
@@ -292,6 +297,8 @@ from .renderers.panels import (
     equilibrium_overview_histories,
     equilibrium_overview_profiles,
     equilibrium_overview_residuals,
+    equilibrium_overview_constraint_weights,
+    equilibrium_overview_pressure_weight_scan,
     equilibrium_overview_verification,
     equilibrium_time_virial,
     interferometer_overview,
@@ -305,6 +312,7 @@ from .renderers.panels import (
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
     equilibrium_time_beta,
+    equilibrium_time_shape,
     summary_time_energy,
     summary_time_power_balance,
     summary_time_voltage_consumption,
@@ -318,6 +326,7 @@ from .renderers.profiles import (
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,
+    charge_exchange_profile_fit,
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,
@@ -338,6 +347,7 @@ from .renderers.profiles import (
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
+    thomson_scattering_profile_fit,
 )
 from .renderers.spectra import (
     interferometer_spectrum,
@@ -351,6 +361,12 @@ from .renderers.spectrograms import (
     soft_x_rays_spectrogram,
 )
 from .parameter_history import plot_parameter_history
+from .analytic import (
+    miller_surfaces_model,
+    plot_miller_surfaces,
+    plot_solovev_equilibrium,
+    solovev_equilibrium_model,
+)
 
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
@@ -395,6 +411,10 @@ _SUPPORT_EXPORTS = (
     "render_spectrogram",
     "save_figure",
     "plot_parameter_history",
+    "miller_surfaces_model",
+    "plot_miller_surfaces",
+    "plot_solovev_equilibrium",
+    "solovev_equilibrium_model",
     "THEMES",
     "resolve_presentation",
 )

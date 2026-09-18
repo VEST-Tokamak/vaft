@@ -101,9 +101,14 @@ def test_control_specs_validate_their_shape():
 def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
     controls = controls_for(catalog["flux_loop_time_flux"])
     names = [c.name for c in controls]
-    # No synthetic control: this input has no reconstruction overlay to show.
-    assert names == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity", "theme"]
+    # The sample now stores EFIT's reconstructed flux-loop values (m-file
+    # replay, #952), so the reconstruction overlay is offered.
+    assert names == [
+        "selection", "channels", "layout", "yunit", "x", "synthetic", "orientation", "validity", "theme"
+    ]
     by_name = {c.name: c for c in controls}
+    assert by_name["synthetic"].options == ("none", "equilibrium", "both")
+    assert by_name["synthetic"].default == "none"
     assert by_name["selection"].options == ("inboard_mid", "outboard_mid", "inboard", "outboard", "active", "valid", "all")
     assert by_name["selection"].default == "active"
     assert len(by_name["channels"].options) == 11 and by_name["channels"].labels[0].endswith("Flux Loop - #3")

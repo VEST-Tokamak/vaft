@@ -49,7 +49,7 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | --- | --- | --- | --- |
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
 | 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, multi-shot comparison | complete |
-| 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | complete |
+| 03 | Equilibrium and Kinetic Profiles | equilibrium representation, analytic shapes, EFIT constraints and weights, flux-coordinate mapping and profile-fit statistics, derived kinetic state, Grad-Shafranov residual, multi-time and multi-shot comparison | complete |
 | 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | complete |
 | 05 | MHD Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
 | 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |

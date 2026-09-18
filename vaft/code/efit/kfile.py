@@ -422,6 +422,11 @@ def generate_constraints_ods(
         "b_field_tor_vacuum_r",
     ]
     # For later need to develop option to add other constraints (e.g. internal magnetic probe, thomson scattering, etc.)
+    # A shot whose diamagnetic loop carried nothing usable has no
+    # diamagnetic_flux node (#993); it is fitted without that row rather than
+    # failing, and the k-file writer switches the row off.
+    if "magnetics.diamagnetic_flux.0.data" not in ods:
+        constraints.remove("diamagnetic_flux")
 
     # Accepts the legacy positional lists; everything below reads names.
     errors = ConstraintErrors.coerce(uncertainty)
@@ -473,10 +478,11 @@ def generate_constraints_ods(
     MG["ip.0.data_error_upper"] = abs(errors.ip * MG["ip.0.data"])
 
     ## (4) Diamagnetic flux
-    MG["diamagnetic_flux.0.time"] = MG["time"]
-    MG["diamagnetic_flux.0.data_error_upper"] = abs(
-        errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
-    )
+    if "diamagnetic_flux" in constraints:
+        MG["diamagnetic_flux.0.time"] = MG["time"]
+        MG["diamagnetic_flux.0.data_error_upper"] = abs(
+            errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
+        )
 
     ## (5) Poloidal magnetic probe
     Index_inBz = np.where(MG["b_field_pol_probe.:.position.r"] < INBOARD_PROBE_MAX_R)
@@ -602,7 +608,9 @@ def generate_constraints_ods(
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
             EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weights.pf_current
         EQ[f"time_slice.{i}.constraints.ip.weight"] = weights.ip
-        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weights.diamagnetic_flux
+        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = (
+            weights.diamagnetic_flux if "diamagnetic_flux" in constraints else 0.0
+        )
 
     if decisions is None:
         # The legacy interface: the manual list and the fit option are the
@@ -989,8 +997,19 @@ def generate_kfile(
         flux_scale = (
             1000.0 if constraint_config.diamagnetic_flux_input_units == "Wb" else 1.0
         )
+        # No measurement at all (#993: the loop carried nothing usable): the
+        # row is written switched off, with a zero value and sigma EFIT never
+        # reads while FWTDLC is 0.
+        measured_dia = "diamagnetic_flux.measured" in CSTR
+        if not measured_dia and constraint_config.use_diamagnetic_flux:
+            warnings.warn(
+                f"shot {shotnumber}, slice {time_idx}: no diamagnetic flux measurement; "
+                "the row is written switched off (FWTDLC=0)",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         # "imas" writes the stored, signed value: EFIT's convention (#385).
-        VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale
+        VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale if measured_dia else 0.0
         if constraint_config.diamagnetic_flux_sign == "absolute":
             VAL = abs(VAL)
         elif constraint_config.diamagnetic_flux_sign == "negative":
@@ -998,13 +1017,19 @@ def generate_kfile(
         DFLUX = f"DFLUX= {VAL} \n"
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead
-        diamagnetic_weight = _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux")
-        sigdlc_value = _measurement_error(
-            CSTR,
-            "diamagnetic_flux",
-            diamagnetic_weight * shft * flux_scale,
-            group="diamagnetic_flux",
-            unit_scale=flux_scale,
+        diamagnetic_weight = (
+            _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux") if measured_dia else 0.0
+        )
+        sigdlc_value = (
+            _measurement_error(
+                CSTR,
+                "diamagnetic_flux",
+                diamagnetic_weight * shft * flux_scale,
+                group="diamagnetic_flux",
+                unit_scale=flux_scale,
+            )
+            if measured_dia
+            else 0.0
         )
         SIGDLC = f"SIGDLC= {sigdlc_value}"
         # SIGDLC=f'SIGDLC= {CSTR["diamagnetic_flux.measured_error_upper"]*1000}' # Standard deviation of diamagnetic flux measurement data in mWb

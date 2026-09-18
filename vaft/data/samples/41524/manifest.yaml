@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-41524-pipeline-full-imas-v3
+reference_id: vest-41524-pipeline-full-imas-v4
 shot: 41524
 machine: VEST
 imas_dd_version: 3.41.0
@@ -17,8 +17,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 36160882
-    sha256: 9c00c1828044980d2ff7f6dfcb8ed9163e3984ba77fbb7396cf5706ffb1ebbee
+    size: 36154356
+    sha256: b3a51a0e391b1373c6d2253c4057fe655c9bf2882aaa03b09be0072365fc86dc
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -26,13 +26,13 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 27742676
-    sha256: 5d1f03d47410d1e1f45e21b8cb01cbdcfa180079ec2103d2bb263a976a49125a
+    size: 27747256
+    sha256: c8917664b404478927ec3759084afe4082fc510a32de8360c7f63f64ed07fa0b
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: db3b5c4e06dac4a8fdcb0e68d940b48f817d7566ceb5bfdeccd3394511a88bfc
+  canonical_sha256: 62678a186ea287226c53fabb46a07c1f361274beac5b4a5f2aecc5394b3c7d82
   materialized_leaves: 18390
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
@@ -100,6 +100,70 @@ generation:
     corrections_reproduced_by_mapper:
     - '#288 b_field_pol_probe poloidal_angle = 3*pi/2'
     - spectrometer_uv CII_4267 / 426.7e-9
+  efit_constraints:
+    issue: https://github.com/VEST-Tokamak/vaft/issues/952
+    generated: '2026-09-18'
+    previous_reference_id: vest-41524-pipeline-full-imas-v3
+    previous_canonical_sha256: db3b5c4e06dac4a8fdcb0e68d940b48f817d7566ceb5bfdeccd3394511a88bfc
+    changed_leaves:
+    - equilibrium.time_slice.*.constraints.bpol_probe.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.flux_loop.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.pf_current.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.ip.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.diamagnetic_flux.{reconstructed,chi_squared}
+    changed_leaf_count: 1116
+    unchanged: Every other leaf of the canonical source, including measured, measured_error_upper
+      and weight, is byte-identical to the previous canonical source; the equilibrium
+      itself was not replaced.
+    method: Replay of the archived k-files listed in source/efit-artifact-manifest.json
+      (sha256-verified, all cases, original order), with TABLE_DIR/INPUT_DIR repointed
+      to the pre-#695 Green table the original run used (vaft/data/efit at 4d22d448^,
+      16 PF groups). The m-files are read with vaft.data.meqdsk.read_meqdsk.
+    executable:
+      path: $EFITHOME/bin/efit
+      sha256: b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d
+      source_revision: 4d10ed5-dirty
+      netcdf: true
+    reproduction:
+      check: 'Replayed g-files vs the packaged equilibrium, per slice: psi(R,Z), q,
+        pressure and boundary outline'
+      max_psi_relative_difference: 0.0
+      max_q_abs_difference: 0.0
+      max_pressure_abs_difference: 0.0
+      max_boundary_abs_difference: 0.0
+      note: The replayed g-files differ from the archived ones only in the EFIT build
+        date in the header line; the original executable (sha256 recorded under pipeline.efit)
+        replays them byte-identically.
+    mfile_sha256:
+      '0.328': c1135202bb379b6a9733510f5ce8078c0fbeb7f1839f7146426b361b3428a369
+      '0.329': 221dc5a95dce17825a683bcc7b559cab6786df95e50df987cedad5deb57b8d84
+      '0.332': fd8323ed40b69ecce925363bb0c835ff9eb1f78047404d1caa0858a55444813e
+      '0.333': e7e6445ecd856728804d0b94dcc86d38d67d2303b76767db925967317a7d0a65
+      '0.334': 8ebb6e1b94caf0bf8f0730f5da750de7da16cce88357cafba08928ce7487be2e
+      '0.336': cec7e3e6b98961c6a1c3fbc61e292b04ce1bbd70c51a314bd1d08ac8179033eb
+    conventions:
+      flux_loop: 'reconstructed is stored in Wb like measured: the m-file''s csilop
+        (Wb/rad) times 2*pi. chi_squared is EFIT''s saisil, unitless.'
+      bpol_probe: reconstructed = cmpr2 (T), chi_squared = saimpi.
+      pf_current: The run's 16 EFIT coil groups (PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L,
+        PF10U/L) are matched to the entries of the same source name; the ten entries
+        with no group in that table (PF2-4, PF7, PF8, all carrying zero current) keep
+        reconstructed/chi_squared NaN.
+      ip: chi_squared is EFIT's chipasma as reported. It includes the prescribed vessel
+        current that EFIT adds after the fit (#918), so it is nonzero even where reconstructed
+        equals measured, and it is the whole of EFIT's total chi-square on these runs.
+      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive) while
+        measured stores the signed, negative flux. reconstructed is EFIT's cdflux
+        in its own sign and chi_squared is EFIT's chidflux against the submitted |DFLUX|;
+        the fit weight was 1e-4, so the diamagnetic flux did not constrain the fit.
+      not_written: 'chi_squared_reduced and freedom_degrees_n: the m-file carries
+        no degrees of freedom, and read_meqdsk''s fallback divides by 1. EFIT''s total
+        is under equilibrium.code.parameters (aeqdsk.chisq) in the canonical source.'
+    measured_error_upper_and_weight: Unchanged, and not the uncertainty EFIT fitted
+      against. Under uncertainty_mode legacy_weight the k-file writes BIT = weight/VBIT*1e4
+      with VBIT left at EFIT's default 10, so EFIT's sigma is weight*1e4 on the fitted
+      channels (probes 1000 T, flux loops 100 Wb/rad, Ip 10 kA; PF currents take SERROR's
+      0.1% floor); the m-file's sig* arrays are EFIT's values.
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
@@ -121,8 +185,10 @@ pipeline:
     successful_time_slices: 6
     optional_outputs:
       mfile:
-        status: unavailable
-        reason: EFIT executable was not linked with NetCDF support
+        status: regenerated
+        reason: The original run's executable had no NetCDF support. The archived
+          k-files were replayed on 2026-09-18 with a NetCDF-enabled build; its m-files
+          supply the constraint leaves only (see generation.efit_constraints).
 semantic_comparison:
   paths:
   - barometry.*
