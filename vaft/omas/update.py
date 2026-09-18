@@ -1491,7 +1491,9 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+            profile_RZ, psiN_RZ = psi_to_rz(
+                psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             return profile_RZ, psiN_RZ
 
         # Step 2: Process electron profiles

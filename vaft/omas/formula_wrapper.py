@@ -245,7 +245,9 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     n_e_psi_norm = interp_func(rho_tor_norm_eq)
 
     # Map to 2D grid and compute averages
-    n_e_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
+    n_e_RZ, psiN_RZ = psi_to_rz(
+        psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+    )
     from vaft.omas.process_wrapper import _slice_plasma_weights
 
     n_e_vol_avg, _ = volume_average(
@@ -793,8 +795,8 @@ def compute_bremsstrahlung_power(
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e and n_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
-    n_e_RZ, _ = psi_to_rz(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
+    n_e_RZ, _ = psi_to_rz(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Get pressure from equilibrium profiles_1d if available, otherwise compute from n_e * T_e
     # pressure_1d = None
@@ -814,7 +816,7 @@ def compute_bremsstrahlung_power(
     pressure_1d = n_e_1d * T_e_1d * QE * 2  # [Pa] 
     
     # Map pressure to 2D (R,Z)
-    pressure_RZ, _ = psi_to_rz(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs)
+    pressure_RZ, _ = psi_to_rz(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Calculate bremsstrahlung power density using pressure-based formula
     # Handle zero/negative values (outside plasma)

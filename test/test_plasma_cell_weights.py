@@ -174,3 +174,27 @@ def test_the_reconstructed_diamagnetic_flux_is_efits_own_cdflux(samples):
         warnings.simplefilter("ignore")
         computed = compute_reconstructed_diamagnetic_flux(copy.deepcopy(ods), 3)
     assert computed == pytest.approx(afile["cdflux"], rel=0.05)
+
+
+@pytest.mark.parametrize("shot, idx", SLICES)
+def test_a_flat_profile_averages_to_itself_inside_the_outline(samples, shot, idx):
+    # An outline-weighted edge cell can sit just past psiN = 1.  Mapped with
+    # psi_to_rz's default zero there, a flat profile averages below itself;
+    # continued at its edge value it averages to exactly itself.
+    from vaft.process.equilibrium import psi_to_rz
+
+    ods, _ = samples[shot]
+    r, z, psi, axis, boundary, psi_n, outline = _grid(ods["equilibrium.time_slice"][idx])
+    weights = plasma_cell_weights(r, z, psi_n, *outline)
+    grid_psi_n = np.linspace(0.0, 1.0, 33)
+    flat, _ = psi_to_rz(grid_psi_n, np.ones_like(grid_psi_n), psi, axis, boundary, fill_outside="edge")
+    assert volume_average(flat, psi_n, r, z, weights=weights)[0] == pytest.approx(1.0, rel=1e-12)
+    zeroed, _ = psi_to_rz(grid_psi_n, np.ones_like(grid_psi_n), psi, axis, boundary)
+    assert volume_average(zeroed, psi_n, r, z, weights=weights)[0] < 1.0
+
+
+def test_psi_to_rz_refuses_an_unknown_fill():
+    from vaft.process.equilibrium import psi_to_rz
+
+    with pytest.raises(ValueError, match="fill_outside"):
+        psi_to_rz(np.linspace(0, 1, 5), np.ones(5), np.zeros((3, 3)), 0.0, 1.0, fill_outside="nan")

@@ -327,6 +327,7 @@ def psi_to_rz(
     psi_RZ: np.ndarray,
     psi_axis: float,
     psi_lcfs: float,
+    fill_outside: str = "zero",
     ):
     """Map a flux-surface profile onto the two-dimensional grid through psi.
 
@@ -342,18 +343,24 @@ def psi_to_rz(
         Poloidal flux on the magnetic axis [Wb/rad].
     psi_lcfs : float
         Poloidal flux at the last closed flux surface [Wb/rad].
+    fill_outside : str, optional
+        ``"zero"`` (default) zeroes every cell outside ``0 <= psiN <= 1``;
+        ``"edge"`` leaves the clamped profile there, so a cell continues at the
+        nearest end value [-].
 
     Returns
     -------
     f_RZ : np.ndarray
-        The profile on the grid, zero outside the boundary [any].
+        The profile on the grid, zero outside the boundary unless
+        ``fill_outside="edge"`` [any].
     psiN_RZ : np.ndarray
         Normalized poloidal flux on the grid [-].
 
     Raises
     ------
     ValueError
-        The profile and its abscissa are not one-dimensional and of equal length.
+        The profile and its abscissa are not one-dimensional and of equal length,
+        or ``fill_outside`` is neither ``"zero"`` nor ``"edge"``.
 
     Processing steps
     ----------------
@@ -366,7 +373,12 @@ def psi_to_rz(
     ----------
     The flux map is indexed major radius first. Outside the boundary the value is
     zero, not the edge value and not a NaN, so a sum over the grid is already a
-    plasma-only integral. Because only the normalized flux is used, the absolute
+    plasma-only integral -- as far as ``0 <= psiN <= 1`` is the plasma, which
+    near the coils it is not (see :func:`volume_average`).  Pass
+    ``fill_outside="edge"`` when the map is to be weighted by
+    :func:`plasma_cell_weights`: an outline-weighted edge cell can sit just past
+    ``psiN = 1``, and a zero there biases the average low (0.5-0.8 % for a
+    profile whose edge value is 30 % of its core, on the packaged samples). Because only the normalized flux is used, the absolute
     unit of the three flux arguments cancels: weber and weber per radian give the
     same answer as long as all three agree.
 
@@ -408,6 +420,10 @@ def psi_to_rz(
         psiN_clip.ravel(), x, y
     ).reshape(psi_RZ.shape)
 
+    if fill_outside == "edge":
+        return f_interp, psiN_RZ
+    if fill_outside != "zero":
+        raise ValueError(f"fill_outside must be 'zero' or 'edge'; got {fill_outside!r}")
     # Outside LCFS → 0
     f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
     return f_RZ, psiN_RZ
@@ -492,21 +508,14 @@ def calculate_reconstructed_diamagnetic_flux(
        integrated over the plasma cross-section, in the form the EFIT-style
        workflow this package reproduces uses.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
-    if weights is not None:
-        # psi_to_rz zeroes F outside 0 <= psiN <= 1, but an outline-weighted
-        # edge cell can sit just past psiN = 1; there F - F_vac would read as
-        # -F_vac and swamp the integral.  F continues at its edge value.
-        order = np.argsort(np.asarray(psiN_1d, float))
-        grid_psi_n = np.asarray(psiN_1d, float)[order]
-        f_2d = np.where(
-            mask_plasma,
-            f_2d,
-            np.interp(np.clip(psiN_RZ, grid_psi_n[0], grid_psi_n[-1]), grid_psi_n,
-                      np.asarray(f_1d, float)[order]),
-        )
 
     with np.errstate(divide="ignore", invalid="ignore"):
         B_phi_plasma = f_2d / R_mesh
@@ -604,21 +613,14 @@ def calculate_diamagnetism(
        form is :func:`calculate_reconstructed_diamagnetic_flux`, and the two
        should agree for a consistent equilibrium.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
-    if weights is not None:
-        # psi_to_rz zeroes F outside 0 <= psiN <= 1, but an outline-weighted
-        # edge cell can sit just past psiN = 1; there F - F_vac would read as
-        # -F_vac and swamp the integral.  F continues at its edge value.
-        order = np.argsort(np.asarray(psiN_1d, float))
-        grid_psi_n = np.asarray(psiN_1d, float)[order]
-        f_2d = np.where(
-            mask_plasma,
-            f_2d,
-            np.interp(np.clip(psiN_RZ, grid_psi_n[0], grid_psi_n[-1]), grid_psi_n,
-                      np.asarray(f_1d, float)[order]),
-        )
 
     dR = np.gradient(R_grid)[:, None]
     dZ = np.gradient(Z_grid)[None, :]

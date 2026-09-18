@@ -3628,7 +3628,7 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Calculate Spitzer resistivity 2D profile
     # Handle zero/negative temperatures (outside plasma)
@@ -3674,6 +3674,12 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     if J_phi_RZ is None:
         raise KeyError(f"Toroidal current density (j_tor/jtor/j) not found in equilibrium.time_slice[{equil_idx}].profiles_2d.0 and could not be built from profiles_1d.j_tor")
     
+    # j_tor is NaN outside the confined region by design (update's
+    # _inside_boundary); the outline weights below can still reach a sliver
+    # edge cell just past psiN = 1 (86 cells on 39915 slice 0), where a NaN
+    # would make the whole integral NaN.  There is no current there.
+    J_phi_RZ = np.where(np.isfinite(J_phi_RZ), J_phi_RZ, 0.0)
+
     # Calculate eta * J_phi^2 2D profile
     eta_J2_RZ = eta_RZ * (J_phi_RZ ** 2)
     
@@ -3887,7 +3893,9 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                 raise ValueError(f"Invalid option: {option}. Must be 'equilibrium' or 'core_profiles'")
             
             # Build 2D pressure map using psi_to_RZ
-            p_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+            p_RZ, psiN_RZ = psi_to_rz(
+                psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             
             # Compute volume average
             p_avg, _ = volume_average(
