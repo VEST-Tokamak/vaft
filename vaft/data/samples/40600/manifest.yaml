@@ -1,0 +1,103 @@
+schema_version: 1
+reference_id: vest-40600-camera-fluctuation-v1
+shot: 40600
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: camera-fluctuation-sample
+  description: 'Shot 40600: 50 kFrames/s FAST-camera frames beside the magnetics that
+    constrain them, for comparing the camera''s emission fluctuation with the outboard
+    probe the publications call B_theta,LFS -- DAQ field 171, magnetics.b_field_pol_probe.36
+    (MagneticFieldProbe_C2-05_Bz, R 0.796 m, Z 0.020 m) at its native 250 kHz. Ip
+    and the H-alpha filterscope come from the same diagnostics stage.'
+  camera_source: FileDB legacy/camera_visible_fluctuation/40600/ (5001-frame acquisition,
+    4581 BMPs archived)
+  camera_header_sha256: e9f701558adce9c7fab4ee1c9bd2bb0651b0a249ac344519589de3074a1a7215
+  raw_source: FileDB raw/40600/vest_40600_daq_raw.json.gz
+  raw_sha256: 4424492611bf4e34618ae1d445cf7d751800f33140a6539acf39614ad5ba5906
+  raw_note: Not copied into the repository; re-dumpable from the VEST SQL archive
+    with vaft.database.raw. The dump's fast channels carry the era's +0.24 s trigger
+    correction (field 171 starts at 0.24 s), which is what puts the probe and the
+    camera on one clock.
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    size: 21327041
+    sha256: 31443eec4238fda52b817c74ff73dfcbb586d5664da805aa78d761cee3bb9d17
+generation:
+  generated: '2026-09-18'
+  issue: https://github.com/VEST-Tokamak/vaft/issues/1005
+  canonical_policy: repository-only
+  machine_era: vest-pre-43017-pf1906
+  command: vaft.machine_mapping.camera_visible.camera_visible(ods, 40600, frame_dir=<FileDB
+    frames>) with its default dark-frame rejection, narrow_image_storage; plus vaft.omas.vest_upstream.build_diagnostics_ods(shot=40600,
+    raw_source=<FileDB raw dump>, static_ods=build_static_ods('vest-pre-43017-pf1906'),
+    tstart=0.295, tend=0.332, dt=4e-5) -- every IDS it wrote -- and wall from the
+    same static product.
+  camera:
+    frames: 602
+    frame_rate_hz: 50000.0
+    exposure_time_s: 1.91e-05
+    pixels:
+    - 208
+    - 208
+    cropped: false
+    window:
+    - 0.30944
+    - 0.32146
+    selection: 'The mapper''s own image-content selection: original frames 472-1073
+      of 5001 (every non-dark frame plus 2 of padding). That interval is the whole
+      luminous phase and contains the chirp, so no further temporal cut was needed;
+      the full 208 x 208 frame fits the size budget (21 MB total), so no spatial crop
+      or downsampling was applied either.'
+  magnetics_window:
+    tstart: 0.295
+    tend: 0.332
+    derivation: 'vaft.omas.plasma_timing on a first 0.26-0.36 s pass: onset 0.30560
+      s, offset 0.32108 s (h_alpha_primary, ''consistent'' with Ip; Ip peak 125 kA),
+      widened by 10 ms each side and rounded outward to the millisecond. Contains
+      the camera window.'
+  stage_status:
+    diagnostics: partial
+    magnetics_missing_channels:
+    - 179
+  verification:
+    method: 'On the stored sample, loaded back from omas.json.gz: camera frames ->
+      subtract_temporal_background (15 frames) -> summed_region_signal (whole frame);
+      probe 36 voltage as stored. Both through vaft.process.magnetics.mirnov_spectrogram
+      with 2 ms windows (100 frames / 500 samples; camera step 1 frame, probe step
+      5 samples), each tracked with camera_fluctuation.track_reference_frequency (3-15
+      kHz), the probe track interpolated onto the camera windows (503 common windows,
+      0.3104-0.3205 s), each series linearly detrended, Pearson correlation.'
+    detrended_residual_correlation: 0.667
+    p_value: 5.7e-66
+    raw_track_correlation: 0.742
+    with_1ms_windows:
+      detrended_residual_correlation: 0.465
+      p_value: 5.8e-31
+    tracked_frequencies_khz: 'per 1 ms of the 2 ms track, camera / probe: 9.5/9.5,
+      9.5/9.0, 14.5/14.5, 14.0/14.5, 11.0/10.5, then both near the 3-6 kHz floor from
+      0.315 s'
+    stored_probe_is_raw_field_171: true
+    stored_frames_equal_mapper_frames: true
+acceptance:
+  required_ids:
+  - camera_visible
+  - magnetics
+  - spectrometer_uv
+  - wall
+  camera_visible:
+    frame_count: 602
+    lines_n: 208
+    columns_n: 208
+    frame_rate_hz: 50000.0
+  magnetics:
+    b_field_pol_probe_count: 64
+    lfs_probe_index: 36
+    lfs_probe_field: 171
+    lfs_probe_rate_hz: 250000.0
+  toroidal_array: null

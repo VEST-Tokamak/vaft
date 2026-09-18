@@ -18,7 +18,7 @@ from vaft.omas import compare_ods
 
 
 def test_sample_registry_returns_both_packaged_artifacts():
-    assert vaft.data.available_samples() == (39915, 41524, 41672, 48224)
+    assert vaft.data.available_samples() == (39915, 40600, 41524, 41672, 45531, 48224)
     omas_path = vaft.data.sample(39915, representation="omas")
     imas_path = vaft.data.sample(39915, representation="imas")
 
@@ -35,7 +35,7 @@ def test_sample_registry_returns_both_packaged_artifacts():
 
 
 def test_sample_registry_errors_are_actionable():
-    with pytest.raises(ValueError, match="available shots: 39915, 41524, 41672, 48224"):
+    with pytest.raises(ValueError, match="available shots: 39915, 40600, 41524, 41672, 45531, 48224"):
         vaft.data.sample(1)
     with pytest.raises(ValueError, match="expected one of: imas, omas"):
         vaft.data.sample(39915, representation="pickle")
@@ -135,9 +135,9 @@ def test_sample_ods_loads_every_registered_shot_as_omas(shot):
 
 def test_reference_probe_metadata_describes_positive_bz():
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
-    assert len(ods["magnetics.b_field_pol_probe"]) == 65
+    assert len(ods["magnetics.b_field_pol_probe"]) == 64
     assert len(ods["magnetics.flux_loop"]) == 11
-    for index in range(65):
+    for index in range(64):
         angle = ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"]
         # The DD's poloidal_angle is clockwise from +R, so the sensitive axis is
         # (cos, -sin).  This assertion used (cos, +sin), which is why a stored
@@ -237,7 +237,7 @@ def test_paired_sample_exercises_complete_adapter_matrix():
     assert len(omas_native["equilibrium.time"]) == manifest["pipeline"]["efit"][
         "successful_time_slices"
     ]
-    assert len(omas_native["magnetics.b_field_pol_probe"]) == 65
+    assert len(omas_native["magnetics.b_field_pol_probe"]) == 64
     assert len(omas_native["magnetics.flux_loop"]) == 11
     assert omas_native["magnetics.ids_properties.homogeneous_time"] == 0
     for family, signal in (
@@ -277,7 +277,7 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     )
     sample_root = build_lib / "vaft" / "data" / "samples" / "39915"
     # Only 39915 ships: the other samples' manifests do, their artifacts do not.
-    for shot in (41524, 41672, 48224):
+    for shot in (40600, 41524, 41672, 45531, 48224):
         shot_root = build_lib / "vaft" / "data" / "samples" / str(shot)
         assert (shot_root / "manifest.yaml").is_file()
         assert not (shot_root / "omas.json.gz").exists()
@@ -288,14 +288,14 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     verify_sample_artifacts(sample_root, manifest)
     wheel_ods = vaft.omas.load(sample_root / "omas.json.gz")
     np.testing.assert_allclose(wheel_ods["equilibrium.time"], [0.316, 0.317, 0.318])
-    assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 65
+    assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 64
     assert len(wheel_ods["magnetics.flux_loop"]) == 11
     with vaft.imas.load(sample_root / "imas.nc") as handle:
         wheel_native = handle.to_omas()
     np.testing.assert_allclose(
         wheel_native["equilibrium.time"], [0.316, 0.317, 0.318]
     )
-    assert len(wheel_native["magnetics.b_field_pol_probe"]) == 65
+    assert len(wheel_native["magnetics.b_field_pol_probe"]) == 64
     assert len(wheel_native["magnetics.flux_loop"]) == 11
     # The wheel variant is substituted into every build, so a probe convention
     # fixed only in vaft/data/samples would ship inverted (issue #288). Both
@@ -503,3 +503,84 @@ def test_kinetic_sample_48224_carries_three_distinct_equilibria():
 def test_sample_equilibria_rejects_a_sample_without_them():
     with pytest.raises(ValueError, match="declares no equilibria"):
         vaft.omas.sample_equilibria(39915)
+
+
+def test_fluctuation_sample_45531_carries_the_three_angle_array_at_native_rate():
+    manifest = vaft.data.sample_manifest(45531)
+    path = vaft.data.sample(45531, representation="omas")
+    assert manifest["representations"]["omas"]["package"] == "repository-only"
+    assert verify_sample_artifacts(path.parent, manifest) == {
+        "omas": manifest["representations"]["omas"]["sha256"]
+    }
+    ods = vaft.omas.sample_ods(45531)
+    assert ods["dataset_description.data_entry.pulse"] == 45531
+    acceptance = manifest["acceptance"]
+    for ids in acceptance["required_ids"]:
+        assert ids in ods
+    assert "equilibrium" not in ods
+    magnetics = acceptance["magnetics"]
+    probes = ods["magnetics.b_field_pol_probe"]
+    assert len(probes) == magnetics["b_field_pol_probe_count"]
+    assert len(ods["magnetics.flux_loop"]) == magnetics["flux_loop_count"]
+
+    first = magnetics["fluctuation_first_index"]
+    rates: dict[int, int] = {}
+    angles = set()
+    window = manifest["generation"]["window"]
+    for index in range(first, first + magnetics["fluctuation_count"]):
+        assert str(ods[f"magnetics.b_field_pol_probe.{index}.identifier"]).startswith("OutMirnov_")
+        time = np.asarray(ods[f"magnetics.b_field_pol_probe.{index}.voltage.time"])
+        rate = int(round(1.0 / float(np.median(np.diff(time))), -3))
+        rates[rate] = rates.get(rate, 0) + 1
+        assert window["tstart"] <= time[0] and time[-1] < window["tend"]
+        angles.add(round(float(np.degrees(ods[f"magnetics.b_field_pol_probe.{index}.position.phi"])), 3))
+    assert rates == {int(k): v for k, v in magnetics["fluctuation_rates_hz"].items()}
+    assert angles == {135.0, 225.0, 315.0}
+    # The plasma window the sample was cut around is inside it.
+    assert window["tstart"] < window["plasma_onset_s"] < window["plasma_offset_s"] < window["tend"]
+
+    sxr = acceptance["soft_x_rays"]
+    assert len(ods["soft_x_rays.channel"]) == sxr["channel_count"]
+    time = np.asarray(ods["soft_x_rays.channel.0.brightness.time"])
+    assert 1.0 / float(np.median(np.diff(time))) == pytest.approx(sxr["sample_rate_hz"], rel=1e-6)
+    from vaft.process.soft_x_rays import sxr_te_pairs_from_ods
+
+    assert len(sxr_te_pairs_from_ods(ods, "bottom")) == 16
+
+    from vaft.plot.backend.recipes import _mirnov_phase_available
+
+    assert _mirnov_phase_available(ods) is None
+
+
+def test_camera_sample_40600_carries_the_frames_and_the_lfs_probe():
+    manifest = vaft.data.sample_manifest(40600)
+    path = vaft.data.sample(40600, representation="omas")
+    assert manifest["representations"]["omas"]["package"] == "repository-only"
+    assert verify_sample_artifacts(path.parent, manifest) == {
+        "omas": manifest["representations"]["omas"]["sha256"]
+    }
+    ods = vaft.omas.sample_ods(40600)
+    assert ods["dataset_description.data_entry.pulse"] == 40600
+    acceptance = manifest["acceptance"]
+    for ids in acceptance["required_ids"]:
+        assert ids in ods
+    camera = acceptance["camera_visible"]
+    detector = "camera_visible.channel.0.detector.0"
+    frames = ods[f"{detector}.frame"]
+    assert len(frames) == camera["frame_count"]
+    assert ods[f"{detector}.lines_n"] == camera["lines_n"]
+    assert ods[f"{detector}.columns_n"] == camera["columns_n"]
+    assert np.asarray(ods[f"{detector}.frame.0.image_raw"]).shape == (camera["lines_n"], camera["columns_n"])
+    times = np.asarray([float(ods[f"{detector}.frame.{i}.time"]) for i in range(len(frames))])
+    assert 1.0 / float(np.median(np.diff(times))) == pytest.approx(camera["frame_rate_hz"], rel=1e-6)
+    assert float(ods[f"{detector}.exposure_time"]) == pytest.approx(1.91e-5)
+
+    magnetics = acceptance["magnetics"]
+    probe = f"magnetics.b_field_pol_probe.{magnetics['lfs_probe_index']}"
+    assert ods[f"{probe}.identifier"] == "MagneticFieldProbe_C2-05_Bz"
+    time = np.asarray(ods[f"{probe}.voltage.time"])
+    assert 1.0 / float(np.median(np.diff(time))) == pytest.approx(magnetics["lfs_probe_rate_hz"], rel=1e-6)
+    # One clock: the camera window lies inside the probe record.
+    assert time[0] <= times[0] and times[-1] <= time[-1]
+    assert "ip" in ods["magnetics"]
+    assert "alpha" in str(ods["spectrometer_uv.channel.0.name"]).lower()

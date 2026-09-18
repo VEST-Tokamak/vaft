@@ -20,7 +20,13 @@ def sample_ods(shot=39915):
         instructions from an installed wheel. 48224 is a repository-only
         kinetic slice at 300 ms (Thomson, charge exchange, core_profiles and
         the equilibrium they were mapped on); its other reconstructions of
-        the same slice load with :func:`sample_equilibria`.
+        the same slice load with :func:`sample_equilibria`. 45531 and 40600
+        are repository-only fluctuation samples: 45531 carries the three-angle
+        outboard fluctuation Mirnov array at its native 2 MHz / 500 kHz and a
+        976.6 kHz soft X-ray subset around its plasma window; 40600 carries
+        50 kFrames/s FAST-camera frames beside the outboard probe
+        ``b_field_pol_probe.36`` (DAQ field 171) at 250 kHz. Neither has an
+        equilibrium.
 
     Use ``vaft.data.sample`` with an explicit adapter when you need to choose
     the representation.
