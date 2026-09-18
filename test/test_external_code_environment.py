@@ -37,6 +37,10 @@ _EXTERNAL_ENVIRONMENT = (
     # asserts nothing is configured.
     "TURBULENTTRANSPORTHOME",
     "TURBULENTTRANSPORT_ROOT",
+    # The vaft-nn model registry (#669): a checkout of published model metadata
+    # and a cache of verified release assets -- external, like the codes above.
+    "VAFT_NN_HOME",
+    "VAFT_NN_CACHE",
     # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
     # as a $XHOME/bin binary; these steer library discovery and sys.path.
     "OFT_ROOTPATH",

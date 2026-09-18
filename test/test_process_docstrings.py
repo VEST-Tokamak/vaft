@@ -56,6 +56,8 @@ DEFINITIONAL = frozenset({
     "signal_on_offset",
     "process_signal",
     "time_derivative",
+    # Containment in the LCFS outline, or the flux threshold where there is none.
+    "plasma_cell_weights",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -83,8 +85,14 @@ DEFINITIONAL = frozenset({
     "calibrate_threshold",
     "dataset_fingerprint",
     "evaluate_model",
+    "load_dataset",
     "load_model",
+    "load_model_bundle",
     "predict",
+    "register_architecture",
+    "register_augmentation",
+    "register_loss",
+    "save_dataset",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -175,7 +183,9 @@ PIPELINE = frozenset({
     "pixelwise_spectrogram",
     "subtract_temporal_background",
     # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "fetch_model",
     "resolve_model",
+    "save_model_bundle",
     "split_groups",
     "train_model",
     "window_dataset",
@@ -357,6 +367,7 @@ CONVENTION_SENSITIVE = frozenset({
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
+    "plasma_cell_weights",
     # cocos (#419): the module exists to reason about conventions
     "cocos_consistency_signs",
     "validate_cocos",

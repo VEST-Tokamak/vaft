@@ -86,7 +86,7 @@ From a checkout of the `develop` branch, run:
 python -m vaft.process.catalog --output docs/_data/process_catalog.yml
 ```
 
-The snapshot records the SHA-256 of every `vaft/process/*.py` source file; documentation
+The snapshot records the SHA-256 of every source file under `vaft/process/`, subpackages included; documentation
 validation compares them when `VAFT_REGISTRY_SOURCE` points to the corresponding source checkout.
 The same text is available offline as `vaft.process.describe("<name>")`,
 `vaft.process.search("<text>")` and `vaft.process.list_processes(category="<category>")`.
