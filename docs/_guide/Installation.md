@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines five extras; none is needed for the first result on this page:
+The project defines six extras; none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -47,6 +47,7 @@ The project defines five extras; none is needed for the first result on this pag
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
 | `ml` | torch, onnx, onnxruntime | the neural-network backend of `vaft.process.ml` and ONNX export; datasets, splits, the NumPy reference backend and resolving a published model need no extra |
+| `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash
