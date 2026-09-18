@@ -133,10 +133,13 @@ def full_constraints_input_ods(tmp_path_factory):
         diagnostics=diag_path, eddy=eddy_path, eddy_manifest=tmp / "eddy-manifest.json"
     )
 
-    # The trailing toroidal-Mirnov phase-reference probes are intentionally
-    # outside EFIT's dprobe/mhdin geometry.  Their empty data must not enter
-    # constraint construction; EFIT uses only the MD probes below.
-    assert len(ods["magnetics.b_field_pol_probe"]) > _efit_bpol_probe_count()
+    # Any trailing toroidal-Mirnov probes are intentionally outside EFIT's
+    # dprobe/mhdin geometry and must not enter constraint construction. 43016
+    # has none of its own: 207/209/241 end at 35520 and field 171 is published
+    # once, as equilibrium probe 36 (#825). The clamp test appends one.
+    assert len(ods["magnetics.b_field_pol_probe"]) == _efit_bpol_probe_count() + len(
+        toroidal_mirnov_reference_channels(SHOT)
+    )
     assert "pf_passive.time" in ods
     return ods
 
@@ -287,11 +290,12 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
 
     How many trail the 64 is a fact about the shot, not a constant. #857 gates
     each reference channel at its `last_operational_shot`: fields 207, 209 and
-    241 end at 35520, and field 171 carries no bound while #825 is open. So
-    43016 has one trailing channel where the un-gated inventory has four. The
-    count is derived from that table, and the test refuses to pass once no
-    trailing channel is left, because then there is nothing for the clamp to
-    remove and this would no longer be testing it.
+    241 end at 35520, and field 171 is published once, as equilibrium probe
+    36, never as a trailing twin (#825). So 43016 has no trailing channel of
+    its own; the count is still derived from that table rather than assumed.
+    A trailing entry is appended here -- the shape a pre-35521 shot's phase
+    references or a post-44156 shot's fluctuation array takes -- because the
+    clamp is what this tests, and without one there is nothing to remove.
     """
     from vaft.data.resources import data_path
 
@@ -300,10 +304,14 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     trailing = len(toroidal_mirnov_reference_channels(SHOT))
     n_probes = len(ods["magnetics.b_field_pol_probe"])
     assert n_probes == efit_probes + trailing
-    assert n_probes > efit_probes, (
-        f"shot {SHOT} has no probe beyond EFIT's {efit_probes}; "
-        "the clamp is no longer exercised -- pick a shot that still has one"
-    )
+    if n_probes == efit_probes:
+        extra = copy.deepcopy(ods["magnetics.b_field_pol_probe.0"])
+        extra["identifier"] = "OutMirnov_130_Bz:phase_reference"
+        extra["name"] = "OutMirnov_130_Bz"
+        extra["field.data"] = 1.5 * np.asarray(extra["field.data"])
+        ods[f"magnetics.b_field_pol_probe.{n_probes}"] = extra
+        n_probes += 1
+    assert n_probes > efit_probes
 
     # A missing channel inside the real 64-probe range must still show up
     # as a zero-weight placeholder within the clamped array.

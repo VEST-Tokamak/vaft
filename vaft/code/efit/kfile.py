@@ -1053,8 +1053,10 @@ def generate_kfile(
         # magpri (dprobe.dat/mhdin.dat) is EFIT's own count of physically
         # fitted probes -- for VEST this is 64, the leading `bpol_probe`
         # entries built from vest_equilibrium_magnetics_channel_definitions(). VAFT's OMAS
-        # magnetics IDS additionally carries 4 trailing toroidal-mirnov
-        # phase-reference channels (identifier suffix ":phase_reference")
+        # magnetics IDS may additionally carry trailing toroidal-mirnov
+        # phase-reference channels (identifier suffix ":phase_reference";
+        # three up to shot 35520, none after) and, from 44156, the
+        # fluctuation array
         # that are not part of EFIT's B-pol fitting set; writing all of
         # them into EXPMP2/FWTMP2/BITMPI overflows what EFIT's compiled
         # geometry table expects and is rejected as an invalid namelist

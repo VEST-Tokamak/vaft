@@ -1079,6 +1079,30 @@ def plot_mirnov_spectrum(
     )
 
 
+def plot_diagnostics_spectrum_coherence(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Coherence and relative phase of two fluctuation channels (issue #1005).
+
+    ``x_signal=`` and ``y_signal=`` name the channels -- a Mirnov index,
+    ``"sxr:3"``, ``"mirnov:OutMirnov_45_L1-01"``, ``"interferometer:0"``, an IDS
+    path such as ``"soft_x_rays.channel.2"``, or a channel name; with neither,
+    the first two channels carrying a signal are compared.  Records on
+    different time bases meet on one grid over their overlap, which the title
+    states.  The phase is that of ``y`` relative to ``x``.
+
+    Renders with :func:`vaft.plot.diagnostics_spectrum_coherence`.
+    """
+    return render(
+        "diagnostics_spectrum_coherence", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_flux_loop_spatial_flux(
     source: Any,
     *,
@@ -1518,6 +1542,7 @@ __all__ = [
     "plot_ntms_time_delta_prime",
     "plot_impa_time_field",
     "plot_mirnov_spectrum",
+    "plot_diagnostics_spectrum_coherence",
     "plot_diagnostics_overview",
     "plot_flux_loop_spatial_flux",
     "plot_mirnov_spatial_phase",

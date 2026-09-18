@@ -2208,6 +2208,93 @@ def _poloidal_position_key(ods: Any, index: int) -> tuple[int, int] | None:
     )
 
 
+def _waveform_fingerprint(ods: Any, index: int) -> bytes | None:
+    """A digest of one probe's stored samples, or ``None`` if it has none."""
+    import hashlib
+
+    values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+    if values is None:
+        return None
+    samples = np.ascontiguousarray(np.asarray(values, dtype=float))
+    return hashlib.blake2b(samples.tobytes(), digest_size=16).digest()
+
+
+def _carries_no_signal(ods: Any, index: int) -> bool:
+    """True when a probe's stored samples are constant: no phase to measure.
+
+    A dead or unplugged digitiser channel records a constant -- often zero --
+    and two of them are byte-identical without being one acquisition published
+    twice.  They are "no signal", not "copies".
+    """
+    values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+    if values is None:
+        return False
+    finite = np.asarray(values, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    return finite.size == 0 or float(np.ptp(finite)) == 0.0
+
+
+def _distinct_acquisitions(
+    ods: Any, indices: Sequence[int], angles: np.ndarray
+) -> tuple[list[int], np.ndarray, list[int], list[int]]:
+    """Drop entries that repeat another entry's waveform sample for sample.
+
+    One acquired channel published twice is one measurement, whatever angles
+    its two entries declare.  Before issue #825 was fixed in the mapper, DAQ
+    field 171 sat in ``b_field_pol_probe`` both as equilibrium probe ``C2-05``
+    at 195 deg and as a ``:phase_reference`` at 75 deg; a fit across the two
+    "measured" a phase difference of exactly zero and returned an ``n`` that
+    was an identity (#724).  The metadata cannot say which entries share a DAQ
+    field, so the data is asked: byte-identical samples are one channel.
+
+    Copies declaring one angle collapse to the first.  Copies declaring
+    *different* angles are all dropped -- the input contradicts itself about
+    where that channel is, and a fit must not pick an answer for it.
+
+    A channel whose samples are constant (a dead or unplugged digitiser input)
+    is set aside first as carrying no signal: two such channels are identical
+    without being one acquisition, and neither has a phase to fit.  Returns the
+    kept indices, their angles, the indices dropped as copies and the indices
+    dropped as carrying no signal.
+    """
+    by_print: dict[bytes, list[int]] = {}
+    order: list[bytes | int] = []
+    silent = [int(index) for index in indices if _carries_no_signal(ods, index)]
+    for index in indices:
+        if int(index) in silent:
+            continue
+        digest = _waveform_fingerprint(ods, index)
+        if digest is None:
+            order.append(index)
+            continue
+        if digest not in by_print:
+            order.append(digest)
+        by_print.setdefault(digest, []).append(index)
+
+    position = {index: slot for slot, index in enumerate(indices)}
+    kept: list[int] = []
+    dropped: list[int] = []
+    for key in order:
+        if isinstance(key, int):
+            kept.append(key)
+            continue
+        members = by_print[key]
+        if len(members) == 1:
+            kept.append(members[0])
+        elif _distinct_toroidal_angles(angles[[position[m] for m in members]]).size == 1:
+            kept.append(members[0])
+            dropped.extend(members[1:])
+        else:
+            dropped.extend(members)
+    kept.sort()
+    return (
+        kept,
+        np.asarray([angles[position[i]] for i in kept], dtype=float),
+        sorted(dropped),
+        sorted(silent),
+    )
+
+
 def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
     """One poloidal position's probes: the set a toroidal mode fit may use.
 
@@ -2223,11 +2310,17 @@ def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
 
     On VEST that lands on the outboard array at ``r = 0.796``: the inboard,
     side and outboard *equilibrium* arrays each sit at a single toroidal angle
-    and cannot support a fit at all, while the four phase-reference Mirnov
-    channels at ``z = +0.02`` span four angles and each row of the outboard
-    fluctuation array spans three.
+    and cannot support a fit at all, while the three phase-reference Mirnov
+    channels at ``z = +0.02`` (shots up to 35520) span three angles and each
+    row of the outboard fluctuation array (from 44156) spans three.
+
+    Only distinct acquisitions count (issues #724, #825): a waveform stored
+    under two entries is one channel, so it can never supply the second
+    toroidal position, and a constant (dead) channel supplies none -- see
+    :func:`_distinct_acquisitions`.
     """
     indices, angles = _toroidal_phase_channels(ods)
+    indices, angles, _, _ = _distinct_acquisitions(ods, indices, angles)
     groups: dict[tuple[int, int] | None, list[int]] = {}
     for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
         groups.setdefault(position, []).append(index)
@@ -2293,7 +2386,9 @@ def _mirnov_phase_available(ods: Any) -> str | None:
     if len(indices) < 2 or _distinct_toroidal_angles(angles).size < 2:
         return (
             "two or more Mirnov probes at one poloidal position and distinct toroidal "
-            "angles, each carrying a waveform"
+            "angles, each carrying its own waveform (a copy of another probe's samples "
+            "is the same channel, not a second position, and a constant one carries no "
+            "signal)"
         )
     kept, _ = _shared_timebase_probes(ods, indices)
     if len(kept) < 2 or _distinct_toroidal_angles(
@@ -2364,7 +2459,8 @@ def _build_mirnov_spatial_phase(
     offered, because that is what limits the answer: a wrapped phase read at
     two positions fits every ``n`` that differs by the aliasing period, so a
     number from two positions identifies a mode only with an assumption the
-    plot cannot make for the reader.  The packaged VEST shot has two.
+    plot cannot make for the reader.  The packaged 39915 shot has none: it falls
+    in the 35521-44155 gap where no toroidal array recorded.
     """
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
@@ -2385,6 +2481,19 @@ def _build_mirnov_spatial_phase(
             )
         angles = candidate_angles[[candidates.index(channel) for channel in wanted]]
         indices = wanted
+        # Naming probes does not make copies of one waveform into two
+        # positions: a fit across them measures a signal against itself.
+        _, _, copies, silent = _distinct_acquisitions(ods, indices, angles)
+        if silent:
+            raise ValueError(
+                f"channels {silent} carry no signal: their samples are constant (a dead "
+                "or unplugged channel), so they have no phase to fit"
+            )
+        if copies:
+            raise ValueError(
+                f"channels {copies} repeat another named channel's samples exactly; "
+                "one acquisition cannot supply two toroidal positions (issues #724, #825)"
+            )
     reason = _mirnov_phase_available(ods) if channels is None else None
     if reason:
         raise ValueError(f"a toroidal mode fit needs {reason}")
@@ -7958,13 +8067,52 @@ def _build_spectrogram(
     result = _spectrogram_result(
         time, signal, method=method, sample_rate=float(sample_rate), options=options
     )
+    ceiling = _display_ceiling(result, options)
     return Spectrogram.from_result(
         result,
-        max_frequency=_display_ceiling(result, options),
+        max_frequency=ceiling,
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
         value_label=recipe.value_label,
+        **_spectrogram_ridge(result, options, ceiling),
     )
+
+
+def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dict[str, Any]:
+    """The ``ridge_*`` fields of a spectrogram when ``track=`` asks for one (issue #1005).
+
+    ``track=True`` searches the drawn band -- ``frequency_range`` if named, else
+    from the first non-zero bin to the display ceiling -- and ``track=(f0, f1)``
+    names the search band in Hz.  ``max_jump`` (Hz) is the continuity limit
+    between windows.  The ridge is
+    :func:`vaft.process.fluctuation.track_dominant_frequency` of the map drawn.
+    """
+    track = options.get("track")
+    if track is None or track is False:
+        return {}
+    frequency = np.asarray(result.frequency, dtype=float)
+    if track is True:
+        band = options.get("frequency_range")
+        if band is not None:
+            search = (float(band[0]), float(band[1]))
+        else:
+            positive = frequency[frequency > 0]
+            if positive.size < 2:
+                return {}
+            top = float(ceiling) if ceiling is not None else float(positive[-1])
+            search = (float(positive[0]), top)
+    else:
+        search = (float(track[0]), float(track[1]))
+    from vaft.process.fluctuation import track_dominant_frequency
+
+    ridge = track_dominant_frequency(
+        result, search_range=search, max_jump=options.get("max_jump"),
+    )
+    jump = options.get("max_jump")
+    label = f"ridge {search[0] / 1e3:.3g}-{search[1] / 1e3:.3g} kHz" + (
+        f", |jump| <= {float(jump) / 1e3:.3g} kHz" if jump is not None else ""
+    )
+    return {"ridge_time": ridge.time, "ridge_frequency": ridge.frequency, "ridge_label": label}
 
 
 def _build_power_spectrum(
@@ -11357,6 +11505,198 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
 for _name, _axis in _CALLABLE_TIME_AXES.items():
     RECIPES[_name] = dataclasses.replace(RECIPES[_name], time_axis=_axis)
 del _name, _axis
+
+
+# ---------------------------------------------------------------------------
+# Two fluctuation channels compared: coherence and phase (issue #1005)
+# ---------------------------------------------------------------------------
+
+#: The channels ``diagnostics_spectrum_coherence`` can compare:
+#: ``diagnostic -> (container, signal templates, time templates, name template)``.
+_COHERENCE_SOURCES: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], str]] = {
+    "mirnov": (
+        "magnetics.b_field_pol_probe",
+        ("magnetics.b_field_pol_probe.{i}.voltage.data",),
+        ("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+        "magnetics.b_field_pol_probe.{i}.name",
+    ),
+    "soft_x_rays": (
+        "soft_x_rays.channel",
+        ("soft_x_rays.channel.{i}.brightness.data", "soft_x_rays.channel.{i}.power.data"),
+        ("soft_x_rays.channel.{i}.brightness.time", "soft_x_rays.channel.{i}.power.time", "soft_x_rays.time"),
+        "soft_x_rays.channel.{i}.name",
+    ),
+    "interferometer": (
+        "interferometer.channel",
+        ("interferometer.channel.{i}.n_e_line.data",),
+        ("interferometer.channel.{i}.n_e_line.time", "interferometer.time"),
+        "interferometer.channel.{i}.name",
+    ),
+}
+_COHERENCE_ALIASES = {
+    "magnetics": "mirnov", "b_field_pol_probe": "mirnov", "mirnov": "mirnov",
+    "soft_x_rays": "soft_x_rays", "sxr": "soft_x_rays", "soft_x_ray": "soft_x_rays",
+    "interferometer": "interferometer",
+}
+
+
+def _coherence_record(ods: Any, diagnostic: str, index: int) -> tuple[np.ndarray, np.ndarray] | None:
+    """``(time, values)`` of one channel when it holds a signal on a matching time base."""
+    container, signals, times, _ = _COHERENCE_SOURCES[diagnostic]
+    values = _first_array(ods, signals, i=index)
+    if values is None or values.size < 2:
+        return None
+    values = np.asarray(values, dtype=float).reshape(-1)
+    time = _first_time(ods, times, i=index)
+    if time is None or np.asarray(time).size != values.size:
+        return None
+    return np.asarray(time, dtype=float).reshape(-1), values
+
+
+def _coherence_channels(ods: Any) -> list[tuple[str, int]]:
+    """Every ``(diagnostic, index)`` that carries a signal, Mirnov first."""
+    found = []
+    for diagnostic, (container, *_rest) in _COHERENCE_SOURCES.items():
+        for index in range(_count(ods, container)):
+            if _coherence_record(ods, diagnostic, index) is not None:
+                found.append((diagnostic, index))
+    return found
+
+
+def _coherence_available(ods: Any) -> str | None:
+    if len(_coherence_channels(ods)) < 2:
+        return "two fluctuation channels (Mirnov, soft X-ray or interferometer) carrying a signal"
+    return None
+
+
+def _resolve_coherence_signal(ods: Any, spec: Any) -> tuple[str, int]:
+    """``(diagnostic, index)`` named by a channel spec.
+
+    A spec is an index (a Mirnov probe), ``"diagnostic:index"`` or
+    ``"diagnostic:name"`` (``"sxr:3"``, ``"mirnov:OutMirnov_45_L1-01"``), a
+    ``(diagnostic, index_or_name)`` pair, an IDS path to the channel
+    (``"soft_x_rays.channel.2"``), or a channel name alone.
+    """
+    if isinstance(spec, (int, np.integer)):
+        return "mirnov", int(spec)
+    if isinstance(spec, (tuple, list)) and len(spec) == 2:
+        diagnostic, reference = spec
+    elif isinstance(spec, str) and ":" in spec:
+        diagnostic, reference = spec.split(":", 1)
+    elif isinstance(spec, str):
+        for diagnostic, (container, *_rest) in _COHERENCE_SOURCES.items():
+            if spec.startswith(container + "."):
+                tail = spec[len(container) + 1:].split(".", 1)[0]
+                if tail.isdigit():
+                    return diagnostic, int(tail)
+        for diagnostic, (container, _s, _t, name_path) in _COHERENCE_SOURCES.items():
+            for index in range(_count(ods, container)):
+                if _get(ods, name_path.format(i=index)) == spec:
+                    return diagnostic, index
+        raise ValueError(f"no fluctuation channel is named {spec!r}")
+    else:
+        raise ValueError(
+            "a channel is an index, 'diagnostic:index', 'diagnostic:name', an IDS path "
+            f"or a channel name; got {spec!r}"
+        )
+    key = _COHERENCE_ALIASES.get(str(diagnostic).strip().lower())
+    if key is None:
+        raise ValueError(
+            f"unknown diagnostic {diagnostic!r}; choose one of {', '.join(sorted(_COHERENCE_ALIASES))}"
+        )
+    reference = reference.strip() if isinstance(reference, str) else reference
+    if isinstance(reference, (int, np.integer)) or (isinstance(reference, str) and reference.isdigit()):
+        return key, int(reference)
+    container, _s, _t, name_path = _COHERENCE_SOURCES[key]
+    for index in range(_count(ods, container)):
+        if _get(ods, name_path.format(i=index)) == reference:
+            return key, index
+    raise ValueError(f"no {key} channel is named {reference!r}")
+
+
+def _build_diagnostics_spectrum_coherence(
+    ods: Any,
+    *,
+    x_signal: Any = None,
+    y_signal: Any = None,
+    time_range: Any = None,
+    nperseg: int | None = None,
+    noverlap: int | None = None,
+    window: str = "hann",
+    detrend: Any = "constant",
+    sample_rate: float | None = None,
+    frequency_range: Any = None,
+    max_frequency: float | None = None,
+    **_: Any,
+) -> Panels:
+    """Coherence and phase of ``y_signal`` relative to ``x_signal``.
+
+    With neither named, the first two channels that carry a signal are compared
+    (Mirnov first).  The two records meet on one grid over their overlap by
+    :func:`vaft.process.fluctuation.cross_spectrum`, which records the grid;
+    ``time_range`` restricts both first.  ``frequency_range``/``max_frequency``
+    crop what is drawn, never what is computed.
+    """
+    from dataclasses import replace as _replace
+
+    from vaft.plot.fluctuation import cross_spectrum_model
+    from vaft.process.fluctuation import cross_spectrum
+
+    channels = _coherence_channels(ods)
+    picked = []
+    for spec, fallback in ((x_signal, 0), (y_signal, 1)):
+        if spec is not None:
+            picked.append(_resolve_coherence_signal(ods, spec))
+        else:
+            remaining = [c for c in channels if c not in picked]
+            if not remaining:
+                raise ValueError(f"a coherence needs {_coherence_available(ods) or 'two channels'}")
+            picked.append(remaining[0])
+    records = []
+    labels = []
+    for diagnostic, index in picked:
+        record = _coherence_record(ods, diagnostic, index)
+        if record is None:
+            raise ValueError(f"{diagnostic} channel {index} carries no signal on a matching time base")
+        time, values = record
+        if time_range is not None:
+            keep = (time >= float(time_range[0])) & (time <= float(time_range[1]))
+            time, values = time[keep], values[keep]
+        records.append((time, values))
+        name_path = _COHERENCE_SOURCES[diagnostic][3]
+        labels.append(_channel_label(ods, name_path, index, f"{diagnostic} {index}"))
+    (time_x, x), (time_y, y) = records
+    result = cross_spectrum(
+        time_x, x, time_y, y, sample_rate=sample_rate, nperseg=nperseg, noverlap=noverlap,
+        window=window, detrend=detrend,
+    )
+    if frequency_range is not None:
+        keep = (result.frequency >= float(frequency_range[0])) & (result.frequency <= float(frequency_range[1]))
+        result = _replace(
+            result, frequency=result.frequency[keep], csd=result.csd[keep],
+            coherence=result.coherence[keep], phase=result.phase[keep],
+        )
+    grid = (
+        f"{result.sample_rate / 1e3:.4g} kHz grid, {result.time_range[0]:.4g}-{result.time_range[1]:.4g} s"
+        + (f", resampled {'/'.join(result.resampled)}" if result.resampled else "")
+    )
+    return cross_spectrum_model(
+        result, x_label=labels[0], y_label=labels[1], max_frequency=max_frequency,
+        title=f"y = {labels[1]} relative to x = {labels[0]}\n({grid})",
+    )
+
+
+RECIPES["diagnostics_spectrum_coherence"] = CallableRecipe(
+    builder=_build_diagnostics_spectrum_coherence,
+    description="Coherence with its 95 % line and relative phase of two fluctuation channels.",
+    available=_coherence_available,
+    reads=tuple(
+        template
+        for _container, signals, times, name in _COHERENCE_SOURCES.values()
+        for template in (*signals, *times, name)
+    ),
+    backend=NEUTRAL,
+)
 
 
 def build_model(name: str, entries: Sequence[tuple[str, Any]], **options: Any) -> Any:

@@ -876,13 +876,20 @@
     # array's first_operational_shot, this is a gate the caller applies, not a
     # per-channel field.
     #
-    # Field 171 is DISPUTED and is left in place pending issue #825. The same
-    # machine logs classify it as `Bz C2 05` / group `OutBz` -- an outboard
-    # *equilibrium* probe at z = +0.02, filling that array's uniform 0.04 m
-    # ladder -- so it is very likely not a toroidal reference at all, and VAFT
-    # currently publishes it twice at two different toroidal angles. Its clock
-    # position here was inferred in issue #718 from a layout figure and is the
-    # inference #825 disputes; resolving it needs the VEST channel list.
+    # Field 171 is DISPUTED and its entry is kept as the record of the claim
+    # pending issue #825. The same machine logs classify it as `Bz C2 05` /
+    # group `OutBz` -- an outboard *equilibrium* probe at z = +0.02, filling
+    # that array's uniform 0.04 m ladder -- so it is very likely not a toroidal
+    # reference at all. Its clock position here was inferred in issue #718 from
+    # a layout figure and is the inference #825 disputes; resolving it needs
+    # the VEST channel list.
+    #
+    # It is NOT published from here. The mapper publishes a reference channel
+    # only when the shot's equilibrium wiring does not already read its field
+    # (toroidal_mirnov_reference_channels), so field 171 appears once, as
+    # equilibrium probe 36 at the outboard family's 5:30 -- the position the
+    # evidence supports. Publishing both put one waveform at two toroidal
+    # angles and let a mode fit measure it against itself (#724, #825).
     toroidal_mirnov_reference:
       source: {raw_unit: V, daq_type: slow}
       role: phase_reference

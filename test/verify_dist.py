@@ -29,7 +29,9 @@ _ALLOWED_DATA_FILES = {
     "samples/39915/omas.json.gz",
     "samples/39915/imas.nc",
     "samples/41524/manifest.yaml",
+    "samples/40600/manifest.yaml",
     "samples/41672/manifest.yaml",
+    "samples/45531/manifest.yaml",
     "samples/48224/manifest.yaml",
 }
 
