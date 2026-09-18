@@ -14,6 +14,7 @@ orbits and drift vectors, so tests check the physics without the drawing.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -25,6 +26,7 @@ from vaft.formula.particle import (
     exb_drift_velocity,
     grad_b_drift_velocity,
     gyrofrequency,
+    larmor_radius,
 )
 
 from ._projection import camera, project
@@ -32,6 +34,16 @@ from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 
 _STEPS_PER_PERIOD = 120
+#: parallel speed given to the uniform-field orbits: it does not change their
+#: perpendicular motion, and turns them into helices in the 3-D views
+_EXB_V_PAR = 0.25
+_MAGNETIZATION_V_PAR = 0.25
+
+
+def _check_projection(projection: str, allowed) -> str:
+    if projection not in allowed:
+        raise ValueError(f"projection must be one of {tuple(allowed)}, not {projection!r}")
+    return projection
 
 
 @dataclass(eq=False)
@@ -70,6 +82,56 @@ def _validate_mass_ratio(mass_ratio: float) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Equations shown on the figures
+# ---------------------------------------------------------------------------
+
+#: the formulas each family draws, shown on the figure as their docstrings define them
+_EQUATIONS = {
+    "exb_drift": (boris_orbit, exb_drift_velocity, larmor_radius),
+    "curvature_drift": (boris_orbit, grad_b_drift_velocity, curvature_drift_velocity),
+    "magnetization_current": (boris_orbit, gyrofrequency, larmor_radius),
+    "toroidal_drift": (grad_b_drift_velocity, curvature_drift_velocity, exb_drift_velocity),
+}
+_DISPLAY_EQUATION = re.compile(r"\$\$(.+?)\$\$", re.S)
+_EQUATION_LINE_HEIGHT = 0.95  # cm per displayed equation in the box
+
+
+def formula_equation(function) -> str:
+    """The defining equation of a ``vaft.formula`` function, from its docstring.
+
+    The figures show exactly this text, so an equation on a diagram cannot
+    drift from the one the formula documents and implements.
+    """
+    match = _DISPLAY_EQUATION.search(function.__doc__ or "")
+    if match is None:
+        raise ValueError(f"{function.__name__} documents no $$...$$ equation")
+    return " ".join(match.group(1).split())
+
+
+def _with_equations(scene: Scene, family: str) -> Scene:
+    """Put the family's equations in a box where the note was, and the note below it."""
+    notes = [it for it in scene.items if isinstance(it, Label) and it.role == "note"]
+    if not notes:
+        return scene
+    note = notes[0]
+    lines = [formula_equation(fn) for fn in _EQUATIONS[family]]
+    text = "\\\\[3pt]".join(f"$\\displaystyle {line}$" for line in lines)
+    height = _EQUATION_LINE_HEIGHT * len(lines) + 0.3
+    x, y = note.at
+    box = Label((x, y + 0.2), text, "formula box", anchor="north", role="equations")
+    moved = Label((x, y + 0.2 - height - 0.35), note.text, note.style, note.anchor, note.role)
+    items = tuple(moved if it is note else it for it in scene.items) + (box,)
+    return Scene(items)
+
+
+def _diagram(name: str, scene: Scene, figure: "ParticleFigure", labels: bool) -> Diagram:
+    family = next(key for key in _EQUATIONS if name == key or name.startswith(key + "_"))
+    if labels:
+        scene = _with_equations(scene, family)
+    return Diagram(name, scene, model=figure)
+
+
+# ---------------------------------------------------------------------------
 # E x B drift
 # ---------------------------------------------------------------------------
 
@@ -80,7 +142,7 @@ def _guiding_centre(q, m, x, v, B):
     return np.asarray(x, dtype=float) - m / (q * (B @ B)) * np.cross(B, v)
 
 
-def exb_drift(*, mass_ratio: float = 4.0, labels: bool = True) -> Diagram:
+def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", labels: bool = True) -> Diagram:
     r"""E-cross-B drift of an ion and an electron in uniform crossed fields.
 
     $\mathbf{B} = B\hat z$ (out of the page) and $\mathbf{E} = E\hat x$. Both
@@ -88,7 +150,12 @@ def exb_drift(*, mass_ratio: float = 4.0, labels: bool = True) -> Diagram:
     the ion's orbit is $\sqrt{m_i/m_e}$ times larger; both guiding centres
     move at the same ``exb_drift_velocity`` -- along $-\hat y$ -- so no
     current flows.
+
+    ``projection="perpendicular"`` is the plane normal to $\mathbf{B}$;
+    ``"3d"`` shows the same orbits with a small parallel velocity, as helices
+    along $\mathbf{B}$ drifting sideways.
     """
+    _check_projection(projection, ("perpendicular", "3d"))
     mass_ratio = _validate_mass_ratio(mass_ratio)
     E, B = np.array([0.2, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])
     v_E = exb_drift_velocity(E, B)
@@ -102,12 +169,17 @@ def exb_drift(*, mass_ratio: float = 4.0, labels: bool = True) -> Diagram:
         # start at the top of the orbit: gyration velocity along +x for an ion, -x for an electron
         u_vec = np.array([u * np.sign(q), 0.0, 0.0])
         x0 = np.array([x_start, 0.0, 0.0])
-        x, _, dt = _orbit(q, m, x0, v_E + u_vec, _uniform(E), _uniform(B), 1.0, duration / (2 * math.pi * m))
+        v_par = np.array([0.0, 0.0, _EXB_V_PAR])
+        x, _, dt = _orbit(q, m, x0, v_E + u_vec + v_par, _uniform(E), _uniform(B), 1.0,
+                          duration / (2 * math.pi * m))
         figure.orbits[name] = x
         gc0 = _guiding_centre(q, m, x0, u_vec, B)
         figure.vectors[f"{name}_guiding_centre"] = gc0
         figure.vectors[f"{name}_drift"] = v_E
         figure.parameters[f"{name}_dt"] = dt
+    figure.parameters["v_par"] = _EXB_V_PAR
+    if projection == "3d":
+        return _diagram("exb_drift_3d", _exb_3d(figure, labels), figure, labels)
 
     S = 0.45  # cm per unit length
     items: List = []
@@ -143,7 +215,7 @@ def exb_drift(*, mass_ratio: float = 4.0, labels: bool = True) -> Diagram:
         items.append(Label((center, bottom - 0.8),
                            f"orbits integrated from the Lorentz force at equal energy; "
                            f"$m_i/m_e = {mass_ratio:g}$ for visibility", "note", role="note"))
-    return Diagram("exb_drift", Scene(tuple(items)), model=figure)
+    return _diagram("exb_drift", Scene(tuple(items)), figure, labels)
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +230,7 @@ def _toroidal_field(R0: float, B0: float):
     return B_field
 
 
-def curvature_drift(*, labels: bool = True) -> Diagram:
+def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     r"""An ion spiralling along a curved field line and drifting off it.
 
     The field is the vacuum toroidal field $\mathbf{B} = B_0 R_0/R\,\hat\phi$,
@@ -167,7 +239,13 @@ def curvature_drift(*, labels: bool = True) -> Diagram:
     at the starting point -- along $+\hat z$ for an ion. The dashed guiding
     centre follows the field line displaced at that velocity, and the
     integrated orbit spirals around it.
+
+    ``projection="poloidal"`` looks along the field line (the $(R, z)$
+    plane): the gyration is a circle climbing at the drift velocity.
+    ``"top"`` looks down the $z$ axis at the curved line and the orbit
+    wrapped around it.
     """
+    _check_projection(projection, ("3d", "poloidal", "top"))
     R0, B0, q, m = 6.0, 4.0, 1.0, 1.0
     v_par, v_perp = 1.0, 2.0
     B_field = _toroidal_field(R0, B0)
@@ -189,6 +267,10 @@ def curvature_drift(*, labels: bool = True) -> Diagram:
     phi_gc = v_par * t / R0
     gc = np.stack([R0 * np.cos(phi_gc), R0 * np.sin(phi_gc), v_d[2] * t], axis=-1)
     figure.orbits["guiding_centre"] = gc
+    if projection == "poloidal":
+        return _diagram("curvature_drift_poloidal", _curvature_poloidal(figure, labels), figure, labels)
+    if projection == "top":
+        return _diagram("curvature_drift_top", _curvature_top(figure, labels), figure, labels)
 
     S = 0.85
     phi = np.linspace(-0.1, arc + 0.1, 181)
@@ -233,7 +315,7 @@ def curvature_drift(*, labels: bool = True) -> Diagram:
         items.append(Label((center, xy[:, 1].min() - 0.9),
                            "orbit integrated from the Lorentz force; drift arrow and guiding centre from the "
                            "drift formulas", "note", role="note"))
-    return Diagram("curvature_drift", Scene(tuple(items)), model=figure)
+    return _diagram("curvature_drift", Scene(tuple(items)), figure, labels)
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +323,7 @@ def curvature_drift(*, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
-def magnetization_current(*, labels: bool = True) -> Diagram:
+def magnetization_current(*, projection: str = "perpendicular", labels: bool = True) -> Diagram:
     r"""Gyrating ions in a bounded region: interior currents cancel, the edge carries one.
 
     $\mathbf{B}$ points into the page. Ions with guiding centres filling a
@@ -250,7 +332,12 @@ def magnetization_current(*, labels: bool = True) -> Diagram:
     region nothing cancels them, leaving the magnetization current
     $\mathbf{J}_M = \nabla\times\mathbf{M}$. Its direction is computed from
     the orbits -- binning their current -- and is diamagnetic.
+
+    ``projection="perpendicular"`` is the plane normal to $\mathbf{B}$;
+    ``"3d"`` shows the same orbits with a small parallel velocity, as helical
+    columns along $\mathbf{B}$ with the edge current wrapped around them.
     """
+    _check_projection(projection, ("perpendicular", "3d"))
     q, m, B0, rho = 1.0, 1.0, 1.0, 1.0
     B = np.array([0.0, 0.0, -B0])
     side, spacing = 8.0, 1.6
@@ -261,9 +348,11 @@ def magnetization_current(*, labels: bool = True) -> Diagram:
         for j, cy in enumerate(centres):
             # start on the orbit's +x side; an ion in B = -z B0 turns counter-clockwise
             x0 = np.array([cx + rho, cy, 0.0])
-            v0 = np.array([0.0, rho * B0 * abs(q) / m, 0.0])
-            x, v, dt = _orbit(q, m, x0, v0, lambda p: np.zeros(3), _uniform(B), B0, 1.0)
-            orbits[(i, j)] = (x[:-1], v[1:])
+            v0 = np.array([0.0, rho * B0 * abs(q) / m, -_MAGNETIZATION_V_PAR])  # along B = -z
+            x, v, dt = _orbit(q, m, x0, v0, lambda p: np.zeros(3), _uniform(B), B0, 3.0)
+            # the perpendicular view and the current use one gyroperiod; the 3-D view all three
+            orbits[(i, j)] = (x[:_STEPS_PER_PERIOD], v[1:_STEPS_PER_PERIOD + 1])
+            figure.orbits[f"helix_{i}_{j}"] = x
     figure.orbits.update({f"orbit_{i}_{j}": o[0] for (i, j), o in orbits.items()})
 
     # current density J_y(x) and J_x(y), binned from every orbit sample
@@ -280,6 +369,9 @@ def magnetization_current(*, labels: bool = True) -> Diagram:
     top = Jx[edges[:-1] >= side - rho].sum()
     figure.parameters["right_edge_current"] = float(right)
     figure.parameters["top_edge_current"] = float(top)
+    figure.parameters["n_centres"] = len(centres)
+    if projection == "3d":
+        return _diagram("magnetization_current_3d", _magnetization_3d(figure, labels), figure, labels)
 
     S = 0.55
     items: List = [Polyline.of(S * np.array([[0, 0], [side, 0], [side, side], [0, side]]), "region box",
@@ -311,7 +403,7 @@ def magnetization_current(*, labels: bool = True) -> Diagram:
                         "survives, and it is diamagnetic", L + 2.4, 0.5 * L)
         items.append(Label((0.5 * L, -1.4), "ion orbits integrated from the Lorentz force; "
                            "edge arrows from the binned orbit current", "note", role="note"))
-    return Diagram("magnetization_current", Scene(tuple(items)), model=figure)
+    return _diagram("magnetization_current", Scene(tuple(items)), figure, labels)
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +411,7 @@ def magnetization_current(*, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
-def toroidal_drift(*, aspect_ratio: float = 2.2, labels: bool = True) -> Diagram:
+def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels: bool = True) -> Diagram:
     r"""Why a purely toroidal field cannot confine a plasma.
 
     In $\mathbf{B} = B_0R_0/R\,\hat\phi$ the grad-B and curvature drifts
@@ -328,9 +420,14 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, labels: bool = True) -> Diagram
     $\mathbf{E}$, and ``exb_drift_velocity`` of that field is outward for both
     species: the plasma is pushed out of the torus. All four directions are
     computed at the drawn cross-section.
+
+    ``projection="poloidal"`` is that cross-section in the $(R, z)$ plane --
+    the textbook picture -- and ``"top"`` looks down on the circular field
+    lines and the inward $\nabla B$, with the vertical drifts out of the page.
     """
     from ._magnetic_island import _validate as _island_model
 
+    _check_projection(projection, ("3d", "poloidal", "top"))
     if not aspect_ratio > 1.3:
         raise ValueError(f"aspect_ratio must exceed 1.3, not {aspect_ratio!r}")
     R0, a, B0 = float(aspect_ratio), 1.0, 1.0
@@ -350,6 +447,10 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, labels: bool = True) -> Diagram
     figure = ParticleFigure(parameters={"aspect_ratio": aspect_ratio, "phi_section": phi_right})
     figure.vectors.update({"ion_drift": drifts["ion"], "electron_drift": drifts["electron"],
                            "E": E_dir, "v_E": v_E, "B": b, "R_hat": Rhat})
+    if projection == "poloidal":
+        return _diagram("toroidal_drift_poloidal", _toroidal_poloidal(figure, labels), figure, labels)
+    if projection == "top":
+        return _diagram("toroidal_drift_top", _toroidal_top(figure, labels), figure, labels)
 
     S = 1.1
     items: List = []
@@ -441,4 +542,293 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, labels: bool = True) -> Diagram
         bottom = min(float(project(-1.6 * a * zhat, S)[1]), drawn[:, 1].min()) - 0.6
         items.append(Label((0.0, bottom), "drift directions from the formulas at the drawn cross-section: "
                            "a purely toroidal field cannot confine", "note", role="note"))
-    return Diagram("toroidal_drift", Scene(tuple(items)), model=figure)
+    return _diagram("toroidal_drift", Scene(tuple(items)), figure, labels)
+
+
+
+# ---------------------------------------------------------------------------
+# Additional projections
+# ---------------------------------------------------------------------------
+
+
+def _unit(v) -> np.ndarray:
+    v = np.asarray(v, dtype=float)
+    return v / np.linalg.norm(v)
+
+
+def _exb_3d(figure: ParticleFigure, labels: bool) -> Scene:
+    """The E x B orbits as helices along B (vertical), drifting along -y."""
+    S = 0.42
+    duration, v_par = figure.parameters["duration"], figure.parameters["v_par"]
+    items: List = []
+    for name, style in (("ion", "orbit ion"), ("electron", "orbit electron")):
+        x = figure.orbits[name]
+        items.append(Polyline.of(project(x, S), style, role=f"{name}_orbit"))
+        gc0 = figure.vectors[f"{name}_guiding_centre"] + np.array([0.0, 0.0, 0.0])
+        gc1 = gc0 + (figure.vectors[f"{name}_drift"] + np.array([0.0, 0.0, v_par])) * duration
+        items.append(Arrow(tuple(project(gc0, S)), tuple(project(gc1, S)), "drift", role=f"{name}_guiding_centre"))
+        items.append(Label(tuple(project(x[0], S)), "$+$" if name == "ion" else "$-$", "charge", role=f"{name}_start"))
+    pts = np.concatenate([project(o, S) for o in figure.orbits.values()])
+    corner = np.array([figure.orbits["electron"][:, 0].max() + 4.0, 4.0, 0.0])
+    origin = project(corner, S)
+    items += [
+        Arrow(tuple(origin), tuple(project(corner + [0, 0, 3.0], S)), "field vector", role="legend_B"),
+        Arrow(tuple(origin), tuple(project(corner + [3.0, 0, 0], S)), "field arrow", role="legend_E"),
+        Arrow(tuple(origin), tuple(project(corner + _unit(figure.vectors["ion_drift"]) * 3.0, S)), "drift",
+              role="legend_vE"),
+    ]
+    if labels:
+        items += [
+            Label(tuple(project(corner + [0, 0, 3.2], S)), "$\\mathbf{B}$", "label", anchor="south", role="legend_B"),
+            Label(tuple(project(corner + [3.2, 0, 0], S)), "$\\mathbf{E}$", "label", anchor="west", role="legend_E"),
+            Label(tuple(project(corner + _unit(figure.vectors["ion_drift"]) * 3.3, S)), "$\\mathbf{v}_E$", "label",
+                  anchor="north", role="legend_vE"),
+        ]
+        center = 0.5 * (pts[:, 0].min() + pts[:, 0].max())
+        items += _title("$\\mathbf{E}\\times\\mathbf{B}$ drift",
+                        "helices along $\\mathbf{B}$ whose guiding centres drift at $\\mathbf{v}_E$, "
+                        "the same for both species", pts[:, 1].max() + 2.0, center)
+        items.append(Label((center, pts[:, 1].min() - 0.8),
+                           f"the same orbits as the perpendicular view, with $v_\\parallel = {figure.parameters['v_par']:g}$; "
+                           f"$m_i/m_e = {figure.parameters['mass_ratio']:g}$", "note", role="note"))
+    return Scene(tuple(items))
+
+
+def _curvature_poloidal(figure: ParticleFigure, labels: bool) -> Scene:
+    """The (R - R0, z) plane: the gyration circle climbing at the drift velocity."""
+    S = 2.2
+    R0 = figure.parameters["R0"]
+    x, gc, v_d = figure.orbits["ion"], figure.orbits["guiding_centre"], figure.vectors["drift"]
+    Rz = np.stack([np.hypot(x[:, 0], x[:, 1]) - R0, x[:, 2]], axis=-1)
+    gRz = np.stack([np.hypot(gc[:, 0], gc[:, 1]) - R0, gc[:, 2]], axis=-1)
+    items: List = [
+        Polyline.of(S * Rz, "orbit ion", role="ion_orbit"),
+        Polyline.of(S * gRz, "guiding centre", role="guiding_centre"),
+        # the drift at the start, where R-hat is +x: its (R, z) components are (v_x, v_z)
+        Arrow(tuple(S * gRz[0]), tuple(S * gRz[0] + 2.0 * _unit([v_d[0], v_d[2]])), "drift", role="drift"),
+        Label(tuple(S * gRz[0]), "$\\otimes$", "legend symbol", role="field_line"),
+    ]
+    ext = S * np.concatenate([Rz, gRz])
+    left, right, bottom, top = ext[:, 0].min(), ext[:, 0].max(), ext[:, 1].min(), ext[:, 1].max()
+    gradB = np.array([-1.0, 0.0])  # |B| falls with R: its gradient points to smaller R
+    base = np.array([right + 1.4, bottom + 0.4])
+    items += [
+        Arrow(tuple(base), tuple(base + 1.2 * gradB), "vector", role="grad_B"),
+        Arrow(tuple(base + np.array([0.0, 1.1])), tuple(base + np.array([1.2, 1.1])), "vector", role="R_c"),
+        Arrow((left - 0.6, bottom - 0.4), (left + 0.6, bottom - 0.4), "axis", role="axes"),
+        Arrow((left - 0.6, bottom - 0.4), (left - 0.6, bottom + 0.8), "axis", role="axes"),
+    ]
+    if labels:
+        items += [
+            Label(tuple(base + 1.2 * gradB + np.array([-0.1, 0.0])), "$\\nabla B$", "label", anchor="east",
+                  role="grad_B"),
+            Label(tuple(base + np.array([1.3, 1.1])), "$\\mathbf{R}_c$", "label", anchor="west", role="R_c"),
+            Label(tuple(S * gRz[0] + 2.0 * _unit([v_d[0], v_d[2]]) + np.array([0.15, 0.0])),
+                  "$\\mathbf{v}_{\\nabla B} + \\mathbf{v}_R$", "label",
+                  anchor="west", role="drift"),
+            Label(tuple(S * gRz[0] + np.array([0.35, -0.3])), "$\\mathbf{B}$ (into page)", "small label",
+                  anchor="west", role="field_line"),
+            Label((left + 0.65, bottom - 0.4), "$R$", anchor="west", role="axes"),
+            Label((left - 0.6, bottom + 0.85), "$z$", anchor="south", role="axes"),
+        ]
+        center = 0.5 * (left + right + 1.4)
+        items += _title("Curvature and $\\nabla B$ drift",
+                        "looking along the field line: the gyration climbs at "
+                        "$\\mathbf{v}_{\\nabla B} + \\mathbf{v}_R$", top + 1.9, center)
+        items.append(Label((center, bottom - 1.2), "the same orbit as the 3-D view, in the $(R, z)$ plane",
+                           "note", role="note"))
+    return Scene(tuple(items))
+
+
+def _curvature_top(figure: ParticleFigure, labels: bool) -> Scene:
+    """Looking down z: the curved field line and the orbit wrapped around it."""
+    S = 0.85
+    R0 = figure.parameters["R0"]
+    x = figure.orbits["ion"]
+    phi = np.linspace(-0.1, 0.5 * math.pi + 0.1, 181)
+    line = np.stack([R0 * np.cos(phi), R0 * np.sin(phi)], axis=-1)
+    items: List = [
+        Polyline.of(S * line, "field line", role="field_line"),
+        Arrow(tuple(S * line[-8]), tuple(S * line[-1]), "field line arrow", role="field_line"),
+        Polyline.of(S * x[:, :2], "orbit ion", role="ion_orbit"),
+        Label((0.0, 0.0), "$\\odot$", "legend symbol", role="axis"),
+    ]
+    mid = S * line[len(line) // 2]
+    inward = -_unit(mid)
+    items += [
+        Arrow(tuple(mid - 1.4 * inward), tuple(mid - 0.2 * inward), "vector", role="grad_B"),
+        Arrow((0.0, 0.0), tuple(mid + 0.0 * inward), "vector", role="radius"),
+    ]
+    if labels:
+        items += [
+            Label(tuple(mid - 1.5 * inward), "$\\nabla B$", "label", anchor="south west", role="grad_B"),
+            Label(tuple(0.5 * mid + np.array([0.2, -0.3])), "$\\mathbf{R}_c$", "label", role="radius"),
+            Label((0.25, -0.25), "$z$ axis", "small label", anchor="north west", role="axis"),
+            Label(tuple(S * line[-1] + np.array([-0.2, 0.3])), "$\\mathbf{B}$", "label", anchor="east",
+                  role="field_line"),
+        ]
+        ext = S * np.concatenate([x[:, :2], line])
+        center = 0.5 * (ext[:, 0].min() + ext[:, 0].max())
+        items += _title("Curvature and $\\nabla B$ drift",
+                        "looking down $z$: the field line curves about the axis and $|\\mathbf{B}|$ "
+                        "grows towards it; the drift is out of the page", ext[:, 1].max() + 1.9, center)
+        items.append(Label((center, -1.0), "the same orbit as the 3-D view, projected onto the midplane",
+                           "note", role="note"))
+    return Scene(tuple(items))
+
+
+def _magnetization_3d(figure: ParticleFigure, labels: bool) -> Scene:
+    """The edge orbits as helical columns along B (pointing down), with the edge current around them."""
+    S = 0.55
+    side = figure.parameters["side"]
+    n = int(figure.parameters["n_centres"])
+    edge = [(i, j) for i in range(n) for j in range(n) if i in (0, n - 1) or j in (0, n - 1)]
+    items: List = []
+    for key in edge:
+        items.append(Polyline.of(project(figure.orbits[f"helix_{key[0]}_{key[1]}"], S), "orbit ion", role="orbit"))
+    z_top, z_bot = 0.0, float(min(o[:, 2].min() for k, o in figure.orbits.items() if k.startswith("helix")))
+    for z in (z_top, z_bot):
+        box = np.array([[0, 0, z], [side, 0, z], [side, side, z], [0, side, z]])
+        items.append(Polyline.of(project(box, S), "region box", role="region", closed=True))
+    for cx, cy in ((0, 0), (side, 0), (side, side), (0, side)):
+        items.append(Polyline.of(project([[cx, cy, z_top], [cx, cy, z_bot]], S), "region box", role="region"))
+    # the edge current, as a loop at mid-height in the computed sense
+    zc = 0.5 * (z_top + z_bot)
+    sense = np.sign(figure.parameters["right_edge_current"])  # +: counter-clockwise seen from +z
+    t = np.linspace(0.0, 2 * math.pi, 5)[:-1] + math.pi / 4
+    corners = side / 2 + (side / 2 + 0.9) * math.sqrt(2) * np.stack([np.cos(t), np.sin(t)], axis=-1)
+    corners = np.clip(corners, -0.9, side + 0.9)
+    loop = np.concatenate([corners, corners[:1]])
+    if sense < 0:
+        loop = loop[::-1]
+    for a, b in zip(loop[:-1], loop[1:]):
+        pa = np.array([a[0], a[1], zc])
+        pb = np.array([b[0], b[1], zc])
+        items.append(Arrow(tuple(project(pa + 0.2 * (pb - pa), S)), tuple(project(pa + 0.8 * (pb - pa), S)),
+                           "current", role="edge_current"))
+    top_mid = np.array([side / 2, side / 2, 1.5])
+    items.append(Arrow(tuple(project(top_mid, S)), tuple(project(top_mid + [0, 0, -3.0], S)), "field vector",
+                       role="legend_B"))
+    if labels:
+        pts = np.concatenate([it.points for it in items if isinstance(it, Polyline)])
+        center = 0.5 * (pts[:, 0].min() + pts[:, 0].max())
+        items += [
+            Label(tuple(project(top_mid, S) + np.array([0.0, 0.15])), "$\\mathbf{B}$", "label", anchor="south",
+                  role="legend_B"),
+            Label(tuple(project(np.array([side + 0.9, side / 2, zc]), S) + np.array([0.3, 0.0])), "$\\mathbf{J}_M$",
+                  "label", anchor="west", role="edge_current"),
+        ]
+        items += _title("Magnetization current",
+                        "gyrating ions stream along $\\mathbf{B}$; around the edge their currents add up to "
+                        "$\\mathbf{J}_M$", np.max(np.asarray(pts)[:, 1]) + 1.9, center)
+        items.append(Label((center, np.min(np.asarray(pts)[:, 1]) - 0.8),
+                           "edge orbits of the perpendicular view with a small parallel velocity; "
+                           "loop sense from the binned orbit current", "note", role="note"))
+    return Scene(tuple(items))
+
+
+def _toroidal_poloidal(figure: ParticleFigure, labels: bool) -> Scene:
+    """The textbook cross-section: (R, z) plane, B along phi (into the page)."""
+    S, a = 2.2, 1.0
+    v = figure.vectors
+    Rhat, zhat = v["R_hat"], np.array([0.0, 0.0, 1.0])
+
+    def rz(vec):  # a 3-D vector's (R, z) components
+        return np.array([np.dot(vec, Rhat), np.dot(vec, zhat)])
+
+    th = np.linspace(0.0, 2 * math.pi, 181)
+    items: List = [Polyline.of(S * a * np.stack([np.cos(th), np.sin(th)], axis=-1), "section fill",
+                               role="section", closed=True)]
+    # B = +phi: with R to the right and z up, +phi points into the page
+    phi_into_page = float(np.dot(np.cross(Rhat, zhat), v["B"])) < 0
+    items.append(Label((-1.25 * S, 0.95 * S), "$\\otimes$" if phi_into_page else "$\\odot$", "legend symbol",
+                       role="B"))
+    up = float(np.sign(rz(v["ion_drift"])[1]))
+    for ang in np.radians([58, 90, 122]):
+        items.append(Label(tuple(0.72 * S * np.array([math.cos(ang), up * math.sin(ang)])), "$+$", "charge small",
+                           role="ion_layer"))
+        items.append(Label(tuple(0.72 * S * np.array([math.cos(ang), -up * math.sin(ang)])), "$-$", "charge small",
+                           role="electron_layer"))
+    E = _unit(rz(v["E"]))
+    ion, ele, vE = _unit(rz(v["ion_drift"])), _unit(rz(v["electron_drift"])), _unit(rz(v["v_E"]))
+    items += [
+        Arrow(tuple(S * (np.array([-0.3, 0.0]) - 0.4 * E)), tuple(S * (np.array([-0.3, 0.0]) + 0.4 * E)),
+              "field vector", role="E"),
+        Arrow(tuple(S * (np.array([0.25, 0.05]) * [1, up])), tuple(S * (np.array([0.25, 0.0]) + 0.45 * ion)),
+              "drift ion", role="ion_drift"),
+        Arrow(tuple(S * (np.array([0.25, -0.05]) * [1, up])), tuple(S * (np.array([0.25, 0.0]) + 0.45 * ele)),
+              "drift electron", role="electron_drift"),
+        Arrow(tuple(S * 1.1 * vE), tuple(S * 1.1 * vE + 1.4 * vE), "exb", role="v_E"),
+        Arrow((-S - 1.0, -S - 0.3), (-S + 0.1, -S - 0.3), "axis", role="axes"),
+        Arrow((-S - 1.0, -S - 0.3), (-S - 1.0, -S + 0.8), "axis", role="axes"),
+        Arrow(tuple(S * np.array([-1.35, 0.0])), tuple(S * np.array([-1.35, 0.0]) + 0.9 * np.array([-1.0, 0.0])),
+              "vector", role="grad_B"),
+    ]
+    if labels:
+        tip = S * 1.1 * vE + 1.4 * vE
+        items += [
+            Label(tuple(tip + np.array([0.15, 0.0])), "$\\mathbf{v}_E = \\dfrac{\\mathbf{E}\\times\\mathbf{B}}{B^2}$",
+                  "label", anchor="west", role="v_E"),
+            Label(tuple(S * np.array([-0.3, 0.0]) + np.array([-0.2, 0.0])), "$\\mathbf{E}$", "label", anchor="east",
+                  role="E"),
+            Label(tuple(S * (np.array([0.32, 0.0]) + 0.35 * ion)), "ion drift", "small label", anchor="west",
+                  role="ion_drift"),
+            Label(tuple(S * (np.array([0.32, 0.0]) + 0.35 * ele)), "electron drift", "small label", anchor="west",
+                  role="electron_drift"),
+            Label((-1.25 * S + 0.35, 0.95 * S), "$\\mathbf{B}_\\mathrm{toroidal}$", "label", anchor="west",
+                  role="B"),
+            Label(tuple(S * np.array([-1.35, 0.0]) + np.array([-1.0, 0.25])), "$\\nabla B$", "label", anchor="south",
+                  role="grad_B"),
+            Label((-S + 0.15, -S - 0.3), "$R$", anchor="west", role="axes"),
+            Label((-S - 1.0, -S + 0.85), "$z$", anchor="south", role="axes"),
+        ]
+        items += _title("Toroidal drift and charge separation",
+                        "the poloidal cross-section: drifts separate charge, and $\\mathbf{E}\\times\\mathbf{B}$ "
+                        "is outward", S + 1.9, 0.6)
+        items.append(Label((0.6, -S - 1.2), "directions from the drift formulas at this cross-section",
+                           "note", role="note"))
+    return Scene(tuple(items))
+
+
+def _toroidal_top(figure: ParticleFigure, labels: bool) -> Scene:
+    """Looking down z: circular field lines, the inward grad B, the vertical drifts out of the page."""
+    R0, a = figure.parameters["aspect_ratio"], 1.0
+    S = 1.2
+    phi = np.linspace(0.0, 2 * math.pi, 241)
+    items: List = []
+    for R in (R0 - a, R0 + a):
+        items.append(Polyline.of(S * R * np.stack([np.cos(phi), np.sin(phi)], axis=-1), "torus rim", role="torus",
+                                 closed=True))
+    v = figure.vectors
+    sense = 1.0 if float(np.dot(np.cross(v["R_hat"], v["B"]), [0, 0, 1.0])) > 0 else -1.0  # counter-clockwise?
+    for k, R in enumerate((R0 - 0.5 * a, R0, R0 + 0.5 * a)):
+        start = 0.3 + 0.9 * k
+        arc = np.linspace(start, start + 2 * math.pi - 0.6, 181) * sense
+        items.append(Polyline.of(S * R * np.stack([np.cos(arc), np.sin(arc)], axis=-1), "field line",
+                                 role="field_line"))
+        items.append(Arrow(tuple(S * R * np.array([math.cos(arc[-6]), math.sin(arc[-6])])),
+                           tuple(S * R * np.array([math.cos(arc[-1]), math.sin(arc[-1])])), "field line arrow",
+                           role="field_line"))
+    probe = S * R0 * np.array([0.0, 1.0])
+    items += [
+        Arrow(tuple(probe + np.array([0.0, 1.6])), tuple(probe + np.array([0.0, 0.4])), "vector", role="grad_B"),
+        Label(tuple(S * np.array([R0, 0.0]) + np.array([0.0, 0.0])),
+              "$\\odot$" if v["ion_drift"][2] > 0 else "$\\otimes$", "legend symbol", role="ion_drift"),
+        Label((0.0, 0.0), "$\\odot$", "legend symbol", role="axis"),
+    ]
+    if labels:
+        outer = S * (R0 + a)
+        items += [
+            Label(tuple(probe + np.array([0.15, 1.6])), "$\\nabla B$", "label", anchor="west", role="grad_B"),
+            Label(tuple(S * np.array([R0, 0.0]) + np.array([0.35, 0.0])),
+                  "ion drift (out of page), electrons into it", "small label", anchor="west", role="ion_drift"),
+            Label(tuple(S * (R0 + 0.5 * a) * np.array([math.cos(0.4), math.sin(0.4)]) + np.array([0.3, 0.2])),
+                  "$\\mathbf{B}_\\mathrm{toroidal}$", "label", anchor="west", role="field_line"),
+            Label((0.25, -0.25), "$z$", "small label", anchor="north west", role="axis"),
+        ]
+        items += _title("Toroidal drift and charge separation",
+                        "looking down $z$: field lines are circles and $|\\mathbf{B}| \\propto 1/R$ grows inward",
+                        outer + 1.8, 0.0)
+        items.append(Label((0.0, -outer - 0.8), "the vertical drifts point out of this plane; see the poloidal view",
+                           "note", role="note"))
+    return Scene(tuple(items))

@@ -114,3 +114,90 @@ def test_every_particle_diagram_is_deterministic_and_lazy(name):
 def test_invalid_parameters_fail_explicitly(fn, kw):
     with pytest.raises(ValueError):
         fn(**kw)
+
+
+# --- projections: every view is drawn from the same computed model ------------------------
+
+PROJECTIONS = {
+    "exb_drift": ("perpendicular", "3d"),
+    "curvature_drift": ("3d", "poloidal", "top"),
+    "magnetization_current": ("perpendicular", "3d"),
+    "toroidal_drift": ("3d", "poloidal", "top"),
+}
+
+
+@pytest.mark.parametrize("name", PROJECTIONS)
+def test_every_projection_shares_one_model(name):
+    fn = getattr(vaft.diagram, name)
+    models = [fn(projection=p).model for p in PROJECTIONS[name]]
+    for other in models[1:]:
+        assert other.orbits.keys() == models[0].orbits.keys()
+        for key in models[0].orbits:
+            assert np.array_equal(other.orbits[key], models[0].orbits[key]), key
+        for key in models[0].vectors:
+            assert np.array_equal(other.vectors[key], models[0].vectors[key]), key
+
+
+def test_the_parallel_velocity_leaves_the_perpendicular_exb_motion_alone():
+    fig = vaft.diagram.exb_drift().model
+    for name in ("ion", "electron"):
+        z = fig.orbits[name][:, 2]
+        dt = fig.parameters[f"{name}_dt"]
+        # the helix climbs at v_par exactly: B along z does not act on v_z
+        assert np.allclose(np.diff(z) / dt, fig.parameters["v_par"])
+
+
+def test_the_poloidal_curvature_view_climbs_along_the_formula_drift():
+    d = vaft.diagram.curvature_drift(projection="poloidal")
+    v_d = d.model.vectors["drift"]
+    (arrow,) = [it for it in d.scene.role("drift") if hasattr(it, "end")]
+    step = np.subtract(arrow.end, arrow.start)
+    # at the start R-hat is +x, so the (R, z) arrow is along (v_x, v_z) of the formula
+    assert np.allclose(step / np.linalg.norm(step), np.array([v_d[0], v_d[2]]) / np.hypot(v_d[0], v_d[2]))
+
+
+def test_the_poloidal_toroidal_section_draws_the_computed_directions():
+    d = vaft.diagram.toroidal_drift(projection="poloidal")
+    v = d.model.vectors
+
+    def direction(role):
+        (arrow,) = [it for it in d.scene.role(role) if hasattr(it, "end")]
+        step = np.subtract(arrow.end, arrow.start)
+        return step / np.linalg.norm(step)
+
+    def rz(vec):
+        vec = np.array([np.dot(vec, v["R_hat"]), vec[2]])
+        return vec / np.linalg.norm(vec)
+
+    for role, key in (("ion_drift", "ion_drift"), ("electron_drift", "electron_drift"), ("E", "E"), ("v_E", "v_E")):
+        assert np.allclose(direction(role), rz(v[key]), atol=0.05), role
+    assert "\\otimes" in d.tikz  # +phi is into the page with R right and z up
+
+
+@pytest.mark.parametrize("fn", [vaft.diagram.exb_drift, vaft.diagram.curvature_drift,
+                                vaft.diagram.magnetization_current, vaft.diagram.toroidal_drift])
+def test_an_unknown_projection_fails_explicitly(fn):
+    with pytest.raises(ValueError, match="projection"):
+        fn(projection="side")
+
+
+@pytest.mark.parametrize("name", PROJECTIONS)
+def test_every_view_shows_the_formulas_as_their_docstrings_define_them(name):
+    from vaft.diagram import _particle_motion as pm
+
+    for projection in PROJECTIONS[name]:
+        d = getattr(vaft.diagram, name)(projection=projection)
+        (box,) = d.scene.role("equations")
+        for function in pm._EQUATIONS[name]:
+            assert pm.formula_equation(function) in box.text, (name, projection, function.__name__)
+        # and the box sits above the note, not on it
+        (note,) = d.scene.role("note")
+        assert note.at[1] < box.at[1]
+    assert not getattr(vaft.diagram, name)(labels=False).scene.role("equations")
+
+
+def test_formula_equation_refuses_a_function_without_one():
+    from vaft.diagram import _particle_motion as pm
+
+    with pytest.raises(ValueError, match="documents no"):
+        pm.formula_equation(lambda: None)

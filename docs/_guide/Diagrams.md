@@ -115,6 +115,19 @@ vaft.diagram.toroidal_drift(aspect_ratio=2.2)
 | Magnetization current | Gyro-currents cancel inside a region. At its edge the diamagnetic $\mathbf{J}_M = \nabla\times\mathbf{M}$ survives | the binned current of the integrated orbits |
 | Toroidal drift | ∇B and curvature drifts separate charge. The resulting vertical $\mathbf{E}$ drives an outward $\mathbf{E}\times\mathbf{B}$, so a purely toroidal field cannot confine | the drift formulas at the drawn cross-section |
 
+Every view shows the relevant equations in a box. They are read from the `$$…$$` definition in each
+formula's docstring, so the figure shows exactly what the formula documents and implements. There is
+no second copy of any equation.
+
+Each has further projections of the same computed orbits, chosen with `projection=`:
+
+| Diagram | Projections (default first) | What the extra views add |
+| --- | --- | --- |
+| `exb_drift` | `perpendicular`, `3d` | Helices along $\mathbf{B}$ drifting sideways. The parallel velocity does not change the perpendicular motion, so both views show the same orbits |
+| `curvature_drift` | `3d`, `poloidal`, `top` | `poloidal` looks along the field line, where the gyration circle climbs at the drift velocity. `top` shows the curved line and the inward $\nabla B$ |
+| `magnetization_current` | `perpendicular`, `3d` | Helical columns along $\mathbf{B}$ with the edge current looping around them |
+| `toroidal_drift` | `3d`, `poloidal`, `top` | `poloidal` is the textbook $(R, z)$ cross-section. `top` shows the circular field lines, with the vertical drifts pointing out of the page |
+
 The units are normalised ($|q| = 1$, $B = 1$, $m_e = 1$). The ion-to-electron mass ratio is reduced (4 by
 default) so that both orbits are visible; the figures state this.
 
