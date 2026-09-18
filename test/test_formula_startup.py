@@ -39,6 +39,13 @@ from vaft.formula.equilibrium import (
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
 )
 from vaft.formula.startup import (
+    critical_ionization_fraction_from_V_p_V_V,
+    ionization_fraction_from_n_e_n_D0,
+    neutral_density_after_ionization_from_n_0_n_e_V_p_V_V,
+    radiation_ionization_barrier_from_P_RI_n_0_V_V,
+    radiation_ionization_power_from_P_RI_n_e_n_D0_V_p,
+)
+from vaft.formula.startup import (
     lr_time_from_L_R,
     plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p,
     plasma_inductance_circular_from_R0_a_li,
@@ -1052,3 +1059,94 @@ def test_current_derivative_rejects_a_non_physical_input(kwargs):
     call.update(kwargs)
     with pytest.raises(ValueError):
         plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(**call)
+
+
+# ==========================================================================
+# Burn-through: the radiation-ionisation barrier (#783 3.9)
+# ==========================================================================
+
+V_P, V_V, P_RI, N_0 = 0.3, 1.0, 1.0e-31, 4.0e18
+
+
+def test_the_neutral_inventory_is_conserved():
+    # n_D0 V_V + n_e V_p = n_0 V_V: the atoms the plasma took came from the fill.
+    n_e = np.array([0.0, 1.0e18, 5.0e18])
+    n_D0 = neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(N_0, n_e, V_P, V_V)
+    assert n_D0 * V_V + n_e * V_P == pytest.approx(np.full(3, N_0 * V_V), rel=1e-13, abs=0.0)
+    assert n_D0[0] == N_0
+
+
+def test_more_electrons_than_the_fill_had_atoms_blanks_and_warns():
+    too_many = 1.01 * N_0 * V_V / V_P
+    with pytest.warns(RuntimeWarning, match="more atoms than the fill had") as record:
+        value = neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(N_0, too_many, V_P, V_V)
+    assert np.isnan(value)
+    assert record[0].filename == __file__
+
+
+def test_the_loss_peaks_at_the_barrier_the_critical_fraction_names():
+    # The three functions are one statement: maximise V_p P_RI n_e n_D0 over
+    # n_e along the closed-box inventory, and the peak is the barrier, reached
+    # where the ionisation fraction is the critical one.
+    n_e = np.linspace(0.0, N_0 * V_V / V_P, 200001)
+    n_D0 = neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(N_0, n_e, V_P, V_V)
+    power = radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI, n_e, n_D0, V_P)
+    peak = int(np.argmax(power))
+    assert power[peak] == pytest.approx(
+        radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI, N_0, V_V), rel=1e-9
+    )
+    assert n_e[peak] == pytest.approx(N_0 * V_V / (2.0 * V_P), rel=1e-4)
+    assert ionization_fraction_from_n_e_n_D0(n_e[peak], n_D0[peak]) == pytest.approx(
+        critical_ionization_fraction_from_V_p_V_V(V_P, V_V), rel=1e-4
+    )
+
+
+def test_the_barrier_does_not_depend_on_the_plasma_volume():
+    # V_p cancels in the maximisation; only the vessel and the fill remain.
+    barriers = []
+    for V_p in (0.1, 0.3, 0.6):
+        n_e = np.linspace(0.0, N_0 * V_V / V_p, 200001)
+        n_D0 = neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(N_0, n_e, V_p, V_V)
+        barriers.append(radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI, n_e, n_D0, V_p).max())
+    assert barriers == pytest.approx([barriers[0]] * 3, rel=1e-9)
+
+
+def test_the_barrier_scales_as_the_square_of_the_prefill_pressure():
+    # Through the prefill chain: pressure -> molecular density -> atoms.
+    def barrier(p_Pa):
+        atoms = atomic_inventory_from_molecular_gas(neutral_density_from_pressure(p_Pa))
+        return radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI, atoms, V_V)
+
+    assert barrier(2.0e-2) == pytest.approx(4.0 * barrier(1.0e-2), rel=1e-12, abs=0.0)
+
+
+def test_ionization_fraction_limits():
+    assert ionization_fraction_from_n_e_n_D0(0.0, 1.0e18) == 0.0
+    assert ionization_fraction_from_n_e_n_D0(1.0e18, 0.0) == 1.0
+    assert ionization_fraction_from_n_e_n_D0(1.0e18, 1.0e18) == 0.5
+
+
+def test_the_critical_fraction_approaches_one_for_a_small_plasma():
+    # A plasma much smaller than the vessel must ionise almost all of what is
+    # inside it before the fill -- which is mostly outside -- runs down.
+    assert critical_ionization_fraction_from_V_p_V_V(1e-3, 1.0) == pytest.approx(1.0, abs=1e-3)
+    assert critical_ionization_fraction_from_V_p_V_V(1.0, 1.0) == 0.5
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(0.0, 1e18, V_P, V_V),
+        lambda: neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(N_0, -1.0, V_P, V_V),
+        lambda: ionization_fraction_from_n_e_n_D0(0.0, 0.0),
+        lambda: ionization_fraction_from_n_e_n_D0(-1.0, 1e18),
+        lambda: critical_ionization_fraction_from_V_p_V_V(0.0, V_V),
+        lambda: radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(-1e-31, 1e18, 1e18, V_P),
+        lambda: radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI, 0.0, V_V),
+    ],
+    ids=["inventory", "negative_n_e", "both_zero", "negative_fraction_input",
+         "zero_volume", "negative_coefficient", "zero_barrier_inventory"],
+)
+def test_burn_through_kernels_refuse_a_non_physical_input(call):
+    with pytest.raises(ValueError):
+        call()
