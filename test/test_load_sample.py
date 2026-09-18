@@ -489,35 +489,6 @@ def test_kinetic_sample_48224_carries_three_distinct_equilibria():
     assert len(enabled) == 4
 
 
-def test_kinetic_sample_48224_pressure_weight_scan():
-    scan = vaft.omas.sample_pressure_weight_scan(48224)
-    assert list(scan) == [0.1, 1.0, 10.0]
-    manifest = vaft.data.sample_manifest(48224)
-    assert manifest["pressure_weight_scan"]["factors"] == [0.1, 1.0, 10.0]
-    nominal = vaft.omas.sample_equilibria(48224)["efit_kinetic"]
-    psi = "equilibrium.time_slice.0.profiles_2d.0.psi"
-    np.testing.assert_array_equal(scan[1.0][psi], nominal[psi])
-    weights = {
-        factor: float(ods["equilibrium.time_slice.0.constraints.pressure.0.weight"])
-        for factor, ods in scan.items()
-    }
-    assert weights == pytest.approx({0.1: 0.1, 1.0: 1.0, 10.0: 10.0})
-    # uniform scaling of the only constraint on p' leaves the fit unchanged
-    for factor in (0.1, 10.0):
-        reference = np.asarray(scan[1.0][psi])
-        np.testing.assert_allclose(scan[factor][psi], reference, rtol=0, atol=1e-6 * np.abs(reference).max())
-    import matplotlib
-
-    matplotlib.use("Agg")
-    figure, axes = vaft.omas.plot_equilibrium_overview_pressure_weight_scan(scan)
-    assert np.size(axes) >= 4
-    import matplotlib.pyplot as plt
-
-    plt.close(figure)
-
-
 def test_sample_equilibria_rejects_a_sample_without_them():
     with pytest.raises(ValueError, match="declares no equilibria"):
         vaft.omas.sample_equilibria(39915)
-    with pytest.raises(ValueError, match="declares no pressure-weight scan"):
-        vaft.omas.sample_pressure_weight_scan(39915)

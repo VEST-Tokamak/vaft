@@ -1,6 +1,6 @@
 from vaft.data import sample as _sample_path
 
-__all__ = ["sample_ods", "sample_equilibria", "sample_pressure_weight_scan", "sample_gfile"]
+__all__ = ["sample_ods", "sample_equilibria", "sample_gfile"]
 
 
 def sample_ods(shot=39915):
@@ -64,7 +64,7 @@ def sample_equilibria(shot=48224):
         constraints: measured, reconstructed and chi-square per channel.
     ``efit_kinetic``
         VAFT's kinetic EFIT on the same k-file with the Thomson pressure points
-        added -- the nominal point of :func:`sample_pressure_weight_scan`.
+        added.
     ``chease``
         The CHEASE refinement of an earlier kinetic EFIT of this slice.
 
@@ -91,39 +91,6 @@ def sample_equilibria(shot=48224):
     if not entries:
         raise ValueError(f"VAFT sample shot {int(shot)} declares no equilibria")
     return {label: _declared_ods(shot, label, record) for label, record in entries.items()}
-
-
-def sample_pressure_weight_scan(shot=48224):
-    """Load a precomputed kinetic-EFIT pressure-weight scan as ``{factor: ODS}``.
-
-    Each ODS is the same instant reconstructed with every pressure point's
-    ``FWTPRE`` multiplied by ``factor``; the dict goes straight into
-    ``vaft.plot.equilibrium_overview_pressure_weight_scan``. The scan settings
-    (points, sigmas, base k-file) and a table of the results are under
-    ``pressure_weight_scan`` in the sample manifest.
-
-    For shot 48224 the three factors 0.1, 1 and 10 give the same equilibrium to
-    1e-8: the magnetic channels are weighted out, so the pressure points are the
-    only information on p', and scaling all of their weights together leaves the
-    least-squares solution unchanged. A weight only matters against a
-    constraint that competes with it.
-
-    Returns
-    -------
-    dict
-        ``{float factor: ODS}`` in ascending factor order.
-    """
-    from vaft.data.resources import sample_manifest
-
-    manifest = sample_manifest(int(shot))
-    scan = manifest.get("pressure_weight_scan") or {}
-    entries = scan.get("entries") or {}
-    if not entries:
-        raise ValueError(f"VAFT sample shot {int(shot)} declares no pressure-weight scan")
-    return {
-        float(factor): _declared_ods(shot, f"pressure_weight_scan[{factor}]", record)
-        for factor, record in sorted(entries.items(), key=lambda item: float(item[0]))
-    }
 
 
 def sample_gfile():

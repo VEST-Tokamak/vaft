@@ -38,9 +38,9 @@ generation:
     psi in the legacy Wb/rad and declares no COCOS (readers probe it, see vaft/data/README.md).
   wall: wall.description_2d.0.limiter.unit.0.outline is the full 17-point VEST limiter,
     identical to vaft.machine_mapping.wall, not the 5-point database stub.
-  equilibria_command: 'scratch scripts kinetic_scan.py / build48224.py (issue #952):
-    run48224 magnetic run, kinetic_pressure_points + run_kinetic_efit per factor,
-    then read_geqdsk/read_meqdsk/read_aeqdsk into compact equilibrium-only ODSs'
+  equilibria_command: 'scratch scripts run48224.py (magnetic run), kinetic_scan.py
+    (kinetic_pressure_points + run_kinetic_efit) and build48224.py (read_geqdsk/read_meqdsk/read_aeqdsk
+    into compact equilibrium-only ODSs), issue #952'
 equilibria:
   loader: vaft.omas.sample_equilibria(48224)
   time: 0.3
@@ -59,15 +59,14 @@ equilibria:
         beta_pol and li_3 come from the a-file.'
     efit_kinetic:
       format: omas
-      path: equilibria/efit_kinetic_fwtpre_x1.json.gz
+      path: equilibria/efit_kinetic.json.gz
       sha256: edaa46b3042b7cd293f6d9a16c65fd4d0076e8284da35a27f379bc1b305f2519
       size: 173990
-      kfile: equilibria/efit_kinetic_fwtpre_x1.k048224.00300
+      kfile: equilibria/efit_kinetic.k048224.00300
       kfile_sha256: c21a479e68eb07772251d1d68b73234bb736fac80de5dcf87f1545a270ff2410
       role: 'VAFT''s kinetic EFIT on the same k-file: vaft.code.efit.run_kinetic_efit
         with kinetic_pressure_points(sample_ods(48224), 300 ms, geq = efit_magnetic,
-        encoding raw6) injected by inject_pressure_constraint, PLASMA scale 1.0. It
-        is the nominal (x1) point of pressure_weight_scan.'
+        encoding raw6) injected by inject_pressure_constraint, PLASMA scale 1.0.'
     chease:
       format: geqdsk
       path: ../../kineticEfit/g048224.00300.chease
@@ -113,8 +112,66 @@ equilibria:
         (edge anchor 5% of a 140.9 Pa peak); today's kinetic_pressure_points on the
         packaged ODS gives 39.5/51.4/56.1/50.7/38.1/7.44 (peak 148.7 Pa), i.e. the
         pressure points themselves differ (an earlier profile recipe). efit_kinetic
-        is VAFT's reproduction and is used consistently for the scan.
+        is VAFT's reproduction.
   paths: relative to this sample directory
+  kinetic_pressure_constraint:
+    encoding: raw6 (five Thomson points at Z = 0 plus the psi_N = 1, p = 0 edge anchor)
+    rpress_m:
+    - 0.475
+    - 0.425
+    - 0.37
+    - 0.31
+    - 0.255
+    - -1.0
+    pressr_pa:
+    - 119.0397
+    - 148.7275
+    - 138.1869
+    - 137.9754
+    - 76.3074
+    - 0.0
+    sigpre_pa:
+    - 39.4535
+    - 51.3976
+    - 56.1302
+    - 50.6957
+    - 38.0909
+    - 7.4364
+    fwtpre:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    plasma_scale: 1.0
+  comparison:
+    beta_pol: 0.014755
+    li: 0.639163
+    li_3: 0.520787
+    q_axis: 1.7967
+    q_95: 5.70107
+    chi_squared_total: 686.53076
+    pressure_axis_pa: 85.824
+    kinetic_pressure_axis_pa: 138.343
+    boundary_max_distance_m: 0.0238
+    kinetic:
+      beta_pol: 0.028982
+      li: 0.633698
+      li_3: 0.514404
+      q_axis: 1.81056
+      q_95: 5.81805
+      chi_squared_pressure: 0.397923
+      chi_squared_total: 686.92871
+  pressure_weight_note: 'Checked 2026-09-18 (#952), not shipped: rerunning efit_kinetic
+    with every FWTPRE multiplied by 0.1 and by 10 gave the same equilibrium to 1e-8
+    in psi, p and q (beta_p 0.02898, chi-square pressure 0.398, total 686.93 in all
+    three). With the magnetic channels weighted out, the six pressure points are the
+    only information on the two p'' coefficients (KPPCUR = 2), so a uniform rescaling
+    of their weights multiplies every row that determines those coefficients and cannot
+    move the least-squares solution; EFIT''s per-point chi-square ((cpress - pressr)/sigpre)^2
+    does not include FWTPRE either. A pressure weight only matters relative to constraints
+    that compete with it.'
 efit_magnetic_server:
   description: 'The magnetic-only EFIT run of shot 48224 at 300 ms as produced on
     the VEST server (fetched 2026-09-18 for issue #952): the k-file (KFFCUR = KPPCUR
@@ -165,7 +222,8 @@ efit_magnetic_server:
   - 'The probe measurements carry the sign convention from before #288: expmpi is
     negative (-0.097 to 0 T) where the reconstruction cmpr2 is positive (+0.05 to
     +0.16 T). The fit is unaffected only because the probes are weighted out.'
-  - Only 4 of 11 flux loops are enabled (array indices 4, 5, 6 and 10; fwtsi 0.01, sigma 100 Wb/rad).
+  - Only 4 of 11 flux loops are enabled (array indices 4, 5, 6 and 10; fwtsi 0.01,
+    sigma 100 Wb/rad).
   - EFIT's total chi-square (686.53) is the plasma-current term alone (chipasma),
     which includes the prescribed vessel current EFIT adds after the fit (#918); reconstructed
     Ip equals measured.
@@ -195,118 +253,7 @@ acceptance:
   - core_profiles
   - equilibrium
   - wall
-  pressure_weight_scan_factors:
-  - 0.1
-  - 1.0
-  - 10.0
 packaging_policy:
   compact_pair: repository-only
   canonical_source: repository-only
   equilibria: repository-only
-  pressure_weight_scan: repository-only
-pressure_weight_scan:
-  loader: vaft.omas.sample_pressure_weight_scan(48224)
-  varied: FWTPRE of all six pressure points, uniformly
-  factors:
-  - 0.1
-  - 1.0
-  - 10.0
-  nominal: 1.0
-  fixed:
-    base_kfile: efit_magnetic_server/k048224.00300
-    encoding: raw6 (five Thomson points at Z = 0 plus the psi_N = 1, p = 0 edge anchor)
-    rpress_m:
-    - 0.475
-    - 0.425
-    - 0.37
-    - 0.31
-    - 0.255
-    - -1.0
-    pressr_pa:
-    - 119.0397
-    - 148.7275
-    - 138.1869
-    - 137.9754
-    - 76.3074
-    - 0.0
-    sigpre_pa:
-    - 39.4535
-    - 51.3976
-    - 56.1302
-    - 50.6957
-    - 38.0909
-    - 7.4364
-    nominal_fwtpre:
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    - 1.0
-    plasma_scale: 1.0
-    executable: $EFITHOME/bin/efit (4d10ed5, NetCDF)
-    table: efit_magnetic_server.table
-  entries:
-    '0.1':
-      format: omas
-      path: equilibria/efit_kinetic_fwtpre_x0.1.json.gz
-      sha256: 59957539b1e274c3106f9f3c9c0fd1e7c5ca4ea4740cb48fe0860367443cd112
-      size: 174061
-      kfile: equilibria/efit_kinetic_fwtpre_x0.1.k048224.00300
-      kfile_sha256: f7e7b3df8f2a32f455d7135693f4e97a6506f24e65812c0226ed6a49719df24f
-    '1.0':
-      format: omas
-      path: equilibria/efit_kinetic_fwtpre_x1.json.gz
-      sha256: edaa46b3042b7cd293f6d9a16c65fd4d0076e8284da35a27f379bc1b305f2519
-      size: 173990
-      kfile: equilibria/efit_kinetic_fwtpre_x1.k048224.00300
-      kfile_sha256: c21a479e68eb07772251d1d68b73234bb736fac80de5dcf87f1545a270ff2410
-    '10':
-      format: omas
-      path: equilibria/efit_kinetic_fwtpre_x10.json.gz
-      sha256: 5ffa647a66274689786c94ec649b27ff2e89d62673c49f480ad97a5f90c10ebb
-      size: 173969
-      kfile: equilibria/efit_kinetic_fwtpre_x10.k048224.00300
-      kfile_sha256: f8b9077e844ec19c43be30aaa51bb39bb1a30f7fc44e44279c51cd10ac89ca5a
-  results:
-    '0.1':
-      beta_pol: 0.028982
-      li: 0.633698
-      li_3: 0.514404
-      q_axis: 1.81056
-      q_95: 5.81805
-      chi_squared_pressure: 0.397923
-      chi_squared_total: 686.92871
-    '1.0':
-      beta_pol: 0.028982
-      li: 0.633698
-      li_3: 0.514404
-      q_axis: 1.81056
-      q_95: 5.81805
-      chi_squared_pressure: 0.397923
-      chi_squared_total: 686.92871
-    '10':
-      beta_pol: 0.028982
-      li: 0.633698
-      li_3: 0.514404
-      q_axis: 1.81056
-      q_95: 5.81805
-      chi_squared_pressure: 0.397923
-      chi_squared_total: 686.92871
-  finding: The three equilibria agree to 1e-8 (psi, p, q). With the magnetic probes
-    and flux loops weighted out, the six pressure points are the only information
-    on the two p' coefficients (KPPCUR = 2), so a uniform FWTPRE scale multiplies
-    every row that determines them and leaves the least-squares solution unchanged.
-    EFIT's chi-square per point is ((cpress - pressr)/sigpre)^2 and does not include
-    FWTPRE either. A pressure weight only matters relative to constraints that compete
-    with it.
-  magnetic_only_for_comparison:
-    beta_pol: 0.014755
-    li: 0.639163
-    li_3: 0.520787
-    q_axis: 1.7967
-    q_95: 5.70107
-    chi_squared_total: 686.53076
-    pressure_axis_pa: 85.824
-    kinetic_pressure_axis_pa: 138.343
-    boundary_max_distance_m: 0.0238
