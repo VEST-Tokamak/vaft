@@ -811,6 +811,30 @@ def test_a_one_sided_bump_is_seen_from_one_side_only():
     assert result["max"] == result["max_other"]
 
 
+def test_uneven_sampling_does_not_weight_the_average():
+    """A contour sampled densely on one side must not pull the RMS that way."""
+    from vaft.process.equilibrium import compare_contours
+
+    # A circle 1 cm outside a reference on the right half, 3 cm on the left.
+    theta = np.linspace(0.0, 2 * np.pi, 2000, endpoint=False)
+    radius = np.where(np.cos(theta) > 0, 0.31, 0.33)
+    r_out, z_out = 1.0 + radius * np.cos(theta), radius * np.sin(theta)
+    even = compare_contours(*_circle(0.30, 400), r_out, z_out)
+    # The same reference, with 20x the vertices on its right half.
+    dense = np.r_[np.linspace(-np.pi / 2, np.pi / 2, 2000, endpoint=False),
+                  np.linspace(np.pi / 2, 3 * np.pi / 2, 100, endpoint=False)]
+    skewed = compare_contours(1.0 + 0.3 * np.cos(dense), 0.3 * np.sin(dense), r_out, z_out)
+    assert skewed["rms"] == pytest.approx(even["rms"], rel=2e-2)
+    assert skewed["mean"] == pytest.approx(even["mean"], rel=2e-2)
+
+
+def test_a_large_pair_of_contours_is_processed_in_blocks():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 6000), *_circle(0.31, 6000))
+    assert result["max"] == pytest.approx(0.01, rel=1e-3)
+
+
 def test_a_contour_needs_three_points():
     from vaft.process.equilibrium import compare_contours
 

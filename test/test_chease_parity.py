@@ -422,6 +422,10 @@ def test_the_materialized_input_is_the_expeq_content_in_source_units(tmp_path):
     ff = np.array([float(v) for v in lines[offset + n : offset + 2 * n]])
     b0 = m.parameters["B0EXP"]
     psi_sign = m.sign_transform["psi"]
+    assert psi_sign == -1  # 39915 is flipped into CHEASE's pattern, so the sign is exercised
+    # The written profiles, not only the resampled ones, keep the source's sign.
+    assert np.sign(np.median(m.pprime)) == np.sign(np.median(geq["PPRIME"]))
+    assert np.sign(np.median(m.ffprime)) == np.sign(np.median(geq["FFPRIM"]))
     np.testing.assert_allclose(pp, -np.abs(m.pprime) * ch.MU0 * r0**2 / b0, rtol=1e-10)
     np.testing.assert_allclose(ff, -(psi_sign * m.ffprime) / b0, rtol=1e-10)
 
@@ -447,6 +451,18 @@ def test_edge_conditioning_is_reported_where_it_changed_the_profile(tmp_path):
     # sample is never examined and a reversal there survives into EXPEQ as
     # -|p'|. Recorded, not endorsed: the record has to show it.
     assert not m.edge_modified[-1] and m.pprime[-1] > 0.0
+
+
+def test_the_record_undoes_the_psi_flip_on_the_written_profiles():
+    """p' and FF' flip with psi on the way into CHEASE, and back in the record."""
+    geq = _fake_geqdsk()
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+    payload = ch._expeq_payload(geq, cfg)
+    kept = ch._materialized_input(payload, cfg, {"psi": 1})
+    flipped = ch._materialized_input(payload, cfg, {"psi": -1})
+    np.testing.assert_array_equal(flipped.pprime, -kept.pprime)
+    np.testing.assert_array_equal(flipped.ffprime, -kept.ffprime)
+    np.testing.assert_array_equal(flipped.pressure, kept.pressure)  # not a d/dpsi quantity
 
 
 def test_a_q_constraint_on_axis_is_not_reported_as_a_surface(tmp_path):

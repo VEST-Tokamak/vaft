@@ -2264,9 +2264,11 @@ def compare_contours(
     """How far apart two closed contours are, point to curve.
 
     Every vertex of each contour is measured to the nearest point on the other
-    contour's polyline -- to a segment, not to a vertex -- so the result does not
-    depend on where either contour starts, which way it runs, or how densely it
-    is sampled, beyond the sampling's own resolution of the curve.
+    contour's polyline -- to a segment, not to a vertex -- and the averages
+    weight each vertex by the arc length it stands for, half of each adjoining
+    segment.  So the result does not depend on where either contour starts,
+    which way it runs, or how densely or unevenly it is sampled, beyond the
+    sampling's own resolution of the curve.
 
     Parameters
     ----------
@@ -2282,7 +2284,7 @@ def compare_contours(
     Returns
     -------
     dict of str to float
-        ``rms`` and ``mean`` of the separation over the vertices of both
+        ``rms`` and ``mean`` of the separation, arc-length weighted over both
         contours; ``max``, the symmetric Hausdorff distance; ``max_reference``
         and ``max_other``, the largest separation from each side; all in metres.
         ``length_reference`` and ``length_other``, each contour's poloidal
@@ -2306,8 +2308,9 @@ def compare_contours(
     Limitations
     -----------
     A separation is not a correspondence: two contours can be close everywhere
-    and still differ in where along the curve a feature sits.  Cost grows as the
-    product of the two point counts.
+    and still differ in where along the curve a feature sits.  Time grows as the
+    product of the two point counts; memory is bounded by working through the
+    vertices in blocks.
 
     Provenance
     ----------
@@ -2326,30 +2329,43 @@ def compare_contours(
         return points
 
     def to_curve(points: np.ndarray, curve: np.ndarray) -> np.ndarray:
-        start = curve
         step = np.roll(curve, -1, axis=0) - curve
         step_sq = np.maximum(np.einsum("ij,ij->i", step, step), np.finfo(float).tiny)
-        offset = points[:, None, :] - start[None, :, :]
-        t = np.clip(np.einsum("pij,ij->pi", offset, step) / step_sq, 0.0, 1.0)
-        nearest = start[None, :, :] + t[..., None] * step[None, :, :]
-        return np.min(np.linalg.norm(points[:, None, :] - nearest, axis=2), axis=1)
+        # Blocks of vertices keep the (block x segments x 2) temporaries small.
+        block = max(1, 2_000_000 // max(1, curve.shape[0]))
+        out = np.empty(points.shape[0])
+        for first in range(0, points.shape[0], block):
+            chunk = points[first : first + block]
+            offset = chunk[:, None, :] - curve[None, :, :]
+            t = np.clip(np.einsum("pij,ij->pi", offset, step) / step_sq, 0.0, 1.0)
+            gap = offset - t[..., None] * step[None, :, :]
+            out[first : first + block] = np.sqrt(np.min(np.einsum("pij,pij->pi", gap, gap), axis=1))
+        return out
 
-    def length(points: np.ndarray) -> float:
-        return float(np.sum(np.linalg.norm(np.roll(points, -1, axis=0) - points, axis=1)))
+    def segment_lengths(points: np.ndarray) -> np.ndarray:
+        return np.linalg.norm(np.roll(points, -1, axis=0) - points, axis=1)
+
+    def vertex_weights(points: np.ndarray) -> np.ndarray:
+        # Each vertex stands for half of each segment it joins.
+        lengths = segment_lengths(points)
+        return 0.5 * (lengths + np.roll(lengths, 1))
 
     reference = closed(reference_r, reference_z)
     other = closed(other_r, other_z)
     from_reference = to_curve(reference, other)
     from_other = to_curve(other, reference)
     both = np.concatenate([from_reference, from_other])
+    weights = np.concatenate([vertex_weights(reference), vertex_weights(other)])
+    if not np.sum(weights) > 0.0:
+        raise ValueError("a contour has zero length")
     return {
-        "rms": float(np.sqrt(np.mean(both**2))),
-        "mean": float(np.mean(both)),
+        "rms": float(np.sqrt(np.average(both**2, weights=weights))),
+        "mean": float(np.average(both, weights=weights)),
         "max": float(max(from_reference.max(), from_other.max())),
         "max_reference": float(from_reference.max()),
         "max_other": float(from_other.max()),
-        "length_reference": length(reference),
-        "length_other": length(other),
+        "length_reference": float(np.sum(segment_lengths(reference))),
+        "length_other": float(np.sum(segment_lengths(other))),
     }
 
 
