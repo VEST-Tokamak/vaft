@@ -758,3 +758,61 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
     dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
     brute = cKDTree(dense).query(fit.contour.points)[0]
     assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# compare_contours (#885)
+# ---------------------------------------------------------------------------
+
+def _circle(radius, count, *, start=0.0, reverse=False, centre=(1.0, 0.0)):
+    theta = start + np.linspace(0.0, 2 * np.pi, count, endpoint=False)
+    if reverse:
+        theta = theta[::-1]
+    return centre[0] + radius * np.cos(theta), centre[1] + radius * np.sin(theta)
+
+
+def test_concentric_circles_are_their_radial_gap_apart():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 400), *_circle(0.31, 157))
+    # Point-to-segment, so only the chord sag of the coarser polygon remains:
+    # 0.31 * (1 - cos(pi/157)) = 6.2e-5 m, 0.6% of the 1 cm gap.
+    sag = 0.31 * (1 - np.cos(np.pi / 157))
+    assert abs(result["rms"] - 0.01) <= sag
+    assert abs(result["max"] - 0.01) <= sag
+    assert result["length_reference"] == pytest.approx(2 * np.pi * 0.30, rel=1e-4)
+
+
+def test_the_separation_ignores_start_point_orientation_and_closure():
+    from vaft.process.equilibrium import compare_contours
+
+    r0, z0 = _circle(0.32, 200, centre=(1.0, 0.05))
+    base = compare_contours(*_circle(0.3, 200), r0, z0)
+    # The same vertices, started elsewhere, run backwards and closed explicitly.
+    r, z = np.roll(r0, 57)[::-1], np.roll(z0, 57)[::-1]
+    moved = compare_contours(*_circle(0.3, 200), np.r_[r, r[0]], np.r_[z, z[0]])
+    for key in ("rms", "mean", "max", "length_other"):
+        assert moved[key] == pytest.approx(base[key], rel=1e-9)
+
+
+def test_a_one_sided_bump_is_seen_from_one_side_only():
+    """The Hausdorff distance is the larger of the two directed maxima."""
+    from vaft.process.equilibrium import compare_contours
+
+    r, z = _circle(0.3, 720)
+    theta = np.linspace(0.0, 2 * np.pi, 720, endpoint=False)
+    bump = 0.05 * np.exp(-((theta - np.pi / 2) / 0.1) ** 2)
+    rb = 1.0 + (0.3 + bump) * np.cos(theta)
+    zb = (0.3 + bump) * np.sin(theta)
+    result = compare_contours(r, z, rb, zb)
+    assert result["max_other"] == pytest.approx(0.05, rel=1e-2)
+    # The circle's top is nearer the bump's flank than its tip.
+    assert result["max_reference"] < 0.8 * result["max_other"]
+    assert result["max"] == result["max_other"]
+
+
+def test_a_contour_needs_three_points():
+    from vaft.process.equilibrium import compare_contours
+
+    with pytest.raises(ValueError, match="three points"):
+        compare_contours([1.0, 1.1], [0.0, 0.1], *_circle(0.3, 10))

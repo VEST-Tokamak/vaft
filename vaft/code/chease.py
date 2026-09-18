@@ -61,7 +61,19 @@ class CHEASEConfig:
     # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
     # equilibrium work, which is how the old default of 11 failed (#717).
     nideal: Optional[int] = None
+    #: Size of the R-Z box CHEASE writes its EQDSK on (``NRBOX = NZBOX``).  This
+    #: is the *output* grid only: the equilibrium is solved on the ``ns`` x
+    #: ``nt`` finite-element mesh and interpolated onto it.
     nw: int = 513
+    #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
+    #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
+    #: takes the default for the resolved ``NIDEAL``; see
+    #: :func:`_chease_mesh_params`.  ``ns``/``nt`` set the local force balance
+    #: of the result, which the output grid ``nw`` cannot improve (#885).
+    ns: Optional[int] = None
+    nt: Optional[int] = None
+    npsi: Optional[int] = None
+    nchi: Optional[int] = None
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
 
     #: Normalized poloidal flux at which CHEASE is told to match q.
@@ -94,6 +106,10 @@ class CHEASEConfig:
                 "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
                 "refinement contract (#516)"
             )
+        for key in ("ns", "nt", "npsi", "nchi"):
+            value = getattr(self, key)
+            if value is not None and int(value) < 2:
+                raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
         if self.nideal is not None:
             warnings.warn(
                 f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
@@ -106,9 +122,69 @@ class CHEASEConfig:
             )
 
     @property
+    def resolved_mesh(self) -> dict[str, int]:
+        """The solver mesh written to the namelist: the NIDEAL default, overridden
+        by whichever of ``ns``/``nt``/``npsi``/``nchi`` are set."""
+        mesh = _chease_mesh_params(self.resolved_nideal)
+        for key in ("ns", "nt", "npsi", "nchi"):
+            value = getattr(self, key)
+            if value is not None:
+                mesh[key] = int(value)
+        return mesh
+
+    @property
     def resolved_nideal(self) -> int:
         """The ``NIDEAL`` written to the namelist."""
         return int(self.nideal) if self.nideal is not None else CHEASE_OUTPUT_NIDEAL[self.output]
+
+
+@dataclass(frozen=True)
+class CHEASEMaterializedInput:
+    """What one ``EXPEQ``/namelist pair hands CHEASE, before normalization.
+
+    ``EXPEQ`` carries the boundary and the ``p'``/``FF'`` profiles in CHEASE's
+    own normalization (``R0``, ``B0``, ``mu0``) and in the COCOS-02 sign pattern
+    CHEASE reads.  This record keeps the same content in physical units and in
+    the *source* g-file's sign convention, so it can be laid over the source
+    profiles directly: any difference is then preprocessing -- resampling onto
+    CHEASE's grid, edge conditioning, the boundary choice -- and not the solve.
+    ``sign_transform`` holds the factors that took the source into CHEASE's
+    pattern; ``p'`` and ``FF'`` flip with ``sign_transform["psi"]``.
+    """
+
+    #: Boundary before smoothing: the traced ``target_psin`` contour, or
+    #: ``RBBBS/ZBBBS`` when ``target_psin`` is 0 or at least 1 [m].
+    raw_boundary: np.ndarray
+    #: Boundary written to ``EXPEQ``, after ``boundary_smoothing`` [m].
+    boundary: np.ndarray
+    #: Normalized poloidal flux of the profile samples (CHEASE writes its
+    #: square root) [-].
+    psi_norm: np.ndarray
+    #: Pressure resampled onto ``psi_norm``; only its edge value enters EXPEQ [Pa].
+    pressure: np.ndarray
+    #: ``p'`` and ``FF'`` resampled onto ``psi_norm``, before edge conditioning,
+    #: in the source convention [Pa/(Wb/rad)], [T^2 m^2/(Wb/rad)].
+    pprime_resampled: np.ndarray
+    ffprime_resampled: np.ndarray
+    #: ``p'`` and ``FF'`` as written to EXPEQ, in physical units and the source
+    #: convention [Pa/(Wb/rad)], [T^2 m^2/(Wb/rad)].
+    pprime: np.ndarray
+    ffprime: np.ndarray
+    #: Samples edge conditioning (``edge_zero``) changed [-].
+    edge_modified: np.ndarray
+    #: The psi_N at which q is constrained, after any edge-conditioning nudge;
+    #: ``None`` when CHEASE constrains q on axis instead [-].
+    q_constraint_psi_norm: Optional[float]
+    #: The q value CHEASE is asked to match there, in CHEASE's sign [-].
+    qspec: float
+    #: The same surface on CHEASE's radial mesh, ``sqrt(psi_N)`` [-].
+    csspec: float
+    #: Source-to-CHEASE sign factors (``psi``, ``bcentr``, ``current``,
+    #: ``fpol``, ``q``) [-].
+    sign_transform: Mapping[str, int]
+    #: The scalar namelist/EXPEQ parameters (``ASPCT``, ``R0EXP``, ``B0EXP``,
+    #: ``CURRT`` ...) [-].
+    parameters: Mapping[str, float]
 
 
 @dataclass
@@ -123,6 +199,9 @@ class CHEASEInputs:
     geqdsk: Any = None
     files: tuple[Path, ...] = ()
     manifests: tuple[Path, ...] = ()
+    #: The content of ``expeq`` in physical units; see
+    #: :class:`CHEASEMaterializedInput`.
+    materialized: Optional[CHEASEMaterializedInput] = None
 
 
 @dataclass
@@ -561,19 +640,37 @@ def _edge_zero_profiles(
 
 
 def _chease_mesh_params(nideal: int) -> dict[str, int]:
+    """Default solver mesh for a NIDEAL; ``CHEASEConfig.ns`` etc. override it.
+
+    The GEQDSK default (NIDEAL 6) was ``NS = NT = 50``, inherited from the
+    donor.  Measured on the packaged 39915 and 48224 g-files at ``nw = 513``
+    (#885), the median relative Grad-Shafranov residual of the written EQDSK
+    falls 5.5/4.0% -> 2.9/2.0% -> 1.2/1.0% -> 0.47/0.41% for NS = NT = 50, 100,
+    150, 200, at 7, 11, 22 and 45 s a solve.  q0, q95, li_3, beta_p and Ip are
+    converged to 1e-4 already at 50; the mesh sets the *local* force balance a
+    downstream stability code reads, and ``NPSI``/``NCHI`` (200/100 against
+    300/256) change neither.  150 brings the residual within about twice the
+    EFIT input's own (0.6% on 39915) for three times the cost.  The NIDEAL 8
+    and 10 tables belong to the forks that use them and are left alone.
+    """
     if nideal == 8:
         return {"ns": 100, "nt": 100, "npsi": 300, "nchi": 512, "negp": 0, "ner": 2}
     if nideal == 10:
         return {"ns": 100, "nt": 100, "npsi": 200, "nchi": 200, "negp": 0, "ner": 0}
-    return {"ns": 50, "nt": 50, "npsi": 200, "nchi": 100, "negp": 0, "ner": 2}
+    return {"ns": 150, "nt": 150, "npsi": 200, "nchi": 100, "negp": 0, "ner": 2}
 
 
-def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, float]:
+def _expeq_payload(geqdsk: Any, config: CHEASEConfig) -> dict[str, Any]:
+    """Everything ``_write_expeq`` writes, computed once.
+
+    ``geqdsk`` is the working g-file, already in CHEASE's sign pattern.
+    """
     for key in ("NW", "NH", "PSIRZ", "PPRIME", "FFPRIM", "PRES", "FPOL", "QPSI"):
         if key not in geqdsk:
             raise ValueError(f"GEQDSK is missing required CHEASE input field {key!r}")
 
-    rz = _resolve_boundary(_target_boundary(geqdsk, config.target_psin), config)
+    raw_rz = np.asarray(_target_boundary(geqdsk, config.target_psin), dtype=float)
+    rz = _resolve_boundary(raw_rz, config)
     rcen = float((np.nanmax(rz[:, 0]) + np.nanmin(rz[:, 0])) * 0.5)
     zcen = float(rz[int(np.nanargmax(rz[:, 0])), 1])
     amin = float((np.nanmax(rz[:, 0]) - np.nanmin(rz[:, 0])) * 0.5)
@@ -586,9 +683,10 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         raise ValueError("Invalid CHEASE normalization: B0EXP is zero")
 
     psin = np.linspace(0.0, 1.0, NCHEASE)
-    pprime = _profile(geqdsk["PPRIME"], NCHEASE)
+    pprime_resampled = _profile(geqdsk["PPRIME"], NCHEASE)
     pressure = _profile(geqdsk["PRES"], NCHEASE)
-    ffprim = _profile(geqdsk["FFPRIM"], NCHEASE)
+    ffprim_resampled = _profile(geqdsk["FFPRIM"], NCHEASE)
+    pprime, ffprim = pprime_resampled, ffprim_resampled
 
     # The flux surface q is matched on, in psi_norm. Edge-zeroing may nudge it
     # outward, exactly as the donor's chease_params/make_chease_expeq does.
@@ -610,25 +708,6 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     edge_pressure = MU0 * float(np.asarray(geqdsk["PRES"], dtype=float).reshape(-1)[-1]) / (b0exp**2)
     current = abs(MU0 * float(geqdsk["CURRENT"]) / rcen / b0exp)
 
-    with path.open("w", encoding="utf-8") as f:
-        f.write(f"{aspct:.12g}\n")
-        f.write(f"{zcen:.12g}\n")
-        f.write(f"{edge_pressure:.12g}\n")
-        f.write(f"{len(rz):d}\n")
-        for r_val, z_val in rz:
-            f.write(f"{r_val / rcen:.12g} {z_val / rcen:.12g}\n")
-        f.write(f"{NCHEASE:d}\n")
-        f.write("1 0\n")
-        for value in np.sqrt(psin):
-            f.write(f"{value:.12g}\n")
-        for value in pp_input:
-            f.write(f"{value:.12g}\n")
-        for value in ff_input:
-            f.write(f"{value:.12g}\n")
-        f.write(f"{rcen:.12g}, R0 [M]\n")
-        f.write(f"{b0exp:.12g}, B_T [T]\n")
-        f.write(f"{current:.12g}, TOTAL CURRENT\n")
-
     q = np.asarray(geqdsk["QPSI"], dtype=float).reshape(-1)
     sign_q = np.sign(float(geqdsk["CURRENT"])) * np.sign(float(geqdsk["BCENTR"]))
     if config.q_constraint_psi_norm is not None and config.ncscal == 1 and q.size >= 4:
@@ -641,11 +720,13 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         q_at = float(q_of_psi_norm(constraint_psi_norm))
         qval = q_at * sign_q
         csspec = _csspec_from_psi_norm(constraint_psi_norm)
+        q_surface: Optional[float] = constraint_psi_norm
     else:
         # No flux-surface constraint: CHEASE matches q on axis (CSSPEC = 0).
         qval = float(q[0] * sign_q) if q.size else 1.0
         csspec = 0.0
-    return {
+        q_surface = None
+    params = {
         "ASPCT": aspct,
         "R0EXP": rcen,
         "B0EXP": b0exp,
@@ -659,10 +740,73 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         "SIGNB0XP": 1.0,
         "SIGNIPXP": 1.0,
     }
+    return {
+        "raw_rz": raw_rz, "rz": rz, "rcen": rcen, "zcen": zcen, "aspct": aspct,
+        "psin": psin, "pressure": pressure,
+        "pprime_resampled": pprime_resampled, "ffprim_resampled": ffprim_resampled,
+        "pprime": pprime, "ffprim": ffprim,
+        "pp_input": pp_input, "ff_input": ff_input,
+        "edge_pressure": edge_pressure, "b0exp": b0exp, "current": current,
+        "params": params, "q_surface": q_surface,
+    }
+
+
+def _write_expeq(
+    geqdsk: Any, path: Path, config: CHEASEConfig, payload: Optional[Mapping[str, Any]] = None
+) -> dict[str, float]:
+    payload = payload if payload is not None else _expeq_payload(geqdsk, config)
+    rz = payload["rz"]
+    rcen = payload["rcen"]
+    with path.open("w", encoding="utf-8") as f:
+        f.write(f"{payload['aspct']:.12g}\n")
+        f.write(f"{payload['zcen']:.12g}\n")
+        f.write(f"{payload['edge_pressure']:.12g}\n")
+        f.write(f"{len(rz):d}\n")
+        for r_val, z_val in rz:
+            f.write(f"{r_val / rcen:.12g} {z_val / rcen:.12g}\n")
+        f.write(f"{NCHEASE:d}\n")
+        f.write("1 0\n")
+        for value in np.sqrt(payload["psin"]):
+            f.write(f"{value:.12g}\n")
+        for value in payload["pp_input"]:
+            f.write(f"{value:.12g}\n")
+        for value in payload["ff_input"]:
+            f.write(f"{value:.12g}\n")
+        f.write(f"{rcen:.12g}, R0 [M]\n")
+        f.write(f"{payload['b0exp']:.12g}, B_T [T]\n")
+        f.write(f"{payload['current']:.12g}, TOTAL CURRENT\n")
+    return dict(payload["params"])
+
+
+def _materialized_input(
+    payload: Mapping[str, Any], config: CHEASEConfig, transform: Mapping[str, int]
+) -> CHEASEMaterializedInput:
+    """Re-express an EXPEQ payload in the source g-file's sign convention."""
+    psi_sign = int(transform.get("psi", 1))
+    params = payload["params"]
+    return CHEASEMaterializedInput(
+        raw_boundary=np.asarray(payload["raw_rz"], dtype=float).copy(),
+        boundary=np.asarray(payload["rz"], dtype=float).copy(),
+        psi_norm=np.asarray(payload["psin"], dtype=float).copy(),
+        pressure=np.asarray(payload["pressure"], dtype=float).copy(),
+        pprime_resampled=psi_sign * np.asarray(payload["pprime_resampled"], dtype=float),
+        ffprime_resampled=psi_sign * np.asarray(payload["ffprim_resampled"], dtype=float),
+        pprime=psi_sign * np.asarray(payload["pprime"], dtype=float),
+        ffprime=psi_sign * np.asarray(payload["ffprim"], dtype=float),
+        edge_modified=(
+            (np.asarray(payload["pprime"]) != np.asarray(payload["pprime_resampled"]))
+            | (np.asarray(payload["ffprim"]) != np.asarray(payload["ffprim_resampled"]))
+        ),
+        q_constraint_psi_norm=payload["q_surface"],
+        qspec=float(params["QSPEC"]),
+        csspec=float(params["CSSPEC"]),
+        sign_transform=dict(transform),
+        parameters=dict(params),
+    )
 
 
 def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[str]:
-    mesh = _chease_mesh_params(config.resolved_nideal)
+    mesh = config.resolved_mesh
     width = 0.05
     lines = [
         "*************************\n",
@@ -818,6 +962,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
             )
         )
     else:
+        transform = {"psi": 1, "bcentr": 1, "current": 1, "fpol": 1, "q": 1}
         manifests.append(
             _write_json(
                 workdir / "chease_cocos_transform.json",
@@ -826,7 +971,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
                     "source_equilibrium": str(getattr(original, "source", "") or ""),
                     "input_signs": input_info.as_dict(),
                     "chease_input_signs": input_info.as_dict(),
-                    "transform_to_chease_input": {"psi": 1, "bcentr": 1, "current": 1, "fpol": 1, "q": 1},
+                    "transform_to_chease_input": transform,
                 },
             )
         )
@@ -841,8 +986,33 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
     write_geqdsk(working, input_geqdsk)
     expeq = workdir / "EXPEQ"
     namelist = workdir / "chease_namelist"
-    params = _write_expeq(working, expeq, config)
+    payload = _expeq_payload(working, config)
+    params = _write_expeq(working, expeq, config, payload)
     _write_namelist(namelist, config, params)
+    materialized = _materialized_input(payload, config, transform)
+    manifests.append(
+        _write_json(
+            workdir / "chease_input_manifest.json",
+            {
+                "output": config.output,
+                "nideal": config.resolved_nideal,
+                "neqdsk": 0,
+                "mesh": config.resolved_mesh,
+                "output_grid": int(config.nw),
+                "target_psin": float(config.target_psin),
+                "boundary_smoothing": str(config.boundary_smoothing),
+                "raw_boundary_points": int(materialized.raw_boundary.shape[0]),
+                "expeq_boundary_points": int(materialized.boundary.shape[0]),
+                "edge_zero": bool(config.edge_zero),
+                "edge_modified_samples": int(np.count_nonzero(materialized.edge_modified)),
+                "q_constraint_psi_norm_requested": config.q_constraint_psi_norm,
+                "q_constraint_psi_norm_used": materialized.q_constraint_psi_norm,
+                "qspec": materialized.qspec,
+                "csspec": materialized.csspec,
+                "parameters": {key: float(value) for key, value in params.items()},
+            },
+        )
+    )
 
     return CHEASEInputs(
         workdir=workdir,
@@ -853,6 +1023,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
         geqdsk=original,
         files=(source_geqdsk, input_geqdsk, expeq, namelist),
         manifests=tuple(manifests),
+        materialized=materialized,
     )
 
 
@@ -1302,6 +1473,7 @@ __all__ = [
     "CHEASE_OUTPUT_NIDEAL",
     "CHEASEConfig",
     "CHEASEInputs",
+    "CHEASEMaterializedInput",
     "CHEASEResult",
     "CodeConfig",
     "CodeInputs",

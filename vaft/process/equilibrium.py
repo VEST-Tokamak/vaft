@@ -101,6 +101,7 @@ __all__ = [
     "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
+    "compare_contours",
     "contour_shape_parameters",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
@@ -2255,6 +2256,101 @@ def extract_flux_surface_contours(
 #: more than keeping it -- measured against the OMFIT reference, raising the
 #: threshold to 24 moves the worst `elongation` error from 1.8e-3 to 2.3e-2.
 MIN_FLUX_SURFACE_POINTS = 16
+
+
+def compare_contours(
+    reference_r: np.ndarray, reference_z: np.ndarray, other_r: np.ndarray, other_z: np.ndarray,
+) -> dict[str, float]:
+    """How far apart two closed contours are, point to curve.
+
+    Every vertex of each contour is measured to the nearest point on the other
+    contour's polyline -- to a segment, not to a vertex -- so the result does not
+    depend on where either contour starts, which way it runs, or how densely it
+    is sampled, beyond the sampling's own resolution of the curve.
+
+    Parameters
+    ----------
+    reference_r : array_like
+        Major radius of the reference contour [m].
+    reference_z : array_like
+        Height of the reference contour [m].
+    other_r : array_like
+        Major radius of the contour compared against it [m].
+    other_z : array_like
+        Height of the contour compared against it [m].
+
+    Returns
+    -------
+    dict of str to float
+        ``rms`` and ``mean`` of the separation over the vertices of both
+        contours; ``max``, the symmetric Hausdorff distance; ``max_reference``
+        and ``max_other``, the largest separation from each side; all in metres.
+        ``length_reference`` and ``length_other``, each contour's poloidal
+        length, in metres [-].
+
+    Raises
+    ------
+    ValueError
+        Either contour has fewer than three points.
+
+    Convention
+    ----------
+    Both contours are treated as closed: the last point joins the first whether
+    or not it repeats it.  The measure is symmetric -- both contours' vertices
+    contribute -- and orientation-independent.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A separation is not a correspondence: two contours can be close everywhere
+    and still differ in where along the curve a feature sits.  Cost grows as the
+    product of the two point counts.
+
+    Provenance
+    ----------
+    .. [1] Point-to-segment distance and the symmetric Hausdorff distance are
+       standard computational geometry.
+    """
+
+    def closed(r: Any, z: Any) -> np.ndarray:
+        points = np.column_stack(
+            [np.asarray(r, dtype=float).reshape(-1), np.asarray(z, dtype=float).reshape(-1)]
+        )
+        if points.shape[0] < 3:
+            raise ValueError("a contour needs at least three points")
+        if np.allclose(points[0], points[-1]):
+            points = points[:-1]
+        return points
+
+    def to_curve(points: np.ndarray, curve: np.ndarray) -> np.ndarray:
+        start = curve
+        step = np.roll(curve, -1, axis=0) - curve
+        step_sq = np.maximum(np.einsum("ij,ij->i", step, step), np.finfo(float).tiny)
+        offset = points[:, None, :] - start[None, :, :]
+        t = np.clip(np.einsum("pij,ij->pi", offset, step) / step_sq, 0.0, 1.0)
+        nearest = start[None, :, :] + t[..., None] * step[None, :, :]
+        return np.min(np.linalg.norm(points[:, None, :] - nearest, axis=2), axis=1)
+
+    def length(points: np.ndarray) -> float:
+        return float(np.sum(np.linalg.norm(np.roll(points, -1, axis=0) - points, axis=1)))
+
+    reference = closed(reference_r, reference_z)
+    other = closed(other_r, other_z)
+    from_reference = to_curve(reference, other)
+    from_other = to_curve(other, reference)
+    both = np.concatenate([from_reference, from_other])
+    return {
+        "rms": float(np.sqrt(np.mean(both**2))),
+        "mean": float(np.mean(both)),
+        "max": float(max(from_reference.max(), from_other.max())),
+        "max_reference": float(from_reference.max()),
+        "max_other": float(from_other.max()),
+        "length_reference": length(reference),
+        "length_other": length(other),
+    }
 
 
 def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:

@@ -305,6 +305,7 @@ CONVENTION_SENSITIVE = frozenset({
     "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "check_equilibrium_requirements",
+    "compare_contours",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
     "convert_cocos",
