@@ -228,3 +228,83 @@ def test_no_recommendation_when_nothing_is_within_tolerance(module):
     ]
 
     assert module.recommend(rows)["recommended"] is None
+
+
+# --------------------------------------------------------------------------
+# The recorded run (2026-09-18).  A re-run that reverses any of these is a
+# finding, and should fail here rather than be discovered in a README.
+# --------------------------------------------------------------------------
+
+RECORDED = Path(__file__).resolve().parent / "data" / "efit_convergence_study.json"
+
+
+@pytest.fixture(scope="module")
+def recorded():
+    import json
+
+    return json.loads(RECORDED.read_text(encoding="utf-8"))
+
+
+def _rows(recorded, *, table="packaged", grid=129, inner=None, error_minimum=None):
+    return [
+        row for row in recorded["analysis"]["rows"]
+        if row["case"]["table"] == table and row["case"]["grid"] == grid
+        and (inner is None or row["case"]["inner_iterations"] == inner)
+        and (error_minimum is None or row["case"]["error_minimum"] == error_minimum)
+    ]
+
+
+def test_the_recorded_run_is_on_an_efit_whose_ip_chi_squared_matches_its_solve(recorded):
+    # #918: stock EFIT's NXITER > 1 stop test is contaminated; the research
+    # build that removes the vessel term from the reported Ip chi-square is 3b5dae5.
+    assert recorded["efit_install"]["source_revision"] == "3b5dae5"
+    assert recorded["toolchain"]["efit"]["sha256"].startswith("4a4e645e")
+
+
+def test_every_setting_that_reaches_errmin_1e_4_lands_on_the_same_equilibrium(recorded):
+    rows = [r for r in _rows(recorded, error_minimum=1e-4) if r["converged"]]
+    assert len({r["case"]["inner_iterations"] for r in rows}) == 4
+    assert max(r["iteration_error"]["lcfs_rms_mm"] for r in rows) < 0.1
+
+
+def test_the_routine_stop_is_not_converged(recorded):
+    routine = _rows(recorded, inner=1, error_minimum=1e-2)
+    assert all(r["converged"] for r in routine)
+    distances = [r["iteration_error"]["lcfs_rms_mm"] for r in routine]
+    assert np.median(distances) > 5.0
+    assert max(distances) > 50.0
+
+
+def test_more_inner_iterations_only_lose_slices(recorded):
+    for error_minimum in (1e-2, 1e-3, 1e-4):
+        kept = {
+            inner: sum(r["converged"] for r in _rows(recorded, inner=inner, error_minimum=error_minimum))
+            for inner in (1, 3, 5, 10)
+        }
+        assert all(kept[1] > kept[inner] for inner in (3, 5, 10)), (error_minimum, kept)
+
+
+def test_the_grid_moves_the_converged_equilibrium_by_about_a_millimetre(recorded):
+    grid = [ref["discretization"] for ref in recorded["analysis"]["references"].values()
+            if ref["discretization"]]
+    assert len(grid) >= 8
+    assert max(d["lcfs_rms_mm"] for d in grid) < 1.5
+    # ... while the edge residual falls several-fold, so most of the converged
+    # 129 residual is the grid.
+    assert all(d["gs_257"]["edge"] < 0.5 * d["gs_129"]["edge"] for d in grid)
+
+
+def test_a_regenerated_129_table_changes_nothing(recorded):
+    controls = [ref["table_regeneration"] for ref in recorded["analysis"]["references"].values()
+                if ref["table_regeneration"]]
+    assert controls
+    assert max(c["lcfs_rms_mm"] for c in controls) < 1e-3
+
+
+def test_no_setting_is_recommended_under_legacy_sigma(recorded):
+    # The nearest, NXITER=1 / ERRMIN=1e-4, loses 39915 @ 327 to `bound`; the
+    # README records why a recommendation waits for the sigma contract.
+    verdict = recorded["analysis"]["recommendation"]
+    assert verdict["recommended"] is None
+    nearest = verdict["cases"]["g129_nx1_err1e-04"]["failures"]
+    assert nearest == ["39915@327: did not stop on its criterion"]

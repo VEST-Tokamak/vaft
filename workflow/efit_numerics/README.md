@@ -572,3 +572,129 @@ is responsible is not established here. #194's A/B compared the tables alone
 on four slices and found no difference; this is the first evidence that
 something in that pair matters on the marginal slices, and it matters more
 than either lever #459 set out to test. It needs its own controlled A/B.
+
+## When has a fit stopped changing? NXITER × ERRMIN (#924)
+
+VEST stops on `ERRMIN = 1e-2`, and neither number EFIT reports can say whether
+that point is converged: the chi-square is the prescribed vessel current on
+stock EFIT (#918) and carries no magnetic information under legacy sigma
+(#891), and `terror`/`cerror` — stored as
+`convergence.grad_shafranov_deviation_value` — is the last Picard step's flux
+increment, not a residual of the equation. `convergence_study.py` measures
+convergence directly: how far each equilibrium sits from the tightest
+converged one on the same slice, and the Grad–Shafranov residual evaluated
+independently from the g-file.
+
+```bash
+python workflow/efit_numerics/convergence_study.py --output /scratch/conv \
+    --tables-generated-129 /tables/129 --tables-generated-257 /tables/257 \
+    --table /scratch/conv/efit_convergence_study.json
+```
+
+- `NXITER` ∈ {1, 3, 5, 10} × `ERRMIN` ∈ {1e-2, 1e-3, 1e-4}, everything else
+  routine; `MXITER = 514 // NXITER`, the largest cap whose cumulative counter
+  cannot overrun EFIT's compiled per-iteration arrays (515).
+- Nine slices, ramp-up / peak / ramp-down on 39915, 41524 and 41672 (41672 @
+  331 ms is #664's reference). One EFIT call per slice, so no slice starts from
+  what a failed predecessor left.
+- The same cross on a 129 and a 257 table generated together, for the grid;
+  the packaged 129 table against the generated one, as a control.
+- EFIT 3b5dae5 with the #918 research change, executable sha256 `4a4e645e…`.
+  On stock EFIT every `NXITER > 1` row measures #918 instead.
+
+The recorded run is `test/data/efit_convergence_study.json` (2026-09-18,
+324 runs: 9 slices × 36 cases, 25 minutes serial). Distances below are to the per-slice reference.
+
+### The routine stop is not converged, and ERRMIN is what converges it
+
+Routine table, 129 grid; median / max over the slices that converged.
+
+| NXITER | ERRMIN | converged | iterations | s / slice | LCFS RMS mm | βp % | li % | edge GS % |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1e-2 (routine) | 9/9 | 9 | 0.66 | 10.2 / 101 | 2.1 / 2.5 | 0.5 / 1.3 | 1.48 / 1.96 |
+| 1 | 1e-3 | 9/9 | 36 | 1.6 | 3.5 / 8.1 | 0.3 / 1.0 | 0.2 / 0.6 | 0.65 / 1.88 |
+| 1 | 1e-4 | 8/9 | 128 | 4.9 | 0.01 / 0.05 | 0.00 / 0.03 | 0.00 / 0.14 | 0.62 / 1.01 |
+| 3 | 1e-4 | 5/9 | 126 | 4.9 | 0.01 / 0.05 | 0.00 | 0.00 | 0.62 / 1.03 |
+| 5 | 1e-4 | 5/9 | 125 | 5.0 | 0.00 / 0.03 | 0.00 / 0.03 | 0.00 | 0.62 / 1.01 |
+| 10 | 1e-4 | 2/9 | 85 | 3.5 | 0.00 | 0.00 | 0.00 | 1.00 / 1.03 |
+
+- **The fixed point is unique.** Every setting that reaches `ERRMIN = 1e-4`
+  lands within 0.1 mm of every other, whatever `NXITER`. What separates the
+  settings is how far along the way to that point each one stops.
+- **The routine stop is 10 mm from it on the median slice, 101 mm on the
+  worst** (41672 @ 321), with βp 2 % off on nearly every slice. `ERRMIN = 1e-3`
+  brings that to 3.5 mm / 8 mm at 2.5× the cost; `1e-4` to under 0.1 mm at 7×,
+  but loses 39915 @ 327 to `bound`.
+- **NXITER > 1 buys nothing and loses slices.** It reaches the same fixed
+  point, but fails in `bound` ("Number of contour points greater than max
+  allowed") on 3 to 7 of the 9 slices; `NXITER = 1` loses at most one. #171's
+  "NXITER 1 → 3 moves the boundary 2.8 mm" was two stopping points on the same
+  path, not two answers.
+
+### Iteration error against grid error in the Grad–Shafranov residual
+
+Edge residual (ψN ≥ 0.8), per slice, %:
+
+| slice | routine | ERRMIN 1e-3 | 1e-4, 129 | 1e-4, 257 |
+|---|---|---|---|---|
+| 39915 @ 315 | 1.37 | 0.40 | 0.38 | 0.09 |
+| 39915 @ 320 | 0.82 | 0.64 | 0.60 | 0.15 |
+| 41524 @ 327 | 1.62 | 0.39 | 0.35 | 0.09 |
+| 41524 @ 331 | 0.90 | 0.64 | 0.62 | 0.14 |
+| 41524 @ 334 | 1.48 | 1.05 | 1.01 | 0.23 |
+| 41672 @ 321 | 1.58 | 0.69 | 0.70 | 0.20 |
+| 41672 @ 331 | 0.88 | 0.65 | 0.61 | 0.15 |
+| 41672 @ 342 | 1.49 | 1.05 | 0.98 | 0.26 |
+
+(39915 @ 327 converges at `1e-3` only; its floor is 1.88 %.)
+
+- At the routine stop, **more than half of the edge residual is iteration error**
+  (median 1.48 % against a converged 0.62 %).
+- Of the converged residual on the 129 grid, **about three quarters is the
+  grid**: 257 × 257 takes it to 0.09–0.26 %.
+- The grid moves the converged equilibrium itself by 0.2–1.2 mm (LCFS RMS),
+  βp ≤ 0.3 % and li ≤ 1.1 % — an order of magnitude less than the routine
+  iteration error.
+- The control: packaged and regenerated 129 tables differ by at most 2e-9
+  relative, and every such pair of runs agreed to the digits EFIT writes.
+
+### Why this does not end in a recommended stopping setting
+
+`recommend()` finds no setting within #924's initial tolerances (LCFS < 1 mm,
+βp and li < 0.5 %, edge GS within 10 % of the floor) on every slice. The
+nearest is `NXITER = 1, ERRMIN = 1e-4`, excluded only because it loses
+39915 @ 327. But that is not the finding that matters. **Converging further
+does not bring the reconstruction closer to the measurements:**
+
+| slice | axis Z, routine → 1e-3 → 1e-4 (cm) | probe residual RMS, routine → 1e-4 | flux-loop residual RMS |
+|---|---|---|---|
+| 41672 @ 321 | +2.3 → +16.4 → +18.8 | 49 % → 60 % | 49 % → 53 % |
+| 41524 @ 327 | +1.1 → +4.7 → +5.8 | 49 % → 48 % | 12 % → 13 % |
+| 41524 @ 331 | 0.0 → +2.0 → +2.5 | 61 % → 60 % | 18 % → 17 % |
+
+(Relative RMS of measured − reconstructed over the fitted channels, from the
+m-file; the 257 grid reproduces the same axis.)
+
+Most of the distance between the routine stop and the fixed point is a
+vertical drift of the whole plasma, always upward, and the magnetics neither
+resist it nor reward it: on 41672 @ 321 the fixed point sits 16 cm higher and
+fits the probes *worse*. Under legacy sigma the magnetic channels are
+weighted out (#891), so the fixed point is whatever Ip and the PF currents
+alone permit, and vertical position is nearly free. `ERRMIN` then decides how
+far the fit drifts before it stops. **A stopping criterion cannot be chosen
+until the objective constrains the direction the iteration moves in** — which
+makes this a question for the sigma contract (#891, #921), not for the
+numerics.
+
+What does stand:
+
+- `NXITER > 1` should not be adopted for VEST; it only loses slices.
+- `ERRMIN` is the single lever, and its effect is large: at the routine
+  `1e-2`, configuration-to-configuration differences below ~10 mm in LCFS or
+  ~2 % in βp (for example between profile models, #579, or weightings, #663)
+  are within iteration error and cannot be attributed.
+- The 129 grid is not the limiting error: its effect on the converged
+  equilibrium is ~1 mm.
+- Next: repeat the `NXITER = 1` column under `uncertainty_mode =
+  "standard_deviation"` now that #921 makes that mean what EFIT fits against,
+  and ask whether the vertical drift disappears when the probes carry weight.

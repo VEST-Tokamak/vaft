@@ -34,7 +34,7 @@ Two references per slice, because they answer different questions:
 - **grid reference** -- the same on 257x257.  Grid error is the distance
   between 129 and 257 at the same setting, both on tables generated together;
   the packaged 129 table is not bit-identical to a regenerated one, so that
-  difference is measured separately rather than booked as grid error.
+  difference is measured separately rather than assumed away.
 
 The recommendation is judged on iteration error only: the grid is not a
 setting being chosen here.
@@ -87,10 +87,12 @@ FINE_GRID = 257
 #: short list could leave a slice with no grid pair at all.
 FINE_SETTINGS = tuple((n, e) for n in INNER_ITERATIONS for e in ERROR_MINIMUM)
 #: Which Green table a case ran on.  The packaged 129 table is the routine
-#: one; the grid comparison needs a 129 and a 257 table from the same
-#: generator on the same machine, because a table regenerated elsewhere is
-#: not bit-identical to the packaged one (median relative difference ~1e-5 on
-#: the server's EFUND build) and that difference would be booked as grid error.
+#: one; the grid comparison uses a 129 and a 257 table from the same generator
+#: on the same machine, so that nothing but the grid differs between a pair.
+#: A table regenerated on another EFUND build is not bit-identical to the
+#: packaged one (record by record, at most 2e-9 relative), and the packaged
+#: 129 cases double as the control that this does not matter: on the 2026-09-18
+#: run every packaged/generated 129 pair agreed to the digits EFIT writes.
 PACKAGED = "packaged"
 GENERATED = "generated"
 
