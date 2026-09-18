@@ -400,6 +400,7 @@ authors used. Every unit trap on this page is collected again in
 
 <h1 id="flux-safety-factor-shear">Flux, safety factor, shear</h1>
 
+<!-- docs-snippet: skip fragment (placeholder name R is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">import</span> <span class="n">vaft</span>
 
@@ -423,6 +424,7 @@ authors used. Every unit trap on this page is collected again in
 
 <p>Fields and current density from the flux map:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name psi is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">B_r</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">radial_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>      <span class="c1"># B_r = -(1/R) dpsi/dZ
 </span><span class="n">B_z</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">vertical_magnetic_field_from_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>    <span class="c1"># B_z = +(1/R) dpsi/dR
 # current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
@@ -438,17 +440,24 @@ a 2-D $(R, Z)$ map.</p>
 
 <h2 id="from-an-ods">From an ODS</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                       <span class="c1"># packaged VEST shot
-</span><span class="n">s</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_magnetic_shear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>     <span class="c1"># equilibrium.time_slice[0].profiles_1d -&gt; shear
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                       <span class="c1"># packaged VEST shot
+</span><span class="n">p1d</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice.0.profiles_1d</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">s</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">shear_from_r_q</span><span class="p">(</span><span class="n">p1d</span><span class="p">[</span><span class="sh">'</span><span class="s">rho_tor_norm</span><span class="sh">'</span><span class="p">],</span> <span class="n">p1d</span><span class="p">[</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">])</span>   <span class="c1"># s = (rho/q) dq/drho
 </span></code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">compute_magnetic_shear(ods, time_slice)</code> reads the radial coordinate and <code class="language-plaintext highlighter-rouge">q</code> from
-<code class="language-plaintext highlighter-rouge">equilibrium.time_slice[i].profiles_1d</code> and calls <code class="language-plaintext highlighter-rouge">magnetic_shear</code> for you.</p>
+<p><code class="language-plaintext highlighter-rouge">shear_from_r_q</code> accepts any monotonic radius label, so the <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> every equilibrium carries
+is enough. <code class="language-plaintext highlighter-rouge">vaft.omas.compute_magnetic_shear(ods, time_slice)</code> is the same call with the abscissa
+fixed to <code class="language-plaintext highlighter-rouge">equilibrium.time_slice[i].profiles_1d.r</code>; that node is not part of the IMAS <code class="language-plaintext highlighter-rouge">profiles_1d</code>
+and the packaged sample does not carry it, so the wrapper raises a <code class="language-plaintext highlighter-rouge">KeyError</code> naming the missing
+path unless you have stored a minor-radius array there yourself.</p>
 
 <hr />
 
 <h1 id="geometry-and-derived-scalars">Geometry and derived scalars</h1>
 
+<!-- docs-snippet: skip fragment (placeholder name R_bdry is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">V</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">volume_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>              <span class="c1"># 2 pi A_poly R_bar
 </span><span class="n">kappa</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">elongation_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">)</span>          <span class="c1"># kappa = (Zmax-Zmin)/(2a)
 </span><span class="n">delta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>   <span class="c1"># mean of the two below
@@ -467,6 +476,7 @@ used by the dimensionless-parameter chain.</p>
 
 <p>Energy and resistivity:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>                <span class="c1"># W = p V
 </span><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_beta_V</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>      <span class="c1"># W = beta B0^2 V / (2 mu0)
 </span><span class="n">eta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="o">=</span><span class="mf">17.0</span><span class="p">)</span>
@@ -484,21 +494,28 @@ used by the dimensionless-parameter chain.</p>
 
 <h1 id="beta-current-and-power-limits">Beta, current and power limits</h1>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_N</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_N_from_beta_a_B0_Ip</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">I_p</span><span class="p">)</span>
-<span class="n">beta_p</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_pol_from_beta_tor</span><span class="p">(</span><span class="n">beta_tor</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>      <span class="c1"># beta_p = beta_t q95^2
-</span><span class="n">beta_t</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_tor_from_beta_pol</span><span class="p">(</span><span class="n">beta_pol</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>
-
+<!-- docs-snippet: skip fragment (placeholder name beta_percent is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_N</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_N_from_beta_a_B0_Ip</span><span class="p">(</span><span class="n">beta_percent</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">I_p_MA</span><span class="p">)</span>   <span class="c1"># beta [%], I_p [MA]
+</span><span class="n">beta_p</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_pol_from_beta_tor</span><span class="p">(</span><span class="n">beta_tor</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">)</span>   <span class="c1"># beta_p = beta_t (q95/eps)^2
+</span><span class="n">beta_t</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_tor_from_beta_pol</span><span class="p">(</span><span class="n">beta_pol</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">)</span>   <span class="c1"># beta_t = beta_p (eps/q95)^2
+</span>
 <span class="n">I_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">current_limit_from_q</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">B0</span><span class="p">)</span>           <span class="c1"># I_p = 2 pi a^2 B0 / (mu0 q95)
 </span><span class="n">P_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">power_limit_from_beta</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
 <span class="n">P_max</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">power_limit_from_q</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">I_p</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> evaluates $\beta\, a\, B_0 / I_p$ literally, and its docstring annotates
-<code class="language-plaintext highlighter-rouge">I_p</code> as [A]. The community definition of $\beta_N$ is quoted in <strong>%·m·T/MA</strong>, so decide which
-convention you are working in and feed the function consistently — it will not rescale for you.</p>
+<p><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> works in the Troyon convention, <strong>%·m·T/MA</strong>: pass $\beta$ <strong>in percent</strong>
+and $I_p$ <strong>in megaamperes</strong> (the parameters are named <code class="language-plaintext highlighter-rouge">beta_percent</code> and <code class="language-plaintext highlighter-rouge">I_p_MA</code> for that reason).
+It does not rescale, so a fraction and amperes give $10^{-8}$ times the number you would compare
+with 2.8.</p>
+
+<p>The two $\beta_p \leftrightarrow \beta_t$ conversions are the cylindrical relation
+$\beta_p = \beta_t\,(q_{95}/\varepsilon)^2$ with $\varepsilon = a/R_0$ the inverse aspect ratio, which is
+a required, strictly positive argument (<code class="language-plaintext highlighter-rouge">ValueError</code> otherwise).</p>
 
 <p>Kink safety factor, with three geometry models:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name R is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">q_kink</span><span class="p">,</span> <span class="n">q_min</span><span class="p">,</span> <span class="n">beta_max</span><span class="p">,</span> <span class="n">beta_crit</span><span class="p">,</span> <span class="n">ip_max</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">kink_safety_factor</span><span class="p">(</span>
     <span class="n">R</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">Ip</span><span class="p">,</span> <span class="n">Bt</span><span class="p">,</span> <span class="sh">'</span><span class="s">ST</span><span class="sh">'</span><span class="p">)</span>       <span class="c1"># 'circular' | 'conventional' | 'ST'
 </span></code></pre></div></div>
@@ -510,6 +527,7 @@ convention you are working in and feed the function consistently — it will not
 
 <p>Normalised plasma current (Phys. Plasmas <strong>23</strong>, 072508):</p>
 
+<!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Ip_star</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">normalized_plasma_current</span><span class="p">(</span><span class="n">Ip</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">Bt</span><span class="p">)</span>   <span class="c1"># I_p [A] in, MA/(m T) out
 </span></code></pre></div></div>
 
@@ -537,7 +555,8 @@ accordingly.</p>
 <p>The local and global criteria all return a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, so the sign of the first
 element is the answer:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>          <span class="c1"># alpha = -2 mu0 R (dp/dR) / B^2
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>       <span class="c1"># alpha = -2 mu0 R q^2 (dp/dR) / B^2
 </span><span class="n">d_alpha</span><span class="p">,</span> <span class="n">a_c</span> <span class="o">=</span> <span class="nf">ballooning_stability_criterion</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>      <span class="c1"># alpha_crit = 0.6 s
 </span><span class="n">d_beta</span><span class="p">,</span> <span class="n">b_c</span>  <span class="o">=</span> <span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>        <span class="c1"># beta_N_crit = 2.8 q95
 </span><span class="n">d_bp</span><span class="p">,</span>   <span class="n">bp_c</span> <span class="o">=</span> <span class="nf">sawtooth_stability_criterion</span><span class="p">(</span><span class="n">q_0</span><span class="p">,</span> <span class="n">beta_pol</span><span class="p">)</span>   <span class="c1"># beta_p_crit = 0.3 (1 - q0)
@@ -554,12 +573,14 @@ coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two
 <p>Empirical $(q_a, l_i)$ operational boundary from the JET disruption survey
 (Wesson <em>et al.</em>, Nucl. Fusion <strong>29</strong>, 1989):</p>
 
+<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">qa_ref</span><span class="p">,</span> <span class="n">li_ref</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">empirical_li_qa</span><span class="p">()</span>          <span class="c1"># 18 surveyed points
 </span><span class="n">li</span>             <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">li_from_qa_empirical</span><span class="p">(</span><span class="n">qa</span><span class="p">)</span>   <span class="c1"># piecewise-linear interpolation
 </span></code></pre></div></div>
 
 <p>Characteristic speeds and collisionality:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name B is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">v_A</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">v_alfven_from_B_n_mi</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>            <span class="c1"># n in m^-3; m_i defaults to the proton mass
 </span><span class="n">c_s</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">c_s_from_Te_Ti_mi</span><span class="p">(</span><span class="n">T_e_keV</span><span class="p">,</span> <span class="n">T_i_keV</span><span class="p">)</span>   <span class="c1"># keV in, m/s out
 </span><span class="n">nu_star</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">collisionality_from_n_T_B_R</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e_keV</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
@@ -577,6 +598,7 @@ two density arguments are <strong>not</strong> interchangeable.</p>
 
 <p>The measured confinement time is a one-liner; the fitted one goes through the scaling evaluator:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name P_loss is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">tau_exp</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">confinement_time_from_P_loss_W_th</span><span class="p">(</span><span class="n">P_loss</span><span class="p">,</span> <span class="n">W_th</span><span class="p">)</span>   <span class="c1"># tau = W_th / P_loss
 </span>
 <span class="n">tau_iter89p</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">confinement_time_from_engineering_parameters</span><span class="p">(</span>
@@ -665,7 +687,12 @@ you must also pass <code class="language-plaintext highlighter-rouge">line_to_vo
 
 <h2 id="from-an-ods-1">From an ODS</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<p>These wrappers need more than the packaged sample holds — <code class="language-plaintext highlighter-rouge">equilibrium...boundary.elongation</code>, a
+<code class="language-plaintext highlighter-rouge">core_profiles</code> density profile and the power balance — so run them on a database shot whose
+equilibrium and profile stages are filled:</p>
+
+<!-- docs-snippet: skip needs-database (boundary.elongation, core_profiles and power balance are absent from the packaged sample) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="n">eng</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_engineering_parameters</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>   <span class="c1"># dict: I_p, B_t, P_loss,
 </span>                                                                <span class="c1"># n_e_line_avg, n_e_vol_avg,
@@ -715,7 +742,7 @@ is the symptom.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></td>
-      <td>Evaluates $\beta a B_0 / I_p$ literally with <code class="language-plaintext highlighter-rouge">I_p</code> documented in [A]; the community $\beta_N$ is quoted in %·m·T/MA. Pick a convention and stay in it.</td>
+      <td>Takes $\beta$ in <strong>percent</strong> and $I_p$ in <strong>MA</strong> and returns %·m·T/MA; a fraction and amperes give $10^{-8}$ times the Troyon number.</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">normalized_plasma_current</code></td>
@@ -1088,7 +1115,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

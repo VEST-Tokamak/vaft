@@ -279,6 +279,7 @@ shot</strong>, adding a <strong>new diagnostic</strong>, or debugging why a mapp
 
 <p><strong>1. The canonical IDS entry point</strong> — named exactly after the IDS it fills. This is what you should call.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">tf</span>
 
@@ -291,6 +292,7 @@ that do not depend on time; <code class="language-plaintext highlighter-rouge">*
 calls both. Reach for these when you want geometry without touching the database, or want to re-map only the
 waveforms.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">vfit_tf_static</span><span class="p">,</span> <span class="n">vfit_tf_dynamic</span>
 
 <span class="nf">vfit_tf_static</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>                                  <span class="c1"># tf.r0, ids_properties — no DB access
@@ -405,6 +407,7 @@ equilibria are produced by EFIT/CHEASE, not by machine mapping. See
 <p>This is the real production recipe, condensed from
 <a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_1_routine_data_processing/generate_diagnostics_ods.py"><code class="language-plaintext highlighter-rouge">generate_diagnostics_ods.py</code></a>.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span><span class="p">,</span> <span class="n">save_omas_json</span>
 
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">dataset_description</span>
@@ -485,6 +488,7 @@ timebase, not the resampled one — fluctuation analysis needs the full bandwidt
 
 <p>Two lower-level helpers are worth knowing:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">detect_plasma_window</span><span class="p">,</span> <span class="n">vfit_md</span><span class="p">,</span> <span class="n">vfit_plasma_current</span><span class="p">,</span> <span class="n">vest_diamagnetic_flux</span>
 
 <span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="nf">vfit_md</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>          <span class="c1"># -&gt; (ndarray, list[ndarray], list[ndarray])
@@ -516,6 +520,7 @@ fallback), per-line
 baseline, validity) and the <code class="language-plaintext highlighter-rouge">agreement</code> tolerances between light and current. Every rule is validated against
 <code class="language-plaintext highlighter-rouge">vaft.process.onset.active_window</code>’s signature when the policy is loaded:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="n">resolve_plasma_timing_policy</span>
 
 <span class="n">policy</span> <span class="o">=</span> <span class="nf">resolve_plasma_timing_policy</span><span class="p">()</span>
@@ -552,6 +557,7 @@ and the EFIT constraint script cuts its time slices from the range intersected w
 <p>Signal conditioning (integration, drift removal, smoothing) is delegated to <code class="language-plaintext highlighter-rouge">vaft.process</code> and is tunable
 through <code class="language-plaintext highlighter-rouge">processing_config</code>, a <code class="language-plaintext highlighter-rouge">VestMagneticsProcessingConfig</code>:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">VestMagneticsProcessingConfig</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
 
@@ -624,6 +630,7 @@ scaled by a Hall gain, baselined against the first samples, low-pass filtered an
 $B_t$ on axis is <code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r / tf.r0</code>. The reconstructed coil current also lands in
 <code class="language-plaintext highlighter-rouge">tf.coil.0.current</code>.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">vfit_tf_current</span><span class="p">,</span> <span class="n">vfit_tf_bt_r</span>
 
 <span class="n">time</span><span class="p">,</span> <span class="n">i_tf</span> <span class="o">=</span> <span class="nf">vfit_tf_current</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># A
@@ -643,6 +650,7 @@ coil heights differ between the older and newer builds. Passing a <code class="l
 selects the right one; the canonical <code class="language-plaintext highlighter-rouge">pf_active(...)</code> does this for you. You can point at a different asset
 tree with <code class="language-plaintext highlighter-rouge">geometry_root</code>, and resolve a packaged asset directly:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_active</span> <span class="kn">import</span> <span class="n">resolve_geometry_asset</span><span class="p">,</span> <span class="n">vfit_pf</span>
 
 <span class="n">path</span> <span class="o">=</span> <span class="nf">resolve_geometry_asset</span><span class="p">(</span><span class="sh">"</span><span class="s">VEST_DiscretizedCoilGeometry_Full_ver_2507.mat</span><span class="sh">"</span><span class="p">)</span>
@@ -659,6 +667,7 @@ calibrated.</p>
 (125 MHz / 128 by default) and a trigger offset, so <code class="language-plaintext highlighter-rouge">daq_label</code> is a required argument: it selects which
 physical array the digitizer channels belong to.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays</span><span class="p">,</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
 
 <span class="nf">soft_x_rays</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">daq_label</span><span class="o">=</span><span class="sh">"</span><span class="s">22577</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="sh">"</span><span class="s">/path/to/sxr</span><span class="sh">"</span><span class="p">)</span>
@@ -681,6 +690,7 @@ with <code class="language-plaintext highlighter-rouge">polarity=-1.0</code>.</p
 <p>Both read MATLAB exports rather than the DAQ, so they take a <code class="language-plaintext highlighter-rouge">shotnumber</code> and an optional <code class="language-plaintext highlighter-rouge">data_root</code> /
 <code class="language-plaintext highlighter-rouge">mat_file</code>. Both write <strong>uncertainties</strong> alongside values when the export provides errors.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.thomson_scattering</span> <span class="kn">import</span> <span class="n">thomson_scattering</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.charge_exchange</span> <span class="kn">import</span> <span class="n">charge_exchange</span>
 
@@ -698,6 +708,7 @@ load Doppler data directly. These two IDSs are the kinetic input to profile fitt
 <p>These two are <strong>not measured</strong> — they are machine constants. Both are copied from a packaged reference ODS
 that ships with VAFT:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_passive</span> <span class="kn">import</span> <span class="n">pf_passive</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.em_coupling</span> <span class="kn">import</span> <span class="n">em_coupling</span>
 
@@ -717,6 +728,7 @@ to substitute your own reference.</p>
 
 <p>Stamps pulse identity. <code class="language-plaintext highlighter-rouge">vfit_dataset_description</code> is the explicit form:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">vfit_dataset_description</span>
 
 <span class="nf">vfit_dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">run</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">machine</span><span class="o">=</span><span class="sh">"</span><span class="s">VEST</span><span class="sh">"</span><span class="p">,</span> <span class="n">pulse_type</span><span class="o">=</span><span class="sh">"</span><span class="s">pulse</span><span class="sh">"</span><span class="p">)</span>
@@ -765,6 +777,7 @@ through <code class="language-plaintext highlighter-rouge">resolve_data_root()</
 field code, gain). It is keyed by shot, with a <code class="language-plaintext highlighter-rouge">0</code> block holding defaults that shot-specific blocks are
 deep-merged over — so a recalibrated channel is a small YAML override, not a code change. Query it with:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="n">raw_database_info</span>
 
 <span class="n">info</span> <span class="o">=</span> <span class="nf">raw_database_info</span><span class="p">(</span><span class="sh">"</span><span class="s">vest.yaml</span><span class="sh">"</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_field_pol_probe</span><span class="sh">"</span><span class="p">)</span>
@@ -781,6 +794,7 @@ per-group uncertainties below.</p>
 <p>EFIT needs an error bar on every constraint. <code class="language-plaintext highlighter-rouge">machine_mapping</code> attaches them, because the <em>machine</em> is what
 determines them: an outboard Mirnov is not as trustworthy as a Rogowski coil.</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.utils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DEFAULT_CONSTRAINT_UNCERTAINTIES</span><span class="p">,</span>
     <span class="n">apply_default_constraint_uncertainties</span><span class="p">,</span>
@@ -845,6 +859,7 @@ pickup worst, so down-weighting them is what keeps a reconstruction stable.</p>
 <p>Override selectively with a mapping (unknown keys raise), or wholesale with a 9-element vector in the table’s
 order:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name apply_default_constraint_uncertainties is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">magnetics_ip</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">})</span>
 <span class="nf">apply_default_constraint_uncertainties</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="p">[</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">2e-2</span><span class="p">,</span> <span class="mf">3e-2</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">])</span>
 </code></pre></div></div>
@@ -1249,7 +1264,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

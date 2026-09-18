@@ -291,10 +291,15 @@ yourself and hand them over.</p>
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="n">eq</span>  <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">time_slice</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">global_quantities</span><span class="sh">'</span><span class="p">]</span>
 
-<span class="n">beta_N</span> <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">beta_normal</span><span class="sh">'</span><span class="p">]</span>
-<span class="n">q_95</span>   <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">q_95</span><span class="sh">'</span><span class="p">]</span>
+<span class="c1"># The packaged sample stores q_95 but not beta_normal; derive it (and beta_pol, beta_tor, li_3)
+# from the stored equilibrium. A database shot whose equilibrium stage ran already carries it.
+</span><span class="k">if</span> <span class="sh">'</span><span class="s">equilibrium.time_slice.0.global_quantities.beta_normal</span><span class="sh">'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ods</span><span class="p">:</span>
+    <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_global_quantities_beta_li</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">eq</span>     <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">equilibrium.time_slice.0.global_quantities</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">beta_N</span> <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">beta_normal</span><span class="sh">'</span><span class="p">]</span>        <span class="c1"># [%·m·T/MA]
+</span><span class="n">q_95</span>   <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">q_95</span><span class="sh">'</span><span class="p">]</span>
 
 <span class="n">d_beta</span><span class="p">,</span> <span class="n">beta_N_crit</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>
 <span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_crit</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>
@@ -303,14 +308,15 @@ yourself and hand them over.</p>
 <p>Every criterion returns a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, and the margin is literally
 <code class="language-plaintext highlighter-rouge">value - critical</code>. A <strong>positive</strong> margin therefore means the plasma sits <strong>above</strong> the boundary:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>   <span class="c1"># alpha = -2 mu0 R (dp/dR) / B^2
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>   <span class="c1"># alpha = -2 mu0 R q^2 (dp/dR) / B^2
 </span><span class="n">s</span>            <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">shear_from_r_q</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>                   <span class="c1"># s = (r/q) dq/dr
 </span><span class="n">d_alpha</span><span class="p">,</span> <span class="n">a_c</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">ballooning_stability_criterion</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>   <span class="c1"># alpha_crit = 0.6 s
 </span>
 <span class="n">unstable</span> <span class="o">=</span> <span class="n">d_alpha</span> <span class="o">&gt;</span> <span class="mi">0</span>        <span class="c1"># alpha has crossed the ideal ballooning boundary
 </span></code></pre></div></div>
 
-\[\alpha = -\frac{2\mu_0 R}{B^2}\frac{dp}{dR}, \qquad \alpha_{\rm crit} = 0.6\,s, \qquad
+\[\alpha = -\frac{2\mu_0 R\,q^2}{B^2}\frac{dp}{dR}, \qquad \alpha_{\rm crit} = 0.6\,s, \qquad
    s = \frac{r}{q}\frac{dq}{dr}\]
 
 <h2 id="density-limit">Density limit</h2>
@@ -325,6 +331,7 @@ is conventionally formed with the <strong>line-averaged</strong> electron densit
 
 <h2 id="the-combined-margin-helper-and-its-one-trap">The combined margin helper, and its one trap</h2>
 
+<!-- docs-snippet: skip fragment (placeholder name n_e is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">plasma_stability_margins</span><span class="p">(</span>
     <span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_G</span>
 <span class="p">)</span>
@@ -368,7 +375,8 @@ Troyon-type relation expressed in two different unit conventions. Do not mix the
 <p>The equilibrium IDS already carries $\beta_N$ and $q_{95}$ per time slice, so the whole-discharge view
 needs no formula call:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_ods</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_beta_n</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_equilibrium_time_q95</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
@@ -383,6 +391,7 @@ excursion coincides with a disruption.</p>
 <p>The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson <em>et al.</em>, Nucl. Fusion
 <strong>29</strong>, 1989) is available for overlaying on that space:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">qa_ref</span><span class="p">,</span> <span class="n">li_ref</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">empirical_li_qa</span><span class="p">()</span>          <span class="c1"># 18 surveyed points
 </span><span class="n">li</span>             <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">li_from_qa_empirical</span><span class="p">(</span><span class="n">qa</span><span class="p">)</span>   <span class="c1"># piecewise-linear interpolation
 </span></code></pre></div></div>
@@ -432,6 +441,7 @@ the products.</p>
 
 <h2 id="configure-prepare-run">Configure, prepare, run</h2>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">GPECCaseInputs</span><span class="p">,</span> <span class="n">GPECSuiteConfig</span><span class="p">,</span> <span class="n">run_gpec_suite_case</span>
 
@@ -513,6 +523,7 @@ compatibility entry point that forwards to <code class="language-plaintext highl
 <p>so the DCON $n=1$ run of the case above lands in <code class="language-plaintext highlighter-rouge">.../linear_stability/00340/dcon/nn=1/</code>. Collect the
 products of a whole case with:</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">collect_gpec_suite_outputs</span>
 
 <span class="n">outputs</span> <span class="o">=</span> <span class="nf">collect_gpec_suite_outputs</span><span class="p">(</span><span class="sh">"</span><span class="s">/srv/vest.filedb/public/39915/linear_stability</span><span class="sh">"</span><span class="p">)</span>
@@ -527,6 +538,7 @@ products of a whole case with:</p>
 <code class="language-plaintext highlighter-rouge">outputs</code>. The <code class="language-plaintext highlighter-rouge">ok</code> property is true when <code class="language-plaintext highlighter-rouge">status</code> is <code class="language-plaintext highlighter-rouge">completed</code> or <code class="language-plaintext highlighter-rouge">stable</code> <strong>and</strong>
 <code class="language-plaintext highlighter-rouge">returncode == 0</code>, so inspect it per module rather than trusting the suite-level return code alone:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name result is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">records</span><span class="p">:</span>
     <span class="nf">print</span><span class="p">(</span><span class="n">record</span><span class="p">.</span><span class="n">module</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">mode</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">status</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">record</span><span class="p">.</span><span class="n">reason</span><span class="p">)</span>
 </code></pre></div></div>
@@ -542,6 +554,7 @@ make the cell a failure. A run that produced no usable output is still <code cla
 <p>GPEC’s EFIT reader is fixed-column and rejects headers that EFIT itself will happily write. If a case
 fails at the file-reading stage, normalise the header first:</p>
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">format_gfile_header_for_gpec</span>
 
 <span class="n">header</span> <span class="o">=</span> <span class="nf">format_gfile_header_for_gpec</span><span class="p">(</span><span class="n">header_line</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">time_ms</span><span class="o">=</span><span class="mi">340</span><span class="p">)</span>
@@ -992,7 +1005,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

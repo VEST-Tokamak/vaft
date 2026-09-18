@@ -3122,8 +3122,9 @@ index.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    A kinetic profile does not match its coordinate in length, or
-    <code class="language-plaintext highlighter-rouge">ion_mass_amu</code> is not positive.</p>
+    A kinetic profile does not match its coordinate in length,
+    <code class="language-plaintext highlighter-rouge">psi_norm</code> is not strictly increasing, or <code class="language-plaintext highlighter-rouge">ion_mass_amu</code> is not
+    positive.</p>
 
 <p><strong>Processing steps.</strong></p>
 
@@ -3671,7 +3672,8 @@ angles together.</li>
 whichever way the surface was traced.</li>
   <li>Drop samples closer than <code class="language-plaintext highlighter-rouge">minimum_separation</code>, which a
 near-stagnation point in the geometric angle can produce.</li>
-  <li>Close the period by repeating the first entry shifted by <code class="language-plaintext highlighter-rouge">2 pi</code>.</li>
+  <li>Close the period by repeating the first entry shifted by <code class="language-plaintext highlighter-rouge">2 pi</code>, in
+the direction the straight-field-line angle runs along the table.</li>
 </ol>
 
 <p><strong>Convention.</strong></p>
@@ -4285,7 +4287,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

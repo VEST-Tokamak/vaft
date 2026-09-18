@@ -598,6 +598,7 @@
 
 <p>Start here. This is the shortest path from a fresh install to a shot in memory.</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="c1"># Is the HSDS backend reachable?
@@ -607,7 +608,7 @@
 </span><span class="n">shots</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="c1"># Load one shot as an OMAS ODS
-</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">vaft.database.load</code> is the canonical entry point: it returns an OMAS ODS, and it also accepts an explicit <code class="language-plaintext highlighter-rouge">ids_name=</code> keyword when you want a native IMAS IDS instead. See <a href="/vaft/guide/Database/">Database</a> for the full surface.</p>
@@ -699,6 +700,7 @@
 
 <p>The soft X-ray notebook is a good template for “raw file to ODS to plot” in one pass:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays_from_digitizer_csv</span>
 
@@ -806,6 +808,7 @@
 
 <p>CHEASE is the most complete code-coupling example in the repository. The <code class="language-plaintext highlighter-rouge">prepare_*</code> / <code class="language-plaintext highlighter-rouge">run_*</code> / <code class="language-plaintext highlighter-rouge">collect_*</code> triple is the pattern every code wrapper in <code class="language-plaintext highlighter-rouge">vaft.code</code> follows:</p>
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_geqdsk</span>
 <span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
 <span class="kn">from</span> <span class="n">vaft.code.chease</span> <span class="kn">import</span> <span class="n">CHEASEConfig</span><span class="p">,</span> <span class="n">prepare_chease_inputs</span><span class="p">,</span> <span class="n">find_chease_executable</span>
@@ -821,6 +824,7 @@
 
 <p>TES shows the same idea starting from a database shot rather than a file:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">tes</span>
 
@@ -870,9 +874,10 @@
 
 <p>The profile notebook is the largest runnable example that stays inside pure VAFT:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">40330</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">40330</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_geometry_poloidal</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_time_electron_temperature</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
@@ -1357,7 +1362,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

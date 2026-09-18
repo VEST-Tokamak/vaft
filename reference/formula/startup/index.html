@@ -380,8 +380,8 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Infinite, zero or negative density or atom count; <code class="language-plaintext highlighter-rouge">nan</code> passes
-    through as a missing value.</p>
+    Non-finite (<code class="language-plaintext highlighter-rouge">nan</code> included), zero or negative density or atom
+    count.</p>
 
 <p><strong>Convention.</strong></p>
 
@@ -1148,8 +1148,8 @@ derived.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Infinite, zero or negative pressure or temperature; <code class="language-plaintext highlighter-rouge">nan</code> passes
-    through as a missing value.</p>
+    Non-finite (<code class="language-plaintext highlighter-rouge">nan</code> included), zero or negative pressure or
+    temperature. Mask a gauge trace’s gaps before calling.</p>
 
 <p><strong>Convention.</strong></p>
 
@@ -1989,7 +1989,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

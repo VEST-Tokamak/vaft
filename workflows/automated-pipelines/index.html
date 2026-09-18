@@ -475,6 +475,7 @@ explicitly with <code class="language-plaintext highlighter-rouge">vaft.database
 
 <p>Each script is a thin CLI around a handful of <code class="language-plaintext highlighter-rouge">vaft</code> calls. These are the load-bearing ones:</p>
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">EFITInputs</span><span class="p">,</span> <span class="n">run_efit</span><span class="p">,</span> <span class="n">collect_efit_outputs</span>
 <span class="kn">from</span> <span class="n">vaft.code.chease</span> <span class="kn">import</span> <span class="n">CHEASEConfig</span><span class="p">,</span> <span class="n">find_chease_executable</span><span class="p">,</span> <span class="n">prepare_chease_inputs</span><span class="p">,</span> <span class="n">run_chease</span>
 <span class="kn">from</span> <span class="n">vaft.code.gpec</span> <span class="kn">import</span> <span class="n">GPECCaseInputs</span><span class="p">,</span> <span class="n">GPECSuiteConfig</span><span class="p">,</span> <span class="n">run_gpec_suite_case</span>
@@ -595,6 +596,7 @@ ten seconds.</p>
 <code class="language-plaintext highlighter-rouge">40330_NeTe.mat</code> spellings are accepted), skips files whose mtime it has already recorded, copies the file
 into the shot’s <code class="language-plaintext highlighter-rouge">diagnostics/</code> directory, and then:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft</span> <span class="kn">import</span> <span class="n">database</span><span class="p">,</span> <span class="n">machine_mapping</span><span class="p">,</span> <span class="n">process</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shotnumber</span><span class="p">,</span> <span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">)</span>
@@ -772,8 +774,9 @@ shot, by calling two helpers on <code class="language-plaintext highlighter-roug
 <code class="language-plaintext highlighter-rouge">load_ods</code> and <code class="language-plaintext highlighter-rouge">save_ods</code>. As committed they will raise <code class="language-plaintext highlighter-rouge">AttributeError</code> before doing any work. The equivalent
 supported entry points are:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># -&gt; ODS
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># -&gt; ODS
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -1190,7 +1193,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {

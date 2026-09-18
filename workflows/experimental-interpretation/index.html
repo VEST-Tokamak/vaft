@@ -352,13 +352,14 @@ resolve toroidal mode numbers — see <a href="#mirnov-and-fluctuation-diagnosti
 
 <h2 id="loading-a-shot">Loading a shot</h2>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="c1"># Packaged sample — shot 39915, no database access, used by every example below
 </span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
 
 <span class="c1"># Or pull a shot from the VEST database
-# ods = vaft.database.load_ods(39915, directory="public")
+# ods = vaft.database.load_ods(39915, source="public")
 </span>
 <span class="nf">print</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.b_field_pol_probe</span><span class="sh">'</span><span class="p">]))</span>   <span class="c1"># 64
 </span><span class="nf">print</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.flux_loop</span><span class="sh">'</span><span class="p">]))</span>           <span class="c1"># 11
@@ -371,6 +372,7 @@ resolve toroidal mode numbers — see <a href="#mirnov-and-fluctuation-diagnosti
 <p><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.magnetics</code> is the only layer that knows about VEST field codes. It mutates the
 ODS in place and returns <code class="language-plaintext highlighter-rouge">None</code>:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
 
@@ -382,6 +384,7 @@ ODS in place and returns <code class="language-plaintext highlighter-rouge">None
 pass. You can call them separately — <code class="language-plaintext highlighter-rouge">vfit_magnetics_static</code> needs no shot and no database, so it is
 the cheap way to get probe geometry:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">vfit_magnetics_static</span><span class="p">,</span>    <span class="c1"># names, positions, angles from the geometry YAML
 </span>    <span class="n">vfit_magnetics_dynamic</span><span class="p">,</span>   <span class="c1"># time, field, flux, ip, diamagnetic_flux, raw Mirnov voltage
@@ -467,6 +470,7 @@ magnetics chain is tuned by one frozen dataclass:</p>
 <p>The window is <strong>shot-dependent</strong>: shots 41446–41451 and shots ≥ 41660 use the late window
 (<code class="language-plaintext highlighter-rouge">6500, 9000, 5000</code>); everything else uses the default. Build your own config to override it:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">VestMagneticsProcessingConfig</span>
 <span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
 
@@ -500,6 +504,7 @@ loop is <code class="language-plaintext highlighter-rouge">1</code>, not <code c
 
 <p>To run the whole batch yourself (this is what <code class="language-plaintext highlighter-rouge">vfit_magnetics_dynamic</code> calls):</p>
 
+<!-- docs-snippet: skip fragment (placeholder name channels is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">vest_md_signals</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">loader</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -672,10 +677,11 @@ pick these by position:</p>
 <p><img src="/vaft/assets/images/magnetics/Outboard_flux_loop.png" alt="Outboard flux loop of shot #39915" /></p>
 
 <p>The loop voltage $V_{loop} = -\,d\Psi/dt$ is derived from the same flux data — the
-<code class="language-plaintext highlighter-rouge">inboard_midplane</code> group ($r = 0.091$ m) is the one you want for the breakdown loop voltage. The
+<code class="language-plaintext highlighter-rouge">inboard_mid</code> representative loop (the inboard loop nearest the midplane, $r = 0.091$ m) is the one you want for the breakdown loop voltage. The
 packaged shot carries no <code class="language-plaintext highlighter-rouge">flux_loop.&lt;i&gt;.voltage.data</code>, so this one needs a database shot:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_voltage</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard_midplane</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">)</span>
+<!-- docs-snippet: skip needs-data (the packaged shot carries no flux_loop voltage.data) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_flux_loop_time_voltage</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="sh">'</span><span class="s">inboard_mid</span><span class="sh">'</span><span class="p">,</span> <span class="n">yunit</span><span class="o">=</span><span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h2 id="plasma-current">Plasma current</h2>
@@ -721,6 +727,7 @@ have <code class="language-plaintext highlighter-rouge">voltage.data</code>, so 
 
 <p>To build the same IDS from a raw DAQ dump instead — shot 44740 ships with the package — map it first:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
 <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">VAFT_RAW_SAMPLE_PATH</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">vaft/data/legacy/shot_{shot}.json.gz</span><span class="sh">"</span>
 <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">VAFT_RAW_OFFLINE_ONLY</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">1</span><span class="sh">"</span>
@@ -795,6 +802,7 @@ array a shot has is recorded in the machine description; see
 
 <p>The same kernels are callable without an ODS, on bare arrays:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name signal_a is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">import</span> <span class="n">vaft</span>
 
@@ -1127,7 +1135,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:57:51 +0000"
+        "time": "2026-09-18 07:53:45 +0000"
     },
     "basePath": "/vaft",
     "book": {
