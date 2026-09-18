@@ -110,7 +110,15 @@ def main() -> int:
     parser.add_argument("--timeout", default="", help="Optional per-gfile timeout in seconds.")
     parser.add_argument("--target-psin", default=0.993, type=float, help="Boundary contour psin for EXPEQ.")
     parser.add_argument("--relax", default=0.5, type=float, help="CHEASE RELAX value.")
-    parser.add_argument("--nideal", default=6, type=int, help="CHEASE NIDEAL value.")
+    parser.add_argument(
+        "--nideal",
+        default=None,
+        type=int,
+        help=(
+            "Deprecated raw CHEASE NIDEAL, only for a CHEASE fork with its own "
+            "numbering; upstream CHEASE takes the adapter's GEQDSK default (#516)."
+        ),
+    )
     parser.add_argument("--nw", default=513, type=int, help="CHEASE NRBOX/NZBOX value.")
     parser.add_argument("--auto-cocos", default="true", help="Normalize signs to CHEASE COCOS-02 input convention.")
     parser.add_argument("--output-cocos", default="input", help="CHEASE output sign convention handling.")

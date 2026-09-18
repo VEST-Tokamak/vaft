@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from typing import Any, Mapping, Optional, Sequence
+import warnings
 
 import numpy as np
 
@@ -26,21 +27,40 @@ CHEASE_HOME_EXECUTABLE = Path("bin/chease")
 CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 
 
+#: What each supported ``CHEASEConfig.output`` asks CHEASE for, as its
+#: ``NIDEAL`` mapping selector.
+#:
+#: The adapter's contract is GEQDSK in, GEQDSK out (#516): VAFT reads a
+#: g-file, writes CHEASE's native ``EXPEQ`` from it (``NEQDSK=0`` -- the
+#: boundary, ``p'`` and ``FF'``, not the g-file itself), and reads the COCOS-2
+#: EQDSK CHEASE writes back.  ``NIDEAL=6`` is that EQDSK mapping in upstream
+#: CHEASE and upstream's own default (``preset.f90``).  Other mappings --
+#: ``NIDEAL=9`` for the GENE/ORB5 ``ogyropsi.h5`` output, the MARS or PEST
+#: families -- produce files this adapter does not read, so they are not
+#: offered here; each needs its own named output and reader when it is wanted.
+CHEASE_OUTPUT_NIDEAL: Mapping[str, int] = {"geqdsk": 6}
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
-    """Runtime and numerical configuration for CHEASE refinement."""
+    """Runtime and numerical configuration for CHEASE refinement.
+
+    ``output`` names what the refinement produces; the only supported value is
+    ``"geqdsk"`` (see :data:`CHEASE_OUTPUT_NIDEAL`).  ``nideal`` is a
+    deprecated raw override of CHEASE's ``NIDEAL`` selector, kept for CHEASE
+    forks whose numbering differs from upstream -- the VEST ``jsk95`` revision
+    runs with 11, which upstream rejects -- and it warns when set.
+    """
 
     executable: Optional[str] = None
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
-    # in `cotrol` on anything outside it, before any equilibrium work. 6 is
-    # upstream's own default (`preset.f90:104`) and the value every VAFT caller
-    # that actually runs CHEASE already passed by hand. The VEST `jsk95`
-    # workflow uses 11, which only its own CHEASE revision accepts; pass
-    # `nideal=11` explicitly for it.
-    nideal: int = 6
+    output: str = "geqdsk"
+    # Deprecated: a raw NIDEAL for a non-upstream CHEASE build. Upstream
+    # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
+    # equilibrium work, which is how the old default of 11 failed (#717).
+    nideal: Optional[int] = None
     nw: int = 513
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
 
@@ -65,6 +85,30 @@ class CHEASEConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        if self.output not in CHEASE_OUTPUT_NIDEAL:
+            raise ValueError(
+                f"CHEASEConfig.output={self.output!r} is not supported; the "
+                f"adapter reads {sorted(CHEASE_OUTPUT_NIDEAL)}. Other CHEASE "
+                "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
+                "refinement contract (#516)"
+            )
+        if self.nideal is not None:
+            warnings.warn(
+                f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
+                f"output={self.output!r} selects "
+                f"({CHEASE_OUTPUT_NIDEAL[self.output]}). The raw override is "
+                "deprecated and exists only for CHEASE forks with their own "
+                "numbering; drop it for upstream CHEASE (#516)",
+                FutureWarning,
+                stacklevel=3,
+            )
+
+    @property
+    def resolved_nideal(self) -> int:
+        """The ``NIDEAL`` written to the namelist."""
+        return int(self.nideal) if self.nideal is not None else CHEASE_OUTPUT_NIDEAL[self.output]
 
 
 @dataclass
@@ -618,7 +662,7 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
 
 
 def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[str]:
-    mesh = _chease_mesh_params(config.nideal)
+    mesh = _chease_mesh_params(config.resolved_nideal)
     width = 0.05
     lines = [
         "*************************\n",
@@ -629,6 +673,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "! --- CHEASE input file option\n",
         "NOPT=0,\n",
         "NSURF=6,\n",
+        # EXPEQ is written by _write_expeq, not handed over as a g-file.
         "NEQDSK=0\n",
         "TENSBND=    -0.1,\n",
         "NSYM=0,\n",
@@ -677,7 +722,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         f"NCSCAL={int(config.ncscal)},\n",
         f"CSSPEC={float(params.get('CSSPEC', 0.0)):.6f},\n",
         f"NEGP={mesh['negp']}, NER={mesh['ner']},\n",
-        f"NIDEAL={int(config.nideal)},\n",
+        f"NIDEAL={config.resolved_nideal},\n",
         f"NMESHA=1, NPOIDA=2, SOLPDA=.20,APLACE= {1.0 - 0.5 * width:4.3f}, 1.000,\n",
         f"                               AWIDTH= {0.9 * width:4.3f}, 0.003,\n",
         f"NMESHC=1, NPOIDC=3, SOLPDC=.20,CPLACE=0.000, {1.0 - 0.5 * width:4.3f}, 1.00,\n",
@@ -1254,6 +1299,7 @@ def refine_equilibrium(source: Any, config: CHEASEConfig | None = None) -> CHEAS
 
 
 __all__ = [
+    "CHEASE_OUTPUT_NIDEAL",
     "CHEASEConfig",
     "CHEASEInputs",
     "CHEASEResult",
