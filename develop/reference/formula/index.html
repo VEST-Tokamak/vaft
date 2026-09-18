@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b91f176</code>. What is described
+  <code>42a2e07</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -310,7 +310,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td>
-    <td><code>vaft.formula.atomic</code></td><td>3</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
+    <td><code>vaft.formula.atomic</code></td><td>5</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/statistics/">statistics</a></td>
@@ -765,7 +765,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="atomic">Atomic</h2>
 
-<p>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11. — <a href="/vaft/develop/reference/formula/atomic/">3 functions</a>.</p>
+<p>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11. — <a href="/vaft/develop/reference/formula/atomic/">5 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/atomic/#fractional_abundances"><code>fractional_abundances</code></a> <em>(convention)</em> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
@@ -773,6 +773,10 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/atomic/#interpolate_adf11"><code>interpolate_adf11</code></a> <em>(convention)</em> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
 </li>
   <li><a href="/vaft/develop/reference/formula/atomic/#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> <em>(convention)</em> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+</li>
+  <li><a href="/vaft/develop/reference/formula/atomic/#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a> <em>(convention)</em> &mdash; Mean charge of one element over its charge states.
+</li>
+  <li><a href="/vaft/develop/reference/formula/atomic/#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a> <em>(convention)</em> &mdash; Effective charge of a mixture of ion species.
 </li>
 </ul>
 
@@ -1205,7 +1209,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 10:23:00 +0000"
+        "time": "2026-09-18 11:00:40 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

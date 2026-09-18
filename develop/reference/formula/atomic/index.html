@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b91f176</code>. What is described
+  <code>42a2e07</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
-3 public functions.  The category overview and notation come from the module
+5 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -288,6 +288,10 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
   <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
 </li>
   <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
+</li>
+  <li><a href="#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a> &mdash; Mean charge of one element over its charge states.
+</li>
+  <li><a href="#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a> &mdash; Effective charge of a mixture of ion species.
 </li>
 </ul>
 
@@ -498,6 +502,125 @@ continuum (that is the separate PRB class).</p>
 </li>
 </ol>
 
+<h3 id="mean_charge_from_charge_state_densities"><code class="language-plaintext highlighter-rouge">mean_charge_from_charge_state_densities</code></h3>
+
+<p class="formula-signature"><code>mean_charge_from_charge_state_densities(n_z, axis=-1)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Mean charge of one element over its charge states.</p>
+
+\[\langle Z\rangle = \sum_j j\,f_j = \frac{\sum_j j\,n_j}{\sum_j n_j},
+  \qquad f_j = \frac{n_j}{\sum_k n_k}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_z</code></td><td>array-like</td><td>m^-3</td><td><p>Density of each charge state along <code class="language-plaintext highlighter-rouge">axis</code>, ordered neutral first, so that index $j$ is charge $j$; finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td>int, optional</td><td>-</td><td><p>Axis that runs over the charge states.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Mean charge, with <code class="language-plaintext highlighter-rouge">axis</code> removed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite or negative density, or a slice whose densities sum to
+    zero, which has no charge distribution to average.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Index is charge, neutral first</strong>, the layout
+<code class="language-plaintext highlighter-rouge">fractional_abundances</code> returns – so its output can be passed
+straight in, and densities need not be normalised first because the
+fractions $f_j$ are formed here.  Spectroscopic notation counts from one
+(C I is neutral carbon); pass charge, not ionisation stage, or every value
+comes out one high.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>fractional_abundances
+z_eff_from_n_s_Z_s</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25 (impurity charge states).
+</li>
+</ol>
+
+<h3 id="z_eff_from_n_s_Z_s"><code class="language-plaintext highlighter-rouge">z_eff_from_n_s_Z_s</code></h3>
+
+<p class="formula-signature"><code>z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Effective charge of a mixture of ion species.</p>
+
+\[Z_{\mathrm{eff}} = \frac{\sum_s n_s Z_s^2}{n_e}, \qquad
+  n_e = \sum_s n_s Z_s\ \text{when not given}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_s</code></td><td>array-like</td><td>m^-3</td><td><p>Density of each ion species or charge state, finite and non-negative; the last axis runs over species.</p>
+</td></tr>
+  <tr><td><code>Z_s</code></td><td>array-like</td><td>-</td><td><p>Charge of each, broadcastable against <code class="language-plaintext highlighter-rouge">n_s</code>, finite and non-negative</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td>float or array-like, optional</td><td>m^-3</td><td><p>Electron density, finite and positive; default the quasi-neutral $\sum_s n_s Z_s$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Effective charge, with the species axis removed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite or negative density or charge, a non-positive electron
+    density, or a quasi-neutral electron density of zero.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Pass the electron density only when it is measured independently.</strong>  The
+default makes the plasma quasi-neutral by construction, and then a pure
+hydrogenic plasma is exactly 1 and every impurity raises it.  A measured
+$n_e$ that disagrees with $\sum_s n_s Z_s$ is taken as given and not
+reconciled, so a density error lands directly in $Z_{\mathrm{eff}}$.</p>
+
+<p>A charge-resolved impurity is several species here, one per charge state:
+$Z_{\mathrm{eff}}$ weights $Z^2$, so collapsing an element of density $n_I$
+onto its mean charge first underestimates it by exactly
+$n_I\,\mathrm{Var}(Z)/n_e$ – the quasi-neutral $n_e$ is unchanged, since
+it weights $Z$ only linearly.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>mean_charge_from_charge_state_densities
+vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -609,7 +732,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#mean_charge_from_charge_state_densities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mean_charge_from_charge_state_densities</a></li><li class="page-toc-item page-toc-level-3"><a href="#z_eff_from_n_s_Z_s" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">z_eff_from_n_s_Z_s</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -727,7 +850,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 10:23:00 +0000"
+        "time": "2026-09-18 11:00:40 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
