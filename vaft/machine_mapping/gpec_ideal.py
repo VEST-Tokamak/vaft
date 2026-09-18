@@ -192,8 +192,11 @@ def _write_mode_entry(
                 profile, control.n_tor, (control.attrs or {}).get("chi1")
             )
 
+    # The slice is part of the block's identity: a multi-time product holds
+    # one block per (slice, mode), and a reader pairing them by n alone reads
+    # slice 0's rational surfaces for every slice (cold review plot G4).
     fragment = (
-        f'<solver name="gpec" n_tor="{control.n_tor}">'
+        f'<solver name="gpec" n_tor="{control.n_tor}" time_slice="{int(time_slice)}">'
         f'<jacobian>{control.jacobian}</jacobian>'
         f'<helicity>{control.helicity}</helicity>'
         f'<energy_vacuum units="J">{control.energy_vacuum!r}</energy_vacuum>'
