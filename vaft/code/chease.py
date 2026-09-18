@@ -650,7 +650,11 @@ def _chease_mesh_params(nideal: int) -> dict[str, int]:
     converged to 1e-4 already at 50; the mesh sets the *local* force balance a
     downstream stability code reads, and ``NPSI``/``NCHI`` (200/100 against
     300/256) change neither.  150 brings the residual within about twice the
-    EFIT input's own (0.6% on 39915) for three times the cost.  The NIDEAL 8
+    EFIT input's own (0.6% on 39915, on EFIT's 129 grid) for three times the
+    cost; written on that same 129 grid, the NS = 150 solution's is 0.38%,
+    below the input's.  A residual measured on a finer box is larger, since the
+    interpolated element-scale curvature shows more, so compare at equal grids.
+    The NIDEAL 8
     and 10 tables belong to the forks that use them and are left alone.
     """
     if nideal == 8:
