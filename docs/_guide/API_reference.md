@@ -229,7 +229,7 @@ vaft.omas.compute_null_ods(ods, time)
 # Equilibrium, profiles, energy
 vaft.omas.compute_core_profile_psi(ods, option="n_e", time_slice=None)
 vaft.omas.compute_core_profile_2d(ods, option="n_e", time_slice=None)
-vaft.omas.compute_magnetic_energy(ods, time_slice=None)
+vaft.omas.compute_magnetic_energy(ods, time_slice=None, components="total", write_fields=False)
 vaft.omas.compute_virial_equilibrium_quantities_ods(ods, time_slice=None)
 vaft.omas.compute_volume_averaged_pressure(ods, time_slice=None, option="equilibrium")
 vaft.omas.compute_reconstructed_diamagnetic_flux(ods, time_index=0)
