@@ -1771,7 +1771,7 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     a_m : float or np.ndarray
         Minor radius, finite and positive and smaller than ``R0_m`` [m].
     li : float or np.ndarray
-        Normalised internal inductance [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition [-].
     kappa : float or np.ndarray, optional
         Elongation; default 1, a circular cross-section [-].
 
@@ -1793,7 +1793,10 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     on: holding $a$ fixed, $\partial L_p/\partial R$ substituted into
     $B_{VE} = (\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p - 1/2]$
     returns that function exactly.  $l_i$ enters as the dimensional
-    $\mu_0 R_0 l_i/2$, the Romero/ITER convention read backwards.
+    $\mu_0 R_0 l_i/2$, which is the internal inductance only for ``li_3``
+    normalised by $R_0$; see
+    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li` for what passing
+    ``li_1`` costs.
 
     Validity
     --------
