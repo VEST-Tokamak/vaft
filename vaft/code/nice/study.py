@@ -113,6 +113,10 @@ def constraint_family_configs(base: NiceConfig) -> dict[str, NiceConfig]:
     }
 
 
+#: Slices closer than this to the requested time count as the same time.
+EXACT_TIME_TOLERANCE_S = 1e-6
+
+
 def _slice_index(ods: Any, time: float) -> int:
     values = np.asarray(ods["equilibrium.time"], float)
     return int(np.argmin(np.abs(values - time)))
@@ -161,6 +165,10 @@ def lcfs_rms_displacement(left_r, left_z, right_r, right_z) -> float:
 def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, Any]:
     """Compare common physical quantities on the closest matched slice."""
     ni, ei = _slice_index(nice_ods, time), _slice_index(efit_ods, time)
+    # Nearest slice, so say which: a stored EFIT reference need not hold the
+    # requested time, and a comparison against its neighbour is not a match.
+    nice_time = float(np.asarray(nice_ods["equilibrium.time"], float)[ni])
+    efit_time = float(np.asarray(efit_ods["equilibrium.time"], float)[ei])
     nb, eb = f"equilibrium.time_slice.{ni}", f"equilibrium.time_slice.{ei}"
     paths = {
         "axis_r_m": "global_quantities.magnetic_axis.r",
@@ -221,6 +229,12 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
         "time_s": float(time),
         "nice_index": ni,
         "efit_index": ei,
+        "nice_time_s": nice_time,
+        "efit_time_s": efit_time,
+        "exact_time_match": bool(
+            abs(nice_time - time) <= EXACT_TIME_TOLERANCE_S
+            and abs(efit_time - time) <= EXACT_TIME_TOLERANCE_S
+        ),
         "quantities": values,
         "profiles": profiles,
         "psi_to_wb_per_radian_factor": psi_factor,

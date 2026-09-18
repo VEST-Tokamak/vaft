@@ -230,6 +230,7 @@ def collect_nice_outputs(
             # FillDataReconstructionFromFiles hard-codes time=0; restore the
             # physical slice from the immutable preparation manifest.
             ods["equilibrium.time"] = np.asarray([float(provenance["time_s"])])
+            ods["equilibrium.time_slice.0.time"] = float(provenance["time_s"])
     except Exception as exc:
         ods, errors = None, errors + [f"native equilibrium: {exc}"]
 

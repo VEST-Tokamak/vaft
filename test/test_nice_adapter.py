@@ -606,6 +606,8 @@ def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
 
 
 def test_window_report_renders_through_vaft_plot(tmp_path):
+    import copy
+
     from vaft.code.nice import NiceResult
     from vaft.code.nice.outputs import _native_ods
     from vaft.code.nice.study import write_window_report
@@ -628,3 +630,12 @@ def test_window_report_renders_through_vaft_plot(tmp_path):
     assert files["traces"].stat().st_size > 0
     summary = json.loads(files["summary"].read_text())
     assert summary["shot"] == 41672 and len(summary["slice_comparisons"]) == 1
+    comparison = summary["slice_comparisons"][0]
+    assert comparison["exact_time_match"] and comparison["efit_time_s"] == 0.331
+
+    # A reference that lacks the requested time is compared, but not called a match.
+    from vaft.code.nice import compare_equilibria
+
+    shifted = copy.deepcopy(equilibrium)
+    shifted["equilibrium.time"] = np.asarray([0.333])
+    assert not compare_equilibria(equilibrium, shifted, 0.331)["exact_time_match"]

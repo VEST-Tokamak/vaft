@@ -26,6 +26,7 @@ PIN = "7ad1ea8f3da4fee25a61a7c2c01b1773db5f4906"
 # Flux loops #3-#6, #12 and #14 in the legacy combined one-based numbering
 # (64 probes first); positional, see vaft.validation.flux_loop_assessment.
 LEGACY_FLUX_EXCLUSIONS = [65, 66, 67, 68, 72, 74]
+LEGACY_PROBE_COUNT = 64
 
 
 def collect_report(native, reports, repo):
@@ -79,6 +80,11 @@ def condition(ods, shot, times, work, repo, table_dir=None):
     # probes EFIT does not represent are left out: their one-based index would
     # otherwise read as a flux loop.
     nbprobe = efit_probe_count(ods)
+    if nbprobe != LEGACY_PROBE_COUNT:
+        raise ValueError(
+            f"the legacy flux-loop exclusions assume {LEGACY_PROBE_COUNT} EFIT probes; "
+            f"this ODS has {nbprobe}, so {LEGACY_FLUX_EXCLUSIONS} would name other channels"
+        )
     bad = [
         q.index + 1
         for q in validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
