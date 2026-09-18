@@ -217,9 +217,10 @@ from .renderers.geometry import (
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,
-    pf_coil_geometry_poloidal,
+    mhd_linear_geometry_island,
     passive_structure_geometry_poloidal,
     passive_structure_geometry_wall_mode,
+    pf_coil_geometry_poloidal,
     pf_plasma_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
@@ -351,6 +352,8 @@ from .renderers.profiles import (
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
     thomson_scattering_profile_fit,
+    coil_3d_profile_current,
+    coil_3d_spectrum_current,
 )
 from .renderers.spectra import (
     interferometer_spectrum,

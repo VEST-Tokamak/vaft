@@ -4366,6 +4366,207 @@ def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
     )
 
 
+# ---------------------------------------------------------------------------
+# Toroidal content of a non-axisymmetric coil excitation (migration slice V5)
+# ---------------------------------------------------------------------------
+
+def _coil_set_excitation(ods: Any, **options: Any) -> list[dict[str, Any]]:
+    """Each coil set's sector currents and the toroidal angles they sit at.
+
+    A sector's angle is the mean of its filament's ``phi``, unwrapped along
+    the winding before averaging and folded back into one turn afterwards --
+    a coil that crosses the branch cut has samples at both ends of the range,
+    and their arithmetic mean is on the far side of the machine.
+
+    The instant drawn is the one with the largest total ``|current|`` over
+    the set unless ``time`` names another, because a run's excitation is
+    usually a flat-top and the interesting sample is the one that is on.
+    """
+    count = _count(ods, "coils_non_axisymmetric.coil")
+    if count == 0:
+        raise ValueError(
+            "coils_non_axisymmetric carries no coils; run "
+            "vaft.machine_mapping.coils_non_axisymmetric first"
+        )
+    sets: dict[str, dict[str, Any]] = {}
+    for index in range(count):
+        base = f"coils_non_axisymmetric.coil.{index}"
+        current = _array(ods, f"{base}.current.data")
+        if current is None:
+            continue
+        phi = _get(ods, f"{base}.conductor.0.elements.start_points.phi")
+        if phi is None:
+            raise ValueError(
+                f"coil {index} carries a current but no filament geometry, so the "
+                "toroidal angle its current acts at is unknown"
+            )
+        phi = np.asarray(phi, dtype=float)
+        angle = float(np.mod(np.arctan2(
+            np.sin(np.mean(np.unwrap(phi))), np.cos(np.mean(np.unwrap(phi)))
+        ), 2.0 * np.pi))
+        label = str(_get(ods, f"{base}.name") or f"coil {index}")
+        set_label = label.rsplit(" sector", 1)[0]
+        entry = sets.setdefault(
+            set_label,
+            {"label": set_label, "phi": [], "current": [],
+             "time": _array(ods, f"{base}.current.time")},
+        )
+        entry["phi"].append(angle)
+        entry["current"].append(np.atleast_1d(np.asarray(current, dtype=float)))
+
+    if not sets:
+        raise ValueError(
+            "coils_non_axisymmetric carries geometry but no coil currents; "
+            "overlay a run's excitation with "
+            "vaft.machine_mapping.coils_non_axisymmetric.apply_coil_excitation"
+        )
+
+    requested = options.get("time")
+    rows: list[dict[str, Any]] = []
+    for entry in sets.values():
+        lengths = {values.size for values in entry["current"]}
+        if len(lengths) != 1:
+            raise ValueError(
+                f"coil set {entry['label']!r} holds current records of "
+                f"{sorted(lengths)} samples; the sectors of one set must share a "
+                "time base for a toroidal pattern to be read off them at an instant"
+            )
+        samples = np.vstack(entry["current"])
+        times = entry["time"]
+        if times is not None and np.asarray(times).size != samples.shape[1]:
+            raise ValueError(
+                f"coil set {entry['label']!r} records {samples.shape[1]} current "
+                f"samples against {np.asarray(times).size} times"
+            )
+        if requested is None:
+            index = int(np.argmax(np.sum(np.abs(samples), axis=0)))
+        elif times is None:
+            raise ValueError(
+                f"coil set {entry['label']!r} carries no current.time, so "
+                f"time={float(requested):g} s cannot be located"
+            )
+        else:
+            index = int(np.argmin(np.abs(np.asarray(times, dtype=float) - float(requested))))
+        order = np.argsort(entry["phi"])
+        rows.append({
+            "label": entry["label"],
+            "phi": np.asarray(entry["phi"], dtype=float)[order],
+            "current": samples[order, index],
+            "time": None if times is None else float(np.asarray(times, dtype=float)[index]),
+        })
+    return rows
+
+
+def _coil_excitation_title(rows: Sequence[Mapping[str, Any]], heading: str) -> str:
+    instants = {row["time"] for row in rows}
+    if len(instants) == 1 and next(iter(instants)) is not None:
+        return f"{heading} at t={next(iter(instants)):.4g} s"
+    return heading
+
+
+def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
+    """The sector currents of each coil set against toroidal angle.
+
+    One marker per sector: this *is* the waveform a discrete coil set makes,
+    and drawing a continuous line through it would assert a shape between the
+    coils that the currents do not carry.
+    """
+    rows = _coil_set_excitation(ods, **options)
+    values = np.concatenate([row["current"] for row in rows])
+    display = resolve_display(
+        "A", unit=options.get("unit", "auto"), subject="coil_3d", data=values,
+    )
+    series = tuple(
+        Series(
+            x=np.degrees(row["phi"]),
+            y=row["current"] * display.scale,
+            label=f"{row['label']} ({row['phi'].size} sectors)",
+        )
+        for row in rows
+    )
+    return Profile1D(
+        series=series,
+        coordinate_label=r"toroidal angle $\phi$ [deg]",
+        y_label=f"coil current [{display.unit}]",
+        y_unit=display.unit,
+        x_limits=(0.0, 360.0),
+        title=_coil_excitation_title(rows, "Non-axisymmetric coil excitation"),
+        display=display,
+    )
+
+
+def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
+    r"""The toroidal mode content of each coil set's excitation.
+
+    ``|C_n|`` from :func:`vaft.process.coils_non_axisymmetric.toroidal_mode_decomposition`,
+    whose ``exp(-i n phi)`` kernel is GPEC's own.  ``modes`` selects the
+    harmonics; the default runs to the last one the sectors resolve,
+    ``floor((K-1)/2)``, because beyond that a coil set aliases and a bar drawn
+    there reports a neighbour's amplitude as its own.
+    """
+    from vaft.process.coils_non_axisymmetric import toroidal_mode_decomposition
+
+    rows = _coil_set_excitation(ods, **options)
+    requested = options.get("modes")
+    values = np.concatenate([row["current"] for row in rows])
+    display = resolve_display(
+        "A", unit=options.get("unit", "auto"), subject="coil_3d", data=values,
+    )
+    series = []
+    aliased = []
+    for row in rows:
+        sectors = row["phi"].size
+        limit = (sectors - 1) // 2
+        modes = (
+            [int(n) for n in requested] if requested is not None
+            else list(range(0, limit + 1))
+        )
+        coefficients = toroidal_mode_decomposition(row["phi"], row["current"], modes)
+        amplitude = np.asarray([abs(coefficients[n]) for n in modes], dtype=float)
+        series.append(
+            Series(
+                x=np.asarray(modes, dtype=float),
+                y=amplitude * display.scale,
+                label=f"{row['label']} ({sectors} sectors, |n| <= {limit} resolved)",
+            )
+        )
+        if any(abs(n) > limit for n in modes):
+            aliased.append(row["label"])
+    title = _coil_excitation_title(rows, "Coil-current toroidal spectrum")
+    if aliased:
+        title += f" — aliased above the resolved band: {', '.join(aliased)}"
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=r"toroidal mode number $n$",
+        y_label=rf"$|C_n|$ [{display.unit}]",
+        y_unit=display.unit,
+        title=title,
+        display=display,
+    )
+
+
+_COIL_3D_EXCITATION_READS = (
+    "coils_non_axisymmetric.coil.{i}.name",
+    "coils_non_axisymmetric.coil.{i}.current.data",
+    "coils_non_axisymmetric.coil.{i}.current.time",
+    "coils_non_axisymmetric.coil.{i}.conductor.0.elements.start_points.phi",
+)
+
+RECIPES["coil_3d_profile_current"] = CallableRecipe(
+    builder=_build_coil_3d_profile_current,
+    description="Sector currents of each non-axisymmetric coil set against toroidal angle.",
+    reads=_COIL_3D_EXCITATION_READS,
+    backend=NEUTRAL,
+)
+
+RECIPES["coil_3d_spectrum_current"] = CallableRecipe(
+    builder=_build_coil_3d_spectrum_current,
+    description="Toroidal mode content |C_n| of each non-axisymmetric coil set's excitation.",
+    reads=_COIL_3D_EXCITATION_READS,
+    backend=NEUTRAL,
+)
+
+
 RECIPES["soft_x_rays_geometry_lines_of_sight"] = CallableRecipe(
     builder=_build_lines_of_sight,
     description="One polyline per detector line of sight, over the wall outline.",
@@ -10569,6 +10770,17 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
             "m_pol": m_pol,
             "delta": jump.delta,
             "Phi_res": complex(flux),
+            # The island's phase reference (C-20). GPEC reports it as
+            # arg(I_res), and I_res is not mapped -- but it does not need to
+            # be: `gpec/gpout.f:1689-1691` builds both from the same jump,
+            # I_res = -Delta*chi1*j_c/m and Phi_res = -G*Delta/n, and the two
+            # scale factors are real and of one sign, so the two arguments are
+            # the same number. Measured over 2572 rational surfaces in 228
+            # GPEC profile files, GPEC's own two arguments differ by at most
+            # 2.5e-14 degrees; this one, being derived from the fitted jump
+            # rather than read, reproduces GPEC's arg(I_res) to 2.1 degrees
+            # over the 24 surfaces of the DIII-D reference's n = 1, 2 and 3.
+            "phase": float(np.angle(flux)),
             "w_isl": float(island_width_from_resonant_flux(
                 flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
             )),
@@ -10851,6 +11063,257 @@ def _build_mhd_linear_profile_chirikov(ods: Any, **options: Any) -> Profile1D:
         ),
         reference_lines=_pedestal_reference_lines(options),
     )
+
+
+def _mhd_linear_flux_surface_mesh(ods: Any, base: str) -> dict[str, Any]:
+    """The ``R(psi_N, theta)`` / ``z(psi_N, theta)`` mesh one cell was solved on.
+
+    Real space is not recoverable from the spectral field alone: the poloidal
+    angle is DCON's own, set by the run's jacobian, so an equilibrium's
+    ``psi(R, Z)`` map finds the same flux surfaces but labels their points
+    differently.
+    """
+    system = f"{base}.plasma.coordinate_system"
+    psi_n = _array(ods, f"{system}.grid.dim1")
+    theta = _array(ods, f"{system}.grid.dim2")
+    r_values = _array(ods, f"{system}.r")
+    z_values = _array(ods, f"{system}.z")
+    if psi_n is None or theta is None or r_values is None or z_values is None:
+        raise ValueError(
+            "mhd_linear carries no flux-surface mesh for this mode, so its "
+            "result cannot be drawn in real space; map the run again with "
+            "include_geometry=True"
+        )
+    psi_n = np.asarray(psi_n, dtype=float)
+    theta = np.asarray(theta, dtype=float)
+    r_values = np.asarray(r_values, dtype=float)
+    z_values = np.asarray(z_values, dtype=float)
+    expected = (psi_n.size, theta.size)
+    for name, values in (("r", r_values), ("z", z_values)):
+        if values.shape != expected:
+            raise ValueError(
+                f"coordinate_system.{name} has shape {values.shape} against a "
+                f"declared (psi_N, theta) grid of {expected}"
+            )
+    span = float(theta[-1] - theta[0])
+    if not np.isclose(span, 1.0, atol=1e-9):
+        # Every reader here multiplies by 2*pi. A mesh in radians would pass
+        # through that unnoticed and put the island phase out by 2*pi.
+        raise ValueError(
+            f"the flux-surface mesh's poloidal angle spans {span!r}, not one "
+            "circuit normalized to 1"
+        )
+    if not np.all(np.diff(psi_n) > 0):
+        # The radial interpolation below is np.interp, which does not sort and
+        # does not complain: a non-monotonic grid would return numbers rather
+        # than an error.
+        raise ValueError(
+            "the flux-surface mesh's radial grid is not strictly increasing, so "
+            "a position cannot be interpolated on it"
+        )
+    return {"psi_n": psi_n, "theta": theta, "r": r_values, "z": z_values}
+
+
+#: Flux-coordinate systems whose poloidal angle makes field lines straight,
+#: which is what lets ``m theta - n phi`` be the helical phase. GPEC's
+#: ``equal_arc`` is the one ``jac_type`` that does not, and in it a surface of
+#: constant ``m theta - n phi`` is not an island separatrix at all.
+_STRAIGHT_FIELD_LINE_JACOBIANS = frozenset({"hamada", "pest", "boozer"})
+
+
+def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
+    """The flux coordinates one GPEC (slice, mode) was solved in.
+
+    Read the two shapes ``code.parameters`` arrives in, as
+    :func:`_mhd_linear_solver_names` does.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    if isinstance(parameters, str):
+        candidates: list[str] = []
+        for attributes, body in re.findall(r"<solver\b([^>]*)>(.*?)</solver>", parameters, re.S):
+            named = dict(re.findall(r'(\w+)="([^"]*)"', attributes))
+            if named.get("n_tor") != str(int(n_tor)):
+                continue
+            if time_slice is not None and named.get("time_slice") not in (None, str(int(time_slice))):
+                continue
+            found = re.search(r"<jacobian>([^<]*)</jacobian>", body)
+            if found:
+                candidates.append(found.group(1).strip().lower())
+        return candidates[-1] if candidates else ""
+
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if "@n_tor" not in solver or int(_scalar(solver["@n_tor"])) != int(n_tor):
+            continue
+        if time_slice is not None and "@time_slice" in solver:
+            if int(_scalar(solver["@time_slice"])) != int(time_slice):
+                continue
+        if "jacobian" in solver:
+            return str(_scalar(solver["jacobian"])).strip().lower()
+    return ""
+
+
+def _surface_at(mesh: Mapping[str, Any], psi_target) -> tuple[np.ndarray, np.ndarray]:
+    """``(R, z)`` along one poloidal circuit at ``psi_target``.
+
+    ``psi_target`` is a scalar for a flux surface, or one value per poloidal
+    angle for a curve that wanders in and out of one -- which is what an
+    island separatrix is.  Interpolation is radial only: the curve is sampled
+    at the mesh's own angles, so nothing is interpolated in theta.
+    """
+    psi_n = mesh["psi_n"]
+    theta_count = mesh["theta"].size
+    targets = np.broadcast_to(np.asarray(psi_target, dtype=float), (theta_count,))
+    # Outside the mapped radial range there is no geometry, and np.interp
+    # clamps silently -- which would draw an island with a flat side pressed
+    # against the last mapped surface and no sign that the curve had left the
+    # mesh. NaN breaks the curve there instead, which is what the data says.
+    # It is not an edge case: GPEC's grid stops short of psi_N = 1, so the
+    # outermost resonance of a strongly driven run routinely reaches past it.
+    inside = (targets >= psi_n[0]) & (targets <= psi_n[-1])
+    r_out = np.full(theta_count, np.nan, dtype=float)
+    z_out = np.full(theta_count, np.nan, dtype=float)
+    for index in np.flatnonzero(inside):
+        r_out[index] = np.interp(targets[index], psi_n, mesh["r"][:, index])
+        z_out[index] = np.interp(targets[index], psi_n, mesh["z"][:, index])
+    return r_out, z_out
+
+
+def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayers:
+    r"""The island separatrices a GPEC result implies, in the poloidal plane.
+
+    Each rational surface carries a saturated island of full width ``w_isl``
+    in normalized flux, whose separatrix is
+    ``psi = psi_r +- (w/2) cos(m theta - n phi + arg(I_res))`` -- the islands
+    that would exist if the ideal shielding current GPEC solves for were not
+    there, which is why the figure is read against the vacuum case rather
+    than as a prediction.
+
+    The phase reference is C-20's: GPEC's ``arg(I_res)``, which the derived
+    resonant table carries because ``I_res`` and ``Phi_res`` are real
+    multiples of the same jump.  The legacy figure fell back to zero when
+    ``I_res`` was absent, silently rotating every island; there is no
+    fallback here.
+
+    The poloidal angle is the mesh's own, which is the angle the run solved
+    in.  That is what makes the expression above legitimate and also what
+    limits it: ``m theta - n phi`` is the helical phase only where the
+    coordinates make field lines straight, which ``hamada``, ``pest`` and
+    ``boozer`` do and GPEC's ``equal_arc`` does not.  The jacobian the mapper
+    recorded is checked rather than assumed.
+
+    ``phi_deg`` selects the toroidal slice (default 0).  Its sign is
+    :func:`vaft.formula.stability.helical_phase`'s: the helical phase is
+    ``m theta - n phi``, so the pattern advances in ``theta`` as ``phi``
+    grows.  The figure this replaces added ``+n phi`` instead, which agrees
+    at ``phi = 0`` -- its own default, and so every legacy figure drawn from
+    it -- and rotates the pattern the other way anywhere else.
+    """
+    from vaft.formula.stability import helical_phase
+
+    table = _gpec_resonant_table(ods, **options)
+    cell = table["cell"]
+    mesh = _mhd_linear_flux_surface_mesh(ods, cell["base"])
+    n_tor = table["n_tor"]
+    jacobian = _gpec_jacobian(ods, n_tor, cell["time_slice"])
+    if jacobian not in _STRAIGHT_FIELD_LINE_JACOBIANS:
+        raise ValueError(
+            f"this run solved in {jacobian or 'unrecorded'} coordinates, whose "
+            "poloidal angle does not make field lines straight, so m*theta - "
+            "n*phi is not the helical phase and a curve of constant phase is "
+            "not an island separatrix; straight-field-line coordinates are "
+            f"{sorted(_STRAIGHT_FIELD_LINE_JACOBIANS)}"
+        )
+    phi_deg = float(options.get("phi_deg", 0.0))
+    phi_rad = np.deg2rad(phi_deg)
+    # The mesh's poloidal angle is normalized to one circuit; the helical
+    # phase is in radians.
+    theta_rad = 2.0 * np.pi * mesh["theta"]
+
+    boundary_r, boundary_z = _surface_at(mesh, float(np.max(mesh["psi_n"])))
+    layers = [
+        GeometryLayer(
+            r=boundary_r, z=boundary_z, kind="polygon",
+            label=f"outermost mapped surface ($\\psi_N$={float(np.max(mesh['psi_n'])):.4f})",
+            style={"color": "feature:boundary", "linewidth": 1.5}, role="equilibrium",
+        )
+    ]
+    clipped: list[str] = []
+    for index, row in enumerate(table["rows"]):
+        psi_r = float(row["psi_n"])
+        half = 0.5 * float(row["w_isl"])
+        m_pol = int(row["m_pol"])
+        surface_r, surface_z = _surface_at(mesh, psi_r)
+        layers.append(
+            GeometryLayer(
+                r=surface_r, z=surface_z, kind="polygon",
+                label="",
+                style={"color": "emphasis:lower", "linewidth": 0.8, "linestyle": "--"},
+                role="equilibrium",
+            )
+        )
+        phase = helical_phase(theta_rad, phi_rad, m_pol, n_tor, phase=-row["phase"])
+        excursion = half * np.cos(phase)
+        outer_r, outer_z = _surface_at(mesh, psi_r + excursion)
+        inner_r, inner_z = _surface_at(mesh, psi_r - excursion)
+        if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():
+            clipped.append(f"{m_pol}/{n_tor}")
+        if not np.isfinite(outer_r).any() and not np.isfinite(inner_r).any():
+            raise ValueError(
+                f"the m/n = {m_pol}/{n_tor} island at psi_N={psi_r:.4f} is "
+                f"{float(row['w_isl']):.4g} wide and lies entirely outside the "
+                f"mapped mesh [{float(mesh['psi_n'][0]):.6f}, "
+                f"{float(mesh['psi_n'][-1]):.6f}]"
+            )
+        layers.append(
+            GeometryLayer(
+                # One closed curve: the outward half of the separatrix, then
+                # the inward half traced back, which is the island's outline.
+                r=np.concatenate([outer_r, inner_r[::-1]]),
+                z=np.concatenate([outer_z, inner_z[::-1]]),
+                kind="polygon",
+                label=f"m/n = {m_pol}/{n_tor}, w={float(row['w_isl']):.4g} $\\psi_N$",
+                # One palette colour per resonance, so an island and its
+                # rational surface are read together across the figure.
+                style={"color": palette(index)},
+                role="equilibrium",
+            )
+        )
+    title = (
+        f"Saturated island separatrices — n={n_tor}, {len(table['rows'])} "
+        f"rational surfaces, $\\phi$={phi_deg:g}° "
+        "(derived from the mapped flux, not read from the IDS)"
+    )
+    if clipped:
+        # Said on the figure rather than left to be read off a broken curve:
+        # an island whose separatrix leaves the mapped mesh is drawn only as
+        # far as the run went, and its full width is in the label.
+        title += (
+            f"; m/n = {', '.join(clipped)} reach past the outermost mapped "
+            "surface and are drawn only as far as the run mapped"
+        )
+    return GeometryLayers(layers=tuple(layers), title=title)
+
+
+_MHD_LINEAR_MESH_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.r",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.z",
+)
+
+RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
+    builder=_build_mhd_linear_geometry_island,
+    description="Saturated island separatrices in the poloidal plane, derived from "
+                "the mapped spectral field and drawn on the run's own flux-surface mesh.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1") + _MHD_LINEAR_MESH_PATHS,
+    backend=NEUTRAL,
+)
 
 
 RECIPES["mhd_linear_field_spectrum"] = CallableRecipe(
