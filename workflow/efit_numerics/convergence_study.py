@@ -81,9 +81,11 @@ ERROR_MINIMUM = (1.0e-2, 1.0e-3, 1.0e-4)
 ITERATION_ARRAY_BOUND = 515
 ROUTINE_GRID = 129
 FINE_GRID = 257
-#: The grid-reference settings, tightest first; the second is the fallback if
-#: the tightest does not stop on its criterion.
-FINE_SETTINGS = ((10, 1.0e-4), (5, 1.0e-4))
+#: The settings run on the generated 129/257 pair: the whole cross.  A run is
+#: about a second, and the tightest setting does not converge on every slice
+#: (NXITER = 10, ERRMIN = 1e-4 fails in `bound` on 41672 @ 321 and 331), so a
+#: short list could leave a slice with no grid pair at all.
+FINE_SETTINGS = tuple((n, e) for n in INNER_ITERATIONS for e in ERROR_MINIMUM)
 #: Which Green table a case ran on.  The packaged 129 table is the routine
 #: one; the grid comparison needs a 129 and a 257 table from the same
 #: generator on the same machine, because a table regenerated elsewhere is
@@ -624,14 +626,16 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
             "iterations_n": entry.get("iterations_n"),
             "collapsed": bool(entry.get("collapsed")),
             "solver_errors": entry.get("solver_errors", []),
-            # EFIT runs the slices of one call back to back; the per-slice
-            # share of wall time is the call's divided evenly, stated as such.
+            # The driver calls EFIT once per slice, so this is the slice's own
+            # serial wall time; were several slices passed, it is their mean.
             "seconds": seconds / max(1, len(times)),
         }
         record.update(_read_slice(workdir, shot, time_ms))
         record["outcome"] = (
-            "collapsed" if record["collapsed"]
-            else "no_output" if record["geqdsk"] is None else "produced"
+            "produced" if record["geqdsk"] is not None
+            else "solver_error" if record["exit_path"] == "solver_error"
+            else "collapsed" if record["collapsed"]
+            else "no_output"
         )
         records.append(record)
     return {"seconds": seconds, "returncode": result.returncode, "records": records}
@@ -700,26 +704,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     output.mkdir(parents=True, exist_ok=True)
     blocks: list[dict[str, Any]] = []
     for shot in shots:
-        # The constraints carry TABLE_DIR, so each table gets its own.
-        built_by_table = {}
-        for grid, table in sorted({(case["grid"], case["table"]) for case in plan}):
-            built_by_table[(grid, table)] = prepare_constraints(
-                shot, Path(data_path(products[shot])), SLICES[shot],
-                workdir=output / f"shot_{shot}" / f"constraints_{grid}_{table}",
-                tables=tables[(grid, table)],
-                tstep=args.tstep, average_window=args.average_window, seed_study=seed_study,
-            )
-        per_slice: dict[int, list[dict[str, Any]]] = {}
-        for case in plan:
-            built, chosen = built_by_table[(case["grid"], case["table"])]
-            run = run_case(built, shot=shot, times=chosen, case=case,
-                           workdir=output / f"shot_{shot}" / case["name"], efit=str(efit))
-            for record in run["records"]:
-                per_slice.setdefault(record["time_ms"], []).append(record)
-            states = [r["exit_path"] or r["outcome"] for r in run["records"]]
-            print(f"{shot} {case['name']}: {states} in {run['seconds']:.1f} s", flush=True)
-        for time_ms, records in sorted(per_slice.items()):
-            blocks.append({"shot": shot, "time_ms": time_ms, "records": records})
+        # One EFIT call per slice.  Run back to back in one call, a slice
+        # starts from wherever its predecessor left the solver, so a setting
+        # that breaks one slice would also be charged for the next.  Separate
+        # calls give every slice the same start under every setting, and a
+        # serial wall time of its own.  The constraints carry TABLE_DIR, so
+        # each (slice, table) gets its own; building them costs seconds.
+        for time in SLICES[shot]:
+            built_by_table = {}
+            for grid, table in sorted({(case["grid"], case["table"]) for case in plan}):
+                built_by_table[(grid, table)] = prepare_constraints(
+                    shot, Path(data_path(products[shot])), [time],
+                    workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / f"constraints_{grid}_{table}",
+                    tables=tables[(grid, table)],
+                    tstep=args.tstep, average_window=args.average_window, seed_study=seed_study,
+                )
+            records = []
+            for case in plan:
+                built, chosen = built_by_table[(case["grid"], case["table"])]
+                run = run_case(built, shot=shot, times=chosen, case=case,
+                               workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / case["name"],
+                               efit=str(efit))
+                record = run["records"][0]
+                records.append(record)
+                print(f"{shot}@{record['time_ms']} {case['name']}: {record['exit_path'] or record['outcome']} "
+                      f"{record['iterations_n']} it in {run['seconds']:.1f} s", flush=True)
+            blocks.append({"shot": shot, "time_ms": records[0]["time_ms"], "records": records})
 
     analysis = analyse(blocks)
     payload = {
