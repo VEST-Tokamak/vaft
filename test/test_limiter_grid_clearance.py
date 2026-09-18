@@ -7,7 +7,12 @@ R = 0.104 m the default grid's column at R = 0.10391 m sat 0.09 mm outside it,
 and moving the face 0.01 mm inward (so that 49 points of that column joined the
 plasma region) took 3 of 4 inboard-limited 39915 slices from converged to
 diverged, with nothing else changed. The face moved to R = 0.105 m, which keeps
-the same plasma grid and puts 1.09 mm between it and the column.
+the same plasma grid and puts 1.09 mm between it and the column. The outboard
+face had the same defect -- 0.23 mm from the column at R = 0.75977 m, and a
+0.24 mm inward move drops that whole column out of the plasma grid -- and moved
+from 0.760 to 0.761 m on the same rule. No packaged reference slice reaches the
+outboard face (all are inboard-limited), so that one rests on the grid mask,
+not on a reproduced divergence.
 """
 
 from __future__ import annotations
@@ -68,26 +73,17 @@ def test_efit_reads_the_same_limiter_the_machine_description_has():
     np.testing.assert_allclose(lim_z, static_z, rtol=0, atol=1e-9)
 
 
-def test_the_inboard_face_is_the_numerically_chosen_one():
-    """0.105 m is a numerical choice, not a measured tile surface -- see the module docstring."""
+def test_the_radial_faces_are_the_numerically_chosen_ones():
+    """0.105 m and 0.761 m are numerical choices, not measured tile surfaces -- see the module docstring."""
     r, _ = _static_outline()
     assert r.min() == pytest.approx(0.105, abs=1e-12)
+    assert r.max() == pytest.approx(0.761, abs=1e-12)
 
 
 _VERTICAL, _HORIZONTAL = _faces(*_static_outline())
-#: A face the guard has found but that has not been moved yet. strict: moving
-#: it makes the test pass, and XPASS then fails until the entry is removed.
-_KNOWN = {0.76: "outboard face is 0.23 mm from the column at R = 0.759766 m (inside the plasma region)"}
 
 
-@pytest.mark.parametrize(
-    "face",
-    [
-        pytest.param(face, marks=pytest.mark.xfail(strict=True, reason=_KNOWN[face]))
-        if face in _KNOWN else face
-        for face in _VERTICAL
-    ],
-)
+@pytest.mark.parametrize("face", _VERTICAL)
 def test_no_vertical_limiter_face_sits_on_a_grid_column(face):
     columns, _ = _grid()
     assert np.abs(columns - face).min() >= MIN_CLEARANCE_M
