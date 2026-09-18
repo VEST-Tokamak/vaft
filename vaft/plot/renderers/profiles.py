@@ -35,8 +35,12 @@ __all__ = [
     "equilibrium_profile_pprime",
     "equilibrium_profile_pressure",
     "equilibrium_profile_q",
+    "coil_3d_profile_current",
+    "coil_3d_spectrum_current",
     "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_chirikov",
     "mhd_linear_profile_displacement",
+    "mhd_linear_spectrum_b_field_perturbed",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
     "thomson_scattering_profile_fit",
@@ -616,6 +620,50 @@ def mhd_linear_profile_island_width(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+@_profile_renderer(
+    domain="mhd_linear", quantity="chirikov",
+    subject="mhd_linear",
+    description="Island-overlap parameter per rational surface against normalized "
+                "poloidal flux, in GPEC's own surface definition, with the K = 1 "
+                "criterion drawn; derived from the mapped perturbed flux.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_chirikov(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Island overlap per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+_MHD_LINEAR_SPECTRUM_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+)
+
+
+@renderer(
+    domain="mhd_linear", subject="mhd_linear", view="spectrum",
+    quantity="b_field_perturbed", model=Profile1D,
+    description="Perturbed normal flux amplitude against poloidal harmonic at one "
+                "flux surface; the outermost mapped surface unless psi_n names "
+                "another, and the title reports the surface actually drawn.",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_SPECTRUM_PATHS,
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+    ),
+)
+def mhd_linear_spectrum_b_field_perturbed(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Perturbed normal flux spectrum at one flux surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 _NBI_PROFILE_PATHS = (
     "core_sources.source.{i}.identifier.index",
     "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
@@ -678,3 +726,42 @@ def nbi_profile_current_drive(
     """Beam-driven parallel current density."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
+
+_COIL_3D_EXCITATION_PATHS = (
+    "coils_non_axisymmetric.coil.{i}.name",
+    "coils_non_axisymmetric.coil.{i}.current.data",
+    "coils_non_axisymmetric.coil.{i}.conductor.0.elements.start_points.phi",
+)
+
+
+@_profile_renderer(
+    domain="coils_non_axisymmetric", quantity="current",
+    subject="coil_3d",
+    description="Sector currents of each non-axisymmetric coil set against toroidal "
+                "angle: one marker per sector, because that is the whole waveform a "
+                "discrete coil set carries.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_profile_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Non-axisymmetric coil currents against toroidal angle."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="coils_non_axisymmetric", subject="coil_3d", view="spectrum",
+    quantity="current", model=Profile1D,
+    description="Toroidal mode content |C_n| of each non-axisymmetric coil set's "
+                "excitation, to the last harmonic its sectors resolve.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_spectrum_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Toroidal mode content of a non-axisymmetric coil excitation."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
