@@ -149,6 +149,8 @@ CONVENTION_SENSITIVE = frozenset({
     "atomic_inventory_from_molecular_gas",
     "townsend_ionization_coefficient",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
@@ -190,6 +192,8 @@ EMPIRICAL = frozenset({
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
 })
 
 SPECS = catalog.list_formulas()
