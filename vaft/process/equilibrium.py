@@ -5433,7 +5433,8 @@ def integrate_romero_closure(
     -----------
     Linear interpolation of the inputs, so a voltage history sampled more
     coarsely than $\tau$ is smoothed.  The integration stops with an error
-    if the current reaches zero, where $\dot L_i$ is undefined.
+    if the current falls to 0.1 % of its initial value: $\dot L_i \propto
+    1/I_p$ is undefined at a reversal, and the step size collapses before one.
 
     Provenance
     ----------
@@ -5471,23 +5472,27 @@ def integrate_romero_closure(
             current, inductance, relative, np.interp(tt, t, v_b), v_r, k, tau
         )
 
-    def current_crosses_zero(tt, state):
-        return state[0]
+    current_floor = 1e-3 * abs(I_p0)
 
-    # A sign change between solver stages never evaluates exactly zero, so the
-    # rate function's non-zero check alone would let the trajectory run on
-    # through the reversal, where 1/I_p makes dL_i/dt diverge.
-    current_crosses_zero.terminal = True
+    def current_collapses(tt, state):
+        return abs(state[0]) - current_floor
+
+    # dL_i/dt goes as 1/I_p, so near a reversal the step size collapses before
+    # the current is ever sampled at zero; stop at 0.1 % of the initial current
+    # instead, where the trajectory is still resolved.
+    current_collapses.terminal = True
+    current_collapses.direction = -1
 
     scale = np.array([abs(I_p0), L_i0, max(abs(V_CB0), float(np.max(np.abs(v_b))), 1e-3)])
     solution = solve_ivp(
         rates, (t[0], t[-1]), [I_p0, L_i0, V_CB0], t_eval=t,
-        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_crosses_zero,
+        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_collapses,
     )
     if solution.status == 1:
         raise ValueError(
-            f"the plasma current reaches zero at t = {solution.t_events[0][0]:.6g} s; "
-            "L_i is undefined through the reversal -- end the window before it"
+            "the plasma current falls to 0.1 % of its initial value at "
+            f"t = {solution.t_events[0][0]:.6g} s; L_i is undefined through a "
+            "reversal -- end the window before it"
         )
     if not solution.success:
         raise ValueError(f"the closure could not be integrated: {solution.message}")
