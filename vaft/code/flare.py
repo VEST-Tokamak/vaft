@@ -39,7 +39,11 @@ from vaft.process.cocos import (
     identify_flux_exponent,
 )
 
-from ._executables import executable_from_home, missing_home_message
+from ._executables import (
+    ExecutableNotLaunchable,
+    executable_from_home,
+    missing_home_message,
+)
 
 __all__ = [
     "BRZPHI_IMAGINARY_COLUMNS",
@@ -339,7 +343,14 @@ def run_flare(
         ``task`` is not one of FLARE's subcommands, or ``processes`` is not
         positive.
     RuntimeError, FileNotFoundError, PermissionError
-        As :func:`flare_executable`.
+        As :func:`flare_executable`. An explicit ``config.executable`` is not
+        checked beforehand, so for it the last two come from the launch itself.
+    ExecutableNotLaunchable
+        The operating system refused to start the driver for any other reason
+        (a file that is not a program for this platform, say).
+    subprocess.TimeoutExpired
+        The run outlived ``config.timeout``. It is not turned into a failed
+        :class:`FlareResult`: a killed run has no return code to report.
 
     Notes
     -----
@@ -362,8 +373,12 @@ def run_flare(
     if config.processes is not None and int(config.processes) < 1:
         raise ValueError(f"processes must be at least 1, not {config.processes!r}")
 
+    # `~` is expanded here as `flare_executable` expands it for the home: the
+    # path goes to the OS, not through a shell, so nothing else would.
     executable = (
-        Path(config.executable) if config.executable else flare_executable(home)
+        Path(config.executable).expanduser()
+        if config.executable
+        else flare_executable(home)
     )
     command: list[str] = [str(executable)]
     if config.processes is not None:
@@ -373,15 +388,26 @@ def run_flare(
 
     workdir = Path(config.workdir)
     environment = {**os.environ, **{k: str(v) for k, v in config.env.items()}}
-    completed = subprocess.run(
-        command,
-        cwd=str(workdir),
-        env=environment,
-        capture_output=True,
-        text=True,
-        timeout=config.timeout,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(workdir),
+            env=environment,
+            capture_output=True,
+            text=True,
+            # FLARE's and MPI's bytes are a foreign program's. Decoded strictly
+            # at the host locale, one byte outside it raises UnicodeDecodeError
+            # inside subprocess.run after the run has finished, and the result
+            # is lost.
+            encoding="utf-8",
+            errors="replace",
+            timeout=config.timeout,
+            check=False,
+        )
+    except (FileNotFoundError, PermissionError):
+        raise
+    except OSError as error:
+        raise ExecutableNotLaunchable(f"cannot launch {executable}: {error}") from error
     return FlareResult(
         returncode=completed.returncode,
         workdir=workdir,
@@ -479,7 +505,7 @@ def write_helicity_flipped_field(
 
     lines: list[str] = []
     flipped = 0
-    for line in origin.read_text().splitlines():
+    for line in origin.read_text(encoding="utf-8").splitlines():
         tokens = line.split()
         if not _is_brzphi_row(tokens):
             lines.append(line)

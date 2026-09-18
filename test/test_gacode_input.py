@@ -696,3 +696,57 @@ def test_bcentr_is_read_at_the_converted_slice():
 
     profile = prepare_gacode_profile(ods, time_index=1)
     assert abs(profile.bcentr) == pytest.approx(0.25)
+
+
+# --------------------------------------------------------------------------
+# An incompletely written ion (cold review transport F7, F8)
+# --------------------------------------------------------------------------
+
+
+def _first_ion(ods_48224):
+    import copy
+
+    ods = copy.deepcopy(ods_48224)
+    return ods, ods["core_profiles.profiles_1d.0.ion.0"]
+
+
+@requires_sample
+def test_an_ion_without_z_ion_takes_its_nuclear_charge_and_says_so(ods_48224):
+    """It became Z = 1 silently, even with ``element.0.z_n = 6`` beside it."""
+    ods, ion = _first_ion(ods_48224)
+    ion["label"], ion["element.0.z_n"], ion["element.0.a"] = "C", 6.0, 12.011
+    del ion["z_ion"]
+    profile = prepare_gacode_profile(ods, rho_max=0.95)
+    assert profile.z[0] == 6.0
+    assert profile.provenance["z"]["kind"] == "policy_assumption"
+    assert profile.provenance["z"]["species"] == ["C"]
+
+
+@requires_sample
+def test_an_ion_with_no_charge_at_all_is_refused(ods_48224):
+    ods, ion = _first_ion(ods_48224)
+    del ion["z_ion"]
+    del ion["element"]
+    with pytest.raises(ProfileConversionError, match="neither z_ion nor"):
+        prepare_gacode_profile(ods, rho_max=0.95)
+
+
+@requires_sample
+@pytest.mark.parametrize("label, mass", [("H", 1.00784), ("H+", 1.00784), ("D", 2.01410)])
+def test_a_hydrogenic_ion_without_a_mass_takes_its_isotopes(ods_48224, label, mass):
+    """``2 Z`` amu made VEST hydrogen 2.0, i.e. deuterium."""
+    ods, ion = _first_ion(ods_48224)
+    ion["label"] = label
+    del ion["element"]
+    profile = prepare_gacode_profile(ods, rho_max=0.95)
+    assert profile.mass[0] == pytest.approx(mass)
+    assert profile.provenance["mass"]["kind"] == "policy_assumption"
+
+
+@requires_sample
+def test_a_hydrogenic_ion_of_unknown_isotope_is_refused(ods_48224):
+    ods, ion = _first_ion(ods_48224)
+    ion["label"] = "main"
+    del ion["element"]
+    with pytest.raises(ProfileConversionError, match="H, D or T"):
+        prepare_gacode_profile(ods, rho_max=0.95)

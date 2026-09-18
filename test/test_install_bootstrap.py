@@ -10,6 +10,7 @@ These tests keep three promises the student-facing bootstrap makes:
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -27,7 +28,7 @@ CHECKER = INSTALL / "check_vaft_environment.py"
 
 POSIX_SCRIPTS = (
     "linux.sh", "macos.sh", "windows_wsl.sh", "uninstall.sh", "_common.sh",
-    "install_chease.sh", "install_efit.sh", "install_gpec.sh",
+    "_external_code_common.sh", "install_chease.sh", "install_efit.sh", "install_gpec.sh",
 )
 PLATFORM_SCRIPTS = ("linux.sh", "macos.sh", "windows_wsl.sh", "windows_native.ps1")
 # Removal is identical on every POSIX platform, so it needs one entry point,
@@ -124,6 +125,11 @@ def _usable_bash() -> str | None:
 
 BASH = _usable_bash()
 requires_bash = pytest.mark.skipif(BASH is None, reason="no working POSIX bash")
+#: The POSIX installers' sourced helpers are exercised on POSIX. Git Bash on
+#: Windows runs them, but hands back mixed path spellings the assertions cannot
+#: compare; the Windows scripts carry their own ownership model and their own
+#: PowerShell parse tests.
+posix_only = pytest.mark.skipif(os.name == "nt", reason="POSIX installer helpers are checked on POSIX")
 
 
 def _load_checker() -> ModuleType:
@@ -166,6 +172,7 @@ def test_install_directory_is_flat_and_complete():
         *EXTERNAL_CODE_CHECKERS,
         "_common.sh",
         "_external_code_common.ps1",
+        "_external_code_common.sh",
         "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
@@ -2183,17 +2190,17 @@ def test_nubeam_linux_does_not_derive_a_library_dir_from_a_bare_find():
 
 @pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
 def test_posix_external_installers_install_outside_every_checkout(name):
-    """--uninstall removes the prefix wholesale, so it must not be the checkout.
+    """Nothing an installer writes may land inside the VAFT checkout.
 
-    The PowerShell installers enforce this through Resolve-InstallPrefix; the
-    POSIX ones did not, and would happily install into -- and later delete --
-    a directory inside the VAFT working tree.
+    The comparison is made on canonical paths; the behaviour is exercised in
+    test_posix_prefix_is_canonicalised_before_the_checkout_comparison.
     """
     text = _executable_source(INSTALL / name)
     assert "VAFT_ROOT=" in text, f"install/{name} must know where the checkout is"
     assert "must be outside the VAFT checkout" in text
-    # A relative --prefix would otherwise slip past the comparison.
-    assert '[[ "$PREFIX" == /* ]] || PREFIX=' in text
+    # A relative or non-canonical --prefix would otherwise slip past it.
+    assert 'PREFIX="$(vaft_external_canonical_path "$PREFIX")"' in text
+    assert 'vaft_external_is_inside "$PREFIX" "$VAFT_ROOT"' in text
 
 
 def test_efit_checker_resolves_both_layouts_through_the_same_helper():
@@ -2358,3 +2365,670 @@ def test_tokamaker_is_an_optional_extra_not_a_dependency():
     required = text[text.index("dependencies = ["):]
     required = required[: required.index("]")]
     assert "openfusiontoolkit" not in required
+
+
+# ---------------------------------------------------------------------------
+# 0.7.1: cold review `install`
+# ---------------------------------------------------------------------------
+
+_MANIFEST_WRITERS = (
+    INSTALL / "install_chease.sh",
+    INSTALL / "install_gpec.sh",
+    INSTALL / "install_efit.sh",
+    INSTALL / "nubeam" / "linux.sh",
+)
+_PYTHON_HEREDOC = re.compile(r'"\$PYTHON" - [^\n]*<<(\S+)\n(.*?)\nEOF\n', re.S)
+
+
+@pytest.mark.parametrize("path", _MANIFEST_WRITERS, ids=lambda p: p.name)
+def test_manifest_python_never_interpolates_shell_values(path, tmp_path):
+    """Cold review install F20: shell text must not become Python source.
+
+    The record was written by an unquoted heredoc holding
+    `\"\"\"$DIRTY_FILES\"\"\"`. `git status --porcelain` quotes a path with a
+    space in it, so the literal ended in four quotes: a SyntaxError after bin/
+    was installed and before the manifest existed, which --uninstall then
+    refused. Values travel through the environment instead.
+    """
+    text = path.read_text(encoding="utf-8")
+    blocks = _PYTHON_HEREDOC.findall(text)
+    assert blocks, f"{path.name} no longer writes its record through a heredoc"
+    for delimiter, body in blocks:
+        assert delimiter == "'EOF'", f"{path.name}: the Python heredoc must be quoted"
+        assert "$" not in body, f"{path.name}: a shell expansion inside Python source"
+
+    # Run the record writer itself against values that used to break it.
+    delimiter, body = blocks[-1]
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    for name in ("chease", "efit", "efund", "dcon"):
+        (prefix / "bin" / name).write_text("x", encoding="utf-8")
+    hostile = 'a"b \\ $(touch nope) \'c'
+    names = re.findall(r"^\s*VAFT_MANIFEST_([A-Z_]+)=", text, re.M)
+    assert names
+    environment = dict(os.environ)
+    environment.update({f"VAFT_MANIFEST_{name}": hostile for name in names})
+    environment.update(
+        VAFT_MANIFEST_PREFIX=str(prefix),
+        VAFT_MANIFEST_DIRTY_FILES=' M "src-f90/my file.f90"',
+        VAFT_MANIFEST_PROGRAMS_LINE="dcon",
+        VAFT_MANIFEST_NETCDF_ACHIEVED="1",
+        VAFT_MANIFEST_WITH_NETCDF="1",
+        VAFT_MANIFEST_PREFIX_CREATED="1",
+        VAFT_MANIFEST_ACCEPTANCE="passed",
+        VAFT_MANIFEST_NUBEAM_CPP_SOURCE=str(prefix / "bin" / "chease"),
+    )
+    record = tmp_path / "record.json"
+    completed = subprocess.run(
+        [sys.executable, "-", str(record)],
+        input=body, text=True, capture_output=True, env=environment, timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    written = json.loads(record.read_text(encoding="utf-8"))
+    assert written["source"] == hostile
+    if "source_dirty_files" in written:
+        assert written["source_dirty_files"] == [' M "src-f90/my file.f90"']
+
+
+_PREFIX_HELPER = INSTALL / "_external_code_common.sh"
+_PREFIX_HARNESS = r"""
+set -euo pipefail
+IFS=$'\n\t'
+die() { printf 'DIE: %s\n' "$*" >&2; exit 1; }
+note() { printf '%s\n' "$*"; }
+. "$1"; shift
+"$@"
+if [[ -n "${PREFIX_CREATED+x}" ]]; then printf 'PREFIX_CREATED=%s\n' "$PREFIX_CREATED"; fi
+"""
+
+
+def _prefix_helper(*arguments, cwd=None):
+    """Run one function of install/_external_code_common.sh in a subshell.
+
+    The functions touch nothing outside the directory they are handed, so this
+    is the installers' ownership logic executed for real, on a temp tree.
+    """
+    return subprocess.run(
+        [BASH, "-c", _PREFIX_HARNESS, "harness", str(_PREFIX_HELPER), *map(str, arguments)],
+        capture_output=True, text=True, timeout=60, cwd=cwd,
+    )
+
+
+def _write_manifest(prefix: Path, code: str, **extra) -> None:
+    record = {"code": code, "prefix": str(prefix), **extra}
+    (prefix / "vaft-external-install.json").write_text(json.dumps(record), encoding="utf-8")
+
+
+@requires_bash
+def test_posix_uninstall_spares_a_prefix_the_installer_did_not_create(tmp_path):
+    """Cold review install F5: `--prefix ~/.local` must survive `--uninstall`.
+
+    The only guard was "our manifest is in the prefix", which the installer
+    satisfies for any directory by writing it there, and the removal was
+    `rm -rf "$PREFIX"`. This is that scenario with a 0.7.0 manifest: what was
+    installed goes, everything else -- and the directory -- stays.
+    """
+    prefix = tmp_path / "dot-local"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "logs").mkdir()
+    (prefix / "share").mkdir()
+    (prefix / "keep.txt").write_text("mine", encoding="utf-8")
+    (prefix / "bin" / "pip").write_text("mine", encoding="utf-8")
+    (prefix / "bin" / "chease").write_text("theirs", encoding="utf-8")
+    (prefix / "logs" / "chease-build-20260101-000000.log").write_text("log", encoding="utf-8")
+    _write_manifest(
+        prefix, "chease",
+        executables={"chease": {"path": str(prefix / "bin" / "chease")}},
+    )
+    done = _prefix_helper("vaft_external_uninstall_prefix", prefix, "chease", sys.executable)
+    assert done.returncode == 0, done.stderr
+    assert (prefix / "keep.txt").read_text(encoding="utf-8") == "mine"
+    assert (prefix / "bin" / "pip").is_file()
+    assert (prefix / "share").is_dir()
+    assert not (prefix / "bin" / "chease").exists()
+    assert not (prefix / "logs").exists()
+    assert not (prefix / "vaft-external-install.json").exists()
+
+
+@requires_bash
+def test_posix_install_refuses_a_populated_prefix_it_does_not_own(tmp_path):
+    """Cold review install F5, install side: ownership is decided before writing."""
+    prefix = tmp_path / "opt-fusion"
+    prefix.mkdir()
+    (prefix / "keep.txt").write_text("mine", encoding="utf-8")
+    refused = _prefix_helper("vaft_external_claim_prefix", prefix, "gpec", sys.executable)
+    assert refused.returncode == 1
+    assert "not created by this script" in refused.stderr
+    assert sorted(child.name for child in prefix.iterdir()) == ["keep.txt"]
+
+    # A prefix shared between codes: each keeps its record under one name, so
+    # the last install would authorise removing the others.
+    _write_manifest(prefix, "chease")
+    other = _prefix_helper("vaft_external_claim_prefix", prefix, "gpec", sys.executable)
+    assert other.returncode == 1 and "'chease'" in other.stderr
+    wrong = _prefix_helper("vaft_external_uninstall_prefix", prefix, "gpec", sys.executable)
+    assert wrong.returncode == 1
+    assert (prefix / "vaft-external-install.json").is_file()
+
+    # An existing but empty directory is accepted, and is not ours to remove.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    claimed = _prefix_helper("vaft_external_claim_prefix", empty, "gpec", sys.executable)
+    assert claimed.returncode == 0, claimed.stderr
+    assert "PREFIX_CREATED=0" in claimed.stdout
+    assert _prefix_helper("vaft_external_uninstall_prefix", empty, "gpec", sys.executable).returncode == 0
+    assert empty.is_dir() and not any(empty.iterdir())
+
+
+@posix_only
+@requires_bash
+def test_posix_install_and_uninstall_round_trip(tmp_path):
+    """A prefix the installer created is removed, but only once it is empty."""
+    prefix = tmp_path / "source" / "vaft-install"
+    (tmp_path / "source").mkdir()
+    claimed = _prefix_helper("vaft_external_claim_prefix", prefix, "efit", sys.executable)
+    assert claimed.returncode == 0, claimed.stderr
+    assert "PREFIX_CREATED=1" in claimed.stdout
+
+    # A build that failed leaves logs and no manifest; the next run must still
+    # recognise the prefix as its own, and remember that it created it.
+    (prefix / "logs").mkdir()
+    (prefix / "logs" / "efit-build-1.log").write_text("log", encoding="utf-8")
+    again = _prefix_helper("vaft_external_claim_prefix", prefix, "efit", sys.executable)
+    assert again.returncode == 0, again.stderr
+    assert "PREFIX_CREATED=1" in again.stdout
+
+    (prefix / "bin").mkdir()
+    for name in ("efit", "efund"):
+        (prefix / "bin" / name).write_text("x", encoding="utf-8")
+    _write_manifest(prefix, "efit", prefix_created=True, installed_files=["bin/efit", "bin/efund"])
+    (prefix / "notes.txt").write_text("mine", encoding="utf-8")
+    first = _prefix_helper("vaft_external_uninstall_prefix", prefix, "efit", sys.executable)
+    assert first.returncode == 0, first.stderr
+    assert sorted(child.name for child in prefix.iterdir()) == ["notes.txt"]
+
+    (prefix / "notes.txt").unlink()
+    _prefix_helper("vaft_external_claim_prefix", prefix, "efit", sys.executable)
+    second = _prefix_helper("vaft_external_uninstall_prefix", prefix, "efit", sys.executable)
+    assert second.returncode == 0, second.stderr
+    # Re-claimed as an existing empty directory, so no longer this script's.
+    assert prefix.is_dir()
+
+    fresh = tmp_path / "fresh"
+    _prefix_helper("vaft_external_claim_prefix", fresh, "efit", sys.executable)
+    assert _prefix_helper("vaft_external_uninstall_prefix", fresh, "efit", sys.executable).returncode == 0
+    assert not fresh.exists()
+
+
+@posix_only
+@requires_bash
+def test_posix_uninstall_refuses_a_manifest_entry_outside_the_prefix(tmp_path):
+    prefix = tmp_path / "prefix"
+    prefix.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("mine", encoding="utf-8")
+    for entry in ("../victim.txt", str(victim), "bin/../../victim.txt"):
+        _write_manifest(prefix, "chease", installed_files=[entry])
+        done = _prefix_helper("vaft_external_uninstall_prefix", prefix, "chease", sys.executable)
+        assert done.returncode == 1, entry
+        assert victim.is_file()
+
+
+@posix_only
+@requires_bash
+def test_posix_prefix_is_canonicalised_before_the_checkout_comparison(tmp_path):
+    """`/tmp/../<checkout>/x` and a symlink both name a path inside the checkout."""
+    checkout = tmp_path / "vaft"
+    (checkout / "install").mkdir(parents=True)
+    (tmp_path / "elsewhere").mkdir()
+    (tmp_path / "link").symlink_to(checkout)
+    root = _prefix_helper("vaft_external_canonical_path", checkout).stdout.strip()
+    for spelling in (
+        f"{tmp_path}/elsewhere/../vaft/x",
+        f"{tmp_path}/link/x/y",
+        f"{checkout}/./install/new",
+        "vaft/x",
+    ):
+        resolved = _prefix_helper("vaft_external_canonical_path", spelling, cwd=tmp_path)
+        assert resolved.returncode == 0, spelling
+        inside = _prefix_helper("vaft_external_is_inside", resolved.stdout.strip(), root)
+        assert inside.returncode == 0, f"{spelling} -> {resolved.stdout!r} escaped the guard"
+    outside = _prefix_helper("vaft_external_canonical_path", f"{tmp_path}/vaft-install/new")
+    assert _prefix_helper("vaft_external_is_inside", outside.stdout.strip(), root).returncode == 1
+    # A `..` below a directory that does not exist cannot be resolved: refused.
+    assert _prefix_helper("vaft_external_canonical_path", f"{tmp_path}/missing/../vaft/x").returncode == 1
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
+def test_posix_external_installers_never_remove_the_prefix_wholesale(name):
+    text = _executable_source(INSTALL / name)
+    assert 'rm -rf "$PREFIX"' not in text
+    assert f'vaft_external_uninstall_prefix "$PREFIX" {name[len("install_"):-3]} ' in text
+    assert f'vaft_external_claim_prefix "$PREFIX" {name[len("install_"):-3]} ' in text
+    # Claimed before the first thing is written into the prefix.
+    assert text.index("vaft_external_claim_prefix") < text.index('mkdir -p "$PREFIX')
+    assert "rm -rf" not in _executable_source(_PREFIX_HELPER)
+
+
+def test_windows_uninstall_is_driven_by_an_ownership_record():
+    """Cold review install F5, Windows half (read, not run: no pwsh in CI here).
+
+    `-Uninstall -Prefix X` resolved X and removed it recursively with no check
+    of any kind.
+    """
+    shared = _executable_source(INSTALL / "_external_code_common.ps1")
+    removal = shared[shared.index("function Remove-InstallPrefix"):]
+    removal = removal[: removal.index("\nfunction ", 1)]
+    assert "Get-PrefixRecord" in removal
+    assert removal.index("Stop-WithGuidance") < removal.index("Remove-Item")
+    # Never the prefix recursively: only the owned children are.
+    assert "Remove-Item -LiteralPath $Prefix -Recurse" not in removal
+    assert "Remove-Item -LiteralPath $Prefix -Force" in removal
+    resolve = shared[shared.index("function Resolve-InstallPrefix"):]
+    resolve = resolve[: resolve.index("\nfunction ", 1)]
+    assert "was not created by this script" in resolve
+    assert "prefix_created" in resolve
+    for name in EXTERNAL_CODE_WINDOWS_SCRIPTS:
+        text = _executable_source(INSTALL / name)
+        block = text[text.index("if ($Uninstall) {"):]
+        block = block[: block.index("exit 0")]
+        assert "Remove-InstallPrefix -Prefix $resolved -CodeName $CodeName" in block
+        assert "-Recurse" not in block, f"install/{name} still removes the prefix wholesale"
+
+
+@requires_bash
+@pytest.mark.parametrize("name", EXTERNAL_CODE_POSIX_SCRIPTS)
+@pytest.mark.parametrize("checker_status", [0, 1])
+def test_posix_installers_exit_with_the_acceptance_status(name, checker_status, tmp_path):
+    """Cold review install F8: `check_*.py ... || true` made a failed build exit 0.
+
+    The Windows installers end with the checker's status; the POSIX ones threw
+    it away and printed "Point VAFT at this build". This runs the script's own
+    acceptance tail with a stand-in for the interpreter.
+    """
+    text = (INSTALL / name).read_text(encoding="utf-8")
+    assert not re.search(r"check_\w+\.py[^\n]*\|\| true", text)
+    tail = text[text.index("\nACCEPTANCE_STATUS=0\n"):]
+    stub = tmp_path / "python-stub"
+    stub.write_text(f"#!/bin/sh\necho '[checker ran]'\nexit {checker_status}\n", encoding="utf-8")
+    stub.chmod(0o755)
+    preamble = (
+        "set -euo pipefail\nnote() { printf '%s\\n' \"$*\"; }\n"
+        f"PYTHON='{stub}' SCRIPT_DIR=/nonexistent SOURCE=/src PREFIX=/prefix\n"
+        "SKIP_TESTS=0 CTEST_STATUS=passed LOG=/log\n"
+    )
+    done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+    assert "[checker ran]" in done.stdout
+    assert "HOME=/prefix" in done.stdout, "the export hint comes before the verdict"
+    assert done.returncode == checker_status
+    if checker_status:
+        assert "[FAIL]" in done.stderr
+
+
+@requires_bash
+def test_efit_installer_fails_on_a_failed_ctest_and_skip_tests_is_explicit(tmp_path):
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    tail = text[text.index("\nACCEPTANCE_STATUS=0\n"):]
+    stub = tmp_path / "python-stub"
+    stub.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    stub.chmod(0o755)
+    preamble = (
+        "set -euo pipefail\nnote() { :; }\n"
+        f"PYTHON='{stub}' SCRIPT_DIR=/x SOURCE=/src PREFIX=/prefix CTEST_STATUS=failed LOG=/log\n"
+    )
+    done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 1 and "ctest" in done.stderr
+
+    # --skip-tests: CHEASE and GPEC install unverified and say so.
+    for name in ("install_chease.sh", "install_gpec.sh"):
+        body = (INSTALL / name).read_text(encoding="utf-8")
+        tail = body[body.index("\nACCEPTANCE_STATUS=0\n"):]
+        preamble = (
+            "set -euo pipefail\nnote() { printf '%s\\n' \"$*\"; }\n"
+            "PYTHON=/nonexistent SCRIPT_DIR=/x SOURCE=/src PREFIX=/prefix SKIP_TESTS=1\n"
+        )
+        done = subprocess.run([BASH, "-c", preamble + tail], capture_output=True, text=True, timeout=60)
+        assert done.returncode == 0 and "unverified" in done.stdout
+
+
+@posix_only
+@requires_bash
+def test_efit_build_directory_is_absolute_before_it_is_recorded_or_removed(tmp_path):
+    """Cold review install F10: `--build-dir build` was recorded verbatim.
+
+    --uninstall then ran `rm -rf build` relative to wherever it was started.
+    """
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    absolutise = text.index('BUILD_DIR="$(vaft_external_canonical_path "$BUILD_DIR")"')
+    for later in ('if ((UNINSTALL)); then', 'rm -rf "$BUILD_DIR"', 'VAFT_MANIFEST_BUILD_DIR='):
+        assert absolutise < text.index(later)
+    assert 'vaft_external_is_inside "$BUILD_DIR" "$VAFT_ROOT"' in text
+
+    # The uninstall side: a recorded directory is removed only when it proves
+    # to be a CMake tree configured from this source, by absolute path.
+    start = text.index("efit_build_dir_is_ours() {")
+    function = text[start: text.index("\n}\n", start) + 3]
+    source = tmp_path / "efit"
+    ours = tmp_path / "build-ours"
+    other = tmp_path / "build"
+    for directory in (source, ours, other):
+        directory.mkdir()
+    (ours / "CMakeCache.txt").write_text(
+        f"CMAKE_HOME_DIRECTORY:INTERNAL={source}\n", encoding="utf-8"
+    )
+    (other / "CMakeCache.txt").write_text(
+        "CMAKE_HOME_DIRECTORY:INTERNAL=/somewhere/else\n", encoding="utf-8"
+    )
+
+    def judged(directory):
+        script = function + 'efit_build_dir_is_ours "$1" "$2"'
+        return subprocess.run(
+            [BASH, "-c", script, "x", str(directory), str(source)], cwd=tmp_path, timeout=60
+        ).returncode
+
+    assert judged(ours) == 0
+    assert judged(other) == 1, "somebody else's CMake tree"
+    assert judged("build-ours") == 1, "a relative path from a 0.7.0 manifest"
+    assert judged(tmp_path / "missing") == 1
+
+
+def _nubeam_windows_uninstall_block() -> str:
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    block = wrapper[wrapper.index("if ($Uninstall) {"):]
+    return block[: block.index("exit 0")]
+
+
+def test_nubeam_windows_uninstall_checks_the_tree_and_the_manifest_first():
+    """Cold review install F4 (read, not run: there is no pwsh here).
+
+    `windows.ps1 <any path> -Uninstall` removed local\\, build\\windows-x86_64\\
+    and vendor\\ntcc\\ under whatever path it was given: the source-tree
+    assertion ran only on the build path, and no manifest was consulted.
+    """
+    block = _nubeam_windows_uninstall_block()
+    first_removal = block.index("Remove-Item")
+    assert block.index("Assert-SourceCheckout") < first_removal
+    refusal = block.index("Nothing was removed")
+    assert block.index("$ManifestName") < refusal < first_removal
+    # The environment variable is not touched either before ownership is known.
+    assert refusal < block.index("Remove-ExternalCodeEnvironment")
+
+
+def test_nubeam_windows_uninstall_spares_hand_placed_ntcc_sources():
+    """vendor\\ntcc is operator-populated whenever the PPPL download fails.
+
+    The recipe uses such a tree as-is, so only modules it recorded downloading
+    may be removed -- and the directory itself only once it is empty.
+    """
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    generated = re.search(r"\$GeneratedPaths = @\(([^)]*)\)", wrapper)
+    assert generated and "ntcc" not in generated.group(1)
+    block = _nubeam_windows_uninstall_block()
+    assert "'managed_dir'" in block and "/vendor/ntcc/" in block
+    assert "Remove-Item -LiteralPath $target -Force\n" in block  # parents: non-recursive
+    parents = block[block.index("foreach ($relative in @('vendor\\ntcc'"):]
+    assert "-Recurse" not in parents[: parents.index("foreach ($makeLocal")]
+
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert ': > "$MANIFEST"' not in recipe, "an empty manifest records nothing to remove"
+    assert "printf 'root\\t%s\\n' \"$ROOT_DIR\"" in recipe
+    function = recipe[recipe.index("download_ntcc_module() {"):]
+    function = function[: function.index("\n}\n")]
+    already_there = function.index('[[ -d "$destination" ]] && return 0')
+    recorded = function.index("printf 'managed_dir\\t%s\\n' \"$destination\" >> \"$MANIFEST\"")
+    assert already_there < recorded < function.index('cp -R "$candidate"')
+
+
+_ALL_POWERSHELL = (
+    *(INSTALL / name for name in POWERSHELL_SCRIPTS),
+    NUBEAM_DIR / "windows.ps1",
+)
+_POWERSHELL_OPERATORS = {
+    "join", "f", "eq", "ne", "not", "and", "or", "replace", "split", "match",
+    "notmatch", "like", "contains", "notcontains", "gt", "lt", "ge", "le", "in",
+}
+_POWERSHELL_COMMON_PARAMETERS = {"ErrorAction", "Verbose", "WarningAction", "OutVariable"}
+
+
+def _common_powershell_signatures() -> dict[str, set[str]]:
+    text = _executable_source(INSTALL / "_external_code_common.ps1")
+    signatures = {}
+    for match in re.finditer(r"(?m)^function ([A-Za-z0-9-]+) \{", text):
+        body = text[match.end():]
+        following = re.search(r"(?m)^function ", body)
+        body = body[: following.start()] if following else body
+        block = re.search(r"(?s)\bparam\((.*?)\n    \)", body)
+        one_line = re.search(r"\bparam\(([^\n]*)\)", body)
+        declared = (block or one_line).group(1) if (block or one_line) else ""
+        signatures[match.group(1)] = set(re.findall(r"\$(\w+)", declared))
+    return signatures
+
+
+def test_shared_powershell_helpers_are_called_with_parameters_they_declare():
+    """Cold review install F1: a parameter the helper does not have stops the build.
+
+    nubeam\\windows.ps1 called `Write-RevisionResult -SourcePath $source`; the
+    helper declares -Project and -Revision. Under $ErrorActionPreference =
+    'Stop' that binding error ended every real NUBEAM build on Windows.
+    """
+    signatures = _common_powershell_signatures()
+    assert signatures["Write-RevisionResult"] == {"Project", "Revision"}
+    for path in _ALL_POWERSHELL:
+        text = _executable_source(path).replace("`\n", " ")
+        if "_external_code_common.ps1" not in text and path.name != "_external_code_common.ps1":
+            continue  # the VAFT bootstrap has helpers of its own under these names
+        for name, declared in signatures.items():
+            for call in re.finditer(rf"(?m)(?<![\w-]){re.escape(name)}((?: [^\n|]*)?)$|(?<![\w-]){re.escape(name)} ([^\n|]*)\|", text):
+                arguments = call.group(1) or call.group(2) or ""
+                if arguments.lstrip().startswith("{"):
+                    continue  # the definition itself
+                # Message text such as "rerun with -Recreate" is not a parameter.
+                arguments = re.sub(r"'[^']*'|\"[^\"]*\"", "''", arguments)
+                # Nor is what a nested call in parentheses is given.
+                while re.search(r"\([^()]*\)", arguments):
+                    arguments = re.sub(r"\([^()]*\)", "''", arguments)
+                used = set(re.findall(r"(?<=\s)-([A-Za-z]\w*)", arguments))
+                unknown = used - declared - _POWERSHELL_OPERATORS - _POWERSHELL_COMMON_PARAMETERS
+                assert not unknown, f"{path.name}: {name} has no parameter {sorted(unknown)}"
+
+
+def test_nubeam_windows_wrapper_does_not_create_the_directory_its_recipe_refuses():
+    """Cold review install F2: the wrapper's log directory was the recipe's BUILD_DIR.
+
+    windows.sh dies on a build/windows-x86_64 that exists without a manifest,
+    and the wrapper created exactly that for its log before calling it.
+    """
+    recipe = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
+    assert 'BUILD_DIR="$ROOT_DIR/build/windows-x86_64"' in recipe
+    assert 'elif [[ -e "$BUILD_DIR" ]]; then' in recipe
+    wrapper = _executable_source(NUBEAM_DIR / "windows.ps1")
+    assert "$logDirectory = Join-Path $source 'build'\n" in wrapper
+    created = re.findall(r"New-Item -ItemType Directory -Path (\$\w+)", wrapper)
+    assert created == ["$logDirectory"]
+
+
+def test_toolchain_installation_returns_only_the_msys2_root():
+    """Cold review install F7: bare `& winget install` leaked into the return value."""
+    text = _executable_source(INSTALL / "_external_code_common.ps1")
+    body = text[text.index("function Install-Msys2Toolchain {"):]
+    body = body[: body.index("\nfunction ", 1)]
+    for line in body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("& ") or stripped.startswith("Invoke-Msys2 "):
+            assert re.search(r"\| (Out-Host|Out-Null)$", stripped), stripped
+
+
+def test_nubeam_windows_recipe_says_it_is_experimental():
+    assert "EXPERIMENTAL" in (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    readme = (NUBEAM_DIR / "README.md").read_text(encoding="utf-8")
+    assert "Experimental and unverified" in readme
+
+
+def test_nubeam_windows_commands_name_a_path_that_exists():
+    """Cold review install F13: nine references to external\\nubeam, which is gone.
+
+    The recipes moved to install/nubeam; the README, Get-Help, the script's own
+    guidance and its NEXT block still sent the operator to the old path.
+    """
+    for path in (NUBEAM_DIR / "README.md", NUBEAM_DIR / "windows.ps1"):
+        text = path.read_text(encoding="utf-8")
+        assert "external\\nubeam" not in text, path.name
+        for script in re.findall(r"-File ([\w\\]+\.ps1)", text):
+            assert (ROOT / Path(*script.split("\\"))).is_file(), f"{path.name}: {script}"
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    # The harness needs --nubeam-root and refuses any platform but Darwin/Linux.
+    assert "run-local-validation.sh --case" not in wrapper
+
+
+@posix_only
+@requires_bash
+def test_nubeam_macos_derives_the_gcc_major_from_the_selected_gfortran(tmp_path):
+    """Cold review install F3: gcc-15/g++-15 were literals; Homebrew's gcc is 16.
+
+    Every macOS user with a current Homebrew died at "GCC executables were not
+    found" before anything was built.
+    """
+    text = (NUBEAM_DIR / "macos.sh").read_text(encoding="utf-8")
+    assert not re.search(r"(gcc|g\+\+|gfortran)-\d+", _executable_source(NUBEAM_DIR / "macos.sh"))
+    start = text.index("select_homebrew_compilers() {")
+    function = text[start: text.index("\n}\n", start) + 3]
+    keg = tmp_path / "gcc" / "bin"
+    keg.mkdir(parents=True)
+    for name, body in (("gfortran", "echo 16.2.0"), ("gcc-16", ":"), ("g++-16", ":"), ("gcc-15", ":")):
+        (keg / name).write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+        (keg / name).chmod(0o755)
+    script = (
+        "set -euo pipefail\ndie() { printf 'DIE: %s\\n' \"$*\" >&2; exit 1; }\n"
+        + function
+        + 'select_homebrew_compilers "$1"; printf \'%s\\n\' "$FC" "$CC" "$CXX"\n'
+    )
+
+    def select():
+        return subprocess.run(
+            [BASH, "-c", script, "x", str(keg.parent)], capture_output=True, text=True, timeout=60
+        )
+
+    chosen = select()
+    assert chosen.returncode == 0, chosen.stderr
+    assert chosen.stdout.split() == [str(keg / "gfortran"), str(keg / "gcc-16"), str(keg / "g++-16")]
+
+    (keg / "g++-16").unlink()
+    refused = select()
+    assert refused.returncode == 1
+    assert "g++-16" in refused.stderr and "brew reinstall gcc" in refused.stderr
+
+
+def test_chease_installers_and_checker_agree_on_what_a_checkout_is():
+    """Cold review install F6: the Windows installer required a generated file.
+
+    `chease_prog_effxml.f90` is not tracked -- src-f90/Makefile deletes it at
+    parse time and the build rewrites it -- so a fresh clone was rejected on
+    Windows while the POSIX installer and the checker accepted it.
+    """
+    spec = importlib.util.spec_from_file_location("check_chease_markers", INSTALL / "check_chease.py")
+    assert spec is not None and spec.loader is not None
+    sys.path.insert(0, str(INSTALL))
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(INSTALL))
+    expected = list(module.SOURCE_MARKERS)
+
+    posix = _executable_source(INSTALL / "install_chease.sh")
+    listed = re.search(r"for marker in ([^;]+); do", posix)
+    assert listed and listed.group(1).split() == expected
+
+    windows = _executable_source(INSTALL / "install_chease_windows.ps1")
+    declared = re.search(r"-ExpectedFiles @\(([^)]*)\)", windows)
+    assert declared
+    names = [name.replace("\\", "/") for name in re.findall(r"'([^']+)'", declared.group(1))]
+    assert names == expected
+
+
+def _pipefail_shell_scripts():
+    for path in sorted([*INSTALL.glob("*.sh"), *INSTALL.glob("*/*.sh")]):
+        if "pipefail" in path.read_text(encoding="utf-8"):
+            yield path
+
+
+def test_no_pipeline_ends_in_a_quiet_grep_under_pipefail():
+    """Cold review install F9: `ldconfig -p | grep -q` reported libraries missing.
+
+    grep -q exits on its first match; a producer with more to write takes
+    SIGPIPE, the pipeline's status is 141 and, under pipefail, a match reads as
+    no match. gacode/linux.sh then refused to install on a machine that had
+    every library, and nubeam/linux.sh silently linked netlib. The rule is
+    absolute so nobody has to judge which producers are short enough.
+    """
+    scripts = list(_pipefail_shell_scripts())
+    assert INSTALL / "gacode" / "linux.sh" in scripts
+    for path in scripts:
+        for number, line in enumerate(_executable_source(path).splitlines(), 1):
+            assert not re.search(r"\|\s*grep\s+-\w*q", line), f"{path.name}:{number}: {line.strip()}"
+
+
+@requires_bash
+def test_the_here_string_idiom_survives_a_long_listing():
+    """The replacement idiom finds its match in a listing longer than a pipe buffer."""
+    listing = "seq 1 400000"
+    fixed = subprocess.run(
+        [BASH, "-c", f"set -euo pipefail; CACHE=\"$({listing})\"; grep -q '^5$' <<<\"$CACHE\" && echo found || echo missing"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert fixed.stdout.strip() == "found"
+
+
+@requires_bash
+@pytest.mark.parametrize("name", GACODE_RECIPES)
+def test_gacode_recipes_say_so_when_an_option_has_no_value(name):
+    """Cold review install F22: `--gacode-root` as the last argument.
+
+    macos.sh ran `shift 2` with one argument left; under `set -e` that is
+    status 1 and silence. Only the option loop is run here, with the platform
+    work that follows it cut off.
+    """
+    text = (GACODE_DIR / name).read_text(encoding="utf-8")
+    start = text.index("while ")
+    loop = text[start: text.index("\ndone\n", start) + 6]
+    prelude = (
+        "set -euo pipefail\nusage() { :; }\n"
+        "die() { printf '%s\\n' \"$*\" >&2; exit 1; }\n"
+        "GACODE_SOURCE=''; CODES=''; RUN_CHECK=0; PLATFORM_TAG=''\n"
+    )
+    done = subprocess.run(
+        [BASH, "-c", prelude + loop + "echo parsed\n", "x", "--gacode-root"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert done.returncode != 0 and "parsed" not in done.stdout
+    assert "--gacode-root needs a path" in done.stderr
+    fine = subprocess.run(
+        [BASH, "-c", prelude + loop + 'echo "parsed $GACODE_SOURCE"\n', "x", "--gacode-root", "/tree"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert fine.stdout.strip() == "parsed /tree"
+
+
+@pytest.mark.parametrize("name", EXTERNAL_CODE_CHECKERS)
+def test_external_code_checkers_never_use_the_locale_encoding(name):
+    """Cold review install F23: check_efit.py decoded and wrote with the locale.
+
+    On a cp949 Windows, output decoded with errors="replace" carries U+FFFD,
+    which cp949 cannot encode, so writing run_green.out raised
+    UnicodeEncodeError and the checker crashed instead of reporting.
+    """
+    import ast
+
+    tree = ast.parse((INSTALL / name).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        keywords = {keyword.arg for keyword in node.keywords}
+        text_mode = called in {"read_text", "write_text"} or (
+            called in {"run", "check_output", "Popen"}
+            and any(k.arg == "text" and getattr(k.value, "value", False) for k in node.keywords)
+        )
+        if text_mode:
+            assert "encoding" in keywords, f"install/{name}:{node.lineno}: {called}() without encoding="

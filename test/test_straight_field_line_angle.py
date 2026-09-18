@@ -113,6 +113,24 @@ def test_a_surface_traced_the_other_way_gives_the_same_table():
         assert np.all(np.diff(table[0]) > 0.0)
 
 
+def test_a_clockwise_surface_closes_its_period_downwards():
+    """Traced clockwise, the straight-field-line angle DEcreases along the
+    table, so the closing entry sits 2 pi below the first. Closing it with
+    +2 pi made the last interval sweep 4 pi the wrong way (cold review
+    process F1)."""
+    turns = np.linspace(0.0, 1.0, 33)
+    query = np.linspace(0.0, 2.0 * np.pi, 721, endpoint=False)
+    mapped = {}
+    for sign in (+1, -1):
+        theta = sign * 2.0 * np.pi * turns
+        r = (0.4 + 0.2 * np.cos(theta))[:, None]
+        z = (0.2 * np.sin(theta))[:, None]
+        (table,) = straight_field_line_tables(turns, r, z, (0.4, 0.0), jacobian="pest")
+        mapped[sign] = lab_to_straight_field_line(query, table)
+    for sign in (+1, -1):
+        error = np.angle(np.exp(1j * (mapped[sign] - np.mod(sign * query, 2.0 * np.pi))))
+        assert np.max(np.abs(error)) < 1e-9, sign
+
 # --------------------------------------------------------------------------
 # The units trap
 # --------------------------------------------------------------------------

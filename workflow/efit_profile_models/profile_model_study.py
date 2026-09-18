@@ -41,7 +41,6 @@ import importlib.util
 import json
 import math
 import os
-import re
 import shutil
 import sys
 import time as _clock
@@ -59,8 +58,6 @@ SCHEMA = 4
 REPOSITORY = Path(__file__).resolve().parents[2]
 SEED_STUDY = REPOSITORY / "workflow" / "efit_numerics" / "seed_basin.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
-
-_OUTPUT_TIME = re.compile(r"\.(\d{5})(?:_(\d{3}))?$")
 
 
 @dataclass(frozen=True)
@@ -217,10 +214,10 @@ def scientific_for(model: Model):
 
 
 def _output_time_ms(path: Path) -> float | None:
-    match = _OUTPUT_TIME.search(path.name)
-    if match is None:
-        return None
-    return float(int(match.group(1))) + float(int(match.group(2) or 0)) / 1000.0
+    from vaft.code.efit.slice_name import file_name_microseconds
+
+    microseconds = file_name_microseconds(path)
+    return None if microseconds is None else microseconds / 1000.0
 
 
 def _phase_map(constraints: Any, times: np.ndarray, current_cut: float) -> tuple[dict[int, dict[str, Any]], float]:
@@ -453,6 +450,98 @@ def outcome_of(record: Mapping[str, Any], shared: Any) -> str:
     return label
 
 
+_FILE_DIGESTS: dict[tuple[str, int, int], str] = {}
+
+
+def _file_digest(path: Path) -> str | None:
+    """sha256 of a file, ``None`` when it is absent; re-hashed only when it changed."""
+    try:
+        resolved = Path(path).resolve()
+        stat = resolved.stat()
+    except OSError:
+        return None
+    if not resolved.is_file():
+        return None
+    key = (str(resolved), int(stat.st_size), int(stat.st_mtime_ns))
+    if key not in _FILE_DIGESTS:
+        _FILE_DIGESTS[key] = _sha256(resolved)
+    return _FILE_DIGESTS[key]
+
+
+def _flat_items(constraints: Any) -> list[tuple[str, Any]]:
+    # ``flat()`` only walks what exists; indexing an ODS would create paths.
+    flat = constraints.flat() if hasattr(constraints, "flat") else dict(constraints)
+    return sorted((str(key), value) for key, value in flat.items())
+
+
+def constraints_fingerprint(constraints: Any) -> str:
+    """Content hash of the constraint set one run consumes.
+
+    Everything ``prepare_shot`` decides reaches EFIT through this object: the
+    slice grid, the averaging window, the channel decisions, the uncertainty
+    and weighting policy and the table directory (``IN1.TABLE_DIR``).
+    """
+    digest = hashlib.sha256()
+    for key, value in _flat_items(constraints):
+        digest.update(key.encode("utf-8") + b"\0")
+        if isinstance(value, (str, bytes)):
+            digest.update(b"s" + (value if isinstance(value, bytes) else value.encode("utf-8")))
+        else:
+            array = np.asarray(value)
+            if array.dtype.kind in "OUS":
+                digest.update(b"r" + repr(array.tolist()).encode("utf-8"))
+            else:
+                digest.update(f"{array.dtype.str}{array.shape}".encode("utf-8"))
+                digest.update(np.ascontiguousarray(array).tobytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def table_fingerprint(constraints: Any) -> dict[str, dict[str, str | None]]:
+    """Hash of every file in each table directory the constraints name.
+
+    The directory path is already part of ``constraints_fingerprint``; what
+    that cannot see is a table rebuilt in place, which is how the acceptance
+    envelope and a regenerated ``mhdin.dat`` arrive.
+    """
+    directories = sorted(
+        {
+            value
+            for key, value in _flat_items(constraints)
+            if key.rsplit(".", 1)[-1] in ("TABLE_DIR", "INPUT_DIR") and isinstance(value, str)
+        }
+    )
+    record: dict[str, dict[str, str | None]] = {}
+    for directory in directories:
+        root = Path(directory)
+        names = sorted(item.name for item in root.iterdir() if item.is_file()) if root.is_dir() else []
+        record[directory] = {name: _file_digest(root / name) for name in names}
+    return record
+
+
+def run_identity(
+    constraints: Any,
+    *,
+    shot: int,
+    times: np.ndarray,
+    executable: str,
+    phase_by_time: Mapping[int, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Everything besides the scientific configuration that decides a cached payload."""
+    phases = {str(int(key)): dict(value) for key, value in phase_by_time.items()}
+    return {
+        "shot": int(shot),
+        "times": [float(value) for value in np.asarray(times, dtype=float).ravel()],
+        "executable": str(executable),
+        "executable_sha256": _file_digest(Path(executable)),
+        "constraints_sha256": constraints_fingerprint(constraints),
+        "tables": table_fingerprint(constraints),
+        "phase_by_time_sha256": hashlib.sha256(
+            json.dumps(phases, sort_keys=True, default=float).encode("utf-8")
+        ).hexdigest(),
+    }
+
+
 def run_model(
     constraints: Any,
     *,
@@ -473,12 +562,25 @@ def run_model(
         run_efit,
     )
 
+    # The workdir only separates shot and model name.  The slice grid, the
+    # constraint set, the tables, the executable and the phase labels baked
+    # into each slice can all change under the same name, so a cached payload
+    # is reused only when it came from the same ones.  Anything else re-runs,
+    # including a cache that predates this record or cannot be read.
+    identity = run_identity(
+        constraints, shot=shot, times=times, executable=executable, phase_by_time=phase_by_time
+    )
     cache = workdir / "model-result.json"
     if cache.is_file():
-        payload = json.loads(cache.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(cache.read_text(encoding="utf-8"))
+        except ValueError:
+            payload = {}
         if (
-            payload.get("analysis_schema") == SCHEMA
+            isinstance(payload, dict)
+            and payload.get("analysis_schema") == SCHEMA
             and payload.get("scientific_sha256") == scientific.sha256
+            and payload.get("run_identity") == identity
         ):
             return payload
 
@@ -530,6 +632,7 @@ def run_model(
         "scientific": scientific.to_dict(),
         "scientific_sha256": scientific.sha256,
         "resolved_configuration": resolved_efit_configuration(config),
+        "run_identity": identity,
         "seconds": seconds,
         "returncode": result.returncode,
         "status": result.status,
@@ -1526,6 +1629,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
+    # Both destinations exist before the first discharge runs: the per-shot
+    # checkpoint writes the table long before the end of the scan.
+    target = args.table or output / "profile_model_study.json"
+    report_path = args.markdown or output / "profile_model_study.md"
+    for destination in (target, report_path):
+        destination.parent.mkdir(parents=True, exist_ok=True)
     source_tables = Path(args.tables).expanduser() if args.tables else Path(data_path("efit")).resolve()
     if args.packaged_envelope:
         tables, table_record = source_tables, {"source": str(source_tables), "policy": "packaged envelope"}
@@ -1636,14 +1745,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         # caches already make each individual run resumable.
         if not args.keep_arrays:
             drop_sampled_arrays(payload)
-        target = args.table or output / "profile_model_study.json"
         target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
 
-    target = args.table or output / "profile_model_study.json"
-    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     report = markdown(payload)
-    report_path = args.markdown or output / "profile_model_study.md"
     report_path.write_text(report, encoding="utf-8")
     print(report)
     return 0

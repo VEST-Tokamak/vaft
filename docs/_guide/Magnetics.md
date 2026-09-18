@@ -62,6 +62,7 @@ resolve toroidal mode numbers — see [Mirnov and fluctuation diagnostics](#mirn
 
 ## Loading a shot
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -69,7 +70,7 @@ import vaft
 ods = vaft.omas.sample_ods()
 
 # Or pull a shot from the VEST database
-# ods = vaft.database.load_ods(39915, directory="public")
+# ods = vaft.database.load_ods(39915, source="public")
 
 print(len(ods['magnetics.b_field_pol_probe']))   # 64
 print(len(ods['magnetics.flux_loop']))           # 11
@@ -82,6 +83,7 @@ print(len(ods['magnetics.flux_loop']))           # 11
 `vaft.machine_mapping.magnetics` is the only layer that knows about VEST field codes. It mutates the
 ODS in place and returns `None`:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from omas import ODS
 from vaft.machine_mapping.magnetics import magnetics
@@ -94,6 +96,7 @@ Underneath, `magnetics` is `vfit_magnetics_for_shot`, which runs a **dynamic** p
 pass. You can call them separately — `vfit_magnetics_static` needs no shot and no database, so it is
 the cheap way to get probe geometry:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.magnetics import (
     vfit_magnetics_static,    # names, positions, angles from the geometry YAML
@@ -157,6 +160,7 @@ vaft.process.vest_magnetics_time_window(39915)   # the output time base for that
 The window is **shot-dependent**: shots 41446–41451 and shots ≥ 41660 use the late window
 (`6500, 9000, 5000`); everything else uses the default. Build your own config to override it:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 from vaft.machine_mapping.magnetics import magnetics
@@ -177,6 +181,7 @@ loop is `1`, not `0`. Loops 9, 10 and 11 get a different baseline window.
 
 To run the whole batch yourself (this is what `vfit_magnetics_dynamic` calls):
 
+<!-- docs-snippet: skip fragment (placeholder name channels is never defined on the page) -->
 ```python
 time, flux_loops, probes = vaft.process.vest_md_signals(shot, channels, loader)
 ```
@@ -323,11 +328,12 @@ vaft.omas.plot_flux_loop_time_flux(ods, selection='outboard', xunit='ms')
 ![Outboard flux loop of shot #39915]({{ site.baseurl }}/assets/images/magnetics/Outboard_flux_loop.png)
 
 The loop voltage $V_{loop} = -\,d\Psi/dt$ is derived from the same flux data — the
-`inboard_midplane` group ($r = 0.091$ m) is the one you want for the breakdown loop voltage. The
+`inboard_mid` representative loop (the inboard loop nearest the midplane, $r = 0.091$ m) is the one you want for the breakdown loop voltage. The
 packaged shot carries no `flux_loop.<i>.voltage.data`, so this one needs a database shot:
 
+<!-- docs-snippet: skip needs-data (the packaged shot carries no flux_loop voltage.data) -->
 ```python
-vaft.omas.plot_flux_loop_time_voltage(ods, selection='inboard_midplane', yunit='V')
+vaft.omas.plot_flux_loop_time_voltage(ods, selection='inboard_mid', yunit='V')
 ```
 
 ## Plasma current
@@ -377,6 +383,7 @@ ods = vaft.omas.sample_ods()          # shot 39915
 
 To build the same IDS from a raw DAQ dump instead — shot 44740 ships with the package — map it first:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 import os
 os.environ["VAFT_RAW_SAMPLE_PATH"] = "vaft/data/legacy/shot_{shot}.json.gz"
@@ -456,6 +463,7 @@ array a shot has is recorded in the machine description; see
 
 The same kernels are callable without an ODS, on bare arrays:
 
+<!-- docs-snippet: skip fragment (placeholder name signal_a is never defined on the page) -->
 ```python
 import numpy as np
 import vaft

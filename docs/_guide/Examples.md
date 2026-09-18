@@ -49,6 +49,7 @@ The figures below were exported on 2026-08-21 with `MPLBACKEND=Agg` and `VAFT_DO
 
 Start here. This is the shortest path from a fresh install to a shot in memory.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -59,7 +60,7 @@ print(vaft.database.is_connect())
 shots = vaft.database.exist_shot("public")
 
 # Load one shot as an OMAS ODS
-ods = vaft.database.load(39915, directory="public")
+ods = vaft.database.load(39915, source="public")
 ```
 
 `vaft.database.load` is the canonical entry point: it returns an OMAS ODS, and it also accepts an explicit `ids_name=` keyword when you want a native IMAS IDS instead. See [Database]({{ site.baseurl }}/guide/Database/) for the full surface.
@@ -120,6 +121,7 @@ Related reading: [Data structures]({{ site.baseurl }}/guide/Data_structures/) an
 
 The soft X-ray notebook is a good template for "raw file to ODS to plot" in one pass:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 import vaft
 from vaft.machine_mapping.soft_x_rays import soft_x_rays_from_digitizer_csv
@@ -160,6 +162,7 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 
 CHEASE is the most complete code-coupling example in the repository. The `prepare_*` / `run_*` / `collect_*` triple is the pattern every code wrapper in `vaft.code` follows:
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.data import read_geqdsk
 from vaft.data.resources import data_path
@@ -176,6 +179,7 @@ executable = find_chease_executable(config)       # None if CHEASE is not instal
 
 TES shows the same idea starting from a database shot rather than a file:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 from vaft.code import tes
@@ -206,10 +210,11 @@ Both binaries are optional: the notebooks degrade to input generation when the e
 
 The profile notebook is the largest runnable example that stays inside pure VAFT:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
-ods = vaft.database.load(40330, directory="public")
+ods = vaft.database.load(40330, source="public")
 
 vaft.omas.plot_thomson_scattering_geometry_poloidal(ods)
 vaft.omas.plot_thomson_scattering_time_electron_temperature(ods)

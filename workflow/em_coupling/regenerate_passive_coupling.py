@@ -184,7 +184,8 @@ def repair_passive_passive(
         "ratio_max": float(ratio.max()),
         "n_a": int(a.size),
         "n_b": int(b.size),
-        "cross_entries_changed": int(2 * a.size * b.size) if factor != 1.0 else 0,
+        # Only the (b, a) block is assigned; the (a, b) block is the reference.
+        "cross_entries_changed": int(a.size * b.size) if factor != 1.0 else 0,
     }
     return repaired, report
 

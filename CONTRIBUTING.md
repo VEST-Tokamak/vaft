@@ -240,7 +240,17 @@ Three rules:
    pins the core message, the identity narrative, the four framework concepts
    and their order, and every relative link. `test/test_docs_snippets.py` holds
    the site to the same standard for code: every `vaft.*` name a python fence
-   mentions must resolve, and none may be a superseded plot name.
+   mentions must resolve, every call must bind to the current signature, and
+   none may be a superseded plot name. `test/test_docs_snippets_run.py` then
+   **executes** every python fence of the rendered pages and both READMEs,
+   offline, against the packaged sample (`vaft`, `np`, `plt`,
+   `ods = vaft.omas.sample_ods()` and `shot` are predefined; the fences of one
+   page share a namespace). A fence that cannot run like that carries a marker
+   on the line above it, with a class and a reason:
+   `<!-- docs-snippet: skip needs-database (loads shot 39915 from HSDS) -->`.
+   The classes are `needs-database`, `needs-raw-source`, `needs-external-code`,
+   `needs-file`, `needs-data`, `fragment` and `signature`. Write output to
+   relative paths so an executed sample stays inside the scratch directory.
 2. **Do not present planned capability as shipped.** Semantic knowledge graphs,
    machine-actionable provenance, digital-twin integration and autonomous
    research agents are long-term direction. Label them, or the test fails.

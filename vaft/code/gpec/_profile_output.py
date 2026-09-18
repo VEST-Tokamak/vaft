@@ -279,12 +279,21 @@ def read_resonant_table(path: str | Path) -> dict[str, np.ndarray]:
     Opens the dataset and pulls only the variables dimensioned on
     ``psi_n_rational``; xarray loads lazily, so this costs a few kilobytes
     where :func:`read_gpec_profile_output` costs the whole file.
+
+    Raises
+    ------
+    ValueError
+        The file carries no ``n`` global attribute, as the full reader raises
+        for the same file: ``m_rational = n q`` would otherwise come back as
+        zeros that look like data.
     """
     import xarray as xr
 
+    from ._gpec_output import _attr_n_tor
+
     path = Path(path)
     with xr.open_dataset(path) as ds:
-        n_tor = int(np.asarray(ds.attrs["n"]).reshape(-1)[0]) if "n" in ds.attrs else 0
+        n_tor = _attr_n_tor(ds, path)
         table: dict[str, np.ndarray] = {}
         for name in ds.variables:
             variable = ds[name]

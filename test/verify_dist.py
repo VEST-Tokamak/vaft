@@ -23,6 +23,7 @@ _ALLOWED_DATA_FILES = {
     "geometry/camera_visible/pose_39915.json",
     "geometry/camera_visible/pose_47518.json",
     "legacy/sxr_te_ratio_be_al.csv",
+    "legacy/langmuir_probe_positions.csv",
     "samples/39915/manifest.yaml",
     "samples/39915/omas.json.gz",
     "samples/39915/imas.nc",

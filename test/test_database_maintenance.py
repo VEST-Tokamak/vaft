@@ -125,3 +125,152 @@ def test_the_read_only_legacy_source_is_never_repaired():
 
     with pytest.raises(ReadOnlySourceError):
         strip_impa_from_source(39915, source="public")
+
+
+# --------------------------------------------------------------------------- #
+# the rewrite must never leave `main/{shot}` stage-only (cold review data F2)
+# --------------------------------------------------------------------------- #
+
+
+class _FakeRemote:
+    """A shot folder on a fake HSDS: real ``master.h5`` bytes, listed files."""
+
+    def __init__(self, tmp_path, monkeypatch, *, linked, files):
+        import shutil
+
+        import h5py
+
+        from vaft.database import replication
+
+        self.master = tmp_path / "remote-master.h5"
+        self.files = list(files)
+        self.events: list[str] = []
+        with h5py.File(self.master, "w") as handle:
+            for name in linked:
+                handle[name] = h5py.ExternalLink(f"./{name}.h5", name)
+
+        def fetch(source, shot, target):
+            self.events.append("fetch")
+            shutil.copy2(self.master, target)
+            return target
+
+        def hsload(local, uri):
+            self.events.append("hsload master")
+            shutil.copy2(local, self.master)
+
+        monkeypatch.setattr(replication, "_fetch_remote_master", fetch)
+        monkeypatch.setattr(
+            replication,
+            "_require_remote_entries",
+            lambda source, shot: tuple(sorted(self.files + ["master.h5"])),
+        )
+        monkeypatch.setattr(
+            replication, "_remote_entries", replication._require_remote_entries
+        )
+        monkeypatch.setattr("vaft.database.transport.run_hsload", hsload)
+        monkeypatch.setattr(
+            "vaft.database.transport.verify_uploaded_image", lambda *a, **k: None
+        )
+
+    def save(self, ods, shot, *, source=None, finalize_master=None, **kwargs):
+        """What `vaft.database.save` does: a magnetics-only master, sent last."""
+        import shutil
+        import tempfile
+        from pathlib import Path
+
+        import h5py
+
+        self.events.append("save")
+        with tempfile.TemporaryDirectory() as workdir:
+            local = Path(workdir) / "master.h5"
+            with h5py.File(local, "w") as handle:
+                handle["magnetics"] = h5py.ExternalLink("./magnetics.h5", "magnetics")
+            if finalize_master is not None:
+                finalize_master(local)
+            shutil.copy2(local, self.master)
+
+    def links(self):
+        from vaft.database.staging import external_h5_links
+
+        return external_h5_links(self.master)
+
+
+_UNION = ["equilibrium", "magnetics", "pf_active"]
+_UNION_FILES = [f"{name}.h5" for name in _UNION]
+
+
+def test_the_master_is_merged_before_it_lands_so_a_failed_net_costs_nothing(
+    tmp_path, monkeypatch
+):
+    remote = _FakeRemote(tmp_path, monkeypatch, linked=_UNION, files=_UNION_FILES)
+    monkeypatch.setattr("vaft.database.load", lambda shot, **kwargs: _published())
+    monkeypatch.setattr("vaft.database.save", remote.save)
+
+    def net_fails(*args, **kwargs):
+        raise RuntimeError("hsget failed")
+
+    monkeypatch.setattr("vaft.database.replication.merge_remote_master", net_fails)
+
+    with pytest.raises(maintenance.ImpaStripWriteError, match="hsget failed"):
+        strip_impa_from_source(39915, apply=True)
+
+    assert remote.links() == _UNION_FILES
+
+
+def test_the_batch_report_says_when_a_failed_shot_was_already_being_written(
+    tmp_path, monkeypatch
+):
+    remote = _FakeRemote(tmp_path, monkeypatch, linked=_UNION, files=_UNION_FILES)
+    monkeypatch.setattr("vaft.database.load", lambda shot, **kwargs: _published())
+    monkeypatch.setattr("vaft.database.save", remote.save)
+    monkeypatch.setattr(
+        "vaft.database.replication.merge_remote_master",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("hsget failed")),
+    )
+
+    (report,) = maintenance.strip_impa_from_shots([39915], apply=True)
+
+    assert report["applied"] is False and report["write_started"] is True
+
+
+def _stripped() -> ODS:
+    ods = ODS(consistency_check=False)
+    ods["magnetics.b_field_pol_probe.0.identifier"] = "MD_A"
+    return ods
+
+
+def test_a_rerun_repairs_a_master_an_interrupted_run_left_stage_only(
+    tmp_path, monkeypatch
+):
+    remote = _FakeRemote(
+        tmp_path, monkeypatch, linked=["magnetics"], files=_UNION_FILES
+    )
+    monkeypatch.setattr("vaft.database.load", lambda shot, **kwargs: _stripped())
+    monkeypatch.setattr("vaft.database.save", remote.save)
+
+    dry = strip_impa_from_source(39915, apply=False)
+    assert dry["master_unlinked"] == ["equilibrium.h5", "pf_active.h5"]
+    assert dry["master_repaired"] is False
+    assert remote.links() == ["magnetics.h5"]
+
+    report = strip_impa_from_source(39915, apply=True)
+
+    assert report["master_repaired"] is True
+    assert remote.links() == _UNION_FILES
+    assert "save" not in remote.events, "nothing to strip, so no payload rewrite"
+
+    import h5py
+
+    with h5py.File(remote.master, "r") as handle:
+        link = handle.get("equilibrium", getlink=True)
+        assert (link.filename, link.path) == ("./equilibrium.h5", "equilibrium")
+
+
+def test_a_whole_master_is_left_alone_on_a_rerun(tmp_path, monkeypatch):
+    remote = _FakeRemote(tmp_path, monkeypatch, linked=_UNION, files=_UNION_FILES)
+    monkeypatch.setattr("vaft.database.load", lambda shot, **kwargs: _stripped())
+
+    report = strip_impa_from_source(39915, apply=True)
+
+    assert report["master_unlinked"] == [] and report["master_repaired"] is False
+    assert "hsload master" not in remote.events

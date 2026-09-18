@@ -186,6 +186,12 @@ def generate_plasma_state(
         "NUBEAM Plasma State generator",
     )
 
+    # The output file is the only success signal (below), so one left by an
+    # earlier run in the same work directory must not be there to satisfy it:
+    # a generator that fails quietly would otherwise hand back old physics.
+    if inputs.plasma_state is not None:
+        inputs.plasma_state.unlink(missing_ok=True)
+
     completed = _run(
         executable,
         workdir=inputs.workdir,

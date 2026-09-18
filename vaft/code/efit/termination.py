@@ -42,10 +42,18 @@ __all__ = [
     "parse_slices",
 ]
 
-_ITERATION = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*([0-9.E+-]+).*?err=\s*([0-9.E+-]+)")
+# A number as gfortran prints it into a fixed-width field: the usual forms,
+# ``1.234-100`` (a three-digit exponent drops the letter), ``NaN``,
+# ``Infinity`` and a field of stars on overflow. A line carrying one of the
+# last three is still an iteration, so the pattern must not reject it.
+_NUMBER = r"[0-9.EeDd+-]+|[+-]?NaN|[+-]?Inf(?:inity)?|\*+"
+_ITERATION = re.compile(
+    rf"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*({_NUMBER}).*?err=\s*({_NUMBER})"
+)
 _ICONVR = re.compile(r"iconvr=(\d+) satisfied")
 _FAILED = re.compile(r"Failed to reach fit/convergence criteria, shot\s+(\d+)\s+([0-9.]+)")
-_FAILURE = re.compile(r"Failure #(\d+),\s*([^=]*?)(?:=\s*([0-9.E+-]+))?\s*$")
+_FAILURE = re.compile(rf"Failure #(\d+),\s*([^=]*?)(?:=\s*({_NUMBER}))?\s*$")
+_BARE_EXPONENT = re.compile(r"^([+-]?[0-9.]+)([+-][0-9]+)$")
 _SOLVER_ERROR = re.compile(r"ERROR in (\w+) at r=\s*\d+, t=\s*(\d+): (.*)")
 _SOLVER_WARNING = re.compile(r"WARNING in (\w+) at r=\s*\d+, t=\s*(\d+): (.*)")
 
@@ -64,6 +72,18 @@ EFIT_LOG_PATTERNS = {
 #: Grad-Shafranov error has not. Together they are a null solution, not a fit.
 _COLLAPSE_CHI2 = 1.0e-5
 _COLLAPSE_GS_ERROR = 0.1
+
+
+def _fortran_float(token: str) -> float:
+    """A printed Fortran real; NaN for one that carries no value (stars, ``-``)."""
+    text = token.strip().replace("D", "E").replace("d", "e")
+    bare = _BARE_EXPONENT.match(text)
+    if bare:
+        text = f"{bare.group(1)}E{bare.group(2)}"
+    try:
+        return float(text)
+    except ValueError:
+        return float("nan")
 
 
 def parse_slices(text: str) -> list[dict[str, Any]]:
@@ -118,7 +138,11 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
             if current is None:
                 current = start(time_ms)
             current["iterations"].append(
-                {"n": iteration, "chi2": float(found.group(3)), "gs_error": float(found.group(4))}
+                {
+                    "n": iteration,
+                    "chi2": _fortran_float(found.group(3)),
+                    "gs_error": _fortran_float(found.group(4)),
+                }
             )
             continue
         found = _SOLVER_ERROR.search(line)
@@ -158,7 +182,7 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
                 {
                     "code": int(found.group(1)),
                     "criterion": found.group(2).strip().rstrip(",").strip(),
-                    "value": float(found.group(3)) if found.group(3) else None,
+                    "value": _fortran_float(found.group(3)) if found.group(3) else None,
                 }
             )
     if current is not None:

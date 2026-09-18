@@ -327,6 +327,30 @@ def test_p_pa_is_an_accepted_option_of_the_vacuum_map(sample):
     plt.close(figure)
 
 
+@pytest.mark.parametrize("dropped", ["tf.b_field_tor_vacuum_r.time", "tf.time"])
+@pytest.mark.parametrize("field", ["breakdown", "lloyd_margin"])
+def test_the_toroidal_field_is_timed_from_either_tf_time_base(sample, dropped, field):
+    """cold review plot F6: 'breakdown' read only tf.b_field_tor_vacuum_r.time
+    and 'lloyd_margin' only tf.time, so each failed on an input the other drew."""
+    whole = vomas.extract_vacuum_field_midplane(sample, field=field, resolution=COARSE, p_Pa=2.7e-3)
+    partial = copy.deepcopy(sample)
+    assert dropped in partial
+    del partial[dropped]
+    model = vomas.extract_vacuum_field_midplane(partial, field=field, resolution=COARSE, p_Pa=2.7e-3)
+    np.testing.assert_allclose(model.series[0].y, whole.series[0].y)
+    assert dropped not in partial  # and the read did not materialise it
+
+
+@pytest.mark.parametrize("dropped", ["tf.b_field_tor_vacuum_r.time", "tf.time"])
+def test_the_breakdown_map_is_timed_from_either_tf_time_base(sample, dropped):
+    """The 2-D map's own reader of the TF product (cold review plot F6)."""
+    whole = vomas.extract_vacuum_field(sample, field="breakdown", resolution=COARSE)
+    partial = copy.deepcopy(sample)
+    del partial[dropped]
+    model = vomas.extract_vacuum_field(partial, field="breakdown", resolution=COARSE)
+    np.testing.assert_allclose(model.values, whole.values)
+
+
 # ---------------------------------------------------------------------------
 # vacuum field lines over a camera frame
 # ---------------------------------------------------------------------------

@@ -464,8 +464,11 @@ def _generation_from_counts(count_v2: int, count_v3: int) -> Optional[int]:
 
 #: Resolved generation per shot.  Only *answers* are stored, never the outcome
 #: of a failed read: which table holds a shot does not change while the process
-#: runs, but a query that errored has not established anything.
-_GENERATION_CACHE: dict[int, Optional[int]] = {}
+#: runs, but a query that errored has not established anything.  "Neither table
+#: holds it" is not an answer in that sense either -- it is what a shot looks
+#: like before its waveforms are written, and a long-lived notebook or polling
+#: driver that asked too early would otherwise be told so for good.
+_GENERATION_CACHE: dict[int, int] = {}
 
 
 def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
@@ -489,7 +492,8 @@ def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
         for generation, table in _WAVEFORM_TABLES.items()
     }
     generation = _generation_from_counts(counts.get(2, 0), counts.get(3, 0))
-    _GENERATION_CACHE[shot] = generation
+    if generation is not None:
+        _GENERATION_CACHE[shot] = generation
     return generation
 
 

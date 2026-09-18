@@ -144,3 +144,25 @@ def test_a_null_solution_is_named_rather_than_counted_as_a_fit():
 def test_an_empty_log_reads_as_no_slices_rather_than_raising():
     assert parse_slices("") == []
     assert parse_slices("nothing EFIT would ever print\n") == []
+
+
+def test_a_number_python_cannot_read_does_not_lose_the_iteration_or_raise():
+    """cold review efit F7(b): gfortran prints a three-digit exponent without
+    the letter, NaN as ``NaN`` and an overflow as stars. ``float`` raised on
+    the first and the pattern dropped the line for the others, which merged
+    the slice into the one before it."""
+    import math
+
+    from vaft.code.efit import parse_slices
+
+    good = (
+        " r=  0 t=   306 it=  1 chi2= 1.234E+01 zmaxis= 0.0 err= 1.0E-03\n"
+        " r=  0 t=   306 it=  2 chi2= 1.0E+00 zmaxis=0.0 err= 1.0E-05\n"
+    )
+    for token, expected in (("1.234-100", 1.234e-100), ("NaN", None), ("********", None), ("-", None)):
+        line = f" r=  0 t=   307 it=  1 chi2= {token} zmaxis= 0.0 err= 1.0E-03\n"
+        slices = parse_slices(good + line)
+        assert [(item["time_ms"], item["iterations_n"]) for item in slices] == [(306, 2), (307, 1)], token
+        value = slices[1]["chi2_final"]
+        assert value == expected if expected is not None else math.isnan(value), token
+        assert slices[1]["collapsed"] is False

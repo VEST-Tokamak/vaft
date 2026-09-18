@@ -93,6 +93,7 @@ The same module also holds `_SCALING_COEFS`, the private confinement-scaling coe
 
 # Flux, safety factor, shear
 
+<!-- docs-snippet: skip fragment (placeholder name R is never defined on the page) -->
 ```python
 import numpy as np
 import vaft
@@ -117,6 +118,7 @@ $$ q = \frac{d\Phi}{d\psi}, \qquad s = \frac{r}{q}\frac{dq}{dr}, \qquad
 
 Fields and current density from the flux map:
 
+<!-- docs-snippet: skip fragment (placeholder name psi is never defined on the page) -->
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
@@ -134,17 +136,24 @@ a 2-D $(R, Z)$ map.
 ## From an ODS
 
 ```python
+import vaft
+
 ods = vaft.omas.sample_ods()                       # packaged VEST shot
-s   = vaft.omas.compute_magnetic_shear(ods, 0)     # equilibrium.time_slice[0].profiles_1d -> shear
+p1d = ods['equilibrium.time_slice.0.profiles_1d']
+s   = vaft.formula.shear_from_r_q(p1d['rho_tor_norm'], p1d['q'])   # s = (rho/q) dq/drho
 ```
 
-`compute_magnetic_shear(ods, time_slice)` reads the radial coordinate and `q` from
-`equilibrium.time_slice[i].profiles_1d` and calls `magnetic_shear` for you.
+`shear_from_r_q` accepts any monotonic radius label, so the `rho_tor_norm` every equilibrium carries
+is enough. `vaft.omas.compute_magnetic_shear(ods, time_slice)` is the same call with the abscissa
+fixed to `equilibrium.time_slice[i].profiles_1d.r`; that node is not part of the IMAS `profiles_1d`
+and the packaged sample does not carry it, so the wrapper raises a `KeyError` naming the missing
+path unless you have stored a minor-radius array there yourself.
 
 ---
 
 # Geometry and derived scalars
 
+<!-- docs-snippet: skip fragment (placeholder name R_bdry is never defined on the page) -->
 ```python
 V     = vaft.formula.volume_from_RZ_boundary(R_bdry, Z_bdry)              # 2 pi A_poly R_bar
 kappa = vaft.formula.elongation_from_RZ_boundary(R_bdry, Z_bdry)          # kappa = (Zmax-Zmin)/(2a)
@@ -164,6 +173,7 @@ used by the dimensionless-parameter chain.
 
 Energy and resistivity:
 
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 ```python
 W   = vaft.formula.stored_energy_from_p_V(p, V)                # W = p V
 W   = vaft.formula.stored_energy_from_beta_V(beta, B0, V)      # W = beta B0^2 V / (2 mu0)
@@ -183,22 +193,29 @@ ln_lambda = vaft.formula.coulomb_logarithm_from_n_T(n_m3=4e19, T_eV=200.0)   # 3
 
 # Beta, current and power limits
 
+<!-- docs-snippet: skip fragment (placeholder name beta_percent is never defined on the page) -->
 ```python
-beta_N = vaft.formula.beta_N_from_beta_a_B0_Ip(beta, a, B0, I_p)
-beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95)      # beta_p = beta_t q95^2
-beta_t = vaft.formula.beta_tor_from_beta_pol(beta_pol, q_95)
+beta_N = vaft.formula.beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)   # beta [%], I_p [MA]
+beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95, epsilon)   # beta_p = beta_t (q95/eps)^2
+beta_t = vaft.formula.beta_tor_from_beta_pol(beta_pol, q_95, epsilon)   # beta_t = beta_p (eps/q95)^2
 
 I_max  = vaft.formula.current_limit_from_q(q_95, a, B0)           # I_p = 2 pi a^2 B0 / (mu0 q95)
 P_max  = vaft.formula.power_limit_from_beta(beta_N, B0, V)
 P_max  = vaft.formula.power_limit_from_q(q_95, I_p, R0)
 ```
 
-`beta_N_from_beta_a_B0_Ip` evaluates $\beta\, a\, B_0 / I_p$ literally, and its docstring annotates
-`I_p` as [A]. The community definition of $\beta_N$ is quoted in **%·m·T/MA**, so decide which
-convention you are working in and feed the function consistently — it will not rescale for you.
+`beta_N_from_beta_a_B0_Ip` works in the Troyon convention, **%·m·T/MA**: pass $\beta$ **in percent**
+and $I_p$ **in megaamperes** (the parameters are named `beta_percent` and `I_p_MA` for that reason).
+It does not rescale, so a fraction and amperes give $10^{-8}$ times the number you would compare
+with 2.8.
+
+The two $\beta_p \leftrightarrow \beta_t$ conversions are the cylindrical relation
+$\beta_p = \beta_t\,(q_{95}/\varepsilon)^2$ with $\varepsilon = a/R_0$ the inverse aspect ratio, which is
+a required, strictly positive argument (`ValueError` otherwise).
 
 Kink safety factor, with three geometry models:
 
+<!-- docs-snippet: skip fragment (placeholder name R is never defined on the page) -->
 ```python
 q_kink, q_min, beta_max, beta_crit, ip_max = vaft.formula.kink_safety_factor(
     R, a, kappa, Ip, Bt, 'ST')       # 'circular' | 'conventional' | 'ST'
@@ -211,6 +228,7 @@ $$ q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\r
 
 Normalised plasma current (Phys. Plasmas **23**, 072508):
 
+<!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 ```python
 Ip_star = vaft.formula.normalized_plasma_current(Ip, R, a, Bt)   # I_p [A] in, MA/(m T) out
 ```
@@ -240,8 +258,9 @@ accordingly.
 The local and global criteria all return a `(margin, critical_value)` pair, so the sign of the first
 element is the answer:
 
+<!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 ```python
-alpha        = ballooning_alpha_from_p_B_R(p, B, R)          # alpha = -2 mu0 R (dp/dR) / B^2
+alpha        = ballooning_alpha_from_p_B_R(p, B, R, q)       # alpha = -2 mu0 R q^2 (dp/dR) / B^2
 d_alpha, a_c = ballooning_stability_criterion(alpha, s)      # alpha_crit = 0.6 s
 d_beta, b_c  = kink_stability_criterion(q_95, beta_N)        # beta_N_crit = 2.8 q95
 d_bp,   bp_c = sawtooth_stability_criterion(q_0, beta_pol)   # beta_p_crit = 0.3 (1 - q0)
@@ -258,6 +277,7 @@ coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two
 Empirical $(q_a, l_i)$ operational boundary from the JET disruption survey
 (Wesson *et al.*, Nucl. Fusion **29**, 1989):
 
+<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 ```python
 qa_ref, li_ref = vaft.formula.empirical_li_qa()          # 18 surveyed points
 li             = vaft.formula.li_from_qa_empirical(qa)   # piecewise-linear interpolation
@@ -265,6 +285,7 @@ li             = vaft.formula.li_from_qa_empirical(qa)   # piecewise-linear inte
 
 Characteristic speeds and collisionality:
 
+<!-- docs-snippet: skip fragment (placeholder name B is never defined on the page) -->
 ```python
 v_A     = vaft.formula.v_alfven_from_B_n_mi(B, n)            # n in m^-3; m_i defaults to the proton mass
 c_s     = vaft.formula.c_s_from_Te_Ti_mi(T_e_keV, T_i_keV)   # keV in, m/s out
@@ -283,6 +304,7 @@ two density arguments are **not** interchangeable.
 
 The measured confinement time is a one-liner; the fitted one goes through the scaling evaluator:
 
+<!-- docs-snippet: skip fragment (placeholder name P_loss is never defined on the page) -->
 ```python
 tau_exp = vaft.formula.confinement_time_from_P_loss_W_th(P_loss, W_th)   # tau = W_th / P_loss
 
@@ -335,8 +357,13 @@ Things the evaluator does for you, and things it does not:
 
 ## From an ODS
 
+These wrappers need more than the packaged sample holds — `equilibrium...boundary.elongation`, a
+`core_profiles` density profile and the power balance — so run them on a database shot whose
+equilibrium and profile stages are filled:
+
+<!-- docs-snippet: skip needs-database (boundary.elongation, core_profiles and power balance are absent from the packaged sample) -->
 ```python
-ods  = vaft.omas.sample_ods()
+ods  = vaft.database.load(39915, source="public")
 
 eng  = vaft.omas.compute_tau_E_engineering_parameters(ods, 0)   # dict: I_p, B_t, P_loss,
                                                                 # n_e_line_avg, n_e_vol_avg,
@@ -367,7 +394,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 | `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
 | `volume_from_RZ_boundary` | Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid. |
 | `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; $\ln\Lambda$ defaults to 17.0. Use `coulomb_logarithm_from_n_T` for a self-consistent value. |
-| `beta_N_from_beta_a_B0_Ip` | Evaluates $\beta a B_0 / I_p$ literally with `I_p` documented in [A]; the community $\beta_N$ is quoted in %·m·T/MA. Pick a convention and stay in it. |
+| `beta_N_from_beta_a_B0_Ip` | Takes $\beta$ in **percent** and $I_p$ in **MA** and returns %·m·T/MA; a fraction and amperes give $10^{-8}$ times the Troyon number. |
 | `normalized_plasma_current` | `Ip` in [A] on the way in, MA/(m·T) on the way out. |
 | `greenwald_density` / `greenwald_fraction` | $I_p$ in **MA**, and $n_G$ comes back in $10^{19}\ \mathrm{m^{-3}}$. Compare against the **line-averaged** density in the same units. |
 | `kink_stability_criterion` vs `beta_stability_boundary` | Critical-$\beta_N$ coefficients 2.8 and 0.028 — the same Troyon-type relation in two unit conventions. `plasma_stability_margins` lives in the 0.028 one. |

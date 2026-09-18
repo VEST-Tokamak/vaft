@@ -219,6 +219,27 @@ def test_the_legend_policy_gives_way_to_a_count(sample):
     assert figure.layout.showlegend is True
 
 
+def test_each_panel_of_a_composite_keeps_its_own_legend_verdict(sample):
+    """cold review plot G8: layout.showlegend is figure-wide and was set once
+    per panel, so the last member (64 probes, over the count) switched the
+    PF-coil panel's legend off; Matplotlib draws a legend on that panel."""
+    import numpy as np
+
+    figure = vaft.omas.plot_magnetics_overview(sample, backend="plotly")
+    _, axes = vaft.omas.plot_magnetics_overview(sample)
+    with_legend = [i for i, ax in enumerate(np.ravel(axes)) if ax.get_legend() is not None]
+    assert with_legend, "the Matplotlib composite draws at least one panel legend"
+    shown = [t for t in figure.data if t.name and t.showlegend is not False]
+    assert shown and figure.layout.showlegend is True
+    legends = {t.legend for t in shown}
+    assert len(legends) == len(with_legend)
+    # the listed entries are the labelled traces of those panels, no more
+    expected = sum(len(np.ravel(axes)[i].get_legend().get_texts()) for i in with_legend)
+    assert len(shown) == expected
+    # and a crowded panel's traces are out of every legend
+    assert any(t.name and t.showlegend is False for t in figure.data)
+
+
 def test_discovery_advertises_the_backends(sample):
     catalog = vaft.omas.available_plots(sample, detail=True)
     assert catalog.find("plasma_current_time").backends == ("matplotlib", "plotly")

@@ -67,6 +67,7 @@ elements; see `vaft.omas.pf_plasma`) · `equilibrium` (EFIT/CHEASE) · `core_pro
 
 Not every shot carries every IDS. Check before you index:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -239,6 +240,7 @@ classify(vaft.omas.sample_ods())     # -> 'Plasma'
 When you build an ODS yourself (for example from the raw DAQ), populate the metadata with the canonical
 builder rather than by hand:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from omas import ODS
 import vaft
@@ -303,6 +305,7 @@ paths are **category-prefixed**; flat calls such as `data_path("39915.json")` ar
 
 Loading a packaged shot explicitly — this is what `sample_ods()` does under the hood:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 from vaft.database._local import load_ods
 
@@ -555,7 +558,7 @@ equilibrium.ids_properties.homogeneous_time = imas.ids_defs.IDS_TIME_MODE_HOMOGE
 equilibrium.ids_properties.comment = "testing"
 equilibrium.time = [0.01]
 
-with imas.DBEntry("imas:hdf5?path=/tmp/my_entry", "w") as dbentry:
+with imas.DBEntry("imas:hdf5?path=my_entry", "w") as dbentry:
     dbentry.put(equilibrium)
 ```
 
@@ -572,7 +575,7 @@ makes `.nc` the format of choice for shipping a self-contained entry to a collab
 ```python
 import imas
 
-with imas.DBEntry("/tmp/vest_39915.nc", "w") as dbentry:
+with imas.DBEntry("vest_39915.nc", "w") as dbentry:
     dbentry.put(equilibrium)
 ```
 
@@ -593,10 +596,11 @@ save_omas_nc(ods, 'ods_39915.nc')
 The database layer wraps the conversion above: `vaft.database.load_ods` downloads a shot's IMAS images from
 HSDS and hands you an ODS; `vaft.database.save_ods` does the reverse.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
-ods = vaft.database.load(39915)                             # ODS, directory="public"
+ods = vaft.database.load(39915)                             # ODS from the default source, "main"
 ods = vaft.database.load_ods(39915, paths=['magnetics'])    # only one IDS
 ods = vaft.database.load_ods(39915, time=0.325)             # single time slice
 ods_list = vaft.database.load_ods([39915, 41524, 41672])    # list in, list out
@@ -604,6 +608,7 @@ ods_list = vaft.database.load_ods([39915, 41524, 41672])    # list in, list out
 
 If the IMAS images are already on disk — for instance the `entry_dir` you just wrote — skip HSDS entirely:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 ods = vaft.database.load_ods(39915, path=entry_dir)   # directory must contain master.h5
 ```
@@ -611,6 +616,7 @@ ods = vaft.database.load_ods(39915, path=entry_dir)   # directory must contain m
 For native IDS objects instead of an ODS, go through the IDS pair. `vaft.database.load` returns an ODS and
 has no `ids_name` argument; its second positional argument is `source`.
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 equilibrium = vaft.database.ids.load(2, "equilibrium", dd_version="3.41.0")
 # or, for a whole shot as native IMAS: vaft.database.load(2, representation="imas")
@@ -620,6 +626,7 @@ Symmetrically, `vaft.database.save` / `save_ods` take an **ODS only**; a native 
 `vaft.database.ids.save`. Writing to the shared server is admin-restricted, but `env="local"` writes the IMAS
 images to disk and returns the local directory:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 local_dir = vaft.database.save_ods(ods, 39915, env="local")
 ```
@@ -667,6 +674,7 @@ internally, and an ODC is returned). On the first call it derives the origins on
 records them under `summary.code.parameters` — a flat, leaf-only block, which is the shape that survives
 replication ([What survives on `code.parameters`](#what-survives-on-codeparameters)) — with their sources:
 
+<!-- docs-snippet: skip fragment (lists every key the memo can carry; vloop_onset and vloop_onset_reason never coexist) -->
 ```python
 params = odc['0']['summary.code.parameters']
 params['time_convention']         # 'breakdown'
@@ -708,6 +716,7 @@ time-like word.
 Individual onsets are available directly; they are meaningful on a product in the `daq` convention, which is
 why the conversion derives them once:
 
+<!-- docs-snippet: skip needs-data (the packaged shot has no loop-voltage zero crossing, so find_vloop_onset raises) -->
 ```python
 vaft.omas.find_vloop_onset(ods)
 vaft.omas.find_ip_onset(ods)
@@ -751,6 +760,7 @@ single IMAS entry.
 ODS.** Its loop calls `combined_ods.update(ods)` and then `break`s on the first success, so only
 `ods_list[0]` ever lands:
 
+<!-- docs-snippet: skip fragment (placeholder name ods_equilibrium is never defined on the page) -->
 ```python
 merged = vaft.omas.combine_ods([ods_equilibrium, ods_magnetics, ods_wall])
 list(merged.keys())
@@ -763,6 +773,7 @@ is never initialised (`NameError`) and `continue`s to the *next* ODS rather than
 Merge with `ODS.update()` directly instead — that is the primitive `combine_ods` was built on, and in a plain
 loop it does the whole job:
 
+<!-- docs-snippet: skip fragment (placeholder name ods_equilibrium is never defined on the page) -->
 ```python
 from omas import ODS
 
@@ -777,6 +788,7 @@ list(merged.keys())
 If a source ODS carries a coordinate-inconsistent IDS, drop it before the update (the same guard the
 conversion example above uses) rather than relying on `combine_ods` to recover:
 
+<!-- docs-snippet: skip fragment (placeholder name one is never defined on the page) -->
 ```python
 for drop_ids in ['em_coupling', 'magnetics']:
     if drop_ids in one:

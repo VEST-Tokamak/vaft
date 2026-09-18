@@ -301,6 +301,22 @@ def test_the_atom_inventory_is_an_argument_not_a_species_guess():
     ) == pytest.approx(molecular)
 
 
+def test_the_gas_inventory_refuses_a_nan_and_its_docstring_says_so():
+    """Both documented "nan passes through" and raised (cold review formula F2).
+
+    The module's rule is that only a masked *map* is blank-tolerant; a gauge
+    pressure is physically total, so the strict guard stands and the docstring
+    now states it.
+    """
+    with pytest.raises(ValueError, match="finite and positive"):
+        neutral_density_from_pressure(np.array([1e-2, np.nan, 2e-2]))
+    with pytest.raises(ValueError, match="finite and positive"):
+        atomic_inventory_from_molecular_gas(np.array([1e18, np.nan]))
+    for function in (neutral_density_from_pressure, atomic_inventory_from_molecular_gas):
+        assert "passes" not in function.__doc__
+        assert "``nan`` included" in function.__doc__
+
+
 # ---------------------------------------------------------------------------
 # Scalar in, scalar out
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
 from omas import ODS
 
@@ -83,13 +84,44 @@ def test_angles_are_radians_not_degrees(ods):
     assert ods[f"{GROUP}.position.phi"] < 2 * math.pi
 
 
-def test_the_source_sits_at_the_2_oclock_port(ods):
-    """2MR is 300 deg in IMAS phi, not the 60 deg of its clock angle.
+def test_the_position_is_the_source_not_the_port(ods):
+    """IMAS ``beamlets_group.position`` is the beamlet-group (source) centre.
 
-    Was 0.0 before issue #718 -- NUBEAM's own frame origin, carried into an
-    IMAS field as if it were a VEST location.
+    The port, 2MR at 300 deg, is where the beam line crosses the vessel; it was
+    written as ``position.phi`` with no ``position.r`` at all (cold review
+    machine-mapping F4).  The source lies upstream of it on the same line.
     """
-    assert ods[f"{GROUP}.position.phi"] == pytest.approx(math.radians(300.0))
+    r = ods[f"{GROUP}.position.r"]
+    phi = ods[f"{GROUP}.position.phi"]
+    tangency = ods[f"{GROUP}.tangency_radius"]
+    assert r == pytest.approx(math.hypot(2.625867, 0.22129))
+    # Upstream of a clockwise beam is larger phi: 300 deg + 11.3 deg.
+    assert math.degrees(phi) == pytest.approx(311.3, abs=0.1)
+
+    # The line from the source along the injection sense must pass the machine
+    # axis at the tangency radius and cross R = 0.8 m at the port.
+    source = np.array([r * math.cos(phi), r * math.sin(phi)])
+    # unit vector toward the tangency point: clockwise (direction -1) from above
+    angle_to_tangency = phi + ods[f"{GROUP}.direction"] * math.atan2(2.625867, tangency)
+    foot = tangency * np.array([math.cos(angle_to_tangency), math.sin(angle_to_tangency)])
+    along = (foot - source) / np.linalg.norm(foot - source)
+    assert np.linalg.norm(foot - source) == pytest.approx(2.625867)
+    assert float(np.dot(along, foot)) == pytest.approx(0.0, abs=1e-9)
+    crossing = foot - math.sqrt(0.8**2 - tangency**2) * along
+    assert np.linalg.norm(crossing) == pytest.approx(0.8)
+    assert math.degrees(math.atan2(crossing[1], crossing[0])) % 360.0 == pytest.approx(300.0)
+
+
+def test_a_source_that_cannot_be_placed_is_reported_not_put_at_the_port(monkeypatch):
+    import vaft.machine_mapping.nbi as module
+
+    document = module.load_yaml(module.package_data_path("vest.yaml"))
+    del document[0]["nbi"]["unit"][0]["source"]["port_radius"]
+    monkeypatch.setattr(module, "load_yaml", lambda _path: document)
+    out = ODS()
+    report = nbi(out)
+    assert not any(key.endswith(("position.phi", "position.r")) for key in out.flat())
+    assert "position.r and position.phi" in " ".join(report["absent"])
 
 
 def test_the_beam_still_runs_in_the_negative_toroidal_direction(ods):

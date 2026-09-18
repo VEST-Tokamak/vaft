@@ -1042,6 +1042,22 @@ def _normalize_shot_key(source: Any) -> str:
         return str(source)
 
 
+def _shot_block(content: Mapping[Any, Any], shot: Any) -> Any:
+    """The shot-keyed override block of a loaded mapping, or ``None``.
+
+    ``yaml.safe_load`` keeps an unquoted ``39915:`` key as an ``int`` and a
+    quoted one as a ``str``, and vest.yaml's own shot blocks are unquoted, so
+    a lookup by the string :func:`_normalize_shot_key` returns alone never
+    finds them.  Both spellings are tried, the file's own first.
+    """
+    try:
+        number = int(shot)
+    except (TypeError, ValueError):
+        return content.get(_normalize_shot_key(shot))
+    block = content.get(number)
+    return block if block is not None else content.get(str(number))
+
+
 def raw_database_info(file: str, shot: int, key: str) -> Dict[str, Dict[str, Any]]:
     """
     Return channel metadata for a system key from a YAML source.
@@ -1053,9 +1069,8 @@ def raw_database_info(file: str, shot: int, key: str) -> Dict[str, Dict[str, Any
     info_file = _resolve_info_file_path(file)
     content = load_yaml(info_file)
 
-    shot_key = _normalize_shot_key(shot)
     default_block = content.get("0") or content.get(0) or content.get("static") or {}
-    shot_block = content.get(shot_key, {})
+    shot_block = _shot_block(content, shot) or {}
     merged_block = _deep_merge(default_block, shot_block)
 
     key_block = merged_block.get(key, {})
@@ -1141,10 +1156,15 @@ def get_diagnostic_info(
     info = load_yaml(info_file)
 
     if source_type == "shot":
-        shot_key = _normalize_shot_key(source)
-        shot_block = info.get(shot_key)
+        shot_block = _shot_block(info, source)
         default_block = info.get("0") or info.get(0) or info.get("static") or info
-        block = shot_block or default_block
+        # A shot block is a sparse override (vest.yaml's carry `pf_active`
+        # gains only), so it answers only for what it holds; everything else
+        # is still the default block's.
+        if isinstance(shot_block, Mapping) and diagnostic_type in shot_block:
+            block = shot_block
+        else:
+            block = default_block
     else:
         block = info
 
@@ -1169,8 +1189,15 @@ def get_static_info(
     def pick_block() -> Dict[str, Any]:
         if source_type != "shot":
             return info
-        shot_key = _normalize_shot_key(source)
-        return info.get(shot_key) or info.get("0") or info.get(0) or info
+        shot_block = _shot_block(info, source)
+        # A sparse shot override answers only for what it holds (see
+        # get_diagnostic_info); otherwise the default block does.
+        if isinstance(shot_block, Mapping) and (
+            diagnostic_type in shot_block
+            or diagnostic_type in (shot_block.get("static") or {})
+        ):
+            return shot_block
+        return info.get("0") or info.get(0) or info
 
     block = pick_block()
 
