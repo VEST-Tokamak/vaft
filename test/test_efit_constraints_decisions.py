@@ -193,3 +193,12 @@ def test_the_applier_invents_no_constraint(monkeypatch, times):
     EQ = _build(monkeypatch, ods, times, decisions=decisions)
     assert "time_slice.0.constraints.flux_loop.40" not in EQ
     assert len(EQ["time_slice.0.constraints.flux_loop"]) == 11
+
+
+def test_decisions_made_on_another_time_grid_are_refused(monkeypatch, times):
+    """cold review efit F4: decisions were paired to slices by position and
+    ``decisions.times`` was never compared with the slices they were applied to."""
+    ods = vaft.omas.sample_ods()
+    shifted = decide_efit_channels(ods, times + 1.0e-3, nbprobe=efit_probe_count(ods), manual_rejections=MANUAL)
+    with pytest.raises(ValueError, match="other times than the constraint slices"):
+        _build(monkeypatch, ods, times, decisions=shifted)

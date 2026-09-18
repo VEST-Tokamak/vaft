@@ -667,3 +667,120 @@ def test_the_report_renders_from_the_committed_table(study, table):
     assert "## Which way the fit moved" in text
     for shot in table["shots"]:
         assert f"| {shot} |" in text
+
+
+def test_a_cached_model_result_is_reused_only_for_the_run_that_produced_it(study, tmp_path, monkeypatch):
+    """cold review efit-workflows F2: the cache compared the schema and the
+    scientific hash only, so new times, constraints, tables, executable or
+    phase labels under the same workdir returned the old slices."""
+    import types
+
+    import numpy as np
+
+    import vaft.code.efit.magnetic as magnetic
+
+    calls = []
+
+    def fake_run(inputs, config):
+        calls.append(config)
+        return types.SimpleNamespace(stdout="", returncode=0, status="completed")
+
+    monkeypatch.setattr(magnetic, "prepare_efit_inputs", lambda constraints, config: None)
+    monkeypatch.setattr(magnetic, "run_efit", fake_run)
+
+    tables = tmp_path / "tables"
+    tables.mkdir()
+    (tables / "mhdin.dat").write_text("envelope A", encoding="utf-8")
+    executable = tmp_path / "efit"
+    executable.write_text("build A", encoding="utf-8")
+    constraints = {
+        "equilibrium.time": np.array([0.300, 0.301]),
+        "equilibrium.code.parameters.time_slice.0.IN1.TABLE_DIR": f"{tables}/",
+    }
+    arguments = dict(
+        shot=39915,
+        times=np.array([0.300, 0.301]),
+        workdir=tmp_path / "shot_39915" / "baseline",
+        executable=str(executable),
+        scientific=study.fixed_scientific_config(),
+        baseline_module=types.SimpleNamespace(parse_slices=lambda text: []),
+        seed_module=types.SimpleNamespace(outcome=lambda record: "no_output"),
+        phase_by_time={300: {"current": 1.0e5, "dcurrent_dt": 0.0, "phase": "flat"}},
+    )
+
+    first = study.run_model(constraints, **arguments)
+    assert len(calls) == 1
+    assert study.run_model(constraints, **arguments) == first
+    assert len(calls) == 1, "an identical request is served from the cache"
+
+    def reruns(constraints=constraints, **changed):
+        before = len(calls)
+        payload = study.run_model(constraints, **{**arguments, **changed})
+        return len(calls) == before + 1, payload
+
+    ran, payload = reruns(times=np.array([0.300, 0.3005, 0.301]))
+    assert ran and payload["requested_slices"] == 3
+    assert reruns(times=arguments["times"])[0], "the 3-slice cache must not serve the 2-slice request"
+    assert not reruns()[0]
+
+    assert reruns(constraints={**constraints, "equilibrium.time": np.array([0.300, 0.302])})[0]
+    assert reruns()[0]
+    (tables / "mhdin.dat").write_text("envelope B, rebuilt in place", encoding="utf-8")
+    assert reruns()[0]
+    executable.write_text("build B at the same path", encoding="utf-8")
+    assert reruns()[0]
+    assert reruns(phase_by_time={300: {"current": 1.0e5, "dcurrent_dt": 0.0, "phase": "ramp_up"}})[0]
+    assert reruns(shot=41672)[0]
+
+    # A cache written before the identity existed re-runs instead of raising.
+    cache = arguments["workdir"] / "model-result.json"
+    legacy = json.loads(cache.read_text(encoding="utf-8"))
+    del legacy["run_identity"]
+    cache.write_text(json.dumps(legacy), encoding="utf-8")
+    assert reruns(shot=41672)[0]
+    cache.write_text("{truncated", encoding="utf-8")
+    assert reruns(shot=41672)[0]
+
+
+def test_the_per_shot_checkpoint_can_be_written_into_a_directory_that_does_not_exist_yet(
+    study, tmp_path, monkeypatch
+):
+    """cold review efit-workflows F8: the checkpoint inside the shot loop wrote
+    ``--table`` before the only ``mkdir``, which came after the loop, so a whole
+    discharge's model matrix ran and then ``FileNotFoundError``."""
+    import types
+
+    import numpy as np
+
+    import vaft.code.efit.toolchain as toolchain
+
+    monkeypatch.setattr(toolchain, "resolve_toolchain", lambda: {"efit": "/nowhere/efit"})
+    monkeypatch.setattr(toolchain, "toolchain_identities", lambda resolved: {})
+    window = types.SimpleNamespace(start=0.300, end=0.301)
+    seed = types.SimpleNamespace(
+        prepare_shot=lambda shot, product, **kwargs: ({}, np.array([0.300, 0.301]), window, None)
+    )
+    monkeypatch.setattr(study, "_module", lambda path, name: seed)
+    monkeypatch.setattr(study, "_phase_map", lambda constraints, times, cut: ({}, 0.0))
+    monkeypatch.setattr(study, "run_model", lambda constraints, **kwargs: {"slices": [], "seconds": 0.0})
+    monkeypatch.setattr(
+        study, "summarize_run", lambda run: {"produced": 0, "requested": 2, "outcomes": {}, "seconds": 0.0}
+    )
+    monkeypatch.setattr(study, "summarize_ensemble", lambda models: {})
+    monkeypatch.setattr(study, "markdown", lambda payload: "report")
+
+    table = tmp_path / "new" / "tables" / "study.json"
+    report = tmp_path / "new" / "reports" / "study.md"
+    code = study.main(
+        [
+            "--output", str(tmp_path / "out"),
+            "--shots", "39915",
+            "--models", study.BASELINE_MODEL,
+            "--packaged-envelope",
+            "--table", str(table),
+            "--markdown", str(report),
+        ]
+    )
+    assert code == 0
+    assert "39915" in json.loads(table.read_text(encoding="utf-8"))["shots"]
+    assert report.read_text(encoding="utf-8") == "report"

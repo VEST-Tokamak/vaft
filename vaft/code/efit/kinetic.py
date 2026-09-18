@@ -71,6 +71,7 @@ from .magnetic import (
     _efit_unconfigured_reason,
 )
 from .kfile import generate_kfile
+from .slice_name import encode_time_suffix, file_name_microseconds
 
 # --------------------------------------------------------------------------- #
 # Physical / formatting constants (lifted from the ids_test scripts)
@@ -899,11 +900,12 @@ def _select_kfile(kfiles: Sequence[Path], time_ms: Optional[float]) -> Optional[
         return kfiles[0]
     best, best_d = kfiles[0], float("inf")
     for k in kfiles:
-        suffix = Path(k).name.split(".")[-1]
-        try:
-            t = float(suffix)
-        except ValueError:
+        # float("00306_320") is 306320.0 (underscores are digit separators),
+        # so a sub-millisecond name must go through the shared decoder.
+        microseconds = file_name_microseconds(k)
+        if microseconds is None:
             continue
+        t = microseconds / 1000.0
         d = abs(t - time_ms)
         if d < best_d:
             best_d, best = d, k
@@ -1009,7 +1011,8 @@ def run_kinetic_efit(
     if inputs.kfiles:
         kname = Path(inputs.kfiles[0]).name
     elif config.shot is not None and config.time_ms is not None:
-        kname = f"k0{config.shot}.{int(round(config.time_ms)):05d}"
+        # No ITIMEU is written on this path, so the name stays on the millisecond.
+        kname = f"k0{config.shot}.{encode_time_suffix(int(round(config.time_ms)) * 1000)}"
     else:
         kname = "kfile.in"
 

@@ -53,6 +53,14 @@ counted separately: EFIT does not attempt them.
 | dt1ms_w0.2ms | 1.00 | 0.20 | 25 | 15 | 5 | 0 | 5 | 11 | 0.0088 | 87 | 0.43 |
 | dt1ms_w0.1ms | 1.00 | 0.10 | 25 | 15 | 5 | 0 | 5 | 11 | 0.0088 | 87 | 0.39 |
 
+The 50 kA level in this table is not EFIT's cut. When this pass was run the
+script counted "below cut" with a hard-coded, signed `Ip < 50000`, while the
+k-files it wrote carried `CUTIP = 15000` applied to `|Ip|`
+(`EFITScientificConfig().initialization.current_threshold`). Slices between
+15 and 50 kA were therefore attempted by EFIT and are failures, not excused
+vacuum slices. The script now counts against the configured cut on `|Ip|` and
+records it as `current_cut`; the numbers above have not been regenerated.
+
 (`study_39915_first_pass.md` is the script's own table for the same run; its
 "converged" column counts `jflag = 1` over all slices including the below-cut
 ones, which is why it shows 1–6 there.)

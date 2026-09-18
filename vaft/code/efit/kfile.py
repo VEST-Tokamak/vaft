@@ -36,6 +36,7 @@ from vaft.validation.efit_channels import condemned_channels, decide_efit_channe
 from vaft.validation.magnetics import unusable_channels_at
 
 from .efund import table_machine_era
+from .slice_name import encode_time_suffix, time_to_microseconds
 from .magnetic import EFITConfig
 from .config import EFITScientificConfig, EFITProfileConfig
 
@@ -619,6 +620,19 @@ def generate_constraints_ods(
             recovery = partial(
                 gaussian_probe_recovery, mode=int(fit), families=families, uncertainty="legacy"
             )
+    # Recovery and the applier index ``time_slice.{i}`` with the decisions'
+    # own position, so decisions made on another grid would be applied to the
+    # wrong slices without a sound.  Match by time, to the microsecond the
+    # k-file name resolves.
+    decision_times = np.asarray(decisions.times, dtype=float).ravel()
+    slice_times = np.asarray(EQ["time"], dtype=float).ravel()
+    if decision_times.shape != slice_times.shape or not np.allclose(
+        decision_times, slice_times, rtol=0.0, atol=0.5e-6
+    ):
+        raise ValueError(
+            "channel decisions were made for other times than the constraint slices: "
+            f"decisions.times={decision_times.tolist()} vs equilibrium.time={slice_times.tolist()}"
+        )
     if recovery is not None:
         decisions = recovery(EQ, decisions)
     apply_channel_decisions(
@@ -1043,10 +1057,8 @@ def generate_kfile(
         # exact microsecond remainder when there is one (0.3051 -> 00305_100,
         # 0.30632 -> 00306_320).  The remainder used to be truncated to 0.1 ms,
         # so slices closer than that collided and never matched their a-file.
-        slice_us = int(round(time[time_idx] * 1.0e6))
-        filename = f"k0{shotnumber}.{slice_us // 1000:05d}"
-        if slice_us % 1000:
-            filename = f"{filename}_{slice_us % 1000:03d}"
+        slice_us = time_to_microseconds(time[time_idx])
+        filename = f"k0{shotnumber}.{encode_time_suffix(slice_us)}"
 
         # Write the kfile
         #        filename=f'k0{shotnumber}.00{time[time_idx]*1e+5:.0f}'
