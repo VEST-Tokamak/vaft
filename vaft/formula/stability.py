@@ -48,6 +48,9 @@ __all__ = [
     "empirical_li_qa",
     "greenwald_density",
     "greenwald_fraction",
+    "helical_phase",
+    "island_pendulum_hamiltonian",
+    "island_separatrix_half_width",
     "island_width_from_resonant_flux",
     "kink_stability_criterion",
     "li_from_qa_empirical",
@@ -1064,3 +1067,194 @@ def resonant_flux_from_delta(delta, geometric_factor, n_tor: int):
     if int(n_tor) <= 0:
         raise ValueError(f"n_tor must be a positive mode number, not {n_tor!r}")
     return -np.asarray(geometric_factor) * np.asarray(delta) / float(n_tor)
+
+
+# ------------------------------------------------------------------
+# Local magnetic-island topology
+# ------------------------------------------------------------------
+
+
+def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
+    r"""Helical phase of an $m/n$ perturbation at a point on a flux surface.
+
+    $$\xi = m\,\theta - n\,\phi - \phi_0$$
+
+    Parameters
+    ----------
+    theta : float or np.ndarray
+        Poloidal angle [rad].
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    m_pol : int
+        Poloidal mode number [-].
+    n_tor : int
+        Toroidal mode number [-].
+    phase : float or np.ndarray
+        Phase offset $\phi_0$ of the perturbation [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        Helical phase $\xi$, not wrapped [rad].
+
+    Raises
+    ------
+    ValueError
+        ``m_pol`` or ``n_tor`` is not a positive mode number.
+
+    Convention
+    ----------
+    $\theta$ is a straight-field-line poloidal angle (see
+    ``vaft.formula.equilibrium.straight_field_line_angle``), increasing from
+    the outboard midplane towards the top of the cross-section, and $\phi$
+    increases counter-clockwise seen from above, so a field line of
+    $q = m/n$ keeps $\xi$ constant. In a geometric poloidal angle it does
+    not, even on circular surfaces. Both mode numbers are
+    positive and the sign of the helicity sits in the minus sign; a
+    perturbation of the opposite helicity is $n \to -n$ in this expression,
+    not a negative argument. The IMAS toroidal angle runs the other way on
+    VEST (see ``vaft.machine_mapping`` port geometry), which flips the sign
+    of a measured $n$ but not this definition.
+
+    Physical interpretation
+    -----------------------
+    The one coordinate a single-helicity perturbation depends on: every point
+    with the same $\xi$ on the resonant surface sees the same perturbed field.
+    O-points sit at $\xi = 0$ and X-points at $\xi = \pi$ (see
+    ``island_pendulum_hamiltonian``), so a fixed-$\phi$ section shows $m$ of
+    each and a fixed-$\theta$ trace shows $n$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.2.
+    .. [2] R. Fitzpatrick, *Plasma Physics: An Introduction*, CRC Press
+           (2014), Ch. 7 (magnetic islands).
+    """
+    if int(m_pol) <= 0 or int(m_pol) != m_pol:
+        raise ValueError(f"m_pol must be a positive mode number, not {m_pol!r}")
+    if int(n_tor) <= 0 or int(n_tor) != n_tor:
+        raise ValueError(f"n_tor must be a positive mode number, not {n_tor!r}")
+    return (int(m_pol) * np.asarray(theta, dtype=float)
+            - int(n_tor) * np.asarray(phi, dtype=float)
+            - np.asarray(phase, dtype=float))
+
+
+def island_pendulum_hamiltonian(x, xi, width):
+    r"""Local flux function of a constant-$\psi$ magnetic island.
+
+    $$H(x, \xi) = \tfrac{1}{2}x^{2} - \left(\frac{w}{4}\right)^{2}\cos\xi$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Radial distance from the rational surface, $r - r_s$ [L].
+    xi : float or np.ndarray
+        Helical phase, as ``helical_phase`` returns it [rad].
+    width : float
+        Full island width at the O-point [L].
+
+    Returns
+    -------
+    float or np.ndarray
+        Helical flux function, in the square of the unit of ``x`` [L^2].
+
+    Raises
+    ------
+    ValueError
+        ``width`` is not positive.
+
+    Convention
+    ----------
+    Normalised so that ``width`` is the **full** radial width at the O-point
+    and the separatrix is the level $H = (w/4)^{2}$. The minimum
+    $H = -(w/4)^{2}$ at $x = 0$, $\xi = 0$ is the O-point; the saddle at
+    $x = 0$, $\xi = \pi$ is the X-point. $x$ and $w$ share one length unit,
+    which the function never converts.
+
+    Physical interpretation
+    -----------------------
+    The helical flux a single resonant harmonic leaves near its rational
+    surface: a linear shear of the helical field plus a $\cos\xi$ ripple.
+    Its level sets are the perturbed flux surfaces -- closed around the
+    O-points inside the separatrix, open and rippled outside it. It is the
+    phase portrait of a pendulum, which is where the name comes from.
+
+    Assumptions
+    -----------
+    Constant-$\psi$ and a single helicity, with the shear taken constant
+    across the island, which is what makes the island symmetric about the
+    rational surface.
+
+    Validity
+    --------
+    An island narrow compared with the distance to the neighbouring rational
+    surfaces and to the plasma boundary. Overlapping islands (Chirikov
+    parameter near one) are outside it.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.4.
+    .. [2] R. Fitzpatrick, *Plasma Physics: An Introduction*, CRC Press
+           (2014), Ch. 7 (magnetic islands).
+    """
+    width = float(width)
+    if not width > 0.0:
+        raise ValueError(f"width must be positive, not {width!r}")
+    x = np.asarray(x, dtype=float)
+    return 0.5 * x ** 2 - (width / 4.0) ** 2 * np.cos(np.asarray(xi, dtype=float))
+
+
+def island_separatrix_half_width(xi, width):
+    r"""Radial half-width of the island separatrix at a given helical phase.
+
+    $$x_\mathrm{sep}(\xi) = \frac{w}{2}\,\left|\cos\frac{\xi}{2}\right|$$
+
+    Parameters
+    ----------
+    xi : float or np.ndarray
+        Helical phase, as ``helical_phase`` returns it [rad].
+    width : float
+        Full island width at the O-point [L].
+
+    Returns
+    -------
+    float or np.ndarray
+        Distance from the rational surface to the separatrix, the same on
+        both sides [L].
+
+    Raises
+    ------
+    ValueError
+        ``width`` is not positive.
+
+    Convention
+    ----------
+    The separatrix of ``island_pendulum_hamiltonian``: the level
+    $H = (w/4)^{2}$ solved for $x$. It is $w/2$ at the O-point ($\xi = 0$),
+    so the full width there is ``width``, and zero at the X-point
+    ($\xi = \pi$), where the two branches cross.
+
+    Physical interpretation
+    -----------------------
+    The boundary between field lines trapped in the island and the ones that
+    pass it. The separatrix is $2\pi$-periodic in $\xi$, so a fixed-$\phi$
+    section closes into $m$ lobes.
+
+    Assumptions
+    -----------
+    The same constant-$\psi$, single-helicity island as
+    ``island_pendulum_hamiltonian``.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.4.
+    .. [2] R. Fitzpatrick, *Plasma Physics: An Introduction*, CRC Press
+           (2014), Ch. 7 (magnetic islands).
+    """
+    width = float(width)
+    if not width > 0.0:
+        raise ValueError(f"width must be positive, not {width!r}")
+    return 0.5 * width * np.abs(np.cos(0.5 * np.asarray(xi, dtype=float)))

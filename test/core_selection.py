@@ -117,6 +117,8 @@ CORE_MODULES: tuple[str, ...] = (
     # VAFT is, the site's navigation contract, and whether a documented snippet
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
+    # The committed diagram SVGs are checked against their TikZ source too.
+    "test_diagram_render.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_readme_consistency.py",

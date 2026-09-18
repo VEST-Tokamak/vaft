@@ -83,6 +83,7 @@ CONVENTION_SENSITIVE = frozenset({
     "rhoN_from_qpsiN",
     "shear_from_r_q",
     "surface_poloidal_flux_from_psi_boundary",
+    "straight_field_line_angle",
     "loop_voltage_from_total_flux",
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",
@@ -97,6 +98,10 @@ CONVENTION_SENSITIVE = frozenset({
     "greenwald_density",
     "greenwald_fraction",
     "confinement_time_from_engineering_parameters",
+    # local island topology: helicity sign and full-vs-half width
+    "helical_phase",
+    "island_pendulum_hamiltonian",
+    "island_separatrix_half_width",
     # nu* and rho* families
     "collisionality_from_n_T_B_R",
     "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",

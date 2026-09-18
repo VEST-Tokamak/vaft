@@ -697,6 +697,99 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 
 
 # ------------------------------------------------------------------
+# Flux coordinates
+# ------------------------------------------------------------------
+
+
+def straight_field_line_angle(theta, jacobian, R):
+    r"""Straight-field-line (PEST) poloidal angle on one flux surface.
+
+    $$\theta^*(\theta) = \theta_0 + 2\pi\,
+    \frac{\int_{\theta_0}^{\theta} \mathcal{J}/R^{2}\,\mathrm{d}\theta'}
+         {\oint \mathcal{J}/R^{2}\,\mathrm{d}\theta'}$$
+
+    Parameters
+    ----------
+    theta : np.ndarray
+        Poloidal angle of the surface's own parametrisation, strictly
+        increasing and spanning exactly one period, both ends included [rad].
+    jacobian : np.ndarray
+        Jacobian $\mathcal{J} = (\nabla r \times \nabla\theta \cdot \nabla\phi)^{-1}$
+        of the $(r, \theta, \phi)$ coordinates at each ``theta``; only its
+        variation along the surface matters, so any radial label and unit may
+        be used [arb].
+    R : np.ndarray
+        Major radius at each ``theta`` [m].
+
+    Returns
+    -------
+    np.ndarray
+        Straight-field-line angle at each ``theta``, equal to ``theta[0]`` at
+        the first point and to ``theta[0] + 2 pi`` at the last [rad].
+
+    Raises
+    ------
+    ValueError
+        The arrays differ in shape, ``theta`` is not strictly increasing, or
+        it does not span exactly one period.
+
+    Convention
+    ----------
+    PEST: $\theta^*$ is the poloidal angle in which a field line on the
+    surface is straight, $\mathrm{d}\phi/\mathrm{d}\theta^* = q$, with the
+    toroidal angle left geometric. It runs in the same direction as
+    ``theta`` and shares its origin; the sign of $\mathcal{J}$ is ignored.
+    A helical phase $m\theta^* - n\phi$ is constant along a field line of
+    $q = m/n$ only in this angle.
+
+    Physical interpretation
+    -----------------------
+    With $\mathbf{B} = F\nabla\phi + \nabla\phi\times\nabla\psi$ and
+    $\psi = \psi(r)$, the local field-line pitch is
+    $\mathbf{B}\cdot\nabla\phi / \mathbf{B}\cdot\nabla\theta
+    = F\mathcal{J}/(R^{2}\psi')$. $F$ and $\psi'$ are constant on the surface,
+    so the pitch varies with $\mathcal{J}/R^{2}$ alone and normalising its
+    integral gives the angle in which the pitch is uniform. For concentric
+    circles $\mathcal{J}/R^{2} = r/R$, and
+    $\theta^* = 2\arctan\!\left(\sqrt{(1-\epsilon)/(1+\epsilon)}\,
+    \tan(\theta/2)\right)$: field lines linger on the low-field side, so
+    features evenly spaced in $\theta^*$ spread out there.
+
+    Assumptions
+    -----------
+    Axisymmetric nested flux surfaces labelled by the radial coordinate of
+    the Jacobian. No equilibrium solve is needed: the angle follows from the
+    surface geometry and its radial neighbours through $\mathcal{J}$.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoid rule on the given grid; the error is second order in
+    the grid spacing, so the grid must resolve $\mathcal{J}/R^{2}$.
+
+    References
+    ----------
+    .. [1] R. C. Grimm, R. L. Dewar and J. Manickam, "Ideal MHD stability
+           calculations in axisymmetric toroidal coordinate systems",
+           J. Comput. Phys. 49, 94 (1983).
+    .. [2] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    """
+    theta = np.asarray(theta, dtype=float)
+    jacobian = np.asarray(jacobian, dtype=float)
+    R = np.asarray(R, dtype=float)
+    if theta.ndim != 1 or jacobian.shape != theta.shape or R.shape != theta.shape:
+        raise ValueError("theta, jacobian and R must be 1-D arrays of the same length")
+    if theta.size < 3 or np.any(np.diff(theta) <= 0.0):
+        raise ValueError("theta must be strictly increasing with at least three points")
+    if not np.isclose(theta[-1] - theta[0], 2.0 * np.pi, rtol=0.0, atol=1e-9):
+        raise ValueError(f"theta must span exactly one period (2 pi), not {theta[-1] - theta[0]!r}")
+    weight = np.abs(jacobian) / R ** 2
+    cumulative = np.concatenate([[0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * np.diff(theta))])
+    return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]
+
+
+# ------------------------------------------------------------------
 # Current Density
 # ------------------------------------------------------------------
 

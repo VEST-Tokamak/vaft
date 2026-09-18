@@ -63,9 +63,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #760 renamed the first-principles bremsstrahlung form to state its
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
-        "equilibrium": 81,
+        "equilibrium": 82,
         "virial": 33,
-        "stability": 21,
+        "stability": 24,
         "green": 16,
         "atomic": 3,
         "statistics": 22,

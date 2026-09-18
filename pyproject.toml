@@ -153,6 +153,8 @@ vaft = [
   "data/samples/*/manifest.yaml",
   "data/samples/39915/omas.json.gz",
   "data/samples/39915/imas.nc",
+  # The authored TikZ template vaft.diagram renders every scene into.
+  "diagram/templates/*.tex",
 ]
 
 [tool.uv.sources]

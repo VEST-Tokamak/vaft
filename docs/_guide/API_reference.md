@@ -58,6 +58,7 @@ flowchart TD
 | `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
 | `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
+| `vaft.diagram` | Explanatory schematics (magnetic-island topology, ...) drawn from `vaft.formula` and rendered to SVG | [Scientific diagrams]({{ site.baseurl }}/reference/diagrams/) |
 | `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page |
 | `vaft.data` | GEQDSK read/write and packaged sample files | this page |
 | `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |

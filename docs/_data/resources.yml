@@ -70,6 +70,9 @@ api:
   plot:
     title: vaft.plot
     url: /reference/api/#vaftplot
+  diagram:
+    title: vaft.diagram
+    url: /reference/diagrams/
   code:
     title: vaft.code
     url: /reference/api/#vaftcode
