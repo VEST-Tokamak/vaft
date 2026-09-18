@@ -592,7 +592,8 @@ def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
         resolve_nice_executable(NiceConfig(workdir=tmp_path))
 
     home = tmp_path / "nice"
-    with pytest.raises(FileNotFoundError, match="build/nice_recon"):
+    # The message names the expected path, spelled with the host separator.
+    with pytest.raises(FileNotFoundError, match=r"build[/\\]nice_recon"):
         resolve_nice_executable(NiceConfig(workdir=tmp_path, nice_home=home))
 
     # The second documented layout is found when the first is absent.
