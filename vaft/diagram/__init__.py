@@ -11,6 +11,11 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 ``vaft.plot``
     owns data and numerical results.
 
+Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
+island model) and the stability / operational-space charts
+``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill`` and
+``troyon``.
+
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
 in Jupyter through ``_repr_svg_``). Rendering needs ``latex`` and
@@ -24,10 +29,22 @@ The committed reference SVGs are regenerated and checked with::
 
 from importlib import import_module
 
-__all__ = ["magnetic_island", "Diagram", "DiagramToolchainError"]
+__all__ = [
+    "magnetic_island",
+    "peeling_ballooning",
+    "s_alpha_ballooning",
+    "hugill",
+    "troyon",
+    "Diagram",
+    "DiagramToolchainError",
+]
 
 _LOCATIONS = {
     "magnetic_island": "._magnetic_island",
+    "peeling_ballooning": "._stability_space",
+    "s_alpha_ballooning": "._stability_space",
+    "hugill": "._stability_space",
+    "troyon": "._stability_space",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

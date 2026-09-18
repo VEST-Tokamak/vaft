@@ -58,6 +58,8 @@ __all__ = [
     "power_limit_from_beta",
     "power_limit_from_q",
     "resonant_flux_from_delta",
+    "s_alpha_ballooning_stable",
+    "s_alpha_marginal_alpha",
     "rhostar_from_Te_a_Bt",
     "sawtooth_stability_criterion",
     "v_alfven_from_B_n_mi",
@@ -385,8 +387,9 @@ def ballooning_stability_criterion(alpha: Union[float, np.ndarray],
     --------
     Empirical fit.  A straight-line approximation of the first-stability
     boundary of the circular $s$-$\alpha$ diagram [1]_ for moderate shear
-    ($0.3 \lesssim s \lesssim 1.5$); the true boundary bends over and closes at
-    $\alpha \approx 1$, with second stability beyond.
+    ($0.3 \lesssim s \lesssim 1.5$). The boundary itself, computed from the
+    ballooning equation, is ``s_alpha_marginal_alpha``: it leaves this line
+    at small shear and has a second-stable region beyond $\alpha_2(s)$.
 
     Limitations
     -----------
@@ -1259,3 +1262,200 @@ def island_separatrix_half_width(xi, width):
     if not width > 0.0:
         raise ValueError(f"width must be positive, not {width!r}")
     return 0.5 * width * np.abs(np.cos(0.5 * np.asarray(xi, dtype=float)))
+
+
+
+# ------------------------------------------------------------------
+# s-alpha ballooning stability
+# ------------------------------------------------------------------
+
+#: Newcomb integration of the s-alpha equation: range and fixed RK4 step [rad].
+#: Doubling the range or halving the step moves the boundaries by < 0.01.
+_S_ALPHA_THETA_MAX = 40.0 * np.pi
+_S_ALPHA_STEP = 0.02
+
+
+def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_ALPHA_STEP):
+    r"""Ideal ballooning stability of the circular $s$-$\alpha$ model.
+
+    $$\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
+    + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = 0,
+    \qquad \Lambda = s\theta - \alpha\sin\theta$$
+
+    Parameters
+    ----------
+    s : float or np.ndarray
+        Magnetic shear $r q'/q$ [-].
+    alpha : float or np.ndarray
+        Normalised pressure gradient $-2\mu_0 R q^{2} p'/B^{2}$ [-].
+    theta_max : float
+        Extent of the ballooning-angle integration [rad].
+    step : float
+        Fixed fourth-order Runge-Kutta step [rad].
+
+    Returns
+    -------
+    bool or np.ndarray
+        True where the marginal ballooning equation is stable, broadcast over
+        ``s`` and ``alpha`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``theta_max`` or ``step`` is not positive.
+
+    Convention
+    ----------
+    Connor-Hastie-Taylor normalisation: $\alpha > 0$ for pressure falling
+    outwards (``ballooning_alpha_from_p_B_R``), $s > 0$ for $q$ rising
+    outwards. Newcomb's criterion on the even solution, $F(0) = 1$,
+    $F'(0) = 0$: the point is unstable if $F$ crosses zero anywhere on
+    $0 < \theta \le \theta_\mathrm{max}$.
+
+    Physical interpretation
+    -----------------------
+    $\alpha\cos\theta$ is the bad-curvature drive on the outboard side and
+    $\Lambda$ the local shear that bends field lines against it. Raising
+    $\alpha$ first destabilises (first stability boundary) and then, through
+    the $-\alpha\sin\theta$ term that makes the local shear vanish on the
+    outboard side and reverse elsewhere, restabilises (second stability).
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular shifted flux surfaces, infinite toroidal
+    mode number, marginal stability ($\omega^{2} = 0$).
+
+    Validity
+    --------
+    $s \gtrsim 0.05$. Towards zero shear the solutions decay only
+    algebraically and a finite ``theta_max`` resolves the boundary
+    progressively worse; at $s \le 0$ the model is stable.
+
+    Numerical notes
+    ---------------
+    A fixed-step integrator, vectorised over the broadcast inputs, so the
+    result is deterministic and a whole $(s, \alpha)$ grid costs one pass.
+    With the defaults, halving ``step`` does not move the boundary at the
+    1e-4 level; extending ``theta_max`` to $2560\pi$ moves $\alpha_1$ by
+    about 0.012 at $s = 0.1$ and 0.002 at $s = 1$.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.13.
+    """
+    if not theta_max > 0.0 or not step > 0.0:
+        raise ValueError("theta_max and step must be positive")
+    s_arr, a_arr = np.broadcast_arrays(np.asarray(s, dtype=float), np.asarray(alpha, dtype=float))
+    F = np.ones(s_arr.shape)
+    G = np.zeros(s_arr.shape)  # (1 + Lambda^2) dF/dtheta
+    stable = np.ones(s_arr.shape, dtype=bool)
+
+    def rhs(theta, F, G):
+        lam = s_arr * theta - a_arr * np.sin(theta)
+        return G / (1.0 + lam * lam), -a_arr * (np.cos(theta) + lam * np.sin(theta)) * F
+
+    h = float(step)
+    theta = 0.0
+    for _ in range(int(np.ceil(theta_max / h))):
+        k1F, k1G = rhs(theta, F, G)
+        k2F, k2G = rhs(theta + h / 2, F + h / 2 * k1F, G + h / 2 * k1G)
+        k3F, k3G = rhs(theta + h / 2, F + h / 2 * k2F, G + h / 2 * k2G)
+        k4F, k4G = rhs(theta + h, F + h * k3F, G + h * k3G)
+        F = F + h / 6 * (k1F + 2 * k2F + 2 * k3F + k4F)
+        G = G + h / 6 * (k1G + 2 * k2G + 2 * k3G + k4G)
+        theta += h
+        stable &= F > 0.0
+    return stable if stable.ndim else bool(stable)
+
+
+def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
+    r"""First and second ballooning stability boundaries of the $s$-$\alpha$ model.
+
+    $$\alpha_1(s) = \min\{\alpha : \text{unstable}\}, \qquad
+    \alpha_2(s) = \max\{\alpha : \text{unstable}\}$$
+
+    Parameters
+    ----------
+    s : float or np.ndarray
+        Magnetic shear $r q'/q$ [-].
+    alpha_max : float
+        Upper end of the searched $\alpha$ range [-].
+    resolution : float
+        Bisection tolerance on each boundary [-].
+
+    Returns
+    -------
+    alpha_first : float or np.ndarray
+        Lowest unstable $\alpha$: the first stability boundary; ``nan`` where
+        no instability is found [-].
+    alpha_second : float or np.ndarray
+        Highest unstable $\alpha$: the second stability boundary; ``nan``
+        where none is found or the unstable band reaches ``alpha_max`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``s`` is not finite, ``alpha_max`` is below 0.1 or ``resolution`` is
+        not positive.
+
+    Convention
+    ----------
+    The boundaries of ``s_alpha_ballooning_stable`` (same normalisation and
+    Newcomb criterion). The unstable set at fixed $s$ is taken to be the
+    single band $[\alpha_1, \alpha_2]$ it is in this model.
+
+    Physical interpretation
+    -----------------------
+    Below $\alpha_1$ the plasma is first-stable; above $\alpha_2$ it has
+    reached second stability. $\alpha_1 \approx 0.6\,s$ at moderate shear,
+    the line ``ballooning_stability_criterion`` uses.
+
+    Assumptions
+    -----------
+    As for ``s_alpha_ballooning_stable``.
+
+    Numerical notes
+    ---------------
+    A scan on a 0.05-spaced $\alpha$ grid brackets each boundary, then one
+    vectorised bisection refines both to ``resolution``. A band narrower than
+    the scan spacing (very small $s$) can be missed.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.13.
+    """
+    if not alpha_max >= 0.1 or not resolution > 0.0:
+        raise ValueError("alpha_max must be at least 0.1 and resolution positive")
+    s_arr = np.atleast_1d(np.asarray(s, dtype=float))
+    if not np.all(np.isfinite(s_arr)):
+        raise ValueError("s must be finite")
+    spacing = 0.05
+    grid = np.arange(spacing, alpha_max + 1e-12, spacing)
+    unstable = ~s_alpha_ballooning_stable(s_arr[:, None], grid[None, :])
+    found = unstable.any(axis=1)
+    first_i = np.where(found, unstable.argmax(axis=1), 0)
+    last_i = np.where(found, unstable.shape[1] - 1 - unstable[:, ::-1].argmax(axis=1), 0)
+    at_top = last_i == len(grid) - 1
+
+    # Both edges in one batch: each bracket has its stable end at ``lo``.
+    lo = np.concatenate([np.where(first_i > 0, grid[np.maximum(first_i - 1, 0)], 0.0),
+                         grid[np.minimum(last_i + 1, len(grid) - 1)] + at_top * spacing])
+    hi = np.concatenate([grid[first_i], grid[last_i]])
+    shear = np.concatenate([s_arr, s_arr])
+    while np.max(np.abs(hi - lo)) > resolution:
+        mid = 0.5 * (lo + hi)
+        ok = s_alpha_ballooning_stable(shear, mid)
+        lo = np.where(ok, mid, lo)
+        hi = np.where(ok, hi, mid)
+    edge = 0.5 * (lo + hi)
+    first = np.where(found, edge[: len(s_arr)], np.nan)
+    second = np.where(found & ~at_top, edge[len(s_arr):], np.nan)
+    if np.ndim(s) == 0:
+        return float(first[0]), float(second[0])
+    return first, second

@@ -10,6 +10,7 @@
 \definecolor{islanddark}{RGB}{22,55,116}
 \definecolor{qblue}{RGB}{96,164,232}
 \definecolor{meshgray}{RGB}{150,150,150}
+\definecolor{chartblue}{RGB}{16,24,140}
 \tikzset{
   >=Latex,
   every picture/.style={line cap=round,line join=round,font=\large},
@@ -39,6 +40,15 @@
   hole/.style={fill=white,draw=none},
   cut/.style={black!70,dash dot,line width=0.7pt},
   inset frame/.style={draw=black!25,rounded corners=2pt},
+  chart axis/.style={->,line width=1.4pt},
+  boundary/.style={chartblue,line width=1.9pt},
+  approx/.style={gray!70!black,dashed,line width=0.9pt},
+  region/.style={font=\LARGE,align=center},
+  xlabel/.style={font=\LARGE},
+  ylabel/.style={font=\LARGE,rotate=90},
+  tick/.style={line width=0.7pt},
+  ticklabel/.style={font=\normalsize},
+  star/.style={fill=black,draw=none},
 }
 \begin{document}
 \begin{tikzpicture}

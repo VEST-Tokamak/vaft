@@ -65,7 +65,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # object, so it counts: 80 + 1 = 81.
         "equilibrium": 82,
         "virial": 33,
-        "stability": 24,
+        "stability": 26,
         "green": 16,
         "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
         "statistics": 22,

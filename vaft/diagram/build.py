@@ -34,8 +34,12 @@ REFERENCE_ISLAND = {
 
 #: asset file name -> (builder name in vaft.diagram, keyword arguments)
 CANONICAL: Dict[str, Tuple[str, dict]] = {
-    f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
-    for projection in ("poloidal", "top", "3d")
+    **{
+        f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
+        for projection in ("poloidal", "top", "3d")
+    },
+    # stability and operational-space charts, at their documented defaults
+    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
 }
 
 
