@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>af1188a</code>. What is described
+  <code>a020da8</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -443,6 +443,16 @@ licence first; see <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/in
 That build runs on macOS/Apple Silicon and on native Windows. The adapter runs NUBEAM and parses
 its native output; <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_sources</code> and <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.distributions</code> map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.</p>
+
+<p>NICE (<code class="language-plaintext highlighter-rouge">vaft.code.nice</code>, issue #666) is <strong>experimental</strong>: the adapter prepares and collects a
+standalone <code class="language-plaintext highlighter-rouge">nice_recon</code> run, but it does not yet reconstruct VEST equilibria, and nothing in the
+routine pipeline uses it. Upstream has no install step, so <code class="language-plaintext highlighter-rouge">$NICEHOME</code> is the built source tree;
+VAFT looks for <code class="language-plaintext highlighter-rouge">build/nice_recon</code>, then <code class="language-plaintext highlighter-rouge">run/nice_recon</code>, then <code class="language-plaintext highlighter-rouge">nice_recon</code> beneath it, or takes
+<code class="language-plaintext highlighter-rouge">NiceConfig.executable</code>. The validated build is pinned revision <code class="language-plaintext highlighter-rouge">7ad1ea8f</code> with AppleClang, Eigen 3
+and SuiteSparse; see <code class="language-plaintext highlighter-rouge">vaft/code/nice/README.md</code> for the flags it needs.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">NICEHOME</span><span class="o">=</span>/path/to/nice     <span class="c"># experimental; source tree with build/nice_recon</span>
+</code></pre></div></div>
 
 <p>GACODE differs from every other code here in three ways, and each one breaks an assumption stated
 above. It <strong>builds in place</strong>, so <code class="language-plaintext highlighter-rouge">$GACODEHOME</code> is the source checkout rather than a separate prefix.
@@ -807,7 +817,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 17:09:03 +0000"
+        "time": "2026-09-18 17:52:39 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
