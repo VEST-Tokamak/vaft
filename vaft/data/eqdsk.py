@@ -542,6 +542,48 @@ TWO_PI = 2.0 * np.pi
 BCENTR_FPOL_RTOL = 1e-3
 
 
+def _fpol_derived_b0(data: Mapping[str, Any]) -> float | None:
+    """``FPOL[-1] / RCENTR``, or ``None`` when ``FPOL`` cannot answer.
+
+    ``FPOL[-1]`` is the vacuum ``R*B_phi`` the Grad-Shafranov solve actually
+    used, so this is the preferred source of ``B0``; the caller decides what
+    to do when it is unavailable.
+    """
+    rcentr = _scalar(data.get("RCENTR"), 0.0)
+    fpol = np.asarray(data.get("FPOL", ()), dtype=float).reshape(-1)
+    if fpol.size == 0 or not np.isfinite(fpol[-1]) or fpol[-1] == 0.0:
+        return None
+    if not np.isfinite(rcentr) or rcentr == 0.0:
+        return None
+    derived = float(fpol[-1]) / rcentr
+    return derived if np.isfinite(derived) else None
+
+
+def vacuum_b0_magnitude(data: Mapping[str, Any]) -> float:
+    """``|B0|`` at ``RCENTR``, from ``FPOL`` in preference to ``BCENTR``.
+
+    The magnitude-only counterpart of :func:`_vacuum_b0`, for callers that
+    have already normalized the equilibrium's signs (CHEASE's EXPEQ writer)
+    and so cannot use the signed value or its self-consistency warning --
+    after a COCOS sign forcing ``BCENTR`` and ``FPOL`` are flipped
+    independently, and their signs legitimately disagree.
+
+    It exists so that every route into a CHEASE input picks the same ``B0``
+    that :func:`to_omas` stores.  A g-file records the vacuum field twice, at
+    nine significant digits each, and the two spellings do not round to the
+    same double: for ``efit/g039915.00319``, ``BCENTR`` is ``1.498058780E-01``
+    while ``FPOL[-1]/RCENTR`` is ``1.498058775E-01``.  Reading ``BCENTR``
+    here but ``FPOL`` in ``to_omas`` therefore handed CHEASE two EXPEQ/
+    namelist files differing by 3.3e-9 in ``B0EXP`` (and, through it, in
+    ``CURRT`` and both EXPEQ profile blocks) depending on whether the caller
+    passed the g-file or an ODS built from that same g-file.
+    """
+    derived = _fpol_derived_b0(data)
+    if derived is not None:
+        return abs(derived)
+    return abs(_scalar(data.get("BCENTR"), 0.0))
+
+
 def _vacuum_b0(data: Mapping[str, Any]) -> float:
     """The vacuum ``B0`` at ``RCENTR``, from ``FPOL`` in preference to ``BCENTR``.
 
@@ -556,15 +598,11 @@ def _vacuum_b0(data: Mapping[str, Any]) -> float:
     ``resolve_reference_major_radius`` cross-checks ``r0`` against ``tf``.
     """
     bcentr = _scalar(data.get("BCENTR"), 0.0)
+    derived = _fpol_derived_b0(data)
+    if derived is None:
+        return bcentr
     rcentr = _scalar(data.get("RCENTR"), 0.0)
     fpol = np.asarray(data.get("FPOL", ()), dtype=float).reshape(-1)
-    if fpol.size == 0 or not np.isfinite(fpol[-1]) or fpol[-1] == 0.0:
-        return bcentr
-    if not np.isfinite(rcentr) or rcentr == 0.0:
-        return bcentr
-    derived = float(fpol[-1]) / rcentr
-    if not np.isfinite(derived):
-        return bcentr
     stated = np.isfinite(bcentr) and bcentr != 0.0
     if stated and not np.isclose(derived, bcentr, rtol=BCENTR_FPOL_RTOL, atol=0.0):
         warnings.warn(

@@ -18,7 +18,7 @@ import pytest
 pytest.importorskip("omas")
 
 from vaft.data import read_geqdsk
-from vaft.data.eqdsk import _vacuum_b0
+from vaft.data.eqdsk import _vacuum_b0, vacuum_b0_magnitude
 from vaft.data.resources import data_path
 
 
@@ -89,6 +89,54 @@ def test_a_missing_bcentr_is_supplied_from_fpol_without_a_disagreement_warning()
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert _vacuum_b0(data) == pytest.approx(0.15)
+
+
+# --- the magnitude-only view CHEASE's EXPEQ writer needs ---------------------
+
+def test_the_magnitude_view_answers_from_the_same_place_as_the_signed_one():
+    for data in (
+        {"BCENTR": 0.15, "RCENTR": 0.4, "FPOL": np.full(5, 0.06)},
+        {"BCENTR": -0.15, "RCENTR": 0.4, "FPOL": np.full(5, -0.06)},
+        {"RCENTR": 0.4, "FPOL": np.full(5, 0.06)},
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert vacuum_b0_magnitude(data) == pytest.approx(0.15)
+
+
+def test_the_magnitude_view_falls_back_to_bcentr_exactly_where_the_signed_one_does():
+    for data in (
+        {"BCENTR": -0.15, "RCENTR": 0.4},
+        {"BCENTR": 0.15, "RCENTR": 0.4, "FPOL": np.array([])},
+        {"BCENTR": 0.15, "RCENTR": 0.4, "FPOL": np.zeros(5)},
+        {"BCENTR": -0.15, "RCENTR": 0.4, "FPOL": np.full(5, np.nan)},
+        {"BCENTR": 0.15, "RCENTR": 0.0, "FPOL": np.full(5, 0.06)},
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert vacuum_b0_magnitude(data) == pytest.approx(0.15)
+
+
+def test_the_magnitude_view_stays_silent_when_bcentr_and_fpol_signs_disagree():
+    """The state a COCOS sign forcing legitimately produces.
+
+    `vaft.code.chease._force_geqdsk_signs` flips BCENTR and FPOL to
+    independently chosen target signs, so a CHEASE input routinely holds a
+    positive BCENTR beside a negative FPOL. Only the magnitude is meaningful
+    there, and `_vacuum_b0`'s self-consistency warning -- which compares the
+    two signed numbers -- would fire on every such call with nothing wrong.
+    """
+    data = {"BCENTR": 0.15, "RCENTR": 0.4, "FPOL": np.full(5, -0.06)}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert vacuum_b0_magnitude(data) == pytest.approx(0.15)
+
+
+def test_a_drifting_bcentr_loses_to_fpol_in_the_magnitude_view_too():
+    data = {"BCENTR": 0.25899, "RCENTR": 0.4, "FPOL": np.full(5, -0.059906)}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert vacuum_b0_magnitude(data) == pytest.approx(0.059906 / 0.4)
 
 
 # --- through to_omas, where three leaves depend on it ------------------------
