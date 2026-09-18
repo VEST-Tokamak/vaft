@@ -45,7 +45,8 @@ class EquilibriumVariation:
     The scales are relative to the source equilibrium, so the defaults are the
     unperturbed case and are worth including in a scan as its control.
     ``elongation_scale`` and ``triangularity_shift`` act on the Miller
-    parameters fitted from the source boundary.
+    parameters fitted from the source boundary, and :func:`scan_chease` hands
+    that Miller boundary to CHEASE as the ``EXPEQ`` boundary it solves.
 
     ``current_peaking`` redistributes ``FF'`` toward the axis as
     ``(1 - psi_n)**current_peaking``, renormalized to preserve ``int|FF'|``
@@ -220,6 +221,18 @@ def scan_chease(
     ``nideal=6, nw=513, target_psin=0.993,
     relax=0.5``.
 
+    A scan that varies the shape solves every case -- its control included --
+    with ``target_psin=1``, whatever ``config`` says.  Below 1 the adapter
+    traces the ``EXPEQ`` boundary from ``PSIRZ``, which a shape variation does
+    not touch, so the solve would see the unperturbed shape while the refined
+    g-file, whose ``RBBBS`` is restored from the input, reported the requested
+    one (#887).  At 1 the ``EXPEQ`` boundary is ``RBBBS`` itself, i.e. the Miller
+    boundary.  The consequence is that a shape scan's control solves on the
+    Miller representation of the LCFS rather than on the ``target_psin``
+    contour, so it is not the same equilibrium as a plain
+    :func:`~vaft.code.chease.refine_equilibrium` of ``source``.  A scan with
+    no shape variation keeps ``config.target_psin``.
+
     With ``keep_going`` a case that raises is recorded with its message and the
     scan continues, because a variation CHEASE cannot solve is usually the
     interesting part of a scan rather than a reason to abandon it.
@@ -247,6 +260,9 @@ def scan_chease(
     # A scan that varies the shape at all compares every case against the same
     # Miller representation, so the control is not the odd one out.
     refit = any(item.reshapes_boundary for item in variations)
+    # ...and solves on that representation: target_psin >= 1 is the adapter's
+    # "the EXPEQ boundary is RBBBS" path, the only one a reshaped RBBBS reaches.
+    solve_config = replace(base_config, target_psin=1.0) if refit else base_config
 
     cases: list[CHEASEScanCase] = []
     for variation in variations:
@@ -256,7 +272,7 @@ def scan_chease(
             modified, shape = apply_equilibrium_variation(
                 geqdsk, variation, refit_boundary=refit
             )
-            result = refine_equilibrium(modified, replace(base_config, workdir=case_dir))
+            result = refine_equilibrium(modified, replace(solve_config, workdir=case_dir))
             case = CHEASEScanCase(
                 variation,
                 case_dir,

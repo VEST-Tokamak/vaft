@@ -158,6 +158,10 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
     Peaking is the knob that moves li: scaling FF' uniformly does not, because
     CHEASE rescales the total current and a constant factor is exactly what it
     normalizes away.
+
+    Elongation is read off CHEASE's own output, ``EQDSK_COCOS_02.OUT``, not the
+    refined g-file: that file's RBBBS is restored from the input, so it reports
+    the requested shape whether or not the solve used it (#887).
     """
     import vaft.omas
     from vaft.code import CHEASEConfig
@@ -186,7 +190,7 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
         measured[case.variation.label] = (
             float(node["global_quantities.beta_normal"]),
             float(node["global_quantities.li_3"]),
-            float(node["boundary.elongation"]),
+            _elongation(_native_boundary(case.workdir)),
             np.nanmedian(
                 vaft.omas.compute_grad_shafranov_residual(ods, time_slice=0).relative
             ),
@@ -196,8 +200,11 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
     assert measured["beta_up"][0] == pytest.approx(control[0] * 1.5, rel=0.05)
     assert measured["beta_up"][1] == pytest.approx(control[1], rel=0.01)
     assert measured["li_up"][1] > 1.5 * control[1]
-    assert measured["elong_up"][2] > 1.05 * control[2]
-    assert measured["elong_up"][1] == pytest.approx(control[1], rel=0.01)
+    assert measured["elong_up"][2] == pytest.approx(control[2] * 1.10, rel=0.01)
+    # A real shape change moves li too, but by a few percent (0.524 -> 0.499 on
+    # 48224), not the factor peaking gives. The former "li unchanged to 1%"
+    # held only because the solve never saw the new shape.
+    assert abs(measured["elong_up"][1] / control[1] - 1.0) < 0.10
     # Every case is a genuine converged equilibrium, not just a file.
     for label, values in measured.items():
         assert values[3] < 0.15, (label, values[3])
@@ -290,3 +297,64 @@ def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
     )
     assert not cases[0].converged
     assert "exited 1" in cases[0].error
+
+
+# ---------------------------------------------------------------------------
+# A shape knob must reach the boundary CHEASE solves (#887)
+# ---------------------------------------------------------------------------
+
+def _expeq_boundary(path):
+    """The boundary an EXPEQ file hands CHEASE, in units of its R0.
+
+    Line 4 is the point count and the next that many lines are ``R/R0 Z/R0``;
+    see ``vaft.code.chease._write_expeq``.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    count = int(lines[3])
+    return np.array([[float(v) for v in line.split()] for line in lines[4 : 4 + count]])
+
+
+def _elongation(rz):
+    return float(np.ptp(rz[:, 1]) / np.ptp(rz[:, 0]))
+
+
+def _native_boundary(workdir):
+    """The LCFS CHEASE solved, from its own output before any restoration."""
+    native = read_geqdsk(str(workdir / "EQDSK_COCOS_02.OUT"))
+    return np.column_stack(
+        [np.asarray(native["RBBBS"], float), np.asarray(native["ZBBBS"], float)]
+    )
+
+
+def test_a_shape_variation_reaches_the_expeq_boundary(monkeypatch, tmp_path):
+    """RBBBS is not what CHEASE solves; EXPEQ is.
+
+    With ``target_psin < 1`` the adapter traces the EXPEQ boundary from PSIRZ,
+    which a shape variation does not touch. A scan that only rewrote RBBBS
+    would hand CHEASE the unperturbed shape, and the refined g-file -- whose
+    RBBBS is restored from the source -- would still report the requested
+    elongation. So measure the file the solver reads.
+    """
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+    from vaft.code.chease import prepare_chease_inputs
+
+    def materialize_only(geqdsk, config):
+        prepare_chease_inputs(geqdsk, config)
+        return module.CHEASEResult(returncode=1, workdir=config.workdir)
+
+    monkeypatch.setattr(module, "refine_equilibrium", materialize_only)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [
+            EquilibriumVariation("control"),
+            EquilibriumVariation("elong_up", elongation_scale=1.10),
+        ],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    kappa = {
+        case.variation.label: _elongation(_expeq_boundary(case.workdir / "EXPEQ"))
+        for case in cases
+    }
+    assert kappa["elong_up"] == pytest.approx(1.10 * kappa["control"], rel=0.02)
