@@ -2718,11 +2718,27 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
     float
         Inductive voltage [V].
 
-    Assumptions
-    -----------
-    Exact for $W = \tfrac{1}{2}LI^2$ with constant $L$; when the inductance
-    changes (current-profile evolution) the full inductive voltage is
-    $d(LI)/dt$ and this expression captures only part of it.
+    Convention
+    ----------
+    **Exact for the internal field, whether or not the inductance changes.**
+    With $W_{\mathrm{mag}} = \tfrac12 L_i I_p^2$ the energy inside the
+    plasma, this is Romero's $V_{\mathrm{ind}} = L_i\dot I_p +
+    \tfrac12 I_p\dot L_i$ (eq. 24), and $V_B = R_p I_p + V_{\mathrm{ind}}$
+    closes exactly.  The circuit form $\mathrm{d}(L_i I_p)/\mathrm{d}t$ is
+    *not* the larger "full" voltage it is sometimes taken for: $L_i I_p$ is not
+    a flux linked by one loop, and that form overstates the profile term by
+    $\tfrac12 I_p\dot L_i$.  The external inductance is different -- there
+    $\mathrm{d}(L_e I_p)/\mathrm{d}t$ is right, because $L_e I_p$ is the
+    boundary flux.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (22)-(24).
+
+    See Also
+    --------
+    vaft.formula.transformer.plasma_current_rate_from_L_i_V_B_V_C_V_R
     """
     return dW_magdt / I_p
 

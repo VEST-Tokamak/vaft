@@ -70,6 +70,8 @@ def test_the_catalog_counts_the_known_public_surface():
         "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
         "statistics": 22,
         "magnetics": 2,
+        # #781 child A: Romero's exact transformer identities.
+        "transformer": 7,
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
