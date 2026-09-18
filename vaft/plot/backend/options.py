@@ -147,6 +147,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rho_range", "range"),
         OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
         OptionSpec("models"), OptionSpec("order"),
+        # Kinetic profile fits (issue #952): the equilibrium the channels are
+        # mapped through (an ODS, a GEQDSK, a path, or {name: equilibrium} to
+        # compare mappings) and the model fitted through them.
+        OptionSpec("equilibrium", description="equilibrium (or {name: equilibrium}) the channels are mapped through"),
+        OptionSpec("fitting_function", "str", description="profile model: polynomial, exponential, gp, linear, ..."),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
         OptionSpec("phi0", "float"), OptionSpec("pose_path"), OptionSpec("quantity"), OptionSpec("r0", "float"),
         OptionSpec("reference_slopes"), OptionSpec("sample_rate", "float"), OptionSpec("series_label", "str"),

@@ -82,6 +82,8 @@ _PARAMETRIC_EXPORTS = (
     "evaluate_solovev",
     "fit_miller_sequence",
     "fit_miller_surface",
+    "miller_surfaces",
+    "solovev_example",
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
     "validate_equilibrium",

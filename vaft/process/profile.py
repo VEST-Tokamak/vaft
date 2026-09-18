@@ -67,6 +67,7 @@ from vaft.formula.utils import eped_tanh_bounds
 __all__ = [
     "COORDINATES",
     "CoordinateUnavailableError",
+    "FitReport",
     "FittedProfile",
     "LEGACY_COORDINATE",
     "MappedPositions",
@@ -83,10 +84,14 @@ __all__ = [
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "equilibrium_mapping_charge_exchange",
+    "equilibrium_mapping_points",
     "equilibrium_mapping_thomson_scattering",
     "export_electron_profile_txt",
     "fit_ti_te_ratio",
     "pedestal_top",
+    "compare_flux_mapping",
+    "profile_fit_report_charge_exchange",
+    "profile_fit_report_thomson_scattering",
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
     "strip_electron_only_pressure",
@@ -220,6 +225,90 @@ class FittedProfile:
         if self.span is not None:
             parts.append(f"measured_span={self.span[0]:.4f}:{self.span[1]:.4f}")
         return "; ".join(parts)
+
+
+@dataclass(frozen=True, eq=False)
+class FitReport:
+    """How well one fitted profile reproduces the channels it was fitted to (#952).
+
+    Every channel of the diagnostic is listed, in channel order, whether the
+    fit used it or not.  For a used channel ``normalized_residual`` is
+    ``r_i = (y_i - f(x_i)) / sigma_i`` with ``f`` the returned
+    :class:`FittedProfile` and ``sigma_i`` the uncertainty the fit was
+    weighted with (``sigma_used``: the stored ``data_error_upper`` after the
+    fitter's floors); for a refused one it is ``NaN`` and
+    ``rejected_reason`` says why.  ``chi_squared = sum r_i^2`` over the used
+    channels and ``degrees_of_freedom = N_used - n_parameters``.
+
+    ``n_parameters`` is the number of fitted coefficients for a parametric
+    model (the polynomial and exponential orders, the seven EPED-tanh
+    parameters, the blend's ``x0``, ``w`` and coefficients); ``N_used`` for
+    linear interpolation, which passes through every point and leaves no
+    freedom; and, for the Gaussian process, the effective number of
+    parameters ``tr(S)`` over the measured points, where
+    ``S = H + (I - H) J / m`` maps the data to the fitted values:
+    ``H = K (K + Sigma)^-1`` is the posterior-mean smoother at the optimised
+    hyperparameters and ``J / m`` the sample mean the GP is fitted about (the
+    two hyperparameters are not counted).  ``parameter_count_definition`` states which applies.
+    ``notes`` records the order decisions of the physicality guard.
+    """
+
+    quantity: str
+    unit: str
+    coordinate: str
+    method: str
+    order_requested: int | None
+    order_used: int | None
+    time: float
+    time_index: int
+    position: np.ndarray
+    value: np.ndarray
+    sigma: np.ndarray
+    sigma_used: np.ndarray
+    fitted: np.ndarray
+    normalized_residual: np.ndarray
+    used: np.ndarray
+    rejected_reason: tuple[str, ...]
+    n_parameters: float
+    parameter_count_definition: str
+    chi_squared: float
+    degrees_of_freedom: float
+    reduced_chi_squared: float
+    function: "FittedProfile"
+    grid: np.ndarray
+    curve: np.ndarray
+    curve_std: np.ndarray | None = None
+    notes: tuple[str, ...] = ()
+
+    @property
+    def coefficients(self):
+        """The fitted coefficients, ``None`` for a method without any."""
+        return self.function.coefficients
+
+    @property
+    def rejected(self) -> tuple[int, ...]:
+        """Channel indices the fit refused."""
+        return tuple(int(i) for i in np.flatnonzero(~self.used))
+
+    @property
+    def n_used(self) -> int:
+        return int(np.count_nonzero(self.used))
+
+    @property
+    def fitted_std(self) -> np.ndarray | None:
+        """The fit's own uncertainty at each channel, when the method has one (GP)."""
+        if self.curve_std is None:
+            return None
+        return np.interp(np.clip(self.position, 0, 1), self.grid, self.curve_std)
+
+    def summary(self) -> str:
+        """One line: chi-square, degrees of freedom and what was refused."""
+        refused = f"; refused {list(self.rejected)}" if self.rejected else ""
+        return (
+            f"{self.quantity} [{self.method}, k={self.n_parameters:.3g}] "
+            f"chi2={self.chi_squared:.3g}, nu={self.degrees_of_freedom:.3g}, "
+            f"chi2/nu={self.reduced_chi_squared:.3g}, N={self.n_used}{refused}"
+        )
 
 
 def _fit_coordinate(fit, coordinate, name):
@@ -567,6 +656,53 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     return _coordinates_from_psi_norm(geq, psi_norm, source)
 
 
+def equilibrium_mapping_points(geq, r, z):
+    """Map arbitrary ``(R, Z)`` points into the equilibrium's radial coordinates.
+
+    The mapping :func:`equilibrium_mapping_thomson_scattering` applies to the
+    channel positions, applied to points the caller names -- a dense set along
+    a diagnostic chord, say, to draw a fitted flux function against major
+    radius.
+
+    Parameters
+    ----------
+    geq : GEQDSK, ODS or mapping
+        As :func:`equilibrium_mapping_thomson_scattering` accepts [-].
+    r : array_like
+        Major radius of each point [m].
+    z : array_like
+        Height of each point [m].
+
+    Returns
+    -------
+    MappedPositions
+        ``psi_norm``, ``rho_pol_norm`` and, when derivable, ``rho_tor_norm`` of
+        every point; NaN outside the LCFS [-].
+
+    Raises
+    ------
+    ValueError
+        ``geq`` is not an equilibrium the mapper can read.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only the first equilibrium time slice of an ODS is used.
+
+    Provenance
+    ----------
+    .. [1] The same interpolation and normalisation as
+       :func:`equilibrium_mapping_thomson_scattering`.
+    """
+    r = np.asarray(r, dtype=float).reshape(-1)
+    z = np.asarray(z, dtype=float).reshape(-1)
+    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r, z)
+    return _coordinates_from_psi_norm(geq, psi_norm, source)
+
+
 def profile_fitting_thomson_scattering(
     ods,
     time_ms,
@@ -721,9 +857,19 @@ def profile_fitting_thomson_scattering(
        from the 48224 failures (:data:`PHYSICAL_EDGE_MAX`).
     """
     mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
-    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
+    run = _fit_thomson(
+        ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
+        rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
+        enforce_physical, coordinate,
+    )
+    return (
+        run["n_e_fit"], run["T_e_fit"], run["coeffs_ne"], run["coeffs_te"],
+        run["n_e_rho"], run["T_e_rho"],
+    )
 
-    # --- Extract Thomson data (nearest time within tolerance) ---
+
+def _thomson_points(ods, time_ms, time_tolerance_ms):
+    """Channel values and sigmas at the Thomson sample nearest ``time_ms``."""
     times = np.asarray(ods['thomson_scattering.time'], dtype=float)
     target_s = time_ms / 1e3
     time_index = int(np.argmin(np.abs(times - target_s)))
@@ -732,21 +878,32 @@ def profile_fitting_thomson_scattering(
             f"No Thomson time within {time_tolerance_ms} ms of {time_ms} ms "
             f"(nearest: {times[time_index] * 1e3:.3f} ms)"
         )
-
     num_channels = len(ods['thomson_scattering.channel'])
-    t_e, n_e, t_e_std, n_e_std = [], [], [], []
-
+    columns = {"t_e": [], "n_e": [], "t_e_std": [], "n_e_std": []}
     for i in range(num_channels):
         ch = ods['thomson_scattering.channel'][i]
-        t_e.append(ch['t_e.data'][time_index])
-        n_e.append(ch['n_e.data'][time_index])
-        t_e_std.append(ch['t_e.data_error_upper'][time_index])
-        n_e_std.append(ch['n_e.data_error_upper'][time_index])
+        columns["t_e"].append(ch['t_e.data'][time_index])
+        columns["n_e"].append(ch['n_e.data'][time_index])
+        columns["t_e_std"].append(ch['t_e.data_error_upper'][time_index])
+        columns["n_e_std"].append(ch['n_e.data_error_upper'][time_index])
+    points = {key: np.array(values, dtype=float) for key, values in columns.items()}
+    points["time_index"] = time_index
+    points["time"] = float(times[time_index])
+    return points
 
-    t_e = np.array(t_e, dtype=float)
-    n_e = np.array(n_e, dtype=float)
-    t_e_std = np.array(t_e_std, dtype=float)
-    n_e_std = np.array(n_e_std, dtype=float)
+
+def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
+                 rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
+                 enforce_physical, coordinate):
+    """The Thomson fit, with everything a :class:`FitReport` needs kept beside it."""
+    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
+
+    # --- Extract Thomson data (nearest time within tolerance) ---
+    points = _thomson_points(ods, time_ms, time_tolerance_ms)
+    t_e, n_e = points["t_e"], points["n_e"]
+    t_e_std, n_e_std = points["t_e_std"], points["n_e_std"]
+    raw = {"x": rho_flat.copy(), "t_e": t_e.copy(), "n_e": n_e.copy(),
+           "t_e_std": t_e_std.copy(), "n_e_std": n_e_std.copy()}
     # --- drop invalid channels: non-finite values/sigmas, zero sigma, unmapped rho ---
     valid = (
         np.isfinite(rho_flat)
@@ -766,6 +923,7 @@ def profile_fitting_thomson_scattering(
     # relative sigma floors (in fit space) so tiny-but-valid sigmas cannot
     # dominate the weighted fit
     t_e_std = np.maximum(t_e_std, 1e-3 * np.max(np.abs(t_e)))
+    t_e_std_used = t_e_std
 
     # density normalization (floor applied AFTER normalization)
     n_e_scale = 1e18
@@ -792,6 +950,8 @@ def profile_fitting_thomson_scattering(
             return f"Te<=0 inside the LCFS (first at {coordinate}={first:.2f})"
         return None
 
+    te_notes: list = []
+    ne_notes: list = []
     T_e_rho, T_e_std, T_e_function_raw, coeffs_te, Te_order_used = (
         _fit_profile_until_physical(
             lambda o: fit_profile(
@@ -801,7 +961,7 @@ def profile_fitting_thomson_scattering(
                 fitting_function=fitting_function_te,
                 gp_anchor=te_anchor,
             ),
-            Te_order, _te_unphysical, "Te", time_ms,
+            Te_order, _te_unphysical, "Te", time_ms, notes=te_notes,
         )
         if enforce_physical else
         (*fit_profile(
@@ -844,7 +1004,7 @@ def profile_fitting_thomson_scattering(
                 fitting_function=fitting_function_ne,
                 gp_anchor=ne_anchor,
             ),
-            Ne_order, _ne_unphysical, "ne", time_ms,
+            Ne_order, _ne_unphysical, "ne", time_ms, notes=ne_notes,
         )
         if enforce_physical else
         (*fit_profile(
@@ -864,7 +1024,19 @@ def profile_fitting_thomson_scattering(
 
     n_e_fit = FittedProfile(n_e_function, coordinate, str(fitting_function_ne), int(Ne_order_used), coeffs_ne)
     T_e_fit = FittedProfile(T_e_function, coordinate, str(fitting_function_te), int(Te_order_used), coeffs_te)
-    return n_e_fit, T_e_fit, coeffs_ne, coeffs_te, n_e_rho, T_e_rho
+    return {
+        "n_e_fit": n_e_fit, "T_e_fit": T_e_fit, "coeffs_ne": coeffs_ne, "coeffs_te": coeffs_te,
+        "n_e_rho": n_e_rho, "T_e_rho": T_e_rho, "rho_eval": rho_eval,
+        "T_e_std_eval": np.asarray(T_e_std, dtype=float),
+        "n_e_std_eval": np.asarray(n_e_std, dtype=float),
+        "raw": raw, "valid": valid, "coordinate": coordinate,
+        "time": points["time"], "time_index": points["time_index"],
+        "t_e_sigma_used": t_e_std_used, "n_e_sigma_used": n_e_std_norm * n_e_scale,
+        "te_notes": tuple(te_notes), "ne_notes": tuple(ne_notes),
+        "Te_order_used": int(Te_order_used), "Ne_order_used": int(Ne_order_used),
+        "te_gp": (rho, t_e, t_e_std_used, te_anchor, 1.0),
+        "ne_gp": (rho, n_e_norm, n_e_std_norm, ne_anchor, n_e_scale),
+    }
 
 
 def equilibrium_mapping_charge_exchange(ods, geq):
@@ -988,7 +1160,7 @@ def _legacy_keyword(value, legacy_value, legacy_name):
 
 
 def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
-                                min_order=1):
+                                min_order=1, notes=None):
     """Call ``fit_call(order)`` reducing the order until the profile is physical.
 
     A low-order fit that stays physical is far more trustworthy than a
@@ -1009,6 +1181,8 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
         is_unphysical: ``function -> reason str or None``.
         label, time_ms: for the log messages.
         min_order: lowest order to try.
+        notes: optional list the order decisions are appended to, so a
+            :class:`FitReport` can say why the order it reports was used.
 
     Returns:
         ``(y_eval, y_std, function, coeffs, order_used)``
@@ -1019,6 +1193,8 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
             result = fit_call(candidate)
         except Exception as exc:  # noqa: BLE001 -- try a lower order before giving up
             print(f"[INFO] {label} fit order {candidate} failed at {time_ms:.3f} ms ({exc})")
+            if notes is not None:
+                notes.append(f"order {candidate} failed to fit ({exc})")
             continue
         reason = is_unphysical(result[2])
         lowest = (result, candidate, reason)
@@ -1029,6 +1205,8 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
                     f"using order {candidate} (few/narrow measurement points)"
                 )
             return (*result, candidate)
+        if notes is not None:
+            notes.append(f"order {candidate} rejected by the physicality guard: {reason}")
     if lowest is None:
         raise RuntimeError(f"{label} fit failed at every order at {time_ms:.3f} ms")
     result, candidate, reason = lowest
@@ -1037,7 +1215,27 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
         f"[{min_order}, {order}] gave a physical profile ({reason}); "
         f"keeping order {candidate}"
     )
+    if notes is not None:
+        notes.append(f"no order in [{min_order}, {order}] was physical; kept order {candidate} anyway")
     return (*result, candidate)
+
+
+def _channel_fit_mask(values, sigmas, rho):
+    """Which channels a charge-exchange fit keeps, and whether any sigma is usable.
+
+    A channel needs a finite value and position; it also needs a finite,
+    positive sigma unless *no* channel has one, in which case the sigmas are
+    all replaced (see :func:`_filter_channels_for_fit`).
+    """
+    values = np.asarray(values, dtype=float)
+    sigmas = np.asarray(sigmas, dtype=float)
+    rho = np.asarray(rho, dtype=float).reshape(-1)
+    valid = np.isfinite(rho) & np.isfinite(values)
+    sigma_ok = np.isfinite(sigmas) & (sigmas > 0)
+    usable = bool(np.any(valid & sigma_ok))
+    if usable:
+        valid = valid & sigma_ok
+    return valid, usable
 
 
 def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
@@ -1053,11 +1251,8 @@ def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
     sigmas = np.asarray(sigmas, dtype=float)
     rho = np.asarray(rho, dtype=float).reshape(-1)
 
-    valid = np.isfinite(rho) & np.isfinite(values)
-    sigma_ok = np.isfinite(sigmas) & (sigmas > 0)
-    if np.any(valid & sigma_ok):
-        valid &= sigma_ok
-    else:
+    valid, sigmas_usable = _channel_fit_mask(values, sigmas, rho)
+    if not sigmas_usable:
         sigmas = np.full_like(values, np.nan)  # replaced by the floor below
 
     dropped = int(np.sum(~valid))
@@ -1281,8 +1476,23 @@ def profile_fitting_charge_exchange(
        failure, mirroring ``vaft.code.efit._ti_weighted_fit_psin``.
     """
     mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
-    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
+    run = _fit_charge_exchange(
+        ods, time_ms, mapped_positions, Ti_order, Vtor_order, uncertainty_option,
+        rho_points, fitting_function_ti, fitting_function_vtor, ion_index,
+        time_tolerance_ms, clamp_to_measured_span, coordinate,
+    )
+    return (
+        run["Vtor_fit"], run["Ti_fit"], run["coeffs_vtor"], run["coeffs_ti"],
+        run["Vtor_rho"], run["Ti_rho"],
+    )
 
+
+def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
+                         uncertainty_option, rho_points, fitting_function_ti,
+                         fitting_function_vtor, ion_index, time_tolerance_ms,
+                         clamp_to_measured_span, coordinate):
+    """The charge-exchange fit, with everything a :class:`FitReport` needs beside it."""
+    rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
     # --- time index ---
     times = np.asarray(ods['charge_exchange.time'], dtype=float)
     if times.ndim != 1:
@@ -1314,6 +1524,12 @@ def profile_fitting_charge_exchange(
         Vtor.append(v_val)
         Vtor_std.append(v_err)
 
+    raw = {"x": rho_flat.copy(), "t_i": np.asarray(Ti, dtype=float),
+           "t_i_std": np.asarray(Ti_std, dtype=float),
+           "velocity_tor": np.asarray(Vtor, dtype=float),
+           "velocity_tor_std": np.asarray(Vtor_std, dtype=float)}
+    ti_valid, _ = _channel_fit_mask(Ti, Ti_std, rho_flat)
+    v_valid, _ = _channel_fit_mask(Vtor, Vtor_std, rho_flat)
     Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
     Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
 
@@ -1322,6 +1538,11 @@ def profile_fitting_charge_exchange(
     # 1/sigma**2 weight and dominate the fit.
     Ti_std = _sanitize_std(Ti_std)
     Vtor_std = _sanitize_std(Vtor_std)
+
+    ti_sigma_used = np.full(rho_flat.shape, np.nan)
+    ti_sigma_used[ti_valid] = Ti_std
+    v_sigma_used = np.full(rho_flat.shape, np.nan)
+    v_sigma_used[v_valid] = Vtor_std
 
     rho = np.clip(rho_ti.reshape(-1, 1), 0.0, 1.0)
     rho_vtor = np.clip(rho_v.reshape(-1, 1), 0.0, 1.0)
@@ -1385,7 +1606,442 @@ def profile_fitting_charge_exchange(
     v_span = (v_lo, v_hi) if clamp_to_measured_span else None
     Vtor_fit = FittedProfile(Vtor_function, coordinate, str(fitting_function_vtor), int(Vtor_order), coeffs_vtor, v_span)
     Ti_fit = FittedProfile(Ti_function, coordinate, str(fitting_function_ti), int(Ti_order), coeffs_ti, ti_span)
-    return Vtor_fit, Ti_fit, coeffs_vtor, coeffs_ti, Vtor_rho, Ti_rho
+    return {
+        "Vtor_fit": Vtor_fit, "Ti_fit": Ti_fit, "coeffs_vtor": coeffs_vtor, "coeffs_ti": coeffs_ti,
+        "Vtor_rho": Vtor_rho, "Ti_rho": Ti_rho, "rho_eval": rho_eval,
+        "Ti_std_eval": np.asarray(Ti_std_fit, dtype=float),
+        "Vtor_std_eval": np.asarray(Vtor_std_fit, dtype=float),
+        "raw": raw, "ti_valid": ti_valid, "v_valid": v_valid, "coordinate": coordinate,
+        "time": float(times[time_index]), "time_index": time_index,
+        "t_i_sigma_used": ti_sigma_used, "velocity_tor_sigma_used": v_sigma_used,
+        "ti_gp": (rho, Ti, Ti_std, None, 1.0), "v_gp": (rho_vtor, Vtor, Vtor_std, None, 1.0),
+    }
+# ---------------------------------------------------------------------------
+# Fit quality (#952): what the fit did with every channel
+# ---------------------------------------------------------------------------
+
+_REPORT_UNITS = {"t_e": "eV", "n_e": "m^-3", "t_i": "eV", "velocity_tor": "m/s"}
+
+
+def _own_rejections(value, sigma, position, *, sigma_required=True):
+    """Why each channel cannot enter a fit on its own measurement, ``""`` if it can."""
+    reasons = []
+    for v, s, x in zip(value, sigma, position):
+        why = []
+        if not np.isfinite(v):
+            why.append("non-finite value")
+        if sigma_required:
+            if not np.isfinite(s):
+                why.append("non-finite sigma")
+            elif s <= 0:
+                why.append("non-positive sigma")
+        if not np.isfinite(x):
+            why.append("outside the LCFS or the equilibrium grid (unmapped position)")
+        reasons.append("; ".join(why))
+    return reasons
+
+
+def _gp_effective_parameters(gp_inputs):
+    """``tr(H)`` over the measured points for the scipy Gaussian process fit.
+
+    Retrains with the exact inputs and defaults :func:`vaft.formula.fit_profile`
+    used (same restarts, same seed), so the hyperparameters -- and with them
+    the smoother -- are the fit's own.
+    """
+    from vaft.formula.utils import _GP_JITTER, _gp_kernel, _gp_train
+
+    x, y, sigma, anchor, _scale = gp_inputs
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    sigma = np.asarray(sigma, dtype=float).reshape(-1)
+    n = x.size
+    if anchor is not None:
+        x = np.append(x, np.ravel(anchor[0]))
+        y = np.append(y, np.ravel(anchor[1]))
+        sigma = np.append(sigma, np.ravel(anchor[2]))
+    state = _gp_train(x, y, sigma)
+    gram = _gp_kernel(state.x, state.x, state.constant, state.length_scale)
+    covariance = gram + np.diag(state.noise_variance + _GP_JITTER)
+    smoother = np.linalg.solve(covariance.T, gram.T).T  # H = K (K + Sigma)^-1
+    # The GP is fitted to y - mean(y) and the mean added back, so the map
+    # from data to fitted values is S = H + (I - H) J / m with J the all-ones
+    # matrix: the estimated mean is one more parameter's worth of freedom.
+    m = x.size
+    total = smoother + (np.eye(m) - smoother) @ np.full((m, m), 1.0 / m)
+    return float(np.trace(total[:n, :n]))
+
+
+def _parameter_count(method, coefficients, n_used, gp_inputs):
+    """``(k, definition)`` for the degrees of freedom of one fit."""
+    name = str(method).lower()
+    if name == "gp":
+        try:
+            k = _gp_effective_parameters(gp_inputs)
+        except Exception as exc:  # noqa: BLE001 -- report why rather than fail the fit
+            return float("nan"), f"GP effective parameters unavailable ({exc})"
+        return k, "trace over the measured points of the GP smoother H + (I - H)J/m, H = K(K+Sigma)^-1"
+    if name == "gp_sklearn":
+        return float("nan"), "not computed for the scikit-learn GP"
+    if name == "linear":
+        return float(n_used), "linear interpolation passes through every point: k = N"
+    if coefficients is not None:
+        return float(np.asarray(coefficients).size), "number of fitted coefficients"
+    return float("nan"), f"no parameter count known for method {method!r}"
+
+
+def _make_report(quantity, *, coordinate, fit, order_requested, time, time_index,
+                 position, value, sigma, sigma_used, used, reasons, gp_inputs,
+                 grid, curve, curve_std, notes):
+    position = np.asarray(position, dtype=float)
+    value = np.asarray(value, dtype=float)
+    used = np.asarray(used, dtype=bool)
+    fitted = np.full(position.shape, np.nan)
+    finite = np.isfinite(position)
+    if finite.any():
+        fitted[finite] = np.asarray(fit(position[finite]), dtype=float).reshape(-1)
+    sigma_used = np.where(used, np.asarray(sigma_used, dtype=float), np.nan)
+    residual = np.where(used, (value - fitted) / sigma_used, np.nan)
+    n_used = int(np.count_nonzero(used))
+    k, definition = _parameter_count(fit.method, fit.coefficients, n_used, gp_inputs)
+    chi2 = float(np.nansum(residual[used] ** 2)) if n_used else float("nan")
+    dof = float(n_used - k) if np.isfinite(k) else float("nan")
+    from vaft.formula.statistics import reduced_chi_squared
+
+    curve_std = None if curve_std is None else np.asarray(curve_std, dtype=float)
+    if curve_std is not None and not np.any(curve_std > 0):
+        curve_std = None
+    return FitReport(
+        quantity=quantity, unit=_REPORT_UNITS[quantity], coordinate=coordinate,
+        method=fit.method, order_requested=order_requested, order_used=fit.order,
+        time=float(time), time_index=int(time_index), position=position, value=value,
+        sigma=np.asarray(sigma, dtype=float), sigma_used=sigma_used, fitted=fitted,
+        normalized_residual=residual, used=used,
+        rejected_reason=tuple("" if ok else (why or "rejected") for ok, why in zip(used, reasons)),
+        n_parameters=float(k), parameter_count_definition=definition,
+        chi_squared=chi2, degrees_of_freedom=dof,
+        reduced_chi_squared=reduced_chi_squared(chi2, dof),
+        function=fit, grid=np.asarray(grid, dtype=float),
+        curve=np.asarray(fit(np.asarray(grid, dtype=float)), dtype=float),
+        curve_std=curve_std, notes=tuple(notes),
+    )
+
+
+def profile_fit_report_thomson_scattering(
+    ods,
+    time_ms,
+    mapped_positions=None,
+    Te_order=3,
+    Ne_order=3,
+    uncertainty_option=1,
+    rho_points=100,
+    fitting_function_te='polynomial',
+    fitting_function_ne='polynomial',
+    time_tolerance_ms=1.0,
+    enforce_physical=True,
+    *,
+    coordinate="rho_tor_norm",
+):
+    """Fit Thomson ``T_e`` and ``n_e`` and report how well each fit reproduces its channels.
+
+    The same fit :func:`profile_fitting_thomson_scattering` makes, with the
+    same arguments, returned as one :class:`FitReport` per quantity: every
+    channel with its normalised residual, the chi-square over the channels
+    the fit used, the degrees of freedom, and the reason each refused channel
+    was refused.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``thomson_scattering.time`` and per-channel ``t_e`` / ``n_e``
+        data with ``data_error_upper`` [-].
+    time_ms : float
+        Time to fit at; the nearest Thomson sample within ``time_tolerance_ms``
+        [ms].
+    mapped_positions : MappedPositions
+        Channel positions from :func:`equilibrium_mapping_thomson_scattering` [-].
+    Te_order : int, optional
+        Starting order for ``T_e`` [-].
+    Ne_order : int, optional
+        Starting order for ``n_e`` [-].
+    uncertainty_option : int, optional
+        ``1`` weights the fit by the per-channel uncertainties [-].
+    rho_points : int, optional
+        Points of the uniform grid the report's ``curve`` is sampled on [-].
+    fitting_function_te : str, optional
+        Model for ``T_e``, as :func:`profile_fitting_thomson_scattering` [-].
+    fitting_function_ne : str, optional
+        Model for ``n_e`` [-].
+    time_tolerance_ms : float, optional
+        Largest distance to the nearest Thomson sample [ms].
+    enforce_physical : bool, optional
+        Reduce the order until the profile is physical inside the LCFS [-].
+    coordinate : str, optional
+        ``rho_tor_norm``, ``rho_pol_norm`` or ``psi_norm`` [-].
+
+    Returns
+    -------
+    dict of str to FitReport
+        ``{"t_e": ..., "n_e": ...}``; residuals are dimensionless, values in
+        eV and m^-3 [-].
+
+    Raises
+    ------
+    ValueError
+        No Thomson sample within tolerance; an unknown ``coordinate``.
+    CoordinateUnavailableError
+        The mapping cannot supply ``coordinate``.
+
+    Processing steps
+    ----------------
+    1. Fit exactly as :func:`profile_fitting_thomson_scattering` does.
+    2. For each channel record why it was refused: a non-finite value, a
+       non-finite or non-positive sigma, an unmapped position (outside the LCFS
+       or the equilibrium grid), or -- Thomson measures both quantities on one
+       channel -- the other quantity's refusal.
+    3. ``r_i = (y_i - f(x_i)) / sigma_i`` at every used channel, with the sigma
+       the fit was weighted with (after its floors); ``chi2 = sum r_i^2``;
+       ``nu = N - k`` (see :class:`FitReport` for ``k``).
+
+    Assumptions
+    -----------
+    The stored ``data_error_upper`` is a symmetric one-sigma uncertainty and
+    the channels are independent; ``chi2 / nu ~ 1`` then means the model and
+    the uncertainties agree.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A channel refused because of its partner quantity is not a statement about
+    its own measurement.  The residual is taken against the returned,
+    non-negative-clipped curve; where clipping bit, ``r_i`` is larger than the
+    optimiser saw.
+
+    Provenance
+    ----------
+    .. [1] The fitting kernel [FIT]_; chi-square and its reduced form from
+       :func:`vaft.formula.statistics.chi_squared` (Bevington & Robinson).
+    """
+    run = _fit_thomson(
+        ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
+        rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
+        enforce_physical, coordinate,
+    )
+    raw, valid = run["raw"], run["valid"]
+    own = {
+        name: _own_rejections(raw[name], raw[f"{name}_std"], raw["x"])
+        for name in ("t_e", "n_e")
+    }
+    reports = {}
+    for name, other, fit, order, sigma_key, notes, gp, std in (
+        ("t_e", "n_e", run["T_e_fit"], Te_order, "t_e_sigma_used", run["te_notes"],
+         run["te_gp"], run["T_e_std_eval"]),
+        ("n_e", "t_e", run["n_e_fit"], Ne_order, "n_e_sigma_used", run["ne_notes"],
+         run["ne_gp"], run["n_e_std_eval"]),
+    ):
+        reasons = [
+            mine or (f"refused with the channel's {other} ({theirs})" if theirs else "")
+            for mine, theirs in zip(own[name], own[other])
+        ]
+        sigma_used = np.full(valid.shape, np.nan)
+        sigma_used[valid] = run[sigma_key]
+        reports[name] = _make_report(
+            name, coordinate=run["coordinate"], fit=fit, order_requested=int(order),
+            time=run["time"], time_index=run["time_index"], position=raw["x"],
+            value=raw[name], sigma=raw[f"{name}_std"], sigma_used=sigma_used,
+            used=valid, reasons=reasons, gp_inputs=gp, grid=run["rho_eval"],
+            curve=None, curve_std=std, notes=notes,
+        )
+    return reports
+
+
+def profile_fit_report_charge_exchange(
+    ods,
+    time_ms,
+    mapped_positions=None,
+    Ti_order=3,
+    Vtor_order=3,
+    uncertainty_option=1,
+    rho_points=100,
+    fitting_function_ti='polynomial',
+    fitting_function_vtor='polynomial',
+    ion_index=0,
+    time_tolerance_ms=1.0,
+    clamp_to_measured_span=True,
+    *,
+    coordinate="rho_tor_norm",
+):
+    """Fit charge-exchange ``T_i`` and ``V_tor`` and report how well each fit reproduces its channels.
+
+    The ion twin of :func:`profile_fit_report_thomson_scattering`, around the
+    fit :func:`profile_fitting_charge_exchange` makes.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``charge_exchange.time`` and per-channel ion ``t_i`` and
+        ``velocity_tor`` with ``data_error_upper`` [-].
+    time_ms : float
+        Time to fit at [ms].
+    mapped_positions : MappedPositions
+        Channel positions from :func:`equilibrium_mapping_charge_exchange` [-].
+    Ti_order : int, optional
+        Polynomial order for ``T_i`` [-].
+    Vtor_order : int, optional
+        Polynomial order for ``V_tor`` [-].
+    uncertainty_option : int, optional
+        ``1`` weights the fit by the per-channel uncertainties [-].
+    rho_points : int, optional
+        Points of the grid the report's ``curve`` is sampled on [-].
+    fitting_function_ti : str, optional
+        Model for ``T_i`` [-].
+    fitting_function_vtor : str, optional
+        Model for ``V_tor`` [-].
+    ion_index : int, optional
+        Which ion of each channel [-].
+    time_tolerance_ms : float, optional
+        Largest distance to the nearest charge-exchange sample [ms].
+    clamp_to_measured_span : bool, optional
+        Hold the fit at its end values outside the measured span [-].
+    coordinate : str, optional
+        Which coordinate of the mapping to fit in [-].
+
+    Returns
+    -------
+    dict of str to FitReport
+        ``{"t_i": ..., "velocity_tor": ...}``, values in eV and m/s [-].
+
+    Raises
+    ------
+    ValueError
+        No charge-exchange sample within tolerance; an unknown ``coordinate``.
+    CoordinateUnavailableError
+        The mapping cannot supply ``coordinate``.
+
+    Processing steps
+    ----------------
+    1. Fit exactly as :func:`profile_fitting_charge_exchange` does; each
+       quantity keeps its own channel set.
+    2. Record why each refused channel was refused: a non-finite value or
+       position, or a non-finite or non-positive sigma while other channels
+       carry usable ones.  When no channel carries a usable sigma the fitter
+       gives all of them a uniform one, and the report notes it.
+    3. Residuals, chi-square and ``nu = N - k`` as in :class:`FitReport`, with
+       the sigmas the fit was weighted with.
+
+    Assumptions
+    -----------
+    Independent, symmetric one-sigma uncertainties.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With ``clamp_to_measured_span`` the curve is flat outside the measured
+    span, which no channel constrains; the residuals only test the span.
+
+    Provenance
+    ----------
+    .. [1] The fitting kernel [FIT]_; chi-square from
+       :func:`vaft.formula.statistics.chi_squared` (Bevington & Robinson).
+    """
+    run = _fit_charge_exchange(
+        ods, time_ms, mapped_positions, Ti_order, Vtor_order, uncertainty_option,
+        rho_points, fitting_function_ti, fitting_function_vtor, ion_index,
+        time_tolerance_ms, clamp_to_measured_span, coordinate,
+    )
+    raw = run["raw"]
+    reports = {}
+    for name, fit, order, valid_key, gp, std in (
+        ("t_i", run["Ti_fit"], Ti_order, "ti_valid", run["ti_gp"], run["Ti_std_eval"]),
+        ("velocity_tor", run["Vtor_fit"], Vtor_order, "v_valid", run["v_gp"], run["Vtor_std_eval"]),
+    ):
+        _, sigma_usable = _channel_fit_mask(raw[name], raw[f"{name}_std"], raw["x"])
+        reasons = _own_rejections(raw[name], raw[f"{name}_std"], raw["x"], sigma_required=sigma_usable)
+        notes = () if sigma_usable else ("no channel carried a usable sigma; a uniform sigma was used",)
+        reports[name] = _make_report(
+            name, coordinate=run["coordinate"], fit=fit, order_requested=int(order),
+            time=run["time"], time_index=run["time_index"], position=raw["x"],
+            value=raw[name], sigma=raw[f"{name}_std"],
+            sigma_used=run[f"{name}_sigma_used"], used=run[valid_key], reasons=reasons,
+            gp_inputs=gp, grid=run["rho_eval"], curve=None, curve_std=std, notes=notes,
+        )
+    return reports
+
+
+def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering"):
+    """Map one diagnostic's channels through several equilibria, to see how much the mapping moves them.
+
+    A profile's radial coordinate is borrowed from an equilibrium, so two
+    reconstructions of the same instant -- a magnetics-only EFIT and a kinetic
+    one, say -- place the same channel at different ``psi_norm`` and
+    ``rho_tor_norm``.  This maps the channels through each and returns the
+    records side by side, keyed as the equilibria were.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries the diagnostic's channel positions [-].
+    equilibria : mapping of str to GEQDSK, ODS or mapping
+        The equilibria to compare, each anything
+        :func:`equilibrium_mapping_thomson_scattering` accepts; a path to a
+        GEQDSK file is read with :func:`vaft.data.eqdsk.read_geqdsk` when
+        that reader is available [-].
+    diagnostic : str, optional
+        ``"thomson_scattering"`` or ``"charge_exchange"`` [-].
+
+    Returns
+    -------
+    dict of str to MappedPositions
+        One record per equilibrium, in the order given, NaN outside that
+        equilibrium's LCFS [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``diagnostic``.
+
+    Assumptions
+    -----------
+    The channels' ``(R, Z)`` are the same for every equilibrium; only the flux
+    map changes.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Each ODS equilibrium contributes its first time slice, as the mappers
+    read it; pick the slice before passing a multi-slice ODS.
+
+    Provenance
+    ----------
+    .. [1] The mappers :func:`equilibrium_mapping_thomson_scattering` and
+       :func:`equilibrium_mapping_charge_exchange`, applied once per
+       equilibrium.
+    """
+    mappers = {
+        "thomson_scattering": equilibrium_mapping_thomson_scattering,
+        "charge_exchange": equilibrium_mapping_charge_exchange,
+    }
+    if diagnostic not in mappers:
+        raise ValueError(f"diagnostic must be one of {tuple(mappers)}, got {diagnostic!r}")
+    mapper = mappers[diagnostic]
+    out = {}
+    for name, geq in equilibria.items():
+        if isinstance(geq, (str, os.PathLike)):
+            from vaft.data.eqdsk import read_geqdsk
+
+            geq = read_geqdsk(geq)
+        out[name] = mapper(ods, geq)
+    return out
+
+
 class _EquilibriumGrid(NamedTuple):
     """The 1-D flux grid a profile is stored on, and whether its rho is real.
 
@@ -1595,6 +2251,35 @@ def strip_electron_only_pressure(ods):
             key = f"{base}.{leaf}"
             if key in ods:
                 del ods[key]
+
+
+def _optional_channel_errors(ods, quantity, num_channels, time_index):
+    """Per-channel ``data_error_upper`` of a Thomson quantity, or ``None`` if not stored."""
+    try:
+        return np.array(
+            [ods[f'thomson_scattering.channel.{i}.{quantity}.data_error_upper'][time_index]
+             for i in range(num_channels)],
+            dtype=float,
+        )
+    except Exception:  # noqa: BLE001 -- an uncertainty-free source stores none
+        return None
+
+
+def _write_fit_uncertainty(ods, fit_base, measured, reconstructed, error):
+    """``measured_error_upper`` and the per-point ``chi_squared`` of a ``*_fit`` node.
+
+    ``chi_squared_i = ((measured_i - reconstructed_i) / measured_error_upper_i)^2``,
+    the DD's per-measurement chi-square, against the stored uncertainty (the
+    fitter's floor aside, the one the fit was weighted with); NaN where the
+    stored uncertainty is not a finite positive number.
+    """
+    error = np.asarray(error, dtype=float)
+    ods[f'{fit_base}.measured_error_upper'] = error
+    usable = np.isfinite(error) & (error > 0)
+    safe = np.where(usable, error, 1.0)
+    ods[f'{fit_base}.chi_squared'] = np.where(
+        usable, ((np.asarray(measured, float) - np.asarray(reconstructed, float)) / safe) ** 2, np.nan
+    )
 
 
 def core_profiles(
@@ -1822,6 +2507,8 @@ def core_profiles(
             [ods[f'thomson_scattering.channel.{i}.t_e.data'][t_idx] for i in range(num_channels)],
             dtype=float,
         )
+        n_e_meas_err = _optional_channel_errors(ods, 'n_e', num_channels, t_idx)
+        T_e_meas_err = _optional_channel_errors(ods, 't_e', num_channels, t_idx)
         rho_meas, _ = _positions_for_fit(mapped_positions, coord, legacy_name="mapped_rho_position")
 
     # --- evaluation grid: prefer the mapping geqdsk, then the ODS equilibrium,
@@ -1955,14 +2642,19 @@ def core_profiles(
             x_meas = np.clip(rho_meas[finite_meas], 0, 1)
             fit_base_n = f'{base}.electrons.density_fit'
             fit_base_t = f'{base}.electrons.temperature_fit'
-            ods[f'{fit_base_n}.rho_tor_norm'] = rho_meas_tor[finite_meas]
-            ods[f'{fit_base_n}.measured'] = n_e_meas[finite_meas]
-            ods[f'{fit_base_n}.reconstructed'] = np.asarray(n_e_function(x_meas), dtype=float)
-            ods[f'{fit_base_n}.parameters'] = _fit_parameters_text(n_e_function, coord)
-            ods[f'{fit_base_t}.rho_tor_norm'] = rho_meas_tor[finite_meas]
-            ods[f'{fit_base_t}.measured'] = T_e_meas[finite_meas]
-            ods[f'{fit_base_t}.reconstructed'] = np.asarray(T_e_function(x_meas), dtype=float)
-            ods[f'{fit_base_t}.parameters'] = _fit_parameters_text(T_e_function, coord)
+            for fit_base, fit_fn, measured, error in (
+                (fit_base_n, n_e_function, n_e_meas, n_e_meas_err),
+                (fit_base_t, T_e_function, T_e_meas, T_e_meas_err),
+            ):
+                reconstructed = np.asarray(fit_fn(x_meas), dtype=float)
+                ods[f'{fit_base}.rho_tor_norm'] = rho_meas_tor[finite_meas]
+                ods[f'{fit_base}.measured'] = measured[finite_meas]
+                ods[f'{fit_base}.reconstructed'] = reconstructed
+                ods[f'{fit_base}.parameters'] = _fit_parameters_text(fit_fn, coord)
+                if error is not None:
+                    _write_fit_uncertainty(
+                        ods, fit_base, measured[finite_meas], reconstructed, error[finite_meas]
+                    )
 
     if T_i_function is not None:
         ion_record = f"Ti[{_fit_parameters_text(T_i_function, coord)}]"
@@ -1997,9 +2689,13 @@ def core_profiles(
                     finite_ti = np.isfinite(ti_rho) & np.isfinite(ti_rho_tor)
                     ods[f'{fit_base_ti}.rho_tor_norm'] = ti_rho_tor[finite_ti]
                     ods[f'{fit_base_ti}.measured'] = ti_meas[finite_ti]
-                    ods[f'{fit_base_ti}.measured_error_upper'] = ti_meas_err[finite_ti]
                     ods[f'{fit_base_ti}.reconstructed'] = np.asarray(
                         T_i_function(np.clip(ti_rho[finite_ti], 0, 1)), dtype=float
+                    )
+                    _write_fit_uncertainty(
+                        ods, fit_base_ti, ti_meas[finite_ti],
+                        np.asarray(ods[f'{fit_base_ti}.reconstructed'], dtype=float),
+                        ti_meas_err[finite_ti],
                     )
             except Exception as exc:
                 print(f"[WARN] could not attach ion temperature_fit metadata: {exc}")

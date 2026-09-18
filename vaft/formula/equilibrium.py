@@ -1594,6 +1594,115 @@ def current_limit_from_beta(beta_N: float,
 # Stored Energy
 # ------------------------------------------------------------------
 
+def _thermal_pressure(n, T, *, n_name: str, T_name: str):
+    """$n T e$ with both inputs checked finite and non-negative."""
+    density = np.asarray(n, dtype=float)
+    temperature = np.asarray(T, dtype=float)
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError(f"{n_name} must be finite and non-negative in m^-3; got {n!r}")
+    if not np.all(np.isfinite(temperature)) or np.any(temperature < 0.0):
+        raise ValueError(f"{T_name} must be finite and non-negative in eV; got {T!r}")
+    pressure = density * temperature * QE
+    return float(pressure) if np.ndim(pressure) == 0 else pressure
+
+
+def electron_pressure(n_e: Union[float, np.ndarray],
+                      T_e: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Electron thermal pressure from density and temperature, $p_e = n_e T_e$.
+
+    $$p_e = n_e\,k_B T_e = n_e\,T_e[\mathrm{eV}]\;e$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, finite and non-negative [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, finite and non-negative, broadcastable
+        against ``n_e`` [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Electron pressure; $10^{19}\,\mathrm{m^{-3}}$ at 100 eV is 160.2 Pa [Pa].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or temperature.
+
+    Convention
+    ----------
+    Temperature in electronvolts, converted with the elementary charge
+    :data:`vaft.formula.constants.QE`; density in m^-3, not $10^{19}$ m^-3.
+    This is one species' pressure: the total kinetic pressure is
+    $p_e + \sum_i p_i$, which is **not** $2 n_e T_e$ unless $T_i = T_e$ and
+    $\sum_i n_i = n_e$ (hydrogen, no impurity).
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian electrons; a fast or anisotropic population needs
+    its own $p_\parallel$, $p_\perp$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (the ideal-gas pressure of a plasma species).
+
+    See Also
+    --------
+    ion_pressure
+    """
+    return _thermal_pressure(n_e, T_e, n_name="n_e", T_name="T_e")
+
+
+def ion_pressure(n_i: Union[float, np.ndarray],
+                 T_i: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Ion thermal pressure of one species from density and temperature, $p_i = n_i T_i$.
+
+    $$p_i = n_i\,k_B T_i = n_i\,T_i[\mathrm{eV}]\;e$$
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Density of one ion species, finite and non-negative [m^-3].
+    T_i : float or np.ndarray
+        Temperature of that species, finite and non-negative, broadcastable
+        against ``n_i`` [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Pressure of that species [Pa].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or temperature.
+
+    Convention
+    ----------
+    Same law and units as :func:`electron_pressure`.  The density is the
+    *ion* density of that species, not $n_e$: quasi-neutrality gives
+    $\sum_i Z_i n_i = n_e$.  Sum the species yourself for the total ion
+    pressure.
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian ions of the stated temperature; beam or
+    fusion-product ions are a separate, non-thermal pressure.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (the ideal-gas pressure of a plasma species).
+
+    See Also
+    --------
+    electron_pressure
+    """
+    return _thermal_pressure(n_i, T_i, n_name="n_i", T_name="T_i")
+
+
 def stored_energy_from_p_V(p: Union[float, np.ndarray],
                           V: float) -> Union[float, np.ndarray]:
     r"""Stored energy as pressure times volume, $W = pV$.

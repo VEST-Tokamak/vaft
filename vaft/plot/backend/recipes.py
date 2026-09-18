@@ -823,7 +823,7 @@ EQUILIBRIUM_FIELD_NAMES = tuple(EQUILIBRIUM_FIELDS)
 
 #: What a poloidal map may draw over the field: the machine's parts, plus the
 #: boundary and axis that belong to the equilibrium itself.
-POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis")
+POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis", "x_points")
 
 #: The machine context every poloidal map carries unless the caller says
 #: otherwise; an equilibrium field adds its own boundary and axis to it.
@@ -1106,8 +1106,12 @@ def _topview_reads() -> tuple[str, ...]:
 #: The EFIT constraint families vaft.omas.efit_quality reads, per slice.
 _EFIT_CONSTRAINT_READS = tuple(
     f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
-    for family in ("bpol_probe.{j}", "flux_loop.{j}", "pf_current.{j}")
+    for family in ("bpol_probe.{j}", "flux_loop.{j}", "pf_current.{j}", "pressure.{j}")
     for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight", "source", "exact")
+) + (
+    # The kinetic pressure points carry where they sit (issue #952).
+    "equilibrium.time_slice.{i}.constraints.pressure.{j}.position.psi",
+    "equilibrium.time_slice.{i}.constraints.pressure.{j}.position.rho_tor_norm",
 ) + tuple(
     f"equilibrium.time_slice.{{i}}.constraints.{family}.{leaf}"
     for family in ("ip", "diamagnetic_flux")
@@ -1441,6 +1445,45 @@ RECIPES: dict[str, Any] = {
         y_label="Major Radius",
         y_unit="m",
         title="Equilibrium Major Radius",
+    ),
+    # Boundary shape (issue #952): the IDS boundary leaves, which an EFIT
+    # export does not store and vaft.omas.update_equilibrium_derived_profiles
+    # (through update_equilibrium_boundary) fills from the LCFS.
+    "equilibrium_time_minor_radius": LineRecipe(
+        y_path="equilibrium.time_slice.{i}.boundary.minor_radius",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Minor Radius a",
+        y_unit="m",
+        title="Minor Radius",
+    ),
+    "equilibrium_time_elongation": LineRecipe(
+        y_path="equilibrium.time_slice.{i}.boundary.elongation",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Elongation κ",
+        title="Boundary Elongation",
+    ),
+    "equilibrium_time_triangularity": LineRecipe(
+        y_path="equilibrium.time_slice.{i}.boundary.triangularity",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Triangularity δ",
+        title="Boundary Triangularity (mean of upper and lower)",
+    ),
+    "equilibrium_time_triangularity_upper": LineRecipe(
+        y_path="equilibrium.time_slice.{i}.boundary.triangularity_upper",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Upper Triangularity δ_u",
+        title="Upper Triangularity",
+    ),
+    "equilibrium_time_triangularity_lower": LineRecipe(
+        y_path="equilibrium.time_slice.{i}.boundary.triangularity_lower",
+        index="time_slice",
+        x_paths=_EQ_TIME,
+        y_label="Lower Triangularity δ_l",
+        title="Lower Triangularity",
     ),
     "equilibrium_time_diamagnetic_flux": LineRecipe(
         y_path="equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
@@ -1917,6 +1960,17 @@ RECIPES: dict[str, Any] = {
     "summary_time_voltage_consumption": PanelRecipe(
         members=("plasma_current_time", "flux_loop_time_voltage"),
         suptitle="Voltage Consumption",
+    ),
+    "equilibrium_time_shape": PanelRecipe(
+        members=(
+            "equilibrium_time_major_radius",
+            "equilibrium_time_minor_radius",
+            "equilibrium_time_elongation",
+            "equilibrium_time_triangularity_upper",
+            "equilibrium_time_triangularity_lower",
+        ),
+        ncols=1,
+        suptitle="Boundary Shape",
     ),
     "equilibrium_time_virial": PanelRecipe(
         members=(
@@ -6516,6 +6570,8 @@ def coordinate_options_for(name: str) -> tuple[str, ...] | None:
     ``coordinates`` (issue #486); the option validator asks here so the
     schema's global vocabulary never refuses a name a recipe accepts.
     """
+    if name in _PROFILE_FIT_DIAGNOSTIC:
+        return PROFILE_FIT_COORDINATES
     recipe = RECIPES.get(name)
     if isinstance(recipe, ProfileRecipe):
         return _coordinate_options(recipe)
@@ -7394,6 +7450,8 @@ def field_options_for(name: str) -> tuple[str, ...] | None:
         return VACUUM_FIELD_NAMES
     if name == "vacuum_field_midplane":
         return VACUUM_MIDPLANE_FIELD_NAMES
+    if name in PROFILE_FIT_FIELDS:
+        return tuple(PROFILE_FIT_FIELDS[name])
     recipe = RECIPES.get(name)
     return tuple(recipe.fields) if isinstance(recipe, FieldRecipe) and recipe.fields else None
 
@@ -7526,6 +7584,50 @@ def _poloidal_overlays(
                 r=np.array([axis_r]), z=np.array([axis_z]), kind="points", label="Magnetic axis",
                 style={"marker": "+", "color": "feature:axis", "markersize": 10, "markeredgewidth": 1.5},
                 role=EQUILIBRIUM_ROLE,
+            ))
+    if "x_points" in names:
+        layers.extend(_x_point_layers(ods, time_slice))
+    return layers
+
+
+def _inside_limiter(limiter: Any, point: Any) -> bool:
+    """Whether a saddle lies inside the limiter: one outside it bounds nothing."""
+    if limiter is None or np.asarray(limiter.r).size < 3:
+        return True
+    from matplotlib.path import Path
+
+    return bool(Path(np.column_stack([limiter.r, limiter.z])).contains_point((point.r, point.z)))
+
+
+def _x_point_layers(ods: Any, time_slice: int) -> list[GeometryLayer]:
+    """The saddles of psi on the displayed slice, boundary-relevant ones marked (#952).
+
+    Classified by :func:`vaft.process.equilibrium.derive_boundary_representation`
+    from the slice's own flux map: an *active* X-point is a saddle whose flux
+    is the boundary flux and whose separatrix the confined region reaches; the
+    other saddles of the domain are drawn fainter, labelled as such.
+    """
+    try:
+        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+        representation = derive_boundary_representation(as_equilibrium(ods, time_index=time_slice))
+    except Exception as exc:  # noqa: BLE001 -- the map is still worth drawing
+        warnings.warn(f"x_points overlay: the slice could not be classified ({exc})", stacklevel=3)
+        return []
+    layers: list[GeometryLayer] = []
+    for active, label, style in (
+        (True, f"X-point ({representation.topology.value})",
+         {"marker": "x", "color": "feature:boundary", "markersize": 10, "markeredgewidth": 2.0}),
+        (False, "saddle off the boundary",
+         {"marker": "x", "color": "emphasis:low", "markersize": 7, "markeredgewidth": 1.0}),
+    ):
+        points = [point for point in representation.x_points if bool(point.active) is active]
+        if not active:
+            points = [point for point in points if _inside_limiter(representation.limiter, point)]
+        if points:
+            layers.append(GeometryLayer(
+                r=np.array([point.r for point in points]), z=np.array([point.z for point in points]),
+                kind="points", label=label, style=style, role=EQUILIBRIUM_ROLE,
             ))
     return layers
 
@@ -8217,6 +8319,13 @@ _VERIFICATION_FAMILIES = (
     ("bpol_probe", "Poloidal probes", "mT", 1e3, True),
     ("flux_loop", "Flux loops", "mWb", 1e3, True),
     ("pf_current", "PF currents", "kA", 1e-3, True),
+)
+
+#: The constraint views read the kinetic family too (issue #952); the
+#: verification overlay stays magnetic.  Mirrors
+#: ``vaft.omas.efit_quality.CONSTRAINT_FAMILIES`` without importing it here.
+_CONSTRAINT_FAMILIES = _VERIFICATION_FAMILIES + (
+    ("pressure", "Kinetic pressure", "Pa", 1.0, True),
 )
 
 
@@ -9017,7 +9126,7 @@ def _build_equilibrium_constraints(ods: Any, **options: Any) -> Panels:
     time_slice = int(options.get("time_slice", 0))
     times = _slice_times(ods)
     panels: list[Any] = []
-    for family, title, unit, scale, is_array in _VERIFICATION_FAMILIES:
+    for family, title, unit, scale, is_array in _CONSTRAINT_FAMILIES:
         table = _constraint_table(
             ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
         )
@@ -9086,7 +9195,7 @@ def _build_equilibrium_constraint_coverage(ods: Any, **options: Any) -> Panels:
     count = _require_slices(ods)
     times = _slice_times(ods)
     panels: list[Any] = []
-    for family, title, _unit, _scale, is_array in _VERIFICATION_FAMILIES:
+    for family, title, _unit, _scale, is_array in _CONSTRAINT_FAMILIES:
         counts = {state: [] for state in CONSTRAINT_STATES}
         for index in range(count):
             table = _constraint_table(
@@ -9136,10 +9245,12 @@ def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
 
     from vaft.omas.efit_quality import classify_fit_role
 
-    for family, title, unit, scale, is_array in _VERIFICATION_FAMILIES:
+    for family, title, unit, scale, is_array in _CONSTRAINT_FAMILIES:
         table = _constraint_table(
             ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale
         )
+        if not len(table.state):
+            continue  # a family this reconstruction does not carry
         role = classify_fit_role(ods, table, time_slice=time_slice)
         series = _state_series(table, table.residual)
         if series:
@@ -9230,7 +9341,7 @@ def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
 
 def _build_equilibrium_fit_quality(ods: Any, **options: Any) -> Panels:
     """Is this fit statistically acceptable against EFIT's own uncertainties?"""
-    from vaft.omas.efit_quality import FAMILIES, efit_quality_metrics
+    from vaft.omas.efit_quality import CONSTRAINT_FAMILIES as FAMILIES, efit_quality_metrics
 
     count = _require_slices(ods)
     time_slice = int(options.get("time_slice", 0))
@@ -9614,6 +9725,252 @@ RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
     reads=_EFIT_CONSTRAINT_READS,
     backend=NEUTRAL,
 )
+
+
+def _build_equilibrium_constraint_weights(ods: Any, **options: Any) -> Panels:
+    """What each constraint family weighed in the fit, channel by channel (#952).
+
+    One row per family the slice carries.  Left: the uncertainty the
+    diagnostic stored (``measured_error_upper``) beside the one EFIT actually
+    fitted against, ``sigma_eff = k / weight`` with ``k`` recovered from EFIT's
+    own chi-square (:func:`vaft.omas.efit_quality.sigma_unit_factor`); where the
+    two differ, the weights -- not the diagnostic -- set the fit.  Middle: the
+    stored weight.  Right: the normalized residual ``z = (m - r) weight / k``
+    against the +-2 sigma band.
+    """
+    from vaft.omas.efit_quality import normalized_residuals, sigma_unit_factor
+
+    _require_slices(ods)
+    time_slice = int(options.get("time_slice", 0))
+    times = _slice_times(ods)
+    columns = []
+    for family, title, unit, scale, is_array in _CONSTRAINT_FAMILIES:
+        table = _constraint_table(ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale)
+        if not len(table.state) or not table.mask("enabled").any():
+            continue
+        k, spread = sigma_unit_factor(table)
+        enabled = table.mask("enabled")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sigma_eff = np.where(table.weight > 0, k / table.weight, np.nan)
+        z = normalized_residuals(table, k)
+        x = table.index[enabled]
+        sigma_series = [
+            Series(x=x, y=table.uncertainty[enabled], label="stored σ (measured_error_upper)",
+                   style={"marker": "o", "linestyle": "none", "color": "role:measured"}),
+        ]
+        if np.isfinite(sigma_eff[enabled]).any():
+            sigma_series.append(Series(
+                x=x, y=sigma_eff[enabled], label="fitted σ_eff = k / weight",
+                style={"marker": "s", "linestyle": "none", "markerfacecolor": "none",
+                       "color": "role:reconstructed"},
+            ))
+        positive = np.concatenate([series.y[np.isfinite(series.y) & (series.y > 0)] for series in sigma_series])
+        ratio = np.nanmedian(sigma_eff[enabled] / table.uncertainty[enabled]) if np.isfinite(sigma_eff[enabled]).any() else np.nan
+        ratio_text = f": median σ_eff/σ = {ratio:.2g}" if np.isfinite(ratio) else ": k not recoverable"
+        top = LineSeries(
+            series=tuple(sigma_series), x_label="Constraint index", y_label="σ", y_unit=unit,
+            log_y=bool(positive.size and positive.max() / max(positive.min(), 1e-300) > 30),
+            title=f"{title}{ratio_text}",
+        )
+        middle = LineSeries(
+            series=(Series(x=x, y=table.weight[enabled], label="weight",
+                           style={"marker": "o", "linestyle": "none", "color": "state:enabled"}),),
+            x_label="Constraint index", y_label="weight",
+            title=f"weight: {int(enabled.sum())} fitted, k={k:.3g}",
+        )
+        span = np.array([x.min(), x.max()], dtype=float) if x.size else np.array([0.0, 1.0])
+        z_series = [Series(x=x, y=z[enabled], label="z = (m − r)·w / k",
+                           style={"marker": "o", "linestyle": "none", "color": "state:enabled"})]
+        for sign in (1.0, -1.0):
+            z_series.append(Series(x=span, y=np.full(2, 2.0 * sign), label="±2σ" if sign > 0 else "",
+                                   style={"linestyle": ":", "color": "emphasis:lower", "lw": 0.9}))
+        bottom = LineSeries(
+            series=tuple(z_series), x_label="Constraint index", y_label="z",
+            title=f"z = (m − r)·w/k: rms {rms(z[enabled]):.2g}",
+        )
+        columns.append((top, middle, bottom))
+    if not columns:
+        raise ValueError("no constraint family on this slice carries enabled channels")
+    models = tuple(model for column in columns for model in column)
+    return Panels(
+        models=models,
+        nrows=len(columns),
+        ncols=3,
+        share_x=False,
+        suptitle=_efit_suptitle(ods, "EFIT constraint weights", times, time_slice),
+    )
+
+
+RECIPES["equilibrium_overview_constraint_weights"] = CallableRecipe(
+    builder=_build_equilibrium_constraint_weights,
+    description="Per family: stored and fitted uncertainty, weight, and normalized residual.",
+    reads=_EFIT_CONSTRAINT_READS,
+    backend=NEUTRAL,
+)
+
+
+def _scan_factor(label: str) -> float | None:
+    try:
+        return float(label)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalized_psi(ods: Any, root: str, psi: np.ndarray) -> np.ndarray | None:
+    axis = _finite_scalar(_get(ods, f"{root}.global_quantities.psi_axis"))
+    edge = _finite_scalar(_get(ods, f"{root}.global_quantities.psi_boundary"))
+    if axis is None or edge is None or axis == edge:
+        if psi.size < 2 or psi[0] == psi[-1]:
+            return None
+        axis, edge = float(psi[0]), float(psi[-1])
+    return (psi - axis) / (edge - axis)
+
+
+def _build_pressure_weight_scan(entries: Sequence[tuple[str, Any]], **options: Any) -> Panels:
+    """Equilibria reconstructed with the pressure constraint weighted differently (#952).
+
+    Each entry is one reconstruction of the same instant, labelled by the
+    factor its kinetic-pressure weight was multiplied by (a dict
+    ``{0.1: ods, 1.0: ods, 10.0: ods}`` is labelled by its keys).  Drawn: the
+    pressure against psi_N with the kinetic pressure points it was asked to
+    match, the safety factor, and beta_p, l_i and the chi-square (total and the
+    pressure family's) against the factor, with the same numbers as a table.
+    """
+    from vaft.omas.efit_quality import constraint_table, fit_quality_metrics
+
+    time_slice = int(options.get("time_slice", 0))
+    rows = []
+    for position, (label, ods) in enumerate(entries):
+        count = _require_slices(ods)
+        if not 0 <= time_slice < count:
+            raise ValueError(f"time_slice={time_slice} is outside the {count} slices of entry {label!r}")
+        root = f"equilibrium.time_slice.{time_slice}"
+        psi = _array(ods, f"{root}.profiles_1d.psi")
+        if psi is None:
+            raise ValueError(f"entry {label!r} carries no profiles_1d.psi on slice {time_slice}")
+        psi_n = _normalized_psi(ods, root, psi)
+        try:
+            metrics = fit_quality_metrics(ods, time_slice=time_slice)
+        except Exception:  # noqa: BLE001 -- a scan entry without constraints still draws its profiles
+            metrics = {"chi_squared_total": np.nan, "chi_squared_reduced": np.nan, "families": {}}
+        pressure_family = metrics["families"].get("pressure") or {}
+        rows.append({
+            "position": position, "label": str(label), "factor": _scan_factor(label), "ods": ods,
+            "psi_n": psi_n, "pressure": _array(ods, f"{root}.profiles_1d.pressure"),
+            "q": _array(ods, f"{root}.profiles_1d.q"),
+            "beta_p": _finite_scalar(_get(ods, f"{root}.global_quantities.beta_pol")),
+            "li": _finite_scalar(_get(ods, f"{root}.global_quantities.li_3")),
+            "chi2": float(metrics.get("chi_squared_total", np.nan)),
+            "chi2_reduced": float(metrics.get("chi_squared_reduced", np.nan)),
+            "chi2_pressure": float(pressure_family.get("chi_squared_sum", np.nan)),
+            "table": constraint_table(ods, time_slice=time_slice, family="pressure"),
+            "root": root,
+        })
+    numeric = all(row["factor"] is not None for row in rows)
+    if numeric:
+        rows.sort(key=lambda row: row["factor"])
+
+    def name(row):
+        return f"×{row['factor']:g}" if numeric else row["label"]
+
+    pressure_series, q_series = [], []
+    for serial, row in enumerate(rows):
+        colour = palette(serial)
+        if row["psi_n"] is not None and row["pressure"] is not None and row["pressure"].size == row["psi_n"].size:
+            pressure_series.append(Series(x=row["psi_n"], y=row["pressure"] * 1e-3,
+                                          label=f"weight {name(row)}", style={"color": colour}))
+        if row["psi_n"] is not None and row["q"] is not None and row["q"].size == row["psi_n"].size:
+            q_series.append(Series(x=row["psi_n"], y=row["q"], label=f"weight {name(row)}",
+                                   style={"color": colour}))
+    # The kinetic points every reconstruction was asked to match: the same data
+    # in each entry, so drawn once, from the first that carries them.
+    for row in rows:
+        table = row["table"]
+        if not len(table.state):
+            continue
+        base = f"{row['root']}.constraints.pressure"
+        psi_points = np.array([
+            _scalar(_get(row["ods"], f"{base}.{index}.position.psi")) for index in range(len(table.state))
+        ])
+        x_points = _normalized_psi(row["ods"], row["root"], psi_points) if np.isfinite(psi_points).any() else None
+        if x_points is None or not np.isfinite(x_points).any():
+            rho = np.array([
+                _scalar(_get(row["ods"], f"{base}.{index}.position.rho_tor_norm"))
+                for index in range(len(table.state))
+            ])
+            x_points = rho ** 2 if np.isfinite(rho).any() else None
+        if x_points is not None:
+            enabled = table.mask("enabled") & np.isfinite(x_points)
+            errors = table.uncertainty[enabled] * 1e-3
+            pressure_series.append(Series(
+                x=x_points[enabled], y=table.measured[enabled] * 1e-3,
+                yerr=errors if np.all(np.isfinite(errors)) else None,
+                label="kinetic pressure constraint",
+                style={"marker": "o", "linestyle": "none", "color": "role:measured"},
+            ))
+        break
+    panels: list[Any] = []
+    if pressure_series:
+        panels.append(LineSeries(series=tuple(pressure_series), x_label="ψ_N", y_label="p", y_unit="kPa",
+                                 title="Pressure against the kinetic constraint"))
+    if q_series:
+        panels.append(LineSeries(series=tuple(q_series), x_label="ψ_N", y_label="q",
+                                 title="Safety factor"))
+    x = np.array([row["factor"] if numeric else row["position"] for row in rows], dtype=float)
+    logarithmic = numeric and bool(np.all(x > 0)) and x.max() / x.min() >= 10.0
+    if logarithmic:
+        x = np.log10(x)
+    x_label = "log10 pressure-weight factor" if logarithmic else (
+        "pressure-weight factor" if numeric else "entry"
+    )
+    for key, heading in (("beta_p", "β_p"), ("li", "l_i"), ("chi2", "χ² total"), ("chi2_pressure", "χ² pressure")):
+        y = np.array([np.nan if row[key] is None else row[key] for row in rows], dtype=float)
+        if not np.isfinite(y).any():
+            continue
+        panels.append(LineSeries(
+            series=(Series(x=x, y=y, label=heading, style={"marker": "o", "color": "emphasis:strong"}),),
+            x_label=x_label, y_label=heading,
+            log_y=key.startswith("chi2") and bool(np.nanmin(y) > 0 and np.nanmax(y) / np.nanmin(y) > 30),
+            title=f"{heading} against the pressure weight",
+        ))
+    lines = ["weight   β_p      l_i      χ²        χ²/ν      χ²_p"]
+    for row in rows:
+        def fmt(value, spec):
+            return format(value, spec) if value is not None and np.isfinite(value) else "—"
+        lines.append(
+            f"{name(row):<8} {fmt(row['beta_p'], '.3f'):<8} {fmt(row['li'], '.3f'):<8} "
+            f"{fmt(row['chi2'], '.3g'):<9} {fmt(row['chi2_reduced'], '.3g'):<9} {fmt(row['chi2_pressure'], '.3g')}"
+        )
+    panels.append(TextPanel(lines=tuple(lines), title="Scan summary"))
+    shot = _entry_shot(entries[:1]) if entries else None
+    return Panels(
+        models=tuple(panels),
+        ncols=2,
+        share_x=False,
+        suptitle=options.get("title") or (
+            f"Pressure-constraint weight scan, slice {time_slice}" + (f" — shot {shot}" if shot else "")
+        ),
+    )
+
+
+RECIPES["equilibrium_overview_pressure_weight_scan"] = CallableRecipe(
+    builder=_build_pressure_weight_scan,
+    description="Reconstructions of one instant with the pressure constraint weighted differently: "
+                "p(psi_N), q(psi_N), and beta_p, l_i, chi-square against the weight factor.",
+    reads=(
+        *_EFIT_QUALITY_READS,
+        "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.global_quantities.beta_pol",
+        "equilibrium.time_slice.{i}.global_quantities.li_3", "dataset_description.data_entry.pulse",
+        "equilibrium.code.parameters.time_slice.{i}.auxquantities.degrees_of_freedom",
+        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_input_data",
+        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_fit_variables",
+        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_hard_constraints",
+    ),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+
 
 
 # ---------------------------------------------------------------------------
@@ -10622,6 +10979,310 @@ RECIPES["chease_overview_profile_validity"] = CallableRecipe(
 )
 
 
+# ---------------------------------------------------------------------------
+# Measured kinetic points against their fit, on a flux coordinate (#952)
+# ---------------------------------------------------------------------------
+
+#: The coordinates a profile-fit view is drawn against: the three flux radii
+#: the mappers produce, and the channel's own major radius.
+PROFILE_FIT_COORDINATES = ("psi_norm", "rho_tor_norm", "rho_pol_norm", "r_major")
+
+_FIT_COORDINATE_SYMBOLS = {"psi_norm": "ψ_N", "rho_tor_norm": "ρ_N", "rho_pol_norm": "√ψ_N"}
+
+_PROFILE_FIT_COORDINATE_LABELS = {
+    "psi_norm": r"Normalized Poloidal Flux $\psi_N$",
+    "rho_tor_norm": r"Normalized Toroidal Flux Radius $\rho_N$",
+    "rho_pol_norm": r"Normalized Poloidal Flux Radius $\sqrt{\psi_N}$",
+    "r_major": "Major Radius R [m]",
+}
+
+#: ``field=`` of each profile-fit view: FitReport key, heading, canonical unit.
+PROFILE_FIT_FIELDS: dict[str, dict[str, tuple[str, str]]] = {
+    "thomson_scattering_profile_fit": {
+        "te": ("t_e", "T_e", "eV"),
+        "ne": ("n_e", "n_e", "m^-3"),
+    },
+    "charge_exchange_profile_fit": {
+        "ti": ("t_i", "T_i", "eV"),
+        "vphi": ("velocity_tor", "V_phi", "m/s"),
+    },
+}
+
+_PROFILE_FIT_DIAGNOSTIC = {
+    "thomson_scattering_profile_fit": "thomson_scattering",
+    "charge_exchange_profile_fit": "charge_exchange",
+}
+
+
+def _equilibrium_slice_for(source: Any, target: float) -> tuple[Any, float | None, str]:
+    """``(equilibrium, slice time, description)`` of the slice of ``source`` nearest ``target``.
+
+    A GEQDSK, a path or a mapping is one instant and is handed over as it is;
+    an ODS gives its slice nearest ``target`` -- converted to a GEQDSK when it
+    is not the first, because the mappers read slice 0 of an ODS.
+    """
+    import os
+
+    from vaft.data.eqdsk import read_geqdsk
+
+    if isinstance(source, (str, os.PathLike)):
+        return read_geqdsk(source), None, os.path.basename(str(source))
+    count = _count(source, "equilibrium.time_slice") if hasattr(source, "keys") else 0
+    if not count:
+        return source, None, "given equilibrium"
+    times = _array(source, "equilibrium.time")
+    if times is None or times.size < count:
+        index, when = 0, None
+    else:
+        index = int(np.argmin(np.abs(np.asarray(times[:count], dtype=float) - target)))
+        when = float(times[index])
+    if index == 0:
+        return source, when, f"slice {index}"
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.process.equilibrium import as_equilibrium
+
+    return from_equilibrium(as_equilibrium(source, time_index=index)), when, f"slice {index}"
+
+
+def _profile_fit_equilibria(ods: Any, option: Any) -> list[tuple[str, Any]]:
+    """The ``(name, source)`` equilibria a profile fit is mapped through."""
+    if option is None:
+        if not _count(ods, "equilibrium.time_slice"):
+            raise ValueError(
+                "this ODS carries no equilibrium to map the channels through; "
+                "pass equilibrium= an ODS, a GEQDSK or a path to one"
+            )
+        return [("", ods)]
+    if isinstance(option, Mapping) and not hasattr(option, "location"):
+        # a plain {name: equilibrium} mapping -- not an ODS, which is also a mapping
+        from omas import ODS
+
+        if not isinstance(option, ODS):
+            return [(str(name), source) for name, source in option.items()]
+    return [("", option)]
+
+
+def _chord_positions(ods: Any, diagnostic: str, time_index: int) -> tuple[np.ndarray, np.ndarray]:
+    """Every channel's ``(R, Z)``: static for Thomson, sampled at the time for CX."""
+    count = _count(ods, f"{diagnostic}.channel")
+    r = np.full(count, np.nan)
+    z = np.full(count, np.nan)
+    for index in range(count):
+        for coordinate, out in (("r", r), ("z", z)):
+            base = f"{diagnostic}.channel.{index}.position.{coordinate}"
+            value = _get(ods, base)
+            if value is None or hasattr(value, "keys"):
+                value = _array(ods, f"{base}.data")
+            array = np.asarray(value, dtype=float).reshape(-1) if value is not None else np.array([])
+            if array.size:
+                out[index] = array[min(time_index, array.size - 1)] if array.size > 1 else array[0]
+    return r, z
+
+
+def _chord_curve(report: Any, equilibrium: Any, r: np.ndarray, z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The fitted flux function along the channels' own chord, against R."""
+    from vaft.process.profile import equilibrium_mapping_points
+
+    finite = np.isfinite(r) & np.isfinite(z)
+    if finite.sum() < 2:
+        return np.array([]), np.array([])
+    order = np.argsort(r[finite])
+    r_sorted, z_sorted = r[finite][order], z[finite][order]
+    dense_r = np.linspace(r_sorted[0], r_sorted[-1], 200)
+    dense_z = np.interp(dense_r, r_sorted, z_sorted)
+    mapped = equilibrium_mapping_points(equilibrium, dense_r, dense_z)
+    x = mapped.select(report.coordinate)
+    y = np.full(dense_r.shape, np.nan)
+    inside = np.isfinite(x)
+    if inside.any():
+        y[inside] = np.asarray(report.function(x[inside]), dtype=float).reshape(-1)
+    return dense_r, y
+
+
+def _build_profile_fit(entries: Sequence[tuple[str, Any]], *, _plot_name: str, **options: Any) -> Profile1D:
+    """Measured channels with error bars, refused channels hollow, and the fit through them."""
+    from vaft.process.profile import (
+        compare_flux_mapping,
+        profile_fit_report_charge_exchange,
+        profile_fit_report_thomson_scattering,
+    )
+
+    fields = PROFILE_FIT_FIELDS[_plot_name]
+    diagnostic = _PROFILE_FIT_DIAGNOSTIC[_plot_name]
+    field_name = options.get("field") or next(iter(fields))
+    if field_name not in fields:
+        raise ValueError(f"field must be one of {', '.join(fields)}; got {field_name!r}")
+    key, heading, unit = fields[field_name]
+    coordinate = options.get("coordinate") or "psi_norm"
+    if coordinate not in PROFILE_FIT_COORDINATES:
+        raise ValueError(
+            f"coordinate must be one of {', '.join(PROFILE_FIT_COORDINATES)}; got {coordinate!r}"
+        )
+    method = options.get("fitting_function") or "polynomial"
+    order = int(options.get("order") or 3)
+
+    groups = []
+    for position, (label, ods) in enumerate(entries):
+        times = _array(ods, f"{diagnostic}.time")
+        if times is None or not times.size:
+            raise ValueError(f"{diagnostic}.time is empty; there is no measurement to fit")
+        if options.get("time_index") is not None:
+            index = int(options["time_index"])
+            if not -times.size <= index < times.size:
+                raise ValueError(f"time_index={index} is outside the {times.size} {diagnostic} samples")
+            index %= times.size
+        elif options.get("time") is not None:
+            index = resolve_time_sample(times, options["time"])[0]
+        else:
+            eq_times = _array(ods, "equilibrium.time")
+            target = float(eq_times[0]) if eq_times is not None and eq_times.size else None
+            index = resolve_time_sample(times, target)[0]
+        when = float(times[index])
+        for eq_name, source in _profile_fit_equilibria(ods, options.get("equilibrium")):
+            equilibrium, eq_time, eq_text = _equilibrium_slice_for(source, when)
+            mapped = compare_flux_mapping(ods, {"eq": equilibrium}, diagnostic=diagnostic)["eq"]
+            fit_coordinate = coordinate
+            if coordinate == "r_major":
+                fit_coordinate = "rho_tor_norm" if mapped.rho_tor_norm is not None else "psi_norm"
+            common = dict(uncertainty_option=1, time_tolerance_ms=1e-3, coordinate=fit_coordinate)
+            if diagnostic == "thomson_scattering":
+                reports = profile_fit_report_thomson_scattering(
+                    ods, when * 1e3, mapped, Te_order=order, Ne_order=order,
+                    fitting_function_te=method, fitting_function_ne=method, **common,
+                )
+            else:
+                reports = profile_fit_report_charge_exchange(
+                    ods, when * 1e3, mapped, Ti_order=order, Vtor_order=order,
+                    fitting_function_ti=method, fitting_function_vtor=method, **common,
+                )
+            groups.append((position, str(label), eq_name, equilibrium, eq_time, eq_text, reports[key], index))
+
+    values = np.concatenate([group[6].value for group in groups])
+    display = resolve_display(unit, unit=options.get("yunit"), subject=diagnostic,
+                              data=values[np.isfinite(values)] if np.isfinite(values).any() else None)
+    scale = display.scale
+    several = len(groups) > 1
+    series: list[Series] = []
+    hidden = 0
+    for serial, (position, label, eq_name, equilibrium, eq_time, eq_text, report, index) in enumerate(groups):
+        colour = palette(serial)
+        name = " ".join(part for part in (label if len(entries) > 1 else "", eq_name) if part)
+        prefix = f"{name}: " if name else ""
+        if coordinate == "r_major":
+            r, z = _chord_positions(entries[position][1], diagnostic, index)
+            x_points = r
+            curve_x, curve_y = _chord_curve(report, equilibrium, r, z)
+            curve_std = None
+        else:
+            x_points = report.position
+            curve_x, curve_y = report.grid, report.curve
+            curve_std = report.curve_std
+        sigma = np.where(np.isfinite(report.sigma) & (report.sigma > 0), report.sigma, 0.0)
+        used = report.used & np.isfinite(x_points)
+        refused = ~report.used & np.isfinite(x_points) & np.isfinite(report.value)
+        hidden += int(np.count_nonzero(~np.isfinite(x_points) & np.isfinite(report.value)))
+        if used.any():
+            series.append(Series(
+                x=x_points[used], y=report.value[used] * scale, yerr=sigma[used] * scale,
+                label=f"{prefix}measured ({int(used.sum())})",
+                style={"marker": "o", "linestyle": "none", "color": colour},
+            ))
+        if refused.any():
+            series.append(Series(
+                x=x_points[refused], y=report.value[refused] * scale,
+                label=f"{prefix}refused ({int(refused.sum())})",
+                style={"marker": "o", "linestyle": "none", "markerfacecolor": "none",
+                       "markeredgecolor": colour, "color": colour},
+            ))
+        if curve_x.size:
+            reduced = report.reduced_chi_squared
+            quality = f"χ²/ν={reduced:.2f}" if np.isfinite(reduced) else f"χ²={report.chi_squared:.2f}"
+            series.append(Series(
+                x=curve_x, y=curve_y * scale,
+                yerr=None if curve_std is None else curve_std * scale,
+                label=(f"{prefix}{report.method} fit in {_FIT_COORDINATE_SYMBOLS[report.coordinate]} "
+                       f"(k={report.n_parameters:.3g}, ν={report.degrees_of_freedom:.3g}, {quality})"),
+                style={"color": colour, "linestyle": "-" if serial == 0 or not several else "--"},
+            ))
+    first = groups[0]
+    when_ms = first[6].time * 1e3
+    eq_note = ""
+    if first[4] is not None and abs(first[4] - first[6].time) > 5e-4:
+        eq_note = f", equilibrium at {first[4] * 1e3:.1f} ms"
+    outside = f" ({hidden} outside the LCFS)" if hidden and coordinate != "r_major" else ""
+    shot = _entry_shot(entries)
+    title = options.get("title") or (
+        f"{heading} at {when_ms:.1f} ms{eq_note}{outside}" + (f" #{shot}" if shot else "")
+    )
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=_PROFILE_FIT_COORDINATE_LABELS[coordinate],
+        y_label=heading,
+        y_unit=display.unit,
+        title=title,
+        x_limits=None if coordinate == "r_major" else (0.0, 1.0),
+        display=display,
+    )
+
+
+_PROFILE_FIT_READS = {
+    "thomson_scattering": (
+        "thomson_scattering.time",
+        "thomson_scattering.channel.{i}.position.r", "thomson_scattering.channel.{i}.position.z",
+        "thomson_scattering.channel.{i}.t_e.data", "thomson_scattering.channel.{i}.t_e.data_error_upper",
+        "thomson_scattering.channel.{i}.n_e.data", "thomson_scattering.channel.{i}.n_e.data_error_upper",
+    ),
+    "charge_exchange": (
+        "charge_exchange.time",
+        "charge_exchange.channel.{i}.position.r.data", "charge_exchange.channel.{i}.position.z.data",
+        "charge_exchange.channel.{i}.ion.{j}.t_i.data", "charge_exchange.channel.{i}.ion.{j}.t_i.data_error_upper",
+        "charge_exchange.channel.{i}.ion.{j}.velocity_tor.data",
+        "charge_exchange.channel.{i}.ion.{j}.velocity_tor.data_error_upper",
+    ),
+}
+_PROFILE_FIT_EQUILIBRIUM_READS = (
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis", "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.q",
+    "equilibrium.time_slice.{i}.profiles_1d.f", "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0",
+    # as_equilibrium, for rho_tor_norm: the convention, the toroidal flux,
+    # the source slopes and the limiter it carries onto the record.
+    "equilibrium.ids_properties.cocos", "equilibrium.code.parameters",
+    "equilibrium.time_slice.{i}.profiles_1d.phi",
+    "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+    "wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+    "wall.description_2d.{i}.limiter.unit.{j}.outline.z",
+)
+
+for _name, _diagnostic in _PROFILE_FIT_DIAGNOSTIC.items():
+    RECIPES[_name] = CallableRecipe(
+        builder=(lambda plot_name: (
+            lambda entries, **options: _build_profile_fit(entries, _plot_name=plot_name, **options)
+        ))(_name),
+        description=(
+            "Measured channels with error bars, refused channels hollow, and the fit "
+            "through them on a flux coordinate, mapped through the ODS's own or a "
+            "given equilibrium."
+        ),
+        reads=(*_PROFILE_FIT_READS[_diagnostic], *_PROFILE_FIT_EQUILIBRIUM_READS),
+        backend=OMAS_BOUND,
+        reason=(
+            "vaft.process.profile.equilibrium_mapping_* and profile_fitting_* subscript "
+            "the ODS with ':' slices and OMAS item access"
+        ),
+        multi_entry=True,
+    )
+del _name, _diagnostic
+
+
 #: What ``time=`` selects in each computed view that draws one instant
 #: (``CallableRecipe.time_axis``); a view not named here draws none and
 #: refuses ``time=``.  Declared in one table so the whole policy is readable
@@ -10632,6 +11293,7 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
             "equilibrium_geometry_topview", "machine_geometry_topview",
             "equilibrium_overview_constraints", "equilibrium_overview_residuals",
             "equilibrium_overview_fit_quality", "equilibrium_overview_verification",
+            "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
             "electron_temperature_field", "electron_density_field",
         ),
         "equilibrium.time_slice",
@@ -10656,6 +11318,7 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
             "nbi_profile_current_drive",
             "vacuum_field_midplane", "impa_profile_field",
             "camera_visible_image_vacuum_field_line",
+            "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
         ),
         OWN_TIME,
     ),

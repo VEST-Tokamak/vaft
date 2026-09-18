@@ -56,18 +56,21 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        "utils": 11,   # +gp_fit, the scipy Gaussian process (#426)
+        # +gp_fit, the scipy Gaussian process (#426); +a/L, the normalised
+        # gradient scale length the tutorial's kinetic state reports: 12.
+        "utils": 12,
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
         # #365 added the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
         # #760 renamed the first-principles bremsstrahlung form to state its
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
-        "equilibrium": 82,
+        # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
+        "equilibrium": 84,
         "virial": 33,
         "stability": 24,
         "green": 16,
-        "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
+        "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
         "statistics": 22,
         "magnetics": 2,
         "neoclassical": 12,

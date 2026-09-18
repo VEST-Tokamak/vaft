@@ -382,7 +382,23 @@ def make_chease(_sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
+# thomson_scattering_profile_fit / charge_exchange_profile_fit (issue #952):
+# the packaged kinetic-EFIT input of shot 48224 at 300 ms -- Thomson, CES and
+# the equilibrium they are mapped through, in one loose ODS file.
+# ---------------------------------------------------------------------------
+def make_kinetic_48224(_sample: ODS) -> ODS:
+    import omas
+    from vaft.data import data_path
+
+    return omas.load_omas_json(
+        str(data_path("kineticEfit/ods_48224_300ms.json")), consistency_check=False
+    )
+
+
+# ---------------------------------------------------------------------------
 SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
+    "thomson_scattering_profile_fit": make_kinetic_48224,
+    "charge_exchange_profile_fit": make_kinetic_48224,
     "nbi_profile_electron_heating": make_nbi,
     "nbi_profile_ion_heating": make_nbi,
     "nbi_profile_current_drive": make_nbi,
@@ -417,6 +433,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
 
 #: build_model options a name needs beyond the ODS (factories cannot pass options).
 OPTIONS: dict[str, dict] = {
+    "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
 }
