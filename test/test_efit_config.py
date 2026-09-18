@@ -1090,6 +1090,121 @@ def test_standard_deviation_mode_uses_measurement_errors(tmp_path):
     assert "SIGDLC= 0.2" in text
 
 
+def test_standard_deviation_pins_the_terms_efit_would_otherwise_fold_into_sigma(tmp_path):
+    """EFIT fits against max(SERROR*|m|, BIT*VBIT) -- ERRSIL*|m| for flux loops.
+
+    With VBIT left at its default of 10 every submitted sigma is used ten times
+    over, and with SERROR/ERRSIL unpinned a floor replaces it (#891).  Legacy
+    weighting relies on the default VBIT and must be left alone.
+    """
+    sd = _kfile_text(
+        tmp_path / "sd",
+        EFITScientificConfig(
+            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        ),
+    )
+    assert " SERROR = 0.0\n" in sd
+    assert " VBIT = 1.0\n" in sd
+    assert " ERRSIL = 0.0\n" in sd
+
+    legacy = _kfile_text(tmp_path / "legacy", EFITScientificConfig())
+    assert " SERROR = 0.0005\n" in legacy
+    assert "VBIT" not in legacy
+    assert "ERRSIL" not in legacy
+
+
+def test_standard_deviation_weights_only_switch_rows_on(tmp_path):
+    # The fixture's Ip weight is 3.0 and every PF weight 2.0; a group weight
+    # would scale Ip again.  Under standard_deviation none of that is strength.
+    constraints = EFITConstraintConfig(
+        uncertainty_mode="standard_deviation",
+        group_weights={"plasma_current": 8.0},
+    )
+    sd = _kfile_text(tmp_path / "sd", EFITScientificConfig(constraints=constraints))
+    assert "FWTCUR= 1.0\n" in sd
+    assert f"FWTFC= {COILSET.nfsum}*1.0\n" in sd
+
+    legacy = _kfile_text(
+        tmp_path / "legacy",
+        EFITScientificConfig(constraints=EFITConstraintConfig(group_weights={"plasma_current": 8.0})),
+    )
+    assert "FWTCUR= 8.0\n" in legacy
+    assert f"FWTFC= {COILSET.nfsum}*2.0\n" in legacy
+
+    # An excluded row stays excluded.
+    ods = _constraints_ods(tmp_path / "off")
+    ods["equilibrium.time_slice.0.constraints.ip.weight"] = 0.0
+    generate_kfile(
+        ods,
+        39915,
+        save_dir=str(tmp_path / "off"),
+        config=EFITScientificConfig(
+            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        ),
+    )
+    text = next((tmp_path / "off" / "kfile").iterdir()).read_text(encoding="utf-8")
+    assert "FWTCUR= 0.0\n" in text
+
+
+@pytest.mark.parametrize(
+    "path, named",
+    [
+        ("bpol_probe.0", "bpol_probe.0"),
+        ("flux_loop.0", "flux_loop.0"),
+        ("ip", "ip"),
+        ("diamagnetic_flux", "diamagnetic_flux"),
+    ],
+)
+def test_standard_deviation_refuses_an_enabled_row_without_a_sigma(tmp_path, path, named):
+    # EFIT drops a row whose sigma is <= 1e-10 without saying so, and an
+    # enabled diamagnetic row with SIGDLC = 0 keeps its raw weight and divides
+    # by zero.  The writer names the row instead of submitting it.
+    ods = _constraints_ods(tmp_path)
+    ods[f"equilibrium.time_slice.0.constraints.{path}.measured_error_upper"] = 0.0
+    with pytest.raises(ValueError, match=named):
+        generate_kfile(
+            ods,
+            39915,
+            save_dir=str(tmp_path),
+            config=EFITScientificConfig(
+                constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+            ),
+        )
+
+
+def test_a_disabled_row_needs_no_sigma(tmp_path):
+    ods = _constraints_ods(tmp_path)
+    ods["equilibrium.time_slice.0.constraints.bpol_probe.0.measured_error_upper"] = 0.0
+    ods["equilibrium.time_slice.0.constraints.bpol_probe.0.weight"] = 0.0
+    generate_kfile(
+        ods,
+        39915,
+        save_dir=str(tmp_path),
+        config=EFITScientificConfig(
+            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        ),
+    )
+
+
+def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
+    # The constraints tree used to say SERROR = 0.05 while the k-file wrote
+    # 5e-4: a record of a k-file that was not written (#869).
+    for mode, expected in (("legacy_weight", 5.0e-4), ("standard_deviation", 0.0)):
+        ods = _constraints_ods(tmp_path / mode)
+        generate_kfile(
+            ods,
+            39915,
+            save_dir=str(tmp_path / mode),
+            config=EFITScientificConfig(constraints=EFITConstraintConfig(uncertainty_mode=mode)),
+        )
+        parameters = ods["equilibrium.code.parameters.time_slice.0.IN1"]
+        assert float(parameters["SERROR"]) == expected
+        if mode == "standard_deviation":
+            assert float(parameters["VBIT"]) == 1.0 and float(parameters["ERRSIL"]) == 0.0
+        else:
+            assert "VBIT" not in parameters and "ERRSIL" not in parameters
+
+
 def test_resolved_configuration_is_stable_and_manifest_checksums_kfiles(tmp_path):
     ods = _constraints_ods(tmp_path)
     config = EFITConfig(

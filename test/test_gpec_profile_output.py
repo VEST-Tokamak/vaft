@@ -269,3 +269,17 @@ def test_the_json_transcript_carries_the_resonant_table(tmp_path):
     assert "resonant_table" in transcript
     assert "Phi_res" in transcript["resonant_table"]
     assert "m_rational" in transcript["resonant_table"]
+
+
+def test_the_cheap_reader_refuses_a_file_without_its_mode_number(tmp_path):
+    """Without the ``n`` attribute it returned ``m_rational = [0, 0, ...]`` --
+    zeros written into the transcript as data -- where the full reader refuses
+    the same file (cold review stability F6)."""
+    write_profile_nc(tmp_path, n=2, rational_q=(1.5, 2.0, 2.5))
+    path = tmp_path / "gpec_profile_output_n2.nc"
+    with netCDF4.Dataset(path, "a") as ds:
+        ds.delncattr("n")
+    with pytest.raises(ValueError, match="no 'n' global attribute"):
+        read_resonant_table(path)
+    with pytest.raises(ValueError, match="no 'n' global attribute"):
+        read_gpec_profile_output(path)

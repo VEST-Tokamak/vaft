@@ -768,6 +768,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 executable=str(resolved["efit"]),
                 scientific=scientific,
                 baseline_module=baseline_module,
+                seed_module=seed_study,
                 phase_by_time=phase_by_time,
             )
             return rung, run, workdir, scientific

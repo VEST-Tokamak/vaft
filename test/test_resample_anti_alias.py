@@ -416,3 +416,79 @@ class TestReviewFindings:
         interior = out[400:-400]
         assert _amplitude_at(interior, 10_000.0, FS_SLOW) < 1e-2
         assert _amplitude_at(interior, 2_000.0, FS_SLOW) == pytest.approx(1.0, rel=5e-2)
+
+
+class TestFiltfiltLengthBoundary:
+    """The length rule ``anti_alias_filter`` uses to decide what it may filter (#893).
+
+    The guard once admitted records three samples too short. A 331-tap filter --
+    the one a 250 kHz fast channel gets on its way to the 25 kHz analysis grid --
+    passed finite runs of 991, 992 and 993 samples to ``filtfilt``, which raised
+    and took down the whole diagnostics stage of four shots. The warning that
+    preceded each crash named a *different*, one-sample run, so a fixture of
+    one to four samples was never going to reproduce it; the boundary is what
+    has to be pinned.
+    """
+
+    TAPS = 331
+    CUTOFF = 10_000.0  # [Hz]
+
+    @pytest.mark.parametrize("numtaps", [3, 251, 331])
+    def test_the_minimum_is_exactly_what_filtfilt_accepts(self, numtaps):
+        from scipy import signal as scipy_signal
+
+        from vaft.process.signal_processing import _filtfilt_min_length
+
+        taps = scipy_signal.firwin(numtaps, 0.1)
+        minimum = _filtfilt_min_length(numtaps)
+        rng = np.random.default_rng(numtaps)
+        scipy_signal.filtfilt(taps, 1.0, rng.normal(size=minimum))
+        with pytest.raises(ValueError, match="padlen"):
+            scipy_signal.filtfilt(taps, 1.0, rng.normal(size=minimum - 1))
+
+    @pytest.mark.parametrize("length", [1, 3, 4, 990, 991, 992, 993])
+    def test_a_finite_run_below_the_minimum_passes_through_unchanged(self, length):
+        values = np.full(3_000, np.nan)
+        values[1_000 : 1_000 + length] = np.sin(np.arange(length) * 0.3)
+        with pytest.warns(RuntimeWarning, match="shorter than"):
+            out = anti_alias_filter(
+                values, source_rate=FS_FAST, cutoff_hz=self.CUTOFF, numtaps=self.TAPS
+            )
+        np.testing.assert_array_equal(out, values)
+
+    def test_a_run_at_the_minimum_is_filtered(self):
+        length = 3 * self.TAPS + 1
+        values = np.full(3_000, np.nan)
+        values[1_000 : 1_000 + length] = _tone(np.arange(length) / FS_FAST, 60_000.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = anti_alias_filter(
+                values, source_rate=FS_FAST, cutoff_hz=self.CUTOFF, numtaps=self.TAPS
+            )
+        run = slice(1_000, 1_000 + length)
+        assert np.isfinite(out[run]).all()
+        assert np.abs(out[run][400:-400]).max() < 0.05 * np.abs(values[run]).max()
+
+    @pytest.mark.parametrize("length", [991, 992, 993])
+    def test_an_all_finite_record_below_the_minimum_passes_through_unchanged(self, length):
+        values = np.sin(np.arange(length) * 0.3)
+        with pytest.warns(RuntimeWarning, match="shorter than"):
+            out = anti_alias_filter(
+                values, source_rate=FS_FAST, cutoff_hz=self.CUTOFF, numtaps=self.TAPS
+            )
+        np.testing.assert_array_equal(out, values)
+
+    def test_one_warning_summarizes_every_short_run(self):
+        """The production case: a stray short run beside the one that used to crash."""
+        values = np.full(6_000, np.nan)
+        values[100:101] = 1.0
+        values[500:504] = 1.0
+        values[2_000:2_992] = 1.0
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            anti_alias_filter(
+                values, source_rate=FS_FAST, cutoff_hz=self.CUTOFF, numtaps=self.TAPS
+            )
+        messages = [str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert len(messages) == 1
+        assert "3 finite run(s) totalling 997 samples (lengths 1-992)" in messages[0]

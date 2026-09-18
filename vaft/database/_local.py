@@ -105,6 +105,26 @@ def _is_geqdsk(path: Path) -> bool:
         return False
 
 
+def _omas_netcdf(path: Path) -> bool:
+    """Whether ``path`` is OMAS's flat netCDF rather than IMAS netCDF.
+
+    Both use ``.nc``. IMAS-Python stores each IDS as a group under a
+    ``Conventions = "IMAS"`` global attribute; ``omas.save_omas_nc`` writes one
+    root variable per flattened ODS path and no groups.
+    """
+    try:
+        with h5py.File(path, "r") as handle:
+            conventions = handle.attrs.get("Conventions")
+            if isinstance(conventions, bytes):
+                conventions = conventions.decode()
+            if conventions is not None and "IMAS" in str(conventions):
+                return False
+            has_groups = any(isinstance(item, h5py.Group) for item in handle.values())
+            return bool(len(handle)) and not has_groups
+    except OSError:
+        return False
+
+
 def _native_image(path: Path) -> bool:
     try:
         with h5py.File(path, "r") as handle:
@@ -197,6 +217,8 @@ def _detect(source: str | Path | Sequence[str | Path]) -> _Descriptor:
     if path.suffix.lower() in {".json", ".gz"}:
         return _Descriptor("omas_json", (path,), None, None)
     if path.suffix.lower() == ".nc":
+        if _omas_netcdf(path):
+            return _Descriptor("omas_netcdf", (path,), None, None)
         version = _imas_version_hdf5(path)
         return _Descriptor("imas_netcdf", (path,), path, version)
     if path.suffix.lower() in {".h5", ".hdf5"}:
@@ -247,6 +269,16 @@ def load_ods(
         return _merge_geqdsk(descriptor.paths), SourceInfo(
             descriptor.format, descriptor.paths, version, fallback, converted=True
         )
+    if descriptor.format == "omas_netcdf":
+        from omas import load_omas_nc
+
+        ods = load_omas_nc(
+            str(descriptor.paths[0]), consistency_check=False, imas_version=version
+        )
+        # Same normalization as the JSON/HDF5 branches, so one ODS reads back
+        # alike from every OMAS container.
+        _promote_code_parameters(ods)
+        return ods, SourceInfo(descriptor.format, descriptor.paths, version, fallback)
     if descriptor.format in {"omas_json", "omas_hdf5"}:
         from omas import ODS
 

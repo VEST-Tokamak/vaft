@@ -478,3 +478,95 @@ def test_measured_positions_are_correct_when_both_probes_are_present():
         "langmuir_probes:mid": pytest.approx(0.79),
         "langmuir_probes:upper": pytest.approx(0.59),
     }
+
+
+@pytest.mark.parametrize("run_length", [991, 992, 993])
+def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
+    """Shots 38525, 39137, 39241 and 39620 (#893).
+
+    Their raw probe signals are complete and strong; the gaps are made by the
+    solve, which leaves t_e and n_e undefined wherever no temperature root
+    exists. On a 250 kHz channel resampled onto the 25 kHz analysis grid each
+    finite stretch is anti-alias filtered on its own, and one stretch of 991-993
+    samples used to be passed to ``filtfilt`` and raise ``ValueError``. The solve
+    is replaced here so the stretch has exactly that length.
+    """
+    omas = pytest.importorskip("omas")
+
+    shot = 39137
+    source_dt = 4e-6
+    time = 0.24 + source_dt * np.arange(25_000)
+    finite = np.zeros(time.size, dtype=bool)
+    finite[5_000 : 5_000 + run_length] = True
+    finite[20_000] = True  # the stray one-sample run the old warning named
+    te = np.where(finite, 5.0, np.nan)
+    n_e = np.where(finite, 1.0e18, np.nan)
+    solved = {
+        "time": time,
+        "vd2": np.zeros(time.size),
+        "current": np.zeros(time.size),
+        "te": te,
+        "n_e": n_e,
+        "solver_ok": finite,
+    }
+    fake_load = _make_fake_loader(99, 100, n=time.size)
+
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load), patch.object(
+        lp, "process_triple_probe", return_value=solved
+    ), pytest.warns(RuntimeWarning, match="shorter than"):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.24, 0.34, 4e-5)
+
+    te_out = np.asarray(ods["langmuir_probes.embedded.0.t_e.data"], dtype=float)
+    assert te_out.size > 0
+    stretch = te_out[np.isfinite(te_out)]
+    np.testing.assert_allclose(stretch, 5.0)
+
+
+# --- the measured-position table must ship, and its absence must be audible ----
+# (cold review docs F7)
+
+
+def test_a_missing_position_table_warns_and_leaves_the_ods_alone(tmp_path, caplog):
+    ods = {}
+    with caplog.at_level(logging.INFO, logger=lp.logger.name):
+        lp.apply_langmuir_probe_measured_positions(ods, 45000, csv_path=tmp_path / "absent.csv")
+    assert ods == {}
+    records = [r for r in caplog.records if "not found" in r.getMessage()]
+    assert records and records[0].levelno == logging.WARNING, (
+        "an INFO record is invisible at the default level, so a wheel without the table "
+        "silently mapped a different ODS than a checkout"
+    )
+
+
+def test_the_default_position_table_is_shipped_by_every_packaging_rule():
+    """pyproject package-data, MANIFEST.in and verify_dist must all name it, or none ships it."""
+    import fnmatch
+    from pathlib import Path
+
+    import verify_dist
+
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+    root = Path(__file__).resolve().parents[1]
+    package = root / "vaft"
+    assert lp.DEFAULT_POSITION_CSV.is_file()
+    relative = lp.DEFAULT_POSITION_CSV.resolve().relative_to(package.resolve()).as_posix()
+
+    config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    globs = config["tool"]["setuptools"]["package-data"]["vaft"]
+    assert any(fnmatch.fnmatch(relative, pattern) for pattern in globs), (
+        f"no [tool.setuptools.package-data] glob matches {relative}; the wheel would omit it"
+    )
+
+    includes = [
+        line.split(None, 1)[1].strip()
+        for line in (root / "MANIFEST.in").read_text(encoding="utf-8").splitlines()
+        if line.startswith("include ")
+    ]
+    assert any(fnmatch.fnmatch(f"vaft/{relative}", pattern) for pattern in includes), (
+        f"MANIFEST.in prunes vaft/data and never re-includes {relative}; the sdist would omit it"
+    )
+
+    assert f"vaft/{relative}" in verify_dist.REQUIRED_FILES, (
+        "test/verify_dist.py would not notice a distribution that lacks the table"
+    )

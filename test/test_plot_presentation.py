@@ -508,3 +508,24 @@ def test_a_theme_fixed_at_the_call_reaches_a_composite_redraw(sample):
     assert all(matplotlib.colors.to_hex(a.lines[0].get_color()) == "#000000" for a in axes if a.lines)
     assert axes[0].xaxis.majorTicks[0]._tickdir == "in"
     plt.close(result.figure)
+
+
+def test_show_happens_after_the_theme_and_the_layout_are_applied(monkeypatch):
+    """cold review plot G11: the renderer's finalize called plt.show() before
+    the wrapper restyled the grid, so under theme="minimal" the window showed
+    the renderer's own grid and the returned figure did not."""
+    ods = sample_ods()
+    seen = {}
+
+    def probe(*_args, **_kwargs):
+        axis = plt.gcf().axes[0]
+        seen["calls"] = seen.get("calls", 0) + 1
+        seen["grid"] = any(line.get_visible() for line in axis.get_xgridlines())
+
+    monkeypatch.setattr(plt, "show", probe)
+    _, axis = vaft.omas.plot_plasma_current_time(ods, theme="minimal", show=True)
+    assert seen == {"calls": 1, "grid": False}
+    assert not any(line.get_visible() for line in axis.get_xgridlines())
+    seen.clear()
+    vaft.omas.plot_plasma_current_time(ods, theme="minimal", show=False)
+    assert not seen

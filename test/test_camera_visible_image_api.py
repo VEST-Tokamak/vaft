@@ -96,7 +96,7 @@ def test_a_field_line_is_traced_by_the_process_layer_and_only_projected_here(sho
 def test_unknown_overlays_are_refused_by_name(shot):
     with pytest.raises(ValueError, match="unknown overlay 'lcfs'"):
         build_model("camera_visible_image", normalize_entries(shot), overlay="lcfs")
-    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line")
+    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line", "vacuum_field_line")
 
 
 # ---------------------------------------------------------------------------
@@ -149,10 +149,10 @@ def test_the_old_functions_are_presets_of_the_image_api(shot):
 def test_discovery_states_overlays_and_projection_availability(shot, unposed):
     registry = vaft.omas.available_plots(query="camera_visible")
     image = registry.find("camera_visible_image")
-    assert image.overlays == ("wall", "equilibrium", "field_line")
+    assert image.overlays == ("wall", "equilibrium", "field_line", "vacuum_field_line")
     assert image.projection == {"methods": ("calibrated",)}
     text = str(registry)
-    assert "image  plot_camera_visible_image()" in text and "overlays: wall | equilibrium | field_line" in text
+    assert "image  plot_camera_visible_image()" in text and "overlays: wall | equilibrium | field_line | vacuum_field_line" in text
     with_pose = vaft.omas.available_plots(shot, query="camera_visible").find("camera_visible_image")
     assert with_pose.projection["available"] is True
     assert "projection: calibrated — available" in str(vaft.omas.available_plots(shot, query="camera_visible"))

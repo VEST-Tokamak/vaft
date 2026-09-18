@@ -15,7 +15,7 @@ from typing import Optional, Sequence
 
 from vaft.code.base import CodeInputs
 
-from .config import NUBEAMConfig
+from .config import NUBEAMConfig, workdir_budget
 
 #: ``inputf`` is positional, and ``plasma_state_test.f90`` reads it as::
 #:
@@ -126,19 +126,26 @@ def inputf_runid(text: str) -> str:
     return _inputf_field(text, INPUTF_RUNID_LINE, "the run id")
 
 
-def check_workdir_length(workdir: Path, config: NUBEAMConfig) -> None:
+def check_workdir_length(
+    workdir: Path, config: NUBEAMConfig, runid: Optional[str] = None
+) -> None:
     """Refuse a work directory NUBEAM would silently truncate.
 
     Checked before anything runs, because the symptom otherwise appears much
     later and names the wrong cause -- see ``NUBEAM_PATH_BUFFER_CHARS``.
+
+    *runid* is the identifier the run will actually use -- the one ``inputf``
+    declares, which is what NUBEAM builds its filenames from. ``config.runid``
+    is budgeted only when none is given.
     """
-    budget = config.workdir_budget
+    runid = config.runid if runid is None else runid
+    budget = workdir_budget(runid, buffer_chars=config.path_buffer_chars)
     actual = len(str(workdir))
     if actual <= budget:
         return
     raise NUBEAMInputError(
         f"The NUBEAM work directory is {actual} characters, which exceeds the "
-        f"{budget} available for run id {config.runid!r}. NUBEAM composes every "
+        f"{budget} available for run id {runid!r}. NUBEAM composes every "
         f"filename in a {config.path_buffer_chars}-character Fortran buffer "
         "(`character*140 zfile` in `subroutine echo`, nubeam_comp_exec.F90), so "
         "a longer path is truncated with no diagnostic and the run fails later "
@@ -207,7 +214,11 @@ def prepare_nubeam_inputs(
             f"No mdescr_*.dat / sconfig_*.dat machine description in {source}"
         )
 
-    check_workdir_length(target, config)
+    # Budgeted against the run id `inputf` declares, not `config.runid`: the
+    # packaged case runs as FUSMA_NUBEAM, six characters longer than the
+    # configuration default, and NUBEAM names its files after the former.
+    declared = inputf_runid((source / "inputf").read_text(encoding="utf-8"))
+    check_workdir_length(target, config, runid=declared)
     target.mkdir(parents=True, exist_ok=True)
 
     staged: list[Path] = []

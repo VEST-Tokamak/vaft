@@ -48,7 +48,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -121,8 +120,10 @@ def check_gfile(path: Path, diagnostics: Any) -> dict[str, Any]:
 
 
 def _time_ms(path: Path) -> int | None:
-    match = re.search(r"\.(\d{5})(?:_(\d{3}))?$", path.name)
-    return int(match.group(1)) if match else None
+    from vaft.code.efit.slice_name import file_name_microseconds
+
+    microseconds = file_name_microseconds(path)
+    return None if microseconds is None else microseconds // 1000
 
 
 def run_directories(root: Path, shot: int) -> list[Path]:

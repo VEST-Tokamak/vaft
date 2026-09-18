@@ -223,15 +223,30 @@ def _project(ods, ids_names: tuple[str, ...]) -> tuple[Any, tuple[str, ...]]:
     return projected, tuple(present)
 
 
+#: HSDS status codes that say "this folder does not exist", as opposed to "the
+#: folder could not be read". The same pair `require_source_exists` trusts.
+_ABSENT_STATUS = (404, 410)
+
+
 def _remote_entries(source: str, shot: int) -> tuple[str, ...]:
-    """List a shot folder, treating an absent folder as empty."""
+    """List a shot folder, treating a folder that *does not exist* as empty.
+
+    Only a definite 404/410 is an absence -- a shot's first write has no folder
+    and that is not an error. Every other failure (a timeout, a 503 from a busy
+    server) is raised as itself: the callers decide from this listing whether a
+    master exists to be merged, and reading "could not list" as "no master"
+    replaces the shot's union master with a stage-only one.
+    """
     from .utils import h5pyd
 
     try:
         return tuple(sorted(h5pyd.Folder(f"/{source}/{shot}/", mode="r")))
-    except Exception as exc:  # noqa: BLE001 - a shot's first write has no folder
-        logger.debug("No shot folder at %s/%s: %s", source, shot, exc)
-        return ()
+    except OSError as exc:
+        status = exc.args[0] if exc.args else None
+        if status in _ABSENT_STATUS:
+            logger.debug("No shot folder at %s/%s: %s", source, shot, exc)
+            return ()
+        raise
 
 
 def _remote_canonical_files(entries: Iterable[str]) -> tuple[str, ...]:
@@ -273,10 +288,10 @@ def _fetch_remote_master(source: str, shot: int, target: Path) -> Path | None:
 def _require_remote_entries(source: str, shot: int) -> tuple[str, ...]:
     """List a shot folder, letting a failure surface instead of reading as empty.
 
-    :func:`_remote_entries` deliberately conflates "no folder yet" with "could
-    not reach the folder", because a shot's first write has no folder and that
-    is not an error. Any caller that would *act* on the emptiness -- pruning
-    links, say -- needs the two told apart.
+    :func:`_remote_entries` reads a folder that does not exist (404/410) as
+    empty, because a shot's first write has no folder and that is not an error.
+    Here even that is a failure: the caller has just uploaded a payload, so the
+    folder must exist.
     """
     from .utils import h5pyd
 
@@ -299,11 +314,11 @@ def _master_finalizer(
     def finalize(local_master: Path) -> None:
         from .staging import merge_master_links
 
-        # `_remote_entries` reports an unreachable folder and an absent one the
-        # same way, by returning nothing, which is right for a first write but
-        # dangerous here: an empty listing makes `merge_master_links` drop every
-        # carried link, and this master is about to become the commit point. So
-        # the listing is taken strictly. The payload is already uploaded, so a
+        # `_remote_entries` reads an absent folder as empty, which is right for
+        # a first write but dangerous here: an empty listing makes
+        # `merge_master_links` drop every carried link, and this master is
+        # about to become the commit point. So the listing is taken strictly.
+        # The payload is already uploaded, so a
         # healthy folder cannot be empty, and a failure is retried by the caller
         # rather than committed as a pruned master.
         present = _remote_canonical_files(_require_remote_entries(source, shot))
@@ -351,6 +366,75 @@ def merge_remote_master(source: str, shot: int, previous_master: Path | None) ->
         run_hsload(current, remote_uri)
         verify_uploaded_image(current, remote_uri)
     return added
+
+
+def _link_template(master) -> tuple[str, str] | None:
+    """Return the ``(filename prefix, path prefix)`` this master's links use.
+
+    Read off a link the master already carries rather than assumed, so a
+    rebuilt link has exactly the shape the IMAS writer chose for its siblings
+    (``./magnetics.h5`` -> ``magnetics`` today).
+    """
+    import h5py
+
+    for name in master:
+        link = master.get(name, getlink=True)
+        if not isinstance(link, h5py.ExternalLink):
+            continue
+        filename, target = f"{name}.h5", str(link.path)
+        if link.filename.endswith(filename) and target.endswith(name):
+            return (
+                link.filename[: -len(filename)],
+                target[: -len(name)],
+            )
+    return None
+
+
+def unlinked_remote_files(
+    source: str, shot: int, *, repair: bool = False
+) -> tuple[str, ...]:
+    """Report, and optionally relink, IDS files the shot's master does not name.
+
+    A master left stage-only -- by a client older than the merge-before-upload
+    ordering, or by a write interrupted between its master upload and its merge
+    -- hides every other stage's IDS although their files are still in the
+    folder. No previous master survives to carry the links from, so they are
+    rebuilt from the folder listing, in the shape of a link the master still
+    holds. Returns the files that were (or, without ``repair``, would be)
+    relinked; empty when the master is whole or the shot has none.
+    """
+    import h5py
+
+    from .staging import external_h5_links
+    from .transport import run_hsload, verify_uploaded_image
+
+    with tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
+        current = _fetch_remote_master(source, shot, Path(workdir) / "master.h5")
+        if current is None:
+            return ()
+        present = _remote_canonical_files(_require_remote_entries(source, shot))
+        linked = set(external_h5_links(current))
+        missing = tuple(name for name in present if name not in linked)
+        if not missing or not repair:
+            return missing
+        with h5py.File(current, "r+") as master:
+            template = _link_template(master)
+            if template is None:
+                raise ReplicationError(
+                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(missing)} "
+                    "and carries no link to copy the shape of; it cannot be "
+                    "rebuilt from the folder listing."
+                )
+            file_prefix, path_prefix = template
+            for filename in missing:
+                stem = filename[: -len(".h5")]
+                master[stem] = h5py.ExternalLink(
+                    f"{file_prefix}{filename}", f"{path_prefix}{stem}"
+                )
+        remote_uri = f"hdf5://{source}/{shot}/master.h5"
+        run_hsload(current, remote_uri)
+        verify_uploaded_image(current, remote_uri)
+    return missing
 
 
 #: Leaves the IMAS Access Layer stamps into an IDS as it writes it. They record

@@ -44,6 +44,7 @@ __all__ = [
     "summary",
     "export_summary",
     "get_summary_preset",
+    "export",
 ]
 
 
@@ -368,6 +369,40 @@ def get_summary_preset(name):
     from ._summary import get_summary_preset as _get_summary_preset
 
     return _get_summary_preset(name)
+
+
+def export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0,
+           cache="auto", transport="auto"):
+    """Export one shot from an HSDS source as portable local files.
+
+    ``backend`` is one name or several of ``imas-hdf5``, ``imas-nc``,
+    ``omas-json``, ``omas-hdf5``, ``omas-nc`` and ``geqdsk``. Artifacts go
+    directly under ``output`` (default: the current directory) as
+    ``<family>_<shot>.<ext>``, or ``imas_<shot>_hdf5/`` and ``geqdsk_<shot>/``
+    for the directory backends. Existing artifacts are refused unless
+    ``overwrite=True``; every check runs before anything is downloaded.
+
+    The shot is staged once however many backends are requested. ``imas-hdf5``
+    is a copy of that staged entry, with no ODS round-trip; the converted
+    backends read occurrence 0 only and refuse a shot that stores others.
+    IDS are read in the DD version they were stored with (the newest, when
+    stages wrote different minor versions); a mix of major versions is refused,
+    and ``geqdsk`` requires DD 3 (DD 4 is COCOS 17).
+
+    Returns ``{backend: path}`` in the order requested.
+    """
+    from ._export import export as _export
+
+    return _export(
+        shot,
+        source,
+        backend=backend,
+        output=output,
+        overwrite=overwrite,
+        occurrence=occurrence,
+        cache=cache,
+        transport=transport,
+    )
 
 
 def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups=None):

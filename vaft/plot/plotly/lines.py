@@ -96,24 +96,60 @@ def add_series(
     return bool(name)
 
 
-def _apply_legend_policy(figure: Any, judged: int, labelled: int, legend: bool | None, title: str | None, cell: dict) -> None:
-    """The Matplotlib legend policy, on a Plotly figure."""
+def _apply_legend_policy(
+    figure: Any, judged: int, labelled: int, legend: bool | None, title: str | None, cell: dict,
+    start: int = 0,
+) -> None:
+    """The Matplotlib legend policy, on a Plotly figure.
+
+    The verdict is one panel's.  On a figure of its own it is the layout's
+    ``showlegend``; in a cell of a composite it is applied to the traces this
+    panel added (``figure.data[start:]``) and to a legend of the cell's own,
+    because ``layout.showlegend`` is figure-wide: set per panel, the last
+    member's verdict decided every panel's legend (cold review plot G8).
+    """
+    crowded = False
     if legend is False or labelled == 0:
-        figure.update_layout(showlegend=False)
-        return
-    if legend is True:
-        figure.update_layout(showlegend=True, legend={"title": {"text": title or ""}})
-        return
-    if labelled <= 1:
-        figure.update_layout(showlegend=False)
-        return
-    if judged > LEGEND_MAX_ENTRIES:
-        figure.update_layout(showlegend=False)
+        show = False
+    elif legend is True:
+        show = True
+    elif labelled <= 1:
+        show = False
+    else:
+        crowded = judged > LEGEND_MAX_ENTRIES
+        show = not crowded
+    if crowded:
         figure.add_annotation(text=f"{labelled} traces", **cell_refs(figure, cell.get("row"), cell.get("col")),
                               x=0.99, y=0.97, showarrow=False, xanchor="right", yanchor="top",
                               opacity=0.7, font={"size": 11})
+    if not cell:
+        if show:
+            figure.update_layout(showlegend=True, legend={"title": {"text": title or ""}})
+        else:
+            figure.update_layout(showlegend=False)
         return
-    figure.update_layout(showlegend=True, legend={"title": {"text": title or ""}})
+    traces = figure.data[start:]
+    if not show:
+        for trace in traces:
+            trace.showlegend = False
+        return
+    subplot = figure.get_subplot(cell["row"], cell["col"])
+    suffix = (subplot.yaxis.anchor or "x")[1:]
+    name = f"legend{suffix}"
+    try:
+        for trace in traces:
+            if trace.showlegend is not False:
+                trace.legend = name
+        figure.update_layout({
+            name: {
+                "title": {"text": title or ""},
+                "x": subplot.xaxis.domain[1], "y": subplot.yaxis.domain[1],
+                "xanchor": "right", "yanchor": "top", "bgcolor": "rgba(255,255,255,0.6)",
+            }
+        })
+    except ValueError:  # pragma: no cover - Plotly < 5.15 has one legend only
+        pass
+    figure.update_layout(showlegend=True)
 
 
 def add_line_series(
@@ -133,13 +169,14 @@ def add_line_series(
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
     labelled = 0
     judged = 0
+    start = len(figure.data)
     for series, label in zip(model.series, labels):
         if add_series(figure, series, name=label, uncertainty=uncertainty, validity=validity,
                       legend=legend is not False, **cell, **style):
             labelled += 1
             if not series.role:
                 judged += 1
-    _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell)
+    _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell, start)
     figure.update_xaxes(title_text=plain_axis_label(model.x_label, model.x_unit) if x_title else None,
                         range=list(model.x_limits) if model.x_limits else None, **cell)
     yaxis: dict[str, Any] = {"title_text": plain_axis_label(model.y_label, model.y_unit)}

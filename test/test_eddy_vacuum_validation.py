@@ -255,7 +255,7 @@ def test_packaged_reference_odss_carry_the_corrected_angle():
 
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
     probes = ods["magnetics.b_field_pol_probe"]
-    assert len(probes) == 76
+    assert len(probes) == 65  # IMPA is its own stage (#305); phase-reference entries shot-gated (#857)
     assert {
         float(ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"])
         for index in range(len(probes))

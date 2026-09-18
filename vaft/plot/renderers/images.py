@@ -22,6 +22,7 @@ __all__ = [
     "camera_visible_image",
     "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line",
+    "camera_visible_image_vacuum_field_line",
     "camera_visible_image_fluctuation",
     "camera_visible_image_frame",
     "camera_visible_image_mhd_power",
@@ -285,6 +286,28 @@ def camera_visible_image_field_line(
     model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """FAST-camera frame with a projected traced field line."""
+    return render_image_2d(model, ax=ax, show=show, **style)
+
+
+@_image_renderer(
+    domain="camera_visible", quantity="vacuum_field_line",
+    subject="camera_visible",
+    description=(
+        "FAST-camera frame with vacuum field lines -- coils and vessel only, never an "
+        "equilibrium -- traced from (R, Z) seeds at the frame's time (seeds=, "
+        "ec_frequency_Hz= adds the ECR radius)."
+    ),
+    ids=("camera_visible", "pf_active", "pf_passive", "wall", "tf", "equilibrium"),
+    required_paths=(
+        "camera_visible.channel.{i}.detector.{j}.frame.{k}.image_raw",
+        "pf_active.coil.{i}.current.data",
+        "tf.b_field_tor_vacuum_r.data",
+    ),
+)
+def camera_visible_image_vacuum_field_line(
+    model: Image2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """FAST-camera frame with projected vacuum field lines."""
     return render_image_2d(model, ax=ax, show=show, **style)
 
 

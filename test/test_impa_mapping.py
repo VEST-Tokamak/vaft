@@ -631,3 +631,19 @@ def test_toroidal_hall_channels_declare_a_toroidal_normal_per_the_dd():
     # The normal lies in the horizontal plane, which is what poloidal_angle 0
     # declares; only the toroidal angle distinguishes grad(phi) from grad(R).
     assert IMPA_TOROIDAL_PROBE_POLOIDAL_ANGLE == pytest.approx(0.0)
+
+
+def test_resolve_gain_fallback_is_canonical_negative():
+    from vaft.machine_mapping.impa import _resolve_gain
+
+    # When no gain is present in calibration dictionary, fallback must be -2.0 / 15.0
+    assert _resolve_gain({}, 39204) == pytest.approx(-2.0 / 15.0)
+
+
+def test_window_criteria_matches_vest_yaml_without_max_relative_noise():
+    from vaft.machine_mapping.impa import _window_criteria
+
+    config = resolve_impa_config(39204)
+    criteria = _window_criteria(config)
+    assert not hasattr(criteria, "max_relative_noise")
+    assert "max_relative_noise" not in (config.get("calibration_window") or {})

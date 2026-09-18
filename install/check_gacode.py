@@ -225,7 +225,7 @@ def check_regression(prefix: Optional[str], *, skip: bool) -> CheckResult:
             "Run install/check_vaft_environment.py first.",
         )
 
-    expected = float((case / "out.neo.prec").read_text().split()[0])
+    expected = float((case / "out.neo.prec").read_text(encoding="utf-8").split()[0])
     scratch = tempfile.mkdtemp(prefix="vaft-gacode-reg18-")
     try:
         config = NEOConfig(

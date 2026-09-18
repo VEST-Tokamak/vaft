@@ -31,6 +31,7 @@ _PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
 __all__ = [
     "ImpaResidue",
     "ImpaStripError",
+    "ImpaStripWriteError",
     "inspect_impa_residue",
     "strip_impa_from_shots",
     "strip_impa_from_source",
@@ -39,6 +40,10 @@ __all__ = [
 
 class ImpaStripError(RuntimeError):
     """Raised when a published shot cannot be stripped safely."""
+
+
+class ImpaStripWriteError(ImpaStripError):
+    """Raised when the rewrite failed after it had started touching the source."""
 
 
 class ImpaResidue(dict):
@@ -112,12 +117,23 @@ def strip_impa_from_source(
 
     Returns a report in both modes.  With ``apply=False`` (the default) nothing
     is written and the report says what would change; with ``apply=True`` the
-    magnetics IDS is rewritten into the same source, folding the pre-write master
-    links back so the shot's other IDS stay visible -- the same merge replication
-    performs, for the same reason.
+    magnetics IDS is rewritten into the same source. The pre-write master's
+    links are merged into the new master *before* it is uploaded -- the ordering
+    replication uses -- so the shot's other IDS are never hidden, even when the
+    write is interrupted.
+
+    A shot with no IMPA left is still checked for a master that does not link
+    every IDS file in its folder, which is what an interrupted run of an older
+    version of this repair left behind. ``master_unlinked`` names those files;
+    with ``apply=True`` they are relinked and ``master_repaired`` is set.
     """
     from . import load as load_source, save as save_remote
-    from .replication import _fetch_remote_master, merge_remote_master
+    from .replication import (
+        _fetch_remote_master,
+        _master_finalizer,
+        merge_remote_master,
+        unlinked_remote_files,
+    )
 
     name = _sources.resolve(source, writable=True)
     shot = int(shot)
@@ -131,8 +147,17 @@ def strip_impa_from_source(
         "refusals": residue["refusals"],
         "applied": False,
         "removed": 0,
+        "master_unlinked": [],
+        "master_repaired": False,
     }
     if not residue.carries_impa:
+        # Not an early return: a previous run that failed after replacing the
+        # master leaves exactly this state -- nothing to strip, other stages
+        # hidden -- and a re-run is the operator's only handle on it.
+        report["master_unlinked"] = list(
+            unlinked_remote_files(name, shot, repair=apply)
+        )
+        report["master_repaired"] = bool(apply and report["master_unlinked"])
         return report
     if residue["refusals"]:
         raise ImpaStripError(
@@ -150,8 +175,23 @@ def strip_impa_from_source(
         previous_master = _fetch_remote_master(
             name, shot, Path(workdir) / "master.previous.h5"
         )
-        save_remote(ods, shot, source=name)
-        merge_remote_master(name, shot, previous_master)
+        try:
+            save_remote(
+                ods,
+                shot,
+                source=name,
+                finalize_master=_master_finalizer(name, shot, previous_master),
+            )
+            # The safety net replication keeps: after a local merge it finds
+            # nothing to add and returns without writing.
+            merge_remote_master(name, shot, previous_master)
+        except Exception as error:
+            raise ImpaStripWriteError(
+                f"Rewriting hdf5://{name}/{shot}/ failed after the write began "
+                f"({type(error).__name__}: {error}). The stored master still "
+                "links every IDS it did, but the magnetics payload may or may "
+                "not have been replaced; re-run to finish and to check the master."
+            ) from error
     report["applied"] = True
     logger.info(
         "shot %s: removed %s IMPA channels from %s", shot, report["removed"], name
@@ -177,6 +217,9 @@ def strip_impa_from_shots(
                     "source": source,
                     "error": f"{type(error).__name__}: {error}",
                     "applied": False,
+                    # "not applied" alone would read as "untouched". A failure
+                    # after the write began leaves the remote state unknown.
+                    "write_started": isinstance(error, ImpaStripWriteError),
                 }
             )
     return reports

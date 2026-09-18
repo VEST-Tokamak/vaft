@@ -123,6 +123,18 @@ def _render_interactive(
             )
         offered = tuple(c for c in offered if c.name in wanted)
     extraction, style = split_options(options)
+    # A starting value the static call accepts but the control's list does not
+    # hold (selection=[0, 3], yunit="auto", a slice outside the usable ones)
+    # stays what the caller fixed: that one control is not offered, and the
+    # value reaches the builder as it would without interactive=True.
+    unlisted = set()
+    for control in offered:
+        if control.name in extraction or control.name in style:
+            try:
+                control.validate({**extraction, **style}[control.name])
+            except (TypeError, ValueError):
+                unlisted.add(control.name)
+    offered = tuple(c for c in offered if c.name not in unlisted)
     names = {c.name for c in offered}
     initial = {k: v for k, v in {**extraction, **style}.items() if k in names}
     fixed = {k: v for k, v in extraction.items() if k not in names}

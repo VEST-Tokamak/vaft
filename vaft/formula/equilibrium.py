@@ -487,7 +487,7 @@ def q_from_phi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux profile, monotonic [Wb/rad].
+        Poloidal flux profile, monotonic, full weber [Wb].
     phi : np.ndarray
         Toroidal flux enclosed by the same surfaces [Wb].
 
@@ -499,12 +499,14 @@ def q_from_phi(psi: np.ndarray,
     Convention
     ----------
     Sauter and Medvedev define $q = \sigma_{\rho\theta\varphi}\sigma_{B_p}
-    (2\pi)^{-e_{B_p}}\,d\Phi/d\psi$.  This routine applies neither sign nor
-    $2\pi$: it is exact for ``psi`` in Wb/rad (COCOS 1-8, $e_{B_p}=0$) up to the
-    orientation sign, and returns $2\pi q$ when ``psi`` is the IMAS full-weber
-    flux.  Convert with :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`
-    first, or take ``profiles_1d.q`` from the equilibrium directly.  Tracked in
-    #354.
+    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies neither sign nor
+    $2\pi$: it is exact, up to the orientation sign, for ``psi`` in full weber
+    (the IMAS Data Dictionary flux, COCOS 11-18, $e_{B_p}=1$), and returns
+    $2\pi q$ when ``psi`` is per radian (COCOS 1-8, $e_{B_p}=0$, the g-file
+    flux) -- multiply such a ``psi`` by $2\pi$ first.  This is the inverse of
+    :func:`toroidal_flux_from_q_psi`, which integrates on the same full-weber
+    grid.  :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which
+    family an ODS stores.  Tracked in #354.
 
     Numerical notes
     ---------------
@@ -538,7 +540,7 @@ def q_from_rhoN(psiN: np.ndarray,
     rhoN : np.ndarray
         Normalised toroidal-flux radius on the same surfaces [-].
     C : float, optional
-        Prefactor $2\Phi_b/(\psi_b-\psi_a)$ with $\psi$ in Wb/rad; default 1 [-].
+        Prefactor $2\Phi_b/(\psi_b-\psi_a)$ with $\psi$ in full weber; default 1 [-].
 
     Returns
     -------
@@ -549,8 +551,10 @@ def q_from_rhoN(psiN: np.ndarray,
     ----------
     With ``C=1`` the result is $q$ up to the constant $2\Phi_b/(\psi_b-\psi_a)$
     and is only proportional to the true profile.  Supply ``C`` from the
-    equilibrium (with $\psi$ per radian, or $2\pi$ smaller with full-weber
-    $\psi$) for absolute values; the orientation sign is not applied.
+    equilibrium with $\psi$ in full weber for absolute values (from
+    $q = d\Phi/d\psi_{wb}$); a per-radian $\psi_b-\psi_a$ makes ``C``, and so
+    $q$, $2\pi$ too large, so multiply it by $2\pi$ first.  The orientation
+    sign is not applied.
 
     Numerical notes
     ---------------
@@ -978,9 +982,10 @@ def decay_index_from_bz(
 
     Convention
     ----------
-    $0 < n < 1.5$ is the passively stable window: below zero the vertical field
-    does not restore a radial displacement, above 1.5 the ring is unstable to
-    vertical motion.
+    $0 < n < 1.5$ is the passively stable window of a rigid current ring:
+    below zero the ring is vertically unstable (the field lines curve the
+    wrong way to restore a vertical displacement), above 1.5 it is radially
+    unstable (the field falls off too fast to restore a radial one).
 
     Limitations
     -----------

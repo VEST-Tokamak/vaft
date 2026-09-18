@@ -590,6 +590,7 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
             "barometry",
             "spectrometer_uv",
             "langmuir_probes",
+            "ec_launchers",
         ),
     ),
     "eddy": StageReplication(
@@ -659,19 +660,29 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     ),
     # Shares the `equilibrium` IDS with the EFIT baseline; the source split is
     # what keeps the refinement from overwriting the baseline it refines.
-    "chease": StageReplication(
-        source="chease-mhd-stability", ids=("equilibrium",)
-    ),
+    #
+    # The three lineage stages below name the *default lineage's* destination,
+    # not the retired combined `chease-mhd-stability` namespace they were first
+    # registered under: that source is read-only now, so a reader taking the
+    # registry at its word would be handed a destination that refuses the
+    # write. :func:`replication_for_stage` still computes the real destination
+    # from the lineage; these are what it yields for the defaults.
+    "chease": StageReplication(source="main/chease", ids=("equilibrium",)),
     # `ntms` carries RDCON/STRIDE's classical Delta-prime, which mhd_linear has
-    # no home for.
+    # no home for. One product owns one `mhd_linear`, so the source here is
+    # only the root its per-product sources hang beneath -- nothing publishes
+    # `mhd_linear` into it directly, and :data:`STAGE_SOURCE` leaves it out.
     "mhd_linear": StageReplication(
-        source="chease-mhd-stability", ids=("mhd_linear", "ntms")
+        source="main/chease", ids=("mhd_linear", "ntms")
     ),
     # Collides with the stability branch on `mhd_linear`, so it is separated by
     # occurrence. Note that lazy HSDS access reads occurrence 0 only, so this
-    # product is eager-read for now. Execution and replication remain #95.
+    # product is eager-read for now. Execution and replication remain #95, and
+    # so does cataloguing its per-product source (`main/chease/ideal-gpec` is
+    # not provisioned): until then this names the same lineage root as
+    # `mhd_linear`, for the same reason.
     "gpec_ideal": StageReplication(
-        source="chease-mhd-stability",
+        source="main/chease",
         ids=("mhd_linear", "coils_non_axisymmetric"),
         occurrence=1,
         deferred_to="#95",
@@ -730,12 +741,17 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     ),
 }
 
+#: Stages whose destination is a function of the stability product, so that no
+#: single source can be named for them. Use :func:`source_for_stage`.
+_PER_PRODUCT_DESTINATION = frozenset({"mhd_linear", "gpec_ideal"})
+
 #: Destination-only view of :data:`STAGE_REPLICATION`, for callers that only
-#: need to know where a stage goes.
+#: need to know where a stage goes. A stage that goes somewhere different per
+#: product is absent rather than given one product's answer.
 STAGE_SOURCE: Mapping[str, str] = {
     stage: entry.source
     for stage, entry in STAGE_REPLICATION.items()
-    if entry.source is not None
+    if entry.source is not None and stage not in _PER_PRODUCT_DESTINATION
 }
 
 

@@ -39,6 +39,7 @@ from vaft.database.composition import compose_stage_products
 from vaft.code.efit import generate_constraints_ods
 from vaft.code.efit.config import EFITScientificConfig
 from vaft.code.efit.efund import table_identity
+from vaft.code.efit.slice_name import split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
 from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
 from vaft.data import read_aeqdsk
@@ -103,9 +104,7 @@ def iterations_from_log(text: str) -> list[dict[str, Any]]:
 
 
 def _key_us(name: str) -> int:
-    key = name.split(".", 1)[1]
-    ms, _, us = key.partition("_")
-    return int(ms) * 1000 + (int(us) if us else 0)
+    return split_slice_file_name(name)[1]
 
 
 def afile_metrics(path: Path) -> dict[str, Any]:

@@ -579,10 +579,12 @@ def markdown(payload: dict[str, Any]) -> str:
         window, decisions, span = row["window"], row["decisions"], row["measured_span"]
         model = row["model"]
         residual = model.get("normalized_residual", {}).get("median")
+        # Hoisted: reusing the quote inside a nested f-string needs Python 3.12.
+        last = "–" if span["last"] is None else f"{span['last']:.4f}"
         lines.append(
             f"| {row['shot']} | **{row['verdict']}** | {window['start']:.3f}–{window['end']:.3f} "
             f"| {window['slices']} | {decisions['channels']} | {decisions['min_usable_fraction']:.2f} "
-            f"| {'–' if span['last'] is None else f'{span["last"]:.4f}'} "
+            f"| {last} "
             f"| {span['covers_window']} | {len(row['condemned'])} "
             f"| {'–' if residual is None else f'{residual:.3f}'} |"
         )

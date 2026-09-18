@@ -203,8 +203,12 @@ def test_both_backends_draw_both_coordinates(sample):
     assert len(plotly.data) == 1
 
 
-def test_the_impa_profile_is_unchanged_by_the_shared_time_snap(entries):
+def test_the_impa_profile_is_unchanged_by_the_shared_time_snap(sample):
     """The two inline argmin snaps in the IMPA builder now go through resolve_time_sample."""
+    # IMPA is its own stage since #305: compose it onto the sample first.
+    from _synthetic_inputs import make_impa_composed
+
+    entries = normalize_entries(make_impa_composed(sample))
     for time in (None, 0.3):
         model = build_model("impa_profile_field", entries, **({"time": time} if time else {}))
         assert model.series and model.series[0].label == "IMPA measurement"

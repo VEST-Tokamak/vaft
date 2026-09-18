@@ -25,6 +25,11 @@ import numpy as np
 from ... import compat
 from ...compat import is_executable
 from .._executables import missing_home_message
+from .slice_name import (
+    decode_time_suffix,
+    split_slice_file_name,
+    time_to_microseconds,
+)
 from .status import (
     EFITSliceStatus,
     EFITValidationConfig,
@@ -879,20 +884,23 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     return result
 
 
+def _case_key(shot: str, microseconds: int) -> str:
+    """Case key of one slice: ``039915.306``, or ``039915.306_320`` below a millisecond."""
+    ms, us = divmod(int(microseconds), 1000)
+    return f"{shot}.{ms}_{us:03d}" if us else f"{shot}.{ms}"
+
+
 def _efit_case_key(path: Path) -> str:
     """Return the common shot/time portion of a k-, g-, a-, or m-file name."""
-    name = (
-        path.name[1:]
-        if path.name[:1].lower() in {"k", "g", "a", "m"}
-        else path.name
-    )
-    if name.lower().endswith(".nc"):
-        name = name[:-3]
     try:
-        shot, suffix = name.rsplit(".", 1)
-        return f"{shot}.{int(suffix)}"
-    except (ValueError, TypeError):
-        return name
+        return _case_key(*split_slice_file_name(path))
+    except ValueError:
+        name = (
+            path.name[1:]
+            if path.name[:1].lower() in {"k", "g", "a", "m"}
+            else path.name
+        )
+        return name[:-3] if name.lower().endswith(".nc") else name
 
 
 def _case_file_map(paths: Sequence[Path], kind: str) -> dict[str, Path]:
@@ -1000,9 +1008,9 @@ def _mapping_differences(
 
 
 def _efit_case_time(case: str) -> float:
-    """Decode the conventional millisecond suffix used by VEST EFIT files."""
+    """Decode the ``ms`` or ``ms_us`` suffix of a case key into seconds."""
     try:
-        return int(case.rsplit(".", 1)[1]) / 1000.0
+        return decode_time_suffix(case.rsplit(".", 1)[1]) / 1.0e6
     except (IndexError, ValueError):
         return float("nan")
 
@@ -1021,7 +1029,7 @@ def _skipped_efit_result(
     }
     times = set(kfiles_by_time)
     if config.times is not None:
-        times.update(round(float(value) * 1000) / 1000 for value in config.times)
+        times.update(time_to_microseconds(value) / 1.0e6 for value in config.times)
     statuses = tuple(
         validate_efit_slice(
             shot=int(config.shot or 0),
@@ -1301,7 +1309,7 @@ def collect_efit_outputs(
     )
     if config is not None and config.shot is not None and config.times is not None:
         configured_cases = {
-            f"0{int(config.shot)}.{int(round(float(time_value) * 1000))}"
+            _case_key(f"0{int(config.shot)}", time_to_microseconds(time_value))
             for time_value in config.times
         }
         cases = sorted(set(cases) | configured_cases, key=_efit_case_time)

@@ -104,6 +104,20 @@ def test_response_energy_is_the_rms_projected_amplitude(system):
     np.testing.assert_allclose(scores["response_energy"], expected, rtol=1e-12)
 
 
+def test_the_diagonal_vector_scores_the_same_as_the_matrix(system):
+    """``R_mat`` is documented as the matrix "or its diagonal"; the vector
+    reached the circuit solver raw and every response ranking came back NaN
+    with only a print (cold review process F2)."""
+    R, M, L, basis, time, drive = system
+    full = mode_scores(basis, R, M, L, drive=drive, time=time, dt_sub=5e-3)
+    vector = mode_scores(
+        basis, np.diag(R).copy(), M, L, drive=drive, time=time, dt_sub=5e-3
+    )
+    for name, values in full.items():
+        assert np.all(np.isfinite(vector[name])), name
+        np.testing.assert_allclose(vector[name], values, rtol=1e-12)
+
+
 def test_observability_weights_a_mode_nobody_sees_to_zero(system):
     R, M, L, basis, time, drive = system
     G = np.zeros((1, basis.n_elements))

@@ -70,6 +70,7 @@ to kA) and it does so through an explicit `yunit` argument.
 
 The historical, and still the shortest, way to get a shot:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
@@ -81,6 +82,7 @@ with vaft.database.open(39915, source="public") as remote:
 `load()` returns an ODS unless `representation="imas"` is requested. `paths` scopes OMAS requests to
 IDS roots or leaves; native requests accept top-level IDS names:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 eq = vaft.database.load(
     39915, source="public", representation="imas", paths="equilibrium"
@@ -89,14 +91,20 @@ eq = vaft.database.load(
 
 Full signatures:
 
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
-vaft.database.load(shot, source="public", *, representation="omas", paths=None,
+vaft.database.load(shot, source=None, *, representation="omas", paths=None,
                    occurrence=None, imas_version=None, cache="auto", transport="auto")
-vaft.database.open(shot, *, source="public", representation="omas", paths=None,
+vaft.database.open(shot, *, source=None, representation="omas", paths=None,
                    occurrence=None, imas_version=None)
-vaft.database.save(data, shot, *, target="public", representation=None,
+vaft.database.save(data, shot, *, source=None, representation=None,
                    occurrence=None, imas_version=None, derived_cache="auto")
+vaft.database.export(shot, source=None, *, backend, output=None, overwrite=False,
+                     occurrence=0, cache="auto", transport="auto")
 ```
+
+`export()` stages a shot once and writes any of `imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`,
+`omas-nc` and `geqdsk` as local files; `vaft export` is its command-line front.
 
 For local files use `vaft.omas.load/save` or `vaft.imas.load/save`; use
 `vaft.database.filedb.FileDB` to resolve canonical archive paths. Remote save access is restricted and
@@ -106,6 +114,7 @@ is never required by the documentation examples.
 
 `vaft.database.raw` talks to the VEST SQL archive directly:
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 ```python
 from vaft.database import raw
 
@@ -128,6 +137,7 @@ how the test suite decides to skip online tests. Credentials are managed by `raw
 
 Connection and inventory helpers for the HSDS side live in `vaft.database.utils`:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 from vaft.database import utils
 
@@ -153,6 +163,7 @@ vaft.data.sample(41524)         # path to one registered sample
 
 ## Shot introspection — `general`
 
+<!-- docs-snippet: skip needs-data (API listing; find_major_radius reads core_profiles, which the packaged sample lacks) -->
 ```python
 vaft.omas.find_shotnumber(ods)
 vaft.omas.find_shotclass(ods)             # lenient classify_shot: None when the ODS cannot be classified
@@ -173,15 +184,25 @@ vaft.omas.find_matching_time_indices(ods, time_slice=None, atol=1e-6)
 The finders answer from the shared timings with provenance, which are available directly:
 
 ```python
-vaft.omas.plasma_timing.plasma_timing(ods, policy=None)          # PlasmaTiming: window, source, agreement, flags
-vaft.omas.discharge_timing.discharge_timing(ods, policy=None)    # DischargeTiming: coil onsets, ohmic onset, vloop event
-vaft.omas.plasma_features.plasma_features(ods, timing=None)      # PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
-vaft.omas.shot_class.shot_class(ods, timing=None)                # ShotClass: the label and the check that decided it
+from vaft.omas.plasma_timing import plasma_timing
+from vaft.omas.discharge_timing import discharge_timing
+from vaft.omas.plasma_features import plasma_features
+from vaft.omas.shot_class import shot_class
+
+plasma_timing(ods, policy=None)       # PlasmaTiming: window, source, agreement, flags
+discharge_timing(ods, policy=None)    # DischargeTiming: coil onsets, ohmic onset, vloop event
+plasma_features(ods, timing=None)     # PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
+shot_class(ods, timing=None)          # ShotClass: the label and the check that decided it
 ```
+
+Import them from their submodules as shown. `import vaft` does not load these four submodules, so
+`vaft.omas.plasma_timing.plasma_timing(...)` raises `AttributeError` until something else has
+imported the submodule.
 
 Time-base bookkeeping (DAQ time versus event-referenced time) and container plumbing. The convention
 change logs its shift (logger `vaft.omas.general`) rather than printing it:
 
+<!-- docs-snippet: skip fragment (placeholder name one_ods is never defined on the page) -->
 ```python
 vaft.omas.shift_time(one_ods, time_shift)
 vaft.omas.change_time_convention(odc_or_ods, convention="vloop")
@@ -193,6 +214,7 @@ vaft.omas.combine_ods(ods_list)
 
 These pull geometry and signals out of the ODS, call into `vaft.process`, and hand back arrays.
 
+<!-- docs-snippet: skip fragment (placeholder name xvar is never defined on the page) -->
 ```python
 # Electromagnetic response and eddy currents
 vaft.omas.compute_grid_ods(ods, xvar, zvar)
@@ -218,6 +240,7 @@ vaft.omas.compute_ohmic_heating_power_from_core_profiles(
 
 ## Physics scalings — `formula_wrapper`
 
+<!-- docs-snippet: skip fragment (placeholder name time_slice is never defined on the page) -->
 ```python
 vaft.omas.compute_tau_E_exp(ods, time_slice, Z_eff=2.0)
 vaft.omas.compute_tau_E_scaling(ods, time_slice, scaling="IBP98y2", Z_eff=2.0, M=1.0,
@@ -236,6 +259,7 @@ vaft.omas.compute_magnetic_shear(ods, time_slice)
 `update_*` functions **mutate the ODS**: they fill IMAS fields that the reconstruction itself did not
 provide. Run them once after loading, then plot.
 
+<!-- docs-snippet: skip needs-data (API listing over every time slice; the last slice of the packaged sample has no boundary outline) -->
 ```python
 vaft.omas.update_equilibrium_profiles_1d_normalized_psi(ods, time_slice=None)
 vaft.omas.update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot_opt=0)
@@ -283,28 +307,41 @@ This is how a raw VEST shot becomes IMAS. Each time-dependent diagnostic has a c
 with a uniform signature — `(ods, shot, tstart, tend, dt)` — that fills the corresponding IDS in
 place:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 import vaft
 from omas import ODS
+from vaft.machine_mapping.dataset_description import dataset_description
+from vaft.machine_mapping.pf_active import pf_active
+from vaft.machine_mapping.tf import tf
+from vaft.machine_mapping.magnetics import magnetics
+from vaft.machine_mapping.barometry import barometry
+from vaft.machine_mapping.spectrometer_uv import spectrometer_uv
 
 ods = ODS()
 shot, tstart, tend, dt = 39915, 0.24, 0.36, 1e-4
 
-vaft.machine_mapping.dataset_description(ods, shot)
-vaft.machine_mapping.pf_active(ods, shot, tstart, tend, dt)
-vaft.machine_mapping.tf(ods, shot, tstart, tend, dt)
-vaft.machine_mapping.magnetics(ods, shot, tstart, tend, dt)
-vaft.machine_mapping.barometry(ods, shot, tstart, tend, dt)
-vaft.machine_mapping.spectrometer_uv(ods, shot, tstart, tend, dt)
+dataset_description(ods, shot)
+pf_active(ods, shot, tstart, tend, dt)
+tf(ods, shot, tstart, tend, dt)
+magnetics(ods, shot, tstart, tend, dt)
+barometry(ods, shot, tstart, tend, dt)
+spectrometer_uv(ods, shot, tstart, tend, dt)
 ```
 
 Geometry, coupling and model IDSs take a `source` instead of a time window:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
-vaft.machine_mapping.pf_passive(ods)            # source=None uses the packaged geometry
-vaft.machine_mapping.em_coupling(ods)           # packaged mutual-inductance matrices
-vaft.machine_mapping.mhd_linear(ods, source)    # source = a linear-MHD output file
-vaft.machine_mapping.summary(ods, source, options)
+from vaft.machine_mapping.pf_passive import pf_passive
+from vaft.machine_mapping.em_coupling import em_coupling
+from vaft.machine_mapping.mhd_linear import mhd_linear
+from vaft.machine_mapping.summary import summary
+
+pf_passive(ods)            # source=None uses the packaged geometry
+em_coupling(ods)           # packaged mutual-inductance matrices
+mhd_linear(ods, source)    # source = a linear-MHD output file
+summary(ods, source, options)
 ```
 
 There is no `equilibrium` or `pf_plasma` mapper in this namespace: equilibria enter the ODS through
@@ -312,10 +349,15 @@ There is no `equilibrium` or `pf_plasma` mapper in this namespace: equilibria en
 
 Kinetic and imaging diagnostics take a shot number plus an optional data root:
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
-vaft.machine_mapping.thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)
-vaft.machine_mapping.charge_exchange(ods, shotnumber, options="ces", data_root=None)
-vaft.machine_mapping.soft_x_rays(ods, shot, daq_label, data_root=None, digitizer_file=None)
+from vaft.machine_mapping.thomson_scattering import thomson_scattering
+from vaft.machine_mapping.charge_exchange import charge_exchange
+from vaft.machine_mapping.soft_x_rays import soft_x_rays
+
+thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)
+charge_exchange(ods, shotnumber, options="ces", data_root=None)
+soft_x_rays(ods, shot, daq_label, data_root=None, digitizer_file=None)
 ```
 
 The `*_from_raw_database` variants — `magnetics_from_raw_database`, `pf_active_from_raw_database`,
@@ -334,6 +376,7 @@ The `vfit_*` names are the legacy VEST-fit API, kept as aliases and split into
 Uncertainties for equilibrium reconstruction are not hard-coded in the mapping; they come from a
 central table:
 
+<!-- docs-snippet: skip fragment (placeholder name uncertainty is never defined on the page) -->
 ```python
 vaft.machine_mapping.DEFAULT_CONSTRAINT_UNCERTAINTIES       # dict
 vaft.machine_mapping.DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR  # ordered vector
@@ -403,6 +446,7 @@ When a configuration does not supply an executable explicitly, adapters follow t
 installation roots: `EFITHOME`, `CHEASEHOME`, `GPECHOME`, `TESHOME`, and `NUBEAMHOME`. Missing
 binaries are a readiness state, not a failure of deterministic input preparation.
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.code import EFITConfig, prepare_efit_inputs, run_efit, collect_efit_outputs
 
@@ -482,6 +526,7 @@ parameter and collects every result. Snakemake rules should start with
 
 Portable file formats and the packaged sample files.
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 ```python
 from vaft.data import read_geqdsk, write_geqdsk, to_omas, from_omas, sample_geqdsk, data_path
 

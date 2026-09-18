@@ -108,6 +108,11 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
          "a/k-file cache fixture: criterion #1 is restated beside EFIT's a-file "
          "verdict, and whether the vessel term applies is the k-file's IVESEL (#918)"),
     ),
+    "test/test_efit_profile_model_study.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "k-file namelist fixture: the study's run identity reads TABLE_DIR from "
+         "the local constraints product"),
+    ),
     "test/test_eqdsk_derived_quantities.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "a-file cache fixture"),
     ),

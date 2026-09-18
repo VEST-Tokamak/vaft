@@ -228,6 +228,104 @@ def _resolve_rho(ods: Any, prefix: str) -> tuple[np.ndarray, str]:
     )
 
 
+def _resolve_profile_rho(
+    ods: Any,
+    profile_prefix: str,
+    equilibrium_prefix: str,
+    profile_rho: np.ndarray,
+    equilibrium_rho: np.ndarray,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """The core_profiles grid as a real ``rho_tor_norm``, and how that was settled.
+
+    The same ``sqrt(psi_N)`` proxy :func:`_resolve_rho` guards against on the
+    equilibrium is stored under ``core_profiles...grid.rho_tor_norm`` by every
+    writer that copied the equilibrium's array verbatim (issues #276, #420, #574).
+    Interpolating it against the re-derived equilibrium coordinate puts each
+    kinetic point at the wrong radius, so a detected proxy is carried through
+    ``psi_N`` onto the equilibrium's own ``psi_N -> rho`` table instead.
+
+    ``equilibrium_rho`` is the untruncated coordinate :func:`_resolve_rho` returned.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    equilibrium_psi = _array(ods, f"{equilibrium_prefix}.psi")
+    equilibrium_psi_norm = None
+    if (
+        equilibrium_psi is not None
+        and equilibrium_psi.size == equilibrium_rho.size
+        and equilibrium_psi.size > 1
+        and equilibrium_psi[-1] != equilibrium_psi[0]
+    ):
+        equilibrium_psi_norm = (equilibrium_psi - equilibrium_psi[0]) / (
+            equilibrium_psi[-1] - equilibrium_psi[0]
+        )
+
+    # psi_N at the profile points, from whatever the grid says about itself.
+    psi_norm, psi_source = None, None
+    rho_pol = _array(ods, f"{profile_prefix}.grid.rho_pol_norm")
+    grid_psi = _array(ods, f"{profile_prefix}.grid.psi")
+    stored = _array(ods, f"{equilibrium_prefix}.rho_tor_norm")
+    if rho_pol is not None and rho_pol.size == profile_rho.size:
+        psi_norm, psi_source = rho_pol**2, "grid.rho_pol_norm"
+    elif (
+        grid_psi is not None
+        and grid_psi.size == profile_rho.size
+        and equilibrium_psi_norm is not None
+    ):
+        # Normalised with the equilibrium's axis and boundary, not the grid's own
+        # end points: a kinetic grid need not reach either.
+        psi_norm = (grid_psi - equilibrium_psi[0]) / (
+            equilibrium_psi[-1] - equilibrium_psi[0]
+        )
+        psi_source = "grid.psi"
+    elif (
+        stored is not None
+        and equilibrium_psi_norm is not None
+        and stored.size == profile_rho.size
+        and np.allclose(stored, profile_rho)
+    ):
+        psi_norm, psi_source = equilibrium_psi_norm, "the equilibrium grid it copies"
+
+    if not is_rho_pol_proxy(profile_rho, psi_norm):
+        if psi_norm is None:
+            return profile_rho, {
+                "kind": "unverified",
+                "source": f"{profile_prefix}.grid.rho_tor_norm",
+                "reason": (
+                    "the grid carries no psi or rho_pol_norm to test it against, so "
+                    "it is taken to be the toroidal coordinate its name says"
+                ),
+            }
+        return profile_rho, {
+            "kind": "measured",
+            "source": f"{profile_prefix}.grid.rho_tor_norm",
+            "checked_against": psi_source,
+        }
+
+    if psi_norm is None:
+        # Detected against the uniform-psi_N default, which is the proxy's own
+        # definition: psi_N is its square.
+        psi_norm, psi_source = profile_rho**2, "the proxy itself"
+    if equilibrium_psi_norm is None:
+        raise ProfileConversionError(
+            "core_profiles grid.rho_tor_norm is the sqrt(psi_N) proxy (issues #276, "
+            "#420) and the equilibrium carries no psi to carry it onto the toroidal "
+            "coordinate. Interpolating it as rho_tor_norm would misplace every "
+            "kinetic point, so the conversion stops here."
+        )
+    order = np.argsort(equilibrium_psi_norm)
+    converted = np.interp(
+        np.clip(psi_norm, 0.0, 1.0), equilibrium_psi_norm[order], equilibrium_rho[order]
+    )
+    return converted, {
+        "kind": "derived",
+        "source": (
+            f"{profile_prefix}.grid.rho_tor_norm is the sqrt(psi_N) proxy; mapped "
+            f"through psi_N ({psi_source}) onto the equilibrium's rho_tor_norm"
+        ),
+    }
+
+
 def _interpolate(source_rho: np.ndarray, values: np.ndarray, target_rho: np.ndarray) -> np.ndarray:
     """Map a profile onto the GACODE grid, refusing to extrapolate.
 
@@ -264,6 +362,31 @@ IMPURITIES: Mapping[str, tuple[float, float, str]] = {
     "N": (7.0, 14.007, "N7+"),
     "He": (2.0, 4.0026, "He2+"),
 }
+
+
+#: Standard atomic masses of the hydrogen isotopes [amu], by the leading letter
+#: of the species label.
+HYDROGEN_ISOTOPE_MASSES: Mapping[str, float] = {"H": 1.00784, "D": 2.01410, "T": 3.01605}
+
+
+def _assumed_mass(label: str, charge: float) -> float:
+    """Mass [amu] for an ion whose ``element.0.a`` is absent.
+
+    ``2 Z`` is right to a percent for the fully-stripped light impurities, but
+    for ``Z = 1`` it asserts deuterium, and VEST runs hydrogen.  A hydrogenic
+    ion therefore takes its isotope from its label, and one whose label does
+    not say which isotope it is is refused rather than guessed.
+    """
+    if float(charge) != 1.0:
+        return float(charge) * 2.0
+    key = str(label).strip()[:1].upper()
+    if key in HYDROGEN_ISOTOPE_MASSES:
+        return HYDROGEN_ISOTOPE_MASSES[key]
+    raise ProfileConversionError(
+        f"ion species {label!r} has Z = 1 and no element.0.a, and its label does not "
+        "say whether it is H, D or T; the mass differs by a factor of two or three, "
+        "so it is not assumed"
+    )
 
 
 def impurity_fractions(z_eff: float, z_impurity: float) -> tuple[float, float]:
@@ -314,6 +437,18 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
             break
         label = str(ods[f"{base}.label"]) if f"{base}.label" in ods else f"ion{position}"
         charge = _scalar(ods, f"{base}.z_ion")
+        charge_assumed = False
+        if charge is None:
+            # No charge state stored. The nuclear charge is the fully-stripped
+            # value, which is the convention of this adapter (see IMPURITIES);
+            # without even that, Z = 1 would turn a carbon entry into hydrogen.
+            charge = _scalar(ods, f"{base}.element.0.z_n")
+            charge_assumed = True
+            if charge is None:
+                raise ProfileConversionError(
+                    f"ion species {label!r} carries neither z_ion nor element.0.z_n; "
+                    "its charge is not something the adapter will assume"
+                )
         mass = _scalar(ods, f"{base}.element.0.a")
         density = _array(ods, f"{base}.density_thermal")
         if density is None:
@@ -321,7 +456,8 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
         species.append(
             {
                 "label": label,
-                "z": 1.0 if charge is None else float(charge),
+                "z": float(charge),
+                "z_assumed": charge_assumed,
                 "mass": mass,
                 "density": density,
                 "temperature": _array(ods, f"{base}.temperature"),
@@ -446,6 +582,7 @@ def prepare_gacode_profile(
         "time": {"kind": "derived", "source": "slice resolution", **times},
     }
 
+    rho_full = rho
     keep = np.ones(rho.size, dtype=bool)
     if rho_max is not None:
         keep = rho <= float(rho_max) + 1e-12
@@ -551,6 +688,9 @@ def prepare_gacode_profile(
             "core_profiles has no grid.rho_tor_norm, so its profiles cannot be placed "
             "on the equilibrium's radial grid"
         )
+    profile_rho, provenance["profile_grid"] = _resolve_profile_rho(
+        ods, profile_prefix, equilibrium_prefix, profile_rho, rho_full
+    )
     n_e = _array(ods, f"{profile_prefix}.electrons.density_thermal")
     if n_e is None:
         n_e = _array(ods, f"{profile_prefix}.electrons.density")
@@ -566,6 +706,11 @@ def prepare_gacode_profile(
     _require_positive("electron temperature", te)
     provenance["ne"] = {"kind": "measured", "source": f"{profile_prefix}.electrons"}
     provenance["te"] = {"kind": "measured", "source": f"{profile_prefix}.electrons"}
+    if provenance["profile_grid"]["kind"] == "derived":
+        # The values are the measurement; the radius they sit at is not what the
+        # file said, and a reader of ne/te should not have to look elsewhere.
+        for key in ("ne", "te"):
+            provenance[key]["grid"] = provenance["profile_grid"]["source"]
 
     species = _ion_species(ods, profile_index)
     if not species:
@@ -586,7 +731,10 @@ def prepare_gacode_profile(
         densities.append(density)
         temperatures.append(temperature)
         charges.append(entry["z"])
-        masses.append(entry["mass"] if entry["mass"] is not None else entry["z"] * 2.0)
+        masses.append(
+            entry["mass"] if entry["mass"] is not None
+            else _assumed_mass(entry["label"], entry["z"])
+        )
         labels.append(entry["label"].replace(" ", ""))
         kinds.append("[therm]")
     provenance["ni"] = {
@@ -616,7 +764,21 @@ def prepare_gacode_profile(
     if any(entry["mass"] is None for entry in species):
         provenance["mass"] = {
             "kind": "policy_assumption",
-            "reason": "an ion element mass was absent; 2Z amu assumed for it",
+            "reason": (
+                "an ion element mass was absent; a hydrogenic ion took its "
+                "isotope's standard mass from its label, any other 2Z amu"
+            ),
+        }
+    if any(entry["z_assumed"] for entry in species):
+        provenance["z"] = {
+            "kind": "policy_assumption",
+            "reason": (
+                "an ion carried no z_ion; its nuclear charge element.0.z_n was "
+                "taken as the charge state (fully stripped)"
+            ),
+            "species": [
+                entry["label"].replace(" ", "") for entry in species if entry["z_assumed"]
+            ],
         }
 
     if impurity is not None:

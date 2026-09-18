@@ -119,8 +119,12 @@ def _remap_em_coupling(ods, manifest: dict) -> None:
             for key in ("generated", "git_commit", "passive_material_factor", "source_sha256")
         },
         "replaced_input_asymmetry": replaced,
+        # A canonical source regenerated after #373 already carries the repaired
+        # asset, so its currents were solved against it; only an older one did not.
         "pf_passive_currents": (
-            "solved by the frozen eddy stage against the pre-repair asset; not re-solved"
+            "solved by the eddy stage against this asset"
+            if replaced is not None and replaced == 0.0
+            else "solved by the frozen eddy stage against the pre-repair asset; not re-solved"
         ),
     }
     line = (
@@ -194,9 +198,16 @@ def generate(manifest_path: Path, canonical_source: Path) -> None:
     normalized = normalized_pipeline_ods(canonical_source, manifest)
     target = manifest_path.parent / manifest["representations"]["imas"]["path"]
     vaft.imas.save(normalized, target, imas_version=str(manifest["imas_dd_version"]))
-    record = manifest["representations"]["imas"]
-    record["size"] = target.stat().st_size
-    record["sha256"] = sha256_file(target)
+    # An optional OMAS representation is the same normalized ODS, so a caller
+    # asking for omas gets native OMAS JSON rather than the netCDF fallback.
+    if "omas" in manifest["representations"]:
+        vaft.omas.save(
+            normalized, manifest_path.parent / manifest["representations"]["omas"]["path"]
+        )
+    for name, record in manifest["representations"].items():
+        path = manifest_path.parent / record["path"]
+        record["size"] = path.stat().st_size
+        record["sha256"] = sha256_file(path)
     manifest["generation"]["canonical_source"] = str(
         canonical_source.relative_to(manifest_path.parent)
     )
@@ -241,6 +252,14 @@ def verify(manifest_path: Path) -> None:
         via_imas = handle.to_omas()
     _compare(normalized, via_omas, manifest, "IMAS artifact -> OMAS adapter")
     _compare(normalized, via_imas, manifest, "IMAS artifact -> IMAS adapter")
+    if "omas" in manifest["representations"]:
+        omas_artifact = root / manifest["representations"]["omas"]["path"]
+        _compare(
+            normalized,
+            vaft.omas.load(omas_artifact, imas_version=version),
+            manifest,
+            "OMAS artifact -> OMAS adapter",
+        )
 
     expected_times = np.asarray(manifest["acceptance"]["equilibrium_times"])
     np.testing.assert_allclose(via_omas["equilibrium.time"], expected_times)

@@ -94,6 +94,7 @@ VEST Data Analysis Platform
 
 ## Quick start
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 

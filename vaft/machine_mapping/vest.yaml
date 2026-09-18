@@ -265,6 +265,53 @@
           factor: 133.3223684211
           output_unit: Pa
 
+    # 6 kW 2.45 GHz ECH (port 5ML10) forward/reflected power detectors, issue
+    # #165. Same legacy log-detector transfer function as the VFIT donor
+    # (VESTDB_PostProcessAfterShot.m): P[W] = 1000 * 10**((V - 1.01745) / -0.2763).
+    # Recorded from shot ~29500 onward; absent fields make the component
+    # unavailable.
+    #
+    # valid_input_range [V]: the exponent explodes on negative-going pickup
+    # spikes (24 kW, 99 kW, even 1e17 kW seen from a 6 kW source), so detector
+    # voltages outside it are masked to NaN before calibration.
+    #   - lower bound 0.5 V: rated 6 kW <-> 0.802 V and ten times rated (60 kW)
+    #     <-> 0.526 V, so V < 0.5 V would mean > ~75 kW, physically implausible;
+    #   - upper bound 2.5 V: the EC-off baseline rails at ~2.13 V (~0.09 W), so
+    #     anything above 2.5 V (< 5 mW) is noise, not a power reading.
+    # In-range pickup spikes (e.g. ~0.72 V, ~12 kW) are NOT removed by this
+    # mask; smoothing is a presentation concern, not a mapping one.
+    ech_6kw_forward:
+      source:
+        field: 27
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: logarithmic_power
+        scale: 1000.0
+        input_offset: 1.01745
+        slope: -0.2763
+        exponent_offset: 0.0
+        base: 10.0
+        output_unit: W
+      processing:
+        valid_input_range: [0.5, 2.5]
+
+    ech_6kw_reflected:
+      source:
+        field: 28
+        raw_unit: V
+        daq_type: slow
+      calibration:
+        type: logarithmic_power
+        scale: 1000.0
+        input_offset: 1.01745
+        slope: -0.2763
+        exponent_offset: 0.0
+        base: 10.0
+        output_unit: W
+      processing:
+        valid_input_range: [0.5, 2.5]
+
     tf:
       source:
         field: 1
@@ -1012,6 +1059,15 @@
           # sweeps 2*arccos(0.22/0.8) = 147.8 deg, matching 150 and not the 210
           # the opposite sense would need.
           port: 2MR
+          # Major radius at which the beam line crosses the port -- the 0.8 m
+          # outer-wall radius the comment above already closes the geometry
+          # with. Declared because the port is where the beam ENTERS, not where
+          # the source is: IMAS `beamlets_group.position` is the source centre,
+          # which lies distance_to_tangency back along the line, at
+          # R = hypot(2.625867, 0.22129) = 2.635 m and
+          # atan(2.625867/0.22129) - acos(0.22129/0.8) = 11.3 deg upstream of
+          # the port in toroidal angle.
+          port_radius: 0.8
           distance_to_tangency: 2.625867
           distance_to_aperture: 1.8
         grid:
@@ -1371,7 +1427,6 @@ impa:
     pf_current_max: 500.0
     min_duration: 0.005
     tf_dynamic_range_min: 0.02
-    max_relative_noise: 0.5
     smoothing_samples: 25       # 1 ms: Ip/PF quiet must be sustained
   quality:
     # Set from the verified 2022-04-23 alignment shots, whose rigid-array
@@ -1410,9 +1465,9 @@ diagnostics_time_policies:
     langmuir_probes: analysis
     tf: full_discharge
     barometry: full_discharge
-    # Reserved for the EC power mapping (issue #165), which has no mapper yet.
-    # Registering it here means EC power inherits the full-discharge policy
-    # from the start rather than the short analysis window.
+    # EC power (issue #165): the `ec_launchers` IDS built by
+    # vaft.machine_mapping.ec_launchers. The ECH pulse starts before breakdown
+    # and outlasts the analysis window, so it follows the full-discharge policy.
     ec_power: full_discharge
 
 # Plasma-timing policy (issue #409): where the plasma window is searched for
@@ -1973,7 +2028,10 @@ diagnostic_registry:
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    # 6 kW 2.45 GHz line only (fields 27/28, issue #165); launching position,
+    # mode and steering remain unmapped (issue #266).
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.ec_launchers, entrypoint: ec_launchers}
     quantities: {static: [frequency, launching_position, mode], measured: [forward_power, reversed_power], derived: []}
   nbi:
     name: Neutral beam injection

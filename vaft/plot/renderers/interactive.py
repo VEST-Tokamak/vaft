@@ -358,10 +358,30 @@ def render_controls(
     canvas = figure.add_subfigure(grid[0, 0])
     result = Interactive(figure, None, state, tuple(state.controls))
 
+    drawn: dict[str, Any] = {"values": state.values, "note": None}
+
     def redraw(_: Any = None) -> None:
+        # Build first, swap on success.  A choice the builder refuses
+        # (method="cwt" without a band, say) must not cost the drawing that is
+        # on screen nor leave the state on a value nothing was drawn for: the
+        # previous values come back, the refusal is written on the figure, and
+        # the error still reaches whoever set the value from code.
+        if drawn["note"] is not None:
+            drawn["note"].remove()
+            drawn["note"] = None
+        try:
+            model = build(state.as_options())
+        except Exception as error:
+            state.restore(drawn["values"])
+            drawn["note"] = figure.text(
+                0.01, 0.01, f"not drawn: {str(error).splitlines()[0][:160]}",
+                color="crimson", fontsize=8, ha="left", va="bottom",
+            )
+            figure.canvas.draw_idle()
+            raise
         canvas.clear()
-        model = build(state.as_options())
         result.axes = _draw_into(canvas, model, draw, state.as_style())
+        drawn["values"] = state.values
         figure.canvas.draw_idle()
 
     redraw()

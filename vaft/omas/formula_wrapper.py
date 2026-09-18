@@ -67,9 +67,23 @@ def _get_cached_power_balance(ods: ODS) -> Dict[str, ndarray]:
 def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
     """
     Compute magnetic shear from ODS
+
+    Reads ``equilibrium.time_slice[time_slice].profiles_1d.r`` (a minor-radius
+    abscissa the caller has stored; it is not an IMAS node) and ``.q``.  A
+    missing node raises ``KeyError`` naming it: an OMAS read of an absent path
+    hands back an empty ODS and creates the path, which used to surface as an
+    unrelated ``numpy.gradient`` shape error.
     """
-    r = ods['equilibrium']['time_slice'][time_slice]['profiles_1d']['r']
-    q = ods['equilibrium']['time_slice'][time_slice]['profiles_1d']['q']
+    base = f'equilibrium.time_slice.{time_slice}.profiles_1d'
+    for name in ('r', 'q'):
+        if f'{base}.{name}' not in ods:
+            raise KeyError(
+                f"compute_magnetic_shear requires {base}.{name}, which is not in this ODS. "
+                "For another radius label call vaft.formula.shear_from_r_q(label, q) directly, "
+                "e.g. with profiles_1d.rho_tor_norm."
+            )
+    r = ods[f'{base}.r']
+    q = ods[f'{base}.q']
     return magnetic_shear(r, q)
 
 # Obsolete function

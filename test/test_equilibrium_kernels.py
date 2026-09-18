@@ -440,6 +440,32 @@ def test_toroidal_flux_starts_at_zero_and_integrates_a_constant_q():
     assert phi[-1] == pytest.approx(2.5 * 0.4, rel=1e-12, abs=0.0)
 
 
+def test_q_from_phi_is_exact_for_full_weber_psi_and_says_so():
+    """Pins the flux family on first principles, not against the sibling integral.
+
+    A cylinder with constant q0: B_phi = B0, B_theta = B0 r / (R q0), so
+    Phi = pi r^2 B0 and the full poloidal flux is Psi = pi B0 r^2 / q0 [Wb].
+    The docstring used to claim exactness for Wb/rad instead (cold review
+    formula F1); a reader who followed it got 2*pi*q.
+    """
+    q0, B0 = 3.0, 0.18
+    r = np.linspace(0.05, 0.3, 41)
+    phi = np.pi * r**2 * B0
+    psi_wb = np.pi * B0 * r**2 / q0
+    assert q_from_phi(psi_wb, phi)[1:-1] == pytest.approx(q0, rel=1e-12)
+    assert q_from_phi(psi_wb / (2 * np.pi), phi)[1:-1] == pytest.approx(2 * np.pi * q0, rel=1e-12)
+
+    doc = q_from_phi.__doc__
+    assert "monotonic, full weber [Wb]." in doc
+    assert "[Wb/rad]" not in doc
+    # C = 2 Phi_b / (psi_b - psi_a) is likewise exact with full-weber psi.
+    rhoN = np.sqrt(phi / phi[-1])
+    psiN = (psi_wb - psi_wb[0]) / (psi_wb[-1] - psi_wb[0])
+    C = 2 * phi[-1] / (psi_wb[-1] - psi_wb[0])
+    assert q_from_rhoN(psiN, rhoN, C=C)[5:-5] == pytest.approx(q0, rel=5e-3)  # finite differences
+    assert "in full weber; default 1 [-]." in q_from_rhoN.__doc__
+
+
 def test_q_from_rhoN_matches_its_closed_form_on_a_linear_label():
     # rhoN = psiN makes drhoN/dpsiN exactly 1, so q = C * psiN.
     psiN = np.linspace(0.1, 1.0, 91)

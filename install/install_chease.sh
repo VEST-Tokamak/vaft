@@ -40,7 +40,11 @@ set -euo pipefail
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-MANIFEST_NAME="vaft-external-install.json"
+# Prefix ownership: what --uninstall may remove, and what an install may claim.
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/_external_code_common.sh"
+MANIFEST_NAME="$VAFT_EXTERNAL_MANIFEST_NAME"
+PREFIX_CREATED=0
 
 SOURCE="${CHEASE_SOURCE_DIR:-}"
 PREFIX=""
@@ -64,15 +68,18 @@ Usage: bash install/install_chease.sh --source PATH [options]
                        digest and file list are then recorded in the manifest
   --jobs N             parallel build jobs (default: 1, upstream is not -j safe)
   --skip-tests         do not run install/check_chease.py after building
+                       (the build is then installed unverified; without it
+                       a failed check is this script's exit status)
   --check-only         run install/check_chease.py and change nothing
-  --uninstall          remove the prefix this script created
+  --uninstall          remove what this script installed into the prefix, and the
+                       prefix itself if this script created it and it is then empty
   -h, --help
 
 The prefix is what $CHEASEHOME should point at: VAFT resolves $CHEASEHOME/bin/chease.
 This script prints the export line; it edits no shell profile.
 
 CHEASE builds in place, so its object files land in <source>/src-f90 and stay
-there. --uninstall removes only the prefix; run `make clean` in src-f90 yourself
+there. --uninstall touches only the prefix; run `make clean` in src-f90 yourself
 if you want the objects gone, because that directory is yours, not this script's.
 EOF
 }
@@ -115,18 +122,19 @@ case "$(uname -s)" in
 esac
 [[ -n "$MACHINE" ]] || MACHINE="$DEFAULT_MACHINE"
 [[ -n "$PREFIX" ]] || PREFIX="$SOURCE/vaft-install"
-MANIFEST="$PREFIX/$MANIFEST_NAME"
 BUILD_DIR="$SOURCE/src-f90"
 
-# The prefix is removed wholesale by --uninstall, so it must never be inside the
-# VAFT checkout. The PowerShell installers enforce this through
-# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
-# relative --prefix would slip past the comparison and past the manifest.
-[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+# Nothing this script writes may land inside the VAFT checkout. Both sides of
+# the comparison are physical paths: a relative --prefix, a symlink or a
+# spelling such as /tmp/../<checkout>/x would otherwise compare unequal to the
+# checkout it is inside. (The PowerShell installers do the same through
+# Resolve-InstallPrefix.)
+PREFIX="$(vaft_external_canonical_path "$PREFIX")" || die "cannot resolve the install prefix (a '..' below a directory that does not exist?): $PREFIX"
+MANIFEST="$PREFIX/$MANIFEST_NAME"
 VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
-case "$PREFIX/" in
-  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
-esac
+if vaft_external_is_inside "$PREFIX" "$VAFT_ROOT"; then
+  die "the install prefix must be outside the VAFT checkout: $PREFIX is inside $VAFT_ROOT"
+fi
 
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
@@ -140,9 +148,7 @@ if ((CHECK_ONLY)); then
 fi
 
 if ((UNINSTALL)); then
-  [[ -f "$MANIFEST" ]] || die "no $MANIFEST_NAME under $PREFIX; nothing this script installed is there to remove"
-  note "removing prefix $PREFIX"
-  rm -rf "$PREFIX"
+  vaft_external_uninstall_prefix "$PREFIX" chease "$PYTHON"
   note "left alone: object files in $BUILD_DIR, which are yours. Run 'make clean' there to remove them."
   exit 0
 fi
@@ -191,6 +197,9 @@ FC_VERSION="$("$FC_PATH" --version | head -1)"
 [[ -n "$JOBS" ]] || JOBS=1
 
 # --- build -------------------------------------------------------------------
+# Refuses a directory that holds somebody else's files, and records whether the
+# prefix is this script's creation, before anything is written into it.
+vaft_external_claim_prefix "$PREFIX" chease "$PYTHON"
 mkdir -p "$PREFIX/logs"
 LOG="$PREFIX/logs/chease-build-$(date +%Y%m%d-%H%M%S).log"
 MAKE_COMMAND="CHEASE_F90=gfortran CHEASE_MACHINE=$MACHINE make -j$JOBS chease"
@@ -211,43 +220,68 @@ chmod +x "$PREFIX/bin/chease"
 note "installed bin/chease into $PREFIX"
 
 # --- manifest -----------------------------------------------------------------
-"$PYTHON" - "$MANIFEST" <<EOF
-import hashlib, json, platform, sys
+# Values reach Python through the environment and the heredoc is quoted, so no
+# shell text is ever parsed as Python source. Interpolating them broke on the
+# first quoted path in `git status --porcelain` ("""...name"""" is a
+# SyntaxError) -- after bin/ was installed and before the manifest existed.
+VAFT_MANIFEST_PREFIX="$PREFIX" \
+VAFT_MANIFEST_PREFIX_CREATED="$PREFIX_CREATED" \
+VAFT_MANIFEST_SOURCE="$SOURCE" \
+VAFT_MANIFEST_REVISION="$REVISION" \
+VAFT_MANIFEST_DESCRIBED="$DESCRIBED" \
+VAFT_MANIFEST_BRANCH="$BRANCH" \
+VAFT_MANIFEST_REMOTE="$REMOTE" \
+VAFT_MANIFEST_DIRTY_DIFF_SHA="$DIRTY_DIFF_SHA" \
+VAFT_MANIFEST_BUILD_DIR="$BUILD_DIR" \
+VAFT_MANIFEST_MAKE_COMMAND="$MAKE_COMMAND" \
+VAFT_MANIFEST_MACHINE="$MACHINE" \
+VAFT_MANIFEST_FC_PATH="$FC_PATH" \
+VAFT_MANIFEST_FC_VERSION="$FC_VERSION" \
+VAFT_MANIFEST_PLATFORM="$PLATFORM" \
+VAFT_MANIFEST_LOG="$LOG" \
+VAFT_MANIFEST_DIRTY_FILES="$DIRTY_FILES" \
+"$PYTHON" - "$MANIFEST" <<'EOF'
+import hashlib, json, os, platform, sys
 from datetime import datetime, timezone
 from pathlib import Path
+env = {k[len("VAFT_MANIFEST_"):]: v for k, v in os.environ.items() if k.startswith("VAFT_MANIFEST_")}
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
     return h.hexdigest()
-prefix = Path("$PREFIX")
+prefix = Path(env["PREFIX"])
 executable = prefix / "bin" / "chease"
 record = {
     "code": "chease",
     "installer": "install/install_chease.sh",
     "prefix": str(prefix),
-    "source": "$SOURCE",
-    "source_revision": "$REVISION",
-    "source_described": "$DESCRIBED",
-    "source_branch": "$BRANCH",
-    "source_remote": "$REMOTE",
-    "source_dirty": bool("""$DIRTY_FILES""".strip()),
-    "source_dirty_files": [l for l in """$DIRTY_FILES""".splitlines() if l.strip()],
-    "source_dirty_diff_sha256": "$DIRTY_DIFF_SHA" or None,
-    "build_dir": "$BUILD_DIR",
+    # What --uninstall may remove: these files, this script's build logs and
+    # its two records; the directory itself only when prefix_created is true.
+    "prefix_created": bool(int(env["PREFIX_CREATED"])),
+    "installed_files": ["bin/chease"],
+    "source": env["SOURCE"],
+    "source_revision": env["REVISION"],
+    "source_described": env["DESCRIBED"],
+    "source_branch": env["BRANCH"],
+    "source_remote": env["REMOTE"],
+    "source_dirty": bool(env["DIRTY_FILES"].strip()),
+    "source_dirty_files": [l for l in env["DIRTY_FILES"].splitlines() if l.strip()],
+    "source_dirty_diff_sha256": env["DIRTY_DIFF_SHA"] or None,
+    "build_dir": env["BUILD_DIR"],
     "build_in_place": True,
-    "make_command": "$MAKE_COMMAND",
-    "chease_machine": "$MACHINE",
-    "compiler": {"fortran": "$FC_PATH", "version": "$FC_VERSION"},
-    "platform": "$PLATFORM",
+    "make_command": env["MAKE_COMMAND"],
+    "chease_machine": env["MACHINE"],
+    "compiler": {"fortran": env["FC_PATH"], "version": env["FC_VERSION"]},
+    "platform": env["PLATFORM"],
     "host": platform.node(),
     "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    "log": "$LOG",
+    "log": env["LOG"],
     "executables": {
         "chease": {"path": str(executable), "sha256": sha(executable), "size": executable.stat().st_size}
     },
 }
-Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 print("wrote", sys.argv[1])
 EOF
 
@@ -255,8 +289,20 @@ EOF
 # check_chease.py refines a packaged equilibrium and compares q, pressure and
 # current against it, which is a stronger acceptance than anything upstream
 # ships. The binary is installed either way so a failure can be examined.
+# The checker's status is this script's status, as it is on Windows: a caller
+# that keys on it (CI, an agent, `&&`) must not read a failed acceptance as
+# success. The export hint still comes first, because a build that failed its
+# acceptance is installed and has to be reachable to be examined.
+# --skip-tests is the one way to install without being judged.
+ACCEPTANCE_STATUS=0
 if ((!SKIP_TESTS)); then
   note "verifying with install/check_chease.py"
-  CHEASEHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_chease.py" --source "$SOURCE" --prefix "$PREFIX" || true
+  CHEASEHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_chease.py" --source "$SOURCE" --prefix "$PREFIX" || ACCEPTANCE_STATUS=$?
+else
+  note "--skip-tests: install/check_chease.py was not run, so this build is unverified"
 fi
 printf '\nPoint VAFT at this build:\n  export CHEASEHOME=%s\n' "$PREFIX"
+if ((ACCEPTANCE_STATUS)); then
+  printf '[FAIL] install/check_chease.py rejected this build (status %s). It is installed so the failure can be examined; rerun the check with --check-only.\n' "$ACCEPTANCE_STATUS" >&2
+  exit "$ACCEPTANCE_STATUS"
+fi

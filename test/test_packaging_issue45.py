@@ -60,6 +60,8 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/efit/*" not in package_data
     assert "data/imas/*.nc" not in package_data
     assert "data/legacy/*.csv" not in package_data
+    assert "data/legacy/sxr_te_ratio_be_al.csv" in package_data
+    assert "data/legacy/langmuir_probe_positions.csv" in package_data
     assert "data/legacy/*.gz" not in package_data
     assert "data/legacy/*.h5" not in package_data
     assert "data/legacy/*.mat" not in package_data
@@ -104,6 +106,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/gpec/*.dat" in manifest
     assert "include vaft/data/legacy/*.txt" in manifest
     assert "include vaft/data/legacy/*.yaml" in manifest
+    assert "include vaft/data/legacy/langmuir_probe_positions.csv" in manifest
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
     assert "include vaft/data/samples/39915/imas.nc" in manifest
@@ -184,9 +187,14 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     }
     assert poloidal == {round(float(POLOIDAL_ANGLE), 9)}
 
+    # IMPA, the only b_field_tor_probe family, is its own stage since #305, so
+    # the regenerated sample may carry none; any it does carry must face
+    # toroidally.
     toroidal = {
         round(float(probe["toroidal_angle"]), 9)
         for probe in magnetics.get("b_field_tor_probe", [])
         if "toroidal_angle" in probe
     }
-    assert toroidal == {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
+    assert toroidal <= {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
+    # and no poloidal probe carries a toroidal_angle at all (#725)
+    assert not any("toroidal_angle" in probe for probe in magnetics["b_field_pol_probe"])
