@@ -656,7 +656,6 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.KPPCUR"] = PPCUR
         PM[f"time_slice.{i}.IN1.KFFFNC"] = 0
         PM[f"time_slice.{i}.IN1.KPPFNC"] = 0
-        PM[f"time_slice.{i}.IN1.SERROR"] = 0.05
         PM[f"time_slice.{i}.IN1.IVESEL"] = 1
         PM[f"time_slice.{i}.IN1.IFITVS"] = 0
         PM[f"time_slice.{i}.IN1.FCURBD"] = 1
@@ -758,6 +757,19 @@ def generate_kfile(
     # Define the kfile parameters
     vbit = constraint_config.legacy_vbit
     shft = constraint_config.legacy_weight_scale
+    # Under standard_deviation the submitted BIT* values *are* the uncertainty.
+    # EFIT does not use them as written: it multiplies every BIT by VBIT
+    # (default 10) and takes the larger of that and a relative floor --
+    # SERROR*|m| for probes, Ip and PF currents, ERRSIL*|m| (default 3 %) for
+    # flux loops.  Unless all three are pinned, the sigma EFIT fits against is
+    # ten times the one submitted, or a floor nobody chose (#891).  Legacy
+    # weighting depends on VBIT = 10 through its `weight / vbit` formula and is
+    # left exactly as it was.
+    statistical = constraint_config.uncertainty_mode == "standard_deviation"
+    serror_written = 0.0 if statistical else numerics.measurement_error_floor
+    # EFIT drops a statistical row whose sigma is at or below this without a
+    # word (data_input.F90), so an enabled row must clear it.
+    efit_minimum_sigma = 1.0e-10
     TABLE_DIR = "TABLE_DIR = '{}' \n".format(PM["time_slice.0.IN1.INPUT_DIR"])
     INPUT_DIR = "INPUT_DIR = '{}' \n".format(PM["time_slice.0.IN1.INPUT_DIR"])
 
@@ -788,6 +800,21 @@ def generate_kfile(
 
     def _objective_scale(group: str) -> float:
         return float(constraint_config.objective_scales[group])
+
+    def _row_weight(weight: float, group: str) -> float:
+        """The FWT written for one row.
+
+        Under standard_deviation the ODS weight only includes or excludes the
+        row; how strongly it constrains is the sigma's job alone (#891).  The
+        objective scale stays an explicit study control.  Legacy weighting is
+        unchanged: the weight is a strength there.
+        """
+        if statistical:
+            return _objective_scale(group) if weight > 0 else 0.0
+        return weight * _objective_scale(group)
+
+    def _usable_sigma(value: float) -> bool:
+        return bool(np.isfinite(value) and value > efit_minimum_sigma)
 
     def _measurement_error(
         cstr, path: str, fallback: float, *, group: str, unit_scale: float = 1.0
@@ -920,8 +947,14 @@ def generate_kfile(
         # when a circuit is switched off. The objective scale multiplies the
         # weight in both forms -- it is a property of the family, not of the
         # spelling.
-        pf_objective_scale = _objective_scale("pf_current")
-        scaled_pf_weight = pf_weight * pf_objective_scale
+        scaled_pf_weight = _row_weight(pf_weight, "pf_current")
+        unusable = []
+        if statistical and scaled_pf_weight > 0:
+            unusable += [
+                f"pf_current.{source_index}"
+                for i, source_index in enumerate(pf_indices)
+                if COILWEIGHT[i] > 0 and not _usable_sigma(BITCURRENT[i])
+            ]
         if np.all(COILWEIGHT == 1.0):
             FWTFC = f"FWTFC= {nbcoil}*{scaled_pf_weight}\n"
         else:
@@ -943,8 +976,14 @@ def generate_kfile(
         ## (4) Plasma current with weight
         plasma_weight = _weight(CSTR, "ip", "plasma_current")
         PLASMA = f"PLASMA= {CSTR['ip.measured']}"
-        BITIP = f"BITIP= {_measurement_error(CSTR, 'ip', plasma_weight / vbit * shft, group='plasma_current')}"
-        FWTCUR = f"FWTCUR= {plasma_weight * _objective_scale('plasma_current')}"
+        bitip_value = _measurement_error(
+            CSTR, "ip", plasma_weight / vbit * shft, group="plasma_current"
+        )
+        BITIP = f"BITIP= {bitip_value}"
+        plasma_row_weight = _row_weight(plasma_weight, "plasma_current")
+        FWTCUR = f"FWTCUR= {plasma_row_weight}"
+        if statistical and plasma_row_weight > 0 and not _usable_sigma(bitip_value):
+            unusable.append("ip")
 
         ## (5) Diamagnetic flux with weight
         flux_scale = (
@@ -960,7 +999,14 @@ def generate_kfile(
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead
         diamagnetic_weight = _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux")
-        SIGDLC = f"SIGDLC= {_measurement_error(CSTR, 'diamagnetic_flux', diamagnetic_weight * shft * flux_scale, group='diamagnetic_flux', unit_scale=flux_scale)}"
+        sigdlc_value = _measurement_error(
+            CSTR,
+            "diamagnetic_flux",
+            diamagnetic_weight * shft * flux_scale,
+            group="diamagnetic_flux",
+            unit_scale=flux_scale,
+        )
+        SIGDLC = f"SIGDLC= {sigdlc_value}"
         # SIGDLC=f'SIGDLC= {CSTR["diamagnetic_flux.measured_error_upper"]*1000}' # Standard deviation of diamagnetic flux measurement data in mWb
         # SIGDLC=f'SIGDLC= {VAL*CSTR["diamagnetic_flux.weight"]}' # set sigdlc as measured value * weight
 
@@ -972,6 +1018,11 @@ def generate_kfile(
             FWTDLC = "FWTDLC= 0"
         else:
             FWTDLC = f"FWTDLC= {_objective_scale('diamagnetic_flux')}"
+            # A zero SIGDLC with the row on is not a zero sigma to EFIT: it
+            # skips the division, keeps the raw FWTDLC and divides by zero in
+            # chidflux.  SIGDLC is in mWb; EFIT's sigma is 1e-3 of it.
+            if statistical and not _usable_sigma(1.0e-3 * sigdlc_value):
+                unusable.append("diamagnetic_flux")
 
         ## (6) Poloidal magnetic probe with weight
         # magpri (dprobe.dat/mhdin.dat) is EFIT's own count of physically
@@ -1008,6 +1059,8 @@ def generate_kfile(
                         group="bpol_probe",
                     )
                 )
+                if statistical and fwtmp2_values[-1] > 0 and not _usable_sigma(bitmpi_values[-1]):
+                    unusable.append(f"bpol_probe.{i}")
         FWTMP2 = _namelist_array("FWTMP2", fwtmp2_values, per_line=32)
         BITMPI = _namelist_array(
             "BITMPI",
@@ -1045,6 +1098,14 @@ def generate_kfile(
                         unit_scale=1.0 / (2.0 * np.pi),
                     )
                 )
+                if statistical and fwtsi_values[-1] > 0 and not _usable_sigma(psibit_values[-1]):
+                    unusable.append(f"flux_loop.{i}")
+        if unusable:
+            raise ValueError(
+                "standard_deviation constraints must carry a usable sigma for every "
+                f"enabled row (EFIT silently drops sigma <= {efit_minimum_sigma:g}); "
+                f"slice {time[time_idx]} has none on: {', '.join(unusable)}"
+            )
         FWTSI = _namelist_array("FWTSI", fwtsi_values, per_line=32)
         PSIBIT = _namelist_array(
             "PSIBIT",
@@ -1114,7 +1175,13 @@ def generate_kfile(
         # default and separable when a study needs to move only the seed.
         f.write(f" RELIP = {initialization.seed_rzero}\n")
         f.write(f" RZERO = {initialization.rzero}\n")
-        f.write(f" SERROR = {numerics.measurement_error_floor}\n")
+        f.write(f" SERROR = {serror_written}\n")
+        PM[f"time_slice.{time_idx}.IN1.SERROR"] = serror_written
+        if statistical:
+            f.write(" VBIT = 1.0\n")
+            f.write(" ERRSIL = 0.0\n")
+            PM[f"time_slice.{time_idx}.IN1.VBIT"] = 1.0
+            PM[f"time_slice.{time_idx}.IN1.ERRSIL"] = 0.0
         f.write(TABLE_DIR)
         f.write(VCURRT)
         f.write("\n")
