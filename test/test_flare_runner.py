@@ -244,3 +244,30 @@ def test_a_file_the_os_will_not_start_is_named_as_such(tmp_path):
     driver.chmod(driver.stat().st_mode | stat.S_IEXEC)
     with pytest.raises(ExecutableNotLaunchable, match="cannot launch"):
         run_flare("run", FlareConfig(executable=str(driver)))
+
+
+def test_flare_declares_its_ranks_and_keeps_raising_the_stdlib_timeout(tmp_path):
+    """#671: `processes` is declared for a scheduler; a timeout still raises."""
+    import subprocess
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    driver = tmp_path / "flare"
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="ok"))
+    result = run_flare(
+        "run", FlareConfig(executable=str(driver), workdir=tmp_path, processes=4, backend=backend)
+    )
+    (request,) = backend.requests
+    assert request.command == (str(driver), "-n", "4", "run")
+    assert request.resources.ntasks == 4
+    assert result.stdout == "ok"
+
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_flare("run", FlareConfig(executable=str(driver), workdir=tmp_path, timeout=2.0, backend=backend))
+
+
+def test_an_absent_explicit_driver_is_still_file_not_found(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        run_flare("run", FlareConfig(executable=str(tmp_path / "absent"), workdir=tmp_path))

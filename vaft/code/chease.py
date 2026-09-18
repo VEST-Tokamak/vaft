@@ -16,7 +16,8 @@ import numpy as np
 from vaft.formula.statistics import rms
 
 from ..compat import is_executable, resolve_executable
-from ._executables import executable_from_home, missing_home_message
+from ._executables import ExecutableNotLaunchable, executable_from_home, missing_home_message
+from .execution import ExecutionBackend, ExecutionRequest, ExecutionResult, resolve_backend
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
 MU0 = 4.0e-7 * np.pi
@@ -65,6 +66,7 @@ class CHEASEConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
+    backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
 
 
 @dataclass
@@ -1072,37 +1074,38 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     if inputs.namelist is None or not inputs.namelist.exists():
         raise FileNotFoundError(f"Missing chease_namelist file in {inputs.workdir}")
 
-    env = os.environ.copy()
-    env.update(dict(config.env))
+    command = (str(executable), *config.args)
     try:
-        completed = subprocess.run(
-            [str(executable), *config.args],
-            cwd=str(inputs.workdir),
-            env=env,
-            text=True,
-            capture_output=True,
-            # CHEASE writes its own diagnostics, so the bytes on these pipes are
-            # a foreign program's, not this repository's. Decoding them at the
-            # host locale turns a *completed* solve into a UnicodeDecodeError on
-            # any non-UTF-8 console -- cp949, for one -- after the refined
-            # equilibrium is already on disk. The log below is written as UTF-8,
-            # so reading as UTF-8 is also what makes the round trip symmetric,
-            # and `replace` keeps one bad character from discarding the run.
-            encoding="utf-8",
-            errors="replace",
-            timeout=config.timeout,
-            check=False,
+        # CHEASE writes its own diagnostics, so the bytes on its pipes are a
+        # foreign program's, not this repository's. The backend decodes them as
+        # UTF-8 with replacement: decoding at the host locale would turn a
+        # *completed* solve into a UnicodeDecodeError on any non-UTF-8 console
+        # -- cp949, for one -- after the refined equilibrium is already on disk,
+        # and chease.log below is written as UTF-8 for the same round trip.
+        completed = resolve_backend(config).run(
+            ExecutionRequest(
+                command=command,
+                workdir=Path(inputs.workdir),
+                env=dict(config.env),
+                timeout=config.timeout,
+                label="chease",
+            )
         )
-    except OSError as error:
+    except ExecutableNotLaunchable as error:
         # The file resolved and passed the executability probe and the operating
         # system still refused to start it. A configuration problem raises above;
         # this is a runtime one, so it is reported the way a non-zero exit is,
         # rather than as a traceback out of a notebook cell.
-        completed = subprocess.CompletedProcess(
-            [str(executable), *config.args],
+        completed = ExecutionResult(
             returncode=1,
             stdout="",
-            stderr=f"CHEASE could not be launched ({executable}): {error}",
+            stderr=f"CHEASE could not be launched ({executable}): {error.__cause__ or error}",
+            launcher=command,
+        )
+    if completed.timed_out:
+        # Callers have always seen the stdlib's exception here.
+        raise subprocess.TimeoutExpired(
+            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
         )
     log_path = inputs.workdir / "chease.log"
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
