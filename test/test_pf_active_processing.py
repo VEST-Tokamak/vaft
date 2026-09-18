@@ -214,18 +214,21 @@ def test_a_discharge_that_energised_pf2_keeps_its_waveform(tmp_path):
     assert _coil_gain_by_index(shot)[PF2_INDEX] == pytest.approx(1.0e3)
 
 
-def test_pf2_is_not_read_from_the_era_where_field_4_was_the_diamagnetic_loop(tmp_path):
-    """The one place the donor's channel table cannot be taken at face value.
-
-    `VEST_PFwaveform.m` gives PF2 field 4 for every shot from 19284, but this
-    repository records field 4 as the *diamagnetic loop* for 37505-38451.
-    Both cannot be right, so PF2 is declared only from 38452 -- where the loop
-    moved to 257 -- rather than risk reading one diagnostic as another.
-    """
+@pytest.mark.parametrize(
+    ("shot", "reads_field_4"),
+    [(38451, False), (38452, False), (38569, False), (38570, True),
+     (40676, False), (40677, True), (41813, False), (46000, True)],
+)
+def test_pf2_never_reads_the_field_carrying_the_diamagnetic_rogowski(shot, reads_field_4):
+    """`VEST_PFwaveform.m` gives PF2 field 4 for every shot from 19284, but the
+    diamagnetic TF Rogowski was on field 4 until 38570 and again on some 2023
+    days (#993). A raw field is one signal, so PF2 does not read field 4 on a
+    shot whose diamagnetic signal is there."""
+    from vaft.machine_mapping.magnetics import diamagnetic_field_for_shot
     from vaft.machine_mapping.pf_active import coil_field_code_by_index
 
-    assert PF2_INDEX not in coil_field_code_by_index(38451)
-    assert coil_field_code_by_index(38452)[PF2_INDEX] == 4
+    assert (coil_field_code_by_index(shot).get(PF2_INDEX) == 4) is reads_field_4
+    assert diamagnetic_field_for_shot(shot) not in coil_field_code_by_index(shot).values()
 
 
 def test_unclipped_pf6_waveform_is_not_altered_by_the_repair_hook(tmp_path):

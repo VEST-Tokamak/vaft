@@ -141,12 +141,26 @@ def test_clean_trace_returns_an_all_false_mask():
 
 @pytest.mark.parametrize(
     ("shot", "field"),
-    [(1, 246), (37504, 246), (37505, 4), (38451, 4), (38452, 257), (41672, 257)],
+    [
+        (1, None), (37504, None),          # no Rogowski yet; 246 is flux loop #15
+        (37505, 4), (38569, 4),            # 257 does not exist before 38570
+        (38570, 257), (38870, 257),
+        (38871, 4), (38877, 257),          # a 2023 day with 257 not archived
+        (40676, 4), (40736, 257), (41813, 4),
+        (41814, None), (42668, None),      # 257 pinned: sensor/DAQ fault
+        (42669, 257), (41672, 257),
+    ],
 )
-def test_yaml_reproduces_the_retired_field_code_ternary(shot, field):
-    """`246 if shot < 37505 else 4 if shot < 38452 else 257`, now in vest.yaml."""
-    config = resolve_vest_diagnostic(shot, "diamagnetic_flux")
-    assert int(config["source"]["field"]) == field
+def test_the_diamagnetic_channel_history_follows_the_raw_archive(shot, field):
+    """#993 replaced VFIT's `246 / 4 / 257` selector, whose first branch read
+    a flux loop, with the history the raw archive shows."""
+    assert magnetics.diamagnetic_field_for_shot(shot) == field
+
+
+@pytest.mark.parametrize(("shot", "reason"), [(30000, "no TF-circuit Rogowski"), (42000, "pinned at the ADC rail")])
+def test_a_shot_without_a_usable_rogowski_says_why(shot, reason):
+    with pytest.raises(magnetics.raw_db.RawSignalUnavailableError, match=reason):
+        magnetics.vest_diamagnetic_flux_detailed(shot, 0.30, 0.36, raw_source="/nonexistent/raw.json.gz")
 
 
 def test_yaml_carries_both_asymmetric_acquisition_rails():

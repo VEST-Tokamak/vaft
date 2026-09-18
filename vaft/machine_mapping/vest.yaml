@@ -341,13 +341,27 @@
     # Python literals inside `vest_diamagnetic_flux`; the values below
     # reproduce that code exactly, they are not a recalibration.
     #
-    # TODO(#285): the field codes here are the ones the mapper has always
-    # used, but `vaft/data/legacy/sql_table.txt` names 246 "Flux Loop - #15"
-    # and 4 "PF2 and 3 Current", and reserves the name "Diamagnetic Flux" for
-    # field 236 (257 has no entry at all). Either the name tables are stale or
-    # the era selector is; field 236 is absent from every packaged sample dump
-    # so it cannot be checked offline. Behaviour is preserved until that is
-    # resolved with the diagnostic owner.
+    # The "diamagnetic flux" is the TF-circuit Rogowski coil (T.K. Kim), not a
+    # diamagnetic loop. Its channel history was re-derived from the raw
+    # archive in #993 (the #285 TODO): VFIT's 246 -> 4 -> 257 selector, which
+    # this file used to copy, reads a flux loop for every shot before 37505.
+    #
+    #   < 37505       no Rogowski. Field 246 is "Flux Loop - #15" (DB name) and
+    #                 tracks its up-down mirror loop 244 at |r| = 1.00 in every
+    #                 era 2020-2026; it is also an equilibrium flux loop in
+    #                 MD.yaml. Recorded as not acquired, never as saturated.
+    #   37505-38569   field 4 (the DB's "PF2 and 3 Current" channel carries
+    #                 the Rogowski here; 257 does not exist before 38570).
+    #   38570-        field 257, except the 2023 days on which 257 was not
+    #                 archived and the Rogowski is on field 4 (listed below,
+    #                 every shot with 257 absent and 4 live in 38452-41813),
+    #                 and 41814-42668 (2024-01-15 .. 06-11), where 257 sits at
+    #                 the ADC rail for the whole record: a sensor/DAQ fault.
+    #
+    # A raw field feeds one signal: where the Rogowski is on field 4, PF2 does
+    # not read field 4 (`pf_active.coil_field_code_by_index`).
+    # Field 236 ("Diamagnetic Flux" in the DB table) is absent from every
+    # shot sampled between 29350 and 48802.
     diamagnetic_flux:
       source:
         field: 257
@@ -368,14 +382,27 @@
         saturation_repair:
           values: [-5.0, 4.999847412109375]
           tolerance: 3.0e-4
+      # `source: null` means no usable sensor for the shot; the mapper leaves
+      # the diamagnetic flux out with `unavailable_reason` (#993).
       revisions:
         - to_shot: 37504
-          source: {field: 246, raw_unit: V, daq_type: 0}
+          source: null
+          unavailable_reason: "no TF-circuit Rogowski before shot 37505 (field 246 is flux loop #15)"
         - from_shot: 37505
-          to_shot: 38451
+          to_shot: 38569
           source: {field: 4, raw_unit: V, daq_type: 0}
-        - from_shot: 38452
-          source: {field: 257, raw_unit: V, daq_type: 0}
+        - {from_shot: 38871, to_shot: 38876, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 38882, to_shot: 38891, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40533, to_shot: 40553, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40676, to_shot: 40676, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40728, to_shot: 40735, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40738, to_shot: 40738, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 41749, to_shot: 41752, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 41790, to_shot: 41813, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - from_shot: 41814
+          to_shot: 42668
+          source: null
+          unavailable_reason: "field 257 pinned at the ADC rail for the whole record, 2024-01-15 .. 06-11 (sensor or DAQ fault)"
 
     pf_active:
       processing:
@@ -484,6 +511,10 @@
         # belonged to another diagnostic. Verified on 46742: field 4 carries
         # 25000 samples there and is empty on 39915, so the channel is real
         # and per-shot.
+        # #993 found that the diamagnetic Rogowski did not reach 257 until
+        # 38570 and returned to field 4 on some 2023 days; on those shots
+        # PF2 does not read field 4 (`coil_field_code_by_index` drops any
+        # circuit whose field is the shot's diamagnetic field).
         #
         # PF1's gain -5e4 -> -1e4 starts at 45896, not at the donor's 45965
         # (`VEST_PFwaveform.m`, `shotcode < 45965`), issue #956. The field-59
