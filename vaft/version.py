@@ -1,10 +1,56 @@
 # Version information
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# 0.7.1
+# - bug-fix release: the verified findings of the 0.7.0 cold review that
+#   shipped as known issues (#920), one commit each with a failing-before
+#   test; no new features. Detailed notes on the release pull request and
+#   the GitHub release.
+# - EFIT: outputs at sub-millisecond times are read back at their own time
+#   through one shared slice-name codec (g0SHOT.00306_320 was 306.32 s and
+#   overwrote equilibrium.time; the kinetic k-file selection never picked a
+#   sub-ms file); a cached profile-model result is reused only for the run
+#   that produced it; log parsing, decision/slice time checks (#928)
+# - database maintenance: the retirement gate no longer calls an unreadable
+#   source deletable; strip_impa_from_source writes the master last and a
+#   re-run repairs a stage-only master; a failed shot-folder listing no
+#   longer replaces the union master; filedb relocate leaves what it cannot
+#   attribute in place and repairs 0.7.0's mis-filed tree; a resumed
+#   consolidation verifies an existing target; pipeline 1 parses under
+#   layout: shot_first (#929)
+# - installers: an uninstall removes only what its install recorded, never
+#   a whole prefix; the installer refuses a non-empty prefix it did not
+#   create (a 0.7.0 prefix keeps its directory); NUBEAM Windows -Uninstall
+#   checks the tree and manifest first; POSIX installers exit with the
+#   checker's status; nubeam/macos.sh derives the GCC major; the Windows
+#   CHEASE installer accepts a fresh clone; ldconfig | grep -q under
+#   pipefail no longer reports libraries missing (#930)
+# - kernels: collapse_time no longer lands in the noise tail; finite peak
+#   prominence with a search mask; n_rejected no longer saturates; clockwise
+#   SFL-angle wrap; non-increasing kinetic coordinates refused; shot blocks
+#   found under int and string keys; NBI beamlet position is the source
+#   centre; NUBEAM path budget and stale Plasma State; ion Z/mass defaults;
+#   run_neo(check=False); stable cells not re-solved; rmatch inputs
+#   validated; FLARE output decoded as UTF-8 (#931)
+# - plotting: time= is resolved to the nearest slice by time or refused,
+#   never ignored; GPEC resonant plots pair by (n, time_slice); the
+#   core_profiles slice control and the core-profile 2-D map pair by time
+#   and draw in DD orientation; interactive refusals keep the canvas;
+#   min_wall_authority/show_uncertainty/source are valid options (#933)
+# - documentation: the guide's code samples run under a test (94 executed,
+#   141 marked with a reason); four TypeError samples and their pre-fix
+#   prose, an AttributeError after import vaft and 18 calls through the
+#   wrong machine_mapping name fixed; documented defaults match the code;
+#   langmuir_probe_positions.csv ships in the wheel (#934)
+# - still open: FWTFC=0 frees an unenergised coil (#926, needs a k-file
+#   A/B); core_profiles product ownership (#927); probe C2-05 published at
+#   two toroidal angles, which keeps tutorial session 04's angle cell and
+#   two sample checks as expected failures (#825); the remaining minors in
+#   #920
 # 0.7.0
 # - development release line 2026-09-03 .. 2026-09-17 merged into main: 266
 #   pull requests; the detailed notes are on the release pull request and the

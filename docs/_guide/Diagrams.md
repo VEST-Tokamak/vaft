@@ -34,9 +34,10 @@ d = vaft.diagram.magnetic_island(
     m=3, n=2, width=0.16, phase=0.0, projection="poloidal",
     r_s=0.55, elongation=1.7, triangularity=0.4,   # D-shaped plasma; defaults give a circle
 )
-d            # displays inline in Jupyter (SVG)
-d.save("island.svg")
 d.tikz       # the LaTeX/TikZ source; needs no TeX installation
+# With latex and dvisvgm installed:
+# d            -> displays inline in Jupyter (SVG)
+# d.save("island.svg")
 ```
 
 | Projection | Poloidal section at $\phi=0$ | Top view $(R,\phi)$ | 3-D view of the O and X helices |
