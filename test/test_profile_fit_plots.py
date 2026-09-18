@@ -112,3 +112,17 @@ def test_the_adapter_renders(ods):
     fig, ax = vaft.omas.plot_charge_exchange_profile_fit(ods, field="ti", order=2)
     assert ax.get_legend() is not None
     plt.close(fig)
+
+
+def test_a_plain_geqdsk_mapping_is_one_equilibrium_not_a_collection(ods):
+    from vaft.data.eqdsk import read_geqdsk
+
+    geq = read_geqdsk(data_path("kineticEfit/g048224.00300"))
+    mapping = dict(geq.mapping)
+    assert "PSIRZ" in mapping and "NW" in mapping
+    # iterated as {name: equilibrium}, this would try to map through 'NW', 'PSIRZ', ...
+    from_mapping = _build(ods, field="te", coordinate="psi_norm", equilibrium=mapping)
+    from_geqdsk = _build(ods, field="te", coordinate="psi_norm", equilibrium=geq)
+    measured = _by_label(from_mapping, "measured")
+    assert len(measured) == 1 and ":" not in measured[0].label
+    np.testing.assert_allclose(measured[0].x, _by_label(from_geqdsk, "measured")[0].x)

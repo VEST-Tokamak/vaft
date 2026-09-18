@@ -595,7 +595,83 @@ def _coordinates_from_psi_norm(geq, psi_norm, source):
     return MappedPositions(psi_norm, rho_pol, rho_tor, reason, source)
 
 
-def equilibrium_mapping_thomson_scattering(ods, geq):
+def _equilibrium_slice_at_time(geq, time):
+    """``(equilibrium, slice index, slice time)`` of ``geq`` nearest ``time`` [s].
+
+    A GEQDSK or mapping is one instant and is returned as it is (index and
+    time None).  An ODS with ``time=None`` gives slice 0, as the mappers have
+    always read it; with a time, the slice nearest it, paired by time and not
+    by position -- handed over as a one-slice ODS when it is not the first,
+    because the psi-grid reader takes slice 0 of an ODS.
+    """
+    try:
+        count = len(geq["equilibrium.time_slice"])
+    except Exception:  # noqa: BLE001 -- not an ODS: one instant
+        return geq, None, None
+    if not count:
+        return geq, None, None
+    try:
+        times = np.asarray(geq["equilibrium.time"], dtype=float).reshape(-1)[:count]
+    except Exception:  # noqa: BLE001 -- no time base: fall back to slice times
+        times = np.array([
+            float(geq[f"equilibrium.time_slice.{index}.time"])
+            if f"equilibrium.time_slice.{index}.time" in geq else np.nan
+            for index in range(count)
+        ])
+    if time is None:
+        return geq, 0, (float(times[0]) if times.size and np.isfinite(times[0]) else None)
+    if times.size < count or not np.isfinite(times).any():
+        raise ValueError("time= needs the equilibrium's slice times, and this ODS carries none")
+    index = int(np.nanargmin(np.abs(times - float(time))))
+    if index == 0:
+        return geq, 0, float(times[0])
+    return _single_slice_ods(geq, index), index, float(times[index])
+
+
+#: The ODS-level leaves a one-slice view keeps beside the slice itself: what the
+#: psi-grid reader and ``as_equilibrium`` read outside ``time_slice``.
+_SINGLE_SLICE_LEAVES = (
+    "equilibrium.ids_properties.cocos",
+    "equilibrium.code.parameters.cocos",
+    "equilibrium.vacuum_toroidal_field.r0",
+    "wall.description_2d.0.limiter.unit.0.outline.r",
+    "wall.description_2d.0.limiter.unit.0.outline.z",
+)
+
+
+def _single_slice_ods(ods, index):
+    """A new ODS whose only equilibrium slice is a copy of ``ods``'s slice ``index``.
+
+    The mappers read slice 0 of an ODS; this hands them another slice with its
+    data unchanged (no GEQDSK resampling), with the ODS-level leaves they also
+    read -- the COCOS declaration, the vacuum field at that slice, the limiter.
+    """
+    import copy
+
+    from omas import ODS
+
+    from vaft.ods_access import path_value
+
+    out = ODS(consistency_check=False)
+    out["equilibrium.time_slice.0"] = copy.deepcopy(ods[f"equilibrium.time_slice.{index}"])
+    when = path_value(ods, f"equilibrium.time_slice.{index}.time")
+    if when is None:
+        when = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)[index]
+    out["equilibrium.time"] = np.array([float(when)])
+    out["equilibrium.ids_properties.homogeneous_time"] = 1
+    for path in _SINGLE_SLICE_LEAVES:
+        value = path_value(ods, path)
+        if value is not None:
+            out[path] = copy.deepcopy(value)
+    b0 = path_value(ods, "equilibrium.vacuum_toroidal_field.b0")
+    if b0 is not None:
+        b0 = np.asarray(b0, dtype=float).reshape(-1)
+        if b0.size:
+            out["equilibrium.vacuum_toroidal_field.b0"] = np.array([b0[min(index, b0.size - 1)]])
+    return out
+
+
+def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
     """Map Thomson scattering channel positions into the equilibrium's radial coordinates.
 
     Parameters
@@ -603,8 +679,12 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     ods : ODS
         Carries ``thomson_scattering.channel[:].position.r`` and ``.z`` [-].
     geq : GEQDSK, ODS or mapping
-        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS (first time slice), or
-        a legacy ``fluxSurfaces`` mapping [-].
+        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS, or a legacy
+        ``fluxSurfaces`` mapping [-].
+    time : float, optional
+        For an ODS, map through the equilibrium slice nearest this time
+        (paired by time, not by index); ``None`` keeps the first slice.
+        Ignored for a GEQDSK or mapping, which is one instant [s].
 
     Returns
     -------
@@ -648,15 +728,17 @@ def equilibrium_mapping_thomson_scattering(ods, geq):
     for a GEQDSK or ODS whose ``q`` is missing, non-finite or gives a
     non-monotonic toroidal flux; a fit requested in that coordinate then
     raises :class:`CoordinateUnavailableError` rather than falling back.
-    Only the first equilibrium time slice of an ODS is used.
+    One equilibrium time slice of an ODS is used: the first, unless ``time``
+    names another.
     """
+    geq, _, _ = _equilibrium_slice_at_time(geq, time)
     r_t = ods['thomson_scattering.channel.:.position.r']
     z_t = ods['thomson_scattering.channel.:.position.z']
     psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_t, z_t)
     return _coordinates_from_psi_norm(geq, psi_norm, source)
 
 
-def equilibrium_mapping_points(geq, r, z):
+def equilibrium_mapping_points(geq, r, z, *, time=None):
     """Map arbitrary ``(R, Z)`` points into the equilibrium's radial coordinates.
 
     The mapping :func:`equilibrium_mapping_thomson_scattering` applies to the
@@ -672,6 +754,9 @@ def equilibrium_mapping_points(geq, r, z):
         Major radius of each point [m].
     z : array_like
         Height of each point [m].
+    time : float, optional
+        As :func:`equilibrium_mapping_thomson_scattering`: the ODS slice
+        nearest this time; ``None`` keeps the first [s].
 
     Returns
     -------
@@ -690,13 +775,15 @@ def equilibrium_mapping_points(geq, r, z):
 
     Limitations
     -----------
-    Only the first equilibrium time slice of an ODS is used.
+    One equilibrium time slice of an ODS is used: the first, unless ``time``
+    names another.
 
     Provenance
     ----------
     .. [1] The same interpolation and normalisation as
        :func:`equilibrium_mapping_thomson_scattering`.
     """
+    geq, _, _ = _equilibrium_slice_at_time(geq, time)
     r = np.asarray(r, dtype=float).reshape(-1)
     z = np.asarray(z, dtype=float).reshape(-1)
     psi_norm, source = _psi_norm_from_equilibrium_points(geq, r, z)
@@ -1039,7 +1126,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
     }
 
 
-def equilibrium_mapping_charge_exchange(ods, geq):
+def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
     """Map charge-exchange channel positions into the equilibrium's radial coordinates.
 
     The charge-exchange twin of :func:`equilibrium_mapping_thomson_scattering`:
@@ -1051,8 +1138,11 @@ def equilibrium_mapping_charge_exchange(ods, geq):
         Carries the channel positions, as ``.data`` leaves (what the VEST
         mapper writes) or as bare values [-].
     geq : GEQDSK, ODS or mapping
-        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS (first time slice), or
-        a legacy ``fluxSurfaces`` mapping [-].
+        A ``vaft.data.GEQDSK``, an OMAS equilibrium ODS, or a legacy
+        ``fluxSurfaces`` mapping [-].
+    time : float, optional
+        As :func:`equilibrium_mapping_thomson_scattering`: the ODS slice
+        nearest this time; ``None`` keeps the first [s].
 
     Returns
     -------
@@ -1116,6 +1206,7 @@ def equilibrium_mapping_charge_exchange(ods, geq):
         R_ce = ods["charge_exchange.channel.:.position.r"]
         Z_ce = ods["charge_exchange.channel.:.position.z"]
 
+    geq, _, _ = _equilibrium_slice_at_time(geq, time)
     r_vals = [_to_float_scalar(value) for value in R_ce]
     z_vals = [_to_float_scalar(value) for value in Z_ce]
     psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_vals, z_vals)
@@ -1973,7 +2064,7 @@ def profile_fit_report_charge_exchange(
     return reports
 
 
-def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering"):
+def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering", time=None):
     """Map one diagnostic's channels through several equilibria, to see how much the mapping moves them.
 
     A profile's radial coordinate is borrowed from an equilibrium, so two
@@ -1993,6 +2084,9 @@ def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering"):
         that reader is available [-].
     diagnostic : str, optional
         ``"thomson_scattering"`` or ``"charge_exchange"`` [-].
+    time : float, optional
+        Map each ODS equilibrium through its slice nearest this time (as the
+        mappers' ``time``); ``None`` keeps each one's first slice [s].
 
     Returns
     -------
@@ -2016,8 +2110,8 @@ def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering"):
 
     Limitations
     -----------
-    Each ODS equilibrium contributes its first time slice, as the mappers
-    read it; pick the slice before passing a multi-slice ODS.
+    Each ODS equilibrium contributes its first time slice unless ``time`` is
+    given; pass the diagnostic's time to pair the slices by time.
 
     Provenance
     ----------
@@ -2038,7 +2132,7 @@ def compare_flux_mapping(ods, equilibria, *, diagnostic="thomson_scattering"):
             from vaft.data.eqdsk import read_geqdsk
 
             geq = read_geqdsk(geq)
-        out[name] = mapper(ods, geq)
+        out[name] = mapper(ods, geq, time=time)
     return out
 
 

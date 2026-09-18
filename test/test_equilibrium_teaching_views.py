@@ -78,10 +78,40 @@ def test_the_updater_fills_the_boundary_leaves_it_is_documented_to(derived):
 
 def test_a_slice_with_no_plasma_gets_no_geometric_axis(derived):
     # slice 8 of 39915 has psi_axis == psi_boundary and no current: the updater
-    # used to write the grid centre (R = 1.7 m) as its geometric axis
-    assert "equilibrium.time_slice.8.boundary.geometric_axis.r" not in derived
+    # used to write the grid centre (R = 1.7 m) as its geometric axis.  It now
+    # writes NaN -- not an absent leaf -- so a colon read stays rectangular and
+    # float() of the leaf is nan rather than a LookupError.
+    assert np.isnan(float(derived["equilibrium.time_slice.8.boundary.geometric_axis.r"]))
+    assert np.isnan(float(derived["equilibrium.time_slice.8.boundary.geometric_axis.z"]))
+    column = np.asarray(derived["equilibrium.time_slice.:.boundary.geometric_axis.r"], float)
+    assert column.shape == (len(derived["equilibrium.time_slice"]),)
+    assert np.isfinite(column[:8]).all() and np.isnan(column[8])
     model = build_model("equilibrium_time_major_radius", normalize_entries(derived))
     assert np.nanmax(model.series[0].y) < 0.6
+
+
+def test_a_no_plasma_slice_with_a_degenerate_outline_gets_nan_too():
+    from vaft.omas.update import update_equilibrium_boundary
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = [0.30, 0.31]
+    for index in range(2):
+        root = f"equilibrium.time_slice.{index}"
+        ods[f"{root}.time"] = ods["equilibrium.time"][index]
+        ods[f"{root}.global_quantities.psi_axis"] = 0.01
+        ods[f"{root}.global_quantities.psi_boundary"] = 0.01
+        ods[f"{root}.global_quantities.ip"] = 0.0
+        ods[f"{root}.global_quantities.magnetic_axis.r"] = 0.45
+        ods[f"{root}.global_quantities.magnetic_axis.z"] = 0.0
+    # slice 0: fewer than 3 outline points; slice 1: no outline at all
+    ods["equilibrium.time_slice.0.boundary.outline.r"] = [0.4, 0.5]
+    ods["equilibrium.time_slice.0.boundary.outline.z"] = [0.0, 0.1]
+    logging.disable(logging.WARNING)
+    update_equilibrium_boundary(ods)
+    logging.disable(logging.NOTSET)
+    column = np.asarray(ods["equilibrium.time_slice.:.boundary.geometric_axis.r"], float)
+    assert column.shape == (2,) and np.isnan(column).all()
+    assert np.isnan(np.asarray(ods["equilibrium.time_slice.:.boundary.geometric_axis.z"], float)).all()
 
 
 def test_the_shape_panel_has_one_member_per_descriptor(derived):
@@ -273,3 +303,26 @@ def test_the_analytic_plots_render():
     plt.close(fig)
     fig, ax = plot_miller_surfaces(miller_surfaces([0.1, 0.2], r0=0.4, kappa=1.5))
     plt.close(fig)
+
+
+def test_the_pressure_scan_drops_points_without_psi_and_never_normalizes_by_them(sample):
+    from vaft.plot.backend.recipes import _normalized_psi
+
+    ods = _with_pressure_constraint(sample)
+    root = "equilibrium.time_slice.0"
+    # two points lose position.psi and carry only rho_tor_norm: rho**2 is not psi_N
+    for j in (1, 3):
+        del ods[f"{root}.constraints.pressure.{j}.position.psi"]
+        ods[f"{root}.constraints.pressure.{j}.position.rho_tor_norm"] = 0.5
+    model = build_model("equilibrium_overview_pressure_weight_scan", normalize_entries({1.0: ods}))
+    points = [s for s in model.models[0].series if "constraint" in s.label][0]
+    assert points.x.size == 3
+    np.testing.assert_allclose(points.x, [0.05, 0.4, 0.8], atol=1e-9)
+    # a degenerate slice: no psi_N from the points' own first and last value
+    flat = copy.deepcopy(ods)
+    flat[f"{root}.global_quantities.psi_boundary"] = flat[f"{root}.global_quantities.psi_axis"]
+    psi_points = np.array([0.1, 0.2, 0.3])
+    assert _normalized_psi(flat, root, psi_points) is None
+    profile = np.asarray(flat[f"{root}.profiles_1d.psi"], float)
+    normalized = _normalized_psi(flat, root, psi_points, profile_psi=profile)
+    np.testing.assert_allclose(normalized, (psi_points - profile[0]) / (profile[-1] - profile[0]))

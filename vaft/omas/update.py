@@ -188,6 +188,18 @@ def update_equilibrium_boundary(ods, time_slice=None):
         degenerate_flux = np.isfinite(psi_axis) and np.isfinite(psi_boundary) and psi_axis == psi_boundary
         return bool(degenerate_flux or (np.isfinite(ip) and ip == 0.0))
 
+    def _write_no_axis(ts):
+        """A no-plasma slice has no geometric axis: store NaN, not the fallback.
+
+        The fallback would write the grid centre or a stale axis as if it were
+        one, and every shape history would plot it (#952).  NaN rather than
+        leaving the leaf absent keeps colon reads across slices rectangular
+        (``ods['equilibrium.time_slice.:.boundary.geometric_axis.r']``) and
+        makes ``float(...)`` of the leaf a NaN instead of a LookupError.
+        """
+        ts['boundary.geometric_axis.r'] = np.nan
+        ts['boundary.geometric_axis.z'] = np.nan
+
     if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
         logger.warning("No equilibrium.time_slice found while updating boundary.")
         return
@@ -208,10 +220,7 @@ def update_equilibrium_boundary(ods, time_slice=None):
         if 'boundary.outline.r' not in ts or 'boundary.outline.z' not in ts:
             logger.warning("boundary.outline not found for time slice %s", idx)
             if _no_plasma(ts):
-                # A slice with no flux excursion (psi_axis == psi_boundary) or
-                # no current has no plasma, so it has no geometric axis: the
-                # fallback would write the grid centre or a stale axis as if
-                # it were one, and every shape history would plot it (#952).
+                _write_no_axis(ts)
                 continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
@@ -225,6 +234,9 @@ def update_equilibrium_boundary(ods, time_slice=None):
         z_outline = z_outline[finite]
         if r_outline.size < 3:
             logger.warning("boundary.outline has fewer than 3 valid points for time slice %s", idx)
+            if _no_plasma(ts):
+                _write_no_axis(ts)
+                continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
             ts['boundary.geometric_axis.z'] = z0

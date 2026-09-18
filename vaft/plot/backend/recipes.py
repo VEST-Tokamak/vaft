@@ -9816,13 +9816,26 @@ def _scan_factor(label: str) -> float | None:
         return None
 
 
-def _normalized_psi(ods: Any, root: str, psi: np.ndarray) -> np.ndarray | None:
+def _normalized_psi(
+    ods: Any, root: str, psi: np.ndarray, *, profile_psi: np.ndarray | None = None
+) -> np.ndarray | None:
+    """psi_N of ``psi`` on slice ``root``, or None when the slice defines none.
+
+    The axis and boundary come from ``global_quantities``.  Without them, the
+    ends of ``profile_psi`` (the slice's ``profiles_1d.psi``, which runs axis
+    to boundary) stand in -- never the ends of ``psi`` itself, which for a set
+    of constraint points are just the first and last point.
+    """
     axis = _finite_scalar(_get(ods, f"{root}.global_quantities.psi_axis"))
     edge = _finite_scalar(_get(ods, f"{root}.global_quantities.psi_boundary"))
     if axis is None or edge is None or axis == edge:
-        if psi.size < 2 or psi[0] == psi[-1]:
+        reference = None if profile_psi is None else np.asarray(profile_psi, float).reshape(-1)
+        if (
+            reference is None or reference.size < 2
+            or not np.isfinite(reference[[0, -1]]).all() or reference[0] == reference[-1]
+        ):
             return None
-        axis, edge = float(psi[0]), float(psi[-1])
+        axis, edge = float(reference[0]), float(reference[-1])
     return (psi - axis) / (edge - axis)
 
 
@@ -9848,7 +9861,7 @@ def _build_pressure_weight_scan(entries: Sequence[tuple[str, Any]], **options: A
         psi = _array(ods, f"{root}.profiles_1d.psi")
         if psi is None:
             raise ValueError(f"entry {label!r} carries no profiles_1d.psi on slice {time_slice}")
-        psi_n = _normalized_psi(ods, root, psi)
+        psi_n = _normalized_psi(ods, root, psi, profile_psi=psi)
         try:
             metrics = fit_quality_metrics(ods, time_slice=time_slice)
         except Exception:  # noqa: BLE001 -- a scan entry without constraints still draws its profiles
@@ -9864,7 +9877,7 @@ def _build_pressure_weight_scan(entries: Sequence[tuple[str, Any]], **options: A
             "chi2_reduced": float(metrics.get("chi_squared_reduced", np.nan)),
             "chi2_pressure": float(pressure_family.get("chi_squared_sum", np.nan)),
             "table": constraint_table(ods, time_slice=time_slice, family="pressure"),
-            "root": root,
+            "root": root, "psi": psi,
         })
     numeric = all(row["factor"] is not None for row in rows)
     if numeric:
@@ -9892,14 +9905,14 @@ def _build_pressure_weight_scan(entries: Sequence[tuple[str, Any]], **options: A
         psi_points = np.array([
             _scalar(_get(row["ods"], f"{base}.{index}.position.psi")) for index in range(len(table.state))
         ])
-        x_points = _normalized_psi(row["ods"], row["root"], psi_points) if np.isfinite(psi_points).any() else None
-        if x_points is None or not np.isfinite(x_points).any():
-            rho = np.array([
-                _scalar(_get(row["ods"], f"{base}.{index}.position.rho_tor_norm"))
-                for index in range(len(table.state))
-            ])
-            x_points = rho ** 2 if np.isfinite(rho).any() else None
-        if x_points is not None:
+        # Only points that carry position.psi go on the psi_N axis: rho_tor_norm
+        # is a different coordinate (rho**2 is not psi_N), so a point without
+        # psi is dropped rather than placed at a guess.
+        x_points = (
+            _normalized_psi(row["ods"], row["root"], psi_points, profile_psi=row["psi"])
+            if np.isfinite(psi_points).any() else None
+        )
+        if x_points is not None and np.isfinite(x_points).any():
             enabled = table.mask("enabled") & np.isfinite(x_points)
             errors = table.uncertainty[enabled] * 1e-3
             pressure_series.append(Series(
@@ -11025,6 +11038,8 @@ def _equilibrium_slice_for(source: Any, target: float) -> tuple[Any, float | Non
 
     from vaft.data.eqdsk import read_geqdsk
 
+    from vaft.process.profile import _equilibrium_slice_at_time
+
     if isinstance(source, (str, os.PathLike)):
         return read_geqdsk(source), None, os.path.basename(str(source))
     count = _count(source, "equilibrium.time_slice") if hasattr(source, "keys") else 0
@@ -11032,16 +11047,10 @@ def _equilibrium_slice_for(source: Any, target: float) -> tuple[Any, float | Non
         return source, None, "given equilibrium"
     times = _array(source, "equilibrium.time")
     if times is None or times.size < count:
-        index, when = 0, None
-    else:
-        index = int(np.argmin(np.abs(np.asarray(times[:count], dtype=float) - target)))
-        when = float(times[index])
-    if index == 0:
-        return source, when, f"slice {index}"
-    from vaft.data.eqdsk import from_equilibrium
-    from vaft.process.equilibrium import as_equilibrium
-
-    return from_equilibrium(as_equilibrium(source, time_index=index)), when, f"slice {index}"
+        return source, None, "slice 0"
+    # the same time pairing the public mappers apply with time=
+    equilibrium, index, when = _equilibrium_slice_at_time(source, target)
+    return equilibrium, when, f"slice {index}"
 
 
 def _profile_fit_equilibria(ods: Any, option: Any) -> list[tuple[str, Any]]:
@@ -11057,9 +11066,29 @@ def _profile_fit_equilibria(ods: Any, option: Any) -> list[tuple[str, Any]]:
         # a plain {name: equilibrium} mapping -- not an ODS, which is also a mapping
         from omas import ODS
 
-        if not isinstance(option, ODS):
+        if not isinstance(option, ODS) and not _is_single_equilibrium_mapping(option):
             return [(str(name), source) for name, source in option.items()]
     return [("", option)]
+
+
+# Keys that make a plain mapping one equilibrium (a GEQDSK read into a dict, or
+# an ODS dumped to one) rather than a {name: equilibrium} collection.
+_EQUILIBRIUM_MAPPING_KEYS = frozenset({
+    "PSIRZ", "psirz", "NW", "nw", "NH", "nh", "SIMAG", "simag", "SIBRY", "sibry",
+    "RMAXIS", "rmaxis",
+})
+
+
+def _is_single_equilibrium_mapping(option: Mapping) -> bool:
+    try:
+        keys = set(option.keys())
+    except Exception:  # noqa: BLE001 -- an exotic mapping is left to the {name: eq} reading
+        return False
+    if keys & _EQUILIBRIUM_MAPPING_KEYS:
+        return True
+    # an ODS dumped to a dict: {"equilibrium": {"time_slice": ...}, ...}
+    ids = option.get("equilibrium") if "equilibrium" in keys else None
+    return isinstance(ids, Mapping) and "time_slice" in ids
 
 
 def _chord_positions(ods: Any, diagnostic: str, time_index: int) -> tuple[np.ndarray, np.ndarray]:

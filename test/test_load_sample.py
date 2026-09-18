@@ -383,9 +383,10 @@ def test_em_coupling_is_reconstructible_from_the_packaged_geometry():
 def test_pipeline_samples_carry_efit_reconstructed_constraints(shot):
     """The m-file replay (#952) filled reconstructed/chi_squared, and nothing else.
 
-    EFIT's reported chi-square on these runs is the plasma-current term: the
-    magnetics are weighted out (sigma = weight * 1e4 under legacy_weight), so
-    they contribute ~1e-7 of it at most.
+    EFIT's reported chi-square on these runs is the Ip row's vessel accounting
+    term: the magnetics are weighted out (sigma = weight * 1e4 under
+    legacy_weight), so they contribute ~1e-7 of it at most.  The recomputed
+    plasma-only Ip term is ~1e-13, so in the metrics the magnetics dominate.
     """
     manifest = vaft.data.sample_manifest(shot)
     record = manifest["generation"]["efit_constraints"]
@@ -426,7 +427,17 @@ def test_pipeline_samples_carry_efit_reconstructed_constraints(shot):
     assert metrics["families"]["flux_loop"]["sigma_unit_factor"] == pytest.approx(
         2 * np.pi, rel=1e-4
     )
-    assert metrics["chi_squared_share"]["ip"] == pytest.approx(1.0, abs=1e-6)
+    # The stored Ip chi-square is EFIT's report, which adds the prescribed vessel
+    # current to the model; the metrics recompute the plasma-only residual the fit
+    # actually matched (#952 follow-up, see test_efit_ip_vessel_chi_squared.py).
+    # So the reported value is the vessel accounting term, and Ip owns almost none
+    # of the recomputed total -- the magnetics do.
+    ip = metrics["scalars"]["ip"]
+    assert ip["chi_squared"] < 1e-9
+    assert ip["chi_squared_efit_reported"] == pytest.approx(
+        ip["vessel_accounting_term"], rel=1e-9
+    )
+    assert metrics["chi_squared_share"]["ip"] < 1e-3
 
 
 def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():

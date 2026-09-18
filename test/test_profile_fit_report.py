@@ -256,3 +256,73 @@ def test_the_48224_thomson_report_names_its_refused_channels(shot_48224):
     ne = reports["n_e"]
     if ne.order_used < ne.order_requested:
         assert ne.notes and "physicality" in ne.notes[0]
+
+
+# ---------------------------------------------------------------------------
+# a multi-slice equilibrium is paired with the diagnostic by time, not index
+# ---------------------------------------------------------------------------
+
+_SLICE_TIMES = (0.30, 0.31, 0.32)
+_AXIS_R = (0.40, 0.44, 0.48)
+
+
+def _moving_equilibrium():
+    """Three slices of a circular psi map whose axis moves outward in R."""
+    r = np.linspace(0.1, 0.8, 129)
+    z = np.linspace(-0.5, 0.5, 129)
+    grid_r, grid_z = np.meshgrid(r, z, indexing="ij")
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.array(_SLICE_TIMES)
+    for index, r0 in enumerate(_AXIS_R):
+        root = f"equilibrium.time_slice.{index}"
+        ods[f"{root}.time"] = _SLICE_TIMES[index]
+        ods[f"{root}.profiles_2d.0.grid.dim1"] = r
+        ods[f"{root}.profiles_2d.0.grid.dim2"] = z
+        ods[f"{root}.profiles_2d.0.psi"] = (grid_r - r0) ** 2 + grid_z**2
+        ods[f"{root}.global_quantities.psi_axis"] = 0.0
+        ods[f"{root}.global_quantities.psi_boundary"] = 0.09
+        ods[f"{root}.profiles_1d.psi"] = np.linspace(0.0, 0.09, 21)
+        ods[f"{root}.profiles_1d.q"] = np.linspace(1.5, 4.0, 21)
+    return ods
+
+
+def _exact_psi_norm(r0, r, z):
+    return ((np.asarray(r) - r0) ** 2 + np.asarray(z) ** 2) / 0.09
+
+
+def test_time_picks_the_equilibrium_slice_nearest_the_diagnostic():
+    from vaft.process.profile import equilibrium_mapping_points
+
+    eq = _moving_equilibrium()
+    r = np.array([0.30, 0.40, 0.50, 0.60])
+    z = np.array([0.0, 0.05, -0.05, 0.1])
+    # no time: slice 0, as the mappers always read an ODS
+    first = equilibrium_mapping_points(eq, r, z)
+    np.testing.assert_allclose(first.psi_norm, _exact_psi_norm(_AXIS_R[0], r, z), atol=2e-3)
+    for when, index in ((0.30, 0), (0.311, 1), (0.33, 2)):
+        mapped = equilibrium_mapping_points(eq, r, z, time=when)
+        np.testing.assert_allclose(mapped.psi_norm, _exact_psi_norm(_AXIS_R[index], r, z), atol=2e-3)
+    # the slice's own q is used for rho_tor_norm, not slice 0's grid alone
+    assert mapped.rho_tor_norm is not None
+    # the source ODS is untouched
+    assert len(eq["equilibrium.time_slice"]) == 3
+
+
+def test_thomson_and_the_comparison_take_the_same_time():
+    from vaft.process.profile import compare_flux_mapping, equilibrium_mapping_thomson_scattering
+
+    eq = _moving_equilibrium()
+    ods = _thomson()
+    r = np.array([ods[f"thomson_scattering.channel.{i}.position.r"] for i in range(X.size)])
+    z = np.zeros_like(r)
+    mapped = equilibrium_mapping_thomson_scattering(ods, eq, time=0.32)
+    expected = _exact_psi_norm(_AXIS_R[2], r, z)
+    inside = expected <= 1.0
+    np.testing.assert_allclose(mapped.psi_norm[inside], expected[inside], atol=2e-3)
+    assert np.isnan(mapped.psi_norm[~inside]).all()
+    compared = compare_flux_mapping(ods, {"eq": eq}, time=0.32)["eq"]
+    np.testing.assert_allclose(compared.psi_norm, mapped.psi_norm, equal_nan=True)
+    # without time, the comparison keeps slice 0 -- a different answer here
+    assert not np.allclose(
+        compare_flux_mapping(ods, {"eq": eq})["eq"].psi_norm, mapped.psi_norm, equal_nan=True
+    )
