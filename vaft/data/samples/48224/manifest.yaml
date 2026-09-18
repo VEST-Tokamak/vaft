@@ -1,0 +1,259 @@
+schema_version: 1
+reference_id: vest-48224-kinetic-300ms-v2
+shot: 48224
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: kinetic-profile-sample
+  description: 'One slice of shot 48224 at 300 ms with the kinetic diagnostics beside
+    it: Thomson scattering (7 channels, 0.298-0.307 s), ion Doppler charge_exchange
+    (40 channels, C3+ impurity ion), the fitted core_profiles slice and the equilibrium
+    the profiles were mapped on. The magnetic measurements enter only through the
+    server EFIT k-file under efit_magnetic_server/; no magnetics IDS is packaged.'
+  path: kineticEfit/ods_48224_300ms.json
+  sha256: b50eee7ba0b3a0f35800116532b942ef76725ccfc0b3e48063f833e53eab4f84
+  raw_inputs:
+  - path: kineticEfit/NeTe_48224.mat
+    sha256: c574c82de7d9e62fe737ab321c575fc03671d699952272e8c9a07c15dcd858c4
+  - path: kineticEfit/IDS_48224.mat
+    sha256: a1d9198b7025874824c6b5e6fa739833338de344b3c04540a68d58449471ca7b
+  recipe: vaft/data/README.md (kineticEfit section)
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    size: 713957
+    sha256: 6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7
+generation:
+  command: gzip.compress(open('vaft/data/kineticEfit/ods_48224_300ms.json','rb').read(),
+    compresslevel=9, mtime=0)
+  canonical_source: ../../kineticEfit/ods_48224_300ms.json
+  canonical_policy: repository-only
+  note: omas.json.gz decompresses to the frozen kinetic-profile ODS byte for byte;
+    nothing is re-derived. Its equilibrium is the g048224.00300 slice the core_profiles
+    were mapped on, so the profile coordinates and the equilibrium agree; it stores
+    psi in the legacy Wb/rad and declares no COCOS (readers probe it, see vaft/data/README.md).
+  wall: wall.description_2d.0.limiter.unit.0.outline is the full 17-point VEST limiter,
+    identical to vaft.machine_mapping.wall, not the 5-point database stub.
+  equilibria_command: 'scratch scripts run48224.py (magnetic run), kinetic_scan.py
+    (kinetic_pressure_points + run_kinetic_efit) and build48224.py (read_geqdsk/read_meqdsk/read_aeqdsk
+    into compact equilibrium-only ODSs), issue #952'
+equilibria:
+  loader: vaft.omas.sample_equilibria(48224)
+  time: 0.3
+  entries:
+    efit_magnetic:
+      format: omas
+      path: equilibria/efit_magnetic.json.gz
+      sha256: ef2c35ecfac49e6e56ba9a8ee4f43b71411f03831dba27cd467538be78dba160
+      size: 173781
+      kfile: equilibria/efit_magnetic.k048224.00300
+      kfile_sha256: 5bcf140e5c6c6897cb7b0e6726525aaafc44aed6083e294647e57679e247e50d
+      role: 'Magnetic-only EFIT: the server k-file efit_magnetic_server/k048224.00300
+        (KFFCUR = KPPCUR = 2, no pressure block) run locally with the server Green
+        table (see efit_magnetic_server.table) and $EFITHOME/bin/efit (4d10ed5, NetCDF).
+        The ODS is read_geqdsk(g).to_omas() overlaid with read_meqdsk(m).to_omas();
+        beta_pol and li_3 come from the a-file.'
+    efit_kinetic:
+      format: omas
+      path: equilibria/efit_kinetic.json.gz
+      sha256: edaa46b3042b7cd293f6d9a16c65fd4d0076e8284da35a27f379bc1b305f2519
+      size: 173990
+      kfile: equilibria/efit_kinetic.k048224.00300
+      kfile_sha256: c21a479e68eb07772251d1d68b73234bb736fac80de5dcf87f1545a270ff2410
+      role: 'VAFT''s kinetic EFIT on the same k-file: vaft.code.efit.run_kinetic_efit
+        with kinetic_pressure_points(sample_ods(48224), 300 ms, geq = efit_magnetic,
+        encoding raw6) injected by inject_pressure_constraint, PLASMA scale 1.0.'
+    chease:
+      format: geqdsk
+      path: ../../kineticEfit/g048224.00300.chease
+      sha256: 9316e0004845cc7479a412fa8f4d07b6a0d5cd820837e2587cc5ca16409a5c39
+      role: CHEASE refinement (header COCOS=02, 513 x 513) of the earlier kinetic
+        EFIT kineticEfit/g048224.00300.kinetic_efit, not of efit_kinetic above. The
+        header declares COCOS 2 but its signs identify COCOS 7/8, so the conversion
+        leaves it unlabelled; its psi is shifted to zero on the boundary and Ip is
+        negative.
+  conventions:
+  - psi and the psi maps are in Wb (read_geqdsk().to_omas()).
+  - constraints.flux_loop.* measured/reconstructed/measured_error_upper are in Wb
+    (m-file Wb/rad times 2*pi), like the other samples.
+  - constraints.bpol_probe.*.measured keeps the k-file's sign (pre-#288), see efit_magnetic_server.notes.
+  - chi_squared_reduced and freedom_degrees_n are not written (read_meqdsk's fallback
+    divides by 1).
+  - constraints.pressure.*.position.psi (Wb) is placed from EFIT's &OUT1 RPRESS (-psi_N
+    per point); position.r/z is the major radius each Thomson point was submitted
+    at (the psi_N = 1 edge anchor has none).
+  - global_quantities.beta_pol and li_3 are the a-file's betap and li3.
+  reproduction:
+    efit_magnetic_vs_server_gfile:
+      psi_relative: 0.00082
+      pressure_relative: 0.0046
+      boundary_max_abs_m: 0.00047
+      r_axis_difference_m: -0.00898
+      q_axis_server: 6.879
+      q_axis_local: 1.797
+      q_max_abs_excluding_axis: 0.022
+      m_file: chitot, chipasma, cpasma identical; cmpr2 within 1.9e-5 T; csilop within
+        9.2e-7 Wb/rad
+      note: 'All three local EFIT builds (4d10ed5 NetCDF install, build-mac beeadf1,
+        build-mac-verify) give the same result with this table; the residual difference
+        is the server build (a10a467, 2024-09-12). Both runs stop after 13 iterations
+        with the same failures (#1 chi-square > 80, #21 Bp not consistent).'
+    efit_kinetic_vs_kineticEfit_gfile:
+      gfile: kineticEfit/g048224.00300.kinetic_efit
+      psi_relative: 0.0011
+      q_relative: 0.0072
+      pressure_relative: 0.052
+      pprime_relative: 0.17
+      note: Not a reproduction. The earlier run's &OUT1 records SIGPRE 38.6/50.5/55.5/50.5/38.1/7.05
+        (edge anchor 5% of a 140.9 Pa peak); today's kinetic_pressure_points on the
+        packaged ODS gives 39.5/51.4/56.1/50.7/38.1/7.44 (peak 148.7 Pa), i.e. the
+        pressure points themselves differ (an earlier profile recipe). efit_kinetic
+        is VAFT's reproduction.
+  paths: relative to this sample directory
+  kinetic_pressure_constraint:
+    encoding: raw6 (five Thomson points at Z = 0 plus the psi_N = 1, p = 0 edge anchor)
+    rpress_m:
+    - 0.475
+    - 0.425
+    - 0.37
+    - 0.31
+    - 0.255
+    - -1.0
+    pressr_pa:
+    - 119.0397
+    - 148.7275
+    - 138.1869
+    - 137.9754
+    - 76.3074
+    - 0.0
+    sigpre_pa:
+    - 39.4535
+    - 51.3976
+    - 56.1302
+    - 50.6957
+    - 38.0909
+    - 7.4364
+    fwtpre:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    plasma_scale: 1.0
+  comparison:
+    beta_pol: 0.014755
+    li: 0.639163
+    li_3: 0.520787
+    q_axis: 1.7967
+    q_95: 5.70107
+    chi_squared_total: 686.53076
+    pressure_axis_pa: 85.824
+    kinetic_pressure_axis_pa: 138.343
+    boundary_max_distance_m: 0.0238
+    kinetic:
+      beta_pol: 0.028982
+      li: 0.633698
+      li_3: 0.514404
+      q_axis: 1.81056
+      q_95: 5.81805
+      chi_squared_pressure: 0.397923
+      chi_squared_total: 686.92871
+  pressure_weight_note: 'Checked 2026-09-18 (#952), not shipped: rerunning efit_kinetic
+    with every FWTPRE multiplied by 0.1 and by 10 gave the same equilibrium to 1e-8
+    in psi, p and q (beta_p 0.02898, chi-square pressure 0.398, total 686.93 in all
+    three). With the magnetic channels weighted out, the six pressure points are the
+    only information on the two p'' coefficients (KPPCUR = 2), so a uniform rescaling
+    of their weights multiplies every row that determines those coefficients and cannot
+    move the least-squares solution; EFIT''s per-point chi-square ((cpress - pressr)/sigpre)^2
+    does not include FWTPRE either. A pressure weight only matters relative to constraints
+    that compete with it.'
+efit_magnetic_server:
+  description: 'The magnetic-only EFIT run of shot 48224 at 300 ms as produced on
+    the VEST server (fetched 2026-09-18 for issue #952): the k-file (KFFCUR = KPPCUR
+    = 2, no pressure block) and the g/m/a files it produced there. Kept for provenance
+    and as the reproduction target of the local magnetic run.'
+  executable: /home/user1/work/efit-new2/build/efit/efit 129 (EFIT-AI a10a467 era,
+    2024-09-12 build)
+  table_dir: /home/user1/work/efit-new2/build/26_coils_3/
+  files:
+    kfile:
+      path: efit_magnetic_server/k048224.00300
+      sha256: d75d6440a8f2f6291dbef9cf3cd58e8630ab87499f56b3bf29779a994d0ec17d
+    gfile:
+      path: efit_magnetic_server/g048224.00300
+      sha256: e0bc60bf80aa64975500b6109c6b7f631f45e7d4241ab9d206cf22257535ecb3
+    mfile:
+      path: efit_magnetic_server/m048224.00300
+      sha256: 93875ab6dd37a7ffbd02b64599baaf0766b53c9c794ad1916165090a3f955ff2
+    afile:
+      path: efit_magnetic_server/a048224.00300
+      sha256: 6a51fcd7769cee8e146360b2d42a09e26cf52335ec36cf86ddfec09b7c02000d
+  table:
+    origin: VEST server /home/user1/work/efit-new2/build/26_coils_3/ (fetched 2026-09-18,
+      191 MB, not in the repository)
+    efund_source: efit-new2 a10a467f546ef437105a4618777cae8a222a00ed (2024-09-12)
+      with a local change to green/efund.f90 (28-line diff, sha256 67ab832e0385b24c5de3e58b4e7500da44b5aa1331ea18ec3fb6c68413fcd38e)
+    sha256:
+      OMFIT_run_command.sh: b01c404a9403abe130bc4054f3b1f80134c081eef24ad3bcbd2ac0b266e6e3df
+      brzgfc.dat: d8fff56e0ba47717c12959d4978522f2886390a4e6b64e1a89e089e1725dedd3
+      dprobe.dat: b0b430caec4186673e3ea3793fcb7faef8b28bffa08b174f0f5087c53f723f69
+      ec129129.ddd: 9b0c69d513c4177c0efaa6f26e58b0cc65a12b5b4efac70c00ac19963ec495e9
+      ep129129.ddd: 03fe274694893f0328eb64aa441546030b3f9dea9ad44c026f238a826d67f934
+      lim.dat: 4852912453d24b7adc53640332d341937273b7174c1d0ff55c50e3ae6ab98bb9
+      mhdin.dat: 97243e5918d3c8d3625e19cdb2be0448c5bf4c586b7e6575d31910ad5502802a
+      mhdin.dat~: 116dcf892ec956ecd136341f8e31dcbadcdca7e7ab0ff8f36e6e877c53bbe23a
+      mhdout.dat: ac79eb697277ab427494152c75161d1694c735e61798fa2eca0456415c71cc9b
+      rfcoil.ddd: b720515c79ce8cb2647ed03b197811e36c1dca4a2432ebc2bb27cbe08d2c5f66
+      rfcoil.txt: 2c23cee055229f6df210e3cac46efa9fdc5022480ed719cb1ab33180a0734448
+      rv129129.ddd: f063b70fcbc983cf45f123fd5d431aa4f74d574c4d6db2a054ec20732eb5991e
+      rv129129.txt: c61cd42e25c02051f9d06fa3f81a8e4e390b2d0ac841abc03172888fa8f1e1ed
+    local_adaptation: lim.dat's first record is '200000 16'. The current EFIT getlim
+      loops while ishot < ilimshot and reads past the only block, so the local runs
+      used a copy whose first record is '0 16' (same 16 points; sha256 561304ac8e3c23ff6c0dd40de86bbffe0bc6eb5d6df2665a6dfb95d17a69f14e).
+      Every other file is used unchanged.
+  notes:
+  - 'The magnetic probes are weighted out: BITMPI gives each probe sigma = 1000 T
+    (fwtmp2 = 0.001 in the m-file), so they do not shape the fit.'
+  - 'The probe measurements carry the sign convention from before #288: expmpi is
+    negative (-0.097 to 0 T) where the reconstruction cmpr2 is positive (+0.05 to
+    +0.16 T). The fit is unaffected only because the probes are weighted out.'
+  - Only 4 of 11 flux loops are enabled (array indices 4, 5, 6 and 10; fwtsi 0.01,
+    sigma 100 Wb/rad).
+  - EFIT's total chi-square (686.53) is the plasma-current term alone (chipasma),
+    which includes the prescribed vessel current EFIT adds after the fit (#918); reconstructed
+    Ip equals measured.
+  - The measured diamagnetic flux is -7.34 mWb; the reconstruction gives +4.93 mWb
+    (SIGDLC 1e7, weighted out).
+  - The server g-file's q on axis (6.88) is an axis artifact of that EFIT build; q
+    at psi_N = 0.05 is 1.83.
+  - efit_status.txt on the server reads 'fail' but describes the last case of that
+    batch (00311), not 00300.
+acceptance:
+  thomson_scattering:
+    channel_count: 7
+  charge_exchange:
+    channel_count: 40
+  core_profiles:
+    slice_count: 1
+  equilibrium_times:
+  - 0.3
+  equilibria:
+  - efit_magnetic
+  - efit_kinetic
+  - chease
+  required_ids:
+  - dataset_description
+  - thomson_scattering
+  - charge_exchange
+  - core_profiles
+  - equilibrium
+  - wall
+packaging_policy:
+  compact_pair: repository-only
+  canonical_source: repository-only
+  equilibria: repository-only

@@ -137,8 +137,15 @@ def test_aggregation_never_collapses_the_undecided_into_a_pass():
 
 
 def test_not_available_is_distinct_from_pass_and_from_fail(report):
-    # The sample fits nothing (every family prescribed) and carries no kinetic data.
+    # The sample carries EFIT's reconstructed values (m-file replay, #952), but
+    # the k-files recorded no uncertainty model: residuals normalised by the
+    # legacy sigma (weight * 1e4, 1000 T on a probe) are not graded (#891), so
+    # every fitted family is not available rather than a pass. No kinetic data.
     assert report["summary"]["diagnostic_fit"] == NOT_AVAILABLE
+    fit = report["diagnostic_fit"]
+    for family in ("ip", "bpol_probe", "flux_loop", "pf_current"):
+        assert fit[family]["status"] == NOT_AVAILABLE, family
+        assert "uncertainty model" in fit[family]["slices"][0]["reason"], family
     kinetic = report["independent_validation"]["kinetic_pressure"]
     assert kinetic["status"] == NOT_AVAILABLE
     assert "core_profiles" in kinetic["slices"][0]["reason"]
@@ -252,7 +259,10 @@ def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
     # The fixture's Ip constraint is ten sigma off, beyond the registered fail tolerance.
     assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == pytest.approx(10.0)
     assert fit["ip"]["status"] == FAIL and describe("diagnostic_fit.ip").tolerance[1] < 10.0
-    assert fit["diamagnetic_flux"]["status"] == NOT_AVAILABLE
+    # The fixture leaves the diamagnetic loop as the sample stores it, which
+    # since the m-file replay (#952) is EFIT's own reconstruction: weighted out
+    # (fit weight 1e-4), so its chi-square is ~1e-16 and it passes.
+    assert fit["diamagnetic_flux"]["status"] == PASS
     assert fit["global"]["chi_squared_reduced"] == metrics["chi_squared_reduced"]
     assert fit["global"]["status"] == PASS
 

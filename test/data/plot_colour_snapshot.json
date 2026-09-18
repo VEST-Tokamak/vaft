@@ -31,6 +31,12 @@
    ".models.series:color=tab:orange": 2,
    ".models.series:color=tab:red": 1
   },
+  "equilibrium_overview_constraint_weights": {
+   ".models.series:color=0.6": 6,
+   ".models.series:color=black": 9,
+   ".models.series:color=red": 3,
+   ".models.series:markerfacecolor=none": 3
+  },
   "equilibrium_overview_constraints": {
    ".models.series:color=black": 3,
    ".models.series:color=tab:orange": 1,
@@ -38,7 +44,15 @@
    ".models.series:markerfacecolor=none": 1
   },
   "equilibrium_overview_fit_quality": {
-   ".models.series:color=black": 3
+   ".models.series:color=0.6": 12,
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 1,
+   ".models.series:color=tab:red": 1,
+   ".models.series:markerfacecolor=none": 1
+  },
+  "equilibrium_overview_pressure_weight_scan": {
+   ".models.series:color=#377eb8": 2,
+   ".models.series:color=0.35": 1
   },
   "equilibrium_overview_residuals": {
    ".models.series:color=black": 3,

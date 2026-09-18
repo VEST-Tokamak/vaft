@@ -456,10 +456,74 @@ def z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None):
     return float(z_eff) if np.ndim(z_eff) == 0 else z_eff
 
 
+def impurity_fraction_from_effective_charge(z_eff, z_impurity):
+    r"""Impurity-to-electron density ratio that produces a given effective charge.
+
+    $$\frac{n_I}{n_e} = \frac{Z_{\mathrm{eff}} - 1}{Z_I\,(Z_I - 1)}$$
+
+    the inverse of :func:`z_eff_from_n_s_Z_s` for one fully ionised impurity of
+    charge $Z_I$ in a hydrogenic main ion.
+
+    Parameters
+    ----------
+    z_eff : float or array-like
+        Effective charge, within $[1, Z_I]$ [-].
+    z_impurity : float
+        Impurity charge $Z_I$, greater than one [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_I/n_e$, of the shape of ``z_eff``; the main-ion fraction is
+        $n_H/n_e = 1 - Z_I\,n_I/n_e$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``z_impurity`` not greater than one, or ``z_eff`` non-finite or
+        outside $[1, Z_I]$, where no non-negative density pair exists.
+
+    Assumptions
+    -----------
+    Quasi-neutrality $n_e = n_H + Z_I n_I$ and exactly two ion species: a
+    hydrogenic main ion ($Z = 1$, any isotope) and one impurity in a single
+    charge state.  Those two conditions and the definition
+    $Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I$ fix both fractions.
+
+    Limitations
+    -----------
+    One impurity only: a measured $Z_{\mathrm{eff}}$ does not determine a
+    mixture, so the answer is the fraction of the named impurity that would
+    alone account for it.  At $Z_{\mathrm{eff}} = 2$ that is $1/30$ for
+    carbon but $1/5402$ for fully stripped tungsten.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (collisions, resistivity and the effective charge).
+
+    See Also
+    --------
+    z_eff_from_n_s_Z_s
+    """
+    charge = float(z_impurity)
+    if not np.isfinite(charge) or charge <= 1.0:
+        raise ValueError(f"an impurity needs Z > 1; got {z_impurity!r}")
+    target = np.asarray(z_eff, dtype=float)
+    if not np.all(np.isfinite(target)) or np.any(target < 1.0) or np.any(target > charge):
+        raise ValueError(
+            f"Z_eff = {z_eff!r} is unreachable with a Z = {charge:g} impurity in "
+            f"hydrogen: it must lie between 1 (no impurity) and {charge:g} (no main ion)"
+        )
+    fraction = (target - 1.0) / (charge * (charge - 1.0))
+    return float(fraction) if fraction.ndim == 0 else fraction
+
+
 __all__ = [
     "fractional_abundances",
     "interpolate_adf11",
     "line_cooling_coefficient",
     "mean_charge_from_charge_state_densities",
     "z_eff_from_n_s_Z_s",
+    "impurity_fraction_from_effective_charge",
 ]
