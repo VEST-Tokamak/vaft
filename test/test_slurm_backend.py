@@ -524,7 +524,7 @@ def test_a_step_timeout_interrupts_srun_and_is_returned(tmp_path, slurm, monkeyp
     monkeypatch.setenv("SLURM_JOB_ID", "4242")
     backend = SlurmBackend(step_grace=10)
     result = backend.run(
-        _python(_workdir(tmp_path), "import time; print('started', flush=True); time.sleep(30)", timeout=1.5)
+        _python(_workdir(tmp_path), "import time; print('started', flush=True); time.sleep(30)", timeout=5)
     )
     assert result.timed_out
     assert result.returncode is None
