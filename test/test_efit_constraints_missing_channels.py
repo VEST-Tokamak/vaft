@@ -337,3 +337,33 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     assert all(np.isfinite(value) for value in expmp2)
     assert fwtmp2[10] == 0
     assert all(value == 1 for i, value in enumerate(fwtmp2) if i != 10)
+
+
+def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input_ods, tmp_path):
+    """A shot whose diamagnetic loop carried nothing has no diamagnetic_flux
+    node (#993). It is fitted without that row: no measured value is
+    invented, and the k-file switches the row off."""
+    ods = copy.deepcopy(full_constraints_input_ods)
+    assert "magnetics.diamagnetic_flux.0.data" in ods
+    del ods["magnetics.diamagnetic_flux"]
+    times = np.array([0.30, 0.301])
+    ods["equilibrium.time"] = times
+
+    generate_constraints_ods(
+        ods, SHOT, str(tmp_path), "", times,
+        DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
+        broken=[], fit=0, FFCUR=2, PPCUR=2,
+    )
+
+    EQ = ods["equilibrium"]
+    for t_idx in (0, 1):
+        assert "measured" not in EQ[f"time_slice.{t_idx}.constraints.diamagnetic_flux"]
+        assert EQ[f"time_slice.{t_idx}.constraints.diamagnetic_flux.weight"] == 0.0
+    assert "magnetics.diamagnetic_flux" not in ods
+
+    kfile_dir = tmp_path / "kfile"
+    config = _build_kfile_config(nbcoil=len(EQ["time_slice.0.constraints.pf_current"]))
+    generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
+    text = sorted((kfile_dir / "kfile").glob("*"))[0].read_text(encoding="utf-8")
+    assert "FWTDLC= 0" in text
+    assert "DFLUX= 0.0" in text
