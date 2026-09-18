@@ -23,6 +23,9 @@ from . import (
 )
 
 PIN = "7ad1ea8f3da4fee25a61a7c2c01b1773db5f4906"
+# Flux loops #3-#6, #12 and #14 in the legacy combined one-based numbering
+# (64 probes first); positional, see vaft.validation.flux_loop_assessment.
+LEGACY_FLUX_EXCLUSIONS = [65, 66, 67, 68, 72, 74]
 
 
 def collect_report(native, reports, repo):
@@ -61,30 +64,57 @@ def collect_report(native, reports, repo):
 
 
 def condition(ods, shot, times, work, repo, table_dir=None):
+    from functools import partial
+
     from vaft.code.efit import generate_constraints_ods
+    from vaft.code.efit.recovery import gaussian_probe_recovery, probe_families
+    from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count
     from vaft.validation.magnetics import validate_magnetics_signals
     from vaft.validation.model import ValidationStatus
 
+    # The study's channel policy as it was run in September: whole-record-dead
+    # probes plus the legacy positional flux-loop list, with legacy Gaussian
+    # probe recovery.  Spelled through the #296 decisions API instead of the
+    # deprecated broken=/fit= arguments, which built exactly these.  Trailing
+    # probes EFIT does not represent are left out: their one-based index would
+    # otherwise read as a flux loop.
+    nbprobe = efit_probe_count(ods)
     bad = [
         q.index + 1
         for q in validate_magnetics_signals(ods, kinds=("b_field_pol_probe",))
-        if q.status is not ValidationStatus.NOT_AVAILABLE and q.valid_fraction == 0
+        if q.index < nbprobe
+        and q.status is not ValidationStatus.NOT_AVAILABLE
+        and q.valid_fraction == 0
     ]
+    grid = np.asarray(times, dtype=float)
+    decisions = decide_efit_channels(
+        ods,
+        grid,
+        nbprobe=nbprobe,
+        manual_rejections=sorted(set(bad + LEGACY_FLUX_EXCLUSIONS)),
+    )
+    recovery = partial(
+        gaussian_probe_recovery,
+        mode=1,
+        families=probe_families(ods["magnetics"], count=nbprobe),
+        uncertainty="legacy",
+    )
     work.mkdir(parents=True, exist_ok=True)
     generate_constraints_ods(
         ods,
         shot,
         str(work),
         str(table_dir or repo / "vaft/data/efit") + "/",
-        np.asarray(times),
+        grid,
         [1e-4, 1e-4, 5e-2, 3e-2, 1e-2, 1e-1, 1e-2, 1e-1, 1e-2],
         [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01],
-        broken=sorted(set(bad + [65, 66, 67, 68, 72, 74])),
-        fit=1,
+        decisions=decisions,
+        recovery=recovery,
     )
     return {
         "whole_record_broken_probes_one_based": bad,
-        "excluded_flux_channels_legacy_one_based": [65, 66, 67, 68, 72, 74],
+        "excluded_flux_channels_legacy_one_based": list(LEGACY_FLUX_EXCLUSIONS),
+        "channel_decisions": decisions.summary(),
         "conditioner": "vaft.code.efit.generate_constraints_ods",
         "averaging_half_width_s": 0.0005,
     }

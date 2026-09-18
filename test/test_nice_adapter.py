@@ -518,8 +518,9 @@ def test_two_time_shared_conditioner_keeps_time_index_and_channel_identity(tmp_p
 
     repo = Path(__file__).parents[1]
     ods = load(repo / "vaft/data/samples/41672/source/pipeline-until-efit.json.gz")
-    condition(ods, 41672, [0.331, 0.332], tmp_path / "condition", repo)
-    assert "equilibrium.code.parameters.time_slice.1.INWANT.NCCOIL" in ods
+    report = condition(ods, 41672, [0.331, 0.332], tmp_path / "condition", repo)
+    assert np.allclose(ods["equilibrium.time"], [0.331, 0.332])
+    assert set(report["channel_decisions"]) == {"b_field_pol_probe", "flux_loop"}
     inputs = prepare_nice_inputs(
         ods,
         NiceConfig(
