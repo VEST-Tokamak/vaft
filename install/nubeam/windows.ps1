@@ -4,22 +4,28 @@
     able to run it.
 
 .DESCRIPTION
+    EXPERIMENTAL. This wrapper has not been run end to end in the form shipped
+    here: no Windows host was available when it was last changed, so its
+    PowerShell is verified by reading only. The recipe it drives (windows.sh)
+    can also be run directly from a UCRT64 shell. Treat a success report from
+    this script as something to confirm with -CheckOnly.
+
     Builds an existing NUBEAM source tree with the MinGW-w64 toolchain from
     MSYS2, downloads and builds the three NTCC dependency modules it needs
     (PSPLINE, PREACT, XPLASMA), stages the PREACT and ADAS reaction databases,
     and sets NUBEAMHOME so that VAFT, JupyterLab and a plain terminal all find
     the result.
 
-    The build recipe itself lives in external\nubeam\windows.sh and runs inside
+    The build recipe itself lives in install\nubeam\windows.sh and runs inside
     MSYS2. This script owns the Windows side: finding MSYS2, reporting which
     revision you built, colocating the runtime DLLs, and wiring the
-    environment. external\nubeam\macos.sh is the same recipe for Apple Silicon.
+    environment. install\nubeam\macos.sh is the same recipe for Apple Silicon.
 
     You obtain NUBEAM yourself and pass its path. This script never clones,
     fetches, pulls, or changes the revision of your source tree. What it does
     generate -- the install prefix, the object tree, the downloaded dependency
     sources and the generated share\Make.local files -- all lives inside that
-    tree, and -Uninstall removes exactly those.
+    tree, and -Uninstall removes those it has a record of generating.
 
     Four things about a native Windows build differ from the Linux one, and
     all four are reported rather than hidden:
@@ -82,15 +88,17 @@
 
 .PARAMETER Uninstall
     Remove what this script generated inside your source tree -- local\,
-    build\windows-x86_64\, vendor\ntcc\, the generated share\Make.local files
-    and the manifest -- and, when it still points there, the NUBEAMHOME user
-    variable. Nothing else in your source tree is touched.
+    build\windows-x86_64\, the NTCC modules under vendor\ntcc\ that the
+    recipe recorded downloading, the generated share\Make.local files and the
+    manifest -- and, when it still points there, the NUBEAMHOME user variable.
+    It refuses a directory that is not a NUBEAM tree or has no manifest, and
+    NTCC sources you placed under vendor\ntcc\ yourself are left alone.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
 #>
 [CmdletBinding()]
 param(
@@ -119,9 +127,13 @@ $Title = 'NUBEAM (Windows native)'
 # What a NUBEAM case drives, in the order it uses them.
 $Executables = @('nubeam_comp_exec')
 
-# The generated names, relative to the source tree. -Uninstall removes exactly
-# these, which is also the list macos.sh's uninstall.sh removes.
-$GeneratedPaths = @('local', 'build\windows-x86_64', 'vendor\ntcc', '.nubeam-install-manifest')
+# The directories windows.sh creates unconditionally, relative to the source
+# tree. It refuses to start when either exists without its manifest, so with a
+# manifest present both are its own. vendor\ntcc is NOT in this list: see
+# -Uninstall.
+$GeneratedPaths = @('local', 'build\windows-x86_64')
+$ManifestName = '.nubeam-install-manifest'
+$WrapperLogName = 'windows.ps1.log'
 
 $prefixToken = Get-Msys2PackagePrefix -MinGWEnvironment $MinGWEnvironment
 $Packages = @(
@@ -154,15 +166,50 @@ if ($Uninstall) {
 -Uninstall needs the NUBEAM source tree, because everything this script
 generates lives inside it.
 
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -Uninstall
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -Uninstall
 '@
     }
-    $source = (Resolve-Path -LiteralPath $SourcePath).Path
+    # Nothing is removed from a directory that is not a NUBEAM tree, or from a
+    # NUBEAM tree the recipe never installed into. windows.sh refuses to start
+    # when local\ or build\windows-x86_64\ exist without its manifest, so the
+    # manifest is what makes those two directories this script's to remove.
+    $source = Assert-SourceCheckout -SourcePath $SourcePath -Project 'NUBEAM' `
+        -ExpectedFiles @('Makefile', 'nubeam_comp_exec')
+    $manifestPath = Join-Path $source $ManifestName
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        Stop-WithGuidance @"
+$source has no $ManifestName, so there is no record that this script installed
+anything there. Nothing was removed.
+"@
+    }
+
+    # vendor\ntcc is where an operator places the licence-gated NTCC sources by
+    # hand when the download fails, and the recipe uses such a tree as-is. Only
+    # the modules the recipe recorded downloading are removed, never the
+    # directory as such.
+    $recordedRoot = $null
+    $managed = @()
+    foreach ($line in @(Get-Content -LiteralPath $manifestPath)) {
+        $parts = @(([string] $line) -split "`t", 2)
+        if ($parts.Count -ne 2) { continue }
+        if ($parts[0] -eq 'root') { $recordedRoot = $parts[1].TrimEnd('/') }
+        if ($parts[0] -eq 'managed_dir') { $managed += $parts[1] }
+    }
+    $targets = @($GeneratedPaths)
+    if ($recordedRoot) {
+        $ntccRoot = $recordedRoot + '/vendor/ntcc/'
+        foreach ($entry in $managed) {
+            if (-not $entry.StartsWith($ntccRoot)) { continue }
+            $module = $entry.Substring($ntccRoot.Length)
+            if ($module -match '^[A-Za-z0-9_-]+$') { $targets += "vendor\ntcc\$module" }
+        }
+    }
+
     $prefix = Get-NubeamPrefix -Source $source
     if (Test-Path -LiteralPath $prefix) {
         Remove-ExternalCodeEnvironment -Name $HomeVariable -ExpectedValue (Resolve-Path -LiteralPath $prefix).Path
     }
-    foreach ($relative in $GeneratedPaths) {
+    foreach ($relative in $targets) {
         $target = Join-Path $source $relative
         if (Test-Path -LiteralPath $target) {
             Remove-Item -LiteralPath $target -Recurse -Force
@@ -170,6 +217,19 @@ generates lives inside it.
         }
         else {
             Write-Result -Status SKIP -Name $relative -Detail 'not present'
+        }
+    }
+    $wrapperLog = Join-Path $source (Join-Path 'build' $WrapperLogName)
+    if (Test-Path -LiteralPath $wrapperLog -PathType Leaf) { Remove-Item -LiteralPath $wrapperLog -Force }
+    # Parents go only when nothing is left in them.
+    foreach ($relative in @('vendor\ntcc', 'vendor', 'build')) {
+        $target = Join-Path $source $relative
+        if (-not (Test-Path -LiteralPath $target -PathType Container)) { continue }
+        if (@(Get-ChildItem -LiteralPath $target -Force).Count -eq 0) {
+            Remove-Item -LiteralPath $target -Force
+        }
+        else {
+            Write-Result -Status SKIP -Name $relative -Detail 'left: it holds files this script has no record of placing'
         }
     }
     # Only the Make.local files this script generated; a hand-written one is
@@ -180,6 +240,7 @@ generates lives inside it.
             Write-Result -Status PASS -Name 'Generated Make.local' -Detail $makeLocal.FullName
         }
     }
+    Remove-Item -LiteralPath $manifestPath -Force
     Write-ExternalSummary -Title $Title
     Write-Host ''
     Write-Host 'Your NUBEAM source tree is otherwise untouched.'
@@ -213,7 +274,7 @@ if (-not $SourcePath) {
     Stop-WithGuidance @'
 The path to your NUBEAM source tree is required.
 
-    powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+    powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
 
 VAFT does not vendor NUBEAM: NTCC requires each user to accept its licence
 before downloading it. Obtain the source from
@@ -234,7 +295,8 @@ you, and never downloads anything without that switch.
 
 $source = Assert-SourceCheckout -SourcePath $SourcePath -Project 'NUBEAM' `
     -ExpectedFiles @('Makefile', 'nubeam_comp_exec')
-Write-RevisionResult -Project 'NUBEAM' -SourcePath $source
+$revision = Get-SourceRevision -SourcePath $source
+Write-RevisionResult -Project 'NUBEAM' -Revision $revision
 
 $prefix = Get-NubeamPrefix -Source $source
 $binDirectory = Join-Path $prefix 'bin'
@@ -281,9 +343,14 @@ Write-Step 'Building NUBEAM and its NTCC dependencies'
 Write-Host 'This takes roughly an hour on a first run, most of it in PREACT.'
 Write-Host ''
 
-$logDirectory = Join-Path $source 'build\windows-x86_64'
+# The wrapper's log goes beside the recipe's build directory, not inside it:
+# windows.sh refuses a build\windows-x86_64 that exists without its manifest,
+# so creating that directory here made every first run fail at the recipe's
+# own guard, and --resume cannot bypass that arm.
+$buildDirectory = Join-Path $source 'build\windows-x86_64'
+$logDirectory = Join-Path $source 'build'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-$logPath = Join-Path $logDirectory 'windows.ps1.log'
+$logPath = Join-Path $logDirectory $WrapperLogName
 
 $steps = @(
     'set -e',
@@ -302,7 +369,7 @@ $exitCode = Invoke-Msys2 -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -C
     } -LogPath $logPath -AllowFailure
 
 if ($exitCode -ne 0) {
-    Stop-WithGuidance "The NUBEAM build failed (exit $exitCode). The full log is at $logPath and at $logDirectory\install.log."
+    Stop-WithGuidance "The NUBEAM build failed (exit $exitCode). The full log is at $logPath and at $buildDirectory\install.log."
 }
 
 $missing = @()
@@ -310,7 +377,7 @@ foreach ($name in $Executables) {
     if (-not (Test-Path -LiteralPath (Join-Path $binDirectory "$name.exe"))) { $missing += $name }
 }
 if ($missing.Count -gt 0) {
-    Stop-WithGuidance "The build reported success but did not produce: $($missing -join ', '). See $logDirectory\install.log."
+    Stop-WithGuidance "The build reported success but did not produce: $($missing -join ', '). See $buildDirectory\install.log."
 }
 Write-Result -Status PASS -Name 'Executables' -Detail (($Executables | ForEach-Object { "$_.exe" }) -join ', ')
 
@@ -324,7 +391,7 @@ Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $
 Write-InstallManifest -Prefix $prefix -Record @{
     code        = $CodeName
     source      = $source
-    revision    = (Get-SourceRevision -SourcePath $source)
+    revision    = $revision
     netcdf      = $NetcdfHome
     msys2       = $root
     environment = $MinGWEnvironment
@@ -339,7 +406,7 @@ else {
 }
 
 Write-ExternalSummary -Title $Title -NextSteps @(
-    "Verify the installation:  powershell -File external\nubeam\windows.ps1 $source -CheckOnly",
-    'Reproduce the reference cases:  bash install/nubeam/run-local-validation.sh --case d3d',
-    'NUBEAM results are returned as a native container; nothing maps them into IMAS yet (issue #490).'
+    "Verify the installation:  powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 $source -CheckOnly",
+    'The reference-case harness (install/nubeam/run-local-validation.sh) supports Linux and macOS only.',
+    'NUBEAM profiles map to the core_sources and distributions IDS; birth and lost-particle markers stay in the native container (issue #490).'
 )

@@ -51,6 +51,7 @@ rescale this whole design exists to prevent, only with a provenance record vouch
 
 ## Reading a TRANSP run
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python
 from vaft.code.transp import read_transp_profiles
 

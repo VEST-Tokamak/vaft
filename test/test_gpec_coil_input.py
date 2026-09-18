@@ -402,12 +402,14 @@ def test_resolve_accepts_the_vest_config_object_and_rejects_misuse(synthetic_mac
         resolve_coil_inputs("vest", None, "", None, ["MID"])
 
 
-def test_explicitly_empty_coil_specs_do_not_fall_back_to_the_template(no_gpec_env, case):
-    config = gpec.GPECSuiteConfig(
-        modules=("gpec",), modes=(1,), gpec=gpec.IdealGPECOptions(coil_specs=())
-    )
-    with pytest.raises(ValueError, match="at least one"):
-        gpec.prepare_gpec_suite_case(case, config)
+def test_explicitly_empty_coil_specs_do_not_fall_back_to_the_template():
+    """Refused when the options are built, not from inside ``prepare`` after
+    gpec.in and vac.in are staged (cold review stability F8)."""
+    with pytest.raises(ValueError, match="at least one coil set name"):
+        gpec.IdealGPECOptions(coil_specs=())
+    with pytest.raises(ValueError, match="at least one coil set name"):
+        gpec.IdealGPECOptions(coil_specs=[])
+    assert gpec.IdealGPECOptions(coil_specs=None).coil_specs is None
 
 
 def test_missing_backing_file_is_an_error_not_a_silent_reemit(tmp_path, synthetic_machine):

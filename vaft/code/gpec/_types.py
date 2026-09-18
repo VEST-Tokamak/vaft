@@ -72,6 +72,30 @@ class RDCONOptions:
     z_eff: float = 2.0
     ln_lambda: float = 17.0
 
+    def __post_init__(self) -> None:
+        # Checked here, where the caller's mistake is, rather than after RDCON
+        # has already run: a malformed triple used to raise out of the suite
+        # between the solver and its companion, and a descending coordinate
+        # was interpolated as if it were sorted.
+        if not self.has_kinetic_profiles:
+            return
+        sizes = {
+            name: len(getattr(self, name)) for name in ("psi_norm", "t_e", "n_e")
+        }
+        if len(set(sizes.values())) != 1:
+            raise ValueError(
+                "RDCONOptions psi_norm, t_e and n_e must have one length; got "
+                + ", ".join(f"{name}: {size}" for name, size in sizes.items())
+            )
+        coordinate = [float(value) for value in self.psi_norm]
+        if len(coordinate) < 2 or any(
+            not later > earlier for earlier, later in zip(coordinate, coordinate[1:])
+        ):
+            raise ValueError(
+                "RDCONOptions.psi_norm must be strictly increasing (core to edge); "
+                "reverse an outboard-in profile together with its t_e and n_e"
+            )
+
     @property
     def has_kinetic_profiles(self) -> bool:
         return (
@@ -125,18 +149,26 @@ class IdealGPECOptions:
     def __post_init__(self) -> None:
         # A config error is knowable here; refusing at construction keeps it
         # from surfacing after DCON has run and gpec.in / vac.in are staged.
-        if self.machine == "vest":
-            return
-        missing = [
-            name
-            for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
-            if getattr(self, name) is None
-        ]
-        if missing:
+        if self.machine != "vest":
+            missing = [
+                name
+                for name in ("coil_specs", "coil_config", "ip_direction", "bt_direction")
+                if getattr(self, name) is None
+            ]
+            if missing:
+                raise ValueError(
+                    f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
+                    "(only 'vest' has packaged coil geometry and direction words); or pass an "
+                    "explicit GPECCaseInputs.coil_in"
+                )
+        # An explicitly empty selection is refused rather than read as "use the
+        # packaged template" -- and refused here, for the reason above: it used
+        # to surface from inside `prepare`, which is the late failure this
+        # method exists to prevent.
+        if self.coil_specs is not None and len(self.coil_specs) == 0:
             raise ValueError(
-                f"machine {self.machine!r}: {', '.join(missing)} must be given explicitly "
-                "(only 'vest' has packaged coil geometry and direction words); or pass an "
-                "explicit GPECCaseInputs.coil_in"
+                "coil_specs is empty: at least one coil set name is required; pass "
+                "None to use the packaged coil.in template"
             )
 
 

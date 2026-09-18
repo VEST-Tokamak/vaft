@@ -236,6 +236,25 @@ def test_a_deep_pytest_tmp_path_is_refused_rather_than_truncated(tmp_path):
     assert not deep.exists()
 
 
+def test_the_budget_is_the_run_id_inputf_declares(tmp_path):
+    """The default configuration budgets for ``NUBEAM`` (101 characters) while
+    the case runs as ``FUSMA_NUBEAM`` (95): a 99-character work directory was
+    accepted and needed a 144-character name in NUBEAM's 140-character buffer
+    (cold review transport F4)."""
+    source = _case_directory(tmp_path)
+    gfile = tmp_path / "g"
+    gfile.write_text("EQDSK\n", encoding="utf-8")
+    config = nubeam.NUBEAMConfig()
+    assert nubeam.workdir_budget("FUSMA_NUBEAM") < 99 <= config.workdir_budget
+
+    with short_temporary_directory(max_length=40) as scratch:
+        run = Path(str(scratch / "w") + "x" * (99 - len(str(scratch / "w"))))
+        assert len(str(run)) == 99
+        with pytest.raises(nubeam.NUBEAMInputError, match="FUSMA_NUBEAM"):
+            nubeam.prepare_nubeam_inputs(source, gfile=gfile, workdir=run, config=config)
+        assert not run.exists()
+
+
 def test_staging_reports_a_missing_input(tmp_path):
     source = _case_directory(tmp_path)
     (source / "profiles").unlink()
@@ -558,3 +577,22 @@ def test_profiles_exclude_plasma_state_bookkeeping(tmp_path):
     assert "ps_partial_update" not in profiles  # a scalar flag
     assert "frac_full" not in profiles  # one point is not a profile
     assert "version_id" not in profiles  # a character array
+
+
+def test_a_state_left_by_an_earlier_run_does_not_pass_for_a_new_one(tmp_path):
+    """``plasma_state_test`` reports its errors on stdout and exits 0, so the
+    state file is the success signal -- and one from an earlier run in the same
+    work directory satisfied it (cold review transport F5)."""
+    source = _case_directory(tmp_path)
+    gfile = tmp_path / "g"
+    gfile.write_text("EQDSK\n", encoding="utf-8")
+    generator = write_launchable_stub(tmp_path / "bin" / "plasma_state_test")
+    config = nubeam.NUBEAMConfig(generator_executable=str(generator))
+
+    with short_temporary_directory(max_length=60) as scratch:
+        inputs = nubeam.prepare_nubeam_inputs(
+            source, gfile=gfile, workdir=scratch / "run", config=config
+        )
+        inputs.plasma_state.write_bytes(b"STATE FROM AN EARLIER RUN")
+        with pytest.raises(nubeam.NUBEAMExecutionError, match="did not create"):
+            nubeam.generate_plasma_state(inputs, config)

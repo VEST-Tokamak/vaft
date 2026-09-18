@@ -302,3 +302,86 @@ def test_a_panel_with_a_field_keeps_its_colorbar_in_its_own_cell(sample):
     result.state.set("time_slice", 1)
     assert len(result.figure.subfigs[0].axes) == before
     assert result.axes[0].get_position().width == pytest.approx(width)
+
+
+def test_a_core_profiles_profile_offers_its_own_slices_not_the_equilibriums():
+    """cold review plot G2: the control listed the nine equilibrium slices for
+    a plot that indexes ``core_profiles.profiles_1d``; the default (equilibrium
+    slice 4) opened an empty figure and index 0 drew another instant under an
+    equilibrium time label."""
+    ods = vaft.omas.sample_ods()
+    stored = [0.331, 0.325, 0.316]  # three slices, not the equilibrium's nine, nor its order
+    rho = np.linspace(0.0, 1.0, 21)
+    ods["core_profiles.ids_properties.homogeneous_time"] = 1
+    ods["core_profiles.time"] = np.asarray(stored)
+    for index, instant in enumerate(stored):
+        base = f"core_profiles.profiles_1d.{index}"
+        ods[f"{base}.time"] = instant
+        ods[f"{base}.grid.rho_tor_norm"] = rho
+        ods[f"{base}.grid.rho_pol_norm"] = rho
+        ods[f"{base}.electrons.temperature"] = 1000.0 * instant * (1.0 - rho**2) + 1.0
+    record = next(
+        r for r in vaft.omas.available_plots(ods) if r.name == "electron_temperature_profile"
+    )
+    assert record.slices["container"] == "core_profiles.profiles_1d"
+    assert record.slices["usable"] == (0, 1, 2)
+    assert record.slices["times"] == pytest.approx(stored)
+
+    result = vaft.omas.plot_electron_temperature_profile(
+        ods, interactive=True, interaction_backend="none"
+    )
+    control = next(c for c in result.controls if c.name == "time_slice")
+    assert control.options == (0, 1, 2)
+    assert control.label == "core_profiles slice"
+    assert control.labels == ("0: 331.0 ms", "1: 325.0 ms", "2: 316.0 ms")
+
+    def peaks():
+        canvas = result.figure.subfigs[0] if result.figure.subfigs else result.figure
+        return [float(np.nanmax(line.get_ydata())) for ax in canvas.axes for line in ax.lines]
+
+    assert peaks() == pytest.approx([1000.0 * stored[control.default] + 1.0])
+    result.state.set("time_slice", 2)
+    assert peaks() == pytest.approx([317.0])
+
+
+def test_a_refused_choice_keeps_the_drawing_and_the_previous_value(sample):
+    """cold review plot G5: the canvas was cleared before the model was built,
+    so method="cwt" (refused without frequency_range=) left an empty figure
+    with the state stuck on "cwt"."""
+    result = vaft.omas.plot_mirnov_spectrogram(sample, interactive=True, interaction_backend="none")
+    canvas = result.figure.subfigs[0]
+    before = len(canvas.axes)
+    assert before and result.state["method"] == "stft"
+    with pytest.raises(ValueError, match="frequency_range"):
+        result.state.set("method", "cwt")
+    assert len(canvas.axes) == before
+    assert result.state["method"] == "stft" and result.state.as_options().get("method") != "cwt"
+    assert any("not drawn" in text.get_text() for text in result.figure.texts)
+    # the next accepted choice draws, and the note goes
+    result.state.set("method", "hann_fft")
+    assert result.state["method"] == "hann_fft" and len(canvas.axes) == before
+    assert not any("not drawn" in text.get_text() for text in result.figure.texts)
+
+
+def test_a_legal_starting_value_outside_a_controls_list_is_kept_fixed(sample):
+    """cold review plot G6: selection=[0, 3] and yunit="auto" are legal
+    statically but were pushed through the control's choice list and refused
+    under interactive=True."""
+    static = vaft.omas.extract_flux_loop_time_flux(sample, selection=[0, 3])
+    chosen = vaft.omas.plot_flux_loop_time_flux(
+        sample, selection=[0, 3], interactive=True, interaction_backend="none"
+    )
+    assert "selection" not in {c.name for c in chosen.controls}
+    assert len(chosen.figure.subfigs[0].axes[0].lines) == len(static.series) == 2
+    chosen.state.set("layout", "subplots")  # the fixed selection survives a redraw
+    assert len(chosen.figure.subfigs[0].axes) == 2
+
+    auto = vaft.omas.plot_plasma_current_time(
+        sample, yunit="auto", interactive=True, interaction_backend="none"
+    )
+    assert "yunit" not in {c.name for c in auto.controls}
+    # a value the list does hold is still the control's starting value
+    listed = vaft.omas.plot_plasma_current_time(
+        sample, yunit="kA", interactive=True, interaction_backend="none"
+    )
+    assert listed.state["yunit"] == "kA"

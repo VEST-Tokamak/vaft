@@ -144,6 +144,72 @@ def test_each_mode_reads_its_own_geometry(tmp_path):
     assert counts == {1: 2, 2: 3}
 
 
+def _map_run(ods, directory, surfaces, **options):
+    directory.mkdir()
+    write_control_nc(directory, n=1)
+    write_cylindrical_nc(directory, n=1)
+    write_profile_nc(directory, n=1, rational_q=surfaces)
+    gpec_ideal(ods, str(directory), {"modes": [1], **options})
+
+
+def test_each_time_slice_reads_its_own_geometry(tmp_path):
+    """A multi-time product holds one <solver> per slice for the same n (what
+    `build_gpec_ideal_ods` writes); matched by n alone, slice 1 was drawn with
+    slice 0's two surfaces (cold review plot G4)."""
+    ods = ODS(consistency_check=False)
+    _map_run(ods, tmp_path / "a", (2.0, 3.0), time_slice=0, time_s=0.30)
+    _map_run(ods, tmp_path / "b", (2.0, 2.5, 3.0), time_slice=1, time_s=0.31)
+    alone = ODS(consistency_check=False)
+    _map_run(alone, tmp_path / "c", (2.0, 2.5, 3.0))
+    builder = RECIPES[NAMES[1]].builder
+    assert builder(ods, time_slice=0).series[0].x.size == 2
+    second = builder(ods, time_slice=1).series[0]
+    truth = builder(alone).series[0]
+    assert second.x.size == 3
+    np.testing.assert_allclose(second.x, truth.x)
+    np.testing.assert_allclose(second.y, truth.y)
+    # and by time: the instant of slice 1 names slice 1's surfaces
+    from vaft.plot.backend.recipes import build_model
+
+    by_time = build_model(NAMES[1], [("run", ods)], time=0.31).series[0]
+    np.testing.assert_allclose(by_time.x, truth.x)
+
+
+def test_blocks_without_a_slice_are_refused_when_ambiguous(tmp_path):
+    """A product mapped before the slice was recorded cannot be paired by
+    document order: two untagged blocks for one n are refused, one is served."""
+    ods = ODS(consistency_check=False)
+    _map_run(ods, tmp_path / "a", (2.0, 3.0), time_slice=0, time_s=0.30)
+    _map_run(ods, tmp_path / "b", (2.0, 2.5, 3.0), time_slice=1, time_s=0.31)
+    ods["mhd_linear.code.parameters"] = ods["mhd_linear.code.parameters"].replace(
+        ' time_slice="0"', ""
+    ).replace(' time_slice="1"', "")
+    with pytest.raises(ValueError, match="no time_slice attribute"):
+        RECIPES[NAMES[1]].builder(ods, time_slice=1)
+
+    single = ODS(consistency_check=False)
+    _map_run(single, tmp_path / "c", (2.0, 3.0))
+    parameters = single["mhd_linear.code.parameters"]
+    if isinstance(parameters, str):
+        single["mhd_linear.code.parameters"] = parameters.replace(' time_slice="0"', "")
+    assert RECIPES[NAMES[1]].builder(single).series[0].x.size == 2
+
+
+def test_a_dcon_block_for_the_same_n_does_not_shadow_the_gpec_one(tmp_path):
+    """cold review plot G3: the first <solver> with a matching n was taken
+    whatever its name, and a DCON block carries no rational surfaces."""
+    from vaft.machine_mapping.mhd_linear import _append_code_parameters
+
+    ods = ODS(consistency_check=False)
+    _append_code_parameters(
+        ods, "mhd_linear",
+        '<solver name="dcon" n_tor="1"><mlow>-8</mlow><mhigh>16</mhigh></solver>',
+        code_name="DCON",
+    )
+    _map_run(ods, tmp_path / "a", (2.0, 3.0))
+    assert RECIPES[NAMES[1]].builder(ods).series[0].x.size == 2
+
+
 def test_a_surface_outside_the_mapped_harmonic_band_is_skipped_not_guessed(tmp_path):
     """The jump is taken in the resonant harmonic's own column. If m = nq is
     outside the band the mapper wrote, there is no column to take it in, and

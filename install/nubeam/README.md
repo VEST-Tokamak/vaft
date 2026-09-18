@@ -45,11 +45,14 @@ export NUBEAMHOME=~/git/nubeam/local
 bash install/nubeam/run-local-validation.sh --nubeam-root ~/git/nubeam --case d3d
 ```
 
-Windows, from an ordinary PowerShell prompt:
+Windows, from an ordinary PowerShell prompt. **Experimental and unverified:**
+the `windows.ps1` wrapper has not been run end to end in the form shipped here
+(its PowerShell is verified by reading only), so confirm any success it reports
+with `-CheckOnly`. `windows.sh` can also be run directly from a UCRT64 shell.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
-powershell -ExecutionPolicy Bypass -File external\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
+powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -AcceptNtccTerms
+powershell -ExecutionPolicy Bypass -File install\nubeam\windows.ps1 C:\git\NUBEAM -CheckOnly
 ```
 
 `-AcceptNtccTerms` is what authorises the download of PSPLINE, PREACT and

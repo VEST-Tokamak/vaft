@@ -104,7 +104,7 @@ require_child_path "$NTCC_SOURCE_DIR"
 [[ "$(uname -m)" == "arm64" ]] || die "this installer supports Apple Silicon (arm64) only"
 command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
 command -v make >/dev/null || die "GNU make is required"
-make --version 2>/dev/null | grep -q 'GNU Make' || die "Apple/BSD make is unsupported; install GNU make"
+grep -q 'GNU Make' < <(make --version 2>/dev/null) || die "Apple/BSD make is unsupported; install GNU make"
 
 ((ACCEPT_NTCC_TERMS)) || die "the build requires NTCC dependency sources. Read https://w3.pppl.gov/NTCC/NUBEAM/downloads.shtml, then rerun with --accept-ntcc-terms"
 
@@ -137,10 +137,25 @@ OPENBLAS_HOME="$(brew --prefix openblas)"
 # because NUBEAM documents FFTW 2.1.5 and Homebrew ships FFTW 3, which is
 # not ABI-compatible. The package is still installed above so the tree is
 # complete; nothing here consumes its prefix.
-FC="$GCC_PREFIX/bin/gfortran"
-CC="$GCC_PREFIX/bin/gcc-15"
-CXX="$GCC_PREFIX/bin/g++-15"
-[[ -x "$FC" && -x "$CC" && -x "$CXX" ]] || die "Homebrew GCC executables were not found under $GCC_PREFIX/bin"
+# Homebrew installs the C and C++ drivers only under versioned names (gcc-16),
+# because the unversioned ones are Apple clang. The major is read from the
+# gfortran that was selected rather than written here: a literal gcc-15 stopped
+# this script on every machine the day Homebrew's gcc formula became 16. Taking
+# it from FC also keeps all three compilers in one keg, which picking the
+# newest gcc-N in the directory would not guarantee.
+select_homebrew_compilers() {  # select_homebrew_compilers GCC_PREFIX -> FC CC CXX
+  local prefix="$1" major
+  FC="$prefix/bin/gfortran"
+  [[ -x "$FC" ]] || die "Homebrew gfortran was not found at $FC (brew install gcc)"
+  major="$("$FC" -dumpversion)" || die "$FC -dumpversion failed"
+  major="${major%%.*}"
+  [[ "$major" =~ ^[0-9]+$ ]] || die "could not read a GCC major version from '$FC -dumpversion'"
+  CC="$prefix/bin/gcc-$major"
+  CXX="$prefix/bin/g++-$major"
+  [[ -x "$CC" && -x "$CXX" ]] ||
+    die "$FC is GCC $major, but gcc-$major and g++-$major are not both beside it in $prefix/bin. The three compilers must come from one Homebrew GCC: brew reinstall gcc"
+}
+select_homebrew_compilers "$GCC_PREFIX"
 # preact_init and the other C/C++ main programs pull gfortran-compiled objects
 # out of libportlib.a, so their link lines need gfortran's runtime.
 GFORTRAN_LIB_DIR="$("$FC" -print-file-name=libgfortran.dylib)"
@@ -259,7 +274,7 @@ download_ntcc_module() {
   curl --fail --location --show-error --silent "$url" -o "$archive" || \
     die "NTCC did not provide the $module download; obtain it manually from https://w3.pppl.gov/NTCC/ and place its extracted source in $destination"
 
-  if file "$archive" | grep -qi 'HTML'; then
+  if grep -qi 'HTML' < <(file "$archive"); then
     die "NTCC returned an HTML page instead of $module source. Download it manually and extract it to $destination"
   fi
   if tar -tf "$archive" >/dev/null 2>&1; then

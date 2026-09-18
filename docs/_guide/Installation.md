@@ -31,15 +31,26 @@ python -m pip install -e .
 ```
 
 The declared dependencies include OMAS, IMAS-Python, plotting tools, Snakemake and `h5pyd`. NumPy 2
-is the default numerical stack. The older PyPI package is retained for compatibility but is not the
-recommended installation route.
+is the default numerical stack.
 
-### Development tooling
+`pip install vaft` installs the latest published release from PyPI instead. Install from source, as
+above, when you need unreleased changes from `develop` or the tutorial notebooks that live in the
+repository.
 
-`dev` is the only optional-dependency group defined by the project:
+### Optional-dependency groups
+
+The project defines four extras; none is needed for the first result on this page:
+
+| Extra | Installs | Needed for |
+| --- | --- | --- |
+| `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
+| `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
+| `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
+| `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]"            # development tooling
+python -m pip install -e ".[sklearn,surrogate]"
 ```
 
 ### Updating an existing installation
@@ -100,6 +111,7 @@ Quit? (Y/N)Y
 
 A successful read uses the public namespace and does not modify the database:
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 

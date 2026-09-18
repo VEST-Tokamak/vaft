@@ -153,3 +153,24 @@ def test_the_synthetic_control_needs_the_overlay_to_be_available(catalog):
     assert synthetic.options == ("none", "equilibrium", "both") and synthetic.default == "none"
     # after selection, channels, layout, yunit and the abscissa (#481)
     assert [c.name for c in controls_for(available)].index("synthetic") == 5
+
+
+def test_every_option_a_builder_reads_is_one_validation_lets_through():
+    """cold review plot G7: min_wall_authority=, show_uncertainty= and source=
+    were read by builders and refused by validate_options, so unreachable."""
+    import re
+    from pathlib import Path
+
+    from vaft.plot.backend import options as schema
+    from vaft.plot.backend import recipes
+
+    text = Path(recipes.__file__).read_text(encoding="utf-8")
+    read = set(re.findall(r'\boptions\.(?:get|pop)\(\s*"([A-Za-z]\w*)"', text))
+    known = set(schema.OPTION_SCHEMA) | set(schema.STYLE_OPTIONS) | set(schema.INTERNAL_OPTIONS)
+    assert not sorted(read - known)
+    for name, option in (
+        ("magnetics_overview_vacuum", "min_wall_authority"),
+        ("equilibrium_overview_verification", "show_uncertainty"),
+        ("nbi_profile_electron_heating", "source"),
+    ):
+        schema.validate_options(name, {option: 1})

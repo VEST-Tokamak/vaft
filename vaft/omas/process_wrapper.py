@@ -1184,14 +1184,30 @@ def _vacuum_toroidal_product(ods: ODS, instant: float) -> float:
         "tf.b_field_tor_vacuum_r is required for a connection length; without "
         "the toroidal field a field line has no pitch to follow"
     )
+    # `in` checks, never a bare subscript: an OMAS read of an absent path
+    # materialises an empty node in the caller's ODS.
+    if "tf.b_field_tor_vacuum_r.data" not in ods:
+        raise ValueError(missing)
     try:
-        product = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float)
-        tf_time = np.asarray(ods["tf.time"], dtype=float)
-    except (KeyError, ValueError) as error:
+        product = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], dtype=float).ravel()
+    except (KeyError, TypeError, ValueError) as error:
         raise ValueError(missing) from error
-    # An OMAS read of an absent path materialises an empty node instead of
-    # raising, so "absent" and "empty" arrive here as the same thing.
-    if product.size == 0 or tf_time.size == 0:
+    # The product's own time node first, the IDS time base as the fallback: the
+    # order the plot layer reads (recipes.TF_PRODUCT_TIME_PATHS), so the
+    # breakdown map and the Lloyd margin accept the same inputs (cold review
+    # plot F6).
+    tf_time = None
+    for path in ("tf.b_field_tor_vacuum_r.time", "tf.time"):
+        if path not in ods:
+            continue
+        try:
+            candidate = np.asarray(ods[path], dtype=float).ravel()
+        except (KeyError, TypeError, ValueError):
+            continue
+        if candidate.size and candidate.size == product.size:
+            tf_time = candidate
+            break
+    if product.size == 0 or tf_time is None:
         raise ValueError(missing)
     return float(product[int(np.argmin(np.abs(tf_time - instant)))])
 

@@ -432,3 +432,40 @@ def test_a_posix_root_keeps_a_backslash_that_is_part_of_a_name():
     )
 
     assert paths.raw_dump(SHOT).startswith(expected)
+
+
+# --------------------------------------------------------------------------- #
+# every pattern the Snakefile evaluates at parse time (cold review data F4)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("layout", [MODULE.SHOT_FIRST, MODULE.FILEDB])
+def test_the_patterns_the_snakefile_reads_unconditionally_resolve(layout):
+    """These calls sit outside any `if` in the Snakefile, so one that raises
+    stops the workflow from parsing at all -- which `shot_first` did, twice."""
+    paths = MODULE.PipelinePaths(BASE_DIR, layout)
+
+    assert paths.impa_selection().endswith("/impa_shots.json")
+    assert "\\" not in paths.impa_selection()
+    for call in (
+        ("mhd_linear_ods",),
+        ("mhd_linear_manifest",),
+        ("log", "build_mhd_linear"),
+        ("log", "run_gpec_suite"),
+    ):
+        pattern = paths.product_pattern(*call)
+        assert pattern.count("{product}") == 1, (layout, call, pattern)
+        assert "{shot}" in pattern, (layout, call, pattern)
+
+
+def test_shot_first_keeps_the_legacy_literal_when_no_product_is_named():
+    paths = MODULE.PipelinePaths(BASE_DIR, MODULE.SHOT_FIRST)
+
+    assert paths.mhd_linear_ods(SHOT) == f"{BASE_DIR}/{SHOT}/linear_stability/mhd_linear.json"
+    assert paths.log(SHOT, "build_mhd_linear") == f"{BASE_DIR}/{SHOT}/logs/build_mhd_linear.log"
+    assert paths.log(SHOT, "build_gpec_ideal", "gpec") == (
+        f"{BASE_DIR}/{SHOT}/logs/build_gpec_ideal.log"
+    )
+    assert paths.mhd_linear_ods(SHOT, "dcon-peeling") == (
+        f"{BASE_DIR}/{SHOT}/linear_stability/dcon/mhd_linear.json"
+    )

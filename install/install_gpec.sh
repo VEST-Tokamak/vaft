@@ -42,7 +42,11 @@ set -euo pipefail
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-MANIFEST_NAME="vaft-external-install.json"
+# Prefix ownership: what --uninstall may remove, and what an install may claim.
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/_external_code_common.sh"
+MANIFEST_NAME="$VAFT_EXTERNAL_MANIFEST_NAME"
+PREFIX_CREATED=0
 
 #: The executables install/check_gpec.py looks for, in its order.
 PROGRAMS=(dcon match rdcon rmatch stride gpec)
@@ -79,15 +83,18 @@ Usage: bash install/install_gpec.sh --source PATH [options]
                                digest and file list are then recorded in the manifest
   --jobs N                     parallel build jobs (default: all cores)
   --skip-tests                 do not run install/check_gpec.py after building
+                               (the build is then installed unverified; without it
+                               a failed check is this script's exit status)
   --check-only                 run install/check_gpec.py and change nothing
-  --uninstall                  remove the prefix this script created
+  --uninstall                  remove what this script installed into the prefix, and the
+                               prefix itself if this script created it and it is then empty
   -h, --help
 
 The prefix is what $GPECHOME should point at: VAFT resolves $GPECHOME/bin/dcon and
 its five siblings. This script prints the export line; it edits no shell profile.
 
 GPEC builds in place, so its objects and its own bin/ land inside <source> and stay
-there. --uninstall removes only the prefix; run `make clean` in <source>/install
+there. --uninstall touches only the prefix; run `make clean` in <source>/install
 yourself if you want the objects gone, because that tree is yours, not this script's.
 EOF
 }
@@ -127,18 +134,19 @@ case "$(uname -s)" in
   *) die "unsupported platform: $(uname -s)" ;;
 esac
 [[ -n "$PREFIX" ]] || PREFIX="$SOURCE/vaft-install"
-MANIFEST="$PREFIX/$MANIFEST_NAME"
 BUILD_DIR="$SOURCE/install"
 
-# The prefix is removed wholesale by --uninstall, so it must never be inside the
-# VAFT checkout. The PowerShell installers enforce this through
-# Resolve-InstallPrefix; the POSIX ones did not. Made absolute first, or a
-# relative --prefix would slip past the comparison and past the manifest.
-[[ "$PREFIX" == /* ]] || PREFIX="$PWD/$PREFIX"
+# Nothing this script writes may land inside the VAFT checkout. Both sides of
+# the comparison are physical paths: a relative --prefix, a symlink or a
+# spelling such as /tmp/../<checkout>/x would otherwise compare unequal to the
+# checkout it is inside. (The PowerShell installers do the same through
+# Resolve-InstallPrefix.)
+PREFIX="$(vaft_external_canonical_path "$PREFIX")" || die "cannot resolve the install prefix (a '..' below a directory that does not exist?): $PREFIX"
+MANIFEST="$PREFIX/$MANIFEST_NAME"
 VAFT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
-case "$PREFIX/" in
-  "$VAFT_ROOT"/*) die "the install prefix must be outside the VAFT checkout, because --uninstall removes it: $PREFIX is inside $VAFT_ROOT" ;;
-esac
+if vaft_external_is_inside "$PREFIX" "$VAFT_ROOT"; then
+  die "the install prefix must be outside the VAFT checkout: $PREFIX is inside $VAFT_ROOT"
+fi
 
 PYTHON="$(command -v python3 || command -v python || true)"
 [[ -n "$PYTHON" ]] || die "python3 is required (the VAFT environment provides it)"
@@ -152,9 +160,7 @@ if ((CHECK_ONLY)); then
 fi
 
 if ((UNINSTALL)); then
-  [[ -f "$MANIFEST" ]] || die "no $MANIFEST_NAME under $PREFIX; nothing this script installed is there to remove"
-  note "removing prefix $PREFIX"
-  rm -rf "$PREFIX"
+  vaft_external_uninstall_prefix "$PREFIX" gpec "$PYTHON"
   note "left alone: objects and bin/ inside $SOURCE, which are yours. Run 'make clean' in $BUILD_DIR to remove them."
   exit 0
 fi
@@ -277,6 +283,9 @@ fi
 export LDFLAGS
 unset MKLROOT ACML_HOME NETCDFHOME NETCDF_DIR F90HOME X11_HOME || true
 
+# Refuses a directory that holds somebody else's files, and records whether the
+# prefix is this script's creation, before anything is written into it.
+vaft_external_claim_prefix "$PREFIX" gpec "$PYTHON"
 mkdir -p "$PREFIX/logs"
 LOG="$PREFIX/logs/gpec-build-$(date +%Y%m%d-%H%M%S).log"
 
@@ -320,46 +329,77 @@ done
 note "installed ${#PROGRAMS[@]} executables into $PREFIX/bin"
 
 # --- manifest -----------------------------------------------------------------
-"$PYTHON" - "$MANIFEST" <<EOF
-import hashlib, json, platform, sys
+# Values reach Python through the environment and the heredoc is quoted, so no
+# shell text is ever parsed as Python source. Interpolating them broke on the
+# first quoted path in `git status --porcelain` ("""...name"""" is a
+# SyntaxError) -- after bin/ was installed and before the manifest existed.
+VAFT_MANIFEST_PREFIX="$PREFIX" \
+VAFT_MANIFEST_PREFIX_CREATED="$PREFIX_CREATED" \
+VAFT_MANIFEST_PROGRAMS_LINE="$PROGRAMS_LINE" \
+VAFT_MANIFEST_SOURCE="$SOURCE" \
+VAFT_MANIFEST_REVISION="$REVISION" \
+VAFT_MANIFEST_DESCRIBED="$DESCRIBED" \
+VAFT_MANIFEST_BRANCH="$BRANCH" \
+VAFT_MANIFEST_REMOTE="$REMOTE" \
+VAFT_MANIFEST_DIRTY_DIFF_SHA="$DIRTY_DIFF_SHA" \
+VAFT_MANIFEST_BUILD_DIR="$BUILD_DIR" \
+VAFT_MANIFEST_MAKE_COMMAND="$MAKE_COMMAND" \
+VAFT_MANIFEST_TARGETS_LINE="$TARGETS_LINE" \
+VAFT_MANIFEST_FFLAGS="$FFLAGS" \
+VAFT_MANIFEST_FC_PATH="$FC_PATH" \
+VAFT_MANIFEST_FC_VERSION="$FC_VERSION" \
+VAFT_MANIFEST_LAPACK_HOME="$LAPACK_HOME" \
+VAFT_MANIFEST_NETCDF_F_HOME="$NETCDF_F_HOME" \
+VAFT_MANIFEST_NETCDF_C_HOME="$NETCDF_C_HOME" \
+VAFT_MANIFEST_NETCDF_INC="$NETCDF_INC" \
+VAFT_MANIFEST_PLATFORM="$PLATFORM" \
+VAFT_MANIFEST_LOG="$LOG" \
+VAFT_MANIFEST_DIRTY_FILES="$DIRTY_FILES" \
+"$PYTHON" - "$MANIFEST" <<'EOF'
+import hashlib, json, os, platform, sys
 from datetime import datetime, timezone
 from pathlib import Path
+env = {k[len("VAFT_MANIFEST_"):]: v for k, v in os.environ.items() if k.startswith("VAFT_MANIFEST_")}
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""): h.update(chunk)
     return h.hexdigest()
-prefix = Path("$PREFIX")
-programs = "$PROGRAMS_LINE".split()
+prefix = Path(env["PREFIX"])
+programs = env["PROGRAMS_LINE"].split()
 record = {
     "code": "gpec",
     "installer": "install/install_gpec.sh",
     "prefix": str(prefix),
-    "source": "$SOURCE",
-    "source_revision": "$REVISION",
-    "source_described": "$DESCRIBED",
-    "source_branch": "$BRANCH",
-    "source_remote": "$REMOTE",
-    "source_dirty": bool("""$DIRTY_FILES""".strip()),
-    "source_dirty_files": [l for l in """$DIRTY_FILES""".splitlines() if l.strip()],
-    "source_dirty_diff_sha256": "$DIRTY_DIFF_SHA" or None,
-    "build_dir": "$BUILD_DIR",
+    # What --uninstall may remove: these files, this script's build logs and
+    # its two records; the directory itself only when prefix_created is true.
+    "prefix_created": bool(int(env["PREFIX_CREATED"])),
+    "installed_files": ["bin/" + name for name in programs],
+    "source": env["SOURCE"],
+    "source_revision": env["REVISION"],
+    "source_described": env["DESCRIBED"],
+    "source_branch": env["BRANCH"],
+    "source_remote": env["REMOTE"],
+    "source_dirty": bool(env["DIRTY_FILES"].strip()),
+    "source_dirty_files": [l for l in env["DIRTY_FILES"].splitlines() if l.strip()],
+    "source_dirty_diff_sha256": env["DIRTY_DIFF_SHA"] or None,
+    "build_dir": env["BUILD_DIR"],
     "build_in_place": True,
-    "make_command": "$MAKE_COMMAND",
-    "make_targets": "$TARGETS_LINE".split(),
+    "make_command": env["MAKE_COMMAND"],
+    "make_targets": env["TARGETS_LINE"].split(),
     "openmp": True,
-    "fflags": "$FFLAGS",
-    "compiler": {"fortran": "$FC_PATH", "version": "$FC_VERSION"},
+    "fflags": env["FFLAGS"],
+    "compiler": {"fortran": env["FC_PATH"], "version": env["FC_VERSION"]},
     "dependency_providers": {
-        "lapack_home": "$LAPACK_HOME",
-        "netcdf_fortran_home": "$NETCDF_F_HOME",
-        "netcdf_c_home": "$NETCDF_C_HOME" or None,
-        "netcdf_include": "$NETCDF_INC",
+        "lapack_home": env["LAPACK_HOME"],
+        "netcdf_fortran_home": env["NETCDF_F_HOME"],
+        "netcdf_c_home": env["NETCDF_C_HOME"] or None,
+        "netcdf_include": env["NETCDF_INC"],
     },
-    "platform": "$PLATFORM",
+    "platform": env["PLATFORM"],
     "host": platform.node(),
     "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    "log": "$LOG",
+    "log": env["LOG"],
     "executables": {
         name: {
             "path": str(prefix / "bin" / name),
@@ -369,7 +409,7 @@ record = {
         for name in programs
     },
 }
-Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 print("wrote", sys.argv[1])
 EOF
 
@@ -378,8 +418,20 @@ EOF
 # and then GPEC on DCON's output, so it exercises the real handoff rather than
 # starting six binaries separately. The executables are installed either way so
 # a failure can be examined.
+# The checker's status is this script's status, as it is on Windows: a caller
+# that keys on it (CI, an agent, `&&`) must not read a failed acceptance as
+# success. The export hint still comes first, because a build that failed its
+# acceptance is installed and has to be reachable to be examined.
+# --skip-tests is the one way to install without being judged.
+ACCEPTANCE_STATUS=0
 if ((!SKIP_TESTS)); then
   note "verifying with install/check_gpec.py"
-  GPECHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX" || true
+  GPECHOME="$PREFIX" "$PYTHON" "$SCRIPT_DIR/check_gpec.py" --source "$SOURCE" --prefix "$PREFIX" || ACCEPTANCE_STATUS=$?
+else
+  note "--skip-tests: install/check_gpec.py was not run, so this build is unverified"
 fi
 printf '\nPoint VAFT at this build:\n  export GPECHOME=%s\n' "$PREFIX"
+if ((ACCEPTANCE_STATUS)); then
+  printf '[FAIL] install/check_gpec.py rejected this build (status %s). It is installed so the failure can be examined; rerun the check with --check-only.\n' "$ACCEPTANCE_STATUS" >&2
+  exit "$ACCEPTANCE_STATUS"
+fi

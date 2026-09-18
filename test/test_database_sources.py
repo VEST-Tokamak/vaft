@@ -559,3 +559,55 @@ def test_a_read_only_refusal_says_why_this_source_is_read_only():
     # The projecting alias has its own refusal, which names the target.
     with pytest.raises(sources.ReadOnlySourceError, match="read-only projection"):
         sources.resolve("magnetic-efit", writable=True)
+
+
+def test_the_registry_never_names_a_read_only_destination():
+    """Cold review data F14.
+
+    `chease-mhd-stability` became read-only while the registry still listed it
+    for chease / mhd_linear / gpec_ideal. Only `replication_for_stage` overrode
+    it -- and not for the deferred gpec_ideal, which #95 would have inherited.
+    """
+    for stage, entry in sources.STAGE_REPLICATION.items():
+        if entry.source is not None:
+            assert sources.resolve(entry.source, writable=True) == entry.source, stage
+    for stage, name in sources.STAGE_SOURCE.items():
+        sources.resolve(name, writable=True)
+
+    assert sources.STAGE_SOURCE["chease"] == sources.source_for_stage("chease")
+    # One product owns one mhd_linear / gpec_ideal, so no single destination is
+    # claimed for either; the registry names only the root they hang beneath.
+    assert "mhd_linear" not in sources.STAGE_SOURCE
+    assert "gpec_ideal" not in sources.STAGE_SOURCE
+    assert sources.source_for_stage("mhd_linear", product="rdcon").startswith(
+        sources.STAGE_REPLICATION["mhd_linear"].source + "/"
+    )
+
+
+def test_the_deployment_guide_source_policy_check_runs_and_says_what_it_promises():
+    """Cold review data F13: the documented snippet raised at `mhd_linear` and
+    promised a read-only list two sources short."""
+    import contextlib
+    import io
+    import re
+    from pathlib import Path
+
+    guide = (
+        Path(__file__).resolve().parents[1]
+        / "workflow/automatic_pipeline_1_routine_data_processing/DEPLOYMENT.md"
+    )
+    if not guide.exists():
+        pytest.skip("workflow documents are not part of the distribution")
+    text = guide.read_text(encoding="utf-8")
+    section = text[text.index("## 3. Verify the source policy"):]
+    snippet = re.search(r"python - <<'PY'\n(.*?)\nPY\n", section, re.S).group(1)
+
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        exec(compile(snippet, str(guide), "exec"), {})  # noqa: S102 - our own doc
+
+    lines = printed.getvalue().splitlines()
+    assert "FAIL" not in printed.getvalue()
+    promised = re.search(r"Expect `(read-only: \[.*?\])`", section, re.S).group(1)
+    assert lines[0] == promised
+    assert sum(line.startswith("ok: mhd_linear") for line in lines) == 4

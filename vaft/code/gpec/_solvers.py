@@ -394,15 +394,29 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
     if surfaces.size == 0:
         return {"surfaces": 0}
 
-    layers = resistive_layer_at(
-        surfaces,
-        psi_norm=options.psi_norm,
-        t_e=options.t_e,
-        n_e=options.n_e,
-        ion_mass_amu=options.ion_mass_amu,
-        z_eff=options.z_eff,
-        ln_lambda=options.ln_lambda,
-    )
+    # The same rule covers the profiles: RDCON has already run by now, so a
+    # refusal here would cost the case every module and mode still to come.
+    try:
+        layers = resistive_layer_at(
+            surfaces,
+            psi_norm=options.psi_norm,
+            t_e=options.t_e,
+            n_e=options.n_e,
+            ion_mass_amu=options.ion_mass_amu,
+            z_eff=options.z_eff,
+            ln_lambda=options.ln_lambda,
+        )
+    except ValueError as error:
+        return {"surfaces": int(surfaces.size), "skipped": f"ValueError: {error}"}
+    # Spitzer diverges as T_e goes to zero, and `inf` (or a zero density) in a
+    # namelist is not an input rmatch can use; the template is left as it was.
+    for name in ("eta", "mass_density"):
+        values = np.asarray(layers[name], dtype=float)
+        if not (np.all(np.isfinite(values)) and np.all(values > 0.0)):
+            return {
+                "surfaces": int(surfaces.size),
+                "skipped": f"{name} is not finite and positive at every rational surface",
+            }
 
     path = run_dir / "rmatch.in"
     text = path.read_text(encoding="utf-8")

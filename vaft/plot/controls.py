@@ -205,8 +205,13 @@ def _slice_controls(record: Any) -> list[ControlSpec]:
         f"{i}: {float(times[i]) * 1e3:.1f} ms" if i < len(times) else str(i) for i in usable
     )
     selected = slices.get("selected", usable[len(usable) // 2])
+    # The label names the IDS whose elements are listed, which is the one the
+    # plot slices: not always the equilibrium (cold review plot G2).
+    container = str(slices.get("container") or "equilibrium.time_slice")
+    ids = container.split(".", 1)[0]
+    label = "Equilibrium slice" if ids == "equilibrium" else f"{ids} slice"
     return [ControlSpec(
-        "time_slice", "choice", "Equilibrium slice",
+        "time_slice", "choice", label,
         int(selected) if selected in usable else usable[len(usable) // 2],
         usable, labels, group="slice",
     )]

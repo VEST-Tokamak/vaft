@@ -514,3 +514,51 @@ def test_the_fallback_accepts_only_the_file_that_was_superseded(tmp_path):
             eddy=tmp_path / "omas/eddy" / str(SHOT) / "output/eddy.json.gz",
             eddy_manifest=manifest_path,
         )
+
+
+# --------------------------------------------------------------------------- #
+# killed between the rename and the manifest rewrite (cold review data F6)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("stage", ["diagnostics", "eddy"])
+def test_a_run_killed_before_the_manifest_rewrite_is_finished_by_the_next(
+    tree, monkeypatch, stage
+):
+    """The product is in place, so the audit says `migrated` -- and used to stop
+    there, leaving a manifest that names the old file with no `migration` block
+    to explain why its hash no longer matches."""
+    import hashlib
+
+    from vaft.database import product_migration
+
+    output = tree / "omas" / stage / str(SHOT) / "output"
+    previous = hashlib.sha256((output / f"{stage}.json").read_bytes()).hexdigest()
+
+    def killed(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    with monkeypatch.context() as patch:
+        patch.setattr(product_migration, "_rewrite_manifest", killed)
+        with pytest.raises(KeyboardInterrupt):
+            migrate_product_containers(tree, stages=[stage], apply=True)
+
+    manifest_path = tree / "omas" / stage / str(SHOT) / "metadata/manifest.json"
+    assert json.loads(manifest_path.read_text())["output"]["name"] == f"{stage}.json"
+
+    plan = audit_product_containers(tree, stages=[stage])
+    assert plan.pending == ()
+    assert [item.target for item in plan.manifest_repairs] == [
+        str(output / f"{stage}.json.gz")
+    ]
+
+    migrate_product_containers(tree, stages=[stage], apply=True)
+
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["output"]["name"] == f"{stage}.json.gz"
+    assert manifest["migration"]["previous_output"]["sha256"] == previous
+    if stage == "eddy":
+        assert set(manifest["migration"]["projection"]["dropped_ids"]) == {
+            "magnetics", "pf_active", "wall",
+        }
+    assert audit_product_containers(tree, stages=[stage]).manifest_repairs == ()

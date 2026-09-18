@@ -301,6 +301,43 @@ class Manifest:
         self.close()
 
 
+def _partial_path(target: Path) -> Path:
+    """Where a copy is assembled before it is allowed to be the target.
+
+    Dot-prefixed so nothing that scans the archive takes it for a shot: a
+    directory named ``41451.partial`` would parse as shot 41451 with an
+    acquisition suffix.
+    """
+    return target.with_name(f".{target.name}.partial")
+
+
+def _verified_copy(source: Path, target: Path) -> str | None:
+    """Copy ``source`` to ``target`` so that ``target`` only ever exists whole.
+
+    The copy is assembled under :func:`_partial_path`, verified there, and
+    renamed into place -- a same-directory rename, so atomic. An interrupted
+    copy therefore leaves a ``.partial`` that the next run discards and redoes,
+    never a truncated ``target`` that a resumed run would take for a finished
+    move. Returns the file's sha256, or ``None`` for a directory.
+    """
+    partial = _partial_path(target)
+    if partial.is_dir():
+        shutil.rmtree(partial)
+    elif partial.exists():
+        partial.unlink()
+    if source.is_dir():
+        shutil.copytree(source, partial)
+        _verify_directory_copy(source, partial)
+        checksum = None
+    else:
+        shutil.copy2(source, partial)
+        checksum = _sha256(partial)
+        if checksum != _sha256(source):
+            raise ConsolidationError(f"Checksum mismatch after copying {source} -> {target}")
+    os.rename(partial, target)
+    return checksum
+
+
 def _move_path(
     source: Path,
     target: Path,
@@ -322,14 +359,7 @@ def _move_path(
     # matching completion tells a reader precisely which operation to inspect.
     manifest.record(kind=f"{kind}.intent", source=str(source), target=str(target), **extra)
     if keep_source:
-        if source.is_dir():
-            shutil.copytree(source, target)
-            checksum = None
-        else:
-            shutil.copy2(source, target)
-            checksum = _sha256(target)
-            if checksum != _sha256(source):
-                raise ConsolidationError(f"Checksum mismatch after copying {source} -> {target}")
+        checksum = _verified_copy(source, target)
         manifest.record(kind=kind, mode="copy_keep", source=str(source), target=str(target),
                         sha256=checksum, **extra)
         return "copy_keep"
@@ -338,15 +368,7 @@ def _move_path(
         mode = "rename"
         checksum = None
     else:
-        if source.is_dir():
-            shutil.copytree(source, target)
-            checksum = None
-            _verify_directory_copy(source, target)
-        else:
-            shutil.copy2(source, target)
-            checksum = _sha256(target)
-            if checksum != _sha256(source):
-                raise ConsolidationError(f"Checksum mismatch after copying {source} -> {target}")
+        checksum = _verified_copy(source, target)
         # Only release the source once the copy is known good.
         if source.is_dir():
             shutil.rmtree(source)
@@ -390,6 +412,67 @@ def _verify_directory_copy(source: Path, target: Path) -> None:
     raise ConsolidationError(
         f"Copy of {source} -> {target} does not match the source; refusing to "
         f"delete the original. Missing: {missing[:5]}. Size mismatch: {truncated[:5]}."
+    )
+
+
+def _verify_existing_target(source: Path, target: Path, renames: Mapping[str, str]) -> None:
+    """Confirm a target found on resume really is this source, whole.
+
+    A present target next to a present source is not evidence of a finished
+    move: a copy interrupted by an older version of this tool leaves exactly
+    that, truncated. Members are compared under their normalized names, since
+    the interruption may have fallen either side of the member renames, and
+    the provenance file is the archive's own addition.
+    """
+    if source.is_dir() != target.is_dir():
+        raise ConsolidationError(
+            f"{target} already exists but is not the same kind of path as {source}."
+        )
+    if not source.is_dir():
+        if (
+            source.stat().st_size != target.stat().st_size
+            or _sha256(source) != _sha256(target)
+        ):
+            raise ConsolidationError(
+                f"{target} already exists but does not match {source}; it may be a "
+                "copy an interrupted run left truncated. Inspect it, remove it if "
+                "so, and re-run. The source has not been touched."
+            )
+        return
+
+    def normalized(sizes: Mapping[str, int]) -> dict[str, int]:
+        return {
+            renames.get(name, name): size
+            for name, size in sizes.items()
+            if name != PROVENANCE_NAME
+        }
+
+    expected = normalized(_relative_sizes(source))
+    found = normalized(_relative_sizes(target))
+    if expected == found:
+        return
+    missing = sorted(set(expected) - set(found))
+    differing = sorted(
+        name for name in set(expected) & set(found) if expected[name] != found[name]
+    )
+    raise ConsolidationError(
+        f"{target} already exists but does not match {source}; it may be a copy "
+        "an interrupted run left truncated. Inspect it, remove it if so, and "
+        f"re-run. The source has not been touched. Missing: {missing[:5]}. "
+        f"Size mismatch: {differing[:5]}. "
+        f"Unexpected: {sorted(set(found) - set(expected))[:5]}."
+    )
+
+
+def _provenance_names(target: Path, source: Path) -> bool:
+    """Whether the provenance beside ``target`` already records ``source``."""
+    path = target / PROVENANCE_NAME if target.is_dir() else target.parent / PROVENANCE_NAME
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return str(source) == payload.get("original_path") or str(source) in payload.get(
+        "additional_sources", []
     )
 
 
@@ -455,9 +538,20 @@ def execute(operations: Sequence[Operation], manifest: Manifest) -> dict[str, in
             # Both kinds, not just files: `os.rename` onto a non-empty
             # directory raises ENOTEMPTY, which would abort a resumed run at
             # the first already-moved shot and abandon every operation after
-            # it. A present target means this operation is already done.
+            # it. But a present target is only a *claim* that the operation
+            # is done: with the source still here it is verified before it is
+            # believed, and only a verified target gets the rest of the
+            # operation (member renames, provenance) it may have missed.
+            _verify_existing_target(source, target, operation.renames)
+            if operation.kind == "move_directory" and operation.renames:
+                applied = _apply_member_renames(target, operation.renames)
+                if applied:
+                    manifest.record(kind="rename_members", source=str(target),
+                                    target=str(target), renames=applied)
+            if not _provenance_names(target, source):
+                _write_provenance(target, operation, manifest)
             manifest.record(kind="skip", source=str(source), target=str(target),
-                            reason="target already present")
+                            reason="target already present and verified against the source")
             counts["already_present"] += 1
             continue
 

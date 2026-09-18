@@ -1078,12 +1078,14 @@ def sustained_excess_onset(
             feats = _brief_run(t, y, baseline, start, stop)
         else:
             feats = run_features(t, y, baseline, start, stop)
-        if why is None and feats.width_s < float(min_width_s):
-            why = "width"
-        elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
-            why = "prominence"
-        elif feats.integral < float(min_integral_fraction) * total:
-            why = "integral"
+            # morphology is judged only on a run that passed persistence, so a
+            # brief run keeps the reason it was actually refused for
+            if feats.width_s < float(min_width_s):
+                why = "width"
+            elif spread > 0 and feats.prominence < float(min_prominence_sigma) * spread:
+                why = "prominence"
+            elif feats.integral < float(min_integral_fraction) * total:
+                why = "integral"
         if why is not None:
             n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:
@@ -1560,8 +1562,10 @@ def _active_window(
     # qualifying runs -> segments
     kept: list[tuple[int, int]] = []
     rejected: list[tuple[float, str, RunFeatures]] = []
+    n_rejected = 0  # the list is capped at MAX_REJECTED_RUNS; the count is not
     for start, stop in _runs(above):
         if stop - start < hold:
+            n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[start]), "persistence", _brief_run(t, y, baseline, start, stop)))
             continue
@@ -1574,11 +1578,12 @@ def _active_window(
         elif feats.integral < float(min_integral_fraction) * total:
             why = "integral"
         if why is not None:
+            n_rejected += 1
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[start]), why, feats))
             continue
         kept.append((start, stop))
-    evidence["n_rejected"] = len(rejected)
+    evidence["n_rejected"] = n_rejected
     if not kept:
         return empty(("no_onset",))
 
@@ -1692,8 +1697,15 @@ def _active_window(
     if steepest < 0.0:
         steep = dy < float(collapse_rate_fraction) * steepest
         steep[:i_peak_seg] = False
+        # A collapse belongs to the pulse, so it starts inside the window.
+        # Once the level has come down (`last` < record end) a run that starts
+        # after it sits at the baseline, where `max(y[a] - baseline, 0)` is zero
+        # and the drop test passes any sample-to-sample noise step; the "last"
+        # fall then landed in the noise tail.  When the level never came down
+        # `last` is the record end, so the fallback below sees the same falls.
         falls = [(a, b) for a, b in _runs(steep)
-                 if (y[a] - y[min(b, y.size - 1)]) >= float(collapse_min_drop) * max(y[a] - baseline, 0.0)]
+                 if a < last
+                 and (y[a] - y[min(b, y.size - 1)]) >= float(collapse_min_drop) * max(y[a] - baseline, 0.0)]
         if falls:
             collapse_end = int(min(falls[-1][1], y.size - 1))
             evidence["collapse_time"] = float(t[collapse_end])
@@ -1945,6 +1957,7 @@ def zero_crossing_after_excursion(
         "prefilter_samples": int(prefilter_samples), "bridge_samples": int(bridge_samples),
     }
     rejected: list[tuple[float, str, RunFeatures]] = []
+    n_rejected = 0  # the list is capped at MAX_REJECTED_RUNS; the count is not
     excursion = None
     for start, stop in _runs(above):
         t_start = float(t[start])
@@ -1956,9 +1969,10 @@ def zero_crossing_after_excursion(
         else:
             excursion = (start, stop)
             break
+        n_rejected += 1
         if len(rejected) < MAX_REJECTED_RUNS:
             rejected.append((t_start, why, _brief_run(t, excess, 0.0, start, stop)))
-    evidence["n_rejected"] = len(rejected)
+    evidence["n_rejected"] = n_rejected
     if excursion is None:
         return OnsetRecord(time=None, index=None, method=method, evidence=evidence,
                            flags=("no_onset", "no_excursion_at_anchor", *ref_flags),
@@ -2271,7 +2285,13 @@ def robust_peak(
         # shoulders cannot rejoin a later candidate's run
         above = _bridged(remaining > float(level_fraction) * remaining[i], int(bridge_samples)) & sel
         start, stop = _run_around(above, i)
-        feats = run_features(t, remaining, 0.0, start, stop)
+        # `remaining` carries -inf outside the search mask and over refused
+        # impulses, which is right for choosing the run but makes the
+        # prominence (peak minus the lowest saddle) infinite.  The features
+        # are read from a copy where those samples sit at the baseline.
+        feats = run_features(
+            t, np.where(np.isfinite(remaining), remaining, 0.0), 0.0, start, stop
+        )
         if feats.width_s < float(min_width_s):
             if len(rejected) < MAX_REJECTED_RUNS:
                 rejected.append((float(t[i]), "impulsive", feats))

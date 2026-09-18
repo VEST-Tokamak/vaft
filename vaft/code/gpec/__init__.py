@@ -334,13 +334,24 @@ def _run_module(
     # assumed: where the companion *is* installed, its missing output means a
     # step that failed and can succeed on a retry, and skipping that retry would
     # strand the cell without an eigenfunction just as permanently.
+    #
+    # Except on a stable equilibrium: there the companion has nothing to match
+    # and legitimately writes nothing (#423; with the packaged scalar `eta`,
+    # `rmatch` stops before `globalsol.bin` on every stable RDCON cell), so its
+    # missing output is this cell's finished state, not a step to retry.
+    # Without the condition every such cell was solved again on each call.
     required = required_outputs(solver, mode)
-    companion_can_still_run = bool(missing_optional) and any(
-        (candidate := rt.optional_executable(config, name)) is not None
-        and is_executable(candidate)
-        for name in solver.companion_executables()
+    has_required = all((run_dir / pattern).exists() for pattern in required)
+    companion_can_still_run = (
+        bool(missing_optional)
+        and not (has_required and _is_stable(solver, run_dir, mode))
+        and any(
+            (candidate := rt.optional_executable(config, name)) is not None
+            and is_executable(candidate)
+            for name in solver.companion_executables()
+        )
     )
-    if all((run_dir / pattern).exists() for pattern in required) and not companion_can_still_run:
+    if has_required and not companion_can_still_run:
         if config.verify_outputs:
             ok, reason = solver.check_success(run_dir, mode)
             if not ok:

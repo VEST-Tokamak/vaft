@@ -157,6 +157,10 @@ class ProductMigrationReport:
     unrecognized: tuple[str, ...] = ()
     deletion_blocked: tuple[str, ...] = ()
     failures: tuple[str, ...] = ()
+    #: Products already on their new container whose manifest still names the
+    #: superseded file: a run killed between the rename and the manifest
+    #: rewrite. ``apply`` finishes them; nothing is re-encoded.
+    manifest_repairs: tuple[ProductMigration, ...] = ()
 
     @property
     def safe_to_apply(self) -> bool:
@@ -186,6 +190,7 @@ class ProductMigrationReport:
                 "unrecognized": len(self.unrecognized),
                 "deletion_blocked": len(self.deletion_blocked),
                 "failures": len(self.failures),
+                "manifest_repairs": len(self.manifest_repairs),
                 "safe_to_apply": self.safe_to_apply,
             },
             "pending": [asdict(item) for item in self.pending],
@@ -196,6 +201,7 @@ class ProductMigrationReport:
             "unrecognized": list(self.unrecognized),
             "deletion_blocked": list(self.deletion_blocked),
             "failures": list(self.failures),
+            "manifest_repairs": [asdict(item) for item in self.manifest_repairs],
         }
 
 
@@ -280,6 +286,22 @@ def audit_product_containers(
     unrecognized: list[str] = []
     deletion_blocked: list[str] = []
     failures: list[str] = []
+    manifest_repairs: list[ProductMigration] = []
+
+    def queue_manifest_repair(row, directory, source, target) -> None:
+        # The product is in place, so the move is not redone -- but a manifest
+        # that still names the superseded file fails composition's hash check
+        # with no `migration` block to explain the mismatch.
+        if _manifest_names(directory, source.name):
+            manifest_repairs.append(
+                ProductMigration(
+                    stage=row.stage,
+                    directory=str(directory),
+                    source=str(source),
+                    target=str(target),
+                    verify=row.verify,
+                )
+            )
 
     for row in selected:
         for directory in _output_directories(root, row.stage):
@@ -294,6 +316,7 @@ def audit_product_containers(
                     conflicting.append(str(source))
                 else:
                     migrated.append(str(target))
+                    queue_manifest_repair(row, directory, source, target)
                     # Answered here as well as in the sweep: an operator gating
                     # a script on this report has to be able to see that a
                     # deletion will be refused before running the step that
@@ -307,6 +330,11 @@ def audit_product_containers(
                             failures.append(f"{target}: {problem}")
             elif target.is_file():
                 settled.append(str(target))
+                if row.keep_ids is None:
+                    # With the original swept, its hash is still the gunzipped
+                    # member's for a container-only row. A projected row's is
+                    # gone with the file, so there is nothing true to record.
+                    queue_manifest_repair(row, directory, source, target)
                 if verify_shape:
                     problem = _shape_problem(target, row)
                     if problem is not None:
@@ -335,6 +363,33 @@ def audit_product_containers(
         unrecognized=tuple(unrecognized),
         deletion_blocked=tuple(deletion_blocked),
         failures=tuple(failures),
+        manifest_repairs=tuple(manifest_repairs),
+    )
+
+
+def _manifest_names(directory: Path, filename: str) -> bool:
+    """Whether the stage manifest beside ``directory`` records ``filename`` as its output."""
+    manifest_path = directory.parent / "metadata" / OMAS_MANIFEST_NAME
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return False
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("output"), dict):
+        return False
+    return manifest["output"].get("name") == filename
+
+
+def _dropped_ids(source: Path, keep_ids: tuple[str, ...]) -> tuple[str, ...]:
+    """The top-level IDS a projection of ``source`` onto ``keep_ids`` drops."""
+    from ..omas import load as load_product
+
+    stored = load_product(source)
+    return tuple(
+        sorted(
+            {key.split(".")[0] for key in stored.keys()}
+            - set(keep_ids)
+            - {"dataset_description"}
+        )
     )
 
 
@@ -628,6 +683,28 @@ def migrate_product_containers(
         except Exception as error:
             temporary.unlink(missing_ok=True)
             failures.append(f"{source}: {type(error).__name__}: {error}")
+
+    for item in report.manifest_repairs:
+        row = by_stage[item.stage]
+        source, target = Path(item.source), Path(item.target)
+        try:
+            if source.is_file():
+                previous_sha256 = _sha256_file(source)
+                dropped = (
+                    () if row.keep_ids is None else _dropped_ids(source, row.keep_ids)
+                )
+            else:
+                previous_sha256, dropped = _sha256_gzip_member(target), ()
+            _rewrite_manifest(
+                Path(item.directory),
+                row,
+                source=source,
+                target=target,
+                previous_sha256=previous_sha256,
+                dropped_ids=dropped,
+            )
+        except Exception as error:
+            failures.append(f"{target}: {type(error).__name__}: {error}")
 
     return ProductMigrationReport(
         root=report.root,

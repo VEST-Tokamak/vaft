@@ -53,18 +53,19 @@ pytestmark = [
 ]
 
 
-def _config(tmp_path: Path) -> Path:
+def _config(tmp_path: Path, layout: str = "filedb") -> Path:
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
             {
                 "base_dir": str(tmp_path / "filedb"),
-                "layout": "filedb",
+                "layout": layout,
                 "shots": [SHOT],
                 "raw": {"mode": "sql"},
                 # Replication and every stability module on: the rules they gate
                 # are exactly the ones a narrower configuration would not read.
-                "hsds": {"replicate": True},
+                # (Replication has no home in a shot-first tree; see #89, #138.)
+                "hsds": {"replicate": layout == "filedb"},
                 "gpec": {"modules": ["dcon", "rdcon", "stride", "gpec"], "modes": [1, 2]},
                 "conda": None,
             }
@@ -74,7 +75,9 @@ def _config(tmp_path: Path) -> Path:
     return config
 
 
-def _dry_run(tmp_path: Path, targets: list[str] | None = None):
+def _dry_run(
+    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb"
+):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
     for name in ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME"):
@@ -83,7 +86,7 @@ def _dry_run(tmp_path: Path, targets: list[str] | None = None):
         [
             sys.executable, "-m", "snakemake",
             "--snakefile", str(WORKFLOW / "Snakefile"),
-            "--configfile", str(_config(tmp_path)),
+            "--configfile", str(_config(tmp_path, layout)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
             *(targets or []),
@@ -95,13 +98,13 @@ def _dry_run(tmp_path: Path, targets: list[str] | None = None):
     )
 
 
-def _paths(tmp_path: Path):
+def _paths(tmp_path: Path, layout: str = "filedb"):
     sys.path.insert(0, str(WORKFLOW))
     try:
-        from paths import FILEDB, PipelinePaths
+        from paths import PipelinePaths
     finally:
         sys.path.remove(str(WORKFLOW))
-    return PipelinePaths(str(tmp_path / "filedb"), FILEDB)
+    return PipelinePaths(str(tmp_path / "filedb"), layout)
 
 
 def test_the_snakefile_parses_under_the_canonical_layout(tmp_path):
@@ -151,3 +154,32 @@ def test_the_full_target_set_resolves_once_preflight_has_run(tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     assert "build_gpec_ideal" in result.stdout
     assert "plot_mhd_linear" in result.stdout
+
+
+# --------------------------------------------------------------------------- #
+# layout: shot_first (cold review data F4)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_snakefile_parses_under_the_shot_first_layout(tmp_path):
+    """The `PipelinePaths` default and the documented legacy-diff layout.
+
+    It could not start: `impa_selection` named an unimported `Path`, and past
+    that the per-product rules asked `product_pattern` for a `{product}`
+    wildcard in paths the shot-first layout resolved without the product.
+    """
+    result = _dry_run(tmp_path, layout="shot_first")
+    assert result.returncode == 0, result.stderr[-3000:]
+
+
+def test_shot_first_reaches_the_per_product_stage_by_the_path_that_names_it(tmp_path):
+    paths = _paths(tmp_path, "shot_first")
+    targets = [
+        paths.mhd_linear_ods(SHOT, module) for module in ("dcon", "rdcon", "stride")
+    ]
+    assert len(set(targets)) == 3, "one product owns one mhd_linear"
+
+    result = _dry_run(tmp_path, targets, layout="shot_first")
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "build_mhd_linear" in result.stdout
