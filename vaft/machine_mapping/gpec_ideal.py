@@ -24,6 +24,10 @@ prof ``psi_n``,        (psi,) (m,)  --       ``plasma.grid.dim1`` / ``.dim2`` on
                                              ``mhd_linear`` already uses for DCON
 prof ``Jbgradpsi``     (i,m,psi)    T        ``plasma.b_field_perturbed.coordinate1.real/imag`` revised-from-legacy
                                              (transposed to (dim1, dim2) = (psi, m))
+prof ``R``/``z``       (theta,psi)  m        ``plasma.coordinate_system.r``/``.z`` on a         revised-from-legacy
+                                             private ``grid_type.index`` (-2), dim1 the         (was unmapped; every
+                                             spectral field's own radial grid                   real-space figure of
+                                                                                                a GPEC result needs it)
 prof rational-surface  (psi_n_r,)   mixed    ``code.parameters`` ``<rational_surfaces>``:        revised-from-legacy
 geometry                                     psi, q, dq/dpsi_N, area, and the factor
                                              -n*Phi_res/Delta the derivation needs
@@ -150,6 +154,80 @@ def _write_spectral_field(entry: ODS, profile, jacobian: str) -> Optional[dict[s
     }
 
 
+#: ``grid_type.index`` for the real-space flux-surface geometry GPEC solved
+#: in.  Private, and negative for the same schema reason
+#: :data:`_HAMADA_FOURIER_GRID_INDEX` is: the IMAS identifier enumerates
+#: ``(psi, theta)`` grids for the straight-field-line, equal-arc and polar
+#: angles only, and this one is the DCON angle of the run's own jacobian.
+_INVERSE_PSI_ANGLE_GRID_INDEX = -2
+
+
+def _write_flux_surface_geometry(entry: ODS, profile, jacobian: str) -> Optional[dict[str, Any]]:
+    """Write ``R(psi_N, theta)`` and ``z(psi_N, theta)`` into ``coordinate_system``.
+
+    This is the only path from the coordinates GPEC solved in back to real
+    space, and nothing downstream can rebuild it: the poloidal angle is
+    DCON's own, set by the run's jacobian, so an equilibrium's ``psi(R, Z)``
+    map contours the same flux surfaces but labels their points differently.
+    Every real-space figure of a GPEC result -- an island separatrix, a
+    perturbed-field map -- is drawn on this mesh.
+
+    The radial grid is the spectral field's, not a strided view of it: a
+    renderer that reads a harmonic at ``psi_n[k]`` and its position at a
+    *different* ``psi_n[k]`` draws the right number in the wrong place.  That
+    makes this the largest thing the mapper writes -- two FLT_2D arrays over
+    every radial point GPEC solved on, times every poloidal angle -- which is
+    why ``include_geometry`` is opt-in rather than on by default.
+    """
+    if profile.R is None or profile.z is None:
+        return None
+    if profile.psi_n is None or profile.theta_dcon is None:
+        return None
+    psi_n = np.asarray(profile.psi_n, dtype=float)
+    theta = np.asarray(profile.theta_dcon, dtype=float)
+    r_values = np.asarray(profile.R, dtype=float)
+    z_values = np.asarray(profile.z, dtype=float)
+    expected = (theta.size, psi_n.size)
+    for name, values in (("R", r_values), ("z", z_values)):
+        if values.shape != expected:
+            raise ValueError(
+                f"{name} has shape {values.shape}, but the file declares "
+                f"{theta.size} poloidal angles on {psi_n.size} radial points"
+            )
+    # DCON writes one poloidal circuit normalized to [0, 1], and every reader
+    # of this mesh multiplies by 2*pi to get an angle. A file in radians would
+    # go through that unnoticed and put the island phase out by a factor of
+    # 2*pi, so the assumption is checked where it is made rather than trusted
+    # downstream.
+    span = float(theta[-1] - theta[0])
+    if not np.isclose(span, 1.0, atol=1e-9):
+        raise ValueError(
+            f"theta_dcon spans {span!r}, not one circuit normalized to 1; the "
+            "poloidal angle this mesh is written on is DCON's normalized one"
+        )
+
+    system = entry["plasma"]["coordinate_system"]
+    system["grid_type"]["index"] = _INVERSE_PSI_ANGLE_GRID_INDEX
+    system["grid_type"]["name"] = "inverse_psi_angle"
+    system["grid_type"]["description"] = (
+        "Normalized poloidal flux as the radial label (dim1) and the DCON "
+        f"poloidal angle of the {jacobian} jacobian, normalized to [0, 1], as "
+        "dim2. Private index because the IMAS identifier's (psi, theta) grid "
+        "types name the straight-field-line, equal-arc and polar angles only."
+    )
+    system["grid"]["dim1"] = psi_n
+    system["grid"]["dim2"] = theta
+    # (theta, psi) in the container, (dim1, dim2) = (psi, theta) in the IDS,
+    # the same transposition the spectral field takes.
+    system["r"] = np.ascontiguousarray(r_values.T)
+    system["z"] = np.ascontiguousarray(z_values.T)
+    return {
+        "radial_points": int(psi_n.size),
+        "poloidal_angles": int(theta.size),
+        "jacobian": jacobian,
+    }
+
+
 def _write_vector_field(entry: ODS, region: str, components) -> None:
     """Write complex ``(z, R)`` components as ``(dim1, dim2)=(R, z)`` fields."""
     for coordinate, values in zip(("coordinate1", "coordinate2", "coordinate3"), components):
@@ -168,6 +246,7 @@ def _write_mode_entry(
     *,
     include_vacuum: bool,
     include_spectral: bool,
+    include_geometry: bool,
 ) -> None:
     claim_ids(ods, "mhd_linear", "GPEC")
     control = result.control
@@ -184,13 +263,21 @@ def _write_mode_entry(
 
     spectral = None
     geometry = None
-    if include_spectral and "profile" in result.source_paths:
+    mesh = None
+    if (include_spectral or include_geometry) and "profile" in result.source_paths:
         profile = result.profile
         if profile is not None:
-            spectral = _write_spectral_field(entry, profile, control.jacobian or "hamada")
-            geometry = _rational_surface_geometry(
-                profile, control.n_tor, (control.attrs or {}).get("chi1")
-            )
+            # Not defaulted to "hamada": the grid description names the
+            # angle the mesh is on, and a run that recorded no jacobian has
+            # not told us which one that is.
+            jacobian = control.jacobian or "unrecorded"
+            if include_spectral:
+                spectral = _write_spectral_field(entry, profile, jacobian)
+                geometry = _rational_surface_geometry(
+                    profile, control.n_tor, (control.attrs or {}).get("chi1")
+                )
+            if include_geometry:
+                mesh = _write_flux_surface_geometry(entry, profile, jacobian)
 
     # The slice is part of the block's identity: a multi-time product holds
     # one block per (slice, mode), and a reader pairing them by n alone reads
@@ -218,6 +305,16 @@ def _write_mode_entry(
             ' units="T" note="Jacobian-weighted contravariant psi component on the'
             ' output harmonic basis; the full-resolution array and the cylindrical'
             ' (R, z) field stay in the gpec_ideal_native_n&lt;mode&gt;.json sidecar"/>'
+        )
+    if mesh is not None:
+        fragment += (
+            '<flux_surface_mesh variables="R,z"'
+            f' jacobian="{escape(str(mesh["jacobian"]))}"'
+            f' radial_points="{mesh["radial_points"]}"'
+            f' poloidal_angles="{mesh["poloidal_angles"]}"'
+            ' units="m" note="written to plasma.coordinate_system on the same'
+            ' radial grid as the spectral field, so a harmonic and its position'
+            ' are read at the same surface"/>'
         )
     if geometry is not None:
         fragment += geometry
@@ -328,6 +425,15 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
       derivable from the IDS. It opens the profile file -- 144 MB on the
       DIII-D example -- so a caller that wants only the control-level
       mapping turns it off.
+    - ``include_geometry`` (default **False**) writes the flux-surface mesh
+      ``R(psi_N, theta)`` / ``z(psi_N, theta)`` into
+      ``plasma.coordinate_system``, which is what makes a real-space figure
+      of the result drawable. It is opt-in because it is the largest thing
+      this mapper writes -- two FLT_2D arrays on the full radial grid, so
+      megabytes per mode and more of them the finer the run, growing with the
+      radial grid GPEC chose rather than with anything the caller sets -- and
+      only a real-space figure needs it. It also opens the profile file
+      whatever ``include_spectral`` says, since the mesh lives there too.
     - ``include_vacuum`` is accepted and ignored. It selected the cylindrical
       vacuum field, and the cylindrical decomposition is no longer written:
       ``plasma`` carries one grid per mode, and it carries the spectral
@@ -341,6 +447,11 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
     time_slice = int(options.get("time_slice", 0))
     include_vacuum = bool(options.get("include_vacuum", True))
     include_spectral = bool(options.get("include_spectral", True))
+    # Opt-in. The mesh is the largest thing this mapper can write and only a
+    # real-space figure needs it, so a default caller does not pay for it; it
+    # also lives in the same profile file the spectral field does, so asking
+    # for it opens that file whatever `include_spectral` says.
+    include_geometry = bool(options.get("include_geometry", False))
 
     result = read_gpec_netcdf(source, options.get("mode"))
     n_tor = result.n_tor
@@ -354,7 +465,8 @@ def gpec_ideal(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
 
     position = grid.index(n_tor)
     _write_mode_entry(ods, time_slice, position, result,
-                      include_vacuum=include_vacuum, include_spectral=include_spectral)
+                      include_vacuum=include_vacuum, include_spectral=include_spectral,
+                      include_geometry=include_geometry)
 
     try:
         result.write_json(os.path.join(str(source), f"gpec_ideal_native_n{n_tor}.json"))

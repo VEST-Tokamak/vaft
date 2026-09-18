@@ -41,6 +41,7 @@ __all__ = [
     "soft_x_rays_geometry_lines_of_sight",
     "thomson_scattering_geometry_poloidal",
     "wall_geometry_poloidal",
+    "mhd_linear_geometry_island",
 ]
 
 _DEFAULT_FIGSIZE = (6.0, 7.0)
@@ -505,4 +506,33 @@ def coil_3d_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Top view (x-y) of the non-axisymmetric coil filaments."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="mhd_linear", quantity="island",
+    subject="mhd_linear",
+    description="Saturated island separatrices in the poloidal plane at one toroidal "
+                "angle, derived from the mapped perturbed flux and drawn on the run's "
+                "own flux-surface mesh; the island phase is GPEC's arg(I_res).",
+    ids=("mhd_linear",),
+    required_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim1",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim2",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.r",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.z",
+        # The per-surface geometry and chi1 the resonant derivation needs;
+        # they have no IMAS slot, so the mapper records them here (D-12).
+        "mhd_linear.code.parameters",
+    ),
+)
+def mhd_linear_geometry_island(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Saturated island separatrices in the poloidal plane."""
     return render_geometry_layers(model, ax=ax, show=show, **style)
