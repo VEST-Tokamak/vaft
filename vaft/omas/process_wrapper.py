@@ -3281,6 +3281,21 @@ def compute_virial_equilibrium_quantities_ods(
     return out
 
 
+def _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ):
+    """Plasma cell fractions for one equilibrium slice.
+
+    From ``boundary.outline`` when the slice has one, through
+    :func:`vaft.process.equilibrium.plasma_cell_weights`; otherwise the
+    normalized-flux threshold, which that function warns about.  Read by
+    membership so a missing outline is not created on the slice.
+    """
+    from vaft.process.equilibrium import plasma_cell_weights
+
+    outline_r = np.asarray(eq_ts['boundary.outline.r'], float) if 'boundary.outline.r' in eq_ts else None
+    outline_z = np.asarray(eq_ts['boundary.outline.z'], float) if 'boundary.outline.z' in eq_ts else None
+    return plasma_cell_weights(R_grid, Z_grid, psiN_RZ, outline_r, outline_z)
+
+
 def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
     """
     Compute reconstructed diamagnetic flux (CDFLUX) from ODS.
@@ -3336,8 +3351,12 @@ def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
     if psiN_1d.size != f_1d.size:
         raise ValueError("profiles_1d F and psi/psi_norm must have the same length")
 
+    weights = _slice_plasma_weights(
+        eq_slice, R_grid, Z_grid, (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+    )
     return calculate_reconstructed_diamagnetic_flux(
-        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val
+        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val,
+        weights=weights,
     )
 
 
@@ -3492,9 +3511,12 @@ def compute_diamagnetism(ods, time_index=0):
         R_mid_b = 0.5 * (R_bc[:-1] + R_bc[1:])
         V_p = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b)))
 
+    weights = _slice_plasma_weights(
+        eq_slice, R_grid, Z_grid, (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+    )
     return calculate_diamagnetism(
         R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs,
-        psiN_1d, f_1d, f_vac_val, B_pa, V_p=V_p
+        psiN_1d, f_1d, f_vac_val, B_pa, V_p=V_p, weights=weights,
     )
 
 
@@ -3606,7 +3628,7 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Calculate Spitzer resistivity 2D profile
     # Handle zero/negative temperatures (outside plasma)
@@ -3652,12 +3674,21 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     if J_phi_RZ is None:
         raise KeyError(f"Toroidal current density (j_tor/jtor/j) not found in equilibrium.time_slice[{equil_idx}].profiles_2d.0 and could not be built from profiles_1d.j_tor")
     
+    # j_tor is NaN outside the confined region by design (update's
+    # _inside_boundary); the outline weights below can still reach a sliver
+    # edge cell just past psiN = 1 (86 cells on 39915 slice 0), where a NaN
+    # would make the whole integral NaN.  There is no current there.
+    J_phi_RZ = np.where(np.isfinite(J_phi_RZ), J_phi_RZ, 0.0)
+
     # Calculate eta * J_phi^2 2D profile
     eta_J2_RZ = eta_RZ * (J_phi_RZ ** 2)
     
     # Compute volume integral: P_ohm = ∫_V η J_φ² dV
     # Using volume_average: returns (average, volume), so integral = average * volume
-    p_avg, V = volume_average(eta_J2_RZ, psiN_RZ, R_grid, Z_grid)
+    p_avg, V = volume_average(
+        eta_J2_RZ, psiN_RZ, R_grid, Z_grid,
+        weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+    )
     P_ohm = float(p_avg * V)  # [W]
     
     return P_ohm
@@ -3862,10 +3893,15 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                 raise ValueError(f"Invalid option: {option}. Must be 'equilibrium' or 'core_profiles'")
             
             # Build 2D pressure map using psi_to_RZ
-            p_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+            p_RZ, psiN_RZ = psi_to_rz(
+                psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             
             # Compute volume average
-            p_avg, _ = volume_average(p_RZ, psiN_RZ, R_grid, Z_grid)
+            p_avg, _ = volume_average(
+                p_RZ, psiN_RZ, R_grid, Z_grid,
+                weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+            )
             pressure_vol_avg_list.append(float(p_avg))
             
         except Exception as e:

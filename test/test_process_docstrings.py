@@ -56,6 +56,8 @@ DEFINITIONAL = frozenset({
     "signal_on_offset",
     "process_signal",
     "time_derivative",
+    # Containment in the LCFS outline, or the flux threshold where there is none.
+    "plasma_cell_weights",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -357,6 +359,7 @@ CONVENTION_SENSITIVE = frozenset({
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
+    "plasma_cell_weights",
     # cocos (#419): the module exists to reason about conventions
     "cocos_consistency_signs",
     "validate_cocos",

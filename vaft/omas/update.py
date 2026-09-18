@@ -1491,7 +1491,9 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+            profile_RZ, psiN_RZ = psi_to_rz(
+                psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             return profile_RZ, psiN_RZ
 
         # Step 2: Process electron profiles
@@ -1504,12 +1506,19 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                 # Process n_e
                 n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
                 n_e_RZ, psiN_RZ = convert_to_2d(n_e_1d_rho)
-                n_e_vol, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)
+                from vaft.omas.process_wrapper import _slice_plasma_weights
+
+                plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ)
+                n_e_vol, _ = volume_average(
+                    n_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
                 
                 # Process T_e
                 T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
                 T_e_RZ, _ = convert_to_2d(T_e_1d_rho)
-                T_e_vol, _ = volume_average(T_e_RZ, psiN_RZ, R_grid, Z_grid)
+                T_e_vol, _ = volume_average(
+                    T_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
             except Exception as e:
                 print(f"Warning: Error processing electron profiles for core_profiles[{cp_idx}]: {e}")
         else:
@@ -1572,8 +1581,12 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                     n_i_RZ, _ = convert_to_2d(n_i_1d_rho)
                     T_i_RZ, _ = convert_to_2d(T_i_1d_rho)
                     
-                    n_i_vol, _ = volume_average(n_i_RZ, psiN_RZ, R_grid, Z_grid)
-                    T_i_vol, _ = volume_average(T_i_RZ, psiN_RZ, R_grid, Z_grid)
+                    n_i_vol, _ = volume_average(
+                        n_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                    )
+                    T_i_vol, _ = volume_average(
+                        T_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                    )
                     
                     ion_vol_dict[ion_idx]['n_i'].append(n_i_vol)
                     ion_vol_dict[ion_idx]['T_i'].append(T_i_vol)

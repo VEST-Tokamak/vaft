@@ -117,6 +117,7 @@ __all__ = [
     "poloidal_field_at_boundary",
     "prepare_boundary_for_shafranov",
     "psi_to_RZ",
+    "plasma_cell_weights",
     "psi_to_radial",
     "psi_to_rho",
     "psi_to_rz",
@@ -326,6 +327,7 @@ def psi_to_rz(
     psi_RZ: np.ndarray,
     psi_axis: float,
     psi_lcfs: float,
+    fill_outside: str = "zero",
     ):
     """Map a flux-surface profile onto the two-dimensional grid through psi.
 
@@ -341,18 +343,24 @@ def psi_to_rz(
         Poloidal flux on the magnetic axis [Wb/rad].
     psi_lcfs : float
         Poloidal flux at the last closed flux surface [Wb/rad].
+    fill_outside : str, optional
+        ``"zero"`` (default) zeroes every cell outside ``0 <= psiN <= 1``;
+        ``"edge"`` leaves the clamped profile there, so a cell continues at the
+        nearest end value [-].
 
     Returns
     -------
     f_RZ : np.ndarray
-        The profile on the grid, zero outside the boundary [any].
+        The profile on the grid, zero outside the boundary unless
+        ``fill_outside="edge"`` [any].
     psiN_RZ : np.ndarray
         Normalized poloidal flux on the grid [-].
 
     Raises
     ------
     ValueError
-        The profile and its abscissa are not one-dimensional and of equal length.
+        The profile and its abscissa are not one-dimensional and of equal length,
+        or ``fill_outside`` is neither ``"zero"`` nor ``"edge"``.
 
     Processing steps
     ----------------
@@ -365,7 +373,12 @@ def psi_to_rz(
     ----------
     The flux map is indexed major radius first. Outside the boundary the value is
     zero, not the edge value and not a NaN, so a sum over the grid is already a
-    plasma-only integral. Because only the normalized flux is used, the absolute
+    plasma-only integral -- as far as ``0 <= psiN <= 1`` is the plasma, which
+    near the coils it is not (see :func:`volume_average`).  Pass
+    ``fill_outside="edge"`` when the map is to be weighted by
+    :func:`plasma_cell_weights`: an outline-weighted edge cell can sit just past
+    ``psiN = 1``, and a zero there biases the average low (0.5-0.8 % for a
+    profile whose edge value is 30 % of its core, on the packaged samples). Because only the normalized flux is used, the absolute
     unit of the three flux arguments cancels: weber and weber per radian give the
     same answer as long as all three agree.
 
@@ -407,6 +420,10 @@ def psi_to_rz(
         psiN_clip.ravel(), x, y
     ).reshape(psi_RZ.shape)
 
+    if fill_outside == "edge":
+        return f_interp, psiN_RZ
+    if fill_outside != "zero":
+        raise ValueError(f"fill_outside must be 'zero' or 'edge'; got {fill_outside!r}")
     # Outside LCFS → 0
     f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
     return f_RZ, psiN_RZ
@@ -421,6 +438,7 @@ def calculate_reconstructed_diamagnetic_flux(
     psiN_1d: np.ndarray,
     f_1d: np.ndarray,
     f_vac_val: float,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetic flux reconstructed from the equilibrium's own toroidal field.
 
@@ -446,6 +464,10 @@ def calculate_reconstructed_diamagnetic_flux(
     f_vac_val : float
         The same function at the boundary, standing in for the vacuum field
         [T m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -486,7 +508,12 @@ def calculate_reconstructed_diamagnetic_flux(
        integrated over the plasma cross-section, in the form the EFIT-style
        workflow this package reproduces uses.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -495,13 +522,14 @@ def calculate_reconstructed_diamagnetic_flux(
         B_phi_vacuum = f_vac_val / R_mesh
 
     diff_B = B_phi_plasma - B_phi_vacuum
-    integrand = np.where(mask_plasma, diff_B, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    integrand = np.where(cell_fraction > 0.0, diff_B, 0.0)
 
     dR = np.gradient(R_grid)[:, None]
     dZ = np.gradient(Z_grid)[None, :]
     dA = np.abs(dR * dZ)
 
-    return float(np.nansum(integrand * dA))
+    return float(np.nansum(integrand * dA * cell_fraction))
 
 
 def calculate_diamagnetism(
@@ -515,6 +543,7 @@ def calculate_diamagnetism(
     f_vac_val: float,
     B_pa: float,
     V_p: float | None = None,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetism from its volume-integral definition.
 
@@ -543,6 +572,10 @@ def calculate_diamagnetism(
     V_p : float, optional
         Plasma volume. Computed from the same grid and mask when not given
         [m^3].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -580,7 +613,12 @@ def calculate_diamagnetism(
        form is :func:`calculate_reconstructed_diamagnetic_flux`, and the two
        should agree for a consistent equilibrium.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -592,14 +630,16 @@ def calculate_diamagnetism(
     # (B_tv² - B_t²) = (F_vac² - F²) / R²; integrand * dV = 2π (F_vac² - F²)/R * dA
     with np.errstate(divide="ignore", invalid="ignore"):
         diff_sq = (f_vac_val**2 - f_2d**2) / (R_mesh**2)
-    integrand = np.where(mask_plasma, diff_sq, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    dV = dV * cell_fraction
+    integrand = np.where(cell_fraction > 0.0, diff_sq, 0.0)
 
     integral = float(np.nansum(integrand * dV))
 
     if V_p is not None and V_p > 0:
         Omega = V_p
     else:
-        Omega = float(np.sum(dV[mask_plasma]))
+        Omega = float(np.sum(dV[cell_fraction > 0.0]))
         if Omega <= 0.0:
             raise ValueError("Plasma volume is zero or negative.")
 
@@ -614,6 +654,7 @@ def volume_average(
     psiN_RZ: np.ndarray,
     R: np.ndarray,
     Z: np.ndarray,
+    weights: np.ndarray | None = None,
     ):
     """Volume average of a gridded quantity over the confined region.
 
@@ -627,6 +668,10 @@ def volume_average(
         Major-radius axis, or the full mesh [m].
     Z : array_like
         Height axis, or the full mesh [m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -639,9 +684,16 @@ def volume_average(
     ----------
     The volume element is the axisymmetric ``2*pi*R dR dZ``, so cells at large
     major radius weigh proportionally more; this is a torus average, not a
-    cross-sectional one. Only cells with normalized flux between zero and one and
-    a positive major radius contribute, which makes the mask the definition of
-    "the plasma" here. Accepts either one-dimensional axes or a full mesh.
+    cross-sectional one. Accepts either one-dimensional axes or a full mesh.
+
+    **Pass** ``weights`` **whenever the slice has a boundary outline.**  Without
+    them the plasma is every cell with normalized flux between zero and one and
+    a positive major radius -- a flux threshold, not a containment test.  Outside
+    the plasma psi is not monotonic and turns over by the coils, so the
+    threshold admits exterior cells: on the packaged VEST samples the flux-mask
+    volume is 1.7 to 18 times the plasma's, and a volume-averaged pressure
+    comes out 40-50 % low.  With :func:`plasma_cell_weights` from the outline
+    both match the contour-traced reference to 0.1 % and 1 %.
 
     Applicability
     -------------
@@ -650,10 +702,9 @@ def volume_average(
     Limitations
     -----------
     Cell areas come from a gradient of the axes, so the outermost cells are
-    one-sided and a strongly non-uniform grid is approximated. The mask is a
-    per-cell test with no sub-cell weighting, so the boundary is resolved only to
-    the grid; :func:`fractional_cell_weights_from_boundary` is the fractional
-    alternative where that matters.
+    one-sided and a strongly non-uniform grid is approximated. The flux mask is a
+    per-cell test with no sub-cell weighting; ``weights`` carry each boundary
+    cell's area fraction instead.
 
     Provenance
     ----------
@@ -675,10 +726,18 @@ def volume_average(
             np.gradient(Rm, axis=0) * np.gradient(Zm, axis=1)
         )
 
-    # LCFS mask
-    inside = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)
+    if weights is None:
+        # Flux-threshold fallback; see the Convention section.
+        cell_fraction = ((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)).astype(float)
+    else:
+        cell_fraction = np.where(Rm > 0.0, np.asarray(weights, float), 0.0)
+        if cell_fraction.shape != Rm.shape:
+            raise ValueError(
+                f"weights have shape {cell_fraction.shape}; the grid has {Rm.shape}"
+            )
 
-    dV = 2.0 * np.pi * Rm * dA
+    dV = 2.0 * np.pi * Rm * dA * cell_fraction
+    inside = cell_fraction > 0.0
 
     V = np.sum(dV[inside])
     if V == 0.0:
@@ -686,6 +745,83 @@ def volume_average(
 
     favg = np.sum(f_RZ[inside] * dV[inside]) / V
     return favg, V
+
+
+def plasma_cell_weights(
+    R: np.ndarray,
+    Z: np.ndarray,
+    psiN_RZ: np.ndarray,
+    outline_r: np.ndarray | None = None,
+    outline_z: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fraction of each grid cell that is plasma, from the boundary outline when there is one.
+
+    Parameters
+    ----------
+    R : array_like
+        Major-radius axis, or the full mesh [m].
+    Z : array_like
+        Height axis, or the full mesh [m].
+    psiN_RZ : array_like
+        Normalized poloidal flux on the grid, used only when there is no
+        outline [-].
+    outline_r : array_like, optional
+        Major radius of the last closed flux surface outline [m].
+    outline_z : array_like, optional
+        Height of the same outline [m].
+
+    Returns
+    -------
+    np.ndarray
+        Area fraction in ``[0, 1]`` on the grid's ``(R, Z)`` shape [-].
+
+    Raises
+    ------
+    ValueError
+        The outline coordinates differ in length [-].
+
+    Convention
+    ----------
+    With at least three finite outline points this is
+    :func:`fractional_cell_weights_from_boundary`: containment in the boundary,
+    with each crossed cell's area share.  Otherwise it falls back to the
+    normalized-flux threshold ``0 <= psiN <= 1`` as zeros and ones, and logs a
+    warning, because that threshold also admits exterior cells wherever psi
+    turns over near the coils (see :func:`volume_average`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The outline is trusted as given: an open or self-intersecting polygon gives
+    whatever point-in-polygon makes of it.
+    """
+    R = np.asarray(R, float)
+    Z = np.asarray(Z, float)
+    if R.ndim == 1 and Z.ndim == 1:
+        Rm, Zm = np.meshgrid(R, Z, indexing="ij")
+    else:
+        Rm, Zm = R, Z
+    if outline_r is not None and outline_z is not None:
+        outline_r = np.asarray(outline_r, float).reshape(-1)
+        outline_z = np.asarray(outline_z, float).reshape(-1)
+        if outline_r.size != outline_z.size:
+            raise ValueError("outline_r and outline_z differ in length")
+        finite = np.isfinite(outline_r) & np.isfinite(outline_z)
+        if finite.sum() >= 3:
+            return fractional_cell_weights_from_boundary(
+                Rm, Zm, outline_r[finite], outline_z[finite]
+            )
+    warnings.warn(
+        "no usable boundary outline; taking the plasma as 0 <= psiN <= 1, which "
+        "also admits cells outside the boundary",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    psiN = np.asarray(psiN_RZ, float)
+    return ((psiN >= 0.0) & (psiN <= 1.0)).astype(float)
 
 def psi_to_radial(
     psi_1d: np.ndarray,
