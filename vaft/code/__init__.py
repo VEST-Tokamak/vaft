@@ -127,6 +127,10 @@ __all__ = [
     "KineticEFITConfig",
     "KineticEFITInputs",
     "KineticEFITResult",
+    "NiceConfig",
+    "NiceDiagnostic",
+    "NiceInputs",
+    "NiceResult",
     "PressurePoints",
     "build_kinetic_core_profiles",
     "kinetic_pressure_points",
@@ -135,6 +139,12 @@ __all__ = [
     "prepare_kinetic_efit_inputs",
     "run_kinetic_efit",
     "run_kinetic_chain",
+    "prepare_nice_inputs",
+    "run_nice",
+    "collect_nice_outputs",
+    "nice_geometry_from_ods",
+    "diagnostics_from_ods",
+    "vest_reference_parameter_file",
 ]
 
 _EXPORT_MAP = {
@@ -252,6 +262,10 @@ _EXPORT_MAP = {
     "KineticEFITConfig": (".efit", "KineticEFITConfig"),
     "KineticEFITInputs": (".efit", "KineticEFITInputs"),
     "KineticEFITResult": (".efit", "KineticEFITResult"),
+    "NiceConfig": (".nice", "NiceConfig"),
+    "NiceDiagnostic": (".nice", "NiceDiagnostic"),
+    "NiceInputs": (".nice", "NiceInputs"),
+    "NiceResult": (".nice", "NiceResult"),
     "PressurePoints": (".efit", "PressurePoints"),
     "build_kinetic_core_profiles": (".efit", "build_kinetic_core_profiles"),
     "kinetic_pressure_points": (".efit", "kinetic_pressure_points"),
@@ -260,6 +274,12 @@ _EXPORT_MAP = {
     "prepare_kinetic_efit_inputs": (".efit", "prepare_kinetic_efit_inputs"),
     "run_kinetic_efit": (".efit", "run_kinetic_efit"),
     "run_kinetic_chain": (".efit", "run_kinetic_chain"),
+    "prepare_nice_inputs": (".nice", "prepare_nice_inputs"),
+    "run_nice": (".nice", "run_nice"),
+    "collect_nice_outputs": (".nice", "collect_nice_outputs"),
+    "nice_geometry_from_ods": (".nice", "nice_geometry_from_ods"),
+    "diagnostics_from_ods": (".nice", "diagnostics_from_ods"),
+    "vest_reference_parameter_file": (".nice", "vest_reference_parameter_file"),
 }
 
 
@@ -275,6 +295,7 @@ def __getattr__(name: str):
         "tes",
         "tokamaker",
         "transp",
+        "nice",
     }:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
