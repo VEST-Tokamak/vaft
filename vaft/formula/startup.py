@@ -1584,7 +1584,8 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     Returns
     -------
     float or np.ndarray
-        Total plasma self-inductance [H].
+        Total plasma self-inductance, ``nan`` where the expansion gives zero or
+        less [H].
 
     Raises
     ------
@@ -1604,8 +1605,11 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     --------
     $a/R_0 \ll 1$.  At a spherical tokamak's aspect ratio the expansion is out
     of its range and the Hirshman fit,
-    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`, is the one to use:
-    at $\epsilon = 0.7$ this form is 27 % high at $\kappa = 1$.
+    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`, is the one to use.
+    The error there is not one-signed: at $\epsilon = 0.75$ this form is 51 %
+    high at $\kappa = 1$ and $l_i = 0.3$, 4.5 times low at $\kappa = 2$, and
+    not positive from $\kappa \approx 2.15$, because $l_\kappa$ shrinks the
+    logarithm below $2 - l_i/2$.
     The two do converge as $a/R_0 \to 0$, but slowly and not monotonically:
     Hirshman's correction terms go as $\sqrt{\epsilon}$, so at $\kappa = 1$
     they differ by 6.7 % at $\epsilon = 0.3$, cross near 0.05, still differ by
@@ -1615,6 +1619,15 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     Limitations
     -----------
     Shaping enters only through $l_\kappa$ inside the logarithm.
+
+    Numerical notes
+    ---------------
+    A non-positive result is outside the expansion rather than a physical
+    inductance -- a self-inductance cannot be negative -- so it warns and
+    returns ``nan`` elementwise, as the Townsend kernels do below
+    $A\,p\,L = 1$.  Passed on, a negative value would only fail later in
+    :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p` with a
+    message naming the wrong function.
 
     References
     ----------
@@ -1640,6 +1653,16 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     inductance = MU0 * major * (
         np.log(8.0 * major / (minor * l_kappa)) + 0.5 * np.asarray(li, dtype=float) - 2.0
     )
+    outside = inductance <= 0.0
+    if np.any(outside):
+        warnings.warn(
+            "the high-aspect-ratio inductance is not positive here -- the "
+            "expansion is outside its range at this aspect ratio and elongation; "
+            "use plasma_inductance_hirshman_from_R_eps_kappa_li; returning nan",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        inductance = np.where(outside, np.nan, inductance)
     return _maybe_scalar(inductance, R0_m, a_m, li, kappa)
 
 

@@ -972,6 +972,37 @@ def test_circular_and_hirshman_inductance_converge_only_slowly():
     assert gap(1e-8) < gap(1e-6) < gap(1e-4)
 
 
+def test_circular_inductance_blanks_where_the_expansion_turns_non_positive():
+    # At a VEST-like eps = 0.75 the elongation factor shrinks the logarithm
+    # below 2 - li/2 from kappa ~ 2.15: a negative self-inductance, which the
+    # circuit kernels then rejected with a message naming themselves.  It is
+    # out of the expansion's range, not physics, so it blanks and warns.
+    with pytest.warns(RuntimeWarning, match="hirshman") as record:
+        value = plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, 2.5)
+    assert np.isnan(value)
+    assert record[0].filename == __file__
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mixed = plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, np.array([1.0, 2.5]))
+    assert np.isfinite(mixed[0]) and mixed[0] > 0.0
+    assert np.isnan(mixed[1])
+    # Hirshman stays positive across the same range, which is why it is the
+    # one to use there.
+    assert plasma_inductance_hirshman_from_R_eps_kappa_li(0.4, 0.75, 2.5, 0.3) > 0.0
+
+
+def test_circular_inductance_error_at_st_aspect_ratio_is_not_one_signed():
+    # 51 % high at kappa = 1, 4.5 times low at kappa = 2: the docstring's
+    # numbers, pinned so a reader reasoning from them is not misled.
+    def ratio(kappa):
+        return plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, kappa) / (
+            plasma_inductance_hirshman_from_R_eps_kappa_li(0.4, 0.75, kappa, 0.3)
+        )
+
+    assert ratio(1.0) == pytest.approx(1.51, rel=5e-3)
+    assert 1.0 / ratio(2.0) == pytest.approx(4.48, rel=5e-3)
+
+
 def test_circular_inductance_rejects_a_minor_radius_that_is_not_smaller():
     with pytest.raises(ValueError, match="a_m must be smaller"):
         plasma_inductance_circular_from_R0_a_li(0.3, 0.3, 0.5)
