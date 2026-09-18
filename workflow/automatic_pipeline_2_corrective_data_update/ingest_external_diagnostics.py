@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Generate soft X-ray and camera IDSs from the consolidated FileDB archive.
+"""Generate soft X-ray, camera and ShotLog IDSs from the consolidated FileDB archive.
 
 Once ``consolidate_external_diagnostics.py`` has laid the raw data out under
 ``{root}/legacy/{diagnostic}/{shot}/``, both machine mappings can read a whole
@@ -53,6 +53,9 @@ DIAGNOSTIC_TREES = {
     "soft_x_rays": "soft_x_rays",
     "camera_visible": "camera_visible",
     "camera_visible_fluctuation": "camera_visible",
+    # Per-shot ShotLog records written by `python -m vaft.cli shotlog extract`
+    # (#995); the stage is `shotlog`, the IDS it publishes is pulse_schedule.
+    "shotlog": "pulse_schedule",
 }
 
 RESERVED_TREES = ("camera_visible_fluctuation",)
@@ -124,6 +127,8 @@ def _channel_count(ods: Any, tree: str) -> int | None:
     try:
         if tree.startswith("camera"):
             return len(ods["camera_visible.channel.0.detector.0.frame"])
+        if tree == "shotlog":
+            return len(ods["pulse_schedule.event"])
         return len(ods["soft_x_rays.channel"])
     except (KeyError, IndexError, ValueError):
         return None
@@ -175,6 +180,18 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
             provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             provenance = {}
+    record_path = data_root / str(shot) / "metadata" / "shotlog.json"
+    if tree == "shotlog" and record_path.exists():
+        # The record is this product's whole input; pin its bytes and origin.
+        import hashlib
+
+        payload = record_path.read_bytes()
+        record = json.loads(payload)
+        provenance = {
+            "record": str(record_path.relative_to(root)),
+            "record_sha256": hashlib.sha256(payload).hexdigest(),
+            "workbook": record.get("source", {}),
+        }
 
     manifest = {
         "schema_version": 1,
@@ -230,6 +247,17 @@ def save_registry(path: Path, registry: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def _unavailable_errors() -> tuple[type[BaseException], ...]:
+    """Errors that mean "this shot has nothing to map", not "the run broke".
+
+    Only the ShotLog raises these routinely: it has a record for every shot
+    since 2013, but a trigger card only from 2023.
+    """
+    from vaft.machine_mapping.pulse_schedule import PulseScheduleUnavailableError
+
+    return (PulseScheduleUnavailableError,)
+
+
 def ingest(
     root: Path,
     trees: Sequence[str],
@@ -248,7 +276,10 @@ def ingest(
     """
     from vaft.omas.vest_upstream import write_stage_product
 
-    summary: dict[str, Any] = {"succeeded": 0, "failed": 0, "skipped": 0, "failures": []}
+    summary: dict[str, Any] = {
+        "succeeded": 0, "failed": 0, "skipped": 0, "unavailable": 0, "failures": [],
+    }
+    unavailable_errors = _unavailable_errors()
 
     for tree in trees:
         # One registry per tree, so a camera run and a soft X-ray run touch
@@ -265,7 +296,7 @@ def ingest(
 
         for shot in available:
             key = f"{tree}/{shot}"
-            if not force and key in registry and registry[key].get("status") == "success":
+            if not force and key in registry and registry[key].get("status") in {"success", "unavailable"}:
                 summary["skipped"] += 1
                 continue
             if dry_run:
@@ -284,6 +315,10 @@ def ingest(
                     metadata=_filedb(root).omas_manifest(tree, shot=shot),
                     compression=manifest.get("storage", {}).get("compression"),
                 )
+            except unavailable_errors as exc:
+                registry[key] = {"status": "unavailable", "reason": str(exc),
+                                 "at": datetime.now(timezone.utc).isoformat()}
+                summary["unavailable"] += 1
             except Exception as exc:  # noqa: BLE001 - one bad shot must not stop the run
                 reason = f"{type(exc).__name__}: {exc}"
                 LOGGER.error("%s failed: %s", key, reason)
@@ -365,8 +400,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     LOGGER.info(
-        "Done: %d succeeded, %d failed, %d already present",
-        summary["succeeded"], summary["failed"], summary["skipped"],
+        "Done: %d succeeded, %d failed, %d unavailable, %d already present",
+        summary["succeeded"], summary["failed"], summary["unavailable"], summary["skipped"],
     )
     for failure in summary["failures"][:20]:
         LOGGER.info("  failed %s/%s: %s", failure["tree"], failure["shot"], failure["reason"])

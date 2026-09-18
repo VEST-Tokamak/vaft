@@ -216,6 +216,13 @@ sample `langmuir_probes` IDS built from that pipeline against shot 42699's
 real SQL-backed raw signals (both mid and upper assemblies present, plasma
 pulse near t=0.35-0.46 s).
 
+`legacy/diagnostic-trigger-settings.yaml` is the effective diagnostic trigger
+table by shot, on the DAQ clock (ms), that `vaft.machine_mapping.soft_x_rays`
+reads for time alignment. It is generated from the VEST ShotLog by
+`python -m vaft.cli shotlog triggers --output ...` (#995); regenerate it
+rather than editing it. `shotlog/schemas/*.yaml` are the ShotLog template
+schemas `vaft.database.shotlog` detects and extracts with.
+
 `legacy/sxr_te_ratio_be_al.csv` is the VEST soft X-ray two-filter
 electron-temperature calibration table (`te` [eV], `ratio` = Be/Al filtered
 signal ratio), used by `vaft.process.soft_x_rays.load_te_ratio_calibration`.

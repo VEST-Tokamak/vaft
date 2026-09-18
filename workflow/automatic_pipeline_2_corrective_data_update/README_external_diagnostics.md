@@ -22,6 +22,9 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
   camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
   camera_visible_fluctuation/index.json   what is reserved and why
+  shotlog/input/{YYYY}/ShotLog_*.xlsx     operator ShotLog workbooks, byte-identical (#995)
+  shotlog/output/                         session documents + batch manifest
+  shotlog/{shot}/metadata/shotlog.json    per-shot record the pulse_schedule mapping reads
 
 {root}/unmapped/                          local only; no mapping reads these
   camera_visible_arranged/{shot}/         bmp_arranger output, derived
@@ -57,6 +60,25 @@ need no namespace of their own. The high-frame-rate camera set owns the *same*
 `camera_visible` IDS as routine camera, so it has its own source: two stages
 cannot own one IDS in one source without the second replacing the first, and an
 occurrence split is closed off because lazy HSDS access reads occurrence 0 only.
+
+## The ShotLog
+
+The operators' monthly ShotLog workbooks are not a diagnostic export, so they
+do not go through the inventory and consolidation scripts. `python -m vaft.cli
+shotlog` archives and reads them instead (issue #995):
+
+```bash
+python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR"
+python -m vaft.cli shotlog extract --filedb "$VAFT_FILEDB_DIR"
+./ingest_external_diagnostics.py --root "$VAFT_FILEDB_DIR" --diagnostic shotlog
+```
+
+`archive` copies (never moves) one workbook per month, verifies each copy by
+sha256, and keeps the earlier bytes of a workbook that changed under
+`input/superseded/`. `extract` writes one record per shot; `ingest` maps the
+records into `pulse_schedule` products. Shots before the 2023 card template
+have a record but no structured trigger, and are recorded as `unavailable`
+rather than failed.
 
 ## Classification
 
@@ -120,7 +142,7 @@ Only `legacy/` goes to the server:
 
 ```bash
 rsync -a --partial --exclude='._*' --exclude='Thumbs.db' \
-  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation} \
+  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation,shotlog} \
   vestuser1:/srv/vest.filedb/legacy/
 ```
 

@@ -2091,6 +2091,22 @@ diagnostic_registry:
     lifecycle: in_maintenance
     mapping_status: not_implemented
     quantities: {static: [duct], measured: [flow_rate], derived: []}
+  pulse_schedule:
+    name: Pulse schedule (ShotLog)
+    family: information
+    category: Information and control
+    ids: pulse_schedule
+    ids_path: pulse_schedule
+    responsible: [{name: Joint}]
+    # Operator-logged planned triggers, read from the per-shot ShotLog record
+    # FileDB keeps under legacy/shotlog (#995). Structured cards exist from
+    # 2023; earlier shots have a record but no trigger to map.
+    source: {type: file, formats: [json], patterns: ["{shot}/metadata/shotlog.json"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.pulse_schedule, entrypoint: pulse_schedule}
+    quantities: {static: [], measured: [], derived: [diagnostic_trigger, ec_window, nbi_trigger, helicity_injection_trigger, gas_valve_window]}
   gas_injection:
     name: Gas injection
     family: machine_systems
