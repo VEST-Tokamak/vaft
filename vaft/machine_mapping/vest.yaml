@@ -470,7 +470,7 @@
               5: {value: -5000.0, tolerance: 10.0}
         # Same gains; the boundary is PF2's, not theirs. See the note below.
         - from_shot: 38452
-          to_shot: 45964
+          to_shot: 45895
           processing:
             coil_field_codes: {1: 4}
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
@@ -484,7 +484,17 @@
         # belonged to another diagnostic. Verified on 46742: field 4 carries
         # 25000 samples there and is empty on 39915, so the channel is real
         # and per-shot.
-        - from_shot: 45965
+        #
+        # PF1's gain -5e4 -> -1e4 starts at 45896, not at the donor's 45965
+        # (`VEST_PFwaveform.m`, `shotcode < 45965`), issue #956. The field-59
+        # raw scale changed fivefold across the 2025-06-17 -> 06-23 access:
+        # 45895 reads 0.34 V and 45929 (the first energised shot after it)
+        # 1.83 V, while the inboard flux loop (field 25), PF5, PF6 and PF9/10
+        # read the same before and after, so only the DAQ scale moved. On
+        # 45960/45964 the -5e4 gain makes PF1 five times larger than field
+        # 25 allows (fit multiplier 0.20); -1e4 fits (1.01), as it does on
+        # 45965/45974. 45896-45928 are commissioning shots with PF1 idle.
+        - from_shot: 45896
           to_shot: 48371
           processing:
             coil_field_codes: {1: 4}

@@ -45,8 +45,8 @@ def test_fl10_compensation_enabled_flag_tracks_the_mode(shot, enabled):
 @pytest.mark.parametrize(
     ("shot", "pf1", "pf5"),
     [
-        (45964, -5.0e4, -1.0e4),
-        (45965, -1.0e4, -1.0e4),
+        (45895, -5.0e4, -1.0e4),
+        (45896, -1.0e4, -1.0e4),
         (48371, -1.0e4, -1.0e4),
         (48372, -1.0e4, -5.0e3),
     ],
