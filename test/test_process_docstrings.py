@@ -78,6 +78,13 @@ DEFINITIONAL = frozenset({
     "find_time_match_index",
     "normalize_atomic_symbol",
     "integrate_emissivity_profile",
+    # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
+    "build_dataset",
+    "calibrate_threshold",
+    "dataset_fingerprint",
+    "evaluate_model",
+    "load_model",
+    "predict",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -167,6 +174,11 @@ PIPELINE = frozenset({
     "normalize_by_local_emission",
     "pixelwise_spectrogram",
     "subtract_temporal_background",
+    # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "resolve_model",
+    "split_groups",
+    "train_model",
+    "window_dataset",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -194,6 +206,8 @@ STATEFUL = frozenset({
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
+    # ml (#669): record-level samples -> windows
+    "window_dataset",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -414,6 +428,9 @@ CONVENTION_SENSITIVE = frozenset({
     "subtract_temporal_background",
     "summed_region_signal",
     "track_reference_frequency",
+    # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    "resolve_model",
+    "train_model",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
