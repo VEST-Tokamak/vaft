@@ -554,14 +554,14 @@ def townsend_coefficients_for_gas(gas):
     with $P_T$ = :data:`vaft.formula.constants.PA_PER_TORR` pascal per torr,
     ready to pass to :func:`townsend_ionization_coefficient`.
 
-    ========  ==========================  =============================
-    ``gas``   $A$, $B$ [cm^-1 Torr^-1,   source
-              V cm^-1 Torr^-1]
-    ========  ==========================  =============================
-    ``"H2"``  5.1, 125                    Lloyd et al. 1991
-    ``"He"``  3, 34                       Raizer 1991
-    ``"Ar"``  12, 180                     Raizer 1991; Howatson
-    ========  ==========================  =============================
+    ========  ==========================  ==============  ========================
+    ``gas``   $A$, $B$ [cm^-1 Torr^-1,   fitted $E/p$    source
+              V cm^-1 Torr^-1]            [V/(cm Torr)]
+    ========  ==========================  ==============  ========================
+    ``"H2"``  5.1, 125                    tokamak fits    Lloyd et al. 1991
+    ``"He"``  3, 34                       20-150          Raizer, Table 4.1
+    ``"Ar"``  12, 180                     100-600         Raizer, Table 4.1
+    ========  ==========================  ==============  ========================
 
     Parameters
     ----------
@@ -597,19 +597,26 @@ def townsend_coefficients_for_gas(gas):
     data over a different $pd$ range gives $A = 3.6$, $B = 52$ (Norman et
     al.).  A pair is a representative value, not a measurement of VEST's gas.
 
+    **A tokamak threshold mostly sits below those ranges.**  Over 100 m of
+    connection length the threshold's own $E/p$ is 98 V/(cm Torr) for argon
+    at 7 mPa and 55 at 30 mPa, under Raizer's 100-600; helium stays inside
+    its 20-150 only from about 7 to 25 mPa.  Raizer's hydrogen pair, 5 and
+    130 over 150-600, is not the one catalogued: Lloyd's 5.1 and 125 were
+    fitted to tokamak breakdown itself, which is the regime this is for.
+    Evaluate $E_{BD}/p$ and compare before trusting a noble-gas threshold.
+
     Limitations
     -----------
     Deuterium is not catalogued: its measured coefficients are not
     hydrogen's (Rose 1956), and Lloyd applies his hydrogen pair to both
     isotopes by approximation.  Use :func:`lloyd_breakdown_field` for that
     approximation deliberately, or pass a measured pair to
-    :func:`townsend_breakdown_field`.  Helium's $B$ is confirmed against
-    Raizer through Massarczyk et al.'s Table I; its $A$ is Raizer's value as
-    quoted in secondary sources, not read from the table directly.
+    :func:`townsend_breakdown_field`.
 
     References
     ----------
-    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.1.5,
+           Table 4.1.
     .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
     .. [3] A. M. Howatson, *An Introduction to Gas Discharges*, Pergamon, as cited by [5].
     .. [4] R. Massarczyk et al., arXiv:1612.07170 (2016), Table I.
@@ -672,9 +679,10 @@ def townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas):
 
     Validity
     --------
-    Empirical fit.  Inherits the catalogue's scatter: see
-    :func:`townsend_coefficients_for_gas` for the range the pairs span in the
-    literature.  Pure gases only; a mixture is not a weighted average of
+    Empirical fit.  Inherits the catalogue's scatter and fitted $E/p$
+    ranges: see :func:`townsend_coefficients_for_gas`.  The returned field
+    itself gives the operating $E/p$, and at a tokamak fill it is usually
+    below the range the noble-gas pairs were fitted over.  Pure gases only; a mixture is not a weighted average of
     these pairs.
 
     Limitations
@@ -690,7 +698,8 @@ def townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas):
 
     References
     ----------
-    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.2.
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.1.5,
+           Table 4.1.
     .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 
     See Also
