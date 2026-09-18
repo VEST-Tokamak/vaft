@@ -230,6 +230,33 @@ def test_no_recommendation_when_nothing_is_within_tolerance(module):
     assert module.recommend(rows)["recommended"] is None
 
 
+def test_the_magnetic_fit_uses_only_fitted_channels_in_their_own_units(module):
+    variables = {
+        # Two fitted probes, 10% and 0% off; a third is off by a factor of 10 but unweighted.
+        "expmpi": np.array([0.1, 0.2, 0.3]), "cmpr2": np.array([0.11, 0.2, 3.0]),
+        "fwtmp2": np.array([1.0, 1.0, 0.0]),
+        "silopt": np.array([0.01, -0.02]), "csilop": np.array([0.01, -0.02]),
+        "fwtsi": np.array([1.0, 1.0]),
+    }
+
+    fit = module.magnetic_fit(variables)
+
+    expected = np.sqrt(np.mean([0.01**2, 0.0])) / np.sqrt(np.mean([0.1**2, 0.2**2]))
+    assert fit["probe"] == pytest.approx(expected)
+    assert fit["probe_n"] == 2
+    assert fit["loop"] == 0.0
+    assert np.isnan(module.magnetic_fit({})["probe"])
+
+
+def test_the_uncertainty_model_reaches_the_constraint_config(module):
+    case = module.configurations()[0]
+
+    assert module._scientific(case).constraints.uncertainty_mode == "legacy_weight"
+    statistical = module._scientific(case, "standard_deviation")
+    assert statistical.constraints.uncertainty_mode == "standard_deviation"
+    assert statistical.numerics.error_minimum == case["error_minimum"]
+
+
 # --------------------------------------------------------------------------
 # The recorded run (2026-09-18).  A re-run that reverses any of these is a
 # finding, and should fail here rather than be discovered in a README.

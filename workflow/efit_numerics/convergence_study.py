@@ -480,6 +480,8 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "seconds": record["seconds"],
                 "terror": record["scalars"].get("terror") if produced else None,
                 "cerror_final": record.get("cerror_final"),
+                "fit": record.get("fit"),
+                "axis": record.get("axis"),
                 "gs": {k: record["gs"][k] for k in ("whole", "core", "edge")} if produced else None,
                 "gs_edge_over_floor": (
                     record["gs"]["edge"] / floor if produced and np.isfinite(floor) and floor else float("nan")
@@ -498,6 +500,34 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
+#: (measured, reconstructed, weight) m-file variables of each magnetic family.
+MAGNETIC_FAMILIES = {"probe": ("expmpi", "cmpr2", "fwtmp2"), "loop": ("silopt", "csilop", "fwtsi")}
+
+
+def magnetic_fit(variables: Mapping[str, Any]) -> dict[str, Any]:
+    """Relative RMS of measured - reconstructed over each family's fitted channels.
+
+    In the channels' own units, so it means the same thing under either
+    uncertainty model -- which is the point: it is how a change of objective
+    is judged against the data rather than against itself.
+    """
+    out: dict[str, Any] = {}
+    for family, (measured, reconstructed, weight) in MAGNETIC_FAMILIES.items():
+        try:
+            m, r, w = (np.asarray(getattr(variables[name], "data", variables[name]), dtype=float).reshape(-1)
+                       for name in (measured, reconstructed, weight))
+        except KeyError:
+            out[family], out[f"{family}_n"] = float("nan"), 0
+            continue
+        n = min(m.size, r.size, w.size)
+        m, r, w = m[:n], r[:n], w[:n]
+        keep = (w > 0.0) & np.isfinite(m) & np.isfinite(r)
+        scale = np.sqrt(np.mean(m[keep] ** 2)) if keep.any() else 0.0
+        out[family] = float(np.sqrt(np.mean((m[keep] - r[keep]) ** 2)) / scale) if scale else float("nan")
+        out[f"{family}_n"] = int(keep.sum())
+    return out
+
+
 def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
     """The g/a/m files one slice left behind, found by the time in their names."""
     from vaft.code.efit.slice_name import file_name_microseconds
@@ -512,10 +542,12 @@ def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
         micro = file_name_microseconds(path.name)
         if micro is not None and round(micro / 1000) == time_ms:
             found[kind] = path
-    out: dict[str, Any] = {"geqdsk": None, "scalars": {}, "gs": None, "cerror": None, "cerror_final": None}
+    out: dict[str, Any] = {"geqdsk": None, "scalars": {}, "gs": None, "cerror": None, "cerror_final": None,
+                           "fit": None, "axis": None}
     if "g" in found:
         mapping = dict(read_geqdsk(found["g"]).mapping)
         out["geqdsk"] = mapping
+        out["axis"] = {"r": float(mapping["RMAXIS"]), "z": float(mapping["ZMAXIS"])}
         try:
             out["gs"] = grad_shafranov_metrics(mapping)
         except Exception as error:  # a degenerate equilibrium is a result, not a crash
@@ -525,7 +557,9 @@ def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
         scalars = read_aeqdsk(found["a"]).scalars
         out["scalars"] = {k: float(scalars[k]) for k in SCALARS if k in scalars}
     if "m" in found:
-        variable = read_meqdsk(found["m"]).variables.get("cerror")
+        variables = read_meqdsk(found["m"]).variables
+        out["fit"] = magnetic_fit(variables)
+        variable = variables.get("cerror")
         if variable is not None:
             history = np.asarray(variable.data, dtype=float).reshape(-1)
             history = history[np.isfinite(history) & (history > 0.0)]
@@ -577,10 +611,13 @@ def prepare_constraints(shot: int, product: Path, times: Sequence[float], *, wor
     return built, chosen
 
 
-def _scientific(case: Mapping[str, Any]):
+def _scientific(case: Mapping[str, Any], uncertainty_mode: str = "legacy_weight"):
     from vaft.code.efit.config import EFITScientificConfig
 
     scientific = EFITScientificConfig()
+    scientific = replace(
+        scientific, constraints=replace(scientific.constraints, uncertainty_mode=uncertainty_mode)
+    )
     numerics = replace(
         scientific.numerics,
         inner_iterations=int(case["inner_iterations"]),
@@ -591,7 +628,7 @@ def _scientific(case: Mapping[str, Any]):
 
 
 def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any], workdir: Path,
-             efit: str) -> dict[str, Any]:
+             efit: str, uncertainty_mode: str = "legacy_weight") -> dict[str, Any]:
     """One configuration over the chosen slices of one shot, serially."""
     import shutil
 
@@ -600,7 +637,7 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
 
     shutil.rmtree(workdir, ignore_errors=True)
     workdir.mkdir(parents=True)
-    scientific = _scientific(case)
+    scientific = _scientific(case, uncertainty_mode)
     config = EFITConfig(
         executable=efit, workdir=workdir, shot=shot, times=list(times), args=(str(case["grid"]),),
         profile=scientific.profile, initialization=scientific.initialization,
@@ -660,6 +697,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="257x257 table directory with its EFUND manifest")
     parser.add_argument("--shots", default=None, help="comma-separated subset of the study's shots")
     parser.add_argument("--cases", default=None, help="comma-separated case names (dry runs)")
+    parser.add_argument("--inner-iterations", default=None,
+                        help="comma-separated subset of NXITER values to run")
+    parser.add_argument("--uncertainty-mode", default="legacy_weight",
+                        choices=("legacy_weight", "standard_deviation"),
+                        help="the constraint uncertainty model the k-files are written under (#891)")
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     args = parser.parse_args(argv)
@@ -692,6 +734,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.cases:
         wanted = set(args.cases.split(","))
         plan = [case for case in plan if case["name"] in wanted]
+    if args.inner_iterations:
+        inner = {int(v) for v in args.inner_iterations.split(",")}
+        plan = [case for case in plan if case["inner_iterations"] in inner]
 
     install_record = Path(os.environ.get("EFITHOME", "")) / "vaft-external-install.json"
     reference = json.loads(REFERENCE_SET.read_text(encoding="utf-8"))
@@ -726,7 +771,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 built, chosen = built_by_table[(case["grid"], case["table"])]
                 run = run_case(built, shot=shot, times=chosen, case=case,
                                workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / case["name"],
-                               efit=str(efit))
+                               efit=str(efit), uncertainty_mode=args.uncertainty_mode)
                 record = run["records"][0]
                 records.append(record)
                 print(f"{shot}@{record['time_ms']} {case['name']}: {record['exit_path'] or record['outcome']} "
@@ -741,6 +786,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "efit_install": json.loads(install_record.read_text()) if install_record.is_file() else None,
         "tables": {f"{grid}/{table}": v for (grid, table), v in tables.items()},
         "slices": {str(k): list(v) for k, v in SLICES.items()},
+        "uncertainty_mode": args.uncertainty_mode,
         "plan": plan,
         "analysis": analysis,
         "records": [
