@@ -583,8 +583,7 @@ def test_two_time_shared_conditioner_keeps_time_index_and_channel_identity(tmp_p
 
 
 def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
-    import os
-    import sys
+    from external_code_stubs import write_launchable_stub, write_unlaunchable_file
 
     from vaft.code.nice.runner import resolve_nice_executable
 
@@ -596,14 +595,11 @@ def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError, match="build/nice_recon"):
         resolve_nice_executable(NiceConfig(workdir=tmp_path, nice_home=home))
 
-    exe = home / "run" / ("nice_recon.exe" if sys.platform == "win32" else "nice_recon")
-    exe.parent.mkdir(parents=True)
-    exe.write_text("#!/bin/sh\n")
-    exe.chmod(0o755)
+    # The second documented layout is found when the first is absent.
+    exe = write_launchable_stub(home / "run" / "nice_recon")
     monkeypatch.setenv("NICEHOME", str(home))
     assert resolve_nice_executable(NiceConfig(workdir=tmp_path)) == exe
 
-    if os.name == "posix":
-        exe.chmod(0o644)
-        with pytest.raises(PermissionError):
-            resolve_nice_executable(NiceConfig(workdir=tmp_path, executable=exe))
+    refused = write_unlaunchable_file(tmp_path / "other" / "nice_recon")
+    with pytest.raises(PermissionError):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path, executable=refused))
