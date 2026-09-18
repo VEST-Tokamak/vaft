@@ -25,8 +25,8 @@ from pathlib import Path
 import subprocess
 from typing import Sequence
 
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
 from .._executables import (
-    ExecutableNotLaunchable,
     executable_from_home,
     missing_home_message,
 )
@@ -218,24 +218,22 @@ def run_gacode(
     not raised: whether it is fatal is the backend's judgement, and NEO in
     particular writes useful diagnostics alongside a failure.
     """
-    command = [str(executable), *[str(argument) for argument in arguments]]
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    # Opened outside the try so a bad log path stays its own error rather than
-    # being reported as an unlaunchable solver.
-    with log_path.open("w", encoding="utf-8") as log:
-        try:
-            completed = subprocess.run(
-                command,
-                cwd=str(cwd),
-                env=gacode_environment(config, code),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=None if config is None else config.timeout,
-                check=False,
-            )
-        except OSError as error:
-            raise ExecutableNotLaunchable(
-                f"cannot launch {executable}: {error}"
-            ) from error
-    return int(completed.returncode), log_path
+    command = (str(executable), *[str(argument) for argument in arguments])
+    timeout = None if config is None else config.timeout
+    execution = resolve_backend(config).run(
+        ExecutionRequest(
+            command=command,
+            workdir=Path(cwd),
+            env=gacode_environment(config, code),
+            timeout=timeout,
+            log_path=Path(log_path),
+            # The launcher starts its own ranks from -n; this declares them for
+            # a scheduler. Threads stay with -nomp, which the launcher applies.
+            resources=ResourceRequest(ntasks=1 if config is None else int(config.n_mpi)),
+            label=code,
+        )
+    )
+    if execution.timed_out:
+        # Callers have always seen the stdlib's exception here.
+        raise subprocess.TimeoutExpired(list(command), timeout or execution.elapsed_s)
+    return int(execution.returncode), log_path

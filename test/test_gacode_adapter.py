@@ -645,3 +645,49 @@ def test_a_spitzer_run_with_a_non_finite_coefficient_is_not_solved(tmp_path):
     (case / "out.neo.spitzer").write_text("  NaN  1.0E+00  1.0E+00  1.0E+00\n")
     native = collect_neo_outputs(case)
     assert not native.solved
+
+
+# --------------------------------------------------------------------------
+# Execution backend (#671)
+# --------------------------------------------------------------------------
+
+
+def test_run_gacode_hands_the_launch_to_the_configured_backend(installation, tmp_path):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    backend = RecordingBackend(ExecutionResult(returncode=0))
+    config = GACODEConfig(home=str(installation), platform="CI_CPU", n_mpi=4, backend=backend)
+    returncode, log = run_gacode(
+        installation / launcher_relative_path("neo"),
+        ["-e", "case", "-n", "4"],
+        cwd=tmp_path,
+        log_path=tmp_path / "neo.log",
+        config=config,
+    )
+
+    (request,) = backend.requests
+    assert returncode == 0 and log == tmp_path / "neo.log"
+    assert request.command[1:] == ("-e", "case", "-n", "4")
+    assert request.log_path == tmp_path / "neo.log"
+    assert request.env["GACODE_PLATFORM"] == "CI_CPU"
+    assert request.resources.ntasks == 4
+    assert request.resources.threads_per_task is None
+
+
+def test_run_gacode_keeps_raising_the_stdlib_timeout(installation, tmp_path):
+    import subprocess
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+    config = GACODEConfig(home=str(installation), platform="CI_CPU", timeout=3.0, backend=backend)
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_gacode(
+            installation / launcher_relative_path("neo"),
+            ["-e", "case"],
+            cwd=tmp_path,
+            log_path=tmp_path / "neo.log",
+            config=config,
+        )
