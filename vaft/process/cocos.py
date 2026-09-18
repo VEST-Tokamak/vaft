@@ -34,6 +34,7 @@ ever added, not because they are being tested today.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -42,8 +43,10 @@ from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 
 __all__ = [
-    "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs", "cocos_field_scales",
-    "identify_convention", "identify_flux_exponent", "validate_cocos",
+    "CONTOUR_Q_LEVELS", "CONTOUR_Q_MIN_SURFACES", "CONTOUR_Q_SEPARATION",
+    "ContourQNormalization", "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs",
+    "cocos_field_scales", "identify_convention", "identify_flux_exponent",
+    "identify_flux_exponent_from_q", "validate_cocos",
 ]
 
 #: Relative band around 1 and 2*pi within which the Ampere ratio is accepted.
@@ -403,6 +406,292 @@ def identify_flux_exponent(equilibrium: Any) -> tuple[int | None, float | None]:
     return None, float(ratio)
 
 
+
+#: Normalized-flux levels the contour-``q`` discriminator samples, from the
+#: legacy ``geqdsk_cocos.flux_normalization_diagnostic``.  The window stops well
+#: short of the boundary because the separatrix is the one surface where
+#: ``|grad psi|`` vanishes, and short of the axis because a surface only a few
+#: cells across is described by the grid rather than by the equilibrium.
+CONTOUR_Q_LEVELS: tuple[float, ...] = tuple(np.linspace(0.10, 0.80, 15))
+
+#: How many usable surfaces the contour-``q`` discriminator needs before it
+#: answers.  One surface can be wrong for its own reasons -- a contour clipped
+#: by the grid edge, a level that falls in a gap of the ``q`` profile -- and the
+#: statistic taken across them is a median, which needs three to mean anything.
+CONTOUR_Q_MIN_SURFACES = 3
+
+#: How many times the losing hypothesis' residual must exceed the winner's.
+#: The legacy criterion, kept for parity.  It is not what decides: see
+#: :func:`identify_flux_exponent_from_q`.
+CONTOUR_Q_SEPARATION = 3.0
+
+
+@dataclass(frozen=True)
+class ContourQNormalization:
+    """What the contour-``q`` discriminator measured, and what it concluded."""
+
+    exponent: int | None
+    """``0`` for a weber-per-radian psi, ``1`` for weber, ``None`` on abstention."""
+    residual_per_radian: float | None
+    """Median relative error of the reconstructed ``q`` under the Wb/rad hypothesis."""
+    residual_weber: float | None
+    """The same under the weber hypothesis; it is ``2*pi`` times the other."""
+    separation: float | None
+    """Losing residual over winning residual."""
+    surface_count: int
+    """How many surfaces contributed."""
+    reason: str = ""
+    """Why it abstained; empty when it did not."""
+
+
+def _axis_position(equilibrium: Any) -> tuple[float, float] | None:
+    """The magnetic axis as stored, or the grid point whose psi is closest to it."""
+    axis = getattr(equilibrium, "magnetic_axis", None)
+    if axis is not None:
+        try:
+            r_axis, z_axis = (float(value) for value in axis)
+        except (TypeError, ValueError):
+            return None
+        if np.isfinite(r_axis) and np.isfinite(z_axis):
+            return r_axis, z_axis
+    psi, r, z = equilibrium.psi, equilibrium.r, equilibrium.z
+    if psi is None or r is None or z is None:
+        return None
+    flat = int(np.argmin(np.abs(np.asarray(psi, dtype=float) - float(equilibrium.psi_axis))))
+    i, j = np.unravel_index(flat, np.asarray(psi).shape)
+    return float(np.asarray(r).reshape(-1)[i]), float(np.asarray(z).reshape(-1)[j])
+
+
+def _encloses(r_axis: float, z_axis: float, r: np.ndarray, z: np.ndarray) -> bool:
+    """Ray-casting point-in-polygon, the one the legacy used."""
+    inside = False
+    r_previous, z_previous = r[-1], z[-1]
+    for r_point, z_point in zip(r, z):
+        if (z_point > z_axis) != (z_previous > z_axis):
+            crossing = (
+                (r_previous - r_point) * (z_axis - z_point) / (z_previous - z_point) + r_point
+            )
+            if r_axis < crossing:
+                inside = not inside
+        r_previous, z_previous = r_point, z_point
+    return inside
+
+
+def identify_flux_exponent_from_q(
+    equilibrium: Any, *, levels: Any = None
+) -> ContourQNormalization:
+    """Decide weber versus weber per radian by rebuilding ``q`` on closed contours.
+
+    The second, independent answer to the question
+    :func:`identify_flux_exponent` asks.  The safety factor of a closed surface
+    is ``q = |F|/(2*pi) * contour_integral(dl / (R |grad psi|))`` when psi is in
+    weber per radian, and ``2*pi`` times that when psi is in weber, so comparing
+    both reconstructions against the ``q`` profile the file already carries
+    separates the two families.
+
+    It needs ``q`` and ``F``; it needs neither ``ip`` nor a boundary outline,
+    which is exactly what :func:`identify_flux_exponent` cannot do without.  On
+    the three real equilibria this was measured on the two agree; where they
+    differ is that this one still answers when the current record is zero or the
+    boundary outline is missing.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        Must carry ``r``, ``z``, ``psi``, ``psi_axis``, ``psi_boundary``,
+        ``psi_1d``, ``q`` and ``f``; anything missing is an abstention, not an
+        error [-].
+    levels : array_like, optional
+        Normalized flux levels to trace, defaulting to :data:`CONTOUR_Q_LEVELS`
+        [-].
+
+    Returns
+    -------
+    ContourQNormalization
+        ``exponent`` 0 for weber per radian and 1 for weber, or ``None`` with a
+        ``reason`` when the measurement does not support either [-].
+
+    Processing steps
+    ----------------
+    1. Trace each requested level with
+       :func:`vaft.process.equilibrium.extract_flux_surface_contours` and keep
+       the longest closed contour that encloses the magnetic axis; a level whose
+       contours are all open or all off-axis contributes nothing.
+    2. On each kept contour evaluate ``|grad psi| = R * B_p`` with
+       :func:`vaft.process.equilibrium.poloidal_field_at_boundary` in its
+       weber-per-radian form and integrate ``dl / (R |grad psi|)`` by the
+       midpoint rule.
+    3. Form the two candidate safety factors, ``|F|/(2*pi)`` times that integral
+       and ``2*pi`` times the first, and take each one's relative error against
+       the stored ``|q|`` interpolated to the level.
+    4. Take the median of each error across the surfaces and accept the smaller
+       one -- but only when it is itself within
+       :data:`FLUX_EXPONENT_TOLERANCE` and beats the other by at least
+       :data:`CONTOUR_Q_SEPARATION`.
+
+    Defaults
+    --------
+    :data:`CONTOUR_Q_LEVELS`, :data:`CONTOUR_Q_MIN_SURFACES` and
+    :data:`CONTOUR_Q_SEPARATION` are legacy compatibility values, carried over
+    from ``geqdsk_cocos.flux_normalization_diagnostic`` so the two agree surface
+    for surface.  :data:`FLUX_EXPONENT_TOLERANCE` is a numerical convenience,
+    shared with :func:`identify_flux_exponent` because it means the same thing
+    there: how far the winning hypothesis may sit from the measurement.
+
+    Convention
+    ----------
+    Decides Sauter's flux exponent ``e_Bp`` -- whether the ``2*pi`` is carried
+    inside psi -- and nothing else.  It does not rescale psi, does not identify
+    a sign orientation, and does not distinguish the eight indices within a
+    family.  ``q`` and ``F`` are compared by magnitude, because codes routinely
+    emit ``abs(q)`` and the sign question belongs to :func:`validate_cocos`.
+
+    Applicability
+    -------------
+    Machine-independent.  Needs a 2-D psi map with closed interior surfaces, so
+    a profiles-only equilibrium cannot be classified.
+
+    Limitations
+    -----------
+    Abstains rather than picking the nearer of two wrong answers.  A ``q``
+    profile that disagrees with its own psi map -- a rescaled psi, a ``q`` taken
+    from a different solve -- makes both hypotheses wrong, and this reports that
+    rather than a family.  Marching squares resolves a contour only to the grid
+    cell, so the residual floor is set by the grid: it was 1e-5 to 2e-4 on
+    129-by-129 and 513-by-513 reconstructions, against a losing residual of
+    ``2*pi - 1``.
+
+    Provenance
+    ----------
+    .. [legacy] hsyun_GPEC ``library/geqdsk_cocos.py::flux_normalization_diagnostic``
+       on branch ``codex/gpec-flare-cocos-handshake``, which is the method and
+       the three constants.  Its acceptance rule was *relative only* -- the
+       winner had to beat the loser threefold, with no bar on the winner's own
+       residual -- and that accepts a decisive-looking wrong answer: measured on
+       a real g-file with psi scaled by one half, the residuals are 1.000 and
+       11.57, a separation of 11.6, so the legacy returns "weber per radian,
+       decisive" for a hypothesis its own measurement misses by 100%.  The
+       absolute bar in step 4 is what rejects it (D-04).
+    .. [sauter] Sauter and Medvedev (2013) for ``e_Bp`` and the storage families.
+    """
+    eq = equilibrium
+    needed = ("r", "z", "psi", "psi_axis", "psi_boundary", "psi_1d", "q", "f")
+    missing = [name for name in needed if getattr(eq, name, None) is None]
+    if missing:
+        return ContourQNormalization(
+            None, None, None, None, 0, f"missing {', '.join(missing)}"
+        )
+
+    r = np.asarray(eq.r, dtype=float).reshape(-1)
+    z = np.asarray(eq.z, dtype=float).reshape(-1)
+    psi = np.asarray(eq.psi, dtype=float)
+    if psi.shape != (r.size, z.size):
+        return ContourQNormalization(
+            None, None, None, None, 0,
+            f"psi is {psi.shape}, not (len(r), len(z)) = {(r.size, z.size)}",
+        )
+    psi_axis, psi_boundary = float(eq.psi_axis), float(eq.psi_boundary)
+    if psi_boundary == psi_axis:
+        return ContourQNormalization(None, None, None, None, 0, "psi_boundary equals psi_axis")
+
+    psi_1d = np.asarray(eq.psi_1d, dtype=float).reshape(-1)
+    q_profile = np.abs(np.asarray(eq.q, dtype=float).reshape(-1))
+    f_profile = np.abs(np.asarray(eq.f, dtype=float).reshape(-1))
+    if psi_1d.size != q_profile.size or psi_1d.size != f_profile.size or psi_1d.size < 2:
+        return ContourQNormalization(None, None, None, None, 0, "q, F and psi_1d disagree in length")
+    grid = (psi_1d - psi_axis) / (psi_boundary - psi_axis)
+    order = np.argsort(grid)
+    grid, q_profile, f_profile = grid[order], q_profile[order], f_profile[order]
+
+    axis = _axis_position(eq)
+    if axis is None:
+        return ContourQNormalization(None, None, None, None, 0, "no magnetic axis")
+
+    from vaft.process.equilibrium import (
+        MIN_FLUX_SURFACE_POINTS,
+        extract_flux_surface_contours,
+        poloidal_field_at_boundary,
+    )
+
+    wanted = CONTOUR_Q_LEVELS if levels is None else tuple(
+        float(level) for level in np.asarray(levels, dtype=float).reshape(-1)
+    )
+    try:
+        traced = extract_flux_surface_contours(psi, r, z, psi_axis, psi_boundary, wanted)
+    except Exception as error:
+        return ContourQNormalization(None, None, None, None, 0, f"contouring failed: {error}")
+
+    tolerance = 1e-9 * max(float(np.ptp(r)), float(np.ptp(z)))
+    errors_per_radian: list[float] = []
+    errors_weber: list[float] = []
+    for level in wanted:
+        closed = [
+            (r_c, z_c)
+            for r_c, z_c in traced.get(float(level), ())
+            if r_c.size >= MIN_FLUX_SURFACE_POINTS
+            and np.hypot(r_c[0] - r_c[-1], z_c[0] - z_c[-1]) <= tolerance
+            and _encloses(axis[0], axis[1], r_c, z_c)
+        ]
+        if not closed:
+            continue
+        r_c, z_c = max(closed, key=lambda contour: contour[0].size)
+        try:
+            # cocos=None is the weber-per-radian form, where B_p = |grad psi| / R.
+            b_p, _, _ = poloidal_field_at_boundary(r, z, psi, r_c, z_c, cocos=None)
+        except Exception:
+            continue
+        length = np.hypot(np.diff(r_c), np.diff(z_c))
+        r_mid = 0.5 * (r_c[:-1] + r_c[1:])
+        b_mid = 0.5 * (np.asarray(b_p)[:-1] + np.asarray(b_p)[1:])
+        usable = np.isfinite(b_mid) & (b_mid > 0.0) & (r_mid > 0.0)
+        if np.count_nonzero(usable) < MIN_FLUX_SURFACE_POINTS // 2:
+            continue
+        # dl / (R |grad psi|) = dl / (R^2 B_p).
+        integral = float(
+            np.sum(length[usable] / (r_mid[usable] ** 2 * b_mid[usable]))
+        )
+        # anti-alias: not a time series and not a downsample.  These read the
+        # stored q and F profiles at one normalised-flux level, which is a
+        # spatial coordinate; there is no sample rate here to reduce.
+        q_stored = float(np.interp(level, grid, q_profile))
+        f_value = float(np.interp(level, grid, f_profile))
+        if not (q_stored > 0.0) or not np.isfinite(integral):
+            continue
+        q_per_radian = f_value * integral / (2.0 * np.pi)
+        errors_per_radian.append(abs(q_per_radian - q_stored) / q_stored)
+        errors_weber.append(abs(2.0 * np.pi * q_per_radian - q_stored) / q_stored)
+
+    count = len(errors_per_radian)
+    if count < CONTOUR_Q_MIN_SURFACES:
+        return ContourQNormalization(
+            None, None, None, None, count,
+            f"{count} usable closed contours, fewer than {CONTOUR_Q_MIN_SURFACES}",
+        )
+
+    residual_per_radian = float(np.median(errors_per_radian))
+    residual_weber = float(np.median(errors_weber))
+    winner, loser = sorted((residual_per_radian, residual_weber))
+    separation = float(loser / winner) if winner > 0.0 else float("inf")
+    exponent = 0 if residual_per_radian < residual_weber else 1
+
+    # The absolute bar first: the legacy had only the relative one, and a
+    # measurement that misses both hypotheses can still separate them threefold.
+    if winner > FLUX_EXPONENT_TOLERANCE:
+        return ContourQNormalization(
+            None, residual_per_radian, residual_weber, separation, count,
+            f"the better hypothesis is still off by {winner:.3g}, over the "
+            f"{FLUX_EXPONENT_TOLERANCE} bar; q and psi disagree",
+        )
+    if separation < CONTOUR_Q_SEPARATION:
+        return ContourQNormalization(
+            None, residual_per_radian, residual_weber, separation, count,
+            f"the two hypotheses are only {separation:.3g} apart",
+        )
+    return ContourQNormalization(
+        exponent, residual_per_radian, residual_weber, separation, count, ""
+    )
+
+
 def identify_convention(
     equilibrium: Any, *, clockwise_phi: bool | None = None,
 ) -> tuple[int, ...]:
@@ -434,8 +723,9 @@ def identify_convention(
        other way.
     2. Get the sign family from ``omas.identify_cocos``, which reads it off the
        signs of ``ip``, ``bt0``, ``q`` and the psi gradient.
-    3. Narrow to 1-8 or 11-18 using :func:`identify_flux_exponent`, keeping the
-       full set when that abstains.
+    3. Narrow to 1-8 or 11-18 using :func:`identify_flux_exponent`, falling back
+       to :func:`identify_flux_exponent_from_q` when that one had no inputs to
+       measure, and keeping the full set when neither answers.
 
     Convention
     ----------
@@ -454,10 +744,14 @@ def identify_convention(
     -----------
     The axis-to-edge reorder exists because ``identify_cocos`` reads the psi
     gradient at the first node, so a boundary-first profile would invert the
-    poloidal-flux sign silently.  When the flux exponent abstains the result spans
-    both storage families, and a caller that then converts must not assume the
-    candidates share one.  Any exception from the underlying identification is
-    reported as no candidates rather than raised.
+    poloidal-flux sign silently.  When both flux-exponent rungs abstain the
+    result spans both storage families, and a caller that then converts must not
+    assume the candidates share one.  The contour-q rung is deliberately **not**
+    consulted when the Ampere rung ran and rejected both families: that is a
+    file whose ``ip`` and psi map disagree, and reporting a confident index for
+    it would hide the disagreement rather than resolve it.  Any exception from
+    the underlying identification is reported as no candidates rather than
+    raised.
 
     Provenance
     ----------
@@ -465,6 +759,9 @@ def identify_convention(
        relations the identification rests on.
     .. [2] ``omas.identify_cocos`` supplies the sign family; its flux-exponent
        argument is deliberately not used, see :func:`identify_flux_exponent`.
+    .. [3] The contour-q fallback is hsyun_GPEC
+       ``library/geqdsk_cocos.py::flux_normalization_diagnostic``, ported in
+       :func:`identify_flux_exponent_from_q`.
     """
     eq = equilibrium
     if eq.bt0 is None or eq.ip is None or eq.q is None or eq.psi_1d is None:
@@ -493,7 +790,14 @@ def identify_convention(
     if not candidates:
         return ()
 
-    exponent, _ = identify_flux_exponent(eq)
+    exponent, ratio = identify_flux_exponent(eq)
+    if exponent is None and ratio is None:
+        # The Ampere rung could not run at all -- no ip, no boundary outline.
+        # The contour-q rung needs neither, so it answers where that one is
+        # silent.  A *ratio* with no exponent is different: the rung ran and
+        # found ip and the psi map contradicting each other, and a second
+        # opinion must not paper over a contradiction the file really has.
+        exponent = identify_flux_exponent_from_q(eq).exponent
     if exponent is not None:
         wanted = range(1, 9) if exponent == 0 else range(11, 19)
         narrowed = {value for value in candidates if value in wanted}
