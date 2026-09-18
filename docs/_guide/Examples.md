@@ -139,7 +139,7 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 
 | Notebook | Purpose |
 | --- | --- |
-| [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb) | Refine a GEQDSK with CHEASE: build `EXPEQ` and the namelist, resolve the binary, run, collect outputs. |
+| [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/equilibrium_refinement_using_chease.ipynb) | Refine an EFIT g-file with CHEASE and qualify the result: the boundary and profiles CHEASE is given, the q95 constraint, sign conventions, what the solve changes, solver-mesh convergence, and `target_psin`/`relax` sensitivity. |
 | [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TES.ipynb) | Forward (Grad-Shafranov) equilibrium solve with TES, driven straight from an ODS. |
 | [`forward_equilibrium_using_TokaMaker.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/forward_equilibrium_using_TokaMaker.ipynb) | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit), driven by measured PF coil currents. |
 | [`time_dependent_equilibrium_using_TokaMaker.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb) | Vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker. |

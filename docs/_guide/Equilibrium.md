@@ -514,7 +514,7 @@ Notebooks
 Worked, runnable examples:
 
 - [`forward_equilibrium_using_TES.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/forward_equilibrium_using_TES.ipynb) — forward Grad-Shafranov solve through the `vaft.code.tes` adapter
-- [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb) — CHEASE refinement of a packaged sample g-file
+- [`equilibrium_refinement_using_chease.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/equilibrium_refinement_using_chease.ipynb) — CHEASE fixed-boundary refinement of a packaged g-file, with its boundary/profile provenance and solver-mesh convergence
 
 Outline notebooks, currently drafted as documentation shells:
 

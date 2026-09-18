@@ -381,3 +381,108 @@ def test_comparison_plot_is_rendered_by_vaft_plot_and_saved(tmp_path):
     )
     assert Path(result) == target
     assert target.stat().st_size > 10_000
+
+
+# ---------------------------------------------------------------------------
+# (e) What CHEASE receives is visible to the caller (#885)
+# ---------------------------------------------------------------------------
+
+def test_the_materialized_input_is_the_expeq_content_in_source_units(tmp_path):
+    """The record must say what EXPEQ says, and be comparable with the source.
+
+    Undo EXPEQ's normalization and sign pattern and the record's p'/FF' must
+    come back; undo the resampling and the source's must come back.
+    """
+    import json
+
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source = data_path("efit/g039915.00319")
+    inputs = ch.prepare_chease_inputs(
+        source, ch.CHEASEConfig(workdir=tmp_path, create_plot=False)
+    )
+    m = inputs.materialized
+    geq = read_geqdsk(source)
+
+    # Resampling only, in the source's own sign.
+    x = np.linspace(0.0, 1.0, len(geq["PPRIME"]))
+    np.testing.assert_allclose(m.pprime_resampled, np.interp(m.psi_norm, x, geq["PPRIME"]))
+    np.testing.assert_allclose(m.ffprime_resampled, np.interp(m.psi_norm, x, geq["FFPRIM"]))
+
+    # The EXPEQ file, parsed back, is the record re-normalized.
+    lines = inputs.expeq.read_text(encoding="utf-8").splitlines()
+    count = int(lines[3])
+    boundary = np.array([[float(v) for v in line.split()] for line in lines[4 : 4 + count]])
+    r0 = m.parameters["R0EXP"]
+    np.testing.assert_allclose(boundary * r0, m.boundary, rtol=1e-10, atol=1e-12)
+    n = int(lines[4 + count])
+    offset = 4 + count + 2 + n  # skip N, "1 0", then the sqrt(psi_N) column
+    pp = np.array([float(v) for v in lines[offset : offset + n]])
+    ff = np.array([float(v) for v in lines[offset + n : offset + 2 * n]])
+    b0 = m.parameters["B0EXP"]
+    psi_sign = m.sign_transform["psi"]
+    assert psi_sign == -1  # 39915 is flipped into CHEASE's pattern, so the sign is exercised
+    # The written profiles, not only the resampled ones, keep the source's sign.
+    assert np.sign(np.median(m.pprime)) == np.sign(np.median(geq["PPRIME"]))
+    assert np.sign(np.median(m.ffprime)) == np.sign(np.median(geq["FFPRIM"]))
+    np.testing.assert_allclose(pp, -np.abs(m.pprime) * ch.MU0 * r0**2 / b0, rtol=1e-10)
+    np.testing.assert_allclose(ff, -(psi_sign * m.ffprime) / b0, rtol=1e-10)
+
+    record = json.loads((tmp_path / "chease_input_manifest.json").read_text())
+    assert record["nideal"] == 6 and record["neqdsk"] == 0
+    assert record["expeq_boundary_points"] == m.boundary.shape[0]
+    assert record["q_constraint_psi_norm_used"] == pytest.approx(0.95)
+
+
+def test_edge_conditioning_is_reported_where_it_changed_the_profile(tmp_path):
+    """A reversed edge p' sample is zeroed, and the record says which ones."""
+    geq = _fake_geqdsk()
+    geq["PPRIME"] = geq["PPRIME"].copy()
+    geq["PPRIME"][-3:] = 0.2  # opposite to the negative bulk
+    payload = ch._expeq_payload(geq, ch.CHEASEConfig(target_psin=0.0))
+    m = ch._materialized_input(payload, ch.CHEASEConfig(target_psin=0.0), {"psi": 1})
+    changed = np.flatnonzero(m.edge_modified)
+    assert changed.size > 0
+    assert m.psi_norm[changed].min() > 0.97  # the edge, and only the edge
+    assert np.all(m.pprime[changed] == 0.0)
+    assert np.all(m.pprime[~m.edge_modified] == m.pprime_resampled[~m.edge_modified])
+    # The donor loop starts one sample in from the separatrix, so the last
+    # sample is never examined and a reversal there survives into EXPEQ as
+    # -|p'|. Recorded, not endorsed: the record has to show it.
+    assert not m.edge_modified[-1] and m.pprime[-1] > 0.0
+
+
+def test_the_record_undoes_the_psi_flip_on_the_written_profiles():
+    """p' and FF' flip with psi on the way into CHEASE, and back in the record."""
+    geq = _fake_geqdsk()
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+    payload = ch._expeq_payload(geq, cfg)
+    kept = ch._materialized_input(payload, cfg, {"psi": 1})
+    flipped = ch._materialized_input(payload, cfg, {"psi": -1})
+    np.testing.assert_array_equal(flipped.pprime, -kept.pprime)
+    np.testing.assert_array_equal(flipped.ffprime, -kept.ffprime)
+    np.testing.assert_array_equal(flipped.pressure, kept.pressure)  # not a d/dpsi quantity
+
+
+def test_a_q_constraint_on_axis_is_not_reported_as_a_surface(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0, q_constraint_psi_norm=None)
+    m = ch._materialized_input(ch._expeq_payload(_fake_geqdsk(), cfg), cfg, {"psi": 1})
+    assert m.q_constraint_psi_norm is None
+    assert m.csspec == 0.0
+
+
+def test_the_solver_mesh_defaults_and_overrides_reach_the_namelist():
+    """``nw`` is the output box; the solve's own mesh is NS x NT (#885)."""
+    text = "".join(ch._namelist_lines(ch.CHEASEConfig(), _WRITER_PARAMS))
+    assert "NS=150, NT=150," in text
+    assert "NPSI=200, NCHI=100," in text
+    assert "NRBOX=513," in text
+
+    cfg = ch.CHEASEConfig(ns=60, nt=40, npsi=120, nchi=64)
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
+    assert "NS=60, NT=40," in text
+    assert "NPSI=120, NCHI=64," in text
+
+    with pytest.raises(ValueError, match="at least 2"):
+        ch.CHEASEConfig(ns=1)

@@ -119,7 +119,9 @@ def main() -> int:
             "numbering; upstream CHEASE takes the adapter's GEQDSK default (#516)."
         ),
     )
-    parser.add_argument("--nw", default=513, type=int, help="CHEASE NRBOX/NZBOX value.")
+    parser.add_argument("--nw", default=513, type=int, help="CHEASE output box NRBOX/NZBOX value.")
+    parser.add_argument("--ns", default=None, type=int, help="CHEASE radial solver mesh NS (default: the adapter's).")
+    parser.add_argument("--nt", default=None, type=int, help="CHEASE poloidal solver mesh NT (default: the adapter's).")
     parser.add_argument("--auto-cocos", default="true", help="Normalize signs to CHEASE COCOS-02 input convention.")
     parser.add_argument("--output-cocos", default="input", help="CHEASE output sign convention handling.")
     parser.add_argument("--preserve-boundary-limiter", default="true", help="Restore EFIT boundary/limiter in staged output.")
@@ -188,6 +190,8 @@ def main() -> int:
             relax=args.relax,
             nideal=args.nideal,
             nw=args.nw,
+            ns=args.ns,
+            nt=args.nt,
             auto_cocos=_bool(args.auto_cocos),
             output_cocos=args.output_cocos,
             preserve_boundary_limiter=_bool(args.preserve_boundary_limiter),
@@ -208,6 +212,16 @@ def main() -> int:
                 "input_sha256": _sha256(gfile),
                 "workdir": str(run_workdir),
                 "returncode": result.returncode,
+                # What CHEASE was run with. The solver mesh sets the local force
+                # balance of the result (#885), so products made with different
+                # settings must be told apart from the product alone.
+                "solver": {
+                    "nideal": config.resolved_nideal,
+                    "mesh": config.resolved_mesh,
+                    "nw": int(config.nw),
+                    "target_psin": float(config.target_psin),
+                    "relax": float(config.relax),
+                },
                 "refined_geqdsk": str(result.refined_geqdsk) if result.refined_geqdsk else "",
                 "comparison": dict(result.comparison),
             }

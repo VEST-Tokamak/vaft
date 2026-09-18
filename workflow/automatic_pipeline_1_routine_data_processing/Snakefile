@@ -1079,6 +1079,9 @@ rule run_chease:
         relax=CHEASE_CONFIG.get("relax", 0.5),
         # Deprecated raw NIDEAL for a non-upstream CHEASE build (#516); the
         # adapter selects it from its GEQDSK output contract otherwise.
+        mesh_args=" ".join(
+            f"--{key} {int(CHEASE_CONFIG[key])}" for key in ("ns", "nt") if CHEASE_CONFIG.get(key) is not None
+        ),
         nideal_arg=(
             f"--nideal {int(CHEASE_CONFIG['nideal'])}" if CHEASE_CONFIG.get("nideal") is not None else ""
         ),
@@ -1106,6 +1109,7 @@ rule run_chease:
             --target-psin {params.target_psin} \
             --relax {params.relax} \
             {params.nideal_arg} \
+            {params.mesh_args} \
             --nw {params.nw} \
             --auto-cocos {params.auto_cocos} \
             --output-cocos "{params.output_cocos}" \

@@ -18,6 +18,13 @@ from vaft.data.resources import data_path
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "workflow/automatic_pipeline_1_routine_data_processing/generate_chease_ods.py"
 SAMPLE_GFILE = data_path("efit/g039915.00319")
+SOLVER = {
+    "nideal": 6,
+    "mesh": {"ns": 150, "nt": 150, "npsi": 200, "nchi": 100, "negp": 0, "ner": 2},
+    "nw": 513,
+    "target_psin": 0.993,
+    "relax": 0.5,
+}
 
 
 def _run(args):
@@ -47,6 +54,7 @@ def test_runs_summary_is_embedded_onto_equilibrium_code_parameters(tmp_path):
                         "staged": str(refined),
                         "status": "completed",
                         "comparison": {"q_rms_rel": 0.01, "current_rel_diff": 0.002},
+                        "solver": SOLVER,
                     },
                     {"input": "g039915.00299", "status": "missing_input"},
                 ],
@@ -76,8 +84,10 @@ def test_runs_summary_is_embedded_onto_equilibrium_code_parameters(tmp_path):
         "q_rms_rel": 0.01,
         "current_rel_diff": 0.002,
     }
+    # The solver settings travel with the product (#885): the mesh sets the
+    # local force balance, so two products must be distinguishable by it.
     assert parameters["records_summary"] == [
-        {"input": "g039915.00319", "status": "completed"},
+        {"input": "g039915.00319", "status": "completed", "solver": SOLVER},
         {"input": "g039915.00299", "status": "missing_input"},
     ]
 

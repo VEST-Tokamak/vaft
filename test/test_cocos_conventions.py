@@ -300,19 +300,24 @@ def test_bulk_pressure_slope_is_used_rather_than_a_pointwise_derivative():
 
 
 def test_a_stale_case_header_declares_a_convention_the_signs_contradict():
-    """Regression: two packaged g-files carry `COCOS=02` in CASE but are not COCOS 2.
+    """Regression: a packaged g-file carries `COCOS=02` in CASE but is not COCOS 2.
 
-    They are VAFT's own CHEASE outputs, re-signed back to the input pattern by
+    It is VAFT's own CHEASE output, re-signed back to the input pattern by
     `output_cocos="input"` without the header being rewritten. `as_equilibrium`
     promotes the CASE token straight to an explicit index, so the contradiction
     is currently accepted in silence; Eq. 23 catches it.
+
+    `kineticEfit/g048224.00300.chease` used to be a second example. It was
+    regenerated from the packaged EFIT file with the NS = NT = 150 mesh (#885),
+    and that source already carries CHEASE's COCOS-2 signs, so nothing was
+    re-signed and its header now holds -- see the test after the next one.
     """
     from vaft.data.eqdsk import read_geqdsk
     from vaft.data.resources import data_path, require_repository_sample
     from vaft.process.equilibrium import as_equilibrium
     from vaft.process.cocos import validate_cocos
 
-    for name in ("efit/g040330.00320", "kineticEfit/g048224.00300.chease"):
+    for name in ("efit/g040330.00320",):
         geqdsk = read_geqdsk(require_repository_sample(data_path(name)))
         assert "COCOS=02" in str(geqdsk.mapping["CASE"]), name
         equilibrium = as_equilibrium(geqdsk)
@@ -604,6 +609,26 @@ def test_identification_is_independent_of_psi_profile_storage_order():
     assert identify_convention(reversed_storage) == identify_convention(equilibrium) == (1, 2)
 
 
+def test_a_chease_product_of_a_cocos2_source_keeps_a_true_header():
+    """The stale header comes from re-signing, not from CHEASE itself.
+
+    The packaged 48224 EFIT file already has CHEASE's COCOS-2 sign pattern, so
+    `output_cocos="input"` re-signs nothing and the `COCOS=02` CASE token of
+    its CHEASE product stays true.
+    """
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path, require_repository_sample
+    from vaft.process.cocos import identify_convention, validate_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    source = as_equilibrium(read_geqdsk(require_repository_sample(data_path("kineticEfit/g048224.00300"))))
+    geqdsk = read_geqdsk(require_repository_sample(data_path("kineticEfit/g048224.00300.chease")))
+    assert "COCOS=02" in str(geqdsk.mapping["CASE"])
+    refined = as_equilibrium(geqdsk)
+    assert validate_cocos(refined, 2).valid
+    assert identify_convention(refined) == identify_convention(source) == (1, 2)
+
+
 def test_the_stale_case_files_identify_as_the_family_equation_23_accepts():
     """The CASE header says COCOS 2; the signs and Eq. 23 both say 7."""
     from vaft.data.eqdsk import read_geqdsk
@@ -611,7 +636,7 @@ def test_the_stale_case_files_identify_as_the_family_equation_23_accepts():
     from vaft.process.cocos import identify_convention, validate_cocos
     from vaft.process.equilibrium import as_equilibrium
 
-    for name in ("efit/g040330.00320", "kineticEfit/g048224.00300.chease"):
+    for name in ("efit/g040330.00320",):
         equilibrium = as_equilibrium(read_geqdsk(require_repository_sample(data_path(name))))
         candidates = identify_convention(equilibrium)
         assert candidates == (7, 8), name
