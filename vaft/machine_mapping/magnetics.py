@@ -1153,6 +1153,31 @@ def _diamagnetic_config(shot: int) -> dict[str, Any]:
     return resolve_vest_diagnostic(shot, "diamagnetic_flux")
 
 
+def diamagnetic_field_for_shot(shot: int) -> int | None:
+    """The raw field carrying the diamagnetic (TF Rogowski) signal, or ``None``.
+
+    ``None`` when `vest.yaml` records no usable sensor for the shot -- none
+    installed yet, or a known fault period (#993).
+    """
+    source = _diamagnetic_config(shot).get("source")
+    if not source or source.get("field") is None:
+        return None
+    return int(source["field"])
+
+
+def _diamagnetic_field(shot: int, signal_name: str) -> int:
+    """Like :func:`diamagnetic_field_for_shot`, raising where there is none."""
+    field_code = diamagnetic_field_for_shot(shot)
+    if field_code is None:
+        reason = _diamagnetic_config(shot).get("unavailable_reason") or (
+            "vest.yaml records no diamagnetic sensor for this shot"
+        )
+        raise raw_db.RawSignalUnavailableError(
+            shot, "diamagnetic", str(reason), signal_name=signal_name
+        )
+    return field_code
+
+
 def _saturation_runs(mask: np.ndarray) -> list[tuple[int, int]]:
     """Return inclusive ``(start, stop)`` index pairs for each saturated run."""
     indices = np.flatnonzero(mask)
@@ -1231,7 +1256,7 @@ def diamagnetic_saturation_report(
     #215) so that saturation is detected in exactly one place.
     """
     config = _diamagnetic_config(shot)
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic flux")
     limits = config["processing"]["saturation_repair"]
     temp_time, raw_values = raw_db.require_signal(
         _safe_vest_load(shot, field_code, raw_source),
@@ -1278,7 +1303,7 @@ def vest_diamagnetic_rogowski_current(
     config = _diamagnetic_config(shot)
     processing = config["processing"]
     limits = processing["saturation_repair"]
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic hi-sensitivity TF Rogowski coil")
 
     time, raw_values = raw_db.require_signal(
         _safe_vest_load(shot, field_code, raw_source),
@@ -1319,7 +1344,7 @@ def vest_diamagnetic_flux_detailed(
     inspected at each integration without reimplementing the chain elsewhere.
     """
     config = _diamagnetic_config(shot)
-    field_code = int(config["source"]["field"])
+    field_code = _diamagnetic_field(shot, "diamagnetic flux")
     processing = config["processing"]
     limits = processing["saturation_repair"]
     temp_time, raw_values = raw_db.require_signal(
@@ -2547,6 +2572,7 @@ __all__ = [
     "vest_diamagnetic_flux",
     "vest_diamagnetic_flux_detailed",
     "vest_equilibrium_magnetics_channel_definitions",
+    "diamagnetic_field_for_shot",
     "fluctuation_mirnov_channel_definitions",
     "fluctuation_mirnov_gain_by_identifier",
     "fluctuation_mirnov_probe_indices",
