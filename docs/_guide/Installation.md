@@ -39,13 +39,14 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines four extras; none is needed for the first result on this page:
+The project defines five extras; none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
 | `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
+| `ml` | torch, onnx, onnxruntime | the neural-network backend of `vaft.process.ml` and ONNX export; datasets, splits, the NumPy reference backend and resolving a published model need no extra |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash

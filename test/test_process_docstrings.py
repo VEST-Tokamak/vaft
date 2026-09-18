@@ -80,6 +80,13 @@ DEFINITIONAL = frozenset({
     "integrate_emissivity_profile",
     # line_of_sight (#886): a sparse matrix product
     "project_emissivity",
+    # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
+    "build_dataset",
+    "calibrate_threshold",
+    "dataset_fingerprint",
+    "evaluate_model",
+    "load_model",
+    "predict",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -130,6 +137,7 @@ PIPELINE = frozenset({
     "psi_to_rz",
     "solve_solovev_constraints",
     "connection_length_map",
+    "ejiri_mirror_geometry",
     "trace_field_line",
     # cocos (#419)
     "validate_cocos",
@@ -174,6 +182,11 @@ PIPELINE = frozenset({
     "normalize_by_local_emission",
     "pixelwise_spectrogram",
     "subtract_temporal_background",
+    # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "resolve_model",
+    "split_groups",
+    "train_model",
+    "window_dataset",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -203,6 +216,8 @@ STATEFUL = frozenset({
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
+    # ml (#669): record-level samples -> windows
+    "window_dataset",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -358,6 +373,7 @@ CONVENTION_SENSITIVE = frozenset({
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
     "connection_length_map",
+    "ejiri_mirror_geometry",
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
@@ -432,6 +448,9 @@ CONVENTION_SENSITIVE = frozenset({
     "subtract_temporal_background",
     "summed_region_signal",
     "track_reference_frequency",
+    # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    "resolve_model",
+    "train_model",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

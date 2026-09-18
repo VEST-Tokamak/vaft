@@ -32,11 +32,12 @@ from vaft.machine_mapping.impa import (
     impa_probe_indices,
     resolve_impa_config,
 )
-from vaft.machine_mapping.langmuir_probes import langmuir_probes
+from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langmuir_probes
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
     fluctuation_mirnov_channel_definitions,
+    known_magnetics_faults,
     toroidal_mirnov_reference_channels,
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
@@ -48,7 +49,12 @@ from vaft.machine_mapping.pf_active import (
     vfit_pf_active_dynamic,
     vfit_pf_active_static,
 )
-from vaft.machine_mapping.pf_passive import DEFAULT_STATIC_GEOMETRY, pf_passive
+from vaft.machine_mapping.pf_passive import (
+    DEFAULT_STATIC_GEOMETRY,
+    DEFAULT_WALL_2409_ADDITIONS,
+    pf_passive,
+    wall_geometry_version_for_shot,
+)
 from vaft.machine_mapping.spectrometer_uv import spectrometer_uv
 from vaft.machine_mapping.tf import vfit_tf_dynamic, vfit_tf_static
 from vaft.machine_mapping.wall import wall
@@ -72,6 +78,7 @@ class VestMachineEra:
     last_shot: int | None
     pf_geometry: str
     reference_shot: int
+    wall_geometry: str = "1512"
 
     def contains(self, shot: int) -> bool:
         return (self.first_shot is None or shot >= self.first_shot) and (
@@ -79,14 +86,19 @@ class VestMachineEra:
         )
 
 
-# 43017 and 45967 are retained as legacy configuration boundaries.  The
-# corrected PF6/PF7 geometry begins at shot 45958, producing a deliberate
-# intermediate era that the old three-file selection could not represent.
+# One era per machine access that changed a conductor the static product
+# carries (issue #956). Each boundary is the first shot after a multi-day gap
+# in the raw `pulse_datetime`, which is when the vessel could be opened:
+#   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
+#          43016 is 2024-07-05, 43017 is 2024-07-15.
+#   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
+#          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
+# The PF boundary was 45958 before #956, with no recorded source, which split
+# off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
 VEST_MACHINE_ERAS = (
-    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016),
-    VestMachineEra("vest-43017-45957-pf1906", 43017, 45957, "1906", 43017),
-    VestMachineEra("vest-45958-45966-pf2507", 45958, 45966, "2507", 45958),
-    VestMachineEra("vest-45967-plus-pf2507", 45967, None, "2507", 45967),
+    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016, "1512"),
+    VestMachineEra("vest-43017-45967-pf1906", 43017, 45967, "1906", 43017, "2409"),
+    VestMachineEra("vest-45968-plus-pf2507", 45968, None, "2507", 45968, "2409"),
 )
 
 
@@ -181,8 +193,14 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     ods = ODS(consistency_check=False)
     wall(ods)
     vfit_pf_active_static(ods, shot=era.reference_shot)
-    pf_passive(ods)
+    pf_passive(ods, shot=era.reference_shot)
     em_coupling(ods, shot=era.reference_shot)
+    if wall_geometry_version_for_shot(era.reference_shot) != era.wall_geometry:
+        raise ValueError(
+            f"machine era {era.name} declares wall {era.wall_geometry}, but its "
+            f"reference shot {era.reference_shot} selects wall "
+            f"{wall_geometry_version_for_shot(era.reference_shot)}"
+        )
     # Deliberately un-gated (shot=0, the inventory). A static product describes
     # a machine *era*, and the phase-reference Mirnov boundary (shot 35520)
     # falls inside the first era, whose reference_shot is 43016 -- so no single
@@ -200,7 +218,7 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     _, _, reciprocity = mapper_comment.partition("; mutual_passive_passive ")
     ods["em_coupling.ids_properties.comment"] = (
         f"VEST electromagnetic coupling; machine era {era.name}; "
-        f"PF geometry {era.pf_geometry}"
+        f"PF geometry {era.pf_geometry}; wall {era.wall_geometry}"
         + (f"; mutual_passive_passive {reciprocity}" if reciprocity else "")
     )
     # pf_active, pf_passive, magnetics, and tf each have a dynamic counterpart
@@ -239,6 +257,20 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
                 "name": pf_geometry_asset.name,
                 "sha256": sha256_file(pf_geometry_asset),
             },
+            **(
+                {
+                    "wall_additions": {
+                        "name": Path(DEFAULT_WALL_2409_ADDITIONS).name,
+                        "wall_geometry": era.wall_geometry,
+                        "sha256": sha256_file(DEFAULT_WALL_2409_ADDITIONS),
+                    }
+                }
+                if era.wall_geometry != "1512"
+                else {}
+            ),
+            # The static product carries probe positions only. Which raw field
+            # feeds each position is per shot (vest.yaml `wiring`, issue #956)
+            # and recorded in the diagnostics provenance.
             "magnetics_geometry": {
                 "name": "VEST_MagneticsGeometry_Full_ver_2302.yaml",
                 "source_version": "2409",
@@ -748,6 +780,10 @@ def build_diagnostics_ods(
             raw_db.RawSignalUnavailableError,
             FileNotFoundError,
             SignalRepairError,
+            # A shot between two documented Langmuir bias/tip eras has no
+            # known setting (#152); that is the Langmuir component's gap,
+            # not a reason to lose every other diagnostic (#989).
+            LangmuirProbeEraGapError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes
@@ -879,7 +915,8 @@ def build_diagnostics_ods(
         else None
     )
     magnetics_channels = [
-        int(channel["field_code"]) for channel in vest_equilibrium_magnetics_channel_definitions()
+        int(channel["field_code"])
+        for channel in vest_equilibrium_magnetics_channel_definitions(int(shot))
     ] + [
         # Gated, like the fluctuation list below: a channel the mapper declines
         # to map past its last operational shot is not a channel the archive is
@@ -950,7 +987,12 @@ def build_diagnostics_ods(
             validate_magnetics_signals,
         )
 
-        quality_report = validate_magnetics_signals(ods)
+        # Channels recorded as broken for this shot (vest.yaml
+        # `known_faults`, issue #956) are condemned by the same pass, so
+        # EFIT and every other reader see them through validity alone.
+        quality_report = validate_magnetics_signals(
+            ods, known_faults=known_magnetics_faults(int(shot))
+        )
         project_validity(ods, quality_report)
         magnetics_quality = magnetics_quality_metrics(ods, quality_report)
 

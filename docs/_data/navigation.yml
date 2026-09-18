@@ -35,6 +35,9 @@ sections:
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
+      - id: diagrams
+        title: Scientific diagrams
+        url: /reference/diagrams/
       - id: process-reference
         title: Process reference
         url: /reference/process/

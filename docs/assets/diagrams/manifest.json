@@ -1,0 +1,41 @@
+{
+  "diagrams": {
+    "hugill.svg": {
+      "call": "vaft.diagram.hugill()",
+      "source_sha256": "a985bdbf07682d66017b94532e17ff5e0dfa5b657796bfa6d8dac604cf9dba3b",
+      "svg_sha256": "a698afc97f6b20f0d3f66b095f6bed229fbeb01021df9bd90f40fdcea097d31c"
+    },
+    "magnetic_island_3d.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
+      "source_sha256": "4d48d187245e8654a9578172c6e7e718d9491dded1173d7540d79ba4881482c9",
+      "svg_sha256": "bbdab57d56d7f6439a68142bd31165838d64f812643953706141f92cd6f55ac6"
+    },
+    "magnetic_island_poloidal.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='poloidal')",
+      "source_sha256": "85e62b9e4dd1c52105a19681fd81b511ce049cf54f122047a67b1305ca0a6e85",
+      "svg_sha256": "b0a768f6ce5003a6705dfd65b5e8b7b8d4a3fa18ad82da83d53c6ec7d1450e6d"
+    },
+    "magnetic_island_top.svg": {
+      "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='top')",
+      "source_sha256": "f193d160ca88d17be1b500d815a26fe440899b3bf09464bab66d3b0ebdc16c26",
+      "svg_sha256": "a85413e10890cda20091d79abcbc12f6f7c79ecb7f76798e82013a61fe49671b"
+    },
+    "peeling_ballooning.svg": {
+      "call": "vaft.diagram.peeling_ballooning()",
+      "source_sha256": "69355a29de2498a35ac6ae0378eb48a16b62144e8de358be816d3212d7f25834",
+      "svg_sha256": "a36f3330565597a89b5eb9031e7cc14b8240a690f8990f04da7c6345051b3eb0"
+    },
+    "s_alpha_ballooning.svg": {
+      "call": "vaft.diagram.s_alpha_ballooning()",
+      "source_sha256": "bb2dc672f6d4e3ba58af940212ff30246d325ca2624e5ee6a43a8a37c9110e23",
+      "svg_sha256": "ece2d46cc1eb78bcc8ca0c83beefa2a1ed89438fb0aaffd5ae92e3dbf0320858"
+    },
+    "troyon.svg": {
+      "call": "vaft.diagram.troyon()",
+      "source_sha256": "cc130cdbb78eba34f00d4ba1210a9417bd573c231a1f33bcc58ca79b671a135d",
+      "svg_sha256": "279a677a497f0eb052ed17b9c8148eb6a13359d5f2fb34c66803fc1c46fde83b"
+    }
+  },
+  "generator": "python -m vaft.diagram.build",
+  "note": "source_sha256 hashes the render recipe and the generated TikZ document; --check compares it without TeX."
+}

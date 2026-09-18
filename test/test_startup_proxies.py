@@ -370,3 +370,106 @@ def test_the_ec_power_is_the_nan_aware_median_around_the_onset():
     window = np.abs(stamps - 0.3055) <= 1e-3
     assert _ec_power(ods, 0.3055) == float(np.nanmedian(power[window]))
     assert _ec_power(ODS(), 0.3) is None
+
+
+# ---------------------------------------------------------------------------
+# compute_ejiri_mirror_proxy_ods (issue #676)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def r_ecr(solved, t_breakdown):
+    from vaft.omas.process_wrapper import EC_FREQUENCY_VEST_HZ, _vacuum_toroidal_product
+
+    return electron_cyclotron_resonance_radius(
+        _vacuum_toroidal_product(solved, t_breakdown), EC_FREQUENCY_VEST_HZ
+    )
+
+
+@pytest.fixture(scope="module")
+def ejiri(solved, t_breakdown, r_ecr):
+    return vaft.omas.compute_ejiri_mirror_proxy_ods(solved, time=t_breakdown, r_start=r_ecr)
+
+
+def test_the_ejiri_proxy_converges_at_its_default_length(ejiri):
+    # 50 m stops both branches short on this shot; the default must not.
+    assert ejiri["saturated"] is False
+    for key in ("r_inboard_limiter", "curvature_radius", "z_max", "alpha", "f3"):
+        assert np.isfinite(ejiri[key]), key
+
+
+def test_the_ejiri_proxy_finds_the_mirror_on_the_tilted_side(ejiri):
+    # At this instant the line through the resonance is tilted at the midplane,
+    # so on one side R rises for a few steps before dipping.  A first-local-
+    # minimum rule read that side's wall end, outboard of the start, as its
+    # mirror point and reported F3 = 0.  Both sides really do dip.
+    assert ejiri["mirror"] is True
+    assert ejiri["f3"] > 0.0
+    assert ejiri["r_mirror_upper"] < ejiri["r_start"]
+    assert ejiri["r_mirror_lower"] < ejiri["r_start"]
+
+
+def test_the_ejiri_wrapper_is_the_process_function_on_the_same_field(solved, t_breakdown, r_ecr, ejiri):
+    from vaft.omas.process_wrapper import _vacuum_toroidal_product
+    from vaft.process.equilibrium import ejiri_mirror_geometry, make_vacuum_field_interpolator
+
+    grid = vaft.omas.compute_vacuum_field_map(solved, time=t_breakdown, resolution=65)
+    b_field = make_vacuum_field_interpolator(
+        grid["r"], grid["z"], grid["b_r"], grid["b_z"],
+        _vacuum_toroidal_product(solved, grid["time"]),
+    )
+    direct = ejiri_mirror_geometry(
+        r_ecr,
+        b_field,
+        wall_r=np.asarray(solved["wall.description_2d.0.limiter.unit.0.outline.r"], float),
+        wall_z=np.asarray(solved["wall.description_2d.0.limiter.unit.0.outline.z"], float),
+    )
+    for key in ("r_inboard_limiter", "curvature_radius", "z_max", "alpha", "f3"):
+        assert ejiri[key] == direct[key], key
+    assert ejiri["time"] == grid["time"]
+
+
+def test_the_ejiri_wrapper_saturation_warning_blames_the_caller(solved, t_breakdown, r_ecr):
+    # Through the ODS wrapper the warning used to be attributed to
+    # process_wrapper.py, so a sweep reported every unconverged instant against
+    # one library line.
+    with pytest.warns(RuntimeWarning, match="not converged") as record:
+        vaft.omas.compute_ejiri_mirror_proxy_ods(
+            solved, time=t_breakdown, r_start=r_ecr, max_length_m=50.0
+        )
+    converged = [w for w in record if "not converged" in str(w.message)]
+    assert converged and converged[0].filename == __file__
+
+
+def test_the_ejiri_wrapper_runs_on_the_vacuum_alone(solved, t_breakdown, r_ecr, ejiri):
+    # No equilibrium in the copy: a pre-breakdown proxy must never reach for one.
+    vacuum_only = _light_copy(solved, ("pf_active", "pf_passive", "wall", "tf"))
+    out = vaft.omas.compute_ejiri_mirror_proxy_ods(vacuum_only, time=t_breakdown, r_start=r_ecr)
+    assert out["f3"] == ejiri["f3"]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda ods, t, r: vaft.omas.compute_ejiri_mirror_proxy_ods(ods, time=t, r_start=r),
+        lambda ods, t, r: vaft.omas.compute_connection_length_map_ods(ods, time=t, resolution=9),
+    ],
+    ids=["ejiri", "connection_length"],
+)
+def test_a_field_line_wrapper_without_a_wall_refuses_and_leaves_the_ods_alone(
+    solved, t_breakdown, r_ecr, call
+):
+    # Everything the vacuum field needs, and no wall.  Reading a missing OMAS
+    # path does not raise -- it returns an empty array and creates the path --
+    # so the old try/except KeyError never fired: the connection-length wrapper
+    # returned a map traced against no wall, and both handed the caller back an
+    # ODS with an empty wall it did not have before.
+    no_wall = _light_copy(solved, ("pf_active", "pf_passive", "tf"))
+    with pytest.raises(ValueError, match="limiter outline"):
+        call(no_wall, t_breakdown, r_ecr)
+    assert "wall" not in no_wall
+
+
+def test_the_vacuum_field_map_does_not_give_the_caller_a_wall(solved, t_breakdown):
+    no_wall = _light_copy(solved, ("pf_active", "pf_passive", "tf"))
+    vaft.omas.compute_vacuum_field_map(no_wall, time=t_breakdown, resolution=9)
+    assert "wall" not in no_wall

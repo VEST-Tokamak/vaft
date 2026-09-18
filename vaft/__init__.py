@@ -26,6 +26,7 @@ __all__ = [
     "database",
     "imas",
     "validation",
+    "diagram",
     "apply_runtime_compat_patches",
 ]
 

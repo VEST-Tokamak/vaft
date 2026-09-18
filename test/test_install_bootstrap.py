@@ -125,6 +125,11 @@ def _usable_bash() -> str | None:
 
 BASH = _usable_bash()
 requires_bash = pytest.mark.skipif(BASH is None, reason="no working POSIX bash")
+#: The POSIX installers' sourced helpers are exercised on POSIX. Git Bash on
+#: Windows runs them, but hands back mixed path spellings the assertions cannot
+#: compare; the Windows scripts carry their own ownership model and their own
+#: PowerShell parse tests.
+posix_only = pytest.mark.skipif(os.name == "nt", reason="POSIX installer helpers are checked on POSIX")
 
 
 def _load_checker() -> ModuleType:
@@ -2515,6 +2520,7 @@ def test_posix_install_refuses_a_populated_prefix_it_does_not_own(tmp_path):
     assert empty.is_dir() and not any(empty.iterdir())
 
 
+@posix_only
 @requires_bash
 def test_posix_install_and_uninstall_round_trip(tmp_path):
     """A prefix the installer created is removed, but only once it is empty."""
@@ -2554,6 +2560,7 @@ def test_posix_install_and_uninstall_round_trip(tmp_path):
     assert not fresh.exists()
 
 
+@posix_only
 @requires_bash
 def test_posix_uninstall_refuses_a_manifest_entry_outside_the_prefix(tmp_path):
     prefix = tmp_path / "prefix"
@@ -2567,6 +2574,7 @@ def test_posix_uninstall_refuses_a_manifest_entry_outside_the_prefix(tmp_path):
         assert victim.is_file()
 
 
+@posix_only
 @requires_bash
 def test_posix_prefix_is_canonicalised_before_the_checkout_comparison(tmp_path):
     """`/tmp/../<checkout>/x` and a symlink both name a path inside the checkout."""
@@ -2683,6 +2691,7 @@ def test_efit_installer_fails_on_a_failed_ctest_and_skip_tests_is_explicit(tmp_p
         assert done.returncode == 0 and "unverified" in done.stdout
 
 
+@posix_only
 @requires_bash
 def test_efit_build_directory_is_absolute_before_it_is_recorded_or_removed(tmp_path):
     """Cold review install F10: `--build-dir build` was recorded verbatim.
@@ -2871,6 +2880,7 @@ def test_nubeam_windows_commands_name_a_path_that_exists():
     assert "run-local-validation.sh --case" not in wrapper
 
 
+@posix_only
 @requires_bash
 def test_nubeam_macos_derives_the_gcc_major_from_the_selected_gfortran(tmp_path):
     """Cold review install F3: gcc-15/g++-15 were literals; Homebrew's gcc is 16.

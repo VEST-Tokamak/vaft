@@ -83,6 +83,7 @@ CONVENTION_SENSITIVE = frozenset({
     "rhoN_from_qpsiN",
     "shear_from_r_q",
     "surface_poloidal_flux_from_psi_boundary",
+    "straight_field_line_angle",
     "loop_voltage_from_total_flux",
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",
@@ -97,6 +98,12 @@ CONVENTION_SENSITIVE = frozenset({
     "greenwald_density",
     "greenwald_fraction",
     "confinement_time_from_engineering_parameters",
+    # local island topology: helicity sign and full-vs-half width
+    "helical_phase",
+    "island_pendulum_hamiltonian",
+    "island_separatrix_half_width",
+    "s_alpha_ballooning_stable",
+    "s_alpha_marginal_alpha",
     # nu* and rho* families
     "collisionality_from_n_T_B_R",
     "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
@@ -119,6 +126,15 @@ CONVENTION_SENSITIVE = frozenset({
     "green_psi_exact",
     "green_br_bz_exact",
     "green_r",
+    # Romero's transformer (#781): full-weber flux, V = -dpsi/dt, and the
+    # sign of psi_C - psi_B.
+    "resistive_voltage_from_R_p_I_p_I_ni",
+    "internal_inductance_rate_from_I_p_V_R_V_C",
+    "plasma_current_rate_from_L_i_V_B_V_C_V_R",
+    "equilibrium_surface_voltage_from_I_p_dL_i_V_R",
+    "equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R",
+    "current_weighted_flux_from_psi_j_dS",
+    "internal_inductance_from_psi_C_psi_B_I_p",
     # atomic: ADF11 table units
     "interpolate_adf11",
     "fractional_abundances",
@@ -147,6 +163,17 @@ CONVENTION_SENSITIVE = frozenset({
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
+    # the lumped circuit (#783 3.6-3.8): transverse vs parallel resistivity,
+    # the resistivity the ring resistance must be fed, the li normalisation,
+    # and the sign of the loop voltage against the current.
+    "resistivity_from_n_e_nu_e",
+    "plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa",
+    "plasma_inductance_circular_from_R0_a_li",
+    "plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p",
+    # burn-through (#783 3.9): atoms not molecules, and plasma-local densities
+    # rather than vessel averages.
+    "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
+    "ionization_fraction_from_n_e_n_D0",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

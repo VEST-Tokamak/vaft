@@ -322,8 +322,144 @@ def line_cooling_coefficient(
     return coefficient
 
 
+def mean_charge_from_charge_state_densities(n_z, axis=-1):
+    r"""Mean charge of one element over its charge states.
+
+    $$\langle Z\rangle = \sum_j j\,f_j = \frac{\sum_j j\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, the layout
+    :func:`fractional_abundances` returns -- so its output can be passed
+    straight in, and densities need not be normalised first because the
+    fractions $f_j$ are formed here.  Spectroscopic notation counts from one
+    (C I is neutral carbon); pass charge, not ionisation stage, or every value
+    comes out one high.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    """
+    density = np.asarray(n_z, dtype=float)
+    if density.ndim == 0 or density.shape[axis] == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_z must be finite and non-negative")
+    total = np.sum(density, axis=axis)
+    if np.any(total <= 0.0):
+        raise ValueError("a charge-state distribution with zero total density has no mean charge")
+    shape = [1] * density.ndim
+    shape[axis] = density.shape[axis]
+    charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
+    mean = np.sum(charge * density, axis=axis) / total
+    return float(mean) if np.ndim(mean) == 0 else mean
+
+
+def z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None):
+    r"""Effective charge of a mixture of ion species.
+
+    $$Z_{\mathrm{eff}} = \frac{\sum_s n_s Z_s^2}{n_e}, \qquad
+      n_e = \sum_s n_s Z_s\ \text{when not given}$$
+
+    Parameters
+    ----------
+    n_s : array-like
+        Density of each ion species or charge state, finite and non-negative;
+        the last axis runs over species [m^-3].
+    Z_s : array-like
+        Charge of each, broadcastable against ``n_s``, finite and non-negative
+        [-].
+    n_e : float or array-like, optional
+        Electron density, finite and positive; default the quasi-neutral
+        $\sum_s n_s Z_s$ [m^-3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective charge, with the species axis removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or charge, a non-positive electron
+        density, or a quasi-neutral electron density of zero.
+
+    Convention
+    ----------
+    **Pass the electron density only when it is measured independently.**  The
+    default makes the plasma quasi-neutral by construction, and then a pure
+    hydrogenic plasma is exactly 1 and every impurity raises it.  A measured
+    $n_e$ that disagrees with $\sum_s n_s Z_s$ is taken as given and not
+    reconciled, so a density error lands directly in $Z_{\mathrm{eff}}$.
+
+    A charge-resolved impurity is several species here, one per charge state:
+    $Z_{\mathrm{eff}}$ weights $Z^2$, so collapsing an element of density $n_I$
+    onto its mean charge first underestimates it by exactly
+    $n_I\,\mathrm{Var}(Z)/n_e$ -- the quasi-neutral $n_e$ is unchanged, since
+    it weights $Z$ only linearly.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+    """
+    density = np.asarray(n_s, dtype=float)
+    charge = np.asarray(Z_s, dtype=float)
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_s must be finite and non-negative")
+    if not np.all(np.isfinite(charge)) or np.any(charge < 0.0):
+        raise ValueError("Z_s must be finite and non-negative")
+    density, charge = np.broadcast_arrays(density, charge)
+    weighted = np.sum(density * charge**2, axis=-1)
+    if n_e is None:
+        electrons = np.sum(density * charge, axis=-1)
+        if np.any(electrons <= 0.0):
+            raise ValueError(
+                "the quasi-neutral electron density is zero; pass n_e or a charged species"
+            )
+    else:
+        electrons = np.asarray(n_e, dtype=float)
+        if not np.all(np.isfinite(electrons)) or np.any(electrons <= 0.0):
+            raise ValueError("n_e must be finite and positive")
+    z_eff = weighted / electrons
+    return float(z_eff) if np.ndim(z_eff) == 0 else z_eff
+
+
 __all__ = [
     "fractional_abundances",
     "interpolate_adf11",
     "line_cooling_coefficient",
+    "mean_charge_from_charge_state_densities",
+    "z_eff_from_n_s_Z_s",
 ]

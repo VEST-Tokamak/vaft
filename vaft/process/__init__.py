@@ -54,6 +54,7 @@ _SUBMODULES = {
     "statistical_analysis": ".statistical_analysis",
     "wall_modes": ".wall_modes",
     "coils_non_axisymmetric": ".coils_non_axisymmetric",
+    "ml": ".ml",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -89,6 +90,8 @@ _IMPORT_ORDER = (
     "camera_fluctuation",
     "line_of_sight",
     "magnetic_island",
+    # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
+    "ml",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

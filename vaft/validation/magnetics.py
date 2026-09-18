@@ -38,24 +38,33 @@ split by how categorical their evidence is:
   at a sensor (``MagneticsQualityConfig.max_plausible_amplitude``), or that a
   healthy geometric family contradicts by more than
   ``population_peak_factor``.  These are thresholds, and they are hard only
-  because the population justification the rule above demands exists: on
-  the three packaged VEST shots faulty channels start at 4.5x their family
-  median while healthy ones top out at 2.6x, and
-  ``test_the_population_margin_holds_on_the_packaged_shot`` keeps that gap
-  under test.  Both verdicts cover the whole record: a probe's gain does not
-  come and go within a shot.
+  because the population justification the rule above demands exists (see
+  the config); ``test_the_population_margin_holds_on_the_packaged_shot``
+  keeps it under test.  Both verdicts cover the whole record: a probe's gain
+  does not come and go within a shot.
+* a B-probe that contradicts its own array -- the probes sharing its radius,
+  ordered by height -- by more than the array's own amplitude for more than
+  ``array_contradiction_fraction`` of its assessable record, attributed by
+  leave-one-out (#977).  Also a threshold, justified the same way.
 
 **Soft** -- ``1``, valid but flagged, never excluded by a default consumer:
 
 * spikes, offset jumps, baseline drift, elevated baseline noise.
 
-Not a verdict here at all: whether a probe contradicts its own array.
-:func:`array_contradiction_scores` scores a probe against the interpolation
-of its nearest neighbours, but vacuum fields are smooth over a few
-centimetres only while no plasma is present, and the products do not record
-the probes' toroidal positions, so the review belongs to a consumer that
-knows its plasma-free window (the vacuum-model benchmark conditions its
-scored spread on it).
+Whether a probe contradicts its own array used to be left to the vacuum
+benchmark, on the premise that the field is smooth over a few centimetres
+only while no plasma is present.  Measured on the three reference shots it
+is smooth during the plasma too: a healthy probe departs from the
+interpolation of its two neighbours by a median 0.02-0.05 of the array's
+amplitude, while the probes EFIT kept fitting although they read a field
+nothing else in their array reads (C4-04 on every shot; C1-01, C3-02, C4-02
+on 41524; the lower inboard H3 set on 41672) depart by more than the whole
+amplitude.  That is sensor against sensor, the same class as the family
+review, and not a model disagreement (#253 §10 is untouched).  The
+scale is the array's amplitude rather than the spread of the other probes'
+departures, because several broken probes in one array widen that spread
+until none of them stands out -- which is how three of 41524's outboard
+faults passed the benchmark's scorer.
 
 The soft set is where a threshold could misfire on real physics -- plasma
 breakdown *is* a fast step in these signals -- so a misfire costs a note in the
@@ -105,12 +114,16 @@ from vaft.validation.model import ValidationStatus
 
 __all__ = [
     "ChannelQuality",
+    "recorded_faults_for",
     "MagneticsQualityConfig",
     "QualityEvent",
     "QUANTITY_BY_KIND",
     "channel_node",
     "implausible_magnitude",
+    "array_contradiction_fractions_of",
     "array_contradiction_scores",
+    "array_departure_ratios",
+    "attribute_array_contradictions",
     "population_peak_outliers",
     "population_peak_ratios",
     "magnetics_quality_metrics",
@@ -199,9 +212,38 @@ class MagneticsQualityConfig:
     #: 4.5-15.8x on the latter two, and the healthiest channel in all three
     #: shots tops out at 2.6x; the value sits inside that gap, and
     #: ``test_the_population_margin_holds_on_the_packaged_shot`` asserts it
-    #: stays there.  Within-shot and relative, so it follows the shot's own
+    #: stays there.  It is not a complete test for faults: three outboard
+    #: probes on 41524 read 5x the field their array reads and sit at only
+    #: 3.5-3.9x the family median, and a sign fault (C4-04) sits inside the
+    #: family at 0.7-2.2x.  The array review below catches both; this factor
+    #: is kept, untuned, as independent evidence.  Within-shot and relative, so it follows the shot's own
     #: amplitude and never needs a tesla or a weber.  ``None`` disables it.
     population_peak_factor: float | None = 4.0
+
+    #: A B-probe contradicts its array at a sample when it departs from the
+    #: interpolation of its two nearest array neighbours by more than this
+    #: multiple of the array's amplitude there (median ``|B|`` across the
+    #: array).  One: the probe reads a difference as large as the field its
+    #: array reads.  ``None`` disables the array review.
+    array_departure_factor: float | None = 1.0
+    #: Fraction of its assessable samples a probe must contradict its array
+    #: for, attributed by leave-one-out, to be condemned for the whole record.
+    #: Measured over the whole assessable record of the three reference shots
+    #: (#977): every attributed probe sits at 0.35 or above (C4-04 0.58-0.99;
+    #: C4-02, C1-01, C3-02 0.63-0.81 on 41524; the lower inboard H3 set
+    #: 0.35-0.64 on 41672) and every survivor at 0.24 or below;
+    #: ``test_the_array_margin_holds_on_the_reference_shots`` keeps that gap.
+    array_contradiction_fraction: float = 0.3
+    #: Fewest assessable probes an array needs to be reviewed at all: with
+    #: seven, leave-one-out still has an array to judge against.
+    min_array_members: int = 7
+    #: Fraction of the record a probe must be scorable on (usable in itself
+    #: and in both neighbours) before its fraction means anything.
+    array_min_scored: float = 0.5
+    #: Floor on the array's amplitude, as a fraction of its record amplitude,
+    #: so an instant when the whole array reads nothing cannot make a
+    #: millitesla of texture a contradiction.
+    array_amplitude_floor: float = 0.01
 
 
 
@@ -797,6 +839,61 @@ def _position(source: Any, kind: str, index: int) -> tuple[float, float] | None:
         return None
 
 
+def _neighbour_departures(
+    heights: Sequence[float], waveforms: np.ndarray
+) -> tuple[np.ndarray, dict[int, tuple[int, int]]]:
+    """Each probe's departure from the interpolation of its two nearest neighbours.
+
+    The nearest neighbour below and above, or the two nearest on one side at an
+    end of the array; probes at the same height are not each other's
+    neighbours.  Returns the departures (``nan`` where a probe has no two
+    distinct neighbours) and, per probe, which two predicted it.
+    """
+    heights = np.asarray(heights, dtype=float).reshape(-1)
+    Y = np.asarray(waveforms, dtype=float)
+    n = heights.size
+    residual = np.full_like(Y, np.nan)
+    used: dict[int, tuple[int, int]] = {}
+    for k in range(n):
+        others = [j for j in range(n) if abs(heights[j] - heights[k]) > 1e-3]
+        below = [j for j in others if heights[j] < heights[k]]
+        above = [j for j in others if heights[j] > heights[k]]
+        if below and above:
+            a, b = max(below, key=lambda j: heights[j]), min(above, key=lambda j: heights[j])
+        elif len(above) >= 2:
+            a, b = sorted(above, key=lambda j: heights[j])[:2]
+        elif len(below) >= 2:
+            a, b = sorted(below, key=lambda j: -heights[j])[:2]
+        else:
+            continue
+        used[k] = (a, b)
+        w = (heights[k] - heights[a]) / (heights[b] - heights[a])
+        residual[k] = Y[k] - ((1.0 - w) * Y[a] + w * Y[b])
+    return residual, used
+
+
+def array_departure_ratios(
+    heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0
+) -> np.ndarray:
+    """Each probe's departure from its neighbours as a multiple of the array's own amplitude.
+
+    The amplitude is the median ``|B|`` across the array at the same instant,
+    floored at ``floor`` so a quiet instant cannot make texture significant.
+    Unlike :func:`array_contradiction_scores`, whose scale is the spread of
+    the other probes' departures, this scale is one a faulty probe cannot
+    inflate: when several probes of one array are broken, their departures
+    and their neighbours' widen the witness spread until none of them stands
+    out, which is what hid three of 41524's outboard faults (#977).
+    """
+    Y = np.asarray(waveforms, dtype=float)
+    residual, _used = _neighbour_departures(heights, Y)
+    with np.errstate(invalid="ignore", all="ignore"):
+        amplitude = np.nanmedian(np.abs(Y), axis=0) if Y.size else np.empty(0)
+    amplitude = np.maximum(np.where(np.isfinite(amplitude), amplitude, 0.0), float(floor))
+    amplitude = np.where(amplitude > 0.0, amplitude, np.nan)
+    return np.abs(residual) / amplitude
+
+
 def array_contradiction_scores(
     heights: Sequence[float],
     waveforms: np.ndarray,
@@ -821,26 +918,9 @@ def array_contradiction_scores(
     absolute test the sigma was never meant to be), as are rows without two
     distinct neighbours and samples where any of the three is non-finite.
     """
-    heights = np.asarray(heights, dtype=float).reshape(-1)
     Y = np.asarray(waveforms, dtype=float)
-    n = heights.size
-    residual = np.full_like(Y, np.nan)
-    used: dict[int, tuple[int, int]] = {}
-    for k in range(n):
-        others = [j for j in range(n) if abs(heights[j] - heights[k]) > 1e-3]
-        below = [j for j in others if heights[j] < heights[k]]
-        above = [j for j in others if heights[j] > heights[k]]
-        if below and above:
-            a, b = max(below, key=lambda j: heights[j]), min(above, key=lambda j: heights[j])
-        elif len(above) >= 2:
-            a, b = sorted(above, key=lambda j: heights[j])[:2]
-        elif len(below) >= 2:
-            a, b = sorted(below, key=lambda j: -heights[j])[:2]
-        else:
-            continue
-        used[k] = (a, b)
-        w = (heights[k] - heights[a]) / (heights[b] - heights[a])
-        residual[k] = Y[k] - ((1.0 - w) * Y[a] + w * Y[b])
+    n = np.asarray(heights).size
+    residual, used = _neighbour_departures(heights, Y)
     # The spread a probe is judged against comes from the probes that are not
     # its neighbours: a contradicting probe drags its two neighbours' departures
     # up with it, and in a short array they would otherwise set the scale it
@@ -861,6 +941,190 @@ def array_contradiction_scores(
             scale = np.where(scale > 0.0, scale, np.nan)
             scores[k] = np.abs(residual[k] - centre) / scale
     return scores
+
+
+def array_contradiction_fractions_of(
+    heights: Sequence[float],
+    waveforms: np.ndarray,
+    *,
+    floor: float,
+    sigma: float,
+    min_scored: float,
+    min_witnesses: int = 3,
+    scale: str = "witness",
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-probe fraction of scorable samples over ``sigma``, and the mask of those samples.
+
+    ``scale = "witness"`` scores with :func:`array_contradiction_scores` (a
+    robust-z against independent probes); ``"array_amplitude"`` with
+    :func:`array_departure_ratios` (a multiple of the array's own amplitude),
+    and ``sigma`` is then that multiple.  A probe scorable on fewer than
+    ``min_scored`` of the samples is ``nan``: its fraction would be a
+    statement about a stretch too short to mean the same thing as its
+    neighbours'.
+    """
+    Y = np.asarray(waveforms, dtype=float)
+    if scale == "witness":
+        scores = array_contradiction_scores(heights, Y, floor=floor, min_witnesses=min_witnesses)
+    elif scale == "array_amplitude":
+        scores = array_departure_ratios(heights, Y, floor=floor)
+    else:
+        raise ValueError(f"unknown array scale {scale!r}")
+    finite = np.isfinite(scores)
+    contradicting = finite & (scores > float(sigma))
+    counted = finite.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        fractions = np.where(
+            counted >= float(min_scored) * Y.shape[1], contradicting.sum(axis=1) / counted, np.nan
+        )
+    return fractions, contradicting
+
+
+def attribute_array_contradictions(
+    heights: Sequence[float],
+    waveforms: np.ndarray,
+    *,
+    floor: float,
+    sigma: float,
+    fraction: float,
+    min_members: int,
+    min_scored: float,
+    min_witnesses: int = 3,
+    scale: str = "witness",
+) -> list[dict[str, Any]]:
+    """Which probes of one array contradict it, attributed by leave-one-out.
+
+    ``heights`` order the array, ``waveforms`` hold one row per probe with the
+    samples that may not be judged set to ``nan``.  A contradicting probe drags
+    its neighbours' departures up with it, so among the probes over
+    ``fraction`` the one attributed is the one whose removal leaves the array
+    least contradicted in total; it is removed and the array scored again, in
+    the order attributed.  With ``min_members`` probes left there is no array to judge
+    leave-one-out against, and nothing more is attributed.
+
+    ``scale`` is :func:`array_contradiction_fractions_of`'s.  Returns, in
+    order, ``{"index", "fraction", "contradicting"}``: the row in
+    ``waveforms``, its fraction before removal, and the mask of its
+    contradicting samples.  The vacuum benchmark (#190) and the signal-quality
+    review (#977) both call this, so the two cannot come to mean different
+    things by "contradicts its array".
+    """
+    Y = np.asarray(waveforms, dtype=float)
+    heights = [float(h) for h in heights]
+    remaining = list(range(len(heights)))
+
+    def scored(indices: list[int]) -> tuple[np.ndarray, np.ndarray]:
+        return array_contradiction_fractions_of(
+            [heights[i] for i in indices], Y[indices], floor=floor, sigma=sigma,
+            min_scored=min_scored, min_witnesses=min_witnesses, scale=scale,
+        )
+
+    attributed: list[dict[str, Any]] = []
+    fractions, contradicting = scored(remaining)
+    while len(remaining) > int(min_members):
+        candidates = [k for k, value in enumerate(fractions) if np.isfinite(value) and value > float(fraction)]
+        if not candidates:
+            break
+        without = {k: scored(remaining[:k] + remaining[k + 1:]) for k in candidates}
+
+        # The removal that leaves the array least contradicted in total.  The
+        # largest remaining fraction is not enough: with several independent
+        # faults in one array it stays pinned near one whichever probe goes,
+        # every candidate ties, and the tie falls to a neighbour a fault
+        # dragged.  Removing the fault itself also clears what it dragged.
+        def left_behind(k: int) -> float:
+            values = without[k][0]
+            return float(np.nansum(values)) if np.isfinite(values).any() else 0.0
+
+        worst = min(candidates, key=lambda k: (left_behind(k), -fractions[k]))
+        attributed.append(
+            {
+                "index": remaining[worst],
+                "fraction": float(fractions[worst]),
+                "contradicting": contradicting[worst].copy(),
+            }
+        )
+        remaining.pop(worst)
+        fractions, contradicting = without[worst]
+    return attributed
+
+
+def _judgeable(found: _Detections) -> np.ndarray:
+    """Samples an array may use: finite, and outside every hard interval found so far."""
+    usable = np.isfinite(found.data)
+    for (start, stop), _reason in found.hard:
+        usable[start:stop] = False
+    return usable
+
+
+def _array_review(
+    source: Any, detections: dict[tuple[str, int], _Detections], config: MagneticsQualityConfig
+) -> None:
+    """The third cross-channel pass: condemn a B-probe its own array contradicts (#977).
+
+    Probes sharing a radius (to the millimetre) form an array ordered by
+    height.  Channels already condemned outright -- dead, held, a recorded
+    fault, a population outlier -- are left out before scoring, so they cannot
+    drag their neighbours; samples a hard detector masked are not judged.
+    Attribution is :func:`attribute_array_contradictions` on the array's own
+    amplitude.  Every scored probe gets
+    ``metrics["array_contradiction_fraction"]`` (for one condemned, the
+    fraction it was condemned at), so a reader can see how close survivors
+    came.  Mutates ``detections`` in place.
+    """
+    factor = config.array_departure_factor
+    if factor is None:
+        return
+    arrays: dict[float, list[tuple[float, tuple[str, int]]]] = {}
+    for key, found in detections.items():
+        kind, index = key
+        if kind != "b_field_pol_probe" or _condemned(found):
+            continue
+        position = _position(source, kind, index)
+        if position is None:
+            continue
+        arrays.setdefault(round(float(position[0]), 3), []).append((float(position[1]), key))
+    for members in arrays.values():
+        members.sort()
+        keys = [key for _z, key in members]
+        grid = detections[keys[0]].time
+        keys = [
+            key for key in keys
+            if detections[key].time.shape == grid.shape and np.allclose(detections[key].time, grid)
+        ]
+        if len(keys) < int(config.min_array_members):
+            continue
+        heights = [z for z, key in members if key in keys]
+        Y = np.array([
+            np.where(_judgeable(detections[key]), detections[key].data, np.nan) for key in keys
+        ])
+        with np.errstate(invalid="ignore", all="ignore"):
+            record_amplitude = float(np.nanmedian([
+                np.nanpercentile(np.abs(row[np.isfinite(row)]), 99) if np.isfinite(row).any() else np.nan
+                for row in Y
+            ]))
+        floor = config.array_amplitude_floor * record_amplitude if np.isfinite(record_amplitude) else 0.0
+        attributed = attribute_array_contradictions(
+            heights, Y, floor=floor, sigma=float(factor),
+            fraction=config.array_contradiction_fraction,
+            min_members=config.min_array_members, min_scored=config.array_min_scored,
+            scale="array_amplitude",
+        )
+        condemned = {entry["index"]: entry["fraction"] for entry in attributed}
+        survivors = [i for i in range(len(keys)) if i not in condemned]
+        final, _mask = array_contradiction_fractions_of(
+            [heights[i] for i in survivors], Y[survivors], floor=floor, sigma=float(factor),
+            min_scored=config.array_min_scored, scale="array_amplitude",
+        )
+        fractions = dict(condemned)
+        fractions.update({i: float(value) for i, value in zip(survivors, final)})
+        for i, key in enumerate(keys):
+            found = detections[key]
+            metrics = {**found.metrics, "array_contradiction_fraction": fractions.get(i, float("nan"))}
+            hard = found.hard
+            if i in condemned:
+                hard = hard + (((0, found.data.size), "array_contradiction"),)
+            detections[key] = replace(found, hard=hard, metrics=metrics)
 
 
 def _population_review(
@@ -916,6 +1180,8 @@ def _whole_record_reason(found: _Detections) -> str:
     """Why a channel was condemned outright, when it was -- every cause, joined."""
     reasons = {reason for _interval, reason in found.hard}
     parts: list[str] = []
+    if "known_fault" in reasons:
+        parts.append(f"recorded as broken for this shot: {found.metrics['known_fault']}")
     if "implausible_magnitude" in reasons:
         parts.append(
             f"amplitude {found.metrics['amplitude']:.3g} exceeds the physical ceiling; "
@@ -927,9 +1193,31 @@ def _whole_record_reason(found: _Detections) -> str:
             f"{found.metrics['amplitude_over_family_median']:.1f}x the "
             f"{found.metrics.get('family', 'family')} median"
         )
+    if "array_contradiction" in reasons:
+        parts.append(
+            "departs from its array neighbours by more than the array's amplitude for "
+            f"{found.metrics['array_contradiction_fraction']:.0%} of its assessable record"
+        )
     if not is_usable(ValidityRecord(found.seed, None, None)):
         parts.append("seeded from an invalid raw voltage")
     return "; ".join(parts)
+
+
+def recorded_faults_for(source: Any) -> dict[tuple[str, int], str]:
+    """The channels recorded as broken for the pulse *source* describes.
+
+    Only a VEST pulse has such a record
+    (:func:`vaft.machine_mapping.magnetics.known_magnetics_faults`); anything
+    else -- a synthetic ODS, another machine, a product without
+    ``dataset_description`` -- has none.
+    """
+    machine = lookup(source, "dataset_description.data_entry.machine")
+    pulse = lookup(source, "dataset_description.data_entry.pulse")
+    if pulse is None or str(machine or "").strip().upper() != "VEST":
+        return {}
+    from vaft.machine_mapping.magnetics import known_magnetics_faults
+
+    return known_magnetics_faults(int(pulse))
 
 
 def validate_magnetics_signals(
@@ -937,8 +1225,20 @@ def validate_magnetics_signals(
     *,
     config: MagneticsQualityConfig | None = None,
     kinds: Iterable[str] = tuple(QUANTITY_BY_KIND),
+    known_faults: Mapping[tuple[str, int], str] | None | object = "from_pulse",
 ) -> tuple[ChannelQuality, ...]:
     """Assess every equilibrium magnetics channel's processed waveform.
+
+    ``known_faults`` maps ``(kind, index)`` to the reason a channel's
+    acquisition is recorded as broken for this shot (for VEST,
+    :func:`vaft.machine_mapping.magnetics.known_magnetics_faults`). Such a
+    record is condemned outright -- it is an assessment of this datum, made
+    once from the raw signals rather than rediscovered per shot -- and does not
+    vote in the family review, where its level would move the median its
+    healthy neighbours are judged against. The default, ``"from_pulse"``,
+    looks the record up from the ODS's own ``dataset_description`` (a VEST
+    pulse), so every re-assessment of a product reaches the verdict the
+    diagnostics stage wrote; ``None`` or ``{}`` assesses the waveforms alone.
 
     Nothing is written: the result is a report, and :func:`project_validity`
     puts the standardized part of it into the IDS.  Channels carrying no
@@ -947,11 +1247,14 @@ def validate_magnetics_signals(
     rather than being dropped, so a missing channel stays visible and stays
     distinguishable from a failed one.
 
-    Detection runs in two passes because one of the questions is not per
-    channel: a step to a new level looks identical in a broken integrator and
-    in plasma breakdown, and only the rest of the array can tell them apart.
+    Detection runs in passes because some questions are not per channel: a
+    step to a new level looks identical in a broken integrator and in plasma
+    breakdown, and only the rest of the array can tell them apart; and a probe
+    is judged against its family's amplitude and then against its own array.
     """
     settings = config or MagneticsQualityConfig()
+    if isinstance(known_faults, str) and known_faults == "from_pulse":
+        known_faults = recorded_faults_for(source)
     kinds = tuple(kinds)  # iterated twice below; a generator would run dry
     order: list[tuple[str, int, str, str, str]] = []
     unavailable: dict[tuple[str, int], ChannelQuality] = {}
@@ -973,12 +1276,19 @@ def validate_magnetics_signals(
             # rather than assumed identical.
             voltage = read_validity(source, f"magnetics.{kind}.{index}.voltage")
             seed = VALIDITY_VALID if voltage is None else min(VALIDITY_VALID, int(voltage))
-            detections[(kind, index)] = _detect(
-                *waveform, config=settings, seed=seed, kind=kind
-            )
+            found = _detect(*waveform, config=settings, seed=seed, kind=kind)
+            fault = (known_faults or {}).get((kind, index))
+            if fault is not None:
+                found = replace(
+                    found,
+                    hard=found.hard + (((0, found.data.size), "known_fault"),),
+                    metrics={**found.metrics, "known_fault": str(fault)},
+                )
+            detections[(kind, index)] = found
 
     coherent = _coherent_jump_times(detections, settings)
     _population_review(source, detections, settings)
+    _array_review(source, detections, settings)
 
     report: list[ChannelQuality] = []
     for kind, index, name, quantity, unit in order:

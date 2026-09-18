@@ -55,6 +55,7 @@ Provenance
    boundary shape definitions, and the parallel current definition.
 """
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -128,6 +129,7 @@ __all__ = [
     "scale_boundary_conformal",
     "shafranov_integrals",
     "connection_length_map",
+    "ejiri_mirror_geometry",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
@@ -3624,6 +3626,327 @@ def connection_length_map(
         "saturated": (saturated & inside).reshape(shape),
         "outside": (~inside).reshape(shape),
     }
+
+
+def ejiri_mirror_geometry(
+    r_start: float,
+    b_field,
+    *,
+    wall_r: np.ndarray,
+    wall_z: np.ndarray,
+    z_fit: float | None = None,
+    dphi: float = np.deg2rad(1.0),
+    max_length_m: float = 150.0,
+) -> dict[str, Any]:
+    r"""Ejiri mirror-confinement proxy for one magnetic snapshot.
+
+    Traces the field line through $(R_S, 0)$ and reads off the four lengths the
+    Ejiri low-energy orbit model needs -- the starting radius, the inboard
+    limiter, the curvature radius and the vertical extent over which the line
+    keeps raising $|B|$ -- then evaluates the boundary slope $\alpha$ and the
+    geometry factor $F_3$.
+
+    Parameters
+    ----------
+    r_start : float
+        Major radius the electron starts at, on the midplane [m].
+    b_field : callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)``, normally from
+        :func:`make_vacuum_field_interpolator` [T].
+    wall_r : np.ndarray
+        Major radius of the limiting polygon [m].
+    wall_z : np.ndarray
+        Height of the limiting polygon [m].
+    z_fit : float, optional
+        Half-height of the window for the diagnostic local parabola fit;
+        default a quarter of ``z_max`` [m].
+    dphi : float, optional
+        Fixed step in toroidal angle for the trace [rad].
+    max_length_m : float, optional
+        Path length at which to stop each branch [m].
+
+    Returns
+    -------
+    dict of str to Any
+        ``r_start``, ``r_inboard_limiter``, ``curvature_radius`` and ``z_max`` in
+        metres; ``alpha`` and ``f3`` dimensionless; ``mirror`` true when the line
+        dips inward before it ends; ``saturated`` true when a branch stopped on
+        ``max_length_m`` rather than on the wall or a turning point;
+        ``binding_branch`` naming the weaker mirror; ``curvature_radius_local``
+        the local parabola fit in metres, for comparison only; per-branch
+        ``z_max_upper``, ``z_max_lower``, ``r_mirror_upper``, ``r_mirror_lower``
+        in metres with ``reason_upper`` and ``reason_lower``; and the two
+        :func:`trace_field_line` branches as ``trace_upper`` and
+        ``trace_lower`` [-].
+
+    Raises
+    ------
+    ValueError
+        A start point outside the wall, no wall crossing of the midplane inboard
+        of it, or a non-positive ``z_fit`` [-].
+
+    Processing steps
+    ----------------
+    1. Trace the line through $(R_S, 0)$ forward and backward against the wall,
+       and label the branch that rises the upper one.
+    2. $R_{\mathrm{LIN}}$: the wall polygon's midplane crossing nearest the start
+       on its inboard side.
+    3. Mirror point of each branch: the smallest $R$ the branch reaches before
+       it ends, excluding the seed -- the strongest field an electron escaping
+       that way has to pass.  Record $|Z|$ and $R$ there.
+    4. Keep the **weaker** mirror: the branch whose mirror point sits at the
+       larger $R$, so the smaller field rise.  Its $|Z|$ is $Z_{\max}$ and its
+       $R$ is $R_m$.  If $R_m \ge R_S$ the line never dips inward.
+    5. $R_C = Z_{\max}^2 / \bigl(2(R_S - R_m)\bigr)$, the parabola through the
+       start and the mirror point, then $\alpha$ and $F_3$ from
+       :func:`vaft.formula.startup.ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max`
+       and :func:`vaft.formula.startup.ejiri_f3_from_alpha`.
+    6. For comparison, fit $R - R_S = c_1 Z + c_2 Z^2$ over $|Z| \le$
+       ``z_fit`` and report $-1/(2c_2)$ as ``curvature_radius_local``.
+
+    Defaults
+    --------
+    The 150 m limit is a numerical convenience matching
+    :func:`connection_length_map`, and it is where the result converges on VEST:
+    at the breakdown onset of the packaged shot, from the electron-cyclotron
+    resonance, 50 m stops both branches short and gives $Z_{\max} = 0.13$ m and
+    $F_3 = 0.38$, while 150, 500 and 1500 m all give $0.30$ m and $0.51$.  The
+    quarter-$Z_{\max}$ window and the one-degree step are numerical
+    conveniences: at 2, 1, 0.5 and 0.25 degrees $F_3$ agrees to six figures and
+    $R_C$ and $Z_{\max}$ to four.
+
+    Convention
+    ----------
+    **$R_C$ is the secant through the mirror point, not a local fit.**  Ejiri's
+    curvature term needs $R_C$ only through $Z_{\max}^2/2R_C = R_S - R_m$, so
+    defining $R_C$ that way makes the term exactly $1/\sqrt{M - 1}$ for the
+    line's true mirror ratio $M = R_S/R_m$ -- the inboard term with the limiter
+    replaced by the line's own mirror point -- whatever shape the line has.  On
+    an exact parabola it equals the parabola's $R_C$.  A local fit, which is
+    what the model's derivation suggests, is not stable on a real field: on the
+    same VEST case it gives $R_C$ from 0.07 to 0.34 m as the window widens from
+    a tenth of $Z_{\max}$ to all of it, and had it fed $\alpha$, $F_3$ would
+    have run from 0.99 to 0.62 on that choice alone.  The secant is 0.52 m for
+    every window.  ``curvature_radius_local`` still reports the fit, so how far
+    the line is from Ejiri's parabola stays visible.
+
+    **The mirror point is the global minimum of $R$ along the branch, not the
+    first local one.**  An escaping electron has to pass the largest field on
+    its way to the wall, wherever it is.  The distinction is not academic: at
+    the breakdown onset of VEST's packaged shot the line through the
+    electron-cyclotron resonance is tilted at the midplane, so on one side $R$
+    rises for a few steps before dipping to 0.60 m.  A first-local-minimum rule
+    gives up on that side, reads the wall end at 0.76 m as the mirror point,
+    and reports no confinement at all.
+
+    **The weaker mirror decides.**  An electron bouncing between the two mirror
+    points escapes through the one with the smaller field rise, which is the
+    one at larger $R$, not necessarily the one at smaller $|Z|$.
+
+    **No inward dip means nothing is confined, not an error.**  When $R_m \ge
+    R_S$ the line is straight or bows outward, $|B|$ does not rise away from the
+    midplane, and curvature traps nothing: this returns $\alpha = \infty$,
+    $F_3 = 0$ and ``mirror`` false without calling the formulas, which reject a
+    non-positive curvature radius.
+
+    The mirror ratio is read in $R$, which assumes $|B| \propto 1/R$: true when
+    the toroidal field dominates, as it does in a pre-breakdown vacuum field.
+
+    Applicability
+    -------------
+    Machine-independent.  The wall polygon and the field are both the caller's,
+    and so is ``r_start`` -- normally the electron-cyclotron resonance, from
+    :func:`vaft.formula.startup.electron_cyclotron_resonance_radius`.
+
+    Limitations
+    -----------
+    An Ejiri-inspired geometric proxy, not the numerical orbit boundary: it
+    says nothing about EC power, collisions or breakdown itself.  A branch whose
+    first step already leaves the wall is read as an immediate loss on that
+    side, so a start point within one step of the wall reports no confinement
+    -- shorten ``dphi`` if that is not the answer wanted.  A branch that
+    stops on ``max_length_m`` sets ``saturated`` and raises a
+    ``RuntimeWarning``: that result is not converged and is not a bound, since a
+    longer trace can move both the mirror point and the branch that binds.
+
+    Provenance
+    ----------
+    .. [1] A. Ejiri and Y. Takase, Nucl. Fusion 47 (2007) 403, Sec. 3, for the
+       orbit-boundary slope and the geometry factor.
+    .. [2] The trace is :func:`trace_field_line`, and the two relations are the
+       :mod:`vaft.formula.startup` kernels named in the processing steps.
+    """
+    return _ejiri_mirror_geometry(
+        r_start,
+        b_field,
+        wall_r=wall_r,
+        wall_z=wall_z,
+        z_fit=z_fit,
+        dphi=dphi,
+        max_length_m=max_length_m,
+    )
+
+
+def _ejiri_mirror_geometry(r_start, b_field, *, wall_r, wall_z, z_fit, dphi, max_length_m):
+    """The body of :func:`ejiri_mirror_geometry`.
+
+    Kept private so both public entry points -- that function and
+    :func:`vaft.omas.compute_ejiri_mirror_proxy_ods` -- call it directly and the
+    saturation warning, raised two frames down, always blames their caller.
+    """
+    from matplotlib.path import Path as MplPath
+
+    from vaft.formula.startup import (
+        ejiri_f3_from_alpha,
+        ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max,
+    )
+
+    wall_r = np.asarray(wall_r, dtype=float)
+    wall_z = np.asarray(wall_z, dtype=float)
+    r_start = float(r_start)
+    if z_fit is not None and (not np.isfinite(z_fit) or z_fit <= 0.0):
+        raise ValueError(f"z_fit must be finite and positive; got {z_fit} m")
+    polygon = MplPath(np.column_stack([wall_r, wall_z]))
+    if not polygon.contains_point((r_start, 0.0)):
+        raise ValueError(
+            f"r_start={r_start} m is not inside the wall on the midplane; there is "
+            "no field line to trace"
+        )
+    r_inboard = _midplane_crossing_inboard(wall_r, wall_z, r_start)
+
+    branches = {}
+    for direction in ("forward", "backward"):
+        trace = trace_field_line(
+            r_start,
+            0.0,
+            0.0,
+            b_field,
+            dphi=dphi,
+            max_length_m=max_length_m,
+            direction=direction,
+            wall_r=wall_r,
+            wall_z=wall_z,
+        )
+        R = np.asarray(trace["R"], dtype=float)
+        Z = np.asarray(trace["Z"], dtype=float)
+        if direction == "backward":
+            # trace_field_line returns points in order of increasing angle, so
+            # the backward branch ends at the seed; walk it from the seed.
+            R, Z = R[::-1], Z[::-1]
+        z_end, r_end, reason = _mirror_point(R, Z, trace["termination_reason"])
+        branches[direction] = {
+            "R": R, "Z": Z, "trace": trace,
+            "z_end": z_end, "r_end": r_end, "reason": reason,
+            # A one-point branch left the wall on its first step and has no
+            # direction of its own; it sorts below any branch that moved.
+            "height": float(np.median(Z[1:])) if Z.size > 1 else 0.0,
+        }
+    upper_key = max(branches, key=lambda key: branches[key]["height"])
+    lower_key = "backward" if upper_key == "forward" else "forward"
+    branches = {"upper": branches[upper_key], "lower": branches[lower_key]}
+
+    saturated = any(b["reason"] == "max_length_m" for b in branches.values())
+    if saturated:
+        warnings.warn(
+            f"a field line from r_start={r_start} m reached max_length_m="
+            f"{max_length_m} m before the wall or a turning point, so the mirror "
+            "geometry is not converged; raise max_length_m",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+    binding = max(branches, key=lambda name: branches[name]["r_end"])
+    z_max = branches[binding]["z_end"]
+    r_mirror = branches[binding]["r_end"]
+
+    local = np.nan
+    window_half = z_fit if z_fit is not None else 0.25 * z_max
+    if window_half > 0.0:
+        all_R = np.concatenate([b["R"] for b in branches.values()])
+        all_Z = np.concatenate([b["Z"] for b in branches.values()])
+        window = np.abs(all_Z) <= window_half
+        if np.count_nonzero(window) >= 5:
+            design = np.column_stack([all_Z[window], all_Z[window] ** 2])
+            (_, c2), *_ = np.linalg.lstsq(design, all_R[window] - r_start, rcond=None)
+            local = -1.0 / (2.0 * c2) if c2 < 0.0 else np.inf
+
+    result = {
+        "r_start": r_start,
+        "r_inboard_limiter": r_inboard,
+        "z_max": z_max,
+        "saturated": saturated,
+        "binding_branch": binding,
+        "curvature_radius_local": local,
+        "z_max_upper": branches["upper"]["z_end"],
+        "z_max_lower": branches["lower"]["z_end"],
+        "r_mirror_upper": branches["upper"]["r_end"],
+        "r_mirror_lower": branches["lower"]["r_end"],
+        "reason_upper": branches["upper"]["reason"],
+        "reason_lower": branches["lower"]["reason"],
+        "trace_upper": branches["upper"]["trace"],
+        "trace_lower": branches["lower"]["trace"],
+    }
+    drop = r_start - r_mirror
+    if drop <= 0.0 or z_max <= 0.0:
+        result.update(curvature_radius=np.inf, alpha=np.inf, f3=0.0, mirror=False)
+        return result
+
+    curvature = z_max**2 / (2.0 * drop)
+    alpha = ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(
+        r_start, r_inboard, curvature, z_max
+    )
+    result.update(
+        curvature_radius=curvature,
+        alpha=alpha,
+        f3=ejiri_f3_from_alpha(alpha),
+        mirror=True,
+    )
+    return result
+
+
+def _midplane_crossing_inboard(wall_r, wall_z, r_start):
+    """The wall's midplane crossing nearest ``r_start`` on its inboard side."""
+    r_closed = np.r_[wall_r, wall_r[:1]]
+    z_closed = np.r_[wall_z, wall_z[:1]]
+    crossings = []
+    for r0, z0, r1, z1 in zip(r_closed[:-1], z_closed[:-1], r_closed[1:], z_closed[1:]):
+        if z0 == z1:
+            if z0 == 0.0:
+                crossings.extend([r0, r1])
+            continue
+        if (z0 <= 0.0 <= z1) or (z1 <= 0.0 <= z0):
+            crossings.append(r0 + (r1 - r0) * (0.0 - z0) / (z1 - z0))
+    inboard = [r for r in crossings if r < r_start]
+    if not inboard:
+        raise ValueError(
+            f"the wall has no midplane crossing inboard of r_start={r_start} m"
+        )
+    return float(max(inboard))
+
+
+def _mirror_point(R, Z, termination_reason):
+    """Where a branch is strongest in |B|: its |Z|, its R, and what ended it.
+
+    An electron escaping along the branch must pass every point between the
+    seed and the wall, so the field it has to overcome is the largest one on
+    that stretch -- the global minimum of ``R``, not the first local one.  The
+    two coincide for a line with a single inward dip; they differ for a line
+    tilted at the midplane, whose ``R`` first rises a hair before it dips, and
+    for a line that dips more than once.  The seed itself is excluded.
+    """
+    if R.size < 2:
+        # The first step already left the wall: nothing on this side raises
+        # |B| above its value at the seed, so an electron heading this way is
+        # lost at once.  Report the seed itself, which reads as "no mirror".
+        return 0.0, float(R[0]), "wall"
+    index = int(np.argmin(R[1:])) + 1
+    if index < R.size - 1:
+        reason = "turning"
+    elif "wall" in str(termination_reason):
+        reason = "wall"
+    else:
+        reason = str(termination_reason)
+    return float(abs(Z[index])), float(R[index]), reason
 
 
 def _trace_branch_lengths(flat_r, flat_z, inside, b_field, polygon, step, max_length_m):

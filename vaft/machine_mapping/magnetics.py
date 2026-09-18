@@ -53,6 +53,7 @@ from .utils import (
     resolve_data_root,
     resolve_plasma_timing_policy,
     resolve_shot_revisions,
+    resolve_shot_revisions_with_provenance,
     resolve_vest_diagnostic,
     set_path,
 )
@@ -231,9 +232,18 @@ def equilibrium_probe_count(source: Any) -> int:
     return min(present, defined) if defined else present
 
 
-def vest_equilibrium_magnetics_channel_definitions() -> tuple[dict[str, Any], ...]:
-    """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight."""
-    return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
+def vest_equilibrium_magnetics_channel_definitions(
+    shot: int | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight.
+
+    With *shot*, the fields and calibrations are that shot's wiring
+    (:func:`magnetics_wiring_for_shot`); without, the shipped 2409 layout.
+    Kinds and order are the same either way.
+    """
+    if shot is None:
+        return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
+    return tuple(dict(channel) for channel in magnetics_wiring_for_shot(int(shot)).channels)
 
 
 #: Every outboard fluctuation-Mirnov identifier, parsed strictly rather than by
@@ -648,34 +658,116 @@ class UnsupportedMagneticsGeometryError(NotImplementedError):
     """Raised when a shot needs a magnetics geometry this repository lacks."""
 
 
-# Issue #195 section 5: the archived VFIT source loads
-# `VEST_MagneticsGeometry_Full_ver_2310` for shot 39204 specifically and
-# `ver_2409` for every other shot. This repository ships neither -- it
-# carries ver_2302, which it applies to all shots. For most shots that is a
-# documented, deliberate difference, but for 39204 the legacy source goes
-# out of its way to override the geometry, so quietly handing it ver_2302
-# would assign knowingly-wrong geometry. Fail clearly instead, until the
-# 2310 geometry is imported as a repository-native asset. Deliberately not
-# resolved by loading an external MATLAB file at runtime.
-UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {39204: "2310"}
+# Shots that need a probe layout this repository has no record of. Issue #195
+# section 5 put 39204 here because the archived VFIT source switches it alone
+# to `ver_2310`; issue #956 tested that switch against the raw signals and it
+# does not hold -- 39204 follows the pre-39438 layout like every shot around
+# it, which the `wiring` revision in vest.yaml now applies. The guard stays
+# for a future shot whose layout is genuinely unknown.
+UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {}
 
 
 def require_supported_magnetics_geometry(shot: int | None) -> None:
-    """Raise if *shot* requires a magnetics geometry version VAFT lacks."""
+    """Raise if *shot* requires a magnetics layout VAFT has no record of."""
     if shot is None:
         return
     required = UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot))
     if required is None:
         return
     raise UnsupportedMagneticsGeometryError(
-        f"Shot {int(shot)} requires VEST magnetics geometry version {required}, "
-        "which is not available in this repository (it ships ver_2302). The "
-        "legacy VFIT source overrides the geometry for this shot specifically, "
-        "so processing it with the shipped geometry would assign "
-        "knowingly-incorrect sensor positions. Import the "
-        f"ver_{required} geometry as a repository-native asset before "
-        "processing this shot (issue #195)."
+        f"Shot {int(shot)} requires VEST magnetics layout {required}, which "
+        "vest.yaml's equilibrium_magnetics wiring does not describe; processing "
+        "it with another layout would assign knowingly-incorrect channels to "
+        "probe positions (issues #195, #956)."
     )
+
+
+@dataclass(frozen=True)
+class MagneticsWiring:
+    """Which raw field and calibration feed each equilibrium probe for a shot.
+
+    ``channels`` is MD.yaml with the shot's ``probe_overrides`` applied, in the
+    same order, so entry ``i`` still joins geometry entry ``i``. The probe
+    positions and names do not move; only their signal source does.
+    """
+
+    layout: str
+    channels: tuple[Mapping[str, Any], ...]
+    overrides: tuple[Mapping[str, Any], ...]
+    provenance: Mapping[str, Any]
+
+
+def _equilibrium_magnetics_revision(shot: int, name: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    config = resolve_vest_diagnostic(int(shot), "equilibrium_magnetics")
+    item = config["processing"][name]
+    return resolve_shot_revisions_with_provenance(
+        {key: value for key, value in item.items() if key != "revisions"},
+        item.get("revisions"),
+        int(shot),
+        context=f"VEST equilibrium_magnetics {name}",
+    )
+
+
+def _pinned_probe_index(entry: Mapping[str, Any], *, context: str) -> int:
+    """The probe index *entry* names, checked against the position it claims."""
+    index = int(entry["index"])
+    geometry = _load_static_channels()
+    if not 0 <= index < len(geometry):
+        raise VestConfigurationError(f"{context}: probe index {index} is out of range")
+    row = geometry[index]
+    claimed = (float(entry["r"]), float(entry["z"]))
+    actual = (float(row["r"]), float(row["z"]))
+    if row["kind"] != "b_field_pol_probe" or not all(
+        math.isclose(a, b, abs_tol=1e-9) for a, b in zip(actual, claimed)
+    ):
+        raise VestConfigurationError(
+            f"{context}: index {index} is a {row['kind']} at r={actual[0]}, z={actual[1]}, "
+            f"not the probe at r={claimed[0]}, z={claimed[1]} the entry names"
+        )
+    return index
+
+
+def magnetics_wiring_for_shot(shot: int) -> MagneticsWiring:
+    """Resolve the shot's probe wiring from vest.yaml (issue #956)."""
+    resolved, provenance = _equilibrium_magnetics_revision(shot, "wiring")
+    channels = [dict(channel) for channel in _load_equilibrium_magnetics_channels()]
+    overrides = []
+    for entry in resolved.get("probe_overrides") or ():
+        index = _pinned_probe_index(entry, context="equilibrium_magnetics wiring")
+        channels[index]["field_code"] = int(entry["field_code"])
+        channels[index]["calibration"] = float(entry["calibration"])
+        overrides.append(
+            {
+                "index": index,
+                "r": float(entry["r"]),
+                "z": float(entry["z"]),
+                "field_code": int(entry["field_code"]),
+                "calibration": float(entry["calibration"]),
+            }
+        )
+    codes = [int(channel["field_code"]) for channel in channels]
+    if len(set(codes)) != len(codes):
+        raise VestConfigurationError(
+            f"equilibrium_magnetics wiring for shot {int(shot)} feeds one raw field "
+            "to two positions"
+        )
+    return MagneticsWiring(
+        layout=str(resolved["layout"]),
+        channels=tuple(channels),
+        overrides=tuple(overrides),
+        provenance=provenance,
+    )
+
+
+def known_magnetics_faults(shot: int) -> dict[tuple[str, int], str]:
+    """``{(kind, index): reason}`` for channels vest.yaml records as broken on *shot*."""
+    resolved, _provenance = _equilibrium_magnetics_revision(shot, "known_faults")
+    return {
+        ("b_field_pol_probe", _pinned_probe_index(entry, context="equilibrium_magnetics known_faults")): str(
+            entry["reason"]
+        )
+        for entry in resolved.get("probes") or ()
+    }
 
 
 @lru_cache(maxsize=1)
@@ -1407,7 +1499,7 @@ def vfit_equilibrium_magnetics_detailed(
     )
     return vest_equilibrium_magnetics_detailed(
         int(shot),
-        _load_equilibrium_magnetics_channels(),
+        [dict(channel) for channel in magnetics_wiring_for_shot(int(shot)).channels],
         lambda source_shot, field: _safe_vest_load(source_shot, field, raw_source),
         indices=indices,
         config=config,
@@ -1509,11 +1601,15 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
 
 def _populate_probe_static(ods: object, shot: int = 0) -> None:
     names = _load_names_by_code()
+    # Names come from table.yaml by raw field, so they label the DAQ channel a
+    # position reads. For a discharge that is the shot's wiring (#956); the
+    # era inventory (shot 0) keeps the 2409 labels its geometry file carries.
+    wiring = magnetics_wiring_for_shot(int(shot)).channels if shot else None
     probe_index = 0
-    for channel in _load_static_channels():
+    for index, channel in enumerate(_load_static_channels()):
         if channel["kind"] != "b_field_pol_probe":
             continue
-        field_code = int(channel["field_code"])
+        field_code = int((wiring[index] if wiring is not None else channel)["field_code"])
         name = names[field_code]
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
@@ -1633,10 +1729,12 @@ def vfit_mirnov_raw_dynamic(
     ``tstart <= time < tend`` without interpolation or downsampling.
     """
     probe_index = 0
-    for channel in _load_static_channels():
+    wiring = magnetics_wiring_for_shot(int(shot)).channels
+    for index, channel in enumerate(_load_static_channels()):
         if channel["kind"] != "b_field_pol_probe":
             continue
-        time, data, validity = _raw_time_data_with_validity(shot, int(channel["field_code"]), raw_source)
+        field_code = int(wiring[index]["field_code"])
+        time, data, validity = _raw_time_data_with_validity(shot, field_code, raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
@@ -2413,8 +2511,11 @@ __all__ = [
     "LIMITER_SHUNT_BASELINE_WINDOW",
     "LIMITER_SHUNT_RESISTANCE",
     "UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS",
+    "MagneticsWiring",
     "UnsupportedMagneticsGeometryError",
     "equilibrium_magnetics_processing_config",
+    "known_magnetics_faults",
+    "magnetics_wiring_for_shot",
     "require_supported_magnetics_geometry",
     "b_field_pol_probe_from_raw_database",
     "diamagnetic_flux_rogowski_coil_from_raw_database",

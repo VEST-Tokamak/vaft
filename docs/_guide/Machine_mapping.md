@@ -442,7 +442,8 @@ through `resolve_data_root()`:
 | `VEST_MagneticsGeometry_Full_ver_2302.yaml` | probe / flux-loop positions, and the inboard–side–outboard grouping |
 | `MD.yaml` | magnetic-diagnostic channel list used by `vfit_md` |
 | `table.yaml` | field code → channel name lookup |
-| `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `..._ver_2507.mat` | PF coil elements (shot-dependent) |
+| `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `..._ver_2507.mat` | PF coil elements (shot-dependent; 2507 from shot 45968) |
+| `VEST_static_geometry.json.gz`, `VEST_passive_wall_2409.npz` | passive wall: 950 loops, plus 15 from shot 43017 (wall 2409) |
 | `line_of_sight_endpoints.csv` | SXR lines of sight |
 
 A separate `vest.yaml` shipped inside `vaft/machine_mapping/` carries per-shot DAQ channel metadata (label,
