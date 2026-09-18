@@ -67,7 +67,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "virial": 33,
         "stability": 21,
         "green": 16,
-        "atomic": 3,
+        "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
         "statistics": 22,
         "magnetics": 2,
         "neoclassical": 12,
