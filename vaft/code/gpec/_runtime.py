@@ -20,6 +20,7 @@ from .._executables import (
     executable_from_home,
     missing_home_message,
 )
+from ..execution import ExecutionRequest, resolve_backend
 from ._types import GPEC_HOME_ENV
 
 if TYPE_CHECKING:
@@ -253,22 +254,19 @@ def run_subprocess(
     *,
     config: "GPECSuiteConfig",
 ) -> tuple[int, Path]:
-    # The log is opened outside the try so that a bad log path stays its own
-    # error rather than being reported as an unlaunchable solver.
-    with log_path.open("w", encoding="utf-8") as log:
-        try:
-            result = subprocess.run(
-                [str(executable_path)],
-                cwd=cwd,
-                env=gpec_env(config),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=config.timeout,
-                check=False,
-            )
-        except OSError as error:
-            raise ExecutableNotLaunchable(
-                f"cannot launch {executable_path}: {error}"
-            ) from error
-    return int(result.returncode), log_path
+    command = (str(executable_path),)
+    execution = resolve_backend(config).run(
+        ExecutionRequest(
+            command=command,
+            workdir=Path(cwd),
+            env=gpec_env(config),
+            timeout=config.timeout,
+            log_path=Path(log_path),
+            label=Path(executable_path).name,
+        )
+    )
+    if execution.timed_out:
+        # The suite's timeout carve-out (run_gpec_module) catches this type.
+        # A scheduler can kill on its own walltime with no timeout configured.
+        raise subprocess.TimeoutExpired(list(command), config.timeout or execution.elapsed_s)
+    return int(execution.returncode), log_path
