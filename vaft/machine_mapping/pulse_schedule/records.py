@@ -102,6 +102,7 @@ def _occurrence(source: SourceWorkbook, dataset: dict[str, Any], group: dict[str
         "sheet": provenance["sheet_name"],
         "run_group_id": group["id"],
         "role": source.role,
+        "fallback": source.fallback,
         "schema_version": dataset["schema_version"],
         "covers_shot": None,  # filled per shot
         "_source": source,
@@ -125,10 +126,13 @@ def build_shot_records(
 
     records: dict[int, dict[str, Any]] = {}
     for shot, items in candidates.items():
+        # A copy or autosave speaks only for a shot nothing else records.
+        primary = [item for item in items if not item[0]["fallback"]]
+        items = primary or items
         items.sort(key=lambda item: (
             not item[0]["covers_shot"],
-            item[0]["role"] != "monthly_record",
             item[1]["schema_version"] == "unclassified",
+            item[0]["role"] != "monthly_record",
             item[0]["experiment_date"] or "9999",
             item[0]["workbook"],
             item[0]["sheet"],
@@ -162,6 +166,7 @@ def build_shot_records(
                 for item in items
             ],
             "ambiguous": len(timings) > 1,
+            "from_fallback": not primary,
         }
     return dict(sorted(records.items()))
 

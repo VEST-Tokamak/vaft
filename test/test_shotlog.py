@@ -289,7 +289,74 @@ def test_every_file_gets_a_role_and_only_residue_is_left_out(tmp_path):
     assert reasons == {
         "~$ShotLog_2026_03 #47986-48192.xlsx": "excel_lock_file",
         "._ShotLog_2026_03 #47986-48192.xlsx": "appledouble_sidecar",
+        # Skipped, but never silently: the listing says what and why.
+        "ShotLog_dataset (derived output of the standalone tool)": "skipped_directory",
     }
+
+
+def test_role_words_match_whole_words_only(tmp_path):
+    # "formation" contains "form", "Threshold" contains "old": neither hides a month.
+    (tmp_path / "Threshold scans").mkdir()
+    for relative in ("ShotLog_2024_06 #47000-47300 (plasma formation).xlsx",
+                     "Threshold scans/ShotLog_2024_07 #47301-47400.xlsx",
+                     "ShotLog_2016_10 #15823-old.xlsx", "ShotLog_2015_02 #11314- (temp).xlsx"):
+        (tmp_path / relative).write_bytes(b"")
+    discovery = discover_sources(tmp_path)
+    assert [item.path.name for item in discovery.included] == [
+        "ShotLog_2024_06 #47000-47300 (plasma formation).xlsx", "ShotLog_2024_07 #47301-47400.xlsx",
+    ]
+    assert {item.role for item in discovery.archived_only} == {"copy", "autosave"}
+
+
+def test_two_files_with_one_name_keep_distinct_archive_paths(tmp_path):
+    for folder, shot in (("a", 40000), ("b", 40001)):
+        (tmp_path / folder).mkdir()
+        legacy_workbook(tmp_path / folder / "ShotLog_2023_05 #40000-40300.xlsx", sheet="230501", shots=(shot,))
+    paths = [item.archive_path for item in discover_sources(tmp_path).included]
+    assert len(set(paths)) == 2 and paths[0] == "2023/ShotLog_2023_05 #40000-40300.xlsx"
+    filedb = FileDB(tmp_path / "filedb")
+    archive_workbooks(tmp_path, filedb)
+    assert archive_workbooks(tmp_path, filedb)["replaced"] == []   # stable, not swapping
+
+
+def test_a_typo_span_is_read_as_open_ended_not_as_an_empty_month(tmp_path):
+    (tmp_path / "ShotLog_2025_03 #47000-4730.xlsx").write_bytes(b"")
+    (item,) = discover_sources(tmp_path).included
+    assert (item.first_shot, item.last_shot) == (47000, None)
+
+
+def test_the_archive_reads_back_by_location_and_is_never_its_own_source(tmp_path, modern):
+    (tmp_path / "복사본 ShotLog_2025_09 #46590-.xlsx").write_bytes(modern.read_bytes())
+    legacy_workbook(tmp_path / "ERC_ShotLog.xlsx", sheet="2013-01-21", shots=(2774, 2776))
+    filedb = FileDB(tmp_path / "filedb")
+    archive_workbooks(tmp_path, filedb)
+    # A second archive of the same folder does not ingest legacy/shotlog itself.
+    assert archive_workbooks(tmp_path, filedb)["copied"] == []
+    back = discover_sources(tmp_path / "filedb/legacy/shotlog/input")
+    assert [(item.archive_path, item.role) for item in back.included] == [
+        ("2025/ShotLog_2025_09 #46590-46599.xlsx", "monthly_record"),
+        ("supplementary/ERC_ShotLog.xlsx", "supplementary_log"),
+    ]
+    assert [item.archive_path for item in back.fallback] == ["other/복사본 ShotLog_2025_09 #46590-.xlsx"]
+
+
+def test_a_copy_speaks_only_for_shots_nothing_else_records(tmp_path):
+    modern_workbook(tmp_path / "ShotLog_2015_10 #13900-13916.xlsx", {"151030": [{"shot": 13910}]})
+    modern_workbook(tmp_path / "ShotLog_2015_10 #13900- (자동 저장됨).xlsx",
+                    {"151030": [{"shot": 13910, "diagnostics": {"IF": "400-401"}}, {"shot": 13911}]})
+    _, records, _ = _records(tmp_path)
+    assert records[13910]["source"]["workbook"] == "ShotLog_2015_10 #13900-13916.xlsx"
+    assert records[13910]["from_fallback"] is False and len(records[13910]["occurrences"]) == 1
+    assert records[13911]["from_fallback"] is True
+    assert records[13911]["occurrences"][0]["role"] == "autosave"
+
+
+def test_a_log_without_a_named_span_ignores_strays_far_from_its_shots(tmp_path):
+    legacy_workbook(tmp_path / "conditioning.xlsx", sheet="Sheet1",
+                    shots=(4861, 4862, 4863, 4864, 4865, 4866, 4867, 4868, 4869, 400))
+    (item,) = discover_sources(tmp_path).included
+    lower, upper = item.span()
+    assert lower <= 4861 and upper >= 4869 and not lower <= 400
 
 
 def test_a_supplementary_log_is_converted_but_ranks_below_the_month(tmp_path):

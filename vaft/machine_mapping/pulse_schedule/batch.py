@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
+import json
 from pathlib import Path
 import re
 from typing import Any, Iterable, Iterator
@@ -35,29 +36,38 @@ MONTHLY_RE = re.compile(
     r"^ShotLog_(?P<year>(?:19|20)\d{2})_(?P<month>0?[1-9]|1[0-2])(?:\s|#|$)", re.IGNORECASE
 )
 SHOT_SPAN_RE = re.compile(r"#\s*(?P<first>\d+)\s*[-~]\s*(?P<last>\d+)?\s*$")
-#: Name tokens and the role they mark. Compared in NFC and case-folded.
+#: Name tokens and the role they mark, matched in NFC and case-folded against
+#: the file name and the folders above it. The Korean tokens are distinctive
+#: as substrings; the English ones must be whole words, or "information",
+#: "folder" and "plasma formation" would hide a real month.
 ROLE_TOKENS = (
-    ("복사본", "copy"), ("사본", "copy"), ("old", "copy"),
-    ("자동저장", "autosave"), ("자동 저장", "autosave"), ("temp", "autosave"),
-    ("form", "template"), ("plan", "template"),
+    (re.compile(r"복사본|사본"), "copy"),
+    (re.compile(r"(?<![a-z])old(?![a-z])"), "copy"),
+    (re.compile(r"자동\s?저장"), "autosave"),
+    (re.compile(r"(?<![a-z])temp(?![a-z])"), "autosave"),
+    (re.compile(r"(?<![a-z])(?:form|plan)(?![a-z])"), "template"),
 )
 MONTHLY = "monthly_record"
 SUPPLEMENTARY = "supplementary_log"
 CONVERTED_ROLES = frozenset({MONTHLY, SUPPLEMENTARY})
+#: Archive-only roles still read as a last resort: a copy or autosave can hold
+#: shots the chosen record lost (the 2015-10 autosave has seven), and a shot
+#: with no other source takes its record from one. Never used otherwise.
+FALLBACK_ROLES = frozenset({"copy", "autosave", "template", "superseded_open_ended"})
 #: How far outside a workbook's ``#first-last`` a column-A number may sit and
 #: still be one of its shots. Beyond it, the number is a reference to an older
 #: shot (2025 sheets open with 43960) or not a shot at all (400, 1000 in 2013).
 SPAN_MARGIN = 200
-#: Derived output of the standalone tool and filesystem residue, never data.
-SKIP_DIRECTORIES = frozenset({"ShotLog_dataset", ".index"})
+#: Derived output of the standalone tool, never data.
+DERIVED_DIRECTORIES = frozenset({"ShotLog_dataset", ".index"})
 JUNK_FILES = frozenset({".DS_Store", "Thumbs.db", "desktop.ini"})
-#: Archive subdirectories discovery must not read back as sources.
-ARCHIVE_ONLY_DIRECTORIES = frozenset({"other", "superseded"})
+#: Present in a FileDB archive root, and only there.
+ARCHIVE_MANIFEST = "manifest.json"
 
 
 @dataclass(frozen=True)
 class SourceWorkbook:
-    """One converted ShotLog file: a month's record or a supplementary log."""
+    """One converted ShotLog file: a month's record, a supplementary log, or a fallback."""
 
     path: Path
     year: int | None
@@ -69,10 +79,17 @@ class SourceWorkbook:
     span_limit: int | None = None
     #: Where the file lives under ``legacy/shotlog/input``.
     archive_path: str = ""
+    #: For a log whose name carries no ``#first-last``: the span its own
+    #: column A implies (see :func:`_content_span`).
+    content_span: tuple[int, int] | None = None
 
     @property
     def open_ended(self) -> bool:
         return self.first_shot is not None and self.last_shot is None
+
+    @property
+    def fallback(self) -> bool:
+        return self.role in FALLBACK_ROLES
 
     def covers(self, shot: int) -> bool:
         if self.first_shot is None:
@@ -82,14 +99,14 @@ class SourceWorkbook:
     def span(self) -> tuple[int, int | None] | None:
         """Shots this file can plausibly hold, with :data:`SPAN_MARGIN`."""
         if self.first_shot is None:
-            return None
+            return self.content_span
         upper = self.last_shot if self.last_shot is not None else self.span_limit
         return self.first_shot - SPAN_MARGIN, None if upper is None else upper + SPAN_MARGIN
 
 
 @dataclass(frozen=True)
 class ArchivedFile:
-    """A file kept byte for byte but not converted."""
+    """A file kept byte for byte but not converted as a record."""
 
     path: Path
     role: str
@@ -101,7 +118,9 @@ class ArchivedFile:
 class Discovery:
     included: list[SourceWorkbook] = field(default_factory=list)
     archived_only: list[ArchivedFile] = field(default_factory=list)
-    #: Not archived at all: lock files and filesystem residue.
+    #: Archive-only workbooks that log shots: read only for shots nothing else has.
+    fallback: list[SourceWorkbook] = field(default_factory=list)
+    #: Not archived at all, each with a reason.
     excluded: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -121,12 +140,15 @@ def _name_span(path: Path) -> tuple[int | None, int | None]:
     span = SHOT_SPAN_RE.search(unicodedata.normalize("NFC", path.stem))
     if not span:
         return None, None
-    return int(span.group("first")), int(span.group("last")) if span.group("last") else None
+    first = int(span.group("first"))
+    last = int(span.group("last")) if span.group("last") else None
+    # "#47000-4730" is a typo, not an empty month: read it as open-ended.
+    return first, last if last is None or last >= first else None
 
 
-def _token_role(name: str) -> str | None:
-    lowered = name.casefold()
-    return next((role for token, role in ROLE_TOKENS if token.casefold() in lowered), None)
+def _token_role(text: str) -> str | None:
+    lowered = unicodedata.normalize("NFC", text).casefold()
+    return next((role for pattern, role in ROLE_TOKENS if pattern.search(lowered)), None)
 
 
 def classify_source(path: Path) -> tuple[SourceWorkbook | None, str | None]:
@@ -150,23 +172,41 @@ def classify_source(path: Path) -> tuple[SourceWorkbook | None, str | None]:
     return described, None
 
 
-def has_shot_markers(path: Path, minimum: int = 2, rows: int = 60) -> bool:
-    """Whether any sheet's column A starts with shot numbers -- i.e. it is a log."""
+def _column_a_shots(path: Path, rows: int | None = None) -> list[int]:
     try:
         workbook = load_workbook(path, read_only=True, data_only=True)
     except Exception:  # noqa: BLE001 - an unreadable file is kept, just not converted
-        return False
+        return []
+    shots: list[int] = []
     try:
         for ws in workbook.worksheets:
-            found = 0
             for (value,) in ws.iter_rows(min_row=1, max_row=rows, max_col=1, values_only=True):
-                if marker_shots(value):
-                    found += 1
-                    if found >= minimum:
-                        return True
-        return False
+                shots.extend(marker_shots(value))
     finally:
         workbook.close()
+    return shots
+
+
+def has_shot_markers(path: Path, minimum: int = 2, rows: int = 60) -> bool:
+    """Whether any sheet's column A starts with shot numbers -- i.e. it is a log."""
+    return len(_column_a_shots(path, rows)) >= minimum
+
+
+def _content_span(path: Path) -> tuple[int, int] | None:
+    """The span a log without ``#first-last`` implies: its middle 80 %, widened.
+
+    ``ERC_ShotLog`` or ``conditioning`` name no range, and without one every
+    number in column A would be a shot -- including the 400s and 1000s that
+    turned out not to be. The bulk of the file's own numbers says where its
+    shots are; a stray far from them is a reference or a value, not a shot.
+    """
+    shots = sorted(_column_a_shots(path))
+    if not shots:
+        return None
+    low = shots[len(shots) // 10]
+    high = shots[(len(shots) * 9) // 10]
+    margin = max(SPAN_MARGIN, (high - low) // 2)
+    return low - margin, high + margin
 
 
 def _relative(path: Path, root: Path | None) -> str:
@@ -177,22 +217,16 @@ def _relative(path: Path, root: Path | None) -> str:
     return "/".join(unicodedata.normalize("NFC", part) for part in parts)
 
 
-def _candidates(root: Path, extra: Iterable[Path], exclude: Iterable[Path] = ()
-                ) -> list[tuple[Path, Path | None]]:
-    found: list[tuple[Path, Path | None]] = []
-    excluded = [Path(item).resolve() for item in exclude]
-    if root.is_dir():
-        for path in root.rglob("*"):
-            relative = path.relative_to(root).parts
-            if not path.is_file() or SKIP_DIRECTORIES & set(relative[:-1]):
-                continue
-            if any(path.resolve().is_relative_to(item) for item in excluded):
-                continue
-            if relative[0] in ARCHIVE_ONLY_DIRECTORIES or relative == ("manifest.json",):
-                continue  # reading the archive back: these are not sources
-            found.append((path, root))
-    found.extend((Path(path), None) for path in extra)
-    return sorted(found, key=lambda item: _relative(*item).casefold())
+def _is_archive(root: Path) -> bool:
+    """A FileDB ``legacy/shotlog/input`` root, recognised by its manifest."""
+    manifest = root / ARCHIVE_MANIFEST
+    if not manifest.is_file():
+        return False
+    try:
+        document = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(document, dict) and ("files" in document or "workbooks" in document)
 
 
 def discover_sources(
@@ -203,21 +237,39 @@ def discover_sources(
     """Give every file under ``input_dir`` (and every ``extra`` file) a role.
 
     ``input_dir`` is either the operators' ShotLog folder or the FileDB
-    archive (``legacy/shotlog/input``), which files months by year and real
-    non-monthly logs under ``supplementary/``.
+    archive (``legacy/shotlog/input``, recognised by its manifest), which files
+    months by year, real non-monthly logs under ``supplementary/`` and
+    everything else under ``other/``. Nothing found is dropped silently: a file
+    is converted, archived, used as a fallback, or listed in ``excluded`` with
+    the reason.
 
     An open-ended workbook (``#47752-``) is the in-progress copy of a month.
     It is superseded when the same month also has a closed one and is
-    otherwise the only record of that month, so it is converted. Dropping every
-    open-ended name, as the standalone tool did, silently lost whole months.
+    otherwise the only record of that month, so it is converted.
     """
     root = Path(input_dir)
+    archive = _is_archive(root)
+    excluded_roots = [Path(item).resolve() for item in exclude]
     discovery = Discovery()
     by_month: dict[tuple[int, int], list[SourceWorkbook]] = defaultdict(list)
     supplementary: list[SourceWorkbook] = []
-    for path, base in _candidates(root, [Path(item) for item in extra], [Path(item) for item in exclude]):
-        name = display_name(path)
+
+    paths: list[tuple[Path, Path | None]] = []
+    if root.is_dir():
+        paths.extend((path, root) for path in root.rglob("*") if path.is_file())
+    paths.extend((Path(item), None) for item in extra)
+    skipped_under: dict[str, int] = defaultdict(int)
+    for path, base in sorted(paths, key=lambda item: _relative(*item).casefold()):
         relative = _relative(path, base)
+        parts = relative.split("/")
+        name = parts[-1]
+        inside = next((item for item in excluded_roots if path.resolve().is_relative_to(item)), None)
+        if inside is not None:
+            skipped_under[f"{inside} (the FileDB archive itself)"] += 1
+            continue
+        if DERIVED_DIRECTORIES & set(parts[:-1]):
+            skipped_under[f"{'/'.join(parts[:-1])} (derived output of the standalone tool)"] += 1
+            continue
         if name.startswith("._"):
             discovery.excluded.append({"source_file": relative, "reason": "appledouble_sidecar"})
             continue
@@ -227,6 +279,23 @@ def discover_sources(
         if name in JUNK_FILES:
             discovery.excluded.append({"source_file": relative, "reason": "filesystem_residue"})
             continue
+        if archive and base is not None:
+            if parts[0] == "superseded" or relative == ARCHIVE_MANIFEST:
+                continue  # the archive's own history and index, not sources
+            if parts[0] == "other":
+                inner = "/".join(parts[1:])
+                role = _token_role(inner) or (
+                    "superseded_open_ended" if _describe(path) is not None
+                    else "unrecognised_workbook" if path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}
+                    else "other_file"
+                )
+                discovery.archived_only.append(ArchivedFile(path, role, relative))
+                continue
+            if parts[0] == "supplementary":
+                first, last = _name_span(path)
+                supplementary.append(SourceWorkbook(path, None, None, first, last, role=SUPPLEMENTARY,
+                                                    archive_path=relative))
+                continue
         if path.suffix.lower() not in {".xlsx", ".xlsm", ".xls"}:
             discovery.archived_only.append(ArchivedFile(path, "other_file", f"other/{relative}"))
             continue
@@ -236,25 +305,26 @@ def discover_sources(
             discovery.archived_only.append(ArchivedFile(path, role, f"other/{relative}"))
             continue
         monthly = _describe(path)
-        if monthly is not None and base is not None and path.parent.name == "supplementary":
-            monthly = None
         if monthly is not None:
             by_month[(monthly.year, monthly.month)].append(
                 replace(monthly, archive_path=f"{monthly.year:04d}/{name}")
             )
             continue
-        in_supplementary = base is not None and path.parent.name == "supplementary"
-        if in_supplementary or has_shot_markers(path):
+        if path.suffix.lower() == ".xls":
+            discovery.archived_only.append(ArchivedFile(
+                path, "unrecognised_workbook", f"other/{relative}",
+                note="legacy .xls: kept, but openpyxl cannot read it"))
+        elif has_shot_markers(path):
             first, last = _name_span(path)
-            supplementary.append(SourceWorkbook(
-                path, None, None, first, last, role=SUPPLEMENTARY,
-                archive_path=f"supplementary/{name}",
-            ))
+            supplementary.append(SourceWorkbook(path, None, None, first, last, role=SUPPLEMENTARY,
+                                                archive_path=f"supplementary/{name}"))
         else:
             discovery.archived_only.append(
                 ArchivedFile(path, "unrecognised_workbook", f"other/{relative}",
                              note="no shot numbers in column A")
             )
+    discovery.excluded.extend({"source_file": where, "reason": "skipped_directory", "files": count}
+                              for where, count in sorted(skipped_under.items()))
 
     monthly_records: list[SourceWorkbook] = []
     for month in sorted(by_month):
@@ -266,7 +336,7 @@ def discover_sources(
                 monthly_records.append(item)
             else:
                 discovery.archived_only.append(ArchivedFile(
-                    item.path, "superseded_open_ended", f"other/{_relative(item.path, root if item.path.is_relative_to(root) else None)}",
+                    item.path, "superseded_open_ended", _other_path(item.path, root),
                     note="superseded by " + ", ".join(display_name(other.path) for other in closed),
                 ))
     # An open-ended month is bounded by the next month's first shot.
@@ -275,8 +345,56 @@ def discover_sources(
             following = next((later.first_shot for later in monthly_records[index + 1:]
                               if later.first_shot is not None), None)
             monthly_records[index] = replace(item, span_limit=following)
-    discovery.included = monthly_records + supplementary
+    supplementary = [
+        item if item.first_shot is not None else replace(item, content_span=_content_span(item.path))
+        for item in supplementary
+    ]
+    discovery.included = _unique_paths(monthly_records + supplementary)
+    discovery.archived_only = _unique_paths(discovery.archived_only)
+    discovery.fallback = [
+        _fallback(item) for item in discovery.archived_only
+        if item.role in FALLBACK_ROLES and item.path.suffix.lower() in {".xlsx", ".xlsm"}
+        and has_shot_markers(item.path)
+    ]
     return discovery
+
+
+def _other_path(path: Path, root: Path) -> str:
+    try:
+        return "other/" + _relative(path, root)
+    except ValueError:
+        return "other/" + display_name(path)
+
+
+def _fallback(item: ArchivedFile) -> SourceWorkbook:
+    described = _describe(item.path)
+    first, last = _name_span(item.path)
+    workbook = SourceWorkbook(
+        item.path, described.year if described else None, described.month if described else None,
+        first, last, role=item.role, archive_path=item.archive_path,
+    )
+    return workbook if first is not None else replace(workbook, content_span=_content_span(item.path))
+
+
+def _unique_paths(items: list) -> list:
+    """Give two different files that would share an archive path distinct ones.
+
+    ``a/ShotLog_2023_05 #...xlsx`` and ``b/ShotLog_2023_05 #...xlsx`` flatten
+    to one ``2023/`` name; archived under it they would replace each other on
+    every run, and one month's shots would silently belong to the other file.
+    The second keeps its bytes under a name carrying their hash.
+    """
+    seen: dict[str, Path] = {}
+    result = []
+    for item in items:
+        target = item.archive_path
+        if target in seen and seen[target].resolve() != item.path.resolve():
+            stem, dot, suffix = target.rpartition(".")
+            target = f"{stem}.sha-{sha256_file(item.path)[:8]}{dot}{suffix}"
+            item = replace(item, archive_path=target)
+        seen.setdefault(target, item.path)
+        result.append(item)
+    return result
 
 
 def iter_sessions(
@@ -387,7 +505,10 @@ def convert_directory(
     ]
     sessions: list[tuple[SourceWorkbook, dict[str, Any]]] = []
     claimed: dict[str, tuple[str, str]] = {}
-    for source, dataset in iter_sessions(discovery.included, registry, overrides_path, manifest):
+    manifest["fallback_files"] = [item.archive_path for item in discovery.fallback]
+    # Fallback workbooks come last, so a copy never claims a session id first.
+    for source, dataset in iter_sessions(discovery.included + discovery.fallback, registry,
+                                         overrides_path, manifest):
         session = dataset["experiment_session"]
         original = session["id"]
         owner = claimed.get(original)

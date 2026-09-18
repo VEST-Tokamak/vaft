@@ -113,9 +113,10 @@ def archive_workbooks(
     manifest_path = root / INPUT_MANIFEST_NAME
     manifest = _load_json(manifest_path, {"manifest_version": 2, "files": {}, "history": []})
     manifest.setdefault("files", manifest.pop("workbooks", {}))
-    # The FileDB can sit inside the folder being archived (a test, a careless
-    # root); its own contents are never sources.
-    discovery = discover_sources(source_dir, extra, exclude=[filedb.root])
+    # The folder being archived may contain this very archive (legacy/shotlog);
+    # its contents are never sources. Only that subtree is left out -- a FileDB
+    # that also holds the operators' folder elsewhere is still read.
+    discovery = discover_sources(source_dir, extra, exclude=[root.parent])
     now = datetime.now(timezone.utc).isoformat()
     summary: dict[str, Any] = {"copied": [], "unchanged": [], "replaced": [],
                                "excluded": len(discovery.excluded)}
@@ -155,7 +156,11 @@ def _archive_one(path: Path, relative: str, role: str, detail: dict[str, Any], r
         summary["unchanged"].append(relative)
         return
     if dry_run:
-        summary["replaced" if destination.exists() else "copied"].append(relative)
+        if not destination.exists():
+            summary["copied"].append(relative)
+        else:
+            unchanged = sha256_file(destination) == digest
+            summary["unchanged" if unchanged else "replaced"].append(relative)
         return
     if destination.exists():
         old = sha256_file(destination)
@@ -196,7 +201,9 @@ def write_extraction(
     """Write session documents, per-shot records and the batch manifest."""
     out = output_dir(filedb)
     counts = {"sessions_written": 0, "records_written": 0, "records_unchanged": 0}
-    for _, dataset in sessions:
+    for source, dataset in sessions:
+        if source.fallback:
+            continue  # a copy's sheets are the month's again; only its lost shots matter
         text = yaml.safe_dump(dataset, allow_unicode=True, sort_keys=False, width=120)
         if _atomic_write(session_path(out, dataset), text.encode("utf-8")):
             counts["sessions_written"] += 1
