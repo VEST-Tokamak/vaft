@@ -584,7 +584,10 @@ def test_the_detector_does_not_reject_known_usable_vest_magnetics(packaged):
     usable = _measuring(report)
 
     assert len(present) == 74, "63 B-probes and 11 flux loops carry a processed field"
-    assert len(usable) == 73, "all but the one probe the population contradicts"
+    assert len(usable) == 72, (
+        "all but the probe the population contradicts (H3-08) and the one its "
+        "array contradicts (C4-04, #977)"
+    )
     assert all(quality.metrics["first_valid_time"] == pytest.approx(0.26) for quality in usable)
 
 
@@ -600,7 +603,7 @@ def test_the_one_probe_the_population_contradicts_is_rejected_outright(packaged)
     condemned = [
         q
         for q in report
-        if q.status is not ValidationStatus.NOT_AVAILABLE and q.valid_fraction == 0.0
+        if q.status is not ValidationStatus.NOT_AVAILABLE and "population_outlier" in _reasons(q)
     ]
     assert [q.name for q in condemned] == ["MagneticFieldProbe_H3-08_Bz"]
     (probe,) = condemned
@@ -619,7 +622,12 @@ def test_the_population_margin_holds_on_the_packaged_shot(packaged):
     factor = MagneticsQualityConfig().population_peak_factor
     voters = [q for q in report if "amplitude_over_family_median" in q.metrics]
     healthy = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction > 0.0]
-    condemned = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction == 0.0]
+    # The margin is the family review's own: C4-04 is condemned by its array
+    # (#977) at 0.85x its family median, which is exactly what this rule
+    # cannot see.
+    condemned = [
+        q.metrics["amplitude_over_family_median"] for q in voters if "population_outlier" in _reasons(q)
+    ]
     assert max(healthy) < 0.75 * factor
     assert min(condemned) > 5.0 * factor
 
@@ -676,12 +684,14 @@ def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
     assert summary["present"] == 74
     # Every present channel but one is usable over part of the record; none is
     # usable over all of it, because they all share the held tail.  The one is
-    # the probe the population contradicts, condemned for the whole record.
-    assert summary["usable"] == 73
+    # the probe the population contradicts, condemned for the whole record,
+    # and the one its array contradicts (C4-04, #977).
+    assert summary["usable"] == 72
     assert summary["fully_usable"] == 0
     assert summary["events"]["held_tail"] == 74
     assert summary["events"]["implausible_magnitude"] == 1
     assert summary["events"]["population_outlier"] == 1
+    assert summary["events"]["array_contradiction"] == 1
     assert set(metrics["families"]) >= {"inboard", "outboard", "side", "inboard_flux_loop"}
     assert metrics["configuration"]["significance_floor"] == (
         MagneticsQualityConfig().significance_floor
@@ -720,8 +730,10 @@ def test_efit_only_asks_about_the_families_it_submits():
 @pytest.mark.parametrize("shot", [41524, 41672])
 def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     """H3-08 is bad in all three packaged shots, at 21-69x the B-probe median;
-    a few outboard probes join it on the higher-current shots.  No flux loop
-    is ever implicated."""
+    a few outboard probes join it on the higher-current shots, and the array
+    review (#977) adds the probes their arrays contradict -- 7 more on 41524,
+    11 on 41672, among them the lower inboard H3 set.  No flux loop is ever
+    implicated."""
     import vaft
     import vaft.omas
 
@@ -737,7 +749,7 @@ def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     ]
     assert "MagneticFieldProbe_H3-08_Bz" in {q.name for q in condemned}
     assert all(q.kind == "b_field_pol_probe" for q in condemned)
-    assert 1 <= len(condemned) <= 8
+    assert 1 <= len(condemned) <= 20
 
 
 def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
@@ -749,14 +761,16 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
 
     ods, report = packaged
     project_validity(ods, report)
-    assert _condemned_channels(ods, nbprobe=76) == {25}
+    # H3-08 (25) by its family, C4-04 (45) by its array (#977); the held tail
+    # condemns nothing.
+    assert _condemned_channels(ods, nbprobe=76) == {25, 45}
     from vaft.validation.imas import is_condemned_channel
 
     assert {
         i
         for i in range(len(ods["magnetics.b_field_pol_probe"]))
         if is_condemned_channel(ods, f"magnetics.b_field_pol_probe.{i}.field")
-    } == {25}
+    } == {25, 45}
 
 
 def test_every_consumer_agrees_with_the_interpretation_layer(packaged):
