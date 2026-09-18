@@ -483,6 +483,7 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "cerror_final": record.get("cerror_final"),
                 "fit": record.get("fit"),
                 "delz": record.get("delz"),
+                "initialization": record.get("initialization"),
                 "axis": record.get("axis"),
                 "gs": {k: record["gs"][k] for k in ("whole", "core", "edge")} if produced else None,
                 "gs_edge_over_floor": (
@@ -502,22 +503,32 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-#: (measured, reconstructed, weight) m-file variables of each magnetic family.
-MAGNETIC_FAMILIES = {"probe": ("expmpi", "cmpr2", "fwtmp2"), "loop": ("silopt", "csilop", "fwtsi")}
+#: (measured, reconstructed, weight, sigma) m-file variables of each magnetic family.
+MAGNETIC_FAMILIES = {
+    "probe": ("expmpi", "cmpr2", "fwtmp2", "sigmpi"),
+    "loop": ("silopt", "csilop", "fwtsi", "sigsil"),
+}
 
 
 def magnetic_fit(variables: Mapping[str, Any]) -> dict[str, Any]:
-    """Relative RMS of measured - reconstructed over each family's fitted channels.
+    """How well each magnetic family is fitted, in its own units and against its sigma.
 
-    In the channels' own units, so it means the same thing under either
-    uncertainty model -- which is the point: it is how a change of objective
-    is judged against the data rather than against itself.
+    ``<family>`` is the relative RMS of measured - reconstructed over the
+    fitted channels: in the channels' own units, so it means the same thing
+    under either uncertainty model -- which is the point, it is how a change
+    of objective is judged against the data rather than against itself.
+    ``<family>_chi2`` and ``<family>_reduced_chi2`` (per fitted channel) use
+    the sigma EFIT actually fitted against (``sigmpi``/``sigsil``) and are
+    ``nan`` where the m-file carries none; ``<family>_median_relative`` is the
+    median ``|m - r| / |m|``.
     """
     out: dict[str, Any] = {}
-    for family, (measured, reconstructed, weight) in MAGNETIC_FAMILIES.items():
+    for family, (measured, reconstructed, weight, sigma) in MAGNETIC_FAMILIES.items():
+        def array(name):
+            return np.asarray(getattr(variables[name], "data", variables[name]), dtype=float).reshape(-1)
+
         try:
-            m, r, w = (np.asarray(getattr(variables[name], "data", variables[name]), dtype=float).reshape(-1)
-                       for name in (measured, reconstructed, weight))
+            m, r, w = array(measured), array(reconstructed), array(weight)
         except KeyError:
             out[family], out[f"{family}_n"] = float("nan"), 0
             continue
@@ -527,7 +538,94 @@ def magnetic_fit(variables: Mapping[str, Any]) -> dict[str, Any]:
         scale = np.sqrt(np.mean(m[keep] ** 2)) if keep.any() else 0.0
         out[family] = float(np.sqrt(np.mean((m[keep] - r[keep]) ** 2)) / scale) if scale else float("nan")
         out[f"{family}_n"] = int(keep.sum())
+        nonzero = keep & (m != 0.0)
+        out[f"{family}_median_relative"] = (
+            float(np.median(np.abs(m[nonzero] - r[nonzero]) / np.abs(m[nonzero]))) if nonzero.any() else float("nan")
+        )
+        chi2 = float("nan")
+        sigma_median = float("nan")
+        if sigma in variables:
+            s = array(sigma)[:n]
+            usable = keep & np.isfinite(s) & (s > 0.0) if s.size == n else np.zeros(n, dtype=bool)
+            if usable.any():
+                chi2 = float(np.sum(((m[usable] - r[usable]) / s[usable]) ** 2))
+                sigma_median = float(np.median(s[usable]))
+        out[f"{family}_chi2"] = chi2
+        out[f"{family}_sigma_median"] = sigma_median
+        out[f"{family}_reduced_chi2"] = chi2 / out[f"{family}_n"] if out[f"{family}_n"] else float("nan")
     return out
+
+
+def rigid_vertical_shift(moved: Mapping[str, Any], reference: Mapping[str, Any]) -> dict[str, float]:
+    """The rigid vertical translation that best maps one boundary onto another [mm].
+
+    #924 found the routine-to-fixed-point distance to be almost all one upward
+    translation; this measures it directly rather than from the grid-snapped
+    axis.  ``dz_mm`` is the shift that minimizes the RMS boundary distance,
+    ``lcfs_rms_mm`` the distance before it and ``after_shift_mm`` after.
+    """
+    from scipy.optimize import minimize_scalar
+
+    ar, az = np.asarray(moved["RBBBS"], float), np.asarray(moved["ZBBBS"], float)
+    br, bz = np.asarray(reference["RBBBS"], float), np.asarray(reference["ZBBBS"], float)
+
+    def distance(dz: float) -> float:
+        return boundary_distance(ar, az + dz, br, bz)["rms"]
+
+    best = minimize_scalar(distance, bounds=(-0.5, 0.5), method="bounded", options={"xatol": 1e-6})
+    return {
+        "dz_mm": 1e3 * float(best.x),
+        "lcfs_rms_mm": 1e3 * distance(0.0),
+        "after_shift_mm": 1e3 * float(best.fun),
+    }
+
+
+#: Namelist keys that set EFIT's initial state.  The seed ellipse, its centre,
+#: and the initial-condition switches when a writer sets them; a key absent
+#: from the k-file leaves EFIT's own default in force, recorded as ``None``.
+INITIALIZATION_KEYS = ("RELIP", "ZELIP", "AELIP", "EELIP", "RZERO", "RCENTR", "ICINIT", "ICONDN", "ICPROF")
+#: Files whose presence in a workdir before a run could seed EFIT from a
+#: previous solution rather than from its cold start.
+PRIOR_SOLUTION_PREFIXES = ("g0", "m0", "a0", "restart", "esave")
+
+
+def read_namelist_keys(path: Path, keys: Sequence[str]) -> dict[str, str | None]:
+    """The first ``KEY = value`` for each key in a k-file, as written; ``None`` when absent."""
+    wanted = {key.upper(): None for key in keys}
+    for line in Path(path).read_text(errors="replace").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip().upper()
+        if key in wanted and wanted[key] is None:
+            wanted[key] = value.strip().rstrip(",").strip()
+    return wanted
+
+
+def initialization_fingerprint(scientific, kfile: Path) -> dict[str, Any]:
+    """What EFIT starts from: the configured initialization and the keys the k-file carries.
+
+    Two runs with equal fingerprints start from the same state.  A calibration
+    compares every run's fingerprint with its baseline's and refuses one that
+    differs, so no rung can have been warm-started from another.
+    """
+    import hashlib
+    from dataclasses import asdict
+
+    config = json.dumps(asdict(scientific.initialization), sort_keys=True, default=str)
+    written = read_namelist_keys(kfile, INITIALIZATION_KEYS)
+    digest = hashlib.sha256((config + json.dumps(written, sort_keys=True)).encode()).hexdigest()
+    return {"config": json.loads(config), "kfile": written, "sha256": digest}
+
+
+def refuse_prior_solutions(workdir: Path) -> None:
+    """Refuse to run where a previous solution could seed EFIT instead of its cold start."""
+    leftovers = sorted(
+        path.name for path in Path(workdir).iterdir()
+        if path.is_file() and path.name.lower().startswith(PRIOR_SOLUTION_PREFIXES)
+    )
+    if leftovers:
+        raise RuntimeError(f"{workdir} holds prior solution files {leftovers}; each run must cold-start")
 
 
 def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
@@ -682,13 +780,27 @@ def prepare_constraints(shot: int, product: Path, times: Sequence[float], *, wor
     return built, chosen
 
 
-def _scientific(case: Mapping[str, Any], uncertainty_mode: str = "legacy_weight"):
+def _scientific(
+    case: Mapping[str, Any],
+    uncertainty_mode: str = "legacy_weight",
+    uncertainty_scales: Mapping[str, float] | None = None,
+):
+    """The routine scientific configuration with this case's numerics.
+
+    ``uncertainty_scales`` overrides the named families' scales (each divides
+    the family's submitted sigma); families not named keep the default.
+    """
     from vaft.code.efit.config import EFITScientificConfig
 
     scientific = EFITScientificConfig()
-    scientific = replace(
-        scientific, constraints=replace(scientific.constraints, uncertainty_mode=uncertainty_mode)
-    )
+    constraints = replace(scientific.constraints, uncertainty_mode=uncertainty_mode)
+    if uncertainty_scales:
+        unknown = set(uncertainty_scales) - set(constraints.uncertainty_scales)
+        if unknown:
+            raise ValueError(f"unknown uncertainty families {sorted(unknown)}")
+        scales = {**constraints.uncertainty_scales, **{k: float(v) for k, v in uncertainty_scales.items()}}
+        constraints = replace(constraints, uncertainty_scales=scales)
+    scientific = replace(scientific, constraints=constraints)
     numerics = replace(
         scientific.numerics,
         inner_iterations=int(case["inner_iterations"]),
@@ -700,8 +812,14 @@ def _scientific(case: Mapping[str, Any], uncertainty_mode: str = "legacy_weight"
 
 def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any], workdir: Path,
              efit: str, uncertainty_mode: str = "legacy_weight",
-             namelist_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """One configuration over the chosen slices of one shot, serially."""
+             namelist_overrides: Mapping[str, Any] | None = None,
+             uncertainty_scales: Mapping[str, float] | None = None) -> dict[str, Any]:
+    """One configuration over the chosen slices of one shot, serially, from EFIT's cold start.
+
+    The workdir is emptied first and refused if a prior solution survives in
+    it, and every record carries the initialization fingerprint, so a study
+    can show that no run was warm-started from another.
+    """
     import shutil
 
     from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, run_efit
@@ -709,7 +827,7 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
 
     shutil.rmtree(workdir, ignore_errors=True)
     workdir.mkdir(parents=True)
-    scientific = _scientific(case, uncertainty_mode)
+    scientific = _scientific(case, uncertainty_mode, uncertainty_scales)
     config = EFITConfig(
         executable=efit, workdir=workdir, shot=shot, times=list(times), args=(str(case["grid"]),),
         profile=scientific.profile, initialization=scientific.initialization,
@@ -720,6 +838,8 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
         [patch_namelist(path, FITDELZ_GROUP, namelist_overrides) for path in inputs.kfiles]
         if namelist_overrides else []
     )
+    refuse_prior_solutions(workdir)
+    fingerprint = initialization_fingerprint(scientific, inputs.kfiles[0]) if inputs.kfiles else None
     started = _clock.perf_counter()
     result = run_efit(inputs, config)
     seconds = _clock.perf_counter() - started
@@ -743,6 +863,7 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
             "solver_errors": entry.get("solver_errors", []),
             "delz": final_delz(text, time_ms),
             "namelist_overrides": patched[0] if patched else [],
+            "initialization": fingerprint,
             # The driver calls EFIT once per slice, so this is the slice's own
             # serial wall time; were several slices passed, it is their mean.
             "seconds": seconds / max(1, len(times)),
