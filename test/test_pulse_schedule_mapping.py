@@ -13,11 +13,13 @@ import pytest
 from _shotlog_fixtures import legacy_workbook, modern_workbook
 from vaft.database import sources
 from vaft.database.filedb import FileDB, OMASStage
-from vaft.database.shotlog import build_shot_records, convert_directory, write_extraction
 from vaft.machine_mapping.pulse_schedule import (
     PulseScheduleUnavailableError,
+    build_shot_records,
+    convert_directory,
     map_pulse_schedule,
     pulse_schedule,
+    write_extraction,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

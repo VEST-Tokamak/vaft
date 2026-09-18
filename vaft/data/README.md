@@ -221,7 +221,7 @@ table by shot, on the DAQ clock (ms), that `vaft.machine_mapping.soft_x_rays`
 reads for time alignment. It is generated from the VEST ShotLog by
 `python -m vaft.cli shotlog triggers --output ...` (#995); regenerate it
 rather than editing it. `shotlog/schemas/*.yaml` are the ShotLog template
-schemas `vaft.database.shotlog` detects and extracts with.
+schemas `vaft.machine_mapping.pulse_schedule` detects and extracts with.
 
 `legacy/sxr_te_ratio_be_al.csv` is the VEST soft X-ray two-filter
 electron-temperature calibration table (`te` [eV], `ratio` = Be/Al filtered

@@ -30,7 +30,7 @@ def _print(document) -> None:
 
 
 def _convert(source: Path, overrides: Path | None):
-    from vaft.database.shotlog import build_shot_records, convert_directory
+    from vaft.machine_mapping.pulse_schedule import build_shot_records, convert_directory
 
     sessions, manifest = convert_directory(source, overrides_path=overrides)
     return sessions, build_shot_records(sessions), manifest
@@ -43,6 +43,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     archive = subparsers.add_parser("archive", help="copy the monthly workbooks into legacy/shotlog/input")
     archive.add_argument("--source", type=Path, required=True, help="the operators' ShotLog folder")
     archive.add_argument("--filedb", type=Path, help="FileDB root (default: VAFT_FILEDB_DIR)")
+    archive.add_argument("--extra", type=Path, action="append", default=[],
+                         help="a ShotLog file kept outside --source (repeatable)")
     archive.add_argument("--dry-run", action="store_true", help="report what would be copied")
 
     extract = subparsers.add_parser("extract", help="convert the workbooks and write per-shot records")
@@ -60,12 +62,13 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    from vaft.database.shotlog import archive_workbooks, trigger_table, write_extraction
-    from vaft.database.shotlog.archive import input_dir
-    from vaft.database.shotlog.batch import summarise
+    from vaft.machine_mapping.pulse_schedule import archive_workbooks, trigger_table, write_extraction
+    from vaft.machine_mapping.pulse_schedule.archive import input_dir
+    from vaft.machine_mapping.pulse_schedule.batch import summarise
 
     if args.command == "archive":
-        summary = archive_workbooks(args.source, _filedb(args.filedb), dry_run=args.dry_run)
+        summary = archive_workbooks(args.source, _filedb(args.filedb), extra=args.extra,
+                                    dry_run=args.dry_run)
         _print({key: (len(value) if isinstance(value, list) else value) for key, value in summary.items()})
         return 0
 
@@ -74,7 +77,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.command == "triggers":
         import yaml
 
-        from vaft.database.shotlog.archive import load_records
+        from vaft.machine_mapping.pulse_schedule.archive import load_records
 
         if args.source is None:
             # The records `extract` wrote: the table then matches the mapping exactly.
@@ -94,7 +97,12 @@ def main(argv: Iterable[str] | None = None) -> int:
     source = args.source if args.source is not None else input_dir(filedb)
     sessions, records, manifest = _convert(source, args.overrides)
 
-    summary = {**summarise(manifest), "records": len(records)}
+    from vaft.machine_mapping.pulse_schedule.records import coverage_report
+
+    coverage = coverage_report(records)
+    summary = {**summarise(manifest), "records": len(records),
+               "first_logged_shot": coverage.get("first_logged_shot"),
+               "missing_shots": coverage["missing_count"]}
     if not args.dry_run:
         if filedb is None:
             filedb = _filedb(None)

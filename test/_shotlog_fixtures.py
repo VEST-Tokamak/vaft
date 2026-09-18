@@ -104,15 +104,16 @@ def modern_workbook(path: Path, sheets: dict[str, list[dict[str, Any]]], title: 
     return path
 
 
-def legacy_workbook(path: Path, sheet: str = "20140117") -> Path:
-    """A 2013-era sheet: headers on row 2, one shot's values on row 3."""
+def legacy_workbook(path: Path, sheet: str = "20140117", shots: tuple[int, ...] = (7344,)) -> Path:
+    """A 2013-era sheet: headers on row 2, then one row of values per shot."""
     workbook = Workbook()
     ws = workbook.active
     ws.title = sheet
     headers = ["Shot", "TF", "PF", "SW1", "C1", "gas", "Fail"]
     for column, text in enumerate(headers, start=1):
         ws.cell(2, column, text)
-    for column, value in enumerate([7344, 10, 3, 1, 12, "900~902ms", "fail: no plasma"], start=1):
-        ws.cell(3, column, value)
+    for row, shot in enumerate(shots, start=3):
+        for column, value in enumerate([shot, 10, 3, 1, 12, "900~902ms", "fail: no plasma"], start=1):
+            ws.cell(row, column, value)
     workbook.save(path)
     return path

@@ -101,6 +101,8 @@ def _occurrence(source: SourceWorkbook, dataset: dict[str, Any], group: dict[str
         "sha256": provenance["source_sha256"],
         "sheet": provenance["sheet_name"],
         "run_group_id": group["id"],
+        "role": source.role,
+        "schema_version": dataset["schema_version"],
         "covers_shot": None,  # filled per shot
         "_source": source,
     }
@@ -125,6 +127,8 @@ def build_shot_records(
     for shot, items in candidates.items():
         items.sort(key=lambda item: (
             not item[0]["covers_shot"],
+            item[0]["role"] != "monthly_record",
+            item[1]["schema_version"] == "unclassified",
             item[0]["experiment_date"] or "9999",
             item[0]["workbook"],
             item[0]["sheet"],
@@ -210,8 +214,57 @@ def trigger_table(records: dict[int, dict[str, Any]], offset_ms: int | float = D
     return {"shots": shots}
 
 
+def coverage_report(records: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    """Which shot numbers the ShotLog accounts for, and where it is silent.
+
+    The ShotLog is worth keeping because it is the one record meant to cover
+    every discharge, so its gaps are reported, not assumed away. Shots before
+    the first one logged have no ShotLog source at all; a gap inside the logged
+    span names the records on either side, which is where to look for the
+    workbook or sheet that lost it.
+    """
+    shots = sorted(records)
+    if not shots:
+        return {"records": 0, "missing_count": 0, "missing_ranges": []}
+    present = set(shots)
+    ranges: list[dict[str, Any]] = []
+    start: int | None = None
+    for shot in range(shots[0], shots[-1] + 2):
+        if shot not in present and shot <= shots[-1]:
+            start = shot if start is None else start
+        elif start is not None:
+            before, after = records.get(start - 1), records.get(shot)
+            ranges.append({
+                "first": start,
+                "last": shot - 1,
+                "count": shot - start,
+                "before": _where(before),
+                "after": _where(after),
+            })
+            start = None
+    unclassified = sum(1 for record in records.values() if record["schema_version"] == "unclassified")
+    return {
+        "first_logged_shot": shots[0],
+        "last_logged_shot": shots[-1],
+        "no_source_before": shots[0] if shots[0] > 1 else None,
+        "records": len(shots),
+        "classified": len(shots) - unclassified,
+        "unclassified": unclassified,
+        "missing_count": sum(item["count"] for item in ranges),
+        "missing_ranges": ranges,
+    }
+
+
+def _where(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if record is None:
+        return None
+    return {"shot": record["shot"], "workbook": record["source"]["workbook"],
+            "sheet": record["source"]["sheet"]}
+
+
 __all__ = [
     "CARRY_FORWARD_SYSTEMS",
+    "coverage_report",
     "DAQ_OFFSET_MS",
     "RECORD_VERSION",
     "build_shot_records",

@@ -38,6 +38,7 @@ SHOT_RANGE_RE = re.compile(r"^\s*(\d{3,6})\s*[-~–]\s*(\d{3,6})\s*$")
 REFERENCE_RE = re.compile(r"\bref(?:erence)?(?![a-z])[^\d\n]{0,6}?\s*(\d{3,6})\b", re.IGNORECASE)
 DATE_RE = re.compile(r"^(\d{2})(\d{2})(\d{2})")
 DATE8_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})")
+DATE_ISO_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")  # ERC_ShotLog names sheets 2013-01-21
 FILE_DATE_RE = re.compile(r"ShotLog_(\d{4})_(\d{1,2})", re.IGNORECASE)
 SCAN_MAX_COLUMNS = 128
 #: A shot range longer than this is a typo, not a run of identical shots.
@@ -69,7 +70,7 @@ def sha256_file(path: Path) -> str:
 
 def derive_session(sheet_name: str, source: Path) -> tuple[str | None, str]:
     """``(experiment_date, session_id)`` from a sheet named ``YYMMDD`` or ``YYYYMMDD``."""
-    match8 = DATE8_RE.match(sheet_name)
+    match8 = DATE8_RE.match(sheet_name) or DATE_ISO_RE.match(sheet_name)
     match6 = DATE_RE.match(sheet_name)
     if match8:
         year, month, day = match8.groups()
@@ -115,6 +116,19 @@ def _marker(value: Any, row: int) -> Marker | None:
     if not shots:
         return None
     return Marker(row=row, kind="shots", shots=tuple(dict.fromkeys(shots)))
+
+
+def marker_shots(value: Any) -> tuple[int, ...]:
+    """The shots a column-A cell logs, or ``()`` when it logs none."""
+    marker = _marker(value, 0)
+    return marker.shots if marker is not None and marker.kind == "shots" else ()
+
+
+def _within(shot: int, span: tuple[int, int | None] | None) -> bool:
+    if span is None:
+        return True
+    lower, upper = span
+    return shot >= lower and (upper is None or shot <= upper)
 
 
 def _cell_record(cell: Any) -> dict[str, Any]:
@@ -357,7 +371,7 @@ def _apply_overrides(dataset: dict[str, Any], overrides_path: Path | None) -> No
 
 def validate_dataset(dataset: dict[str, Any], registry: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    if dataset.get("schema_version") not in registry["schemas"]:
+    if dataset.get("schema_version") not in {*registry["schemas"], "unclassified"}:
         errors.append("unknown_schema_version")
     for key in ("provenance", "experiment_session", "run_groups"):
         if key not in dataset:
@@ -383,20 +397,27 @@ def convert_sheet(
     overrides_path: Path | None = None,
     workbook: Any | None = None,
     source_hash: str | None = None,
+    span: tuple[int, int | None] | None = None,
 ) -> dict[str, Any]:
-    """Convert ``sheet_name`` of ``source`` into a session document."""
+    """Convert ``sheet_name`` of ``source`` into a session document.
+
+    ``span`` is the range of shots the workbook can hold (its ``#first-last``
+    with a margin). A column-A number outside it is not one of this sheet's
+    shots -- a reference to an older discharge, or a value that only looks
+    like a shot number -- and is recorded as such instead of becoming a record.
+    """
     source = Path(source)
     owns_workbook = workbook is None
     if workbook is None:
         workbook = load_workbook(source, read_only=False, data_only=False)
     try:
-        return _convert(source, sheet_name, registry, overrides_path, workbook, source_hash)
+        return _convert(source, sheet_name, registry, overrides_path, workbook, source_hash, span)
     finally:
         if owns_workbook:
             workbook.close()
 
 
-def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash) -> dict[str, Any]:
+def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash, span=None) -> dict[str, Any]:
     if sheet_name not in workbook.sheetnames:
         raise ValueError(f"Sheet not found: {sheet_name}")
     ws = workbook[sheet_name]
@@ -406,18 +427,36 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
         "sheet_name": sheet_name,
     }
     schema_id, schema = detect_schema(ws, registry)
+    classification = None
     if schema_id is None:
-        return {
-            "schema_version": "unclassified",
-            "provenance": provenance,
-            "classification": schema,
-            "review": {"required": True, "reason": "unclassified_template"},
-        }
+        # No template matched, but the sheet may still log shots. They keep
+        # their raw cells under an empty field list rather than vanishing.
+        classification = schema
+        schema = {"fields": [], "version": None}
 
     experiment_date, session_id = derive_session(sheet_name, source)
     card_extractor = schema.get("extractor") == "modern_card"
     markers = [marker for row in range(1, ws.max_row + 1) if (marker := _marker(ws.cell(row, 1).value, row))]
     marked = {marker.row for marker in markers}
+    out_of_span: list[dict[str, Any]] = []
+    if span is not None:
+        kept: list[Marker] = []
+        for marker in markers:
+            if marker.kind != "shots":
+                kept.append(marker)
+                continue
+            inside = tuple(shot for shot in marker.shots if _within(shot, span))
+            outside = [shot for shot in marker.shots if not _within(shot, span)]
+            if outside:
+                out_of_span.append({"cell": f"A{marker.row}", "shots": outside})
+            if inside:
+                kept.append(Marker(row=marker.row, kind="shots", shots=inside))
+            else:
+                # Its card, if any, is an older shot's settings: keep it as a
+                # reference, the way an explicit "Ref. #N" card is kept.
+                kept.append(Marker(row=marker.row, kind="reference", reference=outside[0],
+                                   references=tuple(outside)))
+        markers = kept
     # A column-A cell of digits and separators that is not a marker is a shot
     # number the parser could not read (a reversed range, "43782/3"). Its card
     # is lost, so it is reported for review rather than skipped in silence.
@@ -493,7 +532,7 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
         }]
 
     dataset = {
-        "schema_version": schema_id,
+        "schema_version": schema_id or "unclassified",
         "schema_revision": schema["version"],
         "provenance": provenance,
         "experiment_session": {"id": session_id, "experiment_date": experiment_date, "session_label": sheet_name},
@@ -502,6 +541,11 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     _apply_overrides(dataset, overrides_path)
     if unreadable:
         dataset["review"]["unreadable_shot_cells"] = unreadable
+    if out_of_span:
+        dataset["review"]["out_of_span_markers"] = out_of_span
+    if classification is not None:
+        dataset["classification"] = classification
+        dataset["review"]["reason"] = "unclassified_template"
     errors = validate_dataset(dataset, registry)
     if errors:
         dataset["review"]["validation_errors"] = errors

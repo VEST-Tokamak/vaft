@@ -2,7 +2,9 @@
 
 Layout (#995)::
 
-    legacy/shotlog/input/{YYYY}/ShotLog_YYYY_MM #a-b.xlsx    the workbooks, byte-identical
+    legacy/shotlog/input/{YYYY}/ShotLog_YYYY_MM #a-b.xlsx    each month's record, byte-identical
+    legacy/shotlog/input/supplementary/{name}.xlsx           real logs outside the monthly naming
+    legacy/shotlog/input/other/{path}                        copies, autosaves, forms, in-progress copies
     legacy/shotlog/input/superseded/{name}.sha-{8}.xlsx      earlier bytes of a workbook that changed
     legacy/shotlog/input/manifest.json                       sha256, origin and discovery verdict per file
     legacy/shotlog/output/experiment-days/{YYYY}/*.yaml      one session document per worksheet
@@ -35,11 +37,13 @@ from vaft.database.filedb import FileDB
 
 from .batch import SourceWorkbook, discover_sources
 from .converter import sha256_file, session_path
+from .records import coverage_report
 
 TREE = "shotlog"
 RECORD_NAME = "shotlog.json"
 INPUT_MANIFEST_NAME = "manifest.json"
 BATCH_MANIFEST_NAME = "batch-manifest.json"
+COVERAGE_NAME = "coverage.json"
 SUPERSEDED_DIR = "superseded"
 
 
@@ -89,76 +93,98 @@ def _load_json(path: Path, default: Any) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def archive_workbooks(source_dir: str | Path, filedb: FileDB, *, dry_run: bool = False) -> dict[str, Any]:
-    """Copy the chosen monthly workbooks from ``source_dir`` into FileDB.
+def archive_workbooks(
+    source_dir: str | Path,
+    filedb: FileDB,
+    *,
+    extra: Iterable[str | Path] = (),
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Copy every ShotLog file from ``source_dir`` (and each ``extra`` file) into FileDB.
 
-    Returns a summary; the per-file state lives in ``input/manifest.json``,
-    which is merged, not replaced, so archiving from two machines accumulates.
+    Every file is kept byte for byte under the path its role gives it
+    (``batch.discover_sources``); only Excel lock files and filesystem residue
+    are left out, and the manifest says so. Returns a summary; the per-file
+    state lives in ``input/manifest.json``, which is merged, not replaced, so
+    archiving from two machines accumulates.
     """
     source_dir = Path(source_dir).expanduser()
     root = input_dir(filedb)
     manifest_path = root / INPUT_MANIFEST_NAME
-    manifest = _load_json(manifest_path, {"manifest_version": 1, "workbooks": {}, "history": []})
-    discovery = discover_sources(source_dir)
+    manifest = _load_json(manifest_path, {"manifest_version": 2, "files": {}, "history": []})
+    manifest.setdefault("files", manifest.pop("workbooks", {}))
+    # The FileDB can sit inside the folder being archived (a test, a careless
+    # root); its own contents are never sources.
+    discovery = discover_sources(source_dir, extra, exclude=[filedb.root])
     now = datetime.now(timezone.utc).isoformat()
-    summary = {"copied": [], "unchanged": [], "replaced": [], "excluded": len(discovery.excluded)}
-
+    summary: dict[str, Any] = {"copied": [], "unchanged": [], "replaced": [],
+                               "excluded": len(discovery.excluded)}
+    entries = [
+        (item.path, item.archive_path, item.role, {
+            "year": item.year, "month": item.month,
+            "first_shot": item.first_shot, "last_shot": item.last_shot,
+        })
+        for item in discovery.included
+    ] + [
+        (item.path, item.archive_path, item.role, {"note": item.note})
+        for item in discovery.archived_only
+    ]
     try:
-        _archive_each(discovery, root, manifest, summary, now, dry_run)
+        for path, relative, role, detail in entries:
+            _archive_one(path, relative, role, detail, root, manifest, summary, now, dry_run)
     finally:
         # Written even when a copy fails part-way (the operator saved the
         # workbook mid-copy): a superseded file already moved aside must keep
-        # its history entry, and earlier workbooks their records.
+        # its history entry, and earlier files their records.
         manifest["excluded"] = discovery.excluded
         manifest["source_dir"] = str(source_dir)
+        manifest["extra"] = [str(Path(item)) for item in extra]
         manifest["updated_at"] = now
+        manifest["manifest_version"] = 2
         if not dry_run:
             _atomic_write(manifest_path, _json_bytes(manifest))
     return summary
 
 
-def _archive_each(discovery, root: Path, manifest: dict[str, Any], summary: dict[str, Any],
-                  now: str, dry_run: bool) -> None:
-    for workbook in discovery.included:
-        # NFC so the archive reads the same on the Linux server as on macOS.
-        relative = f"{workbook.year:04d}/{unicodedata.normalize('NFC', workbook.path.name)}"
-        destination = root / relative
-        digest = sha256_file(workbook.path)
-        previous = manifest["workbooks"].get(relative)
-        if destination.exists() and previous and previous.get("sha256") == digest:
+def _archive_one(path: Path, relative: str, role: str, detail: dict[str, Any], root: Path,
+                 manifest: dict[str, Any], summary: dict[str, Any], now: str, dry_run: bool) -> None:
+    destination = root / relative
+    digest = sha256_file(path)
+    previous = manifest["files"].get(relative)
+    if destination.exists() and previous and previous.get("sha256") == digest:
+        summary["unchanged"].append(relative)
+        return
+    if dry_run:
+        summary["replaced" if destination.exists() else "copied"].append(relative)
+        return
+    if destination.exists():
+        old = sha256_file(destination)
+        if old == digest:
             summary["unchanged"].append(relative)
-            continue
-        if dry_run:
-            summary["replaced" if destination.exists() else "copied"].append(relative)
-            continue
-        if destination.exists():
-            old = sha256_file(destination)
-            if old == digest:
-                summary["unchanged"].append(relative)
-            else:
-                kept = root / SUPERSEDED_DIR / f"{destination.stem}.sha-{old[:8]}{destination.suffix}"
-                kept.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(destination, kept)
-                manifest["history"].append({
-                    "workbook": relative, "superseded_sha256": old,
-                    "kept_as": kept.relative_to(root).as_posix(), "at": now,
-                })
-                summary["replaced"].append(relative)
-        if not destination.exists():
-            _verified_copy(workbook.path, destination, digest)
-            if relative not in summary["replaced"]:
-                summary["copied"].append(relative)
-        manifest["workbooks"][relative] = {
-            "sha256": digest,
-            "size": workbook.path.stat().st_size,
-            "original_name": workbook.path.name,
-            "original_path": str(workbook.path),
-            "year": workbook.year,
-            "month": workbook.month,
-            "first_shot": workbook.first_shot,
-            "last_shot": workbook.last_shot,
-            "archived_at": now,
-        }
+        else:
+            kept = root / SUPERSEDED_DIR / Path(relative).with_name(
+                f"{destination.stem}.sha-{old[:8]}{destination.suffix}"
+            )
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(destination, kept)
+            manifest["history"].append({
+                "file": relative, "superseded_sha256": old,
+                "kept_as": kept.relative_to(root).as_posix(), "at": now,
+            })
+            summary["replaced"].append(relative)
+    if not destination.exists():
+        _verified_copy(path, destination, digest)
+        if relative not in summary["replaced"]:
+            summary["copied"].append(relative)
+    manifest["files"][relative] = {
+        "sha256": digest,
+        "size": path.stat().st_size,
+        "role": role,
+        "original_name": unicodedata.normalize("NFC", path.name),
+        "original_path": str(path),
+        "archived_at": now,
+        **{key: value for key, value in detail.items() if value is not None},
+    }
 
 
 def write_extraction(
@@ -184,6 +210,9 @@ def write_extraction(
     # decision for a person, not for a re-run.
     stale = sorted(set(recorded_shots(filedb)) - set(records))
     counts["records_stale"] = len(stale)
+    coverage = coverage_report(records)
+    _atomic_write(out / COVERAGE_NAME, _json_bytes(coverage))
+    counts["missing_shots"] = coverage["missing_count"]
     stamped = {
         **batch_manifest,
         "run_at": datetime.now(timezone.utc).isoformat(),

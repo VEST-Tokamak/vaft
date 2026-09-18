@@ -8,7 +8,7 @@ event is what the operator *set*, and says so in its provider.
 
 Input is the per-shot record FileDB keeps at
 ``legacy/shotlog/{shot}/metadata/shotlog.json`` (built by
-``vaft.database.shotlog``); ``data_root`` is ``legacy/shotlog``, the same
+the sibling modules of this package); ``data_root`` is ``legacy/shotlog``, the same
 per-diagnostic root the soft X-ray and camera mappings take.
 
 Clock. The ShotLog is logged on the timing controller, which starts 200 ms
@@ -29,9 +29,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from vaft.database.shotlog.archive import load_record
-from vaft.database.shotlog.records import DAQ_OFFSET_MS, to_daq_ms
 from vaft.machine_mapping.utils import set_path
+
+from .archive import load_record
+from .records import DAQ_OFFSET_MS, to_daq_ms
 
 CODE_NAME = "vaft.machine_mapping.pulse_schedule"
 CODE_VERSION = "1"

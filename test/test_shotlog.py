@@ -10,7 +10,7 @@ import pytest
 
 from _shotlog_fixtures import legacy_workbook, modern_workbook
 from vaft.database.filedb import FileDB, FileDBPathError
-from vaft.database.shotlog import (
+from vaft.machine_mapping.pulse_schedule import (
     archive_workbooks,
     build_shot_records,
     convert_directory,
@@ -21,7 +21,7 @@ from vaft.database.shotlog import (
     trigger_table,
     write_extraction,
 )
-from vaft.database.shotlog.values import (
+from vaft.machine_mapping.pulse_schedule.values import (
     normalize_status,
     parse_position,
     parse_time_window,
@@ -246,32 +246,127 @@ def test_overrides_are_yaml_and_bound_to_the_workbook_bytes(tmp_path, modern):
 # --------------------------------------------------------------------------- #
 
 
-def test_an_open_ended_workbook_is_kept_unless_its_month_is_closed(tmp_path):
+def test_every_file_gets_a_role_and_only_residue_is_left_out(tmp_path):
     # macOS lists Korean names decomposed (NFD); an autosave spelled that way
     # once passed every exclusion and was archived as its month's record.
     autosave = unicodedata.normalize("NFD", "ShotLog_2016_09 #15742-15822 (자동 저장됨).xlsx")
     (tmp_path / autosave).write_bytes(b"")
     (tmp_path / "ShotLog_2016_09 #15742-15822.xlsx").write_bytes(b"")
     for name in (
-        "ShotLog_2026_02 #47752-.xlsx",          # only record of February: kept
-        "ShotLog_2026_03 #47986-.xlsx",          # superseded by the closed one
+        "ShotLog_2026_02 #47752-.xlsx",          # only record of February: converted
+        "ShotLog_2026_03 #47986-.xlsx",          # superseded by the closed one: kept, not converted
         "ShotLog_2026_03 #47986-48192.xlsx",
         "~$ShotLog_2026_03 #47986-48192.xlsx",
+        "._ShotLog_2026_03 #47986-48192.xlsx",
         "복사본 ShotLog_2024_5 #42213-.xlsx",
-        "conditioning.xlsx",
+        "blank.xlsx",                            # no shot numbers: kept, not converted
     ):
         (tmp_path / name).write_bytes(b"")
+    (tmp_path / "Shot Log form").mkdir()
+    (tmp_path / "Shot Log form" / "VEST shotlog_New_v3.xlsx").write_bytes(b"")
+    legacy_workbook(tmp_path / "ERC_ShotLog.xlsx", shots=(2774, 2776))   # a real log outside the monthly naming
+    (tmp_path / "ShotLog_dataset").mkdir()           # the standalone tool's output: never a source
+    (tmp_path / "ShotLog_dataset" / "batch-manifest.yaml").write_text("x")
+
     discovery = discover_sources(tmp_path)
-    assert [item.path.name for item in discovery.included] == [
-        "ShotLog_2016_09 #15742-15822.xlsx",
-        "ShotLog_2026_02 #47752-.xlsx", "ShotLog_2026_03 #47986-48192.xlsx",
+    assert [(item.path.name, item.role) for item in discovery.included] == [
+        ("ShotLog_2016_09 #15742-15822.xlsx", "monthly_record"),
+        ("ShotLog_2026_02 #47752-.xlsx", "monthly_record"),
+        ("ShotLog_2026_03 #47986-48192.xlsx", "monthly_record"),
+        ("ERC_ShotLog.xlsx", "supplementary_log"),
     ]
+    # The open-ended February is bounded by March's first shot.
+    assert discovery.included[1].span() == (47752 - 200, 47986 + 200)
+    kept = {item.archive_path: item.role for item in discovery.archived_only}
+    assert kept == {
+        "other/ShotLog_2026_03 #47986-.xlsx": "superseded_open_ended",
+        "other/" + unicodedata.normalize("NFC", autosave): "autosave",
+        "other/복사본 ShotLog_2024_5 #42213-.xlsx": "copy",
+        "other/Shot Log form/VEST shotlog_New_v3.xlsx": "template",
+        "other/blank.xlsx": "unrecognised_workbook",
+    }
     reasons = {item["source_file"]: item["reason"] for item in discovery.excluded}
-    assert reasons["ShotLog_2026_03 #47986-.xlsx"] == "superseded_open_ended_workbook"
-    assert reasons["~$ShotLog_2026_03 #47986-48192.xlsx"] == "excel_lock_file"
-    assert reasons["conditioning.xlsx"] == "not_monthly_shotlog"
-    assert reasons[unicodedata.normalize("NFC", autosave)] == "copy_or_temporary_or_template"
-    assert reasons["복사본 ShotLog_2024_5 #42213-.xlsx"] == "copy_or_temporary_or_template"
+    assert reasons == {
+        "~$ShotLog_2026_03 #47986-48192.xlsx": "excel_lock_file",
+        "._ShotLog_2026_03 #47986-48192.xlsx": "appledouble_sidecar",
+    }
+
+
+def test_a_supplementary_log_is_converted_but_ranks_below_the_month(tmp_path):
+    legacy_workbook(tmp_path / "ERC_ShotLog.xlsx", shots=(7344, 7345))
+    source = legacy_workbook(tmp_path / "ShotLog_2014_01 #7300-7400.xlsx")
+    _, records, _ = _records(tmp_path)
+    record = records[7344]
+    assert record["source"]["workbook"] == source.name
+    assert [item["role"] for item in record["occurrences"]] == ["monthly_record", "supplementary_log"]
+
+
+def test_an_unclassified_sheet_still_gives_its_shots_records(tmp_path):
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "210512"
+    for row, values in enumerate([[31000, "Coil", "setting"], [None, "x", 1], [31001, "Coil", "setting"]], start=1):
+        for column, value in enumerate(values, start=1):
+            if value is not None:
+                ws.cell(row, column, value)
+    path = tmp_path / "ShotLog_2021_05 #31000-31001.xlsx"
+    workbook.save(path)
+    dataset = convert_sheet(path, "210512", REGISTRY)
+    assert dataset["schema_version"] == "unclassified"
+    assert sorted(_shots(dataset)) == [31000, 31001]
+    assert any(cell["raw"] == "Coil" for cell in _shots(dataset)[31000]["source_occurrences"][0]["cells"])
+    _, records, _ = _records(tmp_path)
+    assert records[31001]["schema_version"] == "unclassified"
+
+
+def test_the_split_switch_power_supply_sheets_have_a_schema(tmp_path):
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "190512"
+    for column, value in enumerate([22462, "TF", "P/S", "PF", "SW(+)", "SW(-)", "Charging Voltage"], start=1):
+        ws.cell(1, column, value)
+    ws.cell(2, 2, 144)
+    path = tmp_path / "ShotLog_2019_05 #22271-22500.xlsx"
+    workbook.save(path)
+    dataset = convert_sheet(path, "190512", REGISTRY)
+    assert dataset["schema_version"] == "ps_v3"
+    assert _shots(dataset)[22462]["planned_configuration"]["magnetic"]["tf"]["derived_value"] == 144
+
+
+def test_a_number_outside_the_workbook_span_is_not_a_shot(tmp_path):
+    source = modern_workbook(tmp_path / "ShotLog_2025_09 #46590-46599.xlsx", {"250915": [
+        {"shot": 43960, "diagnostics": {"SXR1": "485-535"}},   # an older shot quoted as a reference
+        {"shot": 46590},
+        {"shot": 1000},                                        # not a shot at all
+    ]})
+    span = (46590 - 200, 46599 + 200)
+    dataset = convert_sheet(source, "250915", REGISTRY, span=span)
+    assert sorted(_shots(dataset)) == [46590]
+    assert [item["shots"] for item in dataset["review"]["out_of_span_markers"]] == [[43960], [1000]]
+    references = [ref["shot"] for group in dataset["run_groups"] for ref in group["references"]]
+    assert references == [43960, 1000]
+    # The quoted card's settings did not become 46590's.
+    assert _shots(dataset)[46590]["planned_configuration"].get("timing", []) == []
+
+
+def test_coverage_names_the_gaps_and_where_to_look(tmp_path):
+    from vaft.machine_mapping.pulse_schedule.records import coverage_report
+
+    modern_workbook(tmp_path / "ShotLog_2025_09 #46590-46599.xlsx", {"250915": [
+        {"shot": 46590}, {"shot": 46591}, {"shot": 46595},
+    ]})
+    _, records, _ = _records(tmp_path)
+    report = coverage_report(records)
+    assert (report["first_logged_shot"], report["no_source_before"]) == (46590, 46590)
+    assert report["missing_ranges"] == [{
+        "first": 46592, "last": 46594, "count": 3,
+        "before": {"shot": 46591, "workbook": "ShotLog_2025_09 #46590-46599.xlsx", "sheet": "250915"},
+        "after": {"shot": 46595, "workbook": "ShotLog_2025_09 #46590-46599.xlsx", "sheet": "250915"},
+    }]
 
 
 # --------------------------------------------------------------------------- #
@@ -359,9 +454,25 @@ def test_archive_copies_verifies_and_keeps_superseded_bytes(tmp_path, modern):
     assert third["replaced"] == [f"2025/{modern.name}"]
     manifest = json.loads((tmp_path / "filedb/legacy/shotlog/input/manifest.json").read_text())
     kept = tmp_path / "filedb/legacy/shotlog/input" / manifest["history"][0]["kept_as"]
-    assert kept.exists() and kept.parent.name == "superseded"
+    assert kept.exists() and manifest["history"][0]["kept_as"].startswith("superseded/2025/")
+    assert manifest["files"][f"2025/{modern.name}"]["role"] == "monthly_record"
     # The archive reads back as a source folder, and superseded bytes are not rediscovered.
     assert [item.path for item in discover_sources(tmp_path / "filedb/legacy/shotlog/input").included] == [stored]
+
+
+def test_archive_keeps_copies_and_extra_files_byte_for_byte(tmp_path, modern):
+    (tmp_path / "복사본 ShotLog_2025_09 #46590-.xlsx").write_bytes(modern.read_bytes())
+    elsewhere = tmp_path.parent / f"{tmp_path.name}-outside"
+    elsewhere.mkdir()
+    stray = legacy_workbook(elsewhere / "ShotLog_2022_02 #35060-.xlsx")
+    filedb = FileDB(tmp_path / "filedb")
+    summary = archive_workbooks(tmp_path, filedb, extra=[stray])
+    root = tmp_path / "filedb/legacy/shotlog/input"
+    assert (root / "other/복사본 ShotLog_2025_09 #46590-.xlsx").read_bytes() == modern.read_bytes()
+    assert (root / "2022" / stray.name).read_bytes() == stray.read_bytes()
+    assert len(summary["copied"]) == 3
+    # The copy is kept, never converted.
+    assert [item.role for item in discover_sources(root).included] == ["monthly_record", "monthly_record"]
 
 
 def test_extraction_writes_records_and_touches_nothing_on_a_rerun(tmp_path, modern):
@@ -372,6 +483,8 @@ def test_extraction_writes_records_and_touches_nothing_on_a_rerun(tmp_path, mode
     record = json.loads(record_path(filedb, 46590).read_text())
     assert record["shot"] == 46590 and record["clock"]["daq_offset_ms"] == -200
     assert (tmp_path / "filedb/legacy/shotlog/output/experiment-days/2025/2025-09-15__250915.yaml").exists()
+    coverage = json.loads((tmp_path / "filedb/legacy/shotlog/output/coverage.json").read_text())
+    assert (coverage["records"], coverage["missing_count"]) == (3, 0)
     sessions, records, manifest = _records(tmp_path)
     assert write_extraction(sessions, records, manifest, filedb)["records_unchanged"] == 3
 

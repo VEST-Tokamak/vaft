@@ -22,7 +22,9 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
   camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
   camera_visible_fluctuation/index.json   what is reserved and why
-  shotlog/input/{YYYY}/ShotLog_*.xlsx     operator ShotLog workbooks, byte-identical (#995)
+  shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical (#995)
+  shotlog/input/supplementary/            real logs outside the monthly naming (ERC, KSTAR_Conference, ...)
+  shotlog/input/other/                    copies, autosaves, forms, in-progress copies: kept, not read
   shotlog/output/                         session documents + batch manifest
   shotlog/{shot}/metadata/shotlog.json    per-shot record the pulse_schedule mapping reads
 
@@ -68,14 +70,22 @@ do not go through the inventory and consolidation scripts. `python -m vaft.cli
 shotlog` archives and reads them instead (issue #995):
 
 ```bash
-python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR"
+python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR" \
+    --extra "/path/to/a stray ShotLog_YYYY_MM.xlsx"
 python -m vaft.cli shotlog extract --filedb "$VAFT_FILEDB_DIR"
 ./ingest_external_diagnostics.py --root "$VAFT_FILEDB_DIR" --diagnostic shotlog
 ```
 
-`archive` copies (never moves) one workbook per month, verifies each copy by
-sha256, and keeps the earlier bytes of a workbook that changed under
-`input/superseded/`. `extract` writes one record per shot; `ingest` maps the
+The ShotLog is kept because it is the one record meant to cover every
+discharge, so `archive` keeps *every* file in the folder, byte for byte and
+sha256-verified, under the path its role gives it; only Excel lock files and
+AppleDouble sidecars are left out, and `input/manifest.json` lists them. It
+copies, never moves, and keeps the earlier bytes of a file that changed under
+`input/superseded/`. `extract` reads the monthly records and the
+supplementary logs, gives every logged shot a record (a sheet no template
+matches keeps its raw cells, marked `unclassified`), and writes
+`output/coverage.json`: the first logged shot and every gap after it, with the
+records on either side of each gap. `extract` writes one record per shot; `ingest` maps the
 records into `pulse_schedule` products. Shots before the 2023 card template
 have a record but no structured trigger, and are recorded as `unavailable`
 rather than failed.

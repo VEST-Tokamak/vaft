@@ -9186,168 +9186,86 @@ shots:
       start_time_ms: 112
       end_time_ms: 112
       source_shot: 40512
-  40515:
-    IDS:
-      start_time_ms: 290
-      end_time_ms: 291
-      source_shot: 39631
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
-  40516:
-    IDS:
-      start_time_ms: 290
-      end_time_ms: 291
-      source_shot: 39631
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40517:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40517
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40518:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40518
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40519:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40519
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40520:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40520
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40521:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40521
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40522:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40522
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40523:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40523
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40524:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40524
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40525:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40525
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40526:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40526
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40527:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40527
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40528:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40528
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40529:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40529
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40530:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40530
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40531:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40531
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40532:
     IDS:
       start_time_ms: 290
       end_time_ms: 291
       source_shot: 40532
-    SXR:
-      start_time_ms: 300
-      end_time_ms: 301
-      source_shot: 39631
   40533:
     HXR:
       start_time_ms: 300
@@ -9649,11 +9567,6 @@ shots:
       start_time_ms: 106
       end_time_ms: 106
       source_shot: 40553
-  40555:
-    PIG:
-      start_time_ms: 100
-      end_time_ms: 100
-      source_shot: 38486
   40556:
     HXR:
       start_time_ms: 300
@@ -32030,331 +31943,6 @@ shots:
       start_time_ms: 100
       end_time_ms: 100
       source_shot: 45087
-  45121:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45122:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45123:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45124:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45125:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45126:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45127:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45128:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45129:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45130:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45131:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45132:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45133:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45134:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45135:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45136:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45137:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45138:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45139:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45140:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45141:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45142:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45143:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45144:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45145:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45146:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45147:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45148:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45149:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45150:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45151:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45152:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45153:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45154:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45155:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45156:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45157:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45158:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45159:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45160:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45161:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45162:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45163:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45164:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45165:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45166:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45167:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45168:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45169:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45170:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45171:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45172:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45173:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45174:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45175:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45176:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45177:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45178:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45179:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45180:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45181:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45182:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45183:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45184:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45185:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
   45242:
     TP:
       measured_position_m:
@@ -32367,276 +31955,6 @@ shots:
       - 0.8
       - 0.4
       source_shot: 45243
-  45277:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45278:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45279:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45280:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45281:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45282:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45283:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45284:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45285:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45286:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45287:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45288:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45289:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45290:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45291:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45292:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45293:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45294:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45295:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45296:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45297:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45298:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45299:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45300:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45301:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45302:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45303:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45304:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45305:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45306:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45307:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45308:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45309:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45310:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45311:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45312:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45313:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45314:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45315:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45316:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45317:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45318:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45319:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45320:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45321:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45322:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45323:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45324:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45325:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45326:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45327:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45328:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45329:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
-  45330:
-    SXR:
-      start_time_ms: 285
-      end_time_ms: 335
-      source_shot: 43960
   45376:
     HXR:
       start_time_ms: 285
