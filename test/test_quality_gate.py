@@ -103,13 +103,14 @@ def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(unassessed
     # window the detectors condemn H3-08 alone; C4-04 is out because vest.yaml
     # records it as a fault on every shot (#977), which the waveform check
     # could not have found (it is 0.85x its family median).
+    # 64 probes + 11 flux loops: the field-171 phase-reference twin is gone (#825).
     assert not any(name.startswith("IMPA") for name in gate.excluded)
     assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"}
     reasons = set(gate.reasons["MagneticFieldProbe_H3-08_Bz"])
     assert {"implausible_magnitude", "population_outlier"} <= reasons
     assert "known_fault" in gate.reasons["MagneticFieldProbe_C4-04"]
     assert gate.validity_source == "re-assessed here"
-    assert gate.assessed == 76
+    assert gate.assessed == 75
     # the source was not written
     assert "validity" not in unassessed_39915["magnetics.b_field_pol_probe.25.field"]
     assert "validity" in gated["magnetics.b_field_pol_probe.25.field"]
