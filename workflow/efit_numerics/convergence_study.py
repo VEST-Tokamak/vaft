@@ -51,6 +51,7 @@ import copy
 import importlib.util
 import json
 import os
+import re
 import sys
 import time as _clock
 from dataclasses import replace
@@ -481,6 +482,7 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "terror": record["scalars"].get("terror") if produced else None,
                 "cerror_final": record.get("cerror_final"),
                 "fit": record.get("fit"),
+                "delz": record.get("delz"),
                 "axis": record.get("axis"),
                 "gs": {k: record["gs"][k] for k in ("whole", "core", "edge")} if produced else None,
                 "gs_edge_over_floor": (
@@ -568,8 +570,67 @@ def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
     return out
 
 
+def patch_in1(path: Path, settings: Mapping[str, Any]) -> list[str]:
+    """Add ``settings`` to the k-file's ``&IN1`` block, in place; returns the lines written.
+
+    VAFT's configuration has no field for EFIT's rigid vertical-shift fit, so a
+    study that switches it on writes it here, after the writer and before
+    EFIT, and records exactly what it wrote.  A key the writer already set is
+    refused rather than overridden twice.
+    """
+    lines = Path(path).read_text().splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip().upper() == "&IN1")
+        end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == "/")
+    except StopIteration:
+        raise ValueError(f"{path}: no &IN1 block") from None
+    present = {line.split("=")[0].strip().upper() for line in lines[start:end] if "=" in line}
+    written = []
+    for key, value in settings.items():
+        if key.upper() in present:
+            raise ValueError(f"{path}: &IN1 already sets {key.upper()}")
+        if isinstance(value, bool):
+            text = ".TRUE." if value else ".FALSE."
+        else:
+            text = repr(float(value)) if isinstance(value, float) else str(value)
+        written.append(f" {key.upper()} = {text}")
+    Path(path).write_text("\n".join(lines[:end] + written + lines[end:]) + "\n")
+    return written
+
+
+_DELZ = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+).*?\bdelz=\s*([-+0-9.EeDd]+)")
+
+
+def final_delz(text: str, time_ms: int) -> float | None:
+    """The rigid vertical shift EFIT reports on a slice's last iteration [m], or None.
+
+    Only printed when ``FITDELZ`` is on (EFIT's ``itell = 4`` line).
+    """
+    value = None
+    for line in text.splitlines():
+        found = _DELZ.search(line)
+        if found and int(found.group(1)) == int(time_ms):
+            value = float(found.group(3).replace("D", "E").replace("d", "e"))
+    return value
+
+
+def probe_indexes(source: Any, names: Iterable[str]) -> dict[str, int]:
+    """ODS probe index of each named probe; an unknown name raises."""
+    wanted = list(names)
+    found = {}
+    count = len(source["magnetics.b_field_pol_probe"]) if "magnetics.b_field_pol_probe" in source else 0
+    for index in range(count):
+        name = source.get(f"magnetics.b_field_pol_probe.{index}.name")
+        if name in wanted:
+            found[name] = index
+    missing = [name for name in wanted if name not in found]
+    if missing:
+        raise ValueError(f"no probe named {missing}")
+    return found
+
+
 def prepare_constraints(shot: int, product: Path, times: Sequence[float], *, workdir: Path, tables: str,
-                        tstep: float, average_window: float, seed_study):
+                        tstep: float, average_window: float, seed_study, exclude_probes: Sequence[str] = ()):
     """Constraints for the chosen slices only.
 
     ``prepare_efit_inputs`` overwrites ``equilibrium.time`` with the config's
@@ -597,7 +658,10 @@ def prepare_constraints(shot: int, product: Path, times: Sequence[float], *, wor
         del source["equilibrium"]
     source["equilibrium.time"] = chosen
     gated, _ = quality_gate(source, window=(float(window_times[0]), float(window_times[-1])))
-    decisions = decide_efit_channels(gated, chosen, nbprobe=efit_probe_count(gated))
+    # One-based combined indexes, as the routine manual list is written;
+    # recorded by the decision with its own reason.
+    manual = [index + 1 for index in probe_indexes(gated, exclude_probes).values()]
+    decisions = decide_efit_channels(gated, chosen, nbprobe=efit_probe_count(gated), manual_rejections=manual)
     workdir.mkdir(parents=True, exist_ok=True)
     generate_constraints_ods(
         gated, shot, str(workdir), tables, chosen,
@@ -628,7 +692,8 @@ def _scientific(case: Mapping[str, Any], uncertainty_mode: str = "legacy_weight"
 
 
 def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any], workdir: Path,
-             efit: str, uncertainty_mode: str = "legacy_weight") -> dict[str, Any]:
+             efit: str, uncertainty_mode: str = "legacy_weight",
+             in1_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """One configuration over the chosen slices of one shot, serially."""
     import shutil
 
@@ -644,6 +709,7 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
         numerics=scientific.numerics, constraints=scientific.constraints,
     )
     inputs = prepare_efit_inputs(copy.deepcopy(built), config)
+    patched = [patch_in1(path, in1_overrides) for path in inputs.kfiles] if in1_overrides else []
     started = _clock.perf_counter()
     result = run_efit(inputs, config)
     seconds = _clock.perf_counter() - started
@@ -665,6 +731,8 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
             "iterations_n": entry.get("iterations_n"),
             "collapsed": bool(entry.get("collapsed")),
             "solver_errors": entry.get("solver_errors", []),
+            "delz": final_delz(text, time_ms),
+            "in1_overrides": patched[0] if patched else [],
             # The driver calls EFIT once per slice, so this is the slice's own
             # serial wall time; were several slices passed, it is their mean.
             "seconds": seconds / max(1, len(times)),
@@ -699,6 +767,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cases", default=None, help="comma-separated case names (dry runs)")
     parser.add_argument("--inner-iterations", default=None,
                         help="comma-separated subset of NXITER values to run")
+    parser.add_argument("--fitdelz", action="store_true",
+                        help="switch on EFIT's rigid vertical-shift fit (FITDELZ), written into &IN1")
+    parser.add_argument("--errdelz", type=float, default=None, help="with --fitdelz: EFIT's ERRDELZ")
+    parser.add_argument("--stabdz", type=float, default=None, help="with --fitdelz: EFIT's STABDZ")
+    parser.add_argument("--exclude-probes", default=None,
+                        help="comma-separated probe names to reject for every slice")
     parser.add_argument("--uncertainty-mode", default="legacy_weight",
                         choices=("legacy_weight", "standard_deviation"),
                         help="the constraint uncertainty model the k-files are written under (#891)")
@@ -708,6 +782,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
+    in1_overrides: dict[str, Any] = {}
+    if args.fitdelz:
+        in1_overrides["FITDELZ"] = True
+        if args.errdelz is not None:
+            in1_overrides["ERRDELZ"] = float(args.errdelz)
+        if args.stabdz is not None:
+            in1_overrides["STABDZ"] = float(args.stabdz)
+    elif args.errdelz is not None or args.stabdz is not None:
+        parser.error("--errdelz/--stabdz need --fitdelz")
+    exclude_probes = tuple(n for n in (args.exclude_probes or "").split(",") if n)
     seed_study = _module(SEED_STUDY, "seed_basin")
     domain = _module(DOMAIN_STUDY, "domain_grid")
     from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
@@ -765,13 +849,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / f"constraints_{grid}_{table}",
                     tables=tables[(grid, table)],
                     tstep=args.tstep, average_window=args.average_window, seed_study=seed_study,
+                    exclude_probes=exclude_probes,
                 )
             records = []
             for case in plan:
                 built, chosen = built_by_table[(case["grid"], case["table"])]
                 run = run_case(built, shot=shot, times=chosen, case=case,
                                workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / case["name"],
-                               efit=str(efit), uncertainty_mode=args.uncertainty_mode)
+                               efit=str(efit), uncertainty_mode=args.uncertainty_mode,
+                               in1_overrides=in1_overrides)
                 record = run["records"][0]
                 records.append(record)
                 print(f"{shot}@{record['time_ms']} {case['name']}: {record['exit_path'] or record['outcome']} "
@@ -787,6 +873,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "tables": {f"{grid}/{table}": v for (grid, table), v in tables.items()},
         "slices": {str(k): list(v) for k, v in SLICES.items()},
         "uncertainty_mode": args.uncertainty_mode,
+        "in1_overrides": {k: v for k, v in in1_overrides.items()},
+        "excluded_probes": list(exclude_probes),
         "plan": plan,
         "analysis": analysis,
         "records": [

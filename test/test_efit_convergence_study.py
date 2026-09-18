@@ -257,6 +257,65 @@ def test_the_uncertainty_model_reaches_the_constraint_config(module):
     assert statistical.numerics.error_minimum == case["error_minimum"]
 
 
+KFILE = """ &IN1
+ ISHOT = 41672
+ ERRMIN = 0.01
+ /
+ &INWANT
+ FITDZ = 1
+ /
+"""
+
+
+def test_in1_overrides_land_inside_in1_only_and_are_recorded(module, tmp_path):
+    path = tmp_path / "k041672.00331"
+    path.write_text(KFILE)
+
+    written = module.patch_in1(path, {"FITDELZ": True, "ERRDELZ": 0.06, "STABDZ": 1e-4})
+
+    assert written == [" FITDELZ = .TRUE.", " ERRDELZ = 0.06", " STABDZ = 0.0001"]
+    lines = path.read_text().splitlines()
+    in1_end = lines.index(" /")
+    assert lines[in1_end - 3:in1_end] == written
+    # &INWANT is untouched.
+    assert lines[in1_end + 1:] == [" &INWANT", " FITDZ = 1", " /"]
+
+
+def test_in1_overrides_refuse_a_key_the_writer_already_set(module, tmp_path):
+    path = tmp_path / "k041672.00331"
+    path.write_text(KFILE)
+
+    with pytest.raises(ValueError, match="ERRMIN"):
+        module.patch_in1(path, {"ERRMIN": 1e-4})
+    assert path.read_text() == KFILE
+
+
+def test_the_fitted_vertical_shift_is_read_per_slice_from_its_last_iteration(module):
+    log = "\n".join([
+        " r=  0 t=   321 it=  1 chi2=1.0E+02 zm= 1.0E-02 err=5.0E-01 dz= 1.0E-03 delz= 0.000E+00 dj=0.000E+00",
+        " r=  0 t=   321 it=  9 chi2=1.0E+02 zm= 1.0E-02 err=5.0E-03 dz= 1.0E-04 delz=-2.500E-03 dj=1.000E-02",
+        " r=  0 t=   331 it=  4 chi2=1.0E+02 zm= 1.0E-02 err=5.0E-03 dz= 1.0E-04 delz= 7.000E-03 dj=1.000E-02",
+        " r=  0 t=   342 it=  4 chi2=1.0E+02 zm= 1.0E-02 err=5.0E-03 dz= 1.0E-04 chigam= 0.00E+00",
+    ])
+
+    assert module.final_delz(log, 321) == pytest.approx(-2.5e-3)
+    assert module.final_delz(log, 331) == pytest.approx(7.0e-3)
+    # FITDELZ off prints no delz column.
+    assert module.final_delz(log, 342) is None
+
+
+def test_probes_are_excluded_by_name_not_by_position(module):
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for index, name in enumerate(["MagneticFieldProbe_C4-03", "MagneticFieldProbe_C4-04", "MagneticFieldProbe_C4-06"]):
+        ods[f"magnetics.b_field_pol_probe.{index}.name"] = name
+
+    assert module.probe_indexes(ods, ["MagneticFieldProbe_C4-04"]) == {"MagneticFieldProbe_C4-04": 1}
+    with pytest.raises(ValueError, match="C4-05"):
+        module.probe_indexes(ods, ["MagneticFieldProbe_C4-05"])
+
+
 # --------------------------------------------------------------------------
 # The recorded run (2026-09-18).  A re-run that reverses any of these is a
 # finding, and should fail here rather than be discovered in a README.
