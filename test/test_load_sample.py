@@ -456,7 +456,9 @@ def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():
     np.testing.assert_allclose(ods["equilibrium.time"], acceptance["equilibrium_times"])
     for ids in acceptance["required_ids"]:
         assert ids in ods
-    # the full 17-point limiter, not the database's 5-point stub
+    # the full 17-point limiter, not the database's 5-point stub. The sample
+    # keeps the outline its EFIT used; #970 later moved the inboard and outboard
+    # faces by 1 mm for the grid, so match the mapper's outline to that 1 mm.
     from omas import ODS
     from vaft.machine_mapping.wall import wall
 
@@ -466,6 +468,7 @@ def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():
         np.testing.assert_allclose(
             ods[f"wall.description_2d.0.limiter.unit.0.outline.{axis}"],
             reference[f"wall.description_2d.0.limiter.unit.0.outline.{axis}"],
+            atol=1.5e-3,
         )
 
 

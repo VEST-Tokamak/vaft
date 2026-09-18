@@ -74,11 +74,17 @@ generation:
       kHz), the probe track interpolated onto the camera windows (503 common windows,
       0.3104-0.3205 s), each series linearly detrended, Pearson correlation.'
     detrended_residual_correlation: 0.667
-    p_value: 5.7e-66
+    effective_independent_windows: 5
+    significance_note: 'No p-value is given. The 503 windows are 2 ms long and stepped
+      by one 20 us frame, so neighbours share 99 % of their samples and a Pearson
+      p-value, which assumes independent pairs, does not apply (the 5.7e-66 once
+      recorded here treated them as 503). The 10.1 ms span holds about five independent
+      2 ms windows (N_eff ~ span / window length); at that N_eff the correlation is
+      agreement to report, not a significance test.'
     raw_track_correlation: 0.742
     with_1ms_windows:
       detrended_residual_correlation: 0.465
-      p_value: 5.8e-31
+      significance_note: 'Overlapping windows as above; no independence-based p-value.'
     tracked_frequencies_khz: 'per 1 ms of the 2 ms track, camera / probe: 9.5/9.5,
       9.5/9.0, 14.5/14.5, 14.0/14.5, 11.0/10.5, then both near the 3-6 kHz floor from
       0.315 s'

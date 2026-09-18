@@ -2219,9 +2219,24 @@ def _waveform_fingerprint(ods: Any, index: int) -> bytes | None:
     return hashlib.blake2b(samples.tobytes(), digest_size=16).digest()
 
 
+def _carries_no_signal(ods: Any, index: int) -> bool:
+    """True when a probe's stored samples are constant: no phase to measure.
+
+    A dead or unplugged digitiser channel records a constant -- often zero --
+    and two of them are byte-identical without being one acquisition published
+    twice.  They are "no signal", not "copies".
+    """
+    values = _array(ods, f"{_MIRNOV_PROBES}.{index}.voltage.data")
+    if values is None:
+        return False
+    finite = np.asarray(values, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    return finite.size == 0 or float(np.ptp(finite)) == 0.0
+
+
 def _distinct_acquisitions(
     ods: Any, indices: Sequence[int], angles: np.ndarray
-) -> tuple[list[int], np.ndarray, list[int]]:
+) -> tuple[list[int], np.ndarray, list[int], list[int]]:
     """Drop entries that repeat another entry's waveform sample for sample.
 
     One acquired channel published twice is one measurement, whatever angles
@@ -2234,12 +2249,20 @@ def _distinct_acquisitions(
 
     Copies declaring one angle collapse to the first.  Copies declaring
     *different* angles are all dropped -- the input contradicts itself about
-    where that channel is, and a fit must not pick an answer for it.  Returns
-    the kept indices, their angles and the dropped indices.
+    where that channel is, and a fit must not pick an answer for it.
+
+    A channel whose samples are constant (a dead or unplugged digitiser input)
+    is set aside first as carrying no signal: two such channels are identical
+    without being one acquisition, and neither has a phase to fit.  Returns the
+    kept indices, their angles, the indices dropped as copies and the indices
+    dropped as carrying no signal.
     """
     by_print: dict[bytes, list[int]] = {}
     order: list[bytes | int] = []
+    silent = [int(index) for index in indices if _carries_no_signal(ods, index)]
     for index in indices:
+        if int(index) in silent:
+            continue
         digest = _waveform_fingerprint(ods, index)
         if digest is None:
             order.append(index)
@@ -2264,7 +2287,12 @@ def _distinct_acquisitions(
         else:
             dropped.extend(members)
     kept.sort()
-    return kept, np.asarray([angles[position[i]] for i in kept], dtype=float), sorted(dropped)
+    return (
+        kept,
+        np.asarray([angles[position[i]] for i in kept], dtype=float),
+        sorted(dropped),
+        sorted(silent),
+    )
 
 
 def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
@@ -2288,10 +2316,11 @@ def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
 
     Only distinct acquisitions count (issues #724, #825): a waveform stored
     under two entries is one channel, so it can never supply the second
-    toroidal position -- see :func:`_distinct_acquisitions`.
+    toroidal position, and a constant (dead) channel supplies none -- see
+    :func:`_distinct_acquisitions`.
     """
     indices, angles = _toroidal_phase_channels(ods)
-    indices, angles, _ = _distinct_acquisitions(ods, indices, angles)
+    indices, angles, _, _ = _distinct_acquisitions(ods, indices, angles)
     groups: dict[tuple[int, int] | None, list[int]] = {}
     for position, index in zip((_poloidal_position_key(ods, i) for i in indices), indices):
         groups.setdefault(position, []).append(index)
@@ -2358,7 +2387,8 @@ def _mirnov_phase_available(ods: Any) -> str | None:
         return (
             "two or more Mirnov probes at one poloidal position and distinct toroidal "
             "angles, each carrying its own waveform (a copy of another probe's samples "
-            "is the same channel, not a second position)"
+            "is the same channel, not a second position, and a constant one carries no "
+            "signal)"
         )
     kept, _ = _shared_timebase_probes(ods, indices)
     if len(kept) < 2 or _distinct_toroidal_angles(
@@ -2453,7 +2483,12 @@ def _build_mirnov_spatial_phase(
         indices = wanted
         # Naming probes does not make copies of one waveform into two
         # positions: a fit across them measures a signal against itself.
-        _, _, copies = _distinct_acquisitions(ods, indices, angles)
+        _, _, copies, silent = _distinct_acquisitions(ods, indices, angles)
+        if silent:
+            raise ValueError(
+                f"channels {silent} carry no signal: their samples are constant (a dead "
+                "or unplugged channel), so they have no phase to fit"
+            )
         if copies:
             raise ValueError(
                 f"channels {copies} repeat another named channel's samples exactly; "

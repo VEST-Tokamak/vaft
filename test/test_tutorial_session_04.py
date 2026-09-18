@@ -485,7 +485,9 @@ def test_the_array_sets_the_resolution_and_the_session_says_so(executed):
     """
     printed = _printed(executed)
     assert "toroidal angles that recorded: [135.0, 225.0, 315.0]" in printed
-    assert "n is resolved modulo 4" in printed
+    # The modulus is 360 / gcd(spacings), not 360 / smallest spacing, and the
+    # candidates are one n per residue class: +2 and -2 are the same phases.
+    assert "gcd 90 deg -> n is resolved modulo 4; candidates [-1, 0, 1, 2]" in printed
     assert "alias step 4" in printed
 
 
@@ -493,6 +495,8 @@ def test_the_mode_number_is_reported_with_its_limits(executed):
     """The midplane trio carries n = 1 modulo 4; the other trios do not reproduce it."""
     printed = _printed(executed)
     assert re.search(r"L1-03\s+0\.00\s+1\s+\d+\.\d deg", printed)
+    # No trio may report -2: it is +2 modulo 4, and only one of them is a candidate.
+    assert not re.search(r"L\d-\d\d\s+-?\d\.\d\d\s+-2\s", printed)
     assert "n = 1 modulo 4 on the midplane trio" in printed
     assert "off-midplane trios disagree" in printed
     assert "n=1 mod 4" in printed
@@ -521,8 +525,13 @@ def test_the_soft_x_ray_steps_report_what_they_did(executed):
 
 def test_coherence_is_reported_with_its_significance(executed):
     printed = _printed(executed)
-    match = re.search(r"chords above the line: (\d+) of 52", printed)
-    assert match and int(match.group(1)) >= 1
+    # Each chord's best of several bins is judged against the Bonferroni line,
+    # and the same count before the plasma is the pickup control.
+    plasma = re.search(r"plasma window [\d.-]+ ms: .*Bonferroni line.*\n\s+chords above the line: (\d+) of 52", printed)
+    control = re.search(r"pre-plasma control [\d.-]+ ms: .*Bonferroni line.*\n\s+chords above the line: (\d+) of 52", printed)
+    assert plasma and control
+    assert int(plasma.group(1)) >= 20
+    assert int(control.group(1)) <= 5                 # no more than noise predicts (~2.6)
     assert "95 % line" in printed
     # The short window averages two segments, and its line rises accordingly.
     assert re.search(r"first 4 ms\s+:\s+2 segments, 95 % line 0\.95", printed)
@@ -532,6 +541,9 @@ def test_the_camera_follows_the_probe(executed):
     printed = _printed(executed)
     match = re.search(r"track correlation, detrended: r = ([+-]\d\.\d+)", printed)
     assert match and float(match.group(1)) > 0.3
+    # Overlapping windows are not independent: an effective count, never a p-value.
+    assert re.search(r"N_eff ~ \d+", printed)
+    assert "(p = " not in printed
     assert "coherent bins 3-15 kHz:" in printed
 
 

@@ -306,3 +306,34 @@ def test_counting_an_absent_probe_group_returns_zero_without_creating_it():
 
     assert _channel_count(ods, "b_field_tor_probe") == 0
     assert "b_field_tor_probe" not in ods["magnetics"].keys()
+
+
+def test_a_replica_mapped_before_issue_825_keeps_the_c2_05_phase_reference_gain():
+    """Field 171 is no longer published as ``...C2-05_Bz:phase_reference``.
+
+    Replicas mapped before that fix still carry the identifier, and their raw
+    voltage must still be divided by the registered 0.004529 amplifier gain,
+    not silently by 1, when ``mirnov_signal(preprocess=True)`` reads them.
+    """
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import fluctuation_mirnov_gain_by_identifier
+    from vaft.process.magnetics import mirnov_preprocess_signal
+
+    legacy = "MagneticFieldProbe_C2-05_Bz:phase_reference"
+    assert fluctuation_mirnov_gain_by_identifier()[legacy] == 0.004529
+
+    time = np.arange(2000) * NATIVE_MIRNOV_DT
+    volts = 1e-3 * np.sin(2 * np.pi * 10_000.0 * time)
+    ods = ODS(consistency_check=False)
+    ods["magnetics.b_field_pol_probe.0.identifier"] = legacy
+    ods["magnetics.b_field_pol_probe.0.voltage.time"] = time
+    ods["magnetics.b_field_pol_probe.0.voltage.data"] = volts
+
+    fig, ax = mirnov_signal(ods, 0, preprocess=True, show=False)
+    plotted = ax.lines[0].get_ydata()
+    expected = mirnov_preprocess_signal(volts, sample_rate=1 / NATIVE_MIRNOV_DT, amplifier_gain=0.004529)
+    np.testing.assert_allclose(plotted, expected, rtol=1e-9, atol=1e-12)
+    # Divided by the gain: two hundred times the raw volts, not the volts again.
+    assert np.max(np.abs(plotted)) > 100 * np.max(np.abs(volts))
+    plt.close(fig)

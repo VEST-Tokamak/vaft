@@ -480,9 +480,13 @@ def fluctuation_mirnov_probe_indices(ods: object, *, shot: int = 0) -> dict[str,
 @lru_cache(maxsize=1)
 def _fluctuation_mirnov_gains() -> dict[str, float]:
     gains: dict[str, float] = {}
-    # The published inventory: a field already read as an equilibrium probe has
-    # no ``:phase_reference`` entry to carry a gain for (issue #825).
-    for channel in toroidal_mirnov_reference_channels(0):
+    # The whole table, not only the published inventory.  A field the
+    # equilibrium probes already read is no longer *published* as a
+    # ``:phase_reference`` entry (issue #825), but replicas mapped before that
+    # fix still carry ``MagneticFieldProbe_C2-05_Bz:phase_reference``; keeping
+    # its gain here as a legacy alias means their raw voltage is still divided
+    # by 0.004529, not silently by 1.  A key nobody publishes costs nothing.
+    for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
         gains[f"{channel['name']}:phase_reference"] = float(channel["gain"])
     for channel in _load_fluctuation_mirnov_channels():
         gains[str(channel["identifier"])] = float(channel["gain"])

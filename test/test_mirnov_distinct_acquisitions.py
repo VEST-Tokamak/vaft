@@ -116,6 +116,27 @@ def test_copies_that_agree_on_their_angle_collapse_to_one():
     assert indices == [0, 1, 2]
 
 
+def test_identical_dead_channels_are_no_signal_not_copies():
+    """Two unplugged inputs both read zero: identical, but not one acquisition."""
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.recipes import build_model
+
+    ods = _ods()
+    for index, angle in enumerate((0.0, 120.0, 240.0)):
+        _probe(ods, index, angle, _mode(angle))
+    _probe(ods, 3, 60.0, np.zeros_like(TIME))
+    _probe(ods, 4, 300.0, np.zeros_like(TIME))
+    indices, angles = _toroidal_phase_channels(ods)
+    kept, _, copies, silent = _distinct_acquisitions(ods, indices, angles)
+    assert copies == [] and silent == [3, 4] and kept == [0, 1, 2]
+    assert _toroidal_phase_group(ods)[0] == [0, 1, 2]
+    with pytest.raises(ValueError, match="carry no signal"):
+        build_model(
+            NAME, normalize_entries(ods), channels=[0, 3, 4],
+            frequencies=[8_000.0], window_size=512, preprocess=False, time=0.02,
+        )
+
+
 def test_a_genuine_three_angle_array_is_offered():
     ods = _ods()
     for index, angle in enumerate((135.0, 225.0, 315.0)):

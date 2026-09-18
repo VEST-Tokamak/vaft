@@ -89,6 +89,25 @@ class TestCurrentQuench:
         assert result.time_80 == pytest.approx(T_QUENCH, abs=1 / FS)
         assert result.time_20 == pytest.approx(T_QUENCH + 0.75 * QUENCH_S, abs=1 / FS)
 
+    def test_a_reference_whose_80_percent_is_never_reached_is_a_reason(self):
+        time, ip = _ip()
+        # 80 % of 110 kA is 88 kA, above the 80 kA the record ever holds: no 80 %
+        # crossing exists, so no duration may be reported.
+        result = current_quench(time, ip, reference_current=110_000.0)
+        assert not result.found
+        assert result.time_80 is None and result.duration_80_20 is None
+        assert "80 %" in result.reason
+        assert result.reference_current == pytest.approx(110_000.0)
+
+    def test_a_reference_five_times_the_peak_is_a_reason_not_a_wrapped_index(self):
+        time, ip = _ip()
+        # The whole record sits below 20 % of the reference: the fall search would
+        # start at the peak itself and step to index -1 without a guard.
+        result = current_quench(time, ip, reference_current=5.0 * IP0)
+        assert not result.found
+        assert result.time_20 is None and result.time_80 is None
+        assert "80 %" in result.reason
+
 
 class TestCurrentSpike:
     def test_a_spike_before_the_quench_is_found(self):

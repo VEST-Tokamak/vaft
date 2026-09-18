@@ -154,7 +154,8 @@ Start with the magnetic probes on 45531.
 - 2--40 kHz band power **150×** the pre-discharge floor
 - a coil measures $dB/dt$: $S_{dB/dt} = (2\pi f)^2 S_B$; a fitted index is the field's **+2**
 - midplane trio at 135/225/315°: **$n = 1$ modulo 4**, 8° residual
-- off-midplane trios: $n = -2, 0, 1$ at 27--42° --- they **disagree**
+- off-midplane trios: $n = 2, 0, 1$ at 27--42° --- they **disagree**
+  (candidates $-1..2$: one per residue modulo 4)
 
 ::: {.notes}
 [5 min]
@@ -231,7 +232,8 @@ On 40600:
 4. divide by local emission
 
 Camera and probe tracks: 9--10 kHz, jump to ~14 kHz, back near 11 kHz, then
-fall. Detrended correlation **$r = 0.93$** (36 windows).
+fall. Detrended correlation **$r = 0.93$** over 36 windows that overlap by 90 %:
+about **3 independent** windows, so no p-value.
 
 ::: {.notes}
 [4 min]
@@ -244,7 +246,9 @@ a 2-D pattern in projected light.
 WARN:
 It is not a clean chirp; after about 315 ms the probe line fades while the
 camera sits near the bottom of the search band. The correlation depends on the
-windows: the sample manifest records 0.67 for one-frame steps over 503 windows.
+windows: the sample manifest records 0.67 for one-frame steps over 503 windows,
+which are about five independent ones. A Pearson p-value on overlapping
+windows treats them as independent and is meaningless; report r with N_eff.
 And a bright pixel is where the projection fluctuates, not necessarily where
 the perturbation is largest. Optical intensity is not density.
 
@@ -258,8 +262,9 @@ Three diagnostics grew at the same time. Is that one perturbation?
 
 $$C_{xy}(f) = \frac{|S_{xy}|^2}{S_{xx}S_{yy}}, \qquad \phi_{xy} = \arg S_{xy}$$
 
-- Mirnov vs every SXR chord, whole window: **43 of 52** chords above the 95 % line
-  (0.24, 12 segments)
+- Mirnov vs every SXR chord, 2--5 kHz (6 bins, 12 segments): **38 of 52** chords
+  above the Bonferroni line 0.35 (single-bin line 0.24)
+- pre-plasma control, coils energised (7 segments): **1 of 52** --- noise expects ~2.6
 - best chord 0.88, phase steady near **−85°** across 2.4--5.2 kHz
 - first 4 ms only: **2 segments, line 0.95** --- a high value there means nothing
 - probe vs camera (40600): coherent bins at 7.5--12 and 14--14.5 kHz
@@ -274,9 +279,10 @@ perturbation, with two, or with a plasma that got hotter. Coherence above its
 records the grid both records were put on and which one was resampled.
 
 WARN:
-A coherence value without its segment count is not a result. And picking the
-best of 52 chords is a selection; many chords well above the line, grouped
-along an array, is the robust statement.
+A coherence value without its segment count is not a result. A chord's best of
+six bins must be judged against a line for a maximum (Bonferroni), not the
+single-bin line: against that one, 40 of 52 chords already "pass" before the
+plasma. The control rules out pickup as the source; it does not prove one mode.
 
 TRANSITION:
 Assemble what has been measured.
@@ -311,10 +317,10 @@ Events rather than modes.
 
 - 45531: $I_p$ 163.4 kA; **80--20 % in 2.64 ms**; no spike above 5 σ;
   no equilibrium, so no vertical position (said, not zeroed)
-- 39915: 80--20 % in **7.23 ms** at any smoothing; steepest $dI_p/dt$
+- 39915: 80--20 % in **7.23 ms** (crossings read from the raw trace, by design); steepest $dI_p/dt$
   −64.6 / −43.0 / −24.5 MA/s (raw / 0.2 / 0.5 ms), because a
   **+6.9 kA spike** sits inside the quench at 327.52 ms
-- 39915 $Z_{\mathrm{axis}}$: 23.4 mm → 0 between two slices --- a step between
+- 39915 $Z_{\mathrm{axis}}$: 23.4 mm → ~0 (sub-micron) between two slices --- a step between
   reconstructions, not a plasma moving
 
 VAFT has **no classifier**: nothing is named IRE or disruption.
@@ -329,7 +335,9 @@ through the flat-top, SXR band grows, current falls, fluctuation power and light
 collapse. That is precursor, quench, termination, in order.
 
 WARN:
-Quote a steepest slope with its smoothing, or quote the 80-20 time. And a
+Quote a steepest slope with its smoothing, or quote the 80-20 time. The 80-20
+time is the same at every smoothing by construction -- smoothing only changes
+how the rate is taken -- so its sameness is not a robustness test. And a
 derivative of a reconstruction inherits its artefacts.
 
 TRANSITION:

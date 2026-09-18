@@ -923,13 +923,16 @@ def _common_grid(
     if sample_rate is not None:
         step = 1.0 / float(sample_rate)
         grid = start + step * np.arange(int(np.floor((stop - start) / step + 1e-9)) + 1)
-        return grid, ("x", "y")
+        # Both records are interpolated onto it without extrapolation, so a last
+        # point a rounding error past ``stop`` is dropped, not clamped.
+        return grid[grid <= stop], ("x", "y")
 
-    # The slower record keeps its own samples; ties keep x's.
+    # The slower record keeps its own samples; ties keep x's.  The crop is strict:
+    # a kept sample even a rounding error outside the other record would ask the
+    # resampler to extrapolate that record, which it refuses.
     keep_x = fs_x <= fs_y
     base = time_x if keep_x else time_y
-    tolerance = 1e-6 / max(fs_x, fs_y)
-    inside = (base >= start - tolerance) & (base <= stop + tolerance)
+    inside = (base >= start) & (base <= stop)
     return base[inside], (("y",) if keep_x else ("x",))
 
 

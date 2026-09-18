@@ -177,6 +177,8 @@ def current_quench(
     2. Take the reference current, and the time of the largest magnitude.
     3. Find the first sample after that time below 20 % of the reference, and
        the last sample before it at or above 80 %; interpolate both crossings.
+       With no sample at or above 80 % in between -- a ``reference_current``
+       above the peak divided by 0.8 -- stop with a reason.
     4. Differentiate the magnitude -- centred differences, or a quadratic
        Savitzky-Golay derivative over ``smoothing_s`` -- and take its minimum
        between the two crossings.
@@ -250,11 +252,20 @@ def current_quench(
     index_20 = peak_index + int(after[0])
     above = np.nonzero(magnitude[peak_index:index_20] >= high)[0]
     if above.size == 0:
-        index_80 = peak_index
-        time_80 = float(t[peak_index])
-    else:
-        index_80 = peak_index + int(above[-1])
-        time_80 = _crossing(t, magnitude, index_80, high)
+        # The record never holds 80 % of the reference between its peak and the
+        # fall: a reference above peak / 0.8 has no 80 % crossing to time, and one
+        # above peak / 0.2 leaves index_20 at the peak itself.
+        return CurrentQuench(
+            **{**empty, "reference_current": reference, "reference_time": float(t[peak_index])},
+            reason=(
+                "no 80 % crossing: the current never reaches 80 % of the reference "
+                f"({high:.6g} A) before it falls below 20 %"
+            ),
+        )
+    index_80 = peak_index + int(above[-1])
+    # above[-1] < index_20 - peak_index, so both crossings have a right neighbour
+    # and index_20 - 1 >= index_80 >= 0.
+    time_80 = _crossing(t, magnitude, index_80, high)
     time_20 = _crossing(t, magnitude, index_20 - 1, low)
 
     if smoothing_s is None:

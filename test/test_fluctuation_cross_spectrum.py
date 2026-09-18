@@ -94,6 +94,33 @@ class TestCrossSpectrum:
         assert result.phase[peak] == pytest.approx(-2 * np.pi * f0 * lag, abs=0.03)
         assert result.coherence[peak] > 0.99
 
+    def test_a_slow_sample_a_hair_before_the_fast_start_is_not_kept(self):
+        # A 976.6 kHz record and a 2 MHz one cropped to the same window edge: the
+        # crop leaves the slow record's first sample 0.2 ps *before* the fast
+        # record's first, inside the old float tolerance.  Keeping it asked the
+        # resampler to extrapolate the fast record and raised ResamplingError.
+        f0 = 20_000.0
+        slow_fs, fast_fs = 1e9 / 1024.0, 2_000_000.0
+        t_slow = 0.285 + np.arange(20_000) / slow_fs
+        t_fast = t_slow[100] + 2e-13 + np.arange(40_000) / fast_fs
+        x = np.sin(2 * np.pi * f0 * t_fast)
+        y = np.sin(2 * np.pi * f0 * t_slow)
+        result = cross_spectrum(t_fast, x, t_slow, y, nperseg=512)
+        assert result.resampled == ("x",)
+        low, high = result.time_range
+        assert low >= t_fast[0] and high <= t_fast[-1]
+        assert low == pytest.approx(t_slow[101])
+        peak = int(np.argmin(np.abs(result.frequency - f0)))
+        assert result.coherence[peak] > 0.99
+
+    def test_a_uniform_grid_stays_inside_both_records(self):
+        time, x, y = _tone_pair()
+        # A rate whose step does not divide the overlap: the last grid point
+        # must not step past the shorter record's end.
+        result = cross_spectrum(time, x, time[7:], y[7:], sample_rate=77_777.0, nperseg=200)
+        low, high = result.time_range
+        assert low >= time[7] and high <= time[-1]
+
     def test_an_explicit_common_time_is_used_as_given(self):
         time, x, y = _tone_pair()
         grid = time[100:3000:2]
