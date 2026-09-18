@@ -1361,8 +1361,8 @@ def plasma_external_inductance_hirshman_from_R_eps_kappa(R_m, epsilon, kappa):
     ----------
     **External only.**  The plasma's own internal inductance is the separate
     $\mu_0 R\,l_i/2$ that :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`
-    adds; splitting them is what lets the internal term carry whichever $l_i$
-    normalisation the caller's equilibrium reports.
+    adds; that term needs the IMAS ``li_3`` normalisation, see
+    :func:`vaft.formula.equilibrium.internal_inductance_from_li_3_R0`.
 
     This is the fit the low-aspect-ratio start-up literature reaches for when
     the circular $\ln(8R/a) - 2$ form runs out.  It is often met under
@@ -1420,7 +1420,7 @@ def plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li):
     kappa : float or np.ndarray
         Elongation, finite and positive [-].
     li : float or np.ndarray
-        Normalised internal inductance [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition [-].
 
     Returns
     -------
@@ -1435,10 +1435,17 @@ def plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li):
 
     Convention
     ----------
-    $l_i$ is whichever normalisation the caller's equilibrium reports, and it
-    enters as the dimensional $\mu_0 R\,l_i/2$.  That is the Romero/ITER
-    convention $l_i = 2L_i/(\mu_0 R)$ read backwards, so a caller holding a
-    dimensional $L_i$ should divide rather than pass it here.
+    **``li`` must be $l_{i3}$**, the IMAS ``global_quantities.li_3``.  It
+    enters as the dimensional $\mu_0 R\,l_i/2$, which is the internal
+    inductance $L_i = 2W_{p,\mathrm{int}}/I_p^2$ only for
+    $l_{i3} = 2L_i/(\mu_0 R)$, and only when $R$ is the radius the
+    equilibrium normalised by.  $l_{i1}$ normalises by the edge poloidal field
+    instead: $l_{i1}/l_{i3} = L_{pol}^2 R/(2V)$ whatever the current profile,
+    which for a large-aspect-ratio ellipse is 1.085 at $\kappa = 1.6$ and 1.19
+    at $\kappa = 2$, so passing $l_{i1}$ overstates $L_i$ by that much.  A caller
+    holding a dimensional $L_i$ should convert with
+    :func:`vaft.formula.equilibrium.li_3_from_internal_inductance_R0` rather
+    than pass it here.
 
     Limitations
     -----------
@@ -1486,7 +1493,8 @@ def d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
     kappa : float or np.ndarray
         Elongation, finite and positive [-].
     li : float or np.ndarray
-        Normalised internal inductance, held fixed by the derivative [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition, held
+        fixed by the derivative [-].
     minor_radius : str, optional
         What is held while $R$ varies: ``'fixed'`` (default) keeps $a$,
         ``'inboard'`` keeps the inboard limiter so $a = R - R_{\min}$, and
@@ -1763,7 +1771,7 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     a_m : float or np.ndarray
         Minor radius, finite and positive and smaller than ``R0_m`` [m].
     li : float or np.ndarray
-        Normalised internal inductance [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition [-].
     kappa : float or np.ndarray, optional
         Elongation; default 1, a circular cross-section [-].
 
@@ -1785,7 +1793,10 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     on: holding $a$ fixed, $\partial L_p/\partial R$ substituted into
     $B_{VE} = (\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p - 1/2]$
     returns that function exactly.  $l_i$ enters as the dimensional
-    $\mu_0 R_0 l_i/2$, the Romero/ITER convention read backwards.
+    $\mu_0 R_0 l_i/2$, which is the internal inductance only for ``li_3``
+    normalised by $R_0$; see
+    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li` for what passing
+    ``li_1`` costs.
 
     Validity
     --------

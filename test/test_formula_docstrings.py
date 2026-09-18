@@ -78,6 +78,9 @@ CONVENTION_SENSITIVE = frozenset({
     "rhoN_from_phi",
     "rho_tor_from_phi",
     "toroidal_flux_from_q_psi",
+    # li_3 vs li_1, and the radius li_3 was normalised by (#782)
+    "internal_inductance_from_li_3_R0",
+    "li_3_from_internal_inductance_R0",
     "q_from_phi",
     "q_from_rhoN",
     "rhoN_from_qpsiN",
