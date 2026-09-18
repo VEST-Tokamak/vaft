@@ -2696,7 +2696,8 @@ def finite_width_delta(psi_norm, field, rational_psi_norm, widths) -> np.ndarray
     ValueError
         The grid and the field disagree in length, the grid is not strictly
         increasing or has fewer than three points, a value is not finite, a
-        width is not positive, or a layer's window reaches past the grid.
+        width is not positive, a layer's window reaches past the grid, or a
+        layer holds fewer than two grid points either side of its centre.
 
     Convention
     ----------
@@ -2720,10 +2721,12 @@ def finite_width_delta(psi_norm, field, rational_psi_norm, widths) -> np.ndarray
 
     Limitations
     -----------
-    The derivative is a finite difference on the stored grid, so a window
-    narrower than a few grid spacings samples the layer's own structure
-    rather than the solution either side of it. A caller with a resistive
-    layer thinner than the grid resolves has to refine the grid first.
+    The derivative is a central difference on the stored grid, so an edge
+    within one node of the centre samples the layer's own structure rather
+    than the solution beside it -- on a kink of slope jump 3, a width of 0.02
+    on a 0.05 grid returns 0.6. Such a layer is refused rather than
+    answered; at high Lundquist number the paper width law falls below the
+    spacing of a uniform grid, and the caller has to refine it there first.
 
     Provenance
     ----------
@@ -2752,9 +2755,24 @@ def finite_width_delta(psi_norm, field, rational_psi_norm, widths) -> np.ndarray
             "a layer's window reaches past the grid, so its derivative there "
             "would be extrapolated rather than sampled"
         )
+    # Each edge's derivative is interpolated between two nodes whose central
+    # differences reach one node further in, so an edge is clean of the layer
+    # only when two nodes lie between it and the centre.
+    before = np.searchsorted(grid, centres, side="right") - np.searchsorted(grid, inner, side="left")
+    after = np.searchsorted(grid, outer, side="right") - np.searchsorted(grid, centres, side="left")
+    unresolved = np.flatnonzero((before < 2) | (after < 2))
+    if unresolved.size:
+        k = unresolved[0]
+        raise ValueError(
+            f"the layer at psi_N = {centres[k]:.6g} with width {width[k]:.3g} holds "
+            f"{min(before[k], after[k])} grid point(s) on one side of its centre, "
+            "fewer than the two its edge derivatives need to stay clear of the "
+            "layer; refine the grid there"
+        )
     derivative = np.gradient(values, grid)
 
     def at(points):
+        # anti-alias: interpolation over psi_N, a flux coordinate, not time.
         return np.interp(points, grid, derivative.real) + 1j * np.interp(points, grid, derivative.imag)
 
     return at(outer) - at(inner)

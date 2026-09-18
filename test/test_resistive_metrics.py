@@ -101,6 +101,24 @@ def test_one_complex_value_per_surface():
     assert got.shape == (2,) and np.iscomplexobj(got)
 
 
+COARSE = np.linspace(0.0, 1.0, 21)
+COARSE_KINK = np.where(COARSE < 0.5, COARSE - 0.5, 4.0 * (COARSE - 0.5)).astype(complex)
+
+
+def test_a_layer_resolved_by_two_nodes_each_side_is_exact():
+    """The smallest window accepted still returns the slope difference."""
+    got = finite_width_delta(COARSE, COARSE_KINK, [0.5], [0.1])
+    assert got[0].real == pytest.approx(3.0, abs=1e-12)
+
+
+@pytest.mark.parametrize("width", [0.02, 0.08])
+def test_a_layer_narrower_than_the_grid_is_refused_rather_than_underestimated(width):
+    """Once an edge's stencil reaches across the centre the answer is wrong
+    (0.6 instead of 3 at width 0.02), so it is refused, not returned."""
+    with pytest.raises(ValueError, match="refine the grid"):
+        finite_width_delta(COARSE, COARSE_KINK, [0.5], [width])
+
+
 def test_a_window_past_the_grid_is_refused_rather_than_extrapolated():
     with pytest.raises(ValueError, match="reaches past the grid"):
         finite_width_delta(GRID, GRID.astype(complex), [0.99], [0.1])
