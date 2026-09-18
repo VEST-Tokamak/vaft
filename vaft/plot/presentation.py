@@ -578,7 +578,9 @@ def _fit_canvas(
         fitted = (left + axes_w + right, bottom + axes_h + top)
         moved = max(abs(fitted[0] - width), abs(fitted[1] - height),
                     abs(axes_w - (x1 - x0)), abs(axes_h - (y1 - y0)))
-        figure.set_size_inches(*fitted, forward=False)
+        # forward=True resizes a GUI window too; otherwise showing it resets
+        # the canvas to the window size and rescales the placement below.
+        figure.set_size_inches(*fitted, forward=True)
         fw, fh = fitted
         axis.set_position([left / fw, bottom / fh, axes_w / fw, axes_h / fh])
         for other, offset, strip, frac_y0, frac_h in beside:
