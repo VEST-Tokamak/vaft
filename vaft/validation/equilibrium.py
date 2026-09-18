@@ -508,11 +508,34 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
     prescribed (no reconstructed values) is ``not_available``, not a pass.
     Returns ``{check: result}`` for the ``diagnostic_fit`` checks.
     """
-    from vaft.omas.efit_quality import FAMILIES, fit_quality_metrics
+    from vaft.omas.efit_quality import (
+        FAMILIES,
+        STATISTICAL_UNCERTAINTY_MODELS,
+        fit_quality_metrics,
+    )
 
     index = int(time_slice)
     metrics = fit_quality_metrics(equilibrium, time_slice=index)
     results: dict[str, dict[str, Any]] = {}
+    # Every check below grades a residual in units of the submitted sigma.
+    # Under the legacy weighting that sigma is the reciprocal of a hand-chosen
+    # weight, several thousand times the signal, so each z and chi-square is
+    # small by construction and a pass would say nothing (#891).  Until the
+    # constraints carry a statistical uncertainty -- recorded, not inferred --
+    # the grade is not available; the physical-unit fields are still reported.
+    model = metrics.get("uncertainty_model", "unknown")
+    if model not in STATISTICAL_UNCERTAINTY_MODELS:
+        not_graded = (
+            f"uncertainty model is {model!r}: residuals normalized by the "
+            "submitted sigma carry no statistical meaning under it (#891)"
+        )
+
+        def _graded_or_unavailable(check: str, value: float, **fields: Any) -> dict[str, Any]:
+            return _unavailable(not_graded, uncertainty_model=model, **fields)
+    else:
+
+        def _graded_or_unavailable(check: str, value: float, **fields: Any) -> dict[str, Any]:
+            return _result(_graded(check, value), uncertainty_model=model, **fields)
     for family, _title, _unit, _scale, _is_array in FAMILIES:
         entry = metrics["families"].get(family)
         channels = entry.get("channels") if entry else None
@@ -522,8 +545,9 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
             results[family] = _unavailable(f"{family} was {role}, not fitted", fit_role=role, channels=count)
             continue
         z_rms = _float(entry.get("z_rms"))
-        results[family] = _result(
-            _graded(f"diagnostic_fit.{family}", z_rms),
+        results[family] = _graded_or_unavailable(
+            f"diagnostic_fit.{family}",
+            z_rms,
             fit_role="fitted",
             channels=count,
             z_rms=z_rms,
@@ -541,13 +565,15 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
             continue
         measured, reconstructed = _float(scalar.get("measured")), _float(scalar.get("reconstructed"))
         z = _float(scalar.get("z"))
-        results[name] = _result(
-            _graded(f"diagnostic_fit.{name}", z),
+        results[name] = _graded_or_unavailable(
+            f"diagnostic_fit.{name}",
+            z,
             measured=measured,
             reconstructed=reconstructed,
             residual=measured - reconstructed,
             z=z,
             chi_squared=_float(scalar.get("chi_squared")),
+            chi_squared_efit_reported=_float(scalar.get("chi_squared_efit_reported")),
             sigma_from_weight=_float(scalar.get("sigma_from_weight")),
         )
     fitted = int(metrics.get("fitted_channel_count") or 0)
@@ -562,7 +588,7 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
     if fitted == 0:
         results["global"] = _unavailable("no channel was fitted on this slice", **fields)
     else:
-        results["global"] = _result(_graded("diagnostic_fit.global", reduced), **fields)
+        results["global"] = _graded_or_unavailable("diagnostic_fit.global", reduced, **fields)
     return results
 
 

@@ -509,3 +509,65 @@ def test_a_slice_whose_flux_the_wrapper_could_not_convert_is_indeterminate():
     assert out["status"] == "indeterminate"
     assert "could not convert" in out["reason"]
     assert "mui_measured" not in out, "it must not publish a mu_i it does not have"
+
+
+def test_the_computed_conversion_holds_under_either_stored_F_sign():
+    """`mui_hat` converts `phi_dia_comp` -- a flux computed from the same F grid
+    the volume mu_i is integrated over -- so converting it back must return that
+    mu_i, negated, to the first-order (F - F_b)/F_b term and nothing more.
+
+    That has to hold whichever sign F is stored with. Replicas of one shot do
+    not agree on it: 39915 stores F_b = +0.0598 in the packaged sample and in
+    `main`, and -0.0598 in the read-only legacy `public` replica. Flipping F
+    flips both `phi_dia_comp` and F at the boundary, so a correct conversion is
+    unchanged, and the volume mu_i, quadratic in F, does not move at all.
+
+    What this catches is an `abs()` on the *computed* path: with |F_b| against
+    a signed `phi_dia_comp` the ratio inverts under the flip. The measured path
+    is a different conversion with its own sign rule, pinned by
+    `test_the_measured_mu_i_does_not_move_when_the_stored_F_sign_flips`; this
+    test says nothing about it.
+    """
+    for flip in (False, True):
+        ods = copy.deepcopy(sample_ods())
+        if flip:
+            f = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.f"], float)
+            ods["equilibrium.time_slice.0.profiles_1d.f"] = -f
+        row = vaft.omas.compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
+        assert -row["mui_hat"] / row["mui"] == pytest.approx(1.0, rel=0.05), (
+            f"self-consistency must hold with F {'negated' if flip else 'as stored'}"
+        )
+        assert row["mui"] < 0, "the volume mu_i is quadratic in F and must not move"
+
+
+def test_the_diamagnetic_beta_p_negation_is_constrained():
+    """`virial_beta_pd_from_S_mu_rt` takes the flux convention while the report
+    publishes the volume one, so the validation layer negates at that one call.
+    Nothing else pins that negation: no other test asserts on
+    `beta_p_diamagnetic`, so dropping the minus sign changes the published
+    number and leaves the suite green.
+
+    This slice is decidable on the packaged sample, and the test asserts that
+    rather than skipping when it is not -- a skip here would turn the guard off
+    exactly when the report stops producing the value it guards.
+    """
+    from vaft.validation import validate_equilibrium
+    from vaft.formula.equilibrium import virial_beta_pd_from_S_mu_rt
+
+    report = validate_equilibrium(sample_ods(), time_slice=0)
+    entry = next(
+        e for e in report["independent_validation"]["diamagnetic_energy"]["slices"]
+        if e["time_slice"] == 0
+    )
+    assert entry["status"] not in {"not_available", "indeterminate"}, entry.get("reason")
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(sample_ods(), time_slice=0)[0]
+    expected = virial_beta_pd_from_S_mu_rt(
+        row["s_1"], row["s_2"], -entry["mui_measured"], row["rt"] / entry["R_0"]
+    )
+    # This is the assertion that catches a dropped sign. On this slice the
+    # published value is +1.440; without the negation it is +0.174 -- still
+    # positive, so the sign check below cannot tell the two apart.
+    assert entry["beta_p_diamagnetic"] == pytest.approx(expected, rel=1e-9)
+    # A physical floor only: a diamagnetic measurement gives a positive beta_p
+    # through this closure.
+    assert entry["beta_p_diamagnetic"] > 0

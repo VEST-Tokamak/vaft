@@ -1073,6 +1073,25 @@ def _measurement_value(measurement, field: str, default=np.nan):
     return _safe_get(container, path, default)
 
 
+def _ip_chi_squared(equilibrium_slice) -> dict | None:
+    """Plasma-current chi-square recomputed without the vessel term, or None."""
+    from vaft.omas.efit_quality import ip_chi_squared_record
+
+    if "constraints.ip" not in equilibrium_slice:
+        return None
+    values = {
+        name: _as_float(_safe_get(equilibrium_slice, f"constraints.ip.{name}"))
+        for name in ("measured", "reconstructed", "measured_error_upper", "chi_squared")
+    }
+    record = ip_chi_squared_record(
+        values["measured"],
+        values["reconstructed"],
+        values["measured_error_upper"],
+        values["chi_squared"],
+    )
+    return record if record["source"] != "unavailable" else None
+
+
 def _extract_efit_reliability_families(
     ods,
     shot: int,
@@ -1092,6 +1111,19 @@ def _extract_efit_reliability_families(
         aggregate_chi_squared = _as_float(
             _safe_get(equilibrium_slice, "constraints.chi_squared_reduced")
         )
+        # EFIT's reported Ip chi-square adds the prescribed vessel current,
+        # which VEST's inner Rogowski does not link; the slice aggregate is
+        # built from the same total.  Both are recomputed from the plasma-only
+        # residual EFIT fitted (vaft.omas.efit_quality.IP_CHI_SQUARED_CONVENTION).
+        ip_record = _ip_chi_squared(equilibrium_slice)
+        if ip_record is not None and np.isfinite(ip_record["vessel_accounting_term"]):
+            freedom = _as_float(
+                _safe_get(equilibrium_slice, "constraints.freedom_degrees_n")
+            )
+            freedom = freedom if np.isfinite(freedom) and freedom > 0 else 1.0
+            aggregate_chi_squared = (
+                aggregate_chi_squared - ip_record["vessel_accounting_term"] / freedom
+            )
         convergence_iterations = _as_float(
             _safe_get(equilibrium_slice, "convergence.iterations_n")
         )
@@ -1128,6 +1160,8 @@ def _extract_efit_reliability_families(
                 )
                 weight = _as_float(_measurement_value(measurement, "weight"))
                 chi_squared = _as_float(_measurement_value(measurement, "chi_squared"))
+                if label == "ip" and ip_record is not None:
+                    chi_squared = ip_record["chi_squared"]
                 exact_value = _as_float(_measurement_value(measurement, "exact"))
                 residual = reconstructed - measured
                 normalized = (
