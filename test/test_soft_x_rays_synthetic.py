@@ -69,6 +69,13 @@ def test_a_second_toroidal_plane_sees_the_island_shifted_by_n_delta_phi(eq):
     result = synthetic_island_soft_x_rays(eq, spec, both, time=t0, emissivity_profile=_profile)
     np.testing.assert_allclose(result.planes, [0.0, delta_phi])
     helicity = result.topology.helicity
+    # Independent of the code's formula: in COCOS 11 a flux rising outward means
+    # Ip along +phi, and F > 0 means B_phi along +phi, so B_Z < 0 on the outboard
+    # midplane and phi falls as theta* rises: sigma = -sign(Ip Bt) = -1. (The
+    # record's own ``ip`` is not used: the Solov'ev export stores it with the
+    # opposite sign, a separate defect.)
+    assert eq.psi_boundary > eq.psi_axis and np.all(eq.f > 0)
+    assert helicity == -1
     # xi = m theta* - sigma n phi - omega t: the second plane at t0 is the first
     # plane at t0 + sigma n delta_phi / omega.
     shifted = synthetic_island_soft_x_rays(eq, spec, _fan(0.0),
@@ -76,6 +83,27 @@ def test_a_second_toroidal_plane_sees_the_island_shifted_by_n_delta_phi(eq):
                                            emissivity_profile=_profile)
     np.testing.assert_allclose(result.brightness[0, 12:], shifted.brightness[0], rtol=1e-9)
     assert not np.allclose(result.brightness[0, 12:], result.brightness[0, :12], rtol=1e-6)
+
+
+def test_brightness_converges_with_the_equilibrium_grid():
+    spec = MagneticIslandSpec(2, 1, 0.04, phase=0.3)
+    brightness = [synthetic_island_soft_x_rays(_equilibrium(n), spec, _fan(0.0),
+                                               emissivity_profile=_profile).brightness[0]
+                  for n in (65, 129, 257)]
+    coarse = np.max(np.abs(brightness[1] - brightness[0]) / np.abs(brightness[2]))
+    fine = np.max(np.abs(brightness[2] - brightness[1]) / np.abs(brightness[2]))
+    assert fine < coarse
+    assert fine < 1e-2
+
+
+def test_fields_can_be_dropped_for_long_series(eq):
+    spec = MagneticIslandSpec(2, 1, 0.03, angular_frequency=OMEGA)
+    kept = synthetic_island_soft_x_rays(eq, spec, _fan(0.0), time=[0.0, 1e-5],
+                                        emissivity_profile=_profile)
+    lean = synthetic_island_soft_x_rays(eq, spec, _fan(0.0), time=[0.0, 1e-5],
+                                        emissivity_profile=_profile, keep_fields=False)
+    assert lean.emissivity is None and lean.delta_emissivity is None
+    np.testing.assert_array_equal(lean.brightness, kept.brightness)
 
 
 def test_the_result_carries_per_plane_emissivity(eq):

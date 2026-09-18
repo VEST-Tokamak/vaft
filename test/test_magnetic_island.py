@@ -69,7 +69,12 @@ def sfl(eq):
 
 
 def _trace(eq, f, r0, z0, turns=2.0):
-    field = make_equilibrium_field_interpolator(eq.r, eq.z, eq.psi, eq.psi_1d, f, cocos=11)
+    """A field line from (r0, z0), with phi returned in the IMAS frame."""
+    from vaft.data.cocos import cocos_spec
+
+    cocos = eq.convention.cocos or 11
+    field = make_equilibrium_field_interpolator(eq.r, eq.z, eq.psi, eq.psi_1d, f, cocos=cocos)
+    frame = cocos_spec(cocos).sigma_rpz  # an even COCOS measures phi clockwise from above
 
     def rhs(_phi, y):
         b_r, b_z, b_phi = field(y[0], y[1])
@@ -78,7 +83,7 @@ def _trace(eq, f, r0, z0, turns=2.0):
     phi = np.linspace(0.0, 2.0 * np.pi * turns, 400)
     sol = solve_ivp(rhs, (phi[0], phi[-1]), [r0, z0], t_eval=phi, rtol=1e-10, atol=1e-12,
                     max_step=0.02)
-    return phi, sol.y[0], sol.y[1]
+    return frame * phi, sol.y[0], sol.y[1]
 
 
 def _outboard_width(topology):
@@ -194,6 +199,35 @@ def test_outboard_full_width_is_the_prescribed_width(eq):
     assert _outboard_width(wide) == pytest.approx(1.5 * W, abs=1e-6)
 
 
+def test_grid_helical_flux_has_the_prescribed_outboard_width():
+    """Measured on the grid's own Omega, independently of the outboard table the
+    code builds: the separatrix crossings on the midplane row converge to W."""
+    widths = []
+    for n in (129, 257):
+        grid_eq = _equilibrium(n)
+        topology = magnetic_island_topology(grid_eq, MagneticIslandSpec(2, 1, W))
+        row = int(np.argmin(np.abs(grid_eq.z - topology.sfl_map.magnetic_axis[1])))
+        omega = topology.helical_flux[:, row]
+        r = grid_eq.r
+        o_r = float(topology.o_points[np.argmax(topology.o_points[:, 0]), 0])
+        near = np.isfinite(omega) & (np.abs(r - o_r) < 3 * W)
+        rs, om = r[near], omega[near] - 1.0
+        crossings = [rs[i] - om[i] * (rs[i + 1] - rs[i]) / (om[i + 1] - om[i])
+                     for i in range(rs.size - 1) if om[i] * om[i + 1] < 0]
+        assert len(crossings) == 2
+        widths.append(crossings[1] - crossings[0])
+    assert abs(widths[1] - W) < abs(widths[0] - W) + 1e-5
+    assert widths[1] == pytest.approx(W, abs=5e-4)
+
+
+def test_an_explicit_surface_needs_no_q_profile(eq):
+    bare = dataclasses.replace(eq, q=None, f=None)
+    topology = magnetic_island_topology(bare, MagneticIslandSpec(2, 1, W, psi_n_s=0.6, helicity=-1))
+    assert topology.psi_n_s == 0.6
+    assert np.isnan(topology.q_s)
+    assert _outboard_width(topology) == pytest.approx(W, abs=1e-6)
+
+
 def test_o_and_x_points_sit_at_the_documented_phases(eq):
     topology = magnetic_island_topology(eq, MagneticIslandSpec(2, 1, W))
     sfl = topology.sfl_map
@@ -235,20 +269,37 @@ def test_one_helical_period_returns_the_same_topology(eq):
     assert not np.allclose(half.helical_flux, topology.helical_flux, equal_nan=True)
 
 
+def _reverse_current(eq):
+    """The same surfaces with the plasma current reversed: psi changes sign."""
+    return dataclasses.replace(eq, psi=-eq.psi, psi_axis=-eq.psi_axis,
+                               psi_boundary=-eq.psi_boundary, psi_1d=-eq.psi_1d,
+                               ip=-eq.ip)
+
+
+@pytest.mark.parametrize("cocos", [11, 2, 13, 17])
+@pytest.mark.parametrize("reverse_ip", [False, True])
 @pytest.mark.parametrize("f_sign", [1.0, -1.0])
-def test_helical_phase_is_constant_along_resonant_field_lines(eq, f_sign):
-    """The helicity comes from the field: reversing B_phi reverses it, and the
-    phase stays resonant either way."""
-    flipped = dataclasses.replace(eq, f=f_sign * eq.f)
-    topology = magnetic_island_topology(flipped, MagneticIslandSpec(2, 1, W))
+def test_helical_phase_is_constant_along_resonant_field_lines(eq, cocos, reverse_ip, f_sign):
+    """The helicity comes from the field in every convention and for every
+    current and field direction: judged against a traced field line, not
+    against the formula the code uses."""
+    from vaft.process.equilibrium import convert_cocos
+
+    case = dataclasses.replace(eq, f=f_sign * eq.f, bt0=f_sign * eq.bt0)
+    if reverse_ip:
+        case = _reverse_current(case)
+    if cocos != 11:
+        case = convert_cocos(case, cocos)
+    topology = magnetic_island_topology(case, MagneticIslandSpec(2, 1, W))
     sfl = topology.sfl_map
     surface = sfl.surface(topology.psi_n_s)
-    phi, r, z = _trace(flipped, flipped.f, surface["r"][0], surface["z"][0], turns=4.0)
-    xi = 2 * sfl.theta_star(r, z) - topology.helicity * 1 * phi
+    phi, r, z = _trace(case, case.f, surface["r"][0], surface["z"][0], turns=4.0)
+    theta_star = sfl.theta_star(r, z)
+    traced = int(np.sign(np.polyfit(np.unwrap(theta_star), phi, 1)[0]))
+    assert topology.helicity == traced
+    xi = 2 * theta_star - topology.helicity * 1 * phi
     drift = np.angle(np.exp(1j * (xi - xi[0])))
     assert np.max(np.abs(drift)) < 1e-3
-    expected = -1 if f_sign > 0 else 1  # dpsi/dR > 0 outboard, COCOS 11
-    assert topology.helicity == expected
 
 
 def test_an_unidentified_convention_needs_an_explicit_helicity(eq):

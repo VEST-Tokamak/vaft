@@ -922,7 +922,10 @@ class SyntheticSXRResult:
     ``emissivity`` and ``delta_emissivity`` are ``(time, plane, R, Z)``, one
     poloidal plane per distinct chord toroidal angle in ``planes``;
     ``brightness`` is ``(time, channel)`` in the order of ``sightlines``, each
-    chord integrated through the plane at its own toroidal angle.
+    chord integrated through the plane at its own toroidal angle. The two
+    field arrays are ``None`` when the fields were not kept. ``topology`` is
+    the island at the first time and ``phi = 0``, for its geometry (resonant
+    surface, helicity, width); rephase it to see any chord's plane.
     """
 
     time: np.ndarray
@@ -948,6 +951,7 @@ def synthetic_island_soft_x_rays(
     amplitude: float = 1.0,
     smoothing: float = 0.1,
     hard_mask: bool = False,
+    keep_fields: bool = True,
 ) -> SyntheticSXRResult:
     """Line-integrated soft-X-ray signals of a rotating island on an equilibrium.
 
@@ -976,6 +980,10 @@ def synthetic_island_soft_x_rays(
         Width of the island mask edge in helical-flux units [-].
     hard_mask : bool, optional
         Use a binary island mask [-].
+    keep_fields : bool, optional
+        Keep the emissivity fields on the result; ``False`` keeps only the
+        brightness, for a long time series where the ``(time, plane, R, Z)``
+        arrays would dominate memory [-].
 
     Returns
     -------
@@ -1041,8 +1049,8 @@ def synthetic_island_soft_x_rays(
         for k in range(planes.size)
     ]
     shape = (times.size, planes.size, base.r.size, base.z.size)
-    emissivity = np.zeros(shape)
-    delta = np.zeros(shape)
+    emissivity = np.zeros(shape) if keep_fields else None
+    delta = np.zeros(shape) if keep_fields else None
     brightness = np.zeros((times.size, len(sightlines)))
     for i, t in enumerate(times):
         for k, phi in enumerate(planes):
@@ -1050,8 +1058,9 @@ def synthetic_island_soft_x_rays(
             eps, d_eps = island_emissivity(topology, profile=emissivity_profile, model=model,
                                            amplitude=amplitude, smoothing=smoothing,
                                            hard_mask=hard_mask)
-            emissivity[i, k] = eps
-            delta[i, k] = d_eps
+            if keep_fields:
+                emissivity[i, k] = eps
+                delta[i, k] = d_eps
             brightness[i, plane_of_chord == k] = project_emissivity(eps, operators[k])
     return SyntheticSXRResult(time=times, planes=planes, r=base.r, z=base.z,
                               emissivity=emissivity, delta_emissivity=delta,

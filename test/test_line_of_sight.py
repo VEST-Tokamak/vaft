@@ -30,10 +30,13 @@ def test_uniform_field_integrates_to_the_chord_length_inside_the_grid():
         (0.0, 0.0, 0.2, 0.0),  # ends inside the first cell
         (0.0, 0.3, 1.0, 0.3),  # along a row of nodes
         (0.0, 0.305, 1.0, 0.305),  # exactly on a cell edge
+        (0.0, -0.505, 1.0, -0.505),  # along the bottom outer edge
+        (0.0, 0.505, 1.0, 0.505),  # along the top outer edge
     )
     G = build_line_integral_operator(R, Z, chords)
     lengths = np.asarray(G.sum(axis=1)).ravel()
-    np.testing.assert_allclose(lengths, [0.61, 1.01, 0.5, 0.005, 0.61, 0.61], atol=1e-12)
+    np.testing.assert_allclose(lengths, [0.61, 1.01, 0.5, 0.005, 0.61, 0.61, 0.61, 0.61],
+                               atol=1e-12)
     ones = np.ones((R.size, Z.size))
     np.testing.assert_allclose(project_emissivity(ones, G), lengths)
 

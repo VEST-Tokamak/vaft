@@ -1,7 +1,7 @@
 ---
 title: "Process reference: line_of_sight"
 author: VEST team
-date: 2026-09-18 09:00
+date: 2026-09-14 12:00
 category: guide
 layout: post
 permalink: /reference/process/line_of_sight/

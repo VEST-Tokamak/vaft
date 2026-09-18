@@ -48,7 +48,13 @@ IMAS toroidal angle, the frame of ``soft_x_rays.channel.line_of_sight.phi``.
 
 **O-point at xi = 0, X-point at xi = pi.** ``alpha(t) = phase +
 angular_frequency (t - t0)`` rotates the island rigidly; at fixed ``phi`` the
-O-point moves to larger ``theta*`` when ``alpha`` grows.
+O-point moves to larger ``theta*`` when ``alpha`` grows. **The sign of
+``angular_frequency`` is therefore a poloidal direction, not a toroidal one**:
+at fixed ``theta*`` the pattern moves in the IMAS toroidal angle at
+``d phi / dt = -angular_frequency / (sigma n)``, so the same spec propagates
+the opposite way toroidally when the helicity flips (reversed plasma current
+or toroidal field). A caller matching a measured toroidal phase velocity must
+fold ``IslandTopology.helicity`` in.
 
 Provenance
 ----------
@@ -137,6 +143,13 @@ class IslandTopology:
     Arrays are indexed ``(R, Z)`` like the flux map, and are NaN (or False)
     outside the equilibrium boundary. ``rephase`` gives the same island at
     another time or toroidal angle without rebuilding the geometry.
+
+    ``normal_displacement`` keeps the issue's name but is a flux label in
+    metres, ``R_out(psi) - R_out(psi_s)``: the true normal distance only on the
+    outboard midplane. ``grad_psi_s`` is ``|grad psi|`` at the resonant
+    surface's outboard-midplane point, in the record's flux unit per metre,
+    reported for converting ``W`` to a flux width; ``q_s`` is NaN when the
+    surface was placed by ``psi_n_s`` on a record that carries no q.
     """
 
     spec: MagneticIslandSpec
@@ -488,9 +501,15 @@ def magnetic_island_topology(
         psi_n_s, q_s = resolve_rational_surface(eq, island.m, island.n, index=island.surface_index)
     else:
         psi_n_s = float(island.psi_n_s)
-        prof_psi, prof_q = equilibrium_safety_factor(eq)
-        # anti-alias: not time-domain -- q over normalized flux.
-        q_s = float(np.interp(psi_n_s, prof_psi, prof_q))
+        # The override places the island; q there is reported when the record
+        # can supply it, and is not a precondition for placing it.
+        try:
+            prof_psi, prof_q = equilibrium_safety_factor(eq)
+        except ValueError:
+            q_s = float("nan")
+        else:
+            # anti-alias: not time-domain -- q over normalized flux.
+            q_s = float(np.interp(psi_n_s, prof_psi, prof_q))
 
     surface = sfl.surface(psi_n_s, n_theta=1024)
     r_out, z_out = float(surface["r"][0]), float(surface["z"][0])

@@ -186,6 +186,17 @@ def _cell_edges(axis: np.ndarray) -> np.ndarray:
     return np.concatenate(([axis[0] - (mid[0] - axis[0])], mid, [axis[-1] + (axis[-1] - mid[-1])]))
 
 
+def _cell_index(edges: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Cell of each coordinate: ``[edge_k, edge_k+1)``, the last cell closed.
+
+    A piece lying exactly on an interior edge belongs to the cell above it,
+    and one on either outer edge to the outermost cell, so a chord along the
+    grid's bottom and one along its top are counted alike.
+    """
+    index = np.searchsorted(edges, x, side="right") - 1
+    return np.where(x == edges[-1], edges.size - 2, index)
+
+
 def build_line_integral_operator(r, z, sightlines: Sightlines, *, domain=None):
     """The path-length matrix of chords through the cells of an ``(R, Z)`` grid.
 
@@ -218,7 +229,8 @@ def build_line_integral_operator(r, z, sightlines: Sightlines, *, domain=None):
     ----------
     Nodes are cell centres, with edges halfway between them and half a spacing
     beyond the outermost node, and cells are flattened in C order over
-    ``(R, Z)``. Each entry is the exact length of the chord inside that cell,
+    ``(R, Z)``. A chord running exactly along an interior edge is assigned to
+    the cell above it, and along an outer edge to the outermost cell. Each entry is the exact length of the chord inside that cell,
     so a row sums to the chord's length inside the gridded rectangle and the
     domain. Chords are straight in the ``(R, Z)`` plane; their toroidal angle
     does not enter the operator.
@@ -275,8 +287,8 @@ def build_line_integral_operator(r, z, sightlines: Sightlines, *, domain=None):
             seg = (t[1:] - t[:-1]) * length
             pr = a[0] + mid * d[0]
             pz = a[1] + mid * d[1]
-            ir = np.searchsorted(r_edges, pr) - 1
-            iz = np.searchsorted(z_edges, pz) - 1
+            ir = _cell_index(r_edges, pr)
+            iz = _cell_index(z_edges, pz)
             ok = (ir >= 0) & (ir < r.size) & (iz >= 0) & (iz < z.size) & (seg > 0.0)
             rows.append(np.full(int(ok.sum()), i))
             cols.append(ir[ok] * z.size + iz[ok])
