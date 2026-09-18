@@ -10,8 +10,10 @@ Two modes, picked automatically unless ``mode`` says otherwise:
   (``SLURM_JOB_ID`` is set), so a Snakemake job running under Slurm never
   submits a nested ``sbatch``. Output, stdin and the environment pass through
   as for a local child. The timeout is both ``srun --time`` and a local
-  deadline, after which ``srun`` is interrupted twice -- never killed outright,
-  which would orphan the step.
+  deadline, after which ``srun`` is interrupted twice so that it cancels the
+  step; a client that still does not exit is killed and its step cancelled by
+  name. The local deadline starts at launch, so waiting for step resources
+  counts against it.
 * **batch** (``sbatch``) otherwise. A job script is written under
   ``<workdir>/.vaft-slurm/``, submitted with ``sbatch --parsable --no-requeue``,
   and its state polled with ``squeue`` until it is no longer live. The script
@@ -31,7 +33,10 @@ Contract details specific to Slurm:
 * ``ExecutionRequest.timeout`` is the job's walltime (``--time``, whole minutes,
   rounded up, at least one; the cluster's ``OverTimeLimit`` may add more).
   ``timeout=None`` sends no ``--time``, so the partition default applies. A job
-  Slurm ends as ``TIMEOUT``/``DEADLINE`` comes back ``timed_out=True``.
+  Slurm ends as ``TIMEOUT``/``DEADLINE`` comes back ``timed_out=True``. Without
+  accounting this is inferred on the node: from ``SLURM_JOB_END_TIME`` where
+  Slurm sets it, else from the runtime against the requested walltime, less a
+  minute for the prolog.
 * ``max_wait`` bounds the total blocking time of a batch job, queue included;
   past it the job is cancelled and reported timed out, with the reason in
   ``stderr`` (or the log).
@@ -93,7 +98,14 @@ SCRATCH_DIRECTORY = ".vaft-slurm"
 _MODES = ("auto", "step", "batch")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SCHEDULER_PREFIXES = ("SLURM_", "SBATCH_", "SRUN_")
-_TRANSIENT = ("Socket timed out", "Resource temporarily unavailable", "try again", "Unable to contact")
+#: An sbatch error that means the controller was never reached, so the job
+#: cannot have been accepted and resubmitting cannot duplicate it.
+_UNREACHED = ("Unable to contact slurm controller",)
+#: Transient accounting errors worth retrying within ``accounting_grace``.
+_ACCOUNTING_TRANSIENT = ("Socket timed out", "Unable to contact", "slurmdbd", "Connection refused")
+_JOB_ID = re.compile(r"^(\d+)(?:;(\S+))?$")
+#: Consecutive unanswered squeue polls before accounting is asked instead.
+_UNKNOWN_POLLS = 30
 _TERMINATED = "terminated"
 
 
@@ -120,12 +132,13 @@ def exported_environment(overlay: Mapping[str, str], parent: Optional[Mapping[st
 
 def _submission_environment() -> dict[str, str]:
     # A job submitted from inside another allocation must not inherit that
-    # allocation's geometry (SLURM_MEM_PER_CPU next to the new job's
-    # SLURM_MEM_PER_NODE makes an inner srun refuse to start, for one).
+    # allocation's geometry: SLURM_MEM_PER_CPU next to the new job's
+    # SLURM_MEM_PER_NODE makes an inner srun refuse to start, and sbatch
+    # (22.05+) exports SRUN_CPUS_PER_TASK into every job it starts.
     return {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith("SLURM_") or key == "SLURM_CONF"
+        if not key.startswith(_SCHEDULER_PREFIXES) or key == "SLURM_CONF"
     }
 
 
@@ -286,7 +299,8 @@ class SlurmBackend:
         argv = [
             self._tool("srun"),
             *self._sizing(request),
-            f"--job-name={self._job_name(request)}",
+            # Unique, so a step whose client had to be killed can be found.
+            f"--job-name={self._job_name(request)}-{uuid.uuid4().hex[:8]}",
             f"--chdir={workdir}",
             "--export=ALL",
         ]
@@ -358,7 +372,22 @@ class SlurmBackend:
             return process.communicate(timeout=self.step_grace)
         except subprocess.TimeoutExpired:
             process.kill()
-            return process.communicate()
+            outputs = process.communicate()
+            self._cancel_step(process.args)
+            return outputs
+
+    def _cancel_step(self, argv: Sequence[str]) -> None:
+        """Cancel a step whose srun client had to be killed, by its unique name."""
+        job_id = os.environ.get("SLURM_JOB_ID")
+        name = next((a.split("=", 1)[1] for a in argv if str(a).startswith("--job-name=")), None)
+        squeue = shutil.which("squeue")
+        if not (job_id and name and squeue):
+            return
+        steps = self._slurm([squeue, "-h", "-s", "-j", job_id, "-o", "%i %j"])
+        for line in steps.stdout.splitlines():
+            step_id, _, step_name = line.strip().partition(" ")
+            if step_name == name:
+                self._cancel(step_id, [])
 
     # -- batch mode -------------------------------------------------------
 
@@ -382,15 +411,22 @@ class SlurmBackend:
         source = quote(str(stdin)) if stdin is not None else "/dev/null"
         lines += [
             f"date +%s > {quote(str(started))}",
+            # The termination record carries the node's own clock and, where
+            # Slurm provides it, the job's end time, so a walltime kill can be
+            # told from a cancel without accounting and without comparing
+            # clocks across hosts.
+            f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(str(status))}; }}',
             # Backgrounded so a TERM at the time limit or on scancel runs the
             # trap now rather than after the program exits.
-            f"trap 'echo {_TERMINATED} > {quote(str(status))}; kill -TERM $child 2>/dev/null; "
-            "wait $child; exit 143' TERM",
-            f"{command} < {source} &",
+            "trap 'terminated; kill -TERM $child 2>/dev/null; wait $child; exit 143' TERM",
+            # A non-interactive shell starts background jobs with INT and QUIT
+            # ignored; restore them so scancel --signal=INT reaches the program.
+            f"( trap - INT QUIT; exec {command} ) < {source} &",
             "child=$!",
             "wait $child",
             "rc=$?",
-            f"echo $rc > {quote(str(status))}",
+            # The program may die of the TERM before this shell handles its own.
+            f'if [ "$rc" -eq 143 ]; then terminated; else echo "$rc" > {quote(str(status))}; fi',
             "exit $rc",
             "",
         ]
@@ -425,8 +461,7 @@ class SlurmBackend:
         ]
 
         started = time.monotonic()
-        submitted = self._submit(argv)
-        job_id, _, cluster = submitted.strip().partition(";")
+        job_id, cluster = self._submit(argv)
         clusters = ["-M", cluster] if cluster else []
 
         try:
@@ -437,28 +472,29 @@ class SlurmBackend:
         recorded = self._recorded(scratch / "returncode")
         state, exit_code = self._accounting(job_id, clusters)
 
-        if cancelled and state == "COMPLETED" and recorded not in (None, _TERMINATED):
-            cancelled = False  # it finished just before the cancel landed
+        terminated = recorded is not None and recorded.startswith(_TERMINATED)
+        exited = recorded is not None and not terminated
+        if cancelled and exited:
+            cancelled = False  # the program exited before the cancel landed
         timed_out = cancelled or state in TIMEOUT_STATES
-        if not timed_out and state is None and recorded == _TERMINATED and request.timeout is not None:
-            runtime = self._runtime(scratch)
-            timed_out = runtime is not None and runtime >= request.timeout
+        if not timed_out and state is None and terminated:
+            timed_out = self._walltime_kill(recorded, scratch, request)
 
         if timed_out:
             returncode: Optional[int] = None
-        elif recorded not in (None, _TERMINATED):
+        elif exited:
             returncode = int(recorded)
         elif state == "COMPLETED":
             returncode = exit_code or 0
         else:
-            returncode = exit_code or (143 if recorded == _TERMINATED else 1)
+            returncode = exit_code or (143 if terminated else 1)
 
         note = ""
         if cancelled:
             note = f"slurm job {job_id} cancelled after max_wait={self.max_wait} s"
         elif state not in (None, "COMPLETED", "FAILED"):
             note = f"slurm job {job_id} ended {state}"
-        elif state is None and recorded in (None, _TERMINATED):
+        elif state is None and not exited and not timed_out:
             note = f"slurm job {job_id} ended without an exit status of its own (state unknown)"
 
         if log_path is not None:
@@ -495,13 +531,20 @@ class SlurmBackend:
             env=environment, check=False,
         )
 
-    def _submit(self, argv: list[str]) -> str:
+    def _submit(self, argv: list[str]) -> tuple[str, str]:
         for attempt in range(3):
             submitted = self._slurm(argv, environment=_submission_environment())
             if submitted.returncode == 0:
-                return submitted.stdout
+                # Site wrappers may print banners first; the id is the last line.
+                lines = [line.strip() for line in submitted.stdout.splitlines() if line.strip()]
+                parsed = _JOB_ID.match(lines[-1]) if lines else None
+                if parsed is None:
+                    raise ExecutableNotLaunchable(
+                        f"sbatch accepted {argv[-1]} but printed no job id: {submitted.stdout!r}"
+                    )
+                return parsed.group(1), parsed.group(2) or ""
             message = (submitted.stderr or submitted.stdout).strip()
-            if attempt == 2 or not any(marker in message for marker in _TRANSIENT):
+            if attempt == 2 or not any(marker in message for marker in _UNREACHED):
                 raise ExecutableNotLaunchable(f"sbatch rejected the job for {argv[-1]}: {message}")
             time.sleep(self.poll_interval)
         raise AssertionError("unreachable")  # pragma: no cover
@@ -509,6 +552,7 @@ class SlurmBackend:
     def _live(self, job_id: str, clusters: list[str]) -> Optional[bool]:
         """True while the job is live, False once it is not, None if unknown."""
         listed = self._slurm([self._tool("squeue"), *clusters, "-h", "-j", job_id, "-o", "%T"])
+        self._last_squeue_error = listed.stderr.strip()
         if listed.returncode != 0:
             # Only a purged job is gone; a controller that did not answer is not.
             return False if "Invalid job id" in listed.stderr else None
@@ -518,10 +562,22 @@ class SlurmBackend:
     def _wait(self, job_id: str, clusters: list[str], started: float) -> bool:
         """Block until the job is no longer live; True if ``max_wait`` cancelled it."""
         cancelled_at: Optional[float] = None
+        unknown = 0
         while True:
             live = self._live(job_id, clusters)
             if live is False:
                 return cancelled_at is not None
+            unknown = unknown + 1 if live is None else 0
+            if unknown >= _UNKNOWN_POLLS:
+                # squeue has stopped answering; accounting may still know.
+                state, _ = self._accounting(job_id, clusters)
+                if state is not None:
+                    return cancelled_at is not None
+                raise RuntimeError(
+                    f"slurm job {job_id} could not be followed: squeue failed "
+                    f"{unknown} times in a row ({getattr(self, '_last_squeue_error', '')}) "
+                    "and accounting has no final state; the job may still be running"
+                )
             now = time.monotonic()
             if cancelled_at is None and self.max_wait is not None and now - started > self.max_wait:
                 self._cancel(job_id, clusters)
@@ -546,19 +602,31 @@ class SlurmBackend:
             text = _read(status)
             if text is not None and text.strip():
                 value = text.strip()
-                if value == _TERMINATED or value.lstrip("-").isdigit():
+                if value.startswith(_TERMINATED) or value.lstrip("-").isdigit():
                     return value
             if time.monotonic() >= deadline:
                 return None
             time.sleep(min(1.0, self.status_grace))
 
     @staticmethod
-    def _runtime(scratch: Path) -> Optional[float]:
-        begin = _read(scratch / "started")
-        status = scratch / "returncode"
-        if begin is None or not begin.strip().isdigit() or not status.exists():
-            return None
-        return status.stat().st_mtime - int(begin.strip())
+    def _walltime_kill(recorded: str, scratch: Path, request: ExecutionRequest) -> bool:
+        """Whether a ``terminated`` record is the walltime rather than a cancel.
+
+        Decided from the node's own clock: against ``SLURM_JOB_END_TIME`` when
+        the job had one, else against the walltime actually requested (whole
+        minutes), less a minute for the prolog that runs before ``started``.
+        """
+        fields = recorded.split()
+        if len(fields) < 2 or not fields[1].isdigit():
+            return False
+        ended = int(fields[1])
+        if len(fields) >= 3 and fields[2].isdigit():
+            return ended >= int(fields[2]) - 10
+        begin = (_read(scratch / "started") or "").strip()
+        if request.timeout is None or not begin.isdigit():
+            return False
+        limit = int(walltime(request.timeout)) * 60
+        return ended - int(begin) >= limit - 60
 
     def _accounting(self, job_id: str, clusters: list[str]) -> tuple[Optional[str], Optional[int]]:
         """``(state, exit code)`` from ``sacct``, or ``(None, None)`` without it."""
@@ -575,7 +643,9 @@ class SlurmBackend:
                 # slurmdbd lags the controller; wait for the final state.
                 if state is not None and state not in LIVE_STATES:
                     return state, self._exit_code(code_text)
-            elif report.returncode != 0:
+            elif report.returncode != 0 and not any(
+                marker in report.stderr for marker in _ACCOUNTING_TRANSIENT
+            ):
                 return None, None  # accounting is not configured here
             if time.monotonic() >= deadline:
                 return None, None

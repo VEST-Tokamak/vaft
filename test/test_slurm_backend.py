@@ -4,14 +4,17 @@ No cluster is needed: ``sbatch``, ``squeue``, ``sacct``, ``scancel`` and
 ``srun`` are small Python programs put first on ``PATH``. They behave the way
 the real ones do where the backend depends on it:
 
-* ``sbatch`` resolves ``--output``/``--error`` against ``--chdir`` and runs the
-  job script with them. ``FAKE_SLURM_OUTCOME`` changes what happens:
-  ``TERM_AFTER=<s>`` runs the script and sends it ``TERM`` after that many
-  seconds (a walltime kill), ``NODE_FAIL`` and ``PENDING`` never run it.
+* ``sbatch`` prints the job id at once and runs the job script asynchronously
+  (``run_job.py``), resolving ``--output``/``--error`` against ``--chdir``, so
+  ``squeue`` sees it ``RUNNING`` first. ``FAKE_SLURM_OUTCOME`` changes what
+  happens: ``TERM_AFTER=<s>`` sends the script ``TERM`` after that many seconds
+  (a walltime kill); a terminal state such as ``NODE_FAIL`` or ``PENDING``
+  never runs it.
 * ``squeue -j`` keeps listing a finished job with its final state, as a real
   controller does until ``MinJobAge``; ``FAKE_SQUEUE_FLAKY=<n>`` makes the first
   ``n`` polls fail with a socket timeout.
-* ``sacct`` reports the recorded state unless ``FAKE_SLURM_NO_SACCT`` is set.
+* ``sacct`` reports the recorded state unless ``FAKE_SLURM_NO_SACCT`` is set;
+  ``FAKE_SACCT_LAG=<n>`` makes its first ``n`` answers a stale ``RUNNING``.
 
 Every invocation is appended to ``calls.jsonl`` so tests can assert on options.
 """
@@ -52,32 +55,28 @@ _FAKES = {
         if os.environ.get("FAKE_SLURM_REJECT"):
             print("sbatch: error: invalid partition specified", file=sys.stderr)
             sys.exit(1)
+        if os.environ.get("FAKE_SLURM_BANNER_ONLY"):
+            print("Welcome to the cluster")
+            sys.exit(0)
         (state / "sbatch_env.json").write_text(json.dumps(dict(os.environ)))
         counter = state / "next_id"
         job = int(counter.read_text()) if counter.exists() else 1000
         counter.write_text(str(job + 1))
         outcome = os.environ.get("FAKE_SLURM_OUTCOME", "")
-        chdir = Path(options.get("--chdir", "."))
-        def where(key):
-            return chdir / options[key].replace("%%", "%")
-        if outcome == "NODE_FAIL":
-            record(job, "NODE_FAIL|0:9")
+        if outcome in ("NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED", "BOOT_FAIL", "CANCELLED"):
+            record(job, outcome + "|0:9")
         elif outcome == "PENDING":
             record(job, "PENDING|0:0")
         else:
-            out = open(where("--output"), "w")
-            err = open(where("--error"), "w") if "--error" in options else subprocess.STDOUT
-            child = subprocess.Popen(["bash", sys.argv[-1]], cwd=chdir, stdout=out, stderr=err,
-                                     start_new_session=True)
-            if outcome.startswith("TERM_AFTER="):
-                time.sleep(float(outcome.split("=")[1]))
-                os.killpg(child.pid, signal.SIGTERM)
-                child.wait()
-                record(job, "TIMEOUT|0:15")
-            else:
-                rc = child.wait()
-                record(job, ("COMPLETED" if rc == 0 else "FAILED") + f"|{rc}:0")
-        print(f"{job};" + os.environ.get("FAKE_SLURM_CLUSTER", "") if os.environ.get("FAKE_SLURM_CLUSTER") else str(job))
+            record(job, "RUNNING|0:0")
+            # Run the job asynchronously, as a controller does.
+            subprocess.Popen([sys.executable, str(state / "run_job.py"), str(job), json.dumps(options),
+                              sys.argv[-1], outcome], start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.environ.get("FAKE_SLURM_BANNER"):
+            print("Submitted to the cluster; have a nice day")
+        cluster = os.environ.get("FAKE_SLURM_CLUSTER")
+        print(f"{job};{cluster}" if cluster else str(job))
     """,
     "squeue": """
         flaky = state / "flaky"
@@ -98,6 +97,13 @@ _FAKES = {
         if os.environ.get("FAKE_SLURM_NO_SACCT"):
             print("sacct: error: Slurm accounting storage is disabled", file=sys.stderr)
             sys.exit(1)
+        lag = state / "sacct_lag"
+        if os.environ.get("FAKE_SACCT_LAG"):
+            count = int(lag.read_text()) if lag.exists() else 0
+            if count < int(os.environ["FAKE_SACCT_LAG"]):
+                lag.write_text(str(count + 1))
+                print("RUNNING|0:0")  # slurmdbd has not caught up yet
+                sys.exit(0)
         job = sys.argv[sys.argv.index("-j") + 1]
         print((state / f"{job}.state").read_text())
     """,
@@ -111,6 +117,32 @@ _FAKES = {
 }
 
 
+_RUN_JOB = """
+import json, os, signal, subprocess, sys, time
+from pathlib import Path
+state = Path(os.environ["FAKE_SLURM_DIR"])
+job, options, script, outcome = sys.argv[1], json.loads(sys.argv[2]), sys.argv[3], sys.argv[4]
+chdir = Path(options.get("--chdir", "."))
+def where(key):
+    return chdir / options[key].replace("%%", "%")
+env = dict(os.environ)
+if os.environ.get("FAKE_JOB_END_NOW"):
+    env["SLURM_JOB_END_TIME"] = str(int(time.time()))
+out = open(where("--output"), "w")
+err = open(where("--error"), "w") if "--error" in options else subprocess.STDOUT
+child = subprocess.Popen(["bash", script], cwd=chdir, stdout=out, stderr=err, env=env, start_new_session=True)
+if outcome.startswith("TERM_AFTER="):
+    time.sleep(float(outcome.split("=")[1]))
+    os.killpg(child.pid, signal.SIGTERM)
+    child.wait()
+    final = "TIMEOUT|0:15"
+else:
+    rc = child.wait()
+    final = ("COMPLETED" if rc == 0 else "FAILED") + f"|{rc}:0"
+(state / f"{job}.state").write_text(final)
+"""
+
+
 @pytest.fixture
 def slurm(tmp_path, monkeypatch):
     """Fake Slurm on PATH; returns a reader for the recorded calls."""
@@ -120,11 +152,13 @@ def slurm(tmp_path, monkeypatch):
         tool = bin_dir / name
         tool.write_text(f"#!{sys.executable}\n{_COMMON}\n{textwrap.dedent(body)}", encoding="utf-8")
         tool.chmod(tool.stat().st_mode | stat.S_IXUSR)
+    (bin_dir / "run_job.py").write_text(_RUN_JOB, encoding="utf-8")
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_SLURM_DIR", str(bin_dir))
     for name in (
         "SLURM_JOB_ID", "SLURM_STEP_ID", "FAKE_SLURM_OUTCOME", "FAKE_SLURM_REJECT",
-        "FAKE_SLURM_NO_SACCT", "FAKE_SQUEUE_FLAKY", "FAKE_SLURM_CLUSTER",
+        "FAKE_SLURM_NO_SACCT", "FAKE_SQUEUE_FLAKY", "FAKE_SLURM_CLUSTER", "FAKE_SLURM_BANNER",
+        "FAKE_SLURM_BANNER_ONLY", "FAKE_JOB_END_NOW", "FAKE_SACCT_LAG",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -328,15 +362,70 @@ def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch
     assert slurm("scancel") == [["scancel", "1000"]]
 
 
-@pytest.mark.parametrize("with_sacct", [True, False])
-def test_a_job_ended_around_the_program_is_non_zero(tmp_path, slurm, monkeypatch, with_sacct):
-    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "NODE_FAIL")
-    if not with_sacct:
-        monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+@pytest.mark.parametrize("state", ["NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED", "BOOT_FAIL", "CANCELLED"])
+def test_a_job_ended_around_the_program_is_non_zero_with_its_state(tmp_path, slurm, monkeypatch, state):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", state)
     result = _batch().run(_python(_workdir(tmp_path), "pass"))
     assert not result.timed_out
-    assert result.returncode == (128 + 9 if with_sacct else 1)
-    assert ("NODE_FAIL" if with_sacct else "state unknown") in result.stderr
+    assert result.returncode == 128 + 9
+    assert state in result.stderr
+
+
+def test_a_job_ended_around_the_program_without_accounting(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "NODE_FAIL")
+    monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+    result = _batch().run(_python(_workdir(tmp_path), "pass"))
+    assert (result.timed_out, result.returncode) == (False, 1)
+    assert "state unknown" in result.stderr
+
+
+def test_accounting_lag_is_waited_out(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "TERM_AFTER=0.5")
+    monkeypatch.setenv("FAKE_SACCT_LAG", "2")
+    backend = _batch()
+    backend.accounting_grace = 10
+    result = backend.run(_python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=600))
+    assert result.timed_out  # TIMEOUT, once slurmdbd caught up, not a 143
+
+
+def test_the_job_end_time_decides_a_walltime_kill_without_accounting(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "TERM_AFTER=0.5")
+    monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+    monkeypatch.setenv("FAKE_JOB_END_NOW", "1")
+    result = _batch().run(_python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=600))
+    assert result.timed_out
+
+
+def test_a_squeue_that_never_answers_raises_rather_than_hanging(tmp_path, slurm, monkeypatch):
+    import vaft.code.slurm as slurm_module
+
+    monkeypatch.setattr(slurm_module, "_UNKNOWN_POLLS", 3)
+    monkeypatch.setenv("FAKE_SQUEUE_FLAKY", "1000")
+    monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+    with pytest.raises(RuntimeError, match="may still be running"):
+        _batch().run(_python(_workdir(tmp_path), "pass"))
+
+
+def test_the_job_id_is_the_last_line_sbatch_prints(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_BANNER", "1")  # a site wrapper's banner first
+    result = _batch().run(_python(_workdir(tmp_path), "pass"))
+    assert (result.returncode, result.job_id) == (0, "1000")
+
+
+def test_an_sbatch_that_prints_no_job_id_is_a_launch_failure(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_BANNER_ONLY", "1")
+    with pytest.raises(ExecutableNotLaunchable, match="no job id"):
+        _batch().run(_python(_workdir(tmp_path), "pass"))
+
+
+def test_scheduler_variables_do_not_reach_sbatch(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("SRUN_CPUS_PER_TASK", "16")
+    monkeypatch.setenv("SBATCH_ACCOUNT", "outer")
+    monkeypatch.setenv("SLURM_CONF", "/etc/slurm/slurm.conf")
+    _batch().run(_python(_workdir(tmp_path), "pass"))
+    submitted = json.loads((slurm.directory / "sbatch_env.json").read_text())
+    assert "SRUN_CPUS_PER_TASK" not in submitted and "SBATCH_ACCOUNT" not in submitted
+    assert submitted["SLURM_CONF"] == "/etc/slurm/slurm.conf"
 
 
 def test_exit_status_does_not_need_accounting(tmp_path, slurm, monkeypatch):
@@ -349,7 +438,7 @@ def test_a_federated_job_id_queries_its_cluster(tmp_path, slurm, monkeypatch):
     monkeypatch.setenv("FAKE_SLURM_CLUSTER", "other")
     result = _batch().run(_python(_workdir(tmp_path), "pass"))
     assert (result.returncode, result.job_id) == (0, "1000")
-    assert all(call[1:3] == ["-M", "other"] for call in slurm("squeue"))
+    assert all(call[1:3] == ["-M", "other"] for call in slurm("squeue") + slurm("sacct"))
 
 
 def test_a_rejected_submission_is_a_launch_failure(tmp_path, slurm, monkeypatch):
@@ -382,8 +471,10 @@ def test_step_mode_inside_an_allocation_runs_srun(tmp_path, slurm, monkeypatch):
     (srun,) = slurm("srun")
     assert {
         "--nodes=1", "--ntasks=1", "--cpus-per-task=8", "--time=2",
-        "--job-name=vaft-neo", f"--chdir={work.resolve()}", "--export=ALL",
+        f"--chdir={work.resolve()}", "--export=ALL",
     } <= set(srun)
+    # Unique per step, so a step whose srun had to be killed can be found.
+    assert any(option.startswith("--job-name=vaft-neo-") for option in srun)
     assert "--overlap" not in srun
     assert not slurm("sbatch")
 

@@ -572,7 +572,9 @@ result = run_efit(inputs, config)          # same EFITResult as a local run
 
 - **Step** (inside an allocation, i.e. `SLURM_JOB_ID` is set). The command runs as a job step with
   `srun`. The timeout is enforced twice: as `srun --time`, and as a local deadline after which `srun`
-  is interrupted so that it cancels the step. The backend adds `--overlap` when the caller is itself
+  is interrupted so that it cancels the step. If `srun` still does not exit, it is killed and its
+  step is cancelled by its unique name. The local deadline starts at launch, so time spent waiting
+  for step resources counts against it. The backend adds `--overlap` when the caller is itself
   running in a step.
 - **Batch** (everywhere else). The backend writes a job script with mode 0700 under
   `<workdir>/.vaft-slurm/`, submits it with `sbatch --parsable --no-requeue`, and polls `squeue` until
@@ -588,7 +590,9 @@ Slurm differently, so test each such code on a real cluster before relying on it
 
 - `timeout` becomes the walltime (`--time`), rounded up to whole minutes.
 - `timeout=None` sends no `--time`, so the partition's default walltime applies.
-- A job that Slurm ends as `TIMEOUT` returns `timed_out=True`.
+- A job that Slurm ends as `TIMEOUT` returns `timed_out=True`. Without `sacct`, the backend infers
+  this on the node: from `SLURM_JOB_END_TIME` where Slurm sets it, otherwise from the runtime
+  compared with the requested walltime, less one minute for the prolog.
 - `max_wait` caps the total time the backend blocks, including time in the queue. After that the
   job is cancelled, and the reason is written to `stderr` or appended to the log.
 
