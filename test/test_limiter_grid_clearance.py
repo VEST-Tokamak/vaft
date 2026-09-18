@@ -83,6 +83,11 @@ def test_the_radial_faces_are_the_numerically_chosen_ones():
 _VERTICAL, _HORIZONTAL = _faces(*_static_outline())
 
 
+def test_the_outline_has_faces_to_check():
+    """An empty parametrize list is a skip, not a failure; this makes it one."""
+    assert len(_VERTICAL) >= 2 and len(_HORIZONTAL) >= 2
+
+
 @pytest.mark.parametrize("face", _VERTICAL)
 def test_no_vertical_limiter_face_sits_on_a_grid_column(face):
     columns, _ = _grid()

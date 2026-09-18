@@ -19,8 +19,13 @@ conductor polygons suitable for ``gs_Domain.define_region(..., 'conductor')``:
   resistances via ``R = 2*pi*R*eta/A``) for stainless, and the nominal
   tungsten value of :mod:`vaft.machine_mapping.wall_resistance` for ``W11``,
   with per-segment/region overrides. The outboard wall ``W1`` and ``W11``
-  carry a black-box per-loop calibration in the ODS (issue #191); its ODS
-  median is recorded for provenance but NOT applied automatically;
+  carry fitted band factors in ``pf_passive.loop.*.resistance`` (issue #191,
+  :mod:`vaft.machine_mapping.wall_resistance`) that are NOT applied here:
+  TokaMaker meshes the nominal material value. For ``W11`` the factors run
+  0.40-9.21x nominal (median 4.56x), so its meshed hoop resistance is well
+  below the calibrated wall model's; override ``vessel_eta`` to apply one.
+  ``eta_ods_median`` records the loops' ``resistivity`` field, which is the
+  nominal material value, not that calibration;
 - a strip thinner than ``TokaMakerConfig.vessel_min_thickness`` is widened
   about its centreline to that thickness and its eta scaled by the same
   factor, so its sheet resistance is unchanged. ``W11`` (0.1 mm tungsten
@@ -314,10 +319,20 @@ def _thicken_thin_strip(
     sheet resistance ``eta / t`` -- and so each loop's hoop resistance
     ``2*pi*R*eta/A`` -- what the thin strip had.
     """
-    trans_lo, trans_hi = ("r_lo", "r_hi") if _is_vertical(rects) else ("z_lo", "z_hi")
-    thickness = float(np.median([rect[trans_hi] - rect[trans_lo] for rect in rects]))
+    vertical = _is_vertical(rects)
+    trans_lo, trans_hi = ("r_lo", "r_hi") if vertical else ("z_lo", "z_hi")
+    thicknesses = np.array([rect[trans_hi] - rect[trans_lo] for rect in rects])
+    thickness = float(np.median(thicknesses))
     if min_thickness <= 0.0 or thickness <= 0.0 or thickness >= min_thickness:
         return rects, 1.0
+    # One factor scales the whole region's eta, so it is only right when every
+    # rectangle has the thickness it was computed from.
+    if not np.allclose(thicknesses, thickness, rtol=1e-6, atol=0.0):
+        raise ValueError(
+            f"a thin strip of {len(rects)} loops has transverse thicknesses "
+            f"{thicknesses.min():.3g}-{thicknesses.max():.3g} m; one eta factor cannot "
+            "keep every loop's sheet resistance -- split the segment or exclude it"
+        )
     width = min_thickness + gap
     widened = []
     for rect in rects:
@@ -326,6 +341,11 @@ def _thicken_thin_strip(
         out[trans_lo] = centre - 0.5 * width
         out[trans_hi] = centre + 0.5 * width
         widened.append(out)
+    if _is_vertical(widened) != vertical:
+        raise ValueError(
+            f"widening a {thickness:.3g} m strip to {width:.3g} m changes its orientation; "
+            "it is shorter than it would be thick -- exclude it or lower vessel_min_thickness"
+        )
     return widened, min_thickness / thickness
 
 
@@ -374,6 +394,19 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
 
     named_clusters = _deconflict_clusters(named_clusters, config.vessel_gap)
     _assert_disjoint(named_clusters)
+    # The eta factor assumed the de-conflict shrink leaves a widened strip
+    # exactly vessel_min_thickness thick; a clamp across its thickness would
+    # silently change its resistance instead.
+    for region, factor in thickened.items():
+        if factor == 1.0 or region not in named_clusters:
+            continue
+        cluster = named_clusters[region]
+        lo, hi = ("r_lo", "r_hi") if _is_vertical(cluster) else ("z_lo", "z_hi")
+        if not all(abs((rect[hi] - rect[lo]) - config.vessel_min_thickness) <= 1e-9 for rect in cluster):
+            raise ValueError(
+                f"widened vessel region {region} was clamped across its thickness during "
+                "de-conflict, so its eta factor no longer keeps the sheet resistance"
+            )
 
     regions: dict[str, dict] = {}
     bbox_fallbacks: list[str] = []
