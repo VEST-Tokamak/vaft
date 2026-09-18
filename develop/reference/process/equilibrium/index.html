@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0578fab</code>. What is described
+  <code>b91f176</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-49 public functions.  The category overview and notation come from the module
+50 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -348,6 +348,8 @@ outward normal is only outward then.</p>
   <li><a href="#derive_radial_coordinates"><code>derive_radial_coordinates</code></a> &mdash; The three normalized radial coordinates, each with its derivation record.
 </li>
   <li><a href="#efit_virial_volume_integrals"><code>efit_virial_volume_integrals</code></a> &mdash; EFIT-style weighted volume integrals for the virial closures.
+</li>
+  <li><a href="#ejiri_mirror_geometry"><code>ejiri_mirror_geometry</code></a> &mdash; Ejiri mirror-confinement proxy for one magnetic snapshot.
 </li>
   <li><a href="#equilibrium_field_on_grid"><code>equilibrium_field_on_grid</code></a> &mdash; <code class="language-plaintext highlighter-rouge">(B_R, B_Z, B_phi)</code> on the whole <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid, each <code class="language-plaintext highlighter-rouge">(nR, nZ)</code>.
 </li>
@@ -1449,6 +1451,149 @@ pressure-dependent terms are simply absent.</p>
 
 <ol class="formula-references">
   <li>EFIT’s weighted volume integrals, with the fractional cell weights standing in for its externally supplied weight map; see <code class="language-plaintext highlighter-rouge">fractional_cell_weights_from_boundary</code>.
+</li>
+</ol>
+
+<h3 id="ejiri_mirror_geometry"><code class="language-plaintext highlighter-rouge">ejiri_mirror_geometry</code></h3>
+
+<p class="formula-signature"><code>ejiri_mirror_geometry(r_start, b_field, *, wall_r, wall_z, z_fit=None, dphi=np.float64(0.017453292519943295), max_length_m=150.0)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Ejiri mirror-confinement proxy for one magnetic snapshot.</p>
+
+<p>Traces the field line through $(R_S, 0)$ and reads off the four lengths the
+Ejiri low-energy orbit model needs – the starting radius, the inboard
+limiter, the curvature radius and the vertical extent over which the line
+keeps raising $|B|$ – then evaluates the boundary slope $\alpha$ and the
+geometry factor $F_3$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>r_start</code></td><td>float</td><td>m</td><td><p>Major radius the electron starts at, on the midplane.</p>
+</td></tr>
+  <tr><td><code>b_field</code></td><td>callable</td><td>T</td><td><p>A function of <code class="language-plaintext highlighter-rouge">(R, Z)</code> returning <code class="language-plaintext highlighter-rouge">(B_R, B_Z, B_phi)</code>, normally from <code class="language-plaintext highlighter-rouge">make_vacuum_field_interpolator</code>.</p>
+</td></tr>
+  <tr><td><code>wall_r</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of the limiting polygon.</p>
+</td></tr>
+  <tr><td><code>wall_z</code></td><td>np.ndarray</td><td>m</td><td><p>Height of the limiting polygon.</p>
+</td></tr>
+  <tr><td><code>z_fit</code></td><td>float, optional</td><td>m</td><td><p>Half-height of the window for the diagnostic local parabola fit; default a quarter of <code class="language-plaintext highlighter-rouge">z_max</code>.</p>
+</td></tr>
+  <tr><td><code>dphi</code></td><td>float, optional</td><td>rad</td><td><p>Fixed step in toroidal angle for the trace.</p>
+</td></tr>
+  <tr><td><code>max_length_m</code></td><td>float, optional</td><td>m</td><td><p>Path length at which to stop each branch.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to Any</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">r_start</code>, <code class="language-plaintext highlighter-rouge">r_inboard_limiter</code>, <code class="language-plaintext highlighter-rouge">curvature_radius</code> and <code class="language-plaintext highlighter-rouge">z_max</code> in metres; <code class="language-plaintext highlighter-rouge">alpha</code> and <code class="language-plaintext highlighter-rouge">f3</code> dimensionless; <code class="language-plaintext highlighter-rouge">mirror</code> true when the line dips inward before it ends; <code class="language-plaintext highlighter-rouge">saturated</code> true when a branch stopped on <code class="language-plaintext highlighter-rouge">max_length_m</code> rather than on the wall or a turning point; <code class="language-plaintext highlighter-rouge">binding_branch</code> naming the weaker mirror; <code class="language-plaintext highlighter-rouge">curvature_radius_local</code> the local parabola fit in metres, for comparison only; per-branch <code class="language-plaintext highlighter-rouge">z_max_upper</code>, <code class="language-plaintext highlighter-rouge">z_max_lower</code>, <code class="language-plaintext highlighter-rouge">r_mirror_upper</code>, <code class="language-plaintext highlighter-rouge">r_mirror_lower</code> in metres with <code class="language-plaintext highlighter-rouge">reason_upper</code> and <code class="language-plaintext highlighter-rouge">reason_lower</code>; and the two <code class="language-plaintext highlighter-rouge">trace_field_line</code> branches as <code class="language-plaintext highlighter-rouge">trace_upper</code> and <code class="language-plaintext highlighter-rouge">trace_lower</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A start point outside the wall, no wall crossing of the midplane inboard
+    of it, or a non-positive <code class="language-plaintext highlighter-rouge">z_fit</code> [-].</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Trace the line through $(R_S, 0)$ forward and backward against the wall,
+and label the branch that rises the upper one.</li>
+  <li>$R_{\mathrm{LIN}}$: the wall polygon’s midplane crossing nearest the start
+on its inboard side.</li>
+  <li>Mirror point of each branch: the smallest $R$ the branch reaches before
+it ends, excluding the seed – the strongest field an electron escaping
+that way has to pass.  Record $|Z|$ and $R$ there.</li>
+  <li>Keep the <strong>weaker</strong> mirror: the branch whose mirror point sits at the
+larger $R$, so the smaller field rise.  Its $|Z|$ is $Z_{\max}$ and its
+$R$ is $R_m$.  If $R_m \ge R_S$ the line never dips inward.</li>
+  <li>$R_C = Z_{\max}^2 / \bigl(2(R_S - R_m)\bigr)$, the parabola through the
+start and the mirror point, then $\alpha$ and $F_3$ from
+<code class="language-plaintext highlighter-rouge">vaft.formula.startup.ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code>
+and <code class="language-plaintext highlighter-rouge">vaft.formula.startup.ejiri_f3_from_alpha</code>.</li>
+  <li>For comparison, fit $R - R_S = c_1 Z + c_2 Z^2$ over $|Z| \le$
+<code class="language-plaintext highlighter-rouge">z_fit</code> and report $-1/(2c_2)$ as <code class="language-plaintext highlighter-rouge">curvature_radius_local</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 150 m limit is a numerical convenience matching
+<code class="language-plaintext highlighter-rouge">connection_length_map</code>, and it is where the result converges on VEST:
+at the breakdown onset of the packaged shot, from the electron-cyclotron
+resonance, 50 m stops both branches short and gives $Z_{\max} = 0.13$ m and
+$F_3 = 0.38$, while 150, 500 and 1500 m all give $0.30$ m and $0.51$.  The
+quarter-$Z_{\max}$ window and the one-degree step are numerical
+conveniences: at 2, 1, 0.5 and 0.25 degrees $F_3$ agrees to six figures and
+$R_C$ and $Z_{\max}$ to four.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>$R_C$ is the secant through the mirror point, not a local fit.</strong>  Ejiri’s
+curvature term needs $R_C$ only through $Z_{\max}^2/2R_C = R_S - R_m$, so
+defining $R_C$ that way makes the term exactly $1/\sqrt{M - 1}$ for the
+line’s true mirror ratio $M = R_S/R_m$ – the inboard term with the limiter
+replaced by the line’s own mirror point – whatever shape the line has.  On
+an exact parabola it equals the parabola’s $R_C$.  A local fit, which is
+what the model’s derivation suggests, is not stable on a real field: on the
+same VEST case it gives $R_C$ from 0.07 to 0.34 m as the window widens from
+a tenth of $Z_{\max}$ to all of it, and had it fed $\alpha$, $F_3$ would
+have run from 0.99 to 0.62 on that choice alone.  The secant is 0.52 m for
+every window.  <code class="language-plaintext highlighter-rouge">curvature_radius_local</code> still reports the fit, so how far
+the line is from Ejiri’s parabola stays visible.</p>
+
+<p><strong>The mirror point is the global minimum of $R$ along the branch, not the
+first local one.</strong>  An escaping electron has to pass the largest field on
+its way to the wall, wherever it is.  The distinction is not academic: at
+the breakdown onset of VEST’s packaged shot the line through the
+electron-cyclotron resonance is tilted at the midplane, so on one side $R$
+rises for a few steps before dipping to 0.60 m.  A first-local-minimum rule
+gives up on that side, reads the wall end at 0.76 m as the mirror point,
+and reports no confinement at all.</p>
+
+<p><strong>The weaker mirror decides.</strong>  An electron bouncing between the two mirror
+points escapes through the one with the smaller field rise, which is the
+one at larger $R$, not necessarily the one at smaller $|Z|$.</p>
+
+<p><strong>No inward dip means nothing is confined, not an error.</strong>  When $R_m \ge
+R_S$ the line is straight or bows outward, $|B|$ does not rise away from the
+midplane, and curvature traps nothing: this returns $\alpha = \infty$,
+$F_3 = 0$ and <code class="language-plaintext highlighter-rouge">mirror</code> false without calling the formulas, which reject a
+non-positive curvature radius.</p>
+
+<p>The mirror ratio is read in $R$, which assumes $|B| \propto 1/R$: true when
+the toroidal field dominates, as it does in a pre-breakdown vacuum field.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  The wall polygon and the field are both the caller’s,
+and so is <code class="language-plaintext highlighter-rouge">r_start</code> – normally the electron-cyclotron resonance, from
+<code class="language-plaintext highlighter-rouge">vaft.formula.startup.electron_cyclotron_resonance_radius</code>.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>An Ejiri-inspired geometric proxy, not the numerical orbit boundary: it
+says nothing about EC power, collisions or breakdown itself.  A branch whose
+first step already leaves the wall is read as an immediate loss on that
+side, so a start point within one step of the wall reports no confinement
+– shorten <code class="language-plaintext highlighter-rouge">dphi</code> if that is not the answer wanted.  A branch that
+stops on <code class="language-plaintext highlighter-rouge">max_length_m</code> sets <code class="language-plaintext highlighter-rouge">saturated</code> and raises a
+<code class="language-plaintext highlighter-rouge">RuntimeWarning</code>: that result is not converged and is not a bound, since a
+longer trace can move both the mirror point and the branch that binds.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>A. Ejiri and Y. Takase, Nucl. Fusion 47 (2007) 403, Sec. 3, for the orbit-boundary slope and the geometry factor.
+</li>
+  <li>The trace is <code class="language-plaintext highlighter-rouge">trace_field_line</code>, and the two relations are the <code class="language-plaintext highlighter-rouge">vaft.formula.startup</code> kernels named in the processing steps.
 </li>
 </ol>
 
@@ -4182,7 +4327,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#connection_length_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_vacuum_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_vacuum_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#connection_length_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_geometry</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_vacuum_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_vacuum_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -4300,7 +4445,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 07:53:59 +0000"
+        "time": "2026-09-18 10:23:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

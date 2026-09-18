@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0578fab</code>. What is described
+  <code>b91f176</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -326,7 +326,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
-    <td><code>vaft.formula.startup</code></td><td>18</td><td>Start-up physics from the gas fill to the avalanche.</td>
+    <td><code>vaft.formula.startup</code></td><td>23</td><td>Start-up physics from the gas fill to the avalanche.</td>
   </tr>
   </tbody>
 </table>
@@ -895,7 +895,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="startup">Startup</h2>
 
-<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">18 functions</a>.</p>
+<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">23 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> <em>(convention)</em> &mdash; Atom inventory of a molecular gas fill.
@@ -918,13 +918,23 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> <em>(convention)</em> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#lr_time_from_L_R"><code>lr_time_from_L_R</code></a> <em>(convention)</em> &mdash; Characteristic time of an inductive-resistive circuit.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> <em>(convention)</em> &mdash; Number density of a fill gas at a measured pressure and temperature.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p"><code>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code></a> <em>(convention)</em> &mdash; Rate of change of plasma current in a lumped single-loop circuit.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#plasma_external_inductance_hirshman_from_R_eps_kappa"><code>plasma_external_inductance_hirshman_from_R_eps_kappa</code></a> <em>(convention)</em> &mdash; External inductance of a shaped plasma, Hirshman and Neilson’s fit.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_inductance_circular_from_R0_a_li"><code>plasma_inductance_circular_from_R0_a_li</code></a> <em>(convention)</em> &mdash; Self-inductance of a high-aspect-ratio plasma ring, Mitarai’s form.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#plasma_inductance_hirshman_from_R_eps_kappa_li"><code>plasma_inductance_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Total plasma inductance, Hirshman external plus the internal term.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></a> <em>(convention)</em> &mdash; Loop resistance of a uniform-current elliptical plasma ring.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> <em>(convention)</em> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#resistivity_from_n_e_nu_e"><code>resistivity_from_n_e_nu_e</code></a> <em>(convention)</em> &mdash; Resistivity from the electron momentum-transfer collision frequency.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a> <em>(convention)</em> &mdash; Geometric centre and minor radius of the limiter aperture.
 </li>
@@ -1195,7 +1205,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 07:53:59 +0000"
+        "time": "2026-09-18 10:23:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

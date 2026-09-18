@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0578fab</code>. What is described
+  <code>b91f176</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +267,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/startup.py"><code class="language-plaintext highlighter-rouge">vaft/formula/startup.py</code></a>:
-18 public functions.  The category overview and notation come from the module
+23 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("startup.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -344,13 +344,23 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 </li>
   <li><a href="#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
+  <li><a href="#lr_time_from_L_R"><code>lr_time_from_L_R</code></a> &mdash; Characteristic time of an inductive-resistive circuit.
+</li>
   <li><a href="#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> &mdash; Number density of a fill gas at a measured pressure and temperature.
+</li>
+  <li><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p"><code>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code></a> &mdash; Rate of change of plasma current in a lumped single-loop circuit.
 </li>
   <li><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa"><code>plasma_external_inductance_hirshman_from_R_eps_kappa</code></a> &mdash; External inductance of a shaped plasma, Hirshman and Neilson’s fit.
 </li>
+  <li><a href="#plasma_inductance_circular_from_R0_a_li"><code>plasma_inductance_circular_from_R0_a_li</code></a> &mdash; Self-inductance of a high-aspect-ratio plasma ring, Mitarai’s form.
+</li>
   <li><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li"><code>plasma_inductance_hirshman_from_R_eps_kappa_li</code></a> &mdash; Total plasma inductance, Hirshman external plus the internal term.
 </li>
+  <li><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></a> &mdash; Loop resistance of a uniform-current elliptical plasma ring.
+</li>
   <li><a href="#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="#resistivity_from_n_e_nu_e"><code>resistivity_from_n_e_nu_e</code></a> &mdash; Resistivity from the electron momentum-transfer collision frequency.
 </li>
   <li><a href="#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a> &mdash; Geometric centre and minor radius of the limiter aperture.
 </li>
@@ -1130,6 +1140,59 @@ derived.</p>
 </li>
 </ol>
 
+<h3 id="lr_time_from_L_R"><code class="language-plaintext highlighter-rouge">lr_time_from_L_R</code></h3>
+
+<p class="formula-signature"><code>lr_time_from_L_R(L_H, R_ohm)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Characteristic time of an inductive-resistive circuit.</p>
+
+\[\tau_{L/R} = \frac{L}{R}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>L_H</code></td><td>float or np.ndarray</td><td>H</td><td><p>Inductance, finite and positive.</p>
+</td></tr>
+  <tr><td><code>R_ohm</code></td><td>float or np.ndarray</td><td>Ohm</td><td><p>Resistance, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>s</td><td><p>Time constant.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive inductance or resistance.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>For the plasma loop this is the time a fixed loop voltage takes to bring
+$I_p$ within $1/e$ of its resistive limit $V/R_p$ at fixed inductance – the
+linear rate of <code class="language-plaintext highlighter-rouge">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code>
+about that fixed point.  For a vessel element it is the eddy-current decay
+time.  It is not the current-profile diffusion time, which needs a length
+scale this does not have.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.7.
+</li>
+</ol>
+
 <h3 id="neutral_density_from_pressure"><code class="language-plaintext highlighter-rouge">neutral_density_from_pressure</code></h3>
 
 <p class="formula-signature"><code>neutral_density_from_pressure(p_Pa, T_gas_K=300.0)</code></p>
@@ -1195,6 +1258,84 @@ inventory is set by a particle balance rather than by a gauge reading.</p>
 
 <ol class="formula-references">
   <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, Sec. 2 (the DYON prefill inventory).
+</li>
+</ol>
+
+<h3 id="plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p"><code class="language-plaintext highlighter-rouge">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code></h3>
+
+<p class="formula-signature"><code>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V_loop_V, R_p_ohm, I_p_A, L_p_H, dL_p_dt_H_s=0.0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Rate of change of plasma current in a lumped single-loop circuit.</p>
+
+\[\dot I_p = \frac{V_{\mathrm{loop}} - R_p I_p - I_p \dot L_p}{L_p}\]
+
+<p>from $V_{\mathrm{loop}} = R_p I_p + \mathrm{d}(L_p I_p)/\mathrm{d}t$.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>V_loop_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Loop voltage driving the plasma, finite.</p>
+</td></tr>
+  <tr><td><code>R_p_ohm</code></td><td>float or np.ndarray</td><td>Ohm</td><td><p>Plasma loop resistance, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite.</p>
+</td></tr>
+  <tr><td><code>L_p_H</code></td><td>float or np.ndarray</td><td>H</td><td><p>Plasma self-inductance, finite and positive.</p>
+</td></tr>
+  <tr><td><code>dL_p_dt_H_s</code></td><td>float or np.ndarray, optional</td><td>H/s</td><td><p>Rate of change of the inductance; default 0, fixed geometry.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>A/s</td><td><p>$\mathrm{d}I_p/\mathrm{d}t$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input, a negative resistance, or a non-positive
+    inductance.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Signed, unlike the rest of this module.</strong>  $V_{\mathrm{loop}}$ and $I_p$
+must be measured in the same sense around the torus, so a loop voltage that
+drives the existing current is positive; a sign mismatch turns a ramp-up
+into a ramp-down.  $I_p\dot L_p$ is kept because a plasma that grows or
+moves changes its inductance, and during start-up that term is not small.</p>
+
+<p>The power this balances is not the Ohmic power.
+$V_{\mathrm{loop}} I_p = R_p I_p^2 + \mathrm{d}(\tfrac12 L_p I_p^2)/
+\mathrm{d}t + \tfrac12 I_p^2 \dot L_p$: part of the transformer’s work goes
+into magnetic energy, which is why
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res</code> takes
+the resistive voltage and not the loop voltage.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>One loop.  Mutual coupling to the vessel and the coils – the eddy currents
+that dominate a VEST start-up – is the caller’s to add to
+$V_{\mathrm{loop}}$; this does not see them.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>lr_time_from_L_R
+plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
+plasma_inductance_circular_from_R0_a_li</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.7.
+</li>
+  <li>O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257, Eq. (2.1).
 </li>
 </ol>
 
@@ -1284,6 +1425,96 @@ d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</p>
 </li>
 </ol>
 
+<h3 id="plasma_inductance_circular_from_R0_a_li"><code class="language-plaintext highlighter-rouge">plasma_inductance_circular_from_R0_a_li</code></h3>
+
+<p class="formula-signature"><code>plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Self-inductance of a high-aspect-ratio plasma ring, Mitarai’s form.</p>
+
+\[L_p = \mu_0 R_0\left[\ln\!\left(\frac{8R_0}{a\,l_\kappa}\right)
+  + \frac{l_i}{2} - 2\right],\qquad l_\kappa = \sqrt{\frac{1+\kappa^2}{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R0_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius, finite and positive.</p>
+</td></tr>
+  <tr><td><code>a_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Minor radius, finite and positive and smaller than <code class="language-plaintext highlighter-rouge">R0_m</code>.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td>float or np.ndarray</td><td>-</td><td><p>Normalised internal inductance.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td>float or np.ndarray, optional</td><td>-</td><td><p>Elongation; default 1, a circular cross-section.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>H</td><td><p>Total plasma self-inductance, <code class="language-plaintext highlighter-rouge">nan</code> where the expansion gives zero or less.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive radius or elongation, or a minor radius that
+    is not smaller than the major one.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The same expression <code class="language-plaintext highlighter-rouge">vertical_field_from_I_p_R0_a_beta_p_li</code> is built
+on: holding $a$ fixed, $\partial L_p/\partial R$ substituted into
+$B_{VE} = (\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p - 1/2]$
+returns that function exactly.  $l_i$ enters as the dimensional
+$\mu_0 R_0 l_i/2$, the Romero/ITER convention read backwards.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>$a/R_0 \ll 1$.  At a spherical tokamak’s aspect ratio the expansion is out
+of its range and the Hirshman fit,
+<code class="language-plaintext highlighter-rouge">plasma_inductance_hirshman_from_R_eps_kappa_li</code>, is the one to use.
+The error there is not one-signed: at $\epsilon = 0.75$ this form is 51 %
+high at $\kappa = 1$ and $l_i = 0.3$, 4.5 times low at $\kappa = 2$, and
+not positive from $\kappa \approx 2.15$, because $l_\kappa$ shrinks the
+logarithm below $2 - l_i/2$.
+The two do converge as $a/R_0 \to 0$, but slowly and not monotonically:
+Hirshman’s correction terms go as $\sqrt{\epsilon}$, so at $\kappa = 1$
+they differ by 6.7 % at $\epsilon = 0.3$, cross near 0.05, still differ by
+1.6 % at 0.01 and by 0.07 % only at $10^{-6}$.  Agreement at one aspect
+ratio is therefore no evidence of agreement at another.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Shaping enters only through $l_\kappa$ inside the logarithm.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>A non-positive result is outside the expansion rather than a physical
+inductance – a self-inductance cannot be negative – so it warns and
+returns <code class="language-plaintext highlighter-rouge">nan</code> elementwise, as the Townsend kernels do below
+$A\,p\,L = 1$.  Passed on, a negative value would only fail later in
+<code class="language-plaintext highlighter-rouge">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code> with a
+message naming the wrong function.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>plasma_inductance_hirshman_from_R_eps_kappa_li
+vertical_field_from_I_p_R0_a_beta_p_li
+plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257, Eq. (1.2).
+</li>
+  <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103.
+</li>
+</ol>
+
 <h3 id="plasma_inductance_hirshman_from_R_eps_kappa_li"><code class="language-plaintext highlighter-rouge">plasma_inductance_hirshman_from_R_eps_kappa_li</code></h3>
 
 <p class="formula-signature"><code>plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li)</code></p>
@@ -1350,6 +1581,74 @@ d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</p>
 </li>
 </ol>
 
+<h3 id="plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code class="language-plaintext highlighter-rouge">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></h3>
+
+<p class="formula-signature"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(eta_ohm_m, R0_m, a_m, kappa=1.0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Loop resistance of a uniform-current elliptical plasma ring.</p>
+
+\[R_p = \eta\,\frac{2\pi R_0}{\pi a^2\kappa} = \frac{2\,\eta R_0}{a^2\kappa}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>eta_ohm_m</code></td><td>float or np.ndarray</td><td>Ohm m</td><td><p>Resistivity along the current, finite and positive.</p>
+</td></tr>
+  <tr><td><code>R0_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius, finite and positive.</p>
+</td></tr>
+  <tr><td><code>a_m</code></td><td>float or np.ndarray</td><td>m</td><td><p>Minor radius, finite and positive.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td>float or np.ndarray, optional</td><td>-</td><td><p>Elongation; default 1, a circular cross-section.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>Ohm</td><td><p>Loop resistance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive resistivity, radius or elongation.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The path length is the magnetic-axis circumference $2\pi R_0$ and the
+cross-section the ellipse $\pi a^2\kappa$: a wire, not a torus.  The
+resistivity must be the one the toroidal current sees, which is
+$\eta_\parallel$ – see <code class="language-plaintext highlighter-rouge">resistivity_from_n_e_nu_e</code> for why the
+Lorentz value would double this.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Uniform current density and uniform resistivity.  A peaked current profile
+in a hotter core carries more of the current through less resistance, so
+this overestimates $R_p$ once a temperature profile has formed.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Order-$a/R_0$ toroidal corrections to the path length are absent.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>resistivity_from_n_e_nu_e
+plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p
+vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.16.
+</li>
+</ol>
+
 <h3 id="plasma_self_field_from_I_p_a"><code class="language-plaintext highlighter-rouge">plasma_self_field_from_I_p_a</code></h3>
 
 <p class="formula-signature"><code>plasma_self_field_from_I_p_a(I_p_A, a_m)</code></p>
@@ -1410,6 +1709,78 @@ whether the plasma field <em>cancels</em> or <em>reinforces</em> a stray field.<
 
 <ol class="formula-references">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.1.
+</li>
+</ol>
+
+<h3 id="resistivity_from_n_e_nu_e"><code class="language-plaintext highlighter-rouge">resistivity_from_n_e_nu_e</code></h3>
+
+<p class="formula-signature"><code>resistivity_from_n_e_nu_e(n_e_m3, nu_e_s)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Resistivity from the electron momentum-transfer collision frequency.</p>
+
+\[\eta = \frac{m_e\,\nu_e}{n_e e^2}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>nu_e_s</code></td><td>float or np.ndarray</td><td>s^-1</td><td><p>Total electron momentum-transfer collision frequency, finite and non-negative.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>Ohm m</td><td><p>Resistivity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive density, or a non-finite or negative
+    collision frequency.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Pass the sum of every electron drag, and this is the partially ionised
+resistivity.</strong>  During start-up $\nu_e = \nu_{ei} + \nu_{en}$: electron-
+neutral drag is not a correction there, it can dominate until burn-through.
+Both rates come from the caller, because $\nu_{en}$ needs a cross-section
+this module does not own.</p>
+
+<p><strong>This is the Lorentz resistivity, not the parallel Spitzer one.</strong>  Fed the
+NRL electron-ion rate $\nu_{ei} = 2.91\times10^{-12}\,n_e\ln\Lambda\,
+T_e^{-3/2}$ (SI, $T_e$ in eV) it returns $1.03\times10^{-4}\ln\Lambda\,
+T_e^{-3/2}\ \Omega$ m – NRL’s $\eta_\perp$.  Current along the field, which
+is the toroidal plasma current, sees the Spitzer-Harm $\eta_\parallel$,
+smaller by the factor $0.51$ at $Z = 1$ that electron-electron collisions
+buy; that is
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>.
+Using this value for the toroidal circuit doubles the plasma resistance.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A single scalar: no profile, no trapped-particle (neoclassical) correction,
+and no velocity dependence of the cross-sections, which the effective
+frequency is assumed to have absorbed.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>NRL Plasma Formulary (2019), p. 28 (collision rates) and p. 29 (transverse and parallel Spitzer resistivity).
+</li>
+  <li>Yu. P. Raizer, <em>Gas Discharge Physics</em>, Springer (1991), Sec. 2.3.
 </li>
 </ol>
 
@@ -1884,7 +2255,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#lr_time_from_L_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lr_time_from_L_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_circular_from_R0_a_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_circular_from_R0_a_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistivity_from_n_e_nu_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistivity_from_n_e_nu_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -2002,7 +2373,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 07:53:59 +0000"
+        "time": "2026-09-18 10:23:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
