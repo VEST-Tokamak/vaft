@@ -223,7 +223,7 @@ def test_edge_zero_zeros_positive_edge_and_flattens_ffprim():
     pp, ff, surface = ch._edge_zero_profiles(psin, pprime, ffprim, 0.95)
     # Every positive point is zeroed, the separatrix sample (index 10) included:
     # the donor's loop starts one sample in and would have left 0.9 there,
-    # which _write_expeq turns into -0.9, a bulk-sign drive at the edge.
+    # which _write_expeq writes as -|0.9| (scaled), a bulk-sign drive at the edge.
     assert pp[8] == 0.0 and pp[9] == 0.0 and pp[10] == 0.0
     assert pp[7] == -1.0
     # FF' flattened inward across the zeroed band, held at the separatrix
@@ -266,8 +266,13 @@ def test_a_reversal_on_the_separatrix_sample_alone_reaches_expeq_as_zero(tmp_pat
     inner = np.linspace(0.0, 1.0, n) < 1.0 - 1.0 / (len(geq["PPRIME"]) - 1)
     assert np.array_equal(pp[inner], pp0[inner])
     assert pp[-1] == 0.0
-    # FF' on the separatrix has no outside value to take and keeps its own.
+    # FF' on the separatrix has no outside value to take and keeps its own,
+    # and the zeroed band inside it is held at that value.
+    zeroed = ~inner & (pp == 0.0)
+    assert zeroed.sum() > 1
     assert ff[-1] == ff0[-1]
+    assert np.all(ff[zeroed] == ff0[-1])
+    assert not np.all(ff0[zeroed] == ff0[-1])  # i.e. the hold did something
 
 
 # ---------------------------------------------------------------------------
