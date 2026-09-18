@@ -103,6 +103,11 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     "test/test_efit_km_mapping.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "k/m-file cache fixture"),
     ),
+    "test/test_efit_profile_model_study.py": (
+        ("equilibrium.code.parameters.time_slice.", "write",
+         "k-file namelist fixture: the study's run identity reads TABLE_DIR from "
+         "the local constraints product"),
+    ),
     "test/test_eqdsk_derived_quantities.py": (
         ("equilibrium.code.parameters.time_slice.", "read", "a-file cache fixture"),
     ),
