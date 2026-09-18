@@ -551,6 +551,18 @@ def test_both_causes_and_the_seed_are_all_named():
 
 @pytest.fixture(scope="module")
 def packaged():
+    """The detectors' own verdict on the packaged 39915: recorded faults off,
+    so what these tests measure is what the waveform check finds by itself."""
+    from vaft.omas.sample import sample_ods
+
+    ods = sample_ods()
+    return ods, validate_magnetics_signals(ods, known_faults={})
+
+
+@pytest.fixture(scope="module")
+def packaged_as_run():
+    """The verdict a routine re-assessment reaches: the detectors plus the
+    faults vest.yaml records for the pulse (C4-04 on every shot, #977)."""
     from vaft.omas.sample import sample_ods
 
     ods = sample_ods()
@@ -632,14 +644,15 @@ def test_the_packaged_shot_stops_measuring_at_0_34_seconds(packaged):
     assert all(quality.valid_fraction == pytest.approx(0.8, abs=0.01) for quality in present)
 
 
-def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(packaged):
+def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(packaged_as_run):
     """Every reconstructed slice of the packaged shot lies inside the measured
     span, so the held tail costs no constraint its weight.  What the quality
-    layer does change is the one probe the population contradicts: EFIT
-    submitted H3-08 at every slice, and it now loses its weight at every
-    slice -- and nothing else does.
+    layer does change is the probe the population contradicts, H3-08, and the
+    probe vest.yaml records as a fault, C4-04 (#977): EFIT submitted both at
+    every slice, both now lose their weight at every slice -- and nothing
+    else does.
     """
-    ods, report = packaged
+    ods, report = packaged_as_run
     project_validity(ods, report)
 
     slice_times = np.asarray(ods["equilibrium.time"], dtype=float)
@@ -647,8 +660,9 @@ def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(package
 
     equilibrium = ods["equilibrium"]
     excluded = apply_validity_exclusions(ods, equilibrium)
-    assert set(excluded) == {("b_field_pol_probe", 25)}
-    assert excluded[("b_field_pol_probe", 25)] == list(range(slice_times.size))
+    assert set(excluded) == {("b_field_pol_probe", 25), ("b_field_pol_probe", 45)}
+    for key in excluded:
+        assert excluded[key] == list(range(slice_times.size))
 
 
 def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
@@ -844,7 +858,9 @@ def test_a_re_assessment_of_a_vest_product_keeps_its_recorded_fault():
     ods["dataset_description.data_entry.machine"] = "VEST"
     ods["dataset_description.data_entry.pulse"] = 34125
 
-    assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35)}
+    # The record is the machine's, not this ODS's: C4-04 (45) is recorded on
+    # every shot (#977) whether or not a synthetic ODS carries that many probes.
+    assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35), ("b_field_pol_probe", 45)}
     assert validate_magnetics_signals(ods)[35].valid_fraction == 0.0
     assert validate_magnetics_signals(ods, known_faults={})[35].valid_fraction == 1.0
 

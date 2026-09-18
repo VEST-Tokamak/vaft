@@ -626,16 +626,34 @@
         #   36822..36905  pinned at the -5 V rail, then -2.5 V (2022-07-28 ..
         #             08-11). The shots on either side carry no field 170;
         #             36617 before and 36943 after are good.
+        #
+        # C4-04 (index 45, R=0.796, Z=-0.34, field 224), on every shot (issue
+        # #977). Over the plasma-free window it reads a field its two
+        # neighbours 4 cm above and below do not see (+10 mT on PF1 against
+        # -1 mT on 39915) and is anticorrelated with the PF-only wall model on
+        # all three reference shots: correlation -0.44 / -0.63 / -0.84,
+        # array-contradiction fraction 0.75 / 0.39 / 1.00 (39915 / 41524 /
+        # 41672). In EFIT it misses by 42-270% on every reference slice, and
+        # under a statistical sigma it carries 70% of the probe chi-square
+        # (#924). The waveform check cannot condemn it (amplitude 0.7-2.2x its
+        # family median, the hard rule is 4x), so it is recorded here. Whether
+        # it is polarity, orientation or calibration -- and so whether the
+        # range can narrow or the channel be repaired -- is #977's diagnosis.
+        # Revisions replace `probes` rather than extend it, so the entry is
+        # repeated in each.
         known_faults:
-          probes: []
+          probes:
+            - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
           revisions:
             - to_shot: 36480
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition broken: DC offset and gain unrelated to its neighbours (field 170)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 36822
               to_shot: 36905
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and
