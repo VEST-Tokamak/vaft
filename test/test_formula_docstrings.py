@@ -102,6 +102,8 @@ CONVENTION_SENSITIVE = frozenset({
     "helical_phase",
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
+    "s_alpha_ballooning_stable",
+    "s_alpha_marginal_alpha",
     # nu* and rho* families
     "collisionality_from_n_T_B_R",
     "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
