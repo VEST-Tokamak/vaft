@@ -309,7 +309,7 @@ def write_window_report(
     efit_ods: Any | None = None,
 ) -> dict[str, Path]:
     """Generate the compact per-shot JSON summary and NICE/EFIT trace overlay."""
-    import matplotlib.pyplot as plt
+    from vaft.plot import LineSeries, Panels, Series, render_panels, save_figure
 
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -350,32 +350,24 @@ def write_window_report(
     json_file = write_study_report(output / f"nice_{shot}_summary.json", summary)
 
     fields = (
-        ("axis_r_m", "Magnetic axis R [m]"),
-        ("axis_z_m", "Magnetic axis Z [m]"),
-        ("ip_A", "Ip [A]"),
-        ("beta_pol", "beta_p"),
-        ("li_3", "li(3)"),
-        ("area_m2", "Area [m2]"),
-        ("volume_m3", "Volume [m3]"),
+        ("axis_r_m", "global_quantities.magnetic_axis.r", "Magnetic axis R", "m"),
+        ("axis_z_m", "global_quantities.magnetic_axis.z", "Magnetic axis Z", "m"),
+        ("ip_A", "global_quantities.ip", "Ip", "A"),
+        ("beta_pol", "global_quantities.beta_pol", "beta_p", ""),
+        ("li_3", "global_quantities.li_3", "li(3)", ""),
+        ("area_m2", "global_quantities.area", "Area", "m^2"),
+        ("volume_m3", "global_quantities.volume", "Volume", "m^3"),
     )
-    figure, axes = plt.subplots(4, 2, figsize=(10, 12), sharex=True)
-    for axis, (field, label) in zip(axes.flat, fields):
+    panels = []
+    for _field, leaf, label, unit in fields:
         nt, nv, et, ev, ft, fv = [], [], [], [], [], []
         for time, result in zip(times, results):
-            leaf = {
-                "axis_r_m": "global_quantities.magnetic_axis.r",
-                "axis_z_m": "global_quantities.magnetic_axis.z",
-                "ip_A": "global_quantities.ip",
-                "beta_pol": "global_quantities.beta_pol",
-                "li_3": "global_quantities.li_3",
-                "area_m2": "global_quantities.area",
-                "volume_m3": "global_quantities.volume",
-            }[field]
             if efit_ods is not None:
                 eindex = _slice_index(efit_ods, float(time))
                 et.append(float(time))
                 ev.append(_value(efit_ods, f"equilibrium.time_slice.{eindex}.{leaf}"))
             if result.ods is None:
+                # A failed slice is drawn at EFIT's value so its time shows.
                 if efit_ods is not None:
                     ft.append(float(time))
                     fv.append(ev[-1])
@@ -383,20 +375,29 @@ def write_window_report(
             index = _slice_index(result.ods, float(time))
             nt.append(float(time))
             nv.append(_value(result.ods, f"equilibrium.time_slice.{index}.{leaf}"))
-        axis.plot(nt, nv, "o-", label="NICE")
+        series = [Series(x=np.asarray(nt), y=np.asarray(nv), label="NICE", style={"marker": "o"})]
         if et:
-            axis.plot(et, ev, "s--", label="EFIT")
+            series.append(
+                Series(x=np.asarray(et), y=np.asarray(ev), label="EFIT",
+                       style={"marker": "s", "linestyle": "--"})
+            )
         if ft:
-            axis.plot(ft, fv, "rx", label="NICE failed")
-        axis.set_ylabel(label)
-        axis.grid(True, alpha=0.3)
-    axes.flat[-1].axis("off")
-    axes.flat[0].legend()
-    for axis in axes[-1, :]:
-        axis.set_xlabel("time [s]")
-    figure.suptitle(f"Shot {shot}: NICE / EFIT reconstruction overview")
-    figure.tight_layout()
+            series.append(
+                Series(x=np.asarray(ft), y=np.asarray(fv), label="NICE failed",
+                       style={"marker": "x", "linestyle": "none", "color": "red"})
+            )
+        panels.append(
+            LineSeries(series=tuple(series), x_label="time", x_unit="s",
+                       y_label=label, y_unit=unit)
+        )
+    figure, _axes = render_panels(
+        Panels(
+            models=tuple(panels),
+            ncols=2,
+            suptitle=f"Shot {shot}: NICE / EFIT reconstruction overview",
+        ),
+        figsize=(10, 12),
+    )
     plot_file = output / f"nice_{shot}_traces.png"
-    figure.savefig(plot_file, dpi=150)
-    plt.close(figure)
+    save_figure(figure, plot_file, dpi=150)
     return {"summary": json_file, "traces": plot_file}

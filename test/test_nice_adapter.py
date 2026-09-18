@@ -603,3 +603,28 @@ def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
     refused = write_unlaunchable_file(tmp_path / "other" / "nice_recon")
     with pytest.raises(PermissionError):
         resolve_nice_executable(NiceConfig(workdir=tmp_path, executable=refused))
+
+
+def test_window_report_renders_through_vaft_plot(tmp_path):
+    from vaft.code.nice import NiceResult
+    from vaft.code.nice.outputs import _native_ods
+    from vaft.code.nice.study import write_window_report
+
+    (tmp_path / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2\n"
+    )
+    (
+        tmp_path
+        / "dataEqui_profiles_psi_rhotornorm_pressure_f_dpdpsi_fdfdpsi_jtor_q_Ne.txt"
+    ).write_text("0.331 1 0.01 0.5 1000 0.08 -30 -40 100000 2 1e18\n")
+    equilibrium, _ = _native_ods(tmp_path, 11, -1, -1)
+    results = [
+        NiceResult(0, tmp_path, converged=True, scientifically_usable=True, ods=equilibrium),
+        NiceResult(1, tmp_path, converged=False, termination_reason="failed"),
+    ]
+    files = write_window_report(
+        tmp_path / "report", 41672, [0.331, 0.332], results, efit_ods=equilibrium
+    )
+    assert files["traces"].stat().st_size > 0
+    summary = json.loads(files["summary"].read_text())
+    assert summary["shot"] == 41672 and len(summary["slice_comparisons"]) == 1
