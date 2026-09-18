@@ -1463,6 +1463,123 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
 
 
+def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
+    r"""Dimensional internal inductance from the poloidal-field energy inside the plasma.
+
+    $$L_i = \frac{2W_{p,\mathrm{int}}}{I_p^2},\qquad
+      W_{p,\mathrm{int}} = \int_{V_p}\frac{B_p^2}{2\mu_0}\,dV$$
+
+    Parameters
+    ----------
+    W_int : float
+        Poloidal magnetic energy inside the last closed flux surface [J].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Raises
+    ------
+    ValueError
+        Zero or non-finite plasma current.
+
+    Convention
+    ----------
+    **Dimensional, in henry**, and only the field *inside* the plasma counts:
+    the energy outside contains plasma-coil cross terms, which is why the
+    external inductance is defined from the boundary flux and not from
+    $2W_{\mathrm{outside}}/I_p^2$.  Its dimensionless counterpart is the IMAS
+    ``li_3`` (:func:`li_3_from_internal_inductance_R0`); the same energy
+    written as $\int B_p^2\,dV = 2\mu_0 W_{p,\mathrm{int}}$ gives
+    :func:`li_3_from_Bp2_volume_integral` directly.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, Sec. II, eq. (22).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (internal inductance).
+    """
+    current = float(Ip)
+    if not np.isfinite(current) or current == 0.0:
+        raise ValueError(f"Ip must be finite and non-zero; got {Ip!r}")
+    return 2.0 * float(W_int) / current**2
+
+
+def internal_inductance_from_li_3_R0(li_3: float, R0: float) -> float:
+    r"""Dimensional internal inductance from the IMAS ``li_3``.
+
+    $$L_i = \frac{\mu_0 R_0}{2}\,l_{i3}$$
+
+    Parameters
+    ----------
+    li_3 : float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+    R0 : float
+        Major radius ``li_3`` was normalised by [m].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Convention
+    ----------
+    **Exact only for** ``li_3``, and only with the $R_0$ the equilibrium
+    normalised by: $l_{i3} = 2\int B_p^2\,dV/(\mu_0^2 I_p^2 R_0)$ is
+    $2L_i/(\mu_0 R_0)$ by definition.  ``li_1`` normalises by the edge
+    poloidal field instead, $l_{i1}/l_{i3} = L_{pol}^2 R_0/(2V)$, so it is not
+    a valid input here -- about 8.5 % too large at $\kappa = 1.6$.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    .. [2] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (71), which normalises by the magnetic-axis radius.
+    """
+    return 0.5 * MU0 * float(R0) * float(li_3)
+
+
+def li_3_from_internal_inductance_R0(L_i: float, R0: float) -> float:
+    r"""IMAS ``li_3`` from a dimensional internal inductance.
+
+    $$l_{i3} = \frac{2L_i}{\mu_0 R_0}$$
+
+    Parameters
+    ----------
+    L_i : float
+        Internal inductance [H].
+    R0 : float
+        Major radius to normalise by; positive [m].
+
+    Returns
+    -------
+    float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive ``R0``.
+
+    Convention
+    ----------
+    The inverse of :func:`internal_inductance_from_li_3_R0`; the result is
+    ``li_3`` and not ``li_1``, and it depends on which $R_0$ is passed.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    """
+    radius = float(R0)
+    if not np.isfinite(radius) or radius <= 0.0:
+        raise ValueError(f"R0 must be finite and positive; got {R0!r}")
+    return 2.0 * float(L_i) / (MU0 * radius)
+
+
 def beta_poloidal_from_circumference(p_average: float,
                                      Ip: float,
                                      length_pol: float) -> float:

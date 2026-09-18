@@ -66,7 +66,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
         # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
-        "equilibrium": 84,
+        # #782 added the dimensional internal inductance and its li_3
+        # conversions: 84 + 3 = 87.
+        "equilibrium": 87,
         "virial": 33,
         "stability": 26,
         "green": 16,
