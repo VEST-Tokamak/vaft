@@ -154,8 +154,9 @@ class LocalBackend:
             return self._run(command, request, kwargs)
         # Opened outside the launch so a bad log path stays its own error
         # rather than being reported as an unlaunchable program.
-        request.log_path.parent.mkdir(parents=True, exist_ok=True)
-        with request.log_path.open("w", encoding="utf-8") as log:
+        log_path = Path(request.log_path)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("w", encoding="utf-8") as log:
             kwargs.update(stdout=log, stderr=subprocess.STDOUT)
             return self._run(command, request, kwargs)
 
@@ -164,6 +165,7 @@ class LocalBackend:
         command: tuple[str, ...], request: ExecutionRequest, kwargs: dict[str, Any]
     ) -> ExecutionResult:
         capture = request.log_path is None
+        log_path = None if capture else Path(request.log_path)
         started = time.monotonic()
         try:
             # Looked up on the module at call time so tests that patch
@@ -177,7 +179,7 @@ class LocalBackend:
                 timed_out=True,
                 elapsed_s=time.monotonic() - started,
                 launcher=command,
-                log_path=request.log_path,
+                log_path=log_path,
             )
         except OSError as error:
             raise ExecutableNotLaunchable(f"cannot launch {command[0]}: {error}") from error
@@ -187,7 +189,7 @@ class LocalBackend:
             stderr=_text(completed.stderr) if capture else "",
             elapsed_s=time.monotonic() - started,
             launcher=command,
-            log_path=request.log_path,
+            log_path=log_path,
         )
 
 
@@ -196,7 +198,8 @@ def resolve_backend(config: Any = None) -> ExecutionBackend:
     backend = getattr(config, "backend", None)
     if backend is None:
         return LocalBackend()
-    if not isinstance(backend, ExecutionBackend):
+    # A class has a ``run`` attribute too; only an instance can run a request.
+    if isinstance(backend, type) or not isinstance(backend, ExecutionBackend):
         raise TypeError(
             f"backend must implement ExecutionBackend.run, got {type(backend).__name__}"
         )

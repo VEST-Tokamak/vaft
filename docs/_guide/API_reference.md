@@ -539,9 +539,10 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | Name | Role |
 | --- | --- |
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
-| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, elapsed time, launched argv, `log_path`, `job_id` (scheduler backends) |
+| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
 | `ExecutionBackend`, `LocalBackend`, `resolve_backend` | the protocol, the local implementation, and the config lookup |
+| `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
 
 A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
 already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;

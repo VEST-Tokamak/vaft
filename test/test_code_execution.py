@@ -181,6 +181,28 @@ def test_resolve_backend_rejects_something_that_cannot_run():
         resolve_backend(Config())
 
 
+def test_resolve_backend_rejects_a_backend_class():
+    class Config:
+        backend = LocalBackend
+
+    with pytest.raises(TypeError, match="ExecutionBackend"):
+        resolve_backend(Config())
+
+
+def test_log_path_may_be_a_string(tmp_path):
+    log = tmp_path / "run.log"
+    result = _python(tmp_path, "print('ok')", log_path=str(log))
+    assert result.returncode == 0
+    assert result.log_path == log
+    assert log.read_text(encoding="utf-8").strip() == "ok"
+
+
+def test_execution_submodule_is_an_attribute_of_vaft_code():
+    import vaft.code
+
+    assert vaft.code.execution.LocalBackend is LocalBackend
+
+
 def test_missing_workdir_stays_a_configuration_error(tmp_path):
     with pytest.raises(FileNotFoundError) as raised:
         _python(tmp_path / "absent", "pass")

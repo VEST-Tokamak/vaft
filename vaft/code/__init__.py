@@ -281,6 +281,7 @@ def __getattr__(name: str):
     if name in {
         "base",
         "efit",
+        "execution",
         "gacode",
         "gpec",
         "chease",
