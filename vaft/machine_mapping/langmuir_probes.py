@@ -24,7 +24,7 @@ from .conventions import port_toroidal_angle
 from .registry import port_phi
 from .utils import (
     _deep_merge,
-    _normalize_shot_key,
+    _shot_block,
     _resolve_info_file_path,
     get_path,
     load_yaml,
@@ -111,7 +111,7 @@ def resolve_langmuir_probe_config(assembly_key: str, shot: int, info_file: str |
     """Return the ``langmuir_probes.<assembly_key>`` block, with shot overrides merged."""
     content = _vest_config(info_file)
     default_block = content.get("0") or content.get(0) or {}
-    shot_block = content.get(_normalize_shot_key(shot), {}) or {}
+    shot_block = _shot_block(content, shot) or {}
     merged = _deep_merge(default_block, shot_block)
     config = (merged.get("langmuir_probes") or {}).get(assembly_key)
     if not isinstance(config, Mapping):

@@ -53,6 +53,31 @@ __all__ = [
 _UNFOCUSED_M = 1.0e9
 
 
+def _source_position(source: dict) -> Optional[tuple[float, float]]:
+    """Major radius [m] and toroidal angle [rad] of the beam source, or ``None``.
+
+    Seen from the machine axis, the tangency point, the port crossing and the
+    source all lie on one straight line at perpendicular distance ``R_t``.  The
+    source is ``atan(d / R_t)`` away from the tangency point in toroidal angle
+    and the (near-side) port crossing ``acos(R_t / R_port)``; the beam runs from
+    the source through the port to the tangency point, so the source is upstream
+    of the port by the difference -- at larger phi for a clockwise
+    (``direction = -1``) beam.
+    """
+    needed = ("port", "port_radius", "tangency_radius_signed", "direction", "distance_to_tangency")
+    if any(source.get(key) is None for key in needed):
+        return None
+    tangency = abs(float(source["tangency_radius_signed"]))
+    port_radius = float(source["port_radius"])
+    distance = float(source["distance_to_tangency"])
+    direction = int(source["direction"])
+    if direction not in (-1, 1) or not 0.0 < tangency <= port_radius or distance <= 0.0:
+        return None
+    upstream = math.atan2(distance, tangency) - math.acos(tangency / port_radius)
+    phi = (port_phi(str(source["port"])) - direction * upstream) % (2.0 * math.pi)
+    return math.hypot(distance, tangency), phi
+
+
 def _unit_position(ods: ODS, name: str) -> int:
     """Index of the named unit in ``nbi.unit``, appending if it is new."""
     count = path_count(ods, "nbi.unit")
@@ -113,9 +138,22 @@ def nbi(ods: ODS, shot: int = 0, options: Optional[dict] = None) -> dict[str, An
         if source.get("elevation") is not None:
             ods[f"{group}.position.z"] = float(source["elevation"])
             written.append("position.z")
-        if source.get("port") is not None:
-            ods[f"{group}.position.phi"] = port_phi(str(source["port"]))
-            written.append("position.phi")
+        # IMAS `position` is the centre of the beamlet group -- the SOURCE --
+        # while the port is where the beam line crosses the vessel, some 11 deg
+        # of toroidal angle further along.  The source is placed from the
+        # geometry the yaml states: it lies `distance_to_tangency` back from the
+        # tangency point, and the port fixes where that line sits in phi.
+        placed = _source_position(source)
+        if placed is not None:
+            ods[f"{group}.position.r"], ods[f"{group}.position.phi"] = placed
+            written.extend(["position.r", "position.phi"])
+        elif source.get("port") is not None:
+            absent.append(
+                "position.r and position.phi (the port angle is where the beam "
+                "crosses the vessel, not the source; placing the source needs "
+                "tangency_radius_signed, direction, distance_to_tangency and "
+                "port_radius)"
+            )
 
         if grid.get("half_width") is not None:
             # Full width of the enclosing rectangle, not the half-width stored.

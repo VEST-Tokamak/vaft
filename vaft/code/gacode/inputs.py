@@ -364,6 +364,31 @@ IMPURITIES: Mapping[str, tuple[float, float, str]] = {
 }
 
 
+#: Standard atomic masses of the hydrogen isotopes [amu], by the leading letter
+#: of the species label.
+HYDROGEN_ISOTOPE_MASSES: Mapping[str, float] = {"H": 1.00784, "D": 2.01410, "T": 3.01605}
+
+
+def _assumed_mass(label: str, charge: float) -> float:
+    """Mass [amu] for an ion whose ``element.0.a`` is absent.
+
+    ``2 Z`` is right to a percent for the fully-stripped light impurities, but
+    for ``Z = 1`` it asserts deuterium, and VEST runs hydrogen.  A hydrogenic
+    ion therefore takes its isotope from its label, and one whose label does
+    not say which isotope it is is refused rather than guessed.
+    """
+    if float(charge) != 1.0:
+        return float(charge) * 2.0
+    key = str(label).strip()[:1].upper()
+    if key in HYDROGEN_ISOTOPE_MASSES:
+        return HYDROGEN_ISOTOPE_MASSES[key]
+    raise ProfileConversionError(
+        f"ion species {label!r} has Z = 1 and no element.0.a, and its label does not "
+        "say whether it is H, D or T; the mass differs by a factor of two or three, "
+        "so it is not assumed"
+    )
+
+
 def impurity_fractions(z_eff: float, z_impurity: float) -> tuple[float, float]:
     r"""``(n_main/n_e, n_imp/n_e)`` for one hydrogenic ion and one impurity.
 
@@ -412,6 +437,18 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
             break
         label = str(ods[f"{base}.label"]) if f"{base}.label" in ods else f"ion{position}"
         charge = _scalar(ods, f"{base}.z_ion")
+        charge_assumed = False
+        if charge is None:
+            # No charge state stored. The nuclear charge is the fully-stripped
+            # value, which is the convention of this adapter (see IMPURITIES);
+            # without even that, Z = 1 would turn a carbon entry into hydrogen.
+            charge = _scalar(ods, f"{base}.element.0.z_n")
+            charge_assumed = True
+            if charge is None:
+                raise ProfileConversionError(
+                    f"ion species {label!r} carries neither z_ion nor element.0.z_n; "
+                    "its charge is not something the adapter will assume"
+                )
         mass = _scalar(ods, f"{base}.element.0.a")
         density = _array(ods, f"{base}.density_thermal")
         if density is None:
@@ -419,7 +456,8 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
         species.append(
             {
                 "label": label,
-                "z": 1.0 if charge is None else float(charge),
+                "z": float(charge),
+                "z_assumed": charge_assumed,
                 "mass": mass,
                 "density": density,
                 "temperature": _array(ods, f"{base}.temperature"),
@@ -693,7 +731,10 @@ def prepare_gacode_profile(
         densities.append(density)
         temperatures.append(temperature)
         charges.append(entry["z"])
-        masses.append(entry["mass"] if entry["mass"] is not None else entry["z"] * 2.0)
+        masses.append(
+            entry["mass"] if entry["mass"] is not None
+            else _assumed_mass(entry["label"], entry["z"])
+        )
         labels.append(entry["label"].replace(" ", ""))
         kinds.append("[therm]")
     provenance["ni"] = {
@@ -723,7 +764,21 @@ def prepare_gacode_profile(
     if any(entry["mass"] is None for entry in species):
         provenance["mass"] = {
             "kind": "policy_assumption",
-            "reason": "an ion element mass was absent; 2Z amu assumed for it",
+            "reason": (
+                "an ion element mass was absent; a hydrogenic ion took its "
+                "isotope's standard mass from its label, any other 2Z amu"
+            ),
+        }
+    if any(entry["z_assumed"] for entry in species):
+        provenance["z"] = {
+            "kind": "policy_assumption",
+            "reason": (
+                "an ion carried no z_ion; its nuclear charge element.0.z_n was "
+                "taken as the charge state (fully stripped)"
+            ),
+            "species": [
+                entry["label"].replace(" ", "") for entry in species if entry["z_assumed"]
+            ],
         }
 
     if impurity is not None:

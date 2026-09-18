@@ -1436,8 +1436,11 @@ def mode_scores(
             raise WallModeError("mode_scores needs `time` with `drive`")
         from vaft.process.electromagnetics import solve_eddy_currents
 
+        # The circuit solver takes the full matrix only; handed the documented
+        # diagonal vector it fails its inverse and returns NaN with a print.
         I_full = solve_eddy_currents(
-            np.asarray(R_mat, dtype=float), np.asarray(L_mat, dtype=float),
+            np.diag(_diagonal_resistance(R_mat, where="R_mat")),
+            np.asarray(L_mat, dtype=float),
             np.asarray(M_mat, dtype=float), np.asarray(drive, dtype=float),
             np.asarray(time, dtype=float), dt_sub=dt_sub,
         )

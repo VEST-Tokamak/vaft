@@ -1059,6 +1059,15 @@
           # sweeps 2*arccos(0.22/0.8) = 147.8 deg, matching 150 and not the 210
           # the opposite sense would need.
           port: 2MR
+          # Major radius at which the beam line crosses the port -- the 0.8 m
+          # outer-wall radius the comment above already closes the geometry
+          # with. Declared because the port is where the beam ENTERS, not where
+          # the source is: IMAS `beamlets_group.position` is the source centre,
+          # which lies distance_to_tangency back along the line, at
+          # R = hypot(2.625867, 0.22129) = 2.635 m and
+          # atan(2.625867/0.22129) - acos(0.22129/0.8) = 11.3 deg upstream of
+          # the port in toroidal angle.
+          port_radius: 0.8
           distance_to_tangency: 2.625867
           distance_to_aperture: 1.8
         grid:

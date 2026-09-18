@@ -4269,8 +4269,9 @@ def resistive_layer_at(
     Raises
     ------
     ValueError
-        A kinetic profile does not match its coordinate in length, or
-        ``ion_mass_amu`` is not positive.
+        A kinetic profile does not match its coordinate in length,
+        ``psi_norm`` is not strictly increasing, or ``ion_mass_amu`` is not
+        positive.
 
     Processing steps
     ----------------
@@ -4311,6 +4312,17 @@ def resistive_layer_at(
                 f"{name} has {values.size} points against {coordinate.size} "
                 "coordinate points"
             )
+
+    # `np.interp` does not check its abscissa: on a decreasing coordinate (an
+    # outboard-in Thomson ordering) it clamps every surface to the first
+    # element, so the core resistivity comes back everywhere and looks fine.
+    if coordinate.ndim != 1 or coordinate.size < 2 or not _np.all(
+        _np.diff(coordinate) > 0.0
+    ):
+        raise ValueError(
+            "psi_norm must be a strictly increasing 1-D coordinate; sort the "
+            "kinetic profiles onto it before asking for the layer inputs"
+        )
 
     where = _np.asarray(psi_n_surfaces, dtype=float)
     t_e_at = _np.interp(where, coordinate, t_e)
@@ -4560,7 +4572,8 @@ def straight_field_line_tables(
        whichever way the surface was traced.
     5. Drop samples closer than ``minimum_separation``, which a
        near-stagnation point in the geometric angle can produce.
-    6. Close the period by repeating the first entry shifted by ``2 pi``.
+    6. Close the period by repeating the first entry shifted by ``2 pi``, in
+       the direction the straight-field-line angle runs along the table.
 
     Limitations
     -----------
@@ -4626,9 +4639,13 @@ def straight_field_line_tables(
                 f"flux surface {column} collapses to {lab_line.size} distinct "
                 "geometric angles, so it cannot be relabelled"
             )
+        # A surface traced clockwise leaves the straight-field-line angle
+        # DEcreasing along the (increasing) geometric one, so its period closes
+        # 2 pi below the first entry, not above it.
+        direction = 1.0 if sfl_line[-1] >= sfl_line[0] else -1.0
         tables.append((
             np.r_[lab_line, lab_line[0] + 2.0 * np.pi],
-            np.r_[sfl_line, sfl_line[0] + 2.0 * np.pi],
+            np.r_[sfl_line, sfl_line[0] + direction * 2.0 * np.pi],
         ))
     return tuple(tables)
 

@@ -805,3 +805,71 @@ def test_the_duty_cycle_travels_with_the_record():
     assert payload["active_s"] < payload["duration_s"]
     assert payload["duty_cycle"] == pytest.approx(payload["active_s"] / payload["duration_s"])
     json.dumps(payload)
+
+
+def test_a_search_mask_leaves_the_prominence_finite():
+    """Samples outside the mask are -inf for the run selection; read as the
+    peak's saddle they made every masked peak's prominence infinite, and every
+    ``plasma_features`` peak is masked (cold review process F3)."""
+    rng = np.random.default_rng(0)
+    t = np.arange(0.0, 0.5, 4e-5)
+    y = np.exp(-((t - 0.3) / 0.02) ** 2) + 0.005 * rng.normal(size=t.size)
+    free = robust_peak(t, y, reference_mask=t < 0.05)
+    masked = robust_peak(
+        t, y, reference_mask=t < 0.05, search_mask=(t > 0.2) & (t < 0.4)
+    )
+    assert np.isfinite(masked.accepted.prominence)
+    assert masked.accepted.prominence == pytest.approx(free.accepted.prominence, rel=0.02)
+    assert masked.accepted.peak == free.accepted.peak
+    json.dumps(masked.as_dict(), allow_nan=False)
+
+
+def _sixty_spikes():
+    rng = np.random.default_rng(0)
+    t = np.arange(0.0, 0.5, 4e-5)
+    y = np.exp(-((t - 0.3) / 0.02) ** 2) + 0.005 * rng.normal(size=t.size)
+    y[np.arange(1500, 1500 + 60 * 40, 40)] += 0.5  # one-sample spikes, 0.06-0.156 s
+    return t, y
+
+
+def test_the_rejected_count_is_not_capped_with_the_list():
+    """``MAX_REJECTED_RUNS`` promises "the count is always kept"; two detectors
+    reported the capped list's length instead (cold review process F4)."""
+    t, y = _sixty_spikes()
+    window = active_window(t, y, reference_mask=t < 0.05)
+    assert window.onset.evidence["n_rejected"] >= 60
+    assert len(window.onset.rejected) <= 32
+    drive = -y  # the anchored detector takes either sign
+    crossing = zero_crossing_after_excursion(
+        t, drive, anchor_time=0.28, anchor_tolerance_s=5e-3, reference_mask=t < 0.05
+    )
+    assert crossing.evidence["n_rejected"] >= 60
+    assert len(crossing.rejected) == 32
+
+
+def test_a_brief_run_stays_a_persistence_rejection():
+    """With ``min_integral_fraction > 0`` the morphology chain ran on after the
+    persistence verdict and relabelled it ``integral`` (cold review process F8)."""
+    t, y = _sixty_spikes()
+    reasons = {}
+    for fraction in (0.0, 0.01):
+        rec = sustained_excess_onset(
+            t, y, reference_mask=t < 0.05, min_integral_fraction=fraction
+        )
+        reasons[fraction] = [why for _, why, _ in rec.rejected]
+    assert reasons[0.0] and set(reasons[0.0]) == {"persistence"}
+    assert reasons[0.01] == reasons[0.0]
+
+
+@pytest.mark.parametrize("noise, prefilter", [(0.002, 1), (0.002, 25), (0.01, 1), (0.01, 25)])
+def test_the_collapse_time_is_the_quench_not_the_noise_tail(noise, prefilter):
+    """At the baseline the minimum-drop test is vacuous, so with the default
+    unfiltered record the "last steep fall" was a noise step near the record's
+    end: 0.497 s for a quench that finishes at 0.320 s (cold review process F9)."""
+    t = np.arange(0.0, 0.5, 4e-5)
+    flat = np.clip((t - 0.25) / 0.02, 0, 1) * np.clip((0.32 - t) / 0.002, 0, 1)
+    y = flat + noise * np.random.default_rng(3).normal(size=t.size)
+    window = active_window(t, y, reference_mask=t < 0.2, prefilter_samples=prefilter)
+    assert window.offset.time == pytest.approx(0.320, abs=1e-3)
+    assert "offset_from_collapse" not in window.flags
+    assert window.evidence["collapse_time"] == pytest.approx(0.320, abs=1e-3)
