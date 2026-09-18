@@ -88,6 +88,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
         # the gas-keyed threshold: 28 + 2 = 30.
         "startup": 30,
+        "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
