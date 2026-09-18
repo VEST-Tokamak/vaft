@@ -2033,12 +2033,15 @@ def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
     M_pj_H : array_like, optional
         Plasma-coil mutual inductances, coils along the last axis, finite [H].
     I_j_A : array_like, optional
-        Coil circuit currents, same shape as ``M_pj_H``, finite [A].
+        Coil circuit currents, broadcastable against ``M_pj_H`` -- a fixed
+        ``(n_coils,)`` mutual with ``(n_times, n_coils)`` currents is the
+        usual call -- finite [A].
     dI_j_dt_A_s : array_like, optional
-        Rates of change of the coil currents, same shape, finite [A/s].
+        Rates of change of the coil currents, broadcastable likewise, finite
+        [A/s].
     dM_pj_dt_H_s : array_like, optional
-        Rates of change of the mutual inductances, same shape; default 0,
-        fixed geometry [H/s].
+        Rates of change of the mutual inductances, broadcastable likewise;
+        default 0, fixed geometry [H/s].
 
     Returns
     -------
@@ -2055,7 +2058,7 @@ def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
     ------
     ValueError
         A non-finite input, a non-positive external inductance, coil arrays
-        of different shapes, or only some of ``M_pj_H``, ``I_j_A`` and
+        that do not broadcast, or only some of ``M_pj_H``, ``I_j_A`` and
         ``dI_j_dt_A_s`` given.
 
     Convention
@@ -2124,11 +2127,15 @@ def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
             if dM_pj_dt_H_s is None
             else _require_finite("dM_pj_dt_H_s", dM_pj_dt_H_s)
         )
-        shapes = {mutual.shape, coil_current.shape, coil_rate.shape, mutual_rate.shape}
-        if len(shapes) != 1:
-            raise ValueError(
-                f"coil arrays must share one shape; got {sorted(shapes)}"
+        try:
+            mutual, coil_current, coil_rate, mutual_rate = np.broadcast_arrays(
+                mutual, coil_current, coil_rate, mutual_rate
             )
+        except ValueError:
+            raise ValueError(
+                "coil arrays do not broadcast against each other; got shapes "
+                f"{[np.shape(a) for a in (M_pj_H, I_j_A, dI_j_dt_A_s, dM_pj_dt_H_s)]}"
+            ) from None
         v_drive = -np.sum(mutual * coil_rate, axis=-1)
         v_geometry = -np.sum(coil_current * mutual_rate, axis=-1)
     elif dM_pj_dt_H_s is not None:

@@ -93,6 +93,19 @@ def test_a_coil_time_series_sums_over_the_last_axis():
     np.testing.assert_array_equal(geometry, 0.0)
 
 
+def test_a_fixed_mutual_broadcasts_over_a_coil_current_waveform():
+    # Fixed geometry, measured coil currents: M is per coil, I_j per time.
+    times = np.array([0.1, 0.2, 0.3])
+    mutual = M(0.0)
+    rate = np.stack([_d(I_j, t) for t in times])
+    _, _, drive, geometry = boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
+        1.0e-6, 1.0e5, 0.0, M_pj_H=mutual,
+        I_j_A=np.stack([I_j(t) for t in times]), dI_j_dt_A_s=rate,
+    )
+    np.testing.assert_allclose(drive, -(rate @ mutual), rtol=1e-14)
+    np.testing.assert_array_equal(geometry, np.zeros(3))
+
+
 def test_the_internal_terms_are_the_energy_derivative():
     t = T
     ramp, profile = internal_inductive_voltage_terms_from_L_i_I_p(
@@ -141,7 +154,7 @@ def test_the_naive_inductance_rate_misses_by_the_internal_profile_term():
     [
         ({"M_pj_H": [1e-6], "I_j_A": [1.0]}, "together"),
         ({"dM_pj_dt_H_s": [0.0]}, "without the coils"),
-        ({"M_pj_H": [1e-6, 2e-6], "I_j_A": [1.0], "dI_j_dt_A_s": [0.0]}, "one shape"),
+        ({"M_pj_H": [1e-6, 2e-6], "I_j_A": [1.0, 2.0, 3.0], "dI_j_dt_A_s": [0.0]}, "broadcast"),
         ({"L_e_H": 0.0}, "L_e_H"),
         ({"I_p_A": np.nan}, "I_p_A"),
     ],
