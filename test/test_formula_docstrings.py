@@ -147,6 +147,13 @@ CONVENTION_SENSITIVE = frozenset({
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
+    # the lumped circuit (#783 3.6-3.8): transverse vs parallel resistivity,
+    # the resistivity the ring resistance must be fed, the li normalisation,
+    # and the sign of the loop voltage against the current.
+    "resistivity_from_n_e_nu_e",
+    "plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa",
+    "plasma_inductance_circular_from_R0_a_li",
+    "plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

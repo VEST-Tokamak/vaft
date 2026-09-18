@@ -1430,6 +1430,370 @@ def _hirshman_db(eps):
 
 
 # ------------------------------------------------------------------
+# The lumped plasma circuit: resistivity, resistance, inductance, ramp
+# ------------------------------------------------------------------
+
+def resistivity_from_n_e_nu_e(n_e_m3, nu_e_s):
+    r"""Resistivity from the electron momentum-transfer collision frequency.
+
+    $$\eta = \frac{m_e\,\nu_e}{n_e e^2}$$
+
+    Parameters
+    ----------
+    n_e_m3 : float or np.ndarray
+        Electron density, finite and positive [m^-3].
+    nu_e_s : float or np.ndarray
+        Total electron momentum-transfer collision frequency, finite and
+        non-negative [s^-1].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resistivity [Ohm m].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive density, or a non-finite or negative
+        collision frequency.
+
+    Convention
+    ----------
+    **Pass the sum of every electron drag, and this is the partially ionised
+    resistivity.**  During start-up $\nu_e = \nu_{ei} + \nu_{en}$: electron-
+    neutral drag is not a correction there, it can dominate until burn-through.
+    Both rates come from the caller, because $\nu_{en}$ needs a cross-section
+    this module does not own.
+
+    **This is the Lorentz resistivity, not the parallel Spitzer one.**  Fed the
+    NRL electron-ion rate $\nu_{ei} = 2.91\times10^{-12}\,n_e\ln\Lambda\,
+    T_e^{-3/2}$ (SI, $T_e$ in eV) it returns $1.03\times10^{-4}\ln\Lambda\,
+    T_e^{-3/2}\ \Omega$ m -- NRL's $\eta_\perp$.  Current along the field, which
+    is the toroidal plasma current, sees the Spitzer-Harm $\eta_\parallel$,
+    smaller by the factor $0.51$ at $Z = 1$ that electron-electron collisions
+    buy; that is
+    :func:`vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`.
+    Using this value for the toroidal circuit doubles the plasma resistance.
+
+    Limitations
+    -----------
+    A single scalar: no profile, no trapped-particle (neoclassical) correction,
+    and no velocity dependence of the cross-sections, which the effective
+    frequency is assumed to have absorbed.
+
+    References
+    ----------
+    .. [1] NRL Plasma Formulary (2019), p. 28 (collision rates) and p. 29
+           (transverse and parallel Spitzer resistivity).
+    .. [2] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 2.3.
+
+    See Also
+    --------
+    vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+    plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
+    """
+    density = _require_positive("n_e_m3", n_e_m3)
+    rate = np.asarray(nu_e_s, dtype=float)
+    if not np.all(np.isfinite(rate)) or np.any(rate < 0.0):
+        raise ValueError(
+            f"nu_e_s must be finite and non-negative; got {nu_e_s!r}"
+        )
+    return _maybe_scalar(ME * rate / (density * QE**2), n_e_m3, nu_e_s)
+
+
+def plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(eta_ohm_m, R0_m, a_m, kappa=1.0):
+    r"""Loop resistance of a uniform-current elliptical plasma ring.
+
+    $$R_p = \eta\,\frac{2\pi R_0}{\pi a^2\kappa} = \frac{2\,\eta R_0}{a^2\kappa}$$
+
+    Parameters
+    ----------
+    eta_ohm_m : float or np.ndarray
+        Resistivity along the current, finite and positive [Ohm m].
+    R0_m : float or np.ndarray
+        Major radius, finite and positive [m].
+    a_m : float or np.ndarray
+        Minor radius, finite and positive [m].
+    kappa : float or np.ndarray, optional
+        Elongation; default 1, a circular cross-section [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Loop resistance [Ohm].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive resistivity, radius or elongation.
+
+    Convention
+    ----------
+    The path length is the magnetic-axis circumference $2\pi R_0$ and the
+    cross-section the ellipse $\pi a^2\kappa$: a wire, not a torus.  The
+    resistivity must be the one the toroidal current sees, which is
+    $\eta_\parallel$ -- see :func:`resistivity_from_n_e_nu_e` for why the
+    Lorentz value would double this.
+
+    Assumptions
+    -----------
+    Uniform current density and uniform resistivity.  A peaked current profile
+    in a hotter core carries more of the current through less resistance, so
+    this overestimates $R_p$ once a temperature profile has formed.
+
+    Limitations
+    -----------
+    Order-$a/R_0$ toroidal corrections to the path length are absent.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 2.16.
+
+    See Also
+    --------
+    resistivity_from_n_e_nu_e
+    plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p
+    vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res
+    """
+    resistivity = _require_positive("eta_ohm_m", eta_ohm_m)
+    major = _require_positive("R0_m", R0_m)
+    minor = _require_positive("a_m", a_m)
+    shape = _require_positive("kappa", kappa)
+    resistance = 2.0 * resistivity * major / (minor**2 * shape)
+    return _maybe_scalar(resistance, eta_ohm_m, R0_m, a_m, kappa)
+
+
+def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
+    r"""Self-inductance of a high-aspect-ratio plasma ring, Mitarai's form.
+
+    $$L_p = \mu_0 R_0\left[\ln\!\left(\frac{8R_0}{a\,l_\kappa}\right)
+      + \frac{l_i}{2} - 2\right],\qquad l_\kappa = \sqrt{\frac{1+\kappa^2}{2}}$$
+
+    Parameters
+    ----------
+    R0_m : float or np.ndarray
+        Major radius, finite and positive [m].
+    a_m : float or np.ndarray
+        Minor radius, finite and positive and smaller than ``R0_m`` [m].
+    li : float or np.ndarray
+        Normalised internal inductance [-].
+    kappa : float or np.ndarray, optional
+        Elongation; default 1, a circular cross-section [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Total plasma self-inductance, ``nan`` where the expansion gives zero or
+        less [H].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive radius or elongation, or a minor radius that
+        is not smaller than the major one.
+
+    Convention
+    ----------
+    The same expression :func:`vertical_field_from_I_p_R0_a_beta_p_li` is built
+    on: holding $a$ fixed, $\partial L_p/\partial R$ substituted into
+    $B_{VE} = (\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p - 1/2]$
+    returns that function exactly.  $l_i$ enters as the dimensional
+    $\mu_0 R_0 l_i/2$, the Romero/ITER convention read backwards.
+
+    Validity
+    --------
+    $a/R_0 \ll 1$.  At a spherical tokamak's aspect ratio the expansion is out
+    of its range and the Hirshman fit,
+    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`, is the one to use.
+    The error there is not one-signed: at $\epsilon = 0.75$ this form is 51 %
+    high at $\kappa = 1$ and $l_i = 0.3$, 4.5 times low at $\kappa = 2$, and
+    not positive from $\kappa \approx 2.15$, because $l_\kappa$ shrinks the
+    logarithm below $2 - l_i/2$.
+    The two do converge as $a/R_0 \to 0$, but slowly and not monotonically:
+    Hirshman's correction terms go as $\sqrt{\epsilon}$, so at $\kappa = 1$
+    they differ by 6.7 % at $\epsilon = 0.3$, cross near 0.05, still differ by
+    1.6 % at 0.01 and by 0.07 % only at $10^{-6}$.  Agreement at one aspect
+    ratio is therefore no evidence of agreement at another.
+
+    Limitations
+    -----------
+    Shaping enters only through $l_\kappa$ inside the logarithm.
+
+    Numerical notes
+    ---------------
+    A non-positive result is outside the expansion rather than a physical
+    inductance -- a self-inductance cannot be negative -- so it warns and
+    returns ``nan`` elementwise, as the Townsend kernels do below
+    $A\,p\,L = 1$.  Passed on, a negative value would only fail later in
+    :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p` with a
+    message naming the wrong function.
+
+    References
+    ----------
+    .. [1] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
+           Eq. (1.2).
+    .. [2] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2,
+           Consultants Bureau (1966), p. 103.
+
+    See Also
+    --------
+    plasma_inductance_hirshman_from_R_eps_kappa_li
+    vertical_field_from_I_p_R0_a_beta_p_li
+    plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p
+    """
+    major = _require_positive("R0_m", R0_m)
+    minor = _require_positive("a_m", a_m)
+    shape = _require_positive("kappa", kappa)
+    if np.any(minor >= major):
+        raise ValueError(
+            f"a_m must be smaller than R0_m; got {a_m!r} and {R0_m!r}"
+        )
+    l_kappa = np.sqrt(0.5 * (1.0 + shape**2))
+    inductance = MU0 * major * (
+        np.log(8.0 * major / (minor * l_kappa)) + 0.5 * np.asarray(li, dtype=float) - 2.0
+    )
+    outside = inductance <= 0.0
+    if np.any(outside):
+        warnings.warn(
+            "the high-aspect-ratio inductance is not positive here -- the "
+            "expansion is outside its range at this aspect ratio and elongation; "
+            "use plasma_inductance_hirshman_from_R_eps_kappa_li; returning nan",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        inductance = np.where(outside, np.nan, inductance)
+    return _maybe_scalar(inductance, R0_m, a_m, li, kappa)
+
+
+def plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
+    V_loop_V, R_p_ohm, I_p_A, L_p_H, dL_p_dt_H_s=0.0
+):
+    r"""Rate of change of plasma current in a lumped single-loop circuit.
+
+    $$\dot I_p = \frac{V_{\mathrm{loop}} - R_p I_p - I_p \dot L_p}{L_p}$$
+
+    from $V_{\mathrm{loop}} = R_p I_p + \mathrm{d}(L_p I_p)/\mathrm{d}t$.
+
+    Parameters
+    ----------
+    V_loop_V : float or np.ndarray
+        Loop voltage driving the plasma, finite [V].
+    R_p_ohm : float or np.ndarray
+        Plasma loop resistance, finite and non-negative [Ohm].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    L_p_H : float or np.ndarray
+        Plasma self-inductance, finite and positive [H].
+    dL_p_dt_H_s : float or np.ndarray, optional
+        Rate of change of the inductance; default 0, fixed geometry [H/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\mathrm{d}I_p/\mathrm{d}t$ [A/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a negative resistance, or a non-positive
+        inductance.
+
+    Convention
+    ----------
+    **Signed, unlike the rest of this module.**  $V_{\mathrm{loop}}$ and $I_p$
+    must be measured in the same sense around the torus, so a loop voltage that
+    drives the existing current is positive; a sign mismatch turns a ramp-up
+    into a ramp-down.  $I_p\dot L_p$ is kept because a plasma that grows or
+    moves changes its inductance, and during start-up that term is not small.
+
+    The power this balances is not the Ohmic power.
+    $V_{\mathrm{loop}} I_p = R_p I_p^2 + \mathrm{d}(\tfrac12 L_p I_p^2)/
+    \mathrm{d}t + \tfrac12 I_p^2 \dot L_p$: part of the transformer's work goes
+    into magnetic energy, which is why
+    :func:`vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res` takes
+    the resistive voltage and not the loop voltage.
+
+    Limitations
+    -----------
+    One loop.  Mutual coupling to the vessel and the coils -- the eddy currents
+    that dominate a VEST start-up -- is the caller's to add to
+    $V_{\mathrm{loop}}$; this does not see them.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
+           Eq. (2.1).
+
+    See Also
+    --------
+    lr_time_from_L_R
+    plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
+    plasma_inductance_circular_from_R0_a_li
+    """
+    voltage = np.asarray(V_loop_V, dtype=float)
+    resistance = np.asarray(R_p_ohm, dtype=float)
+    current = np.asarray(I_p_A, dtype=float)
+    inductance = _require_positive("L_p_H", L_p_H)
+    rate = np.asarray(dL_p_dt_H_s, dtype=float)
+    for name, value in (("V_loop_V", voltage), ("R_p_ohm", resistance),
+                        ("I_p_A", current), ("dL_p_dt_H_s", rate)):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(resistance < 0.0):
+        raise ValueError(f"R_p_ohm must be non-negative; got {R_p_ohm!r}")
+    derivative = (voltage - resistance * current - current * rate) / inductance
+    return _maybe_scalar(derivative, V_loop_V, R_p_ohm, I_p_A, L_p_H, dL_p_dt_H_s)
+
+
+def lr_time_from_L_R(L_H, R_ohm):
+    r"""Characteristic time of an inductive-resistive circuit.
+
+    $$\tau_{L/R} = \frac{L}{R}$$
+
+    Parameters
+    ----------
+    L_H : float or np.ndarray
+        Inductance, finite and positive [H].
+    R_ohm : float or np.ndarray
+        Resistance, finite and positive [Ohm].
+
+    Returns
+    -------
+    float or np.ndarray
+        Time constant [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive inductance or resistance.
+
+    Convention
+    ----------
+    For the plasma loop this is the time a fixed loop voltage takes to bring
+    $I_p$ within $1/e$ of its resistive limit $V/R_p$ at fixed inductance -- the
+    linear rate of :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p`
+    about that fixed point.  For a vessel element it is the eddy-current decay
+    time.  It is not the current-profile diffusion time, which needs a length
+    scale this does not have.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+
+    See Also
+    --------
+    plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p
+    """
+    inductance = _require_positive("L_H", L_H)
+    resistance = _require_positive("R_ohm", R_ohm)
+    return _maybe_scalar(inductance / resistance, L_H, R_ohm)
+
+
+# ------------------------------------------------------------------
 # Before the avalanche: can an EC-born electron stay?
 # ------------------------------------------------------------------
 

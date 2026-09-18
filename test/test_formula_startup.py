@@ -13,7 +13,7 @@ import warnings
 import numpy as np
 import pytest
 
-from vaft.formula.constants import K_BOLTZMANN, MU0, PA_PER_TORR
+from vaft.formula.constants import K_BOLTZMANN, ME, MU0, PA_PER_TORR, QE
 from vaft.formula.startup import (
     atomic_inventory_from_molecular_gas,
     breakdown_margin,
@@ -33,6 +33,17 @@ from vaft.formula.startup import (
     d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li,
     plasma_external_inductance_hirshman_from_R_eps_kappa,
     plasma_inductance_hirshman_from_R_eps_kappa_li,
+)
+from vaft.formula.equilibrium import (
+    ohmic_heating_power_from_I_p_V_res,
+    spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+)
+from vaft.formula.startup import (
+    lr_time_from_L_R,
+    plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p,
+    plasma_inductance_circular_from_R0_a_li,
+    plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa,
+    resistivity_from_n_e_nu_e,
 )
 
 #: Lloyd's published hydrogen coefficients, per torr.
@@ -856,3 +867,188 @@ def test_the_empirical_thresholds_are_the_vfit_lines():
     assert {"LLOYD_FIGURE_OF_MERIT_OHMIC_V_PER_M", "LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M",
             "lloyd_figure_of_merit"} <= set(startup.__all__)
     assert vaft.formula.LLOYD_FIGURE_OF_MERIT_ECH_V_PER_M == 100.0
+
+
+# ==========================================================================
+# The lumped plasma circuit (#783 3.2, 3.6-3.8)
+# ==========================================================================
+
+#: NRL's electron-ion momentum-transfer rate, SI density and T_e in eV [s^-1].
+def _nu_ei_nrl(n_e, ln_lambda, T_eV):
+    return 2.91e-12 * n_e * ln_lambda * T_eV**-1.5
+
+
+def test_resistivity_is_its_definition():
+    n_e, nu = 1.0e19, 3.0e6
+    assert resistivity_from_n_e_nu_e(n_e, nu) == pytest.approx(
+        ME * nu / (n_e * QE**2), rel=1e-14, abs=0.0
+    )
+
+
+def test_resistivity_from_the_nrl_rate_is_the_transverse_spitzer_value():
+    # The trap #783's 3.6 walks into: m_e nu_ei / (n e^2) with NRL's nu_ei is
+    # eta_perp = 1.03e-4 lnL T^-3/2, not the parallel resistivity the toroidal
+    # current sees, which is smaller by Spitzer-Harm's 0.51 at Z = 1.
+    n_e, ln_lambda, T_eV = 1.0e19, 15.0, 100.0
+    eta = resistivity_from_n_e_nu_e(n_e, _nu_ei_nrl(n_e, ln_lambda, T_eV))
+    assert eta / (ln_lambda * T_eV**-1.5) == pytest.approx(1.03e-4, rel=5e-3)
+    parallel = spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_eV, 1.0, ln_lambda)
+    assert eta / parallel == pytest.approx(1.0 / 0.51, rel=0.03)
+
+
+def test_resistivity_adds_electron_neutral_drag():
+    # nu_e = nu_ei + nu_en is the partially ionised case; the resistivity is
+    # linear in the total, so the two drags add.
+    n_e, nu_ei, nu_en = 1.0e18, 2.0e6, 5.0e6
+    assert resistivity_from_n_e_nu_e(n_e, nu_ei + nu_en) == pytest.approx(
+        resistivity_from_n_e_nu_e(n_e, nu_ei) + resistivity_from_n_e_nu_e(n_e, nu_en),
+        rel=1e-14,
+        abs=0.0,
+    )
+    assert resistivity_from_n_e_nu_e(n_e, 0.0) == 0.0
+
+
+@pytest.mark.parametrize("kwargs", [{"n_e_m3": 0.0}, {"nu_e_s": -1.0}, {"nu_e_s": np.nan}])
+def test_resistivity_rejects_a_non_physical_input(kwargs):
+    call = {"n_e_m3": 1.0e19, "nu_e_s": 1.0e6}
+    call.update(kwargs)
+    with pytest.raises(ValueError):
+        resistivity_from_n_e_nu_e(**call)
+
+
+def test_ring_resistance_is_resistivity_times_length_over_area():
+    eta, R0, a, kappa = 1.0e-6, 0.4, 0.3, 1.5
+    assert plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(
+        eta, R0, a, kappa
+    ) == pytest.approx(eta * 2.0 * np.pi * R0 / (np.pi * a**2 * kappa), rel=1e-13, abs=0.0)
+    assert plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(
+        eta, R0, a
+    ) == pytest.approx(2.0 * eta * R0 / a**2, rel=1e-13, abs=0.0)
+
+
+def test_ring_resistance_gives_the_ohmic_power_through_the_resistive_voltage():
+    R_p = plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(1.0e-6, 0.4, 0.3)
+    I_p = 5.0e4
+    assert ohmic_heating_power_from_I_p_V_res(I_p, I_p * R_p) == pytest.approx(
+        I_p**2 * R_p, rel=1e-13, abs=0.0
+    )
+
+
+def test_circular_inductance_reproduces_the_mitarai_table():
+    assert plasma_inductance_circular_from_R0_a_li(6.2, 1.9, 0.5, 1.7) == pytest.approx(
+        9.18e-6, rel=5e-3
+    )
+    assert plasma_inductance_circular_from_R0_a_li(1.0, 0.2, 0.8) == pytest.approx(
+        MU0 * (np.log(8.0 / 0.2) + 0.4 - 2.0), rel=1e-14, abs=0.0
+    )
+
+
+def test_circular_inductance_is_the_one_the_vertical_field_is_built_on():
+    # Holding a fixed, dLp/dR through the general B_VE structure is exactly
+    # vertical_field_from_I_p_R0_a_beta_p_li: the two share one expression.
+    I_p, R0, a, beta_p, li, kappa = 8.0e6, 6.2, 1.9, 2.5, 0.5, 1.7
+    step = 1e-7
+    dL_dR = (
+        plasma_inductance_circular_from_R0_a_li(R0 + step, a, li, kappa)
+        - plasma_inductance_circular_from_R0_a_li(R0 - step, a, li, kappa)
+    ) / (2.0 * step)
+    assert MU0 * I_p / (4.0 * np.pi * R0) * (dL_dR / MU0 + beta_p - 0.5) == pytest.approx(
+        vertical_field_from_I_p_R0_a_beta_p_li(I_p, R0, a, beta_p, li, kappa), rel=1e-6
+    )
+
+
+def test_circular_and_hirshman_inductance_converge_only_slowly():
+    # They do meet as a/R0 -> 0, but Hirshman's terms go as sqrt(eps): the gap
+    # is 6.7 % at 0.3, crosses near 0.05, is still 1.6 % at 0.01, and only
+    # falls below 0.1 % at 1e-6.  Agreement at one aspect ratio proves nothing
+    # about another.
+    def gap(eps):
+        hirshman = plasma_inductance_hirshman_from_R_eps_kappa_li(1.0, eps, 1.0, 0.8)
+        return abs(plasma_inductance_circular_from_R0_a_li(1.0, eps, 0.8) - hirshman) / hirshman
+
+    assert gap(0.3) > 0.05
+    assert gap(1e-2) > 0.01
+    assert gap(1e-6) < 1e-3
+    assert gap(1e-8) < gap(1e-6) < gap(1e-4)
+
+
+def test_circular_inductance_blanks_where_the_expansion_turns_non_positive():
+    # At a VEST-like eps = 0.75 the elongation factor shrinks the logarithm
+    # below 2 - li/2 from kappa ~ 2.15: a negative self-inductance, which the
+    # circuit kernels then rejected with a message naming themselves.  It is
+    # out of the expansion's range, not physics, so it blanks and warns.
+    with pytest.warns(RuntimeWarning, match="hirshman") as record:
+        value = plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, 2.5)
+    assert np.isnan(value)
+    assert record[0].filename == __file__
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mixed = plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, np.array([1.0, 2.5]))
+    assert np.isfinite(mixed[0]) and mixed[0] > 0.0
+    assert np.isnan(mixed[1])
+    # Hirshman stays positive across the same range, which is why it is the
+    # one to use there.
+    assert plasma_inductance_hirshman_from_R_eps_kappa_li(0.4, 0.75, 2.5, 0.3) > 0.0
+
+
+def test_circular_inductance_error_at_st_aspect_ratio_is_not_one_signed():
+    # 51 % high at kappa = 1, 4.5 times low at kappa = 2: the docstring's
+    # numbers, pinned so a reader reasoning from them is not misled.
+    def ratio(kappa):
+        return plasma_inductance_circular_from_R0_a_li(0.4, 0.3, 0.3, kappa) / (
+            plasma_inductance_hirshman_from_R_eps_kappa_li(0.4, 0.75, kappa, 0.3)
+        )
+
+    assert ratio(1.0) == pytest.approx(1.51, rel=5e-3)
+    assert 1.0 / ratio(2.0) == pytest.approx(4.48, rel=5e-3)
+
+
+def test_circular_inductance_rejects_a_minor_radius_that_is_not_smaller():
+    with pytest.raises(ValueError, match="a_m must be smaller"):
+        plasma_inductance_circular_from_R0_a_li(0.3, 0.3, 0.5)
+
+
+def test_current_derivative_is_the_lumped_circuit_equation():
+    V, R_p, I_p, L_p, dL = 2.0, 1.0e-3, 1.0e3, 1.0e-6, 1.0e-7
+    assert plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
+        V, R_p, I_p, L_p, dL
+    ) == pytest.approx((V - R_p * I_p - I_p * dL) / L_p, rel=1e-14, abs=0.0)
+
+
+def test_current_derivative_limits():
+    # At the resistive limit V = R_p I_p the current holds; with no resistance
+    # it ramps at V/L; and the sign follows the loop voltage.
+    assert plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(2.0, 1e-3, 2.0e3, 1e-6) == 0.0
+    assert plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
+        2.0, 0.0, 5.0e3, 1e-6
+    ) == pytest.approx(2.0e6, rel=1e-14, abs=0.0)
+    assert plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(-2.0, 1e-3, 0.0, 1e-6) < 0.0
+
+
+def test_the_lumped_circuit_relaxes_on_its_lr_time():
+    # Integrating dIp/dt from rest under a fixed V must give the analytic
+    # I(t) = (V/R)(1 - exp(-t/tau)) with tau = L/R, which ties the two kernels
+    # together rather than testing either in isolation.
+    V, R, L = 2.0, 1.0e-3, 1.0e-6
+    tau = lr_time_from_L_R(L, R)
+    assert tau == pytest.approx(1.0e-3, rel=1e-14, abs=0.0)
+    steps = 20000
+    dt = 5.0 * tau / steps
+    current = 0.0
+    for _ in range(steps):
+        k1 = plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V, R, current, L)
+        k2 = plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V, R, current + 0.5 * dt * k1, L)
+        k3 = plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V, R, current + 0.5 * dt * k2, L)
+        k4 = plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V, R, current + dt * k3, L)
+        current += dt * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+    assert current == pytest.approx(V / R * (1.0 - np.exp(-5.0)), rel=1e-9)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"L_p_H": 0.0}, {"R_p_ohm": -1.0}, {"V_loop_V": np.inf}, {"I_p_A": np.nan}]
+)
+def test_current_derivative_rejects_a_non_physical_input(kwargs):
+    call = {"V_loop_V": 1.0, "R_p_ohm": 1e-3, "I_p_A": 1.0, "L_p_H": 1e-6}
+    call.update(kwargs)
+    with pytest.raises(ValueError):
+        plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(**call)
