@@ -32,6 +32,12 @@ as the loop voltage of
 An equilibrium stored in another COCOS must be brought to it first; the one
 function here that reads a flux refuses a result whose sign says it was not.
 
+This is **not** the convention of
+:func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`, which is
+Ejima's $+2\pi\,\dot\psi_b$ on a per-radian flux: the two differ in sign
+and by $2\pi$ in normalisation (#354).  Feeding that function's output in as
+$V_B$ turns a ramp-up into a ramp-down.
+
 References
 ----------
 .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002.

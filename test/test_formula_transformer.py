@@ -9,7 +9,10 @@ import numpy as np
 import pytest
 
 from vaft.formula.constants import MU0
-from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
+from vaft.formula.equilibrium import (
+    inductive_voltage_from_dW_magdt_I_p,
+    li_3_from_Bp2_volume_integral,
+)
 from vaft.formula.transformer import (
     current_weighted_flux_from_psi_j_dS,
     equilibrium_surface_voltage_from_I_p_dL_i_V_R,
@@ -96,6 +99,23 @@ def test_the_two_rate_equations_and_the_flux_definitions_close(t):
         _d(i_p, t), rel=1e-6
     )
 
+
+def test_the_energy_form_of_the_inductive_voltage_is_exact_while_l_i_changes():
+    # equilibrium's (1/I) dW/dt with W = L_i I^2 / 2 is Romero's V_ind exactly,
+    # with the half on dL_i -- not d(L_i I)/dt, which differs by I dL_i / 2.
+    t = 0.35
+
+    def l_i(tt):
+        return internal_inductance_from_psi_C_psi_B_I_p(psi_c(tt), psi_b(tt), i_p(tt))
+
+    def energy(tt):
+        return 0.5 * l_i(tt) * i_p(tt) ** 2
+
+    v_ind = inductive_voltage_from_dW_magdt_I_p(_d(energy, t), i_p(t))
+    exact = l_i(t) * _d(i_p, t) + 0.5 * i_p(t) * _d(l_i, t)
+    assert v_ind == pytest.approx(exact, rel=1e-8)
+    circuit = _d(lambda tt: l_i(tt) * i_p(tt), t)
+    assert circuit - v_ind == pytest.approx(0.5 * i_p(t) * _d(l_i, t), rel=1e-6)
 
 def test_the_two_v_c_routes_invert_the_two_rate_equations():
     l_i, ip, v_b, v_r, v_c = 3.1e-7, 1.2e5, 1.7, 0.9, 1.3
