@@ -279,6 +279,8 @@ CONVENTION_SENSITIVE = frozenset({
     "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
+    # perturbation (D-06): which reconstruction a stored harmonic belongs to.
+    "toroidal_phase_audit",
 
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
