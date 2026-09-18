@@ -2,8 +2,8 @@
   "diagrams": {
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
-      "source_sha256": "29e0159be0b65289398ee9e624efa897c386d48b43297f5a95136c37454bbc0f",
-      "svg_sha256": "c5bb62865fa8b75f946d29d6890202c8fab615fc817c0fee0f0d3ef672f0d71a"
+      "source_sha256": "a985bdbf07682d66017b94532e17ff5e0dfa5b657796bfa6d8dac604cf9dba3b",
+      "svg_sha256": "a698afc97f6b20f0d3f66b095f6bed229fbeb01021df9bd90f40fdcea097d31c"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
@@ -27,13 +27,13 @@
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",
-      "source_sha256": "1c0b092e2e636285f570d2b7f8dd32f9802a504f1d756adb3a06c50640a12534",
-      "svg_sha256": "3cf1f0b13d07c1f83055ab2ecfbe13866cb0100ef413895d8e2c26e96ecab7b8"
+      "source_sha256": "bb2dc672f6d4e3ba58af940212ff30246d325ca2624e5ee6a43a8a37c9110e23",
+      "svg_sha256": "ece2d46cc1eb78bcc8ca0c83beefa2a1ed89438fb0aaffd5ae92e3dbf0320858"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",
-      "source_sha256": "47bf8f1f99015e6c455bb66f18420b76d6accefd0e543b9988c6fc96e110bc20",
-      "svg_sha256": "fa39d594403d4a58f9fdf220953c9e96ab37529ee31df2443d61d0b1d5453491"
+      "source_sha256": "cc130cdbb78eba34f00d4ba1210a9417bd573c231a1f33bcc58ca79b671a135d",
+      "svg_sha256": "279a677a497f0eb052ed17b9c8148eb6a13359d5f2fb34c66803fc1c46fde83b"
     }
   },
   "generator": "python -m vaft.diagram.build",

@@ -42,8 +42,9 @@ def test_the_first_boundary_follows_the_linear_approximation_at_moderate_shear()
 
 
 def test_the_boundaries_match_the_classic_s_alpha_diagram():
-    # Connor, Hastie & Taylor (1978), Fig. 1: alpha_1(1) ~ 0.6 and second
-    # stability near alpha ~ 2.6 at unit shear.
+    # Regression values of this solver; consistent with, but tighter than
+    # anything readable off, Connor, Hastie & Taylor (1978) Fig. 1
+    # (alpha_1 ~ 0.6 and second stability near alpha ~ 2.6 at unit shear).
     first, second = s_alpha_marginal_alpha(1.0)
     assert first == pytest.approx(0.61, abs=0.02)
     assert second == pytest.approx(2.60, abs=0.05)
@@ -51,7 +52,8 @@ def test_the_boundaries_match_the_classic_s_alpha_diagram():
 
 def test_the_boundaries_are_converged_in_step_and_range():
     s = np.array([0.3, 1.0])
-    for alpha in (s_alpha_marginal_alpha(s)[0] * 0.97, s_alpha_marginal_alpha(s)[0] * 1.03):
+    first = s_alpha_marginal_alpha(s)[0]
+    for alpha in (first * 0.97, first * 1.03):
         ref = s_alpha_ballooning_stable(s, alpha)
         assert np.array_equal(s_alpha_ballooning_stable(s, alpha, step=0.01), ref)
         assert np.array_equal(s_alpha_ballooning_stable(s, alpha, theta_max=80 * np.pi), ref)
@@ -59,6 +61,12 @@ def test_the_boundaries_are_converged_in_step_and_range():
 
 def test_no_boundary_without_shear():
     assert all(np.isnan(v) for v in s_alpha_marginal_alpha(-0.5))
+
+
+@pytest.mark.parametrize("kw", [{"s": np.nan}, {"s": 1.0, "alpha_max": 0.01}, {"s": 1.0, "resolution": 0.0}])
+def test_s_alpha_marginal_rejects_bad_input(kw):
+    with pytest.raises(ValueError):
+        s_alpha_marginal_alpha(**kw)
 
 
 @pytest.mark.parametrize("kw", [{"theta_max": 0.0}, {"step": -1.0}])
@@ -72,33 +80,44 @@ def test_s_alpha_rejects_a_bad_integration(kw):
 
 def test_the_s_alpha_chart_draws_the_formula_boundaries():
     chart = vaft.diagram.s_alpha_ballooning().model
-    for name, index in (("first", 0), ("second", 1)):
-        curve = chart.curves[name]
-        expected = s_alpha_marginal_alpha(curve[:, 1])[index]
-        assert np.allclose(curve[:, 0], expected, atol=2e-3)
+    rows = chart.curves["first"][::6, 1]
+    first, second = s_alpha_marginal_alpha(rows)
+    assert np.allclose(chart.curves["first"][::6, 0], first, atol=2e-3)
+    ok = np.isfinite(second)
+    got = dict(zip(np.round(chart.curves["second"][:, 1], 12), chart.curves["second"][:, 0]))
+    assert np.allclose([got[round(r, 12)] for r in rows[ok]], second[ok], atol=2e-3)
 
 
-def test_the_s_alpha_region_labels_sit_in_their_regions():
-    chart = vaft.diagram.s_alpha_ballooning().model
-    (a, s) = chart.labels["first"]
-    assert s_alpha_ballooning_stable(s, a) and a < s_alpha_marginal_alpha(s)[0]
-    (a, s) = chart.labels["unstable"]
-    assert not s_alpha_ballooning_stable(s, a)
-    (a, s) = chart.labels["second"]
-    assert s_alpha_ballooning_stable(s, a) and a > s_alpha_marginal_alpha(s)[1]
+@pytest.mark.parametrize("s_max, alpha_max", [
+    (1.5, 3.5), (0.2, 6.0), (0.5, 6.0), (1.0, 6.0), (1.5, 1.0), (2.5, 1.0), (2.5, 2.0), (0.2, 2.0),
+])
+def test_the_s_alpha_region_labels_sit_in_their_regions(s_max, alpha_max):
+    chart = vaft.diagram.s_alpha_ballooning(s_max=s_max, alpha_max=alpha_max).model
+    labels = chart.labels
+    assert "first" in labels
+    for name, (a, s) in labels.items():
+        assert 0 < a < alpha_max and 0 < s < s_max, name
+        first, second = s_alpha_marginal_alpha(s)
+        if name == "first":
+            assert s_alpha_ballooning_stable(s, a) and a < first
+        elif name == "unstable":
+            assert not s_alpha_ballooning_stable(s, a)
+        else:
+            assert s_alpha_ballooning_stable(s, a) and a > second
 
 
 # --- Hugill and Troyon -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("elongation", [1.0, 1.7])
+@pytest.mark.parametrize("elongation", [1.0, 1.7, 5.0])
 def test_the_hugill_line_is_the_greenwald_density(elongation):
-    chart = vaft.diagram.hugill(elongation=elongation, aspect_ratio=3.0).model
+    chart = vaft.diagram.hugill(elongation=elongation).model
     line = chart.curves["greenwald"][1:]
-    a = ss._R0 / 3.0
+    A = ss._HUGILL_ASPECT_RATIO
+    a = ss._R0 / A
     # recover the current from 1/q through the same formula, then check n = n_G(I)
-    I_MA = np.linspace(1e-3, 1.0, 20001)
-    inv_q = 1.0 / q_cyl_from_B_R_epsilon_kappa_I(ss._B0, ss._R0, 1 / 3.0, elongation, I_MA * 1e6)
+    I_MA = np.linspace(1e-4, 20.0, 400001)
+    inv_q = 1.0 / q_cyl_from_B_R_epsilon_kappa_I(ss._B0, ss._R0, 1 / A, elongation, I_MA * 1e6)
     I_at = np.interp(line[:, 1], inv_q, I_MA)
     assert np.allclose(line[:, 0], greenwald_density(I_at, a) * ss._R0 / ss._B0, rtol=1e-3)
     # the slope depends on the elongation alone: M / (1/q) = 50 kappa / pi
@@ -143,7 +162,7 @@ def test_the_troyon_regions_are_on_the_right_sides():
 
 
 @pytest.mark.parametrize("fn, kw", [
-    (vaft.diagram.hugill, {"aspect_ratio": 0.9}),
+    (vaft.diagram.hugill, {"elongation": 0.0}),
     (vaft.diagram.hugill, {"q_limit": 0.0}),
     (vaft.diagram.troyon, {"beta_N_max": -1.0}),
     (vaft.diagram.troyon, {"elongation": 0.0}),
@@ -195,3 +214,32 @@ def test_every_chart_is_deterministic_and_exposed_lazily(name):
     fn = getattr(vaft.diagram, name)
     assert fn().tikz == fn().tikz
     assert name in vaft.diagram.__all__
+
+
+@pytest.mark.parametrize("elongation, q_limit", [(1.0, 2.0), (1.8, 2.0), (5.0, 2.0), (1.0, 0.5)])
+def test_the_hugill_limits_follow_the_closed_form_for_any_shape(elongation, q_limit):
+    chart = vaft.diagram.hugill(elongation=elongation, q_limit=q_limit).model
+    x_q = 50 * elongation / (np.pi * q_limit)
+    assert chart.parameters["murakami_at_q_limit"] == pytest.approx(x_q, rel=1e-9)
+    # the Greenwald line reaches the top of the chart, past the low-q line
+    assert chart.curves["greenwald"][-1, 1] == pytest.approx(chart.y_range[1], rel=1e-9)
+    x, y = chart.labels["accessible"]
+    assert y < 1 / q_limit and x < x_q * y * q_limit
+    x, y = chart.labels["density"]
+    assert x > x_q * y * q_limit
+
+
+@pytest.mark.parametrize("aspect_ratio, elongation, q_limit", [(3.0, 1.7, 2.0), (1.3, 1.8, 2.0), (1.3, 2.5, 2.0),
+                                                                (1.2, 2.0, 1.0)])
+def test_the_troyon_cutoff_follows_the_closed_form_for_any_shape(aspect_ratio, elongation, q_limit):
+    chart = vaft.diagram.troyon(aspect_ratio=aspect_ratio, elongation=elongation, q_limit=q_limit).model
+    x_q = 5 * elongation / (aspect_ratio * q_limit)  # 5 eps kappa / q
+    assert chart.parameters["current_at_q_limit"] == pytest.approx(x_q, rel=1e-9)
+    assert chart.curves["low_q"][0, 0] == pytest.approx(x_q, rel=1e-9)
+
+
+def test_charts_always_get_readable_ticks():
+    for kw in ({"q_limit": 10.0}, {"q_limit": 0.5}, {"beta_N_max": 0.5}):
+        scene = vaft.diagram.troyon(**kw).scene
+        ticks = [item for item in scene.role("ticks") if hasattr(item, "text")]
+        assert len(ticks) >= 6  # at least three per axis

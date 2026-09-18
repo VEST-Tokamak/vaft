@@ -242,20 +242,30 @@ def s_alpha_ballooning(*, s_max: float = 1.5, alpha_max: float = 3.5, labels: bo
     second_ok = ok & np.isfinite(second)
     chart.curves["second"] = np.stack([second[second_ok], s[second_ok]], axis=-1)
     chart.curves["approximation"] = np.array([[0.0, 0.0], [0.6 * s_max, s_max]])
-    chart.labels.update({
-        "first": (0.09 * alpha_max, 0.88 * s_max),
-        "unstable": (0.45 * alpha_max, 0.62 * s_max),
-        "second": (0.8 * alpha_max, 0.22 * s_max),
-    })
+    # labels are placed from the computed boundaries, so they stay in their
+    # regions whatever the axis ranges; a region off the chart gets none
+    def at(row, curve):
+        return float(np.interp(row, s[ok], curve[ok]))
+
+    s_first, s_unstable, s_second = 0.85 * s_max, 0.6 * s_max, max(0.25 * s_max, 0.1)
+    a1 = at(s_first, first)
+    chart.labels["first"] = (0.45 * a1, s_first)
+    a1, a2 = at(s_unstable, first), at(s_unstable, np.where(np.isfinite(second), second, alpha_max))
+    if a1 < 0.9 * alpha_max:
+        chart.labels["unstable"] = (0.5 * (a1 + min(a2, alpha_max)), s_unstable)
+    a2 = at(s_second, np.where(np.isfinite(second), second, np.inf))
+    if a2 < 0.75 * alpha_max:
+        chart.labels["second"] = (0.5 * (a2 + alpha_max), s_second)
     chart.parameters.update({"s_min": 0.05, "s_max": float(s_max), "alpha_max": float(alpha_max)})
     scene = _render_chart(
         chart,
         x_label="$\\alpha$",
         y_label="$s$",
         curve_styles={"approximation": "approx", "first": "boundary", "second": "boundary"},
-        region_text={"first": "\\begin{tabular}{c}First\\\\stable\\end{tabular}", "unstable": "Unstable",
-                     "second": "\\begin{tabular}{c}Second\\\\stable\\end{tabular}"} if labels else {},
-        x_ticks=np.arange(0.0, alpha_max + 1e-9, 1.0), y_ticks=np.arange(0.0, s_max + 1e-9, 0.5),
+        region_text={k: v for k, v in {
+            "first": "\\begin{tabular}{c}First\\\\stable\\end{tabular}", "unstable": "Unstable",
+            "second": "\\begin{tabular}{c}Second\\\\stable\\end{tabular}"}.items() if k in chart.labels} if labels else {},
+        x_ticks=_nice_ticks(alpha_max + 1e-9), y_ticks=_nice_ticks(s_max + 1e-9),
         note="circular $s$-$\\alpha$ model (Connor, Hastie \\& Taylor 1978); dashed: $\\alpha = 0.6\\,s$" if labels else "",
     )
     return Diagram("s_alpha_ballooning", scene, model=chart)
@@ -268,6 +278,8 @@ def s_alpha_ballooning(*, s_max: float = 1.5, alpha_max: float = 3.5, labels: bo
 #: nominal machine used to evaluate the formulas; both boundaries depend
 #: only on the elongation (Hugill) or on aspect ratio and elongation (Troyon)
 _R0, _B0 = 1.0, 1.0
+#: any aspect ratio gives the same Hugill line; this one only sizes the nominal machine
+_HUGILL_ASPECT_RATIO = 3.0
 
 
 def _validate_shape(aspect_ratio: float, elongation: float, q_limit: float) -> None:
@@ -279,36 +291,52 @@ def _validate_shape(aspect_ratio: float, elongation: float, q_limit: float) -> N
         raise ValueError(f"q_limit must be positive, not {q_limit!r}")
 
 
-def hugill(*, elongation: float = 1.0, aspect_ratio: float = 3.0, q_limit: float = 2.0,
-           labels: bool = True) -> Diagram:
+def _nice_ticks(top: float) -> List[float]:
+    """Round tick values from 0 up to ``top``: 3-6 of them at a 1-2-5 spacing."""
+    for step in (0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0):
+        if top / step <= 6.0:
+            return [float(v) for v in np.arange(0.0, top, step)]
+    return [0.0]
+
+
+def _current_at_q(elongation: float, aspect_ratio: float, q_limit: float) -> float:
+    """Plasma current [MA] at which the nominal machine's q_cyl equals ``q_limit``.
+
+    ``q_cyl_from_B_R_epsilon_kappa_I`` is inversely proportional to the
+    current, so one evaluation at 1 MA fixes it exactly.
+    """
+    q_at_1MA = q_cyl_from_B_R_epsilon_kappa_I(_B0, _R0, 1.0 / aspect_ratio, elongation, 1e6)
+    return float(q_at_1MA) / q_limit
+
+
+def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, labels: bool = True) -> Diagram:
     r"""Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$.
 
     The density limit is the Greenwald density written in these
     coordinates: along a current scan, ``greenwald_density`` and
     ``q_cyl_from_B_R_epsilon_kappa_I`` give a straight line through the
-    origin whose slope depends only on the (area) elongation. The low-q
-    limit is $q_\mathrm{cyl} = q_\mathrm{limit}$.
+    origin whose slope, $50\kappa_a/\pi$, depends only on the (area)
+    elongation -- the minor radius, major radius and field cancel, so there is
+    no machine-size parameter. The low-q limit is $q_\mathrm{cyl} = q_\mathrm{limit}$.
     """
-    _validate_shape(aspect_ratio, elongation, q_limit)
-    a = _R0 / aspect_ratio
-    I_MA = np.linspace(1e-3, 1.0, 201)
-    n_G = greenwald_density(I_MA, a)  # [1e19 m^-3]
-    q = q_cyl_from_B_R_epsilon_kappa_I(_B0, _R0, 1.0 / aspect_ratio, elongation, I_MA * 1e6)
-    murakami = n_G * _R0 / _B0
-    x_q = float(np.interp(1.0 / q_limit, 1.0 / q, murakami))
-    x_max = 1.45 * x_q
+    _validate_shape(_HUGILL_ASPECT_RATIO, elongation, q_limit)
+    a = _R0 / _HUGILL_ASPECT_RATIO
     y_max = 1.4 / q_limit
-    line = np.stack([murakami, 1.0 / q], axis=-1)
+    I_q = _current_at_q(elongation, _HUGILL_ASPECT_RATIO, q_limit)
+    I_MA = np.linspace(0.0, 1.4 * I_q, 201)[1:]  # up to 1/q = y_max
+    q = q_cyl_from_B_R_epsilon_kappa_I(_B0, _R0, 1.0 / _HUGILL_ASPECT_RATIO, elongation, I_MA * 1e6)
+    murakami = greenwald_density(I_MA, a) * _R0 / _B0  # [1e19 m^-2 T^-1]
+    x_q = float(greenwald_density(I_q, a) * _R0 / _B0)
+    x_max = 1.45 * x_q
     chart = Chart(x_range=(0.0, x_max), y_range=(0.0, y_max))
-    chart.curves["greenwald"] = np.concatenate([[[0.0, 0.0]], line[line[:, 1] <= y_max]])
+    chart.curves["greenwald"] = np.concatenate([[[0.0, 0.0]], np.stack([murakami, 1.0 / q], axis=-1)])
     chart.curves["low_q"] = np.array([[0.0, 1.0 / q_limit], [x_max, 1.0 / q_limit]])
     chart.labels.update({
         "accessible": (0.3 * x_q, 0.72 / q_limit),
         "density": (1.2 * x_q, 0.45 / q_limit),
         "low_q": (0.33 * x_max, 1.2 / q_limit),
     })
-    chart.parameters.update({"elongation": elongation, "aspect_ratio": aspect_ratio, "q_limit": q_limit,
-                             "murakami_at_q_limit": x_q})
+    chart.parameters.update({"elongation": elongation, "q_limit": q_limit, "murakami_at_q_limit": x_q})
     scene = _render_chart(
         chart,
         x_label="$\\bar n_e R/B_T\\ [10^{19}\\,\\mathrm{m^{-2}\\,T^{-1}}]$",
@@ -317,8 +345,8 @@ def hugill(*, elongation: float = 1.0, aspect_ratio: float = 3.0, q_limit: float
         region_text={"accessible": "Accessible",
                      "density": "\\begin{tabular}{c}Density limit\\\\($\\bar n_e > n_G$)\\end{tabular}",
                      "low_q": f"Low-$q$ limit ($q_\\mathrm{{cyl}} < {q_limit:g}$)"} if labels else {},
-        x_ticks=[t for t in np.arange(0.0, x_max, 5.0 if x_max > 12 else 2.0)],
-        y_ticks=[t for t in np.arange(0.0, y_max, 0.2)],
+        x_ticks=_nice_ticks(x_max),
+        y_ticks=_nice_ticks(y_max),
         note=f"Greenwald limit in Murakami coordinates, $\\kappa_a = {elongation:g}$" if labels else "",
     )
     return Diagram("hugill", scene, model=chart)
@@ -330,15 +358,14 @@ def troyon(*, beta_N_max: float = 2.8, aspect_ratio: float = 3.0, elongation: fl
 
     The beta limit is the line on which ``beta_N_from_beta_a_B0_Ip`` equals
     ``beta_N_max``; the low-q cutoff is the current at which
-    ``q_cyl_from_B_R_epsilon_kappa_I`` reaches ``q_limit``.
+    ``q_cyl_from_B_R_epsilon_kappa_I`` reaches ``q_limit``, at
+    $I_p/(aB_T) = 5\varepsilon\kappa_a/q_\mathrm{limit}$.
     """
     _validate_shape(aspect_ratio, elongation, q_limit)
     if not beta_N_max > 0.0:
         raise ValueError(f"beta_N_max must be positive, not {beta_N_max!r}")
     a = _R0 / aspect_ratio
-    I_MA = np.linspace(1e-3, 3.0, 3001)
-    q = q_cyl_from_B_R_epsilon_kappa_I(_B0, _R0, 1.0 / aspect_ratio, elongation, I_MA * 1e6)
-    x_q = float(np.interp(q_limit, q[::-1], (I_MA / (a * _B0))[::-1]))
+    x_q = _current_at_q(elongation, aspect_ratio, q_limit) / (a * _B0)
     x = np.linspace(0.0, 1.35 * x_q, 101)
     # beta_N is linear in beta: one evaluation at beta = 1 % sets the slope of the limit line
     beta_limit = beta_N_max / beta_N_from_beta_a_B0_Ip(1.0, a, _B0, np.maximum(x, 1e-12) * a * _B0)
@@ -362,8 +389,8 @@ def troyon(*, beta_N_max: float = 2.8, aspect_ratio: float = 3.0, elongation: fl
         region_text={"stable": "Stable",
                      "beta": f"$\\beta_N > {beta_N_max:g}$",
                      "low_q": "\\begin{tabular}{c}Low-$q$\\\\limit\\end{tabular}"} if labels else {},
-        x_ticks=list(np.arange(0.0, float(x[-1]), 0.5)),
-        y_ticks=list(np.arange(0.0, y_max, 2.0)),
+        x_ticks=_nice_ticks(float(x[-1])),
+        y_ticks=_nice_ticks(float(y_max)),
         note=(f"Troyon limit $\\beta_N = {beta_N_max:g}$; $q_\\mathrm{{cyl}} = {q_limit:g}$ at "
               f"$R_0/a = {aspect_ratio:g}$, $\\kappa_a = {elongation:g}$") if labels else "",
     )

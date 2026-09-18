@@ -69,7 +69,7 @@ which has no closed form, is a schematic, and the figure says so.
 ```python
 vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
-vaft.diagram.hugill(elongation=1.0, q_limit=2.0)
+vaft.diagram.hugill(elongation=1.0, q_limit=2.0)          # no size parameter: R, a, B cancel
 vaft.diagram.troyon(beta_N_max=2.8, aspect_ratio=3.0, elongation=1.7)
 ```
 

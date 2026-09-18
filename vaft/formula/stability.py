@@ -1335,8 +1335,9 @@ def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_AL
     ---------------
     A fixed-step integrator, vectorised over the broadcast inputs, so the
     result is deterministic and a whole $(s, \alpha)$ grid costs one pass.
-    With the defaults, doubling ``theta_max`` or halving ``step`` moves the
-    boundary by less than 0.01 in $\alpha$ for $s \ge 0.1$.
+    With the defaults, halving ``step`` does not move the boundary at the
+    1e-4 level; extending ``theta_max`` to $2560\pi$ moves $\alpha_1$ by
+    about 0.012 at $s = 0.1$ and 0.002 at $s = 1$.
 
     References
     ----------
@@ -1397,7 +1398,8 @@ def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     Raises
     ------
     ValueError
-        ``alpha_max`` or ``resolution`` is not positive.
+        ``s`` is not finite, ``alpha_max`` is below 0.1 or ``resolution`` is
+        not positive.
 
     Convention
     ----------
@@ -1428,9 +1430,11 @@ def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 6.13.
     """
-    if not alpha_max > 0.0 or not resolution > 0.0:
-        raise ValueError("alpha_max and resolution must be positive")
+    if not alpha_max >= 0.1 or not resolution > 0.0:
+        raise ValueError("alpha_max must be at least 0.1 and resolution positive")
     s_arr = np.atleast_1d(np.asarray(s, dtype=float))
+    if not np.all(np.isfinite(s_arr)):
+        raise ValueError("s must be finite")
     spacing = 0.05
     grid = np.arange(spacing, alpha_max + 1e-12, spacing)
     unstable = ~s_alpha_ballooning_stable(s_arr[:, None], grid[None, :])
