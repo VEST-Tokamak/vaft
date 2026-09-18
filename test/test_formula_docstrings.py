@@ -154,6 +154,10 @@ CONVENTION_SENSITIVE = frozenset({
     "plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa",
     "plasma_inductance_circular_from_R0_a_li",
     "plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p",
+    # burn-through (#783 3.9): atoms not molecules, and plasma-local densities
+    # rather than vessel averages.
+    "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
+    "ionization_fraction_from_n_e_n_D0",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

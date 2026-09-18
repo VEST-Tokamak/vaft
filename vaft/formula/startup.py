@@ -1794,6 +1794,316 @@ def lr_time_from_L_R(L_H, R_ohm):
 
 
 # ------------------------------------------------------------------
+# Burn-through: the radiation-ionisation barrier of a depleting fill
+# ------------------------------------------------------------------
+
+def neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(n_0_m3, n_e_m3, V_p_m3, V_V_m3):
+    r"""Neutral atom density left in the vessel after some has been ionised.
+
+    $$n_D^0 = n_0 - \frac{V_p}{V_V}\,n_e$$
+
+    Parameters
+    ----------
+    n_0_m3 : float or np.ndarray
+        Initial neutral atom density filling the vessel, finite and positive
+        [m^-3].
+    n_e_m3 : float or np.ndarray
+        Electron density in the plasma, finite and non-negative [m^-3].
+    V_p_m3 : float or np.ndarray
+        Plasma volume, finite and positive [m^3].
+    V_V_m3 : float or np.ndarray
+        Vessel volume the neutrals fill, finite and positive [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Remaining neutral atom density, ``nan`` where the plasma would hold
+        more electrons than the fill had atoms [m^-3].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive inventory or volume, or a non-finite or
+        negative electron density.
+
+    Convention
+    ----------
+    **Atoms, not molecules.**  $n_0$ is the atomic-equivalent inventory,
+    :func:`atomic_inventory_from_molecular_gas` of the prefill, because each
+    ion of a pure hydrogenic plasma consumes one atom.  Conservation is
+    $n_D^0 V_V + n_e V_p = n_0 V_V$: the neutrals fill the whole vessel while
+    the plasma occupies $V_p$ of it.
+
+    Limitations
+    -----------
+    Pure hydrogenic plasma, no wall recycling or fuelling, no impurities.
+    Recycling feeds neutrals back and is what makes a real burn-through slower
+    than this closed-box inventory suggests.
+
+    Numerical notes
+    ---------------
+    An electron density above $n_0 V_V/V_p$ needs more atoms than the fill
+    had.  That is an inconsistent input rather than a state, so it warns and
+    returns ``nan`` elementwise rather than a negative density.
+
+    References
+    ----------
+    .. [1] H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012)
+           103016, for the DYON burn-through model this closed-box balance
+           reduces.
+
+    See Also
+    --------
+    atomic_inventory_from_molecular_gas
+    ionization_fraction_from_n_e_n_D0
+    """
+    inventory = _require_positive("n_0_m3", n_0_m3)
+    electrons = np.asarray(n_e_m3, dtype=float)
+    if not np.all(np.isfinite(electrons)) or np.any(electrons < 0.0):
+        raise ValueError(f"n_e_m3 must be finite and non-negative; got {n_e_m3!r}")
+    plasma = _require_positive("V_p_m3", V_p_m3)
+    vessel = _require_positive("V_V_m3", V_V_m3)
+    neutrals = inventory - (plasma / vessel) * electrons
+    exhausted = neutrals < 0.0
+    if np.any(exhausted):
+        warnings.warn(
+            "the electron density needs more atoms than the fill had "
+            "(n_e > n_0 V_V / V_p); returning nan",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        neutrals = np.where(exhausted, np.nan, neutrals)
+    return _maybe_scalar(neutrals, n_0_m3, n_e_m3, V_p_m3, V_V_m3)
+
+
+def ionization_fraction_from_n_e_n_D0(n_e_m3, n_D0_m3):
+    r"""Ionisation fraction of a partially ionised hydrogenic plasma.
+
+    $$\gamma_{iz} = \frac{n_e}{n_e + n_D^0}$$
+
+    Parameters
+    ----------
+    n_e_m3 : float or np.ndarray
+        Electron density, finite and non-negative [m^-3].
+    n_D0_m3 : float or np.ndarray
+        Neutral atom density, finite and non-negative [m^-3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Ionisation fraction, in $[0, 1]$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or both zero at once.
+
+    Convention
+    ----------
+    Local, in the plasma: both densities are the ones inside $V_p$.  Mixing the
+    plasma's electron density with a vessel-averaged neutral density gives a
+    number that is neither.
+
+    References
+    ----------
+    .. [1] H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012)
+           103016, for the DYON burn-through model this reduces.
+
+    See Also
+    --------
+    critical_ionization_fraction_from_V_p_V_V
+    """
+    electrons = np.asarray(n_e_m3, dtype=float)
+    neutrals = np.asarray(n_D0_m3, dtype=float)
+    for name, value, raw in (("n_e_m3", electrons, n_e_m3), ("n_D0_m3", neutrals, n_D0_m3)):
+        if not np.all(np.isfinite(value)) or np.any(value < 0.0):
+            raise ValueError(f"{name} must be finite and non-negative; got {raw!r}")
+    total = electrons + neutrals
+    if np.any(total <= 0.0):
+        raise ValueError("n_e_m3 and n_D0_m3 are both zero; there is nothing to ionise")
+    return _maybe_scalar(electrons / total, n_e_m3, n_D0_m3)
+
+
+def critical_ionization_fraction_from_V_p_V_V(V_p_m3, V_V_m3):
+    r"""Ionisation fraction at the top of the radiation-ionisation barrier.
+
+    $$\gamma_{iz,\mathrm{RIB}} = \frac{V_V}{V_V + V_p}$$
+
+    Parameters
+    ----------
+    V_p_m3 : float or np.ndarray
+        Plasma volume, finite and positive [m^3].
+    V_V_m3 : float or np.ndarray
+        Vessel volume, finite and positive [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Critical ionisation fraction [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive volume.
+
+    Convention
+    ----------
+    **Where the loss peaks, not where burn-through is complete.**  With the
+    closed-box inventory of
+    :func:`neutral_density_after_ionization_from_n_0_n_e_V_p_V_V`, the
+    radiation-ionisation power $V_p P_{RI} n_e n_D^0$ is largest at
+    $n_e = n_0 V_V/(2V_p)$, where the ionisation fraction is exactly this.
+    Past it the loss falls as the fill runs out, which is why crossing it is
+    the burn-through condition.
+
+    References
+    ----------
+    .. [1] H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012)
+           103016, for the DYON burn-through model this reduces; the
+           closed-box maximisation above is derived here, not quoted.
+
+    See Also
+    --------
+    radiation_ionization_barrier_from_P_RI_n_0_V_V
+    ionization_fraction_from_n_e_n_D0
+    """
+    plasma = _require_positive("V_p_m3", V_p_m3)
+    vessel = _require_positive("V_V_m3", V_V_m3)
+    return _maybe_scalar(vessel / (vessel + plasma), V_p_m3, V_V_m3)
+
+
+def radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI_W_m3, n_e_m3, n_D0_m3, V_p_m3):
+    r"""Radiation and ionisation power lost by a partially ionised plasma.
+
+    $$P_{\mathrm{rad+iz}} = V_p\,P_{RI}(T_e)\,n_e\,n_D^0$$
+
+    Parameters
+    ----------
+    P_RI_W_m3 : float or np.ndarray
+        Combined radiation-plus-ionisation power coefficient per electron and
+        per neutral atom, finite and non-negative [W m^3].
+    n_e_m3 : float or np.ndarray
+        Electron density, finite and non-negative [m^-3].
+    n_D0_m3 : float or np.ndarray
+        Neutral atom density, finite and non-negative [m^-3].
+    V_p_m3 : float or np.ndarray
+        Plasma volume, finite and positive [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Power lost [W].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative coefficient or density, or a non-positive
+        volume.
+
+    Convention
+    ----------
+    **The coefficient is the caller's.**  $P_{RI}(T_e)$ carries the atomic
+    physics -- excitation radiation plus the ionisation energy per event times
+    the ionisation rate -- and this module does not invent a fit for it.  The
+    radiation half is what
+    :func:`vaft.formula.atomic.line_cooling_coefficient` returns for an
+    identified atomic source; the ionisation half is the rate times the
+    ionisation energy.
+
+    Limitations
+    -----------
+    Pure hydrogen with no impurity line radiation, which in a real start-up is
+    often what actually sets the barrier.
+
+    References
+    ----------
+    .. [1] H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012)
+           103016, for the DYON burn-through model this reduces; the
+           closed-box maximisation above is derived here, not quoted.
+
+    See Also
+    --------
+    radiation_ionization_barrier_from_P_RI_n_0_V_V
+    vaft.formula.atomic.line_cooling_coefficient
+    """
+    coefficient = np.asarray(P_RI_W_m3, dtype=float)
+    electrons = np.asarray(n_e_m3, dtype=float)
+    neutrals = np.asarray(n_D0_m3, dtype=float)
+    for name, value, raw in (("P_RI_W_m3", coefficient, P_RI_W_m3),
+                             ("n_e_m3", electrons, n_e_m3), ("n_D0_m3", neutrals, n_D0_m3)):
+        if not np.all(np.isfinite(value)) or np.any(value < 0.0):
+            raise ValueError(f"{name} must be finite and non-negative; got {raw!r}")
+    plasma = _require_positive("V_p_m3", V_p_m3)
+    power = plasma * coefficient * electrons * neutrals
+    return _maybe_scalar(power, P_RI_W_m3, n_e_m3, n_D0_m3, V_p_m3)
+
+
+def radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI_W_m3, n_0_m3, V_V_m3):
+    r"""Height of the radiation-ionisation barrier a burn-through must cross.
+
+    $$P_{\mathrm{RIB}} = \frac{V_V}{4}\,P_{RI}(T_e)\,n_0^2$$
+
+    Parameters
+    ----------
+    P_RI_W_m3 : float or np.ndarray
+        Radiation-plus-ionisation power coefficient, as for
+        :func:`radiation_ionization_power_from_P_RI_n_e_n_D0_V_p`, finite and
+        non-negative [W m^3].
+    n_0_m3 : float or np.ndarray
+        Initial neutral atom inventory, finite and positive [m^-3].
+    V_V_m3 : float or np.ndarray
+        Vessel volume, finite and positive [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Peak radiation-plus-ionisation power over the burn-through [W].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative coefficient, or a non-positive inventory or
+        volume.
+
+    Convention
+    ----------
+    **The maximum of the loss, not a threshold fitted to data.**  Substituting
+    the closed-box inventory into $V_p P_{RI} n_e n_D^0$ and maximising over
+    $n_e$ gives this, at $n_e = n_0 V_V/(2V_p)$ where the ionisation fraction
+    is :func:`critical_ionization_fraction_from_V_p_V_V`.  It does not depend
+    on $V_p$ at all, and it goes as $p_0^2$ at fixed temperature, which is why
+    a lower prefill eases burn-through.  Heating that exceeds it everywhere on
+    the way -- $P_\Omega + P_{\mathrm{aux}} > P_{\mathrm{RIB}}$ -- is the
+    reduced accessibility condition; it is the caller's comparison to make,
+    because $P_{RI}$ varies with $T_e$ along the way.
+
+    Limitations
+    -----------
+    Holds $P_{RI}$ fixed at one $T_e$ while $n_e$ varies, which is the reduced
+    model's simplification; DYON evolves them together.
+
+    References
+    ----------
+    .. [1] H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012)
+           103016, for the DYON burn-through model this reduces; the
+           closed-box maximisation above is derived here, not quoted.
+
+    See Also
+    --------
+    radiation_ionization_power_from_P_RI_n_e_n_D0_V_p
+    critical_ionization_fraction_from_V_p_V_V
+    atomic_inventory_from_molecular_gas
+    """
+    coefficient = np.asarray(P_RI_W_m3, dtype=float)
+    if not np.all(np.isfinite(coefficient)) or np.any(coefficient < 0.0):
+        raise ValueError(f"P_RI_W_m3 must be finite and non-negative; got {P_RI_W_m3!r}")
+    inventory = _require_positive("n_0_m3", n_0_m3)
+    vessel = _require_positive("V_V_m3", V_V_m3)
+    barrier = 0.25 * vessel * coefficient * inventory**2
+    return _maybe_scalar(barrier, P_RI_W_m3, n_0_m3, V_V_m3)
+
+
+# ------------------------------------------------------------------
 # Before the avalanche: can an EC-born electron stay?
 # ------------------------------------------------------------------
 

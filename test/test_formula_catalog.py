@@ -79,8 +79,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
         # #783 3.2/3.6-3.8 closed the lumped plasma circuit -- resistivity,
         # ring resistance, circular inductance, dIp/dt and the L/R time:
-        # 18 + 5 = 23.
-        "startup": 23,
+        # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
+        # fill: 23 + 5 = 28.
+        "startup": 28,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
