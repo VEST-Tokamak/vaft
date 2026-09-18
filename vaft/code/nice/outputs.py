@@ -84,6 +84,8 @@ def _native_psi_2d(output: Path, psi_factor: float):
 def _native_ods(output: Path, cocos: int, sign_ip: float = 1, sign_b0: float = 1):
     from omas import ODS
 
+    from vaft.omas.general import set_ods_cocos
+
     if cocos != 11:
         raise ValueError(
             "standalone native output conversion currently supports COCOS 11 only"
@@ -188,7 +190,8 @@ def _native_ods(output: Path, cocos: int, sign_ip: float = 1, sign_b0: float = 1
         errors.append(f"native 2-D psi: {exc}")
     ods["equilibrium.code.name"] = "NICE"
     ods["equilibrium.code.library.0.name"] = "NICE"
-    ods["equilibrium.code.parameters"] = json.dumps({"cocos": int(cocos)})
+    # The declaration ods_cocos() and ods_psi_to_wb_per_radian_factor() read.
+    set_ods_cocos(ods, cocos, source="nice")
     return ods, errors
 
 

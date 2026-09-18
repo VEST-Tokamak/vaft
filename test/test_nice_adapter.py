@@ -216,7 +216,45 @@ def test_native_flux_profiles_convert_from_nicpp(tmp_path):
     assert ods[b + ".profiles_1d.dpressure_dpsi"][0] == pytest.approx(-30 / (2 * np.pi))
     assert ods[b + ".profiles_1d.f"][0] == pytest.approx(-0.08)
     assert ods[b + ".profiles_1d.q"][0] == 2
+    # Declared where VAFT's readers look, so none of them falls back to guessing
+    # whether psi is in Wb or Wb/rad.
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+    from vaft.omas.general import ods_cocos
 
+    assert ods_cocos(ods) == 11
+    assert ods_psi_to_wb_per_radian_factor(ods) == pytest.approx(1 / (2 * np.pi))
+
+
+
+def test_psi_derivative_profiles_compare_per_radian(tmp_path, monkeypatch):
+    import copy
+
+    import vaft.data.eqdsk as eqdsk
+    from vaft.code.nice import compare_equilibria
+    from vaft.code.nice.outputs import _native_ods
+
+    (tmp_path / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2\n"
+    )
+    (
+        tmp_path
+        / "dataEqui_profiles_psi_rhotornorm_pressure_f_dpdpsi_fdfdpsi_jtor_q_Ne.txt"
+    ).write_text("0.331 1 0.01 0.5 1000 0.08 -30 -40 100000 2 1e18\n")
+    nice, _ = _native_ods(tmp_path, 11, -1, -1)
+    # The same equilibrium as a legacy EFIT artifact storing psi in Wb/rad:
+    # its psi-derivatives are 2*pi larger.
+    efit = copy.deepcopy(nice)
+    b = "equilibrium.time_slice.0.profiles_1d"
+    for name in ("dpressure_dpsi", "f_df_dpsi"):
+        efit[f"{b}.{name}"] = np.asarray(nice[f"{b}.{name}"]) * 2 * np.pi
+    monkeypatch.setattr(
+        eqdsk,
+        "ods_psi_to_wb_per_radian_factor",
+        lambda ods, index=0: 1.0 if ods is efit else 1 / (2 * np.pi),
+    )
+    report = compare_equilibria(nice, efit, 0.331)
+    assert report["profiles"]["dpressure_dpsi"]["max_abs"] == pytest.approx(0, abs=1e-12)
+    assert report["profiles"]["f_df_dpsi"]["max_abs"] == pytest.approx(0, abs=1e-12)
 
 def test_shared_constraints_preserve_raw_conditioned_and_fixed_responses(tmp_path):
     ods = _ods()

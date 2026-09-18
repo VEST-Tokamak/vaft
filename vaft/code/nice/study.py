@@ -188,11 +188,25 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
         )
     except Exception:
         values["lcfs_rms_m"] = float("nan")
+    # psi-derivative profiles are compared per Wb/rad: the EFIT side may be a
+    # legacy artifact storing the g-file's Wb/rad, NICE's is full Wb, and the
+    # two differ by 2*pi without either looking wrong.
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+
+    psi_factor = {}
+    for side, ods, index in (("nice", nice_ods, ni), ("efit", efit_ods, ei)):
+        try:
+            psi_factor[side] = float(ods_psi_to_wb_per_radian_factor(ods, index))
+        except Exception:
+            psi_factor[side] = float("nan")
+    per_psi = {"dpressure_dpsi", "f_df_dpsi"}
     profiles = {}
     for name in ("pressure", "dpressure_dpsi", "f_df_dpsi", "j_tor", "q"):
         try:
             nv = np.asarray(nice_ods[f"{nb}.profiles_1d.{name}"], float)
             ev = np.asarray(efit_ods[f"{eb}.profiles_1d.{name}"], float)
+            if name in per_psi:
+                nv, ev = nv / psi_factor["nice"], ev / psi_factor["efit"]
             grid = np.linspace(0.0, 1.0, 101)
             delta = np.interp(grid, np.linspace(0, 1, len(nv)), nv) - np.interp(
                 grid, np.linspace(0, 1, len(ev)), ev
@@ -209,6 +223,7 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
         "efit_index": ei,
         "quantities": values,
         "profiles": profiles,
+        "psi_to_wb_per_radian_factor": psi_factor,
     }
 
 
