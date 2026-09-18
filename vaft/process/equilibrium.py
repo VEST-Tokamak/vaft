@@ -5471,11 +5471,24 @@ def integrate_romero_closure(
             current, inductance, relative, np.interp(tt, t, v_b), v_r, k, tau
         )
 
+    def current_crosses_zero(tt, state):
+        return state[0]
+
+    # A sign change between solver stages never evaluates exactly zero, so the
+    # rate function's non-zero check alone would let the trajectory run on
+    # through the reversal, where 1/I_p makes dL_i/dt diverge.
+    current_crosses_zero.terminal = True
+
     scale = np.array([abs(I_p0), L_i0, max(abs(V_CB0), float(np.max(np.abs(v_b))), 1e-3)])
     solution = solve_ivp(
         rates, (t[0], t[-1]), [I_p0, L_i0, V_CB0], t_eval=t,
-        rtol=rtol, atol=1e-12 * scale, method="RK45",
+        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_crosses_zero,
     )
+    if solution.status == 1:
+        raise ValueError(
+            f"the plasma current reaches zero at t = {solution.t_events[0][0]:.6g} s; "
+            "L_i is undefined through the reversal -- end the window before it"
+        )
     if not solution.success:
         raise ValueError(f"the closure could not be integrated: {solution.message}")
     current, inductance, relative = solution.y

@@ -103,3 +103,14 @@ def test_a_malformed_setup_is_refused(kwargs, match):
     call.update(kwargs)
     with pytest.raises(ValueError, match=match):
         integrate_romero_closure(**call)
+
+
+def test_a_current_reversal_is_refused_where_it_happens():
+    # A negative boundary voltage drives the current through zero; the solver
+    # never samples exactly zero there, so the crossing must be caught as an
+    # event, not left to the rate function's non-zero check.
+    with pytest.raises(ValueError, match="reaches zero at t ="):
+        integrate_romero_closure(
+            np.linspace(0.0, 0.05, 51), -3.0, 1.0e-5, 0.0,
+            I_p0=2.0e3, L_i0=1.2e-7, k=0.5, tau=0.01,
+        )
