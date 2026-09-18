@@ -18,7 +18,7 @@ from vaft.omas import compare_ods
 
 
 def test_sample_registry_returns_both_packaged_artifacts():
-    assert vaft.data.available_samples() == (39915, 41524, 41672)
+    assert vaft.data.available_samples() == (39915, 41524, 41672, 48224)
     omas_path = vaft.data.sample(39915, representation="omas")
     imas_path = vaft.data.sample(39915, representation="imas")
 
@@ -35,7 +35,7 @@ def test_sample_registry_returns_both_packaged_artifacts():
 
 
 def test_sample_registry_errors_are_actionable():
-    with pytest.raises(ValueError, match="available shots: 39915, 41524, 41672"):
+    with pytest.raises(ValueError, match="available shots: 39915, 41524, 41672, 48224"):
         vaft.data.sample(1)
     with pytest.raises(ValueError, match="expected one of: imas, omas"):
         vaft.data.sample(39915, representation="pickle")
@@ -276,6 +276,12 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
         text=True,
     )
     sample_root = build_lib / "vaft" / "data" / "samples" / "39915"
+    # Only 39915 ships: the other samples' manifests do, their artifacts do not.
+    for shot in (41524, 41672, 48224):
+        shot_root = build_lib / "vaft" / "data" / "samples" / str(shot)
+        assert (shot_root / "manifest.yaml").is_file()
+        assert not (shot_root / "omas.json.gz").exists()
+    assert not (build_lib / "vaft" / "data" / "kineticEfit").exists()
     manifest = yaml.safe_load((sample_root / "manifest.yaml").read_text(encoding="utf-8"))
     assert manifest["generation"]["distribution_variant"] == "wheel"
     assert manifest["generation"]["equilibrium_time_slices"] == 3
@@ -371,3 +377,106 @@ def test_em_coupling_is_reconstructible_from_the_packaged_geometry():
     assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
     assert len(ods["em_coupling.active_coils"]) == len(ods["pf_active.coil"])
     assert len(ods["em_coupling.passive_loops"]) == len(ods["pf_passive.loop"])
+
+
+@pytest.mark.parametrize("shot", [39915, 41524, 41672])
+def test_pipeline_samples_carry_efit_reconstructed_constraints(shot):
+    """The m-file replay (#952) filled reconstructed/chi_squared, and nothing else.
+
+    EFIT's reported chi-square on these runs is the plasma-current term: the
+    magnetics are weighted out (sigma = weight * 1e4 under legacy_weight), so
+    they contribute ~1e-7 of it at most.
+    """
+    manifest = vaft.data.sample_manifest(shot)
+    record = manifest["generation"]["efit_constraints"]
+    assert manifest["pipeline"]["efit"]["optional_outputs"]["mfile"]["status"] == "regenerated"
+    assert record["reproduction"]["max_psi_relative_difference"] < 1e-3
+    ods = vaft.omas.sample_ods(shot)
+    for index in range(len(ods["equilibrium.time_slice"])):
+        root = f"equilibrium.time_slice.{index}.constraints"
+        for family in ("bpol_probe", "flux_loop"):
+            for channel in range(len(ods[f"{root}.{family}"])):
+                assert np.isfinite(ods[f"{root}.{family}.{channel}.reconstructed"])
+                assert np.isfinite(ods[f"{root}.{family}.{channel}.chi_squared"])
+        fitted_pf = [
+            channel for channel in range(len(ods[f"{root}.pf_current"]))
+            if np.isfinite(ods[f"{root}.pf_current.{channel}.reconstructed"])
+        ]
+        # the run's table had 16 coil groups; the other ten entries carry no current
+        assert len(fitted_pf) == 16
+        ip_chi = float(ods[f"{root}.ip.chi_squared"])
+        magnetics_chi = sum(
+            float(ods[f"{root}.{family}.{channel}.chi_squared"])
+            for family in ("bpol_probe", "flux_loop")
+            for channel in range(len(ods[f"{root}.{family}"]))
+        )
+        assert np.isfinite(ip_chi) and ip_chi > 0.0
+        assert magnetics_chi < 1e-5 * max(ip_chi, 1.0)
+        if f"equilibrium.time_slice.{index}.boundary.outline.r" in ods:
+            assert float(ods[f"{root}.ip.reconstructed"]) == pytest.approx(
+                float(ods[f"{root}.ip.measured"]), rel=1e-6
+            )
+        else:
+            # the dead trailing slice: EFIT failed in `bound` and wrote zero current
+            assert float(ods[f"{root}.ip.reconstructed"]) == 0.0
+    # the flux-loop reconstruction is stored in Wb like the measurement
+    from vaft.omas.efit_quality import fit_quality_metrics
+
+    metrics = fit_quality_metrics(ods, time_slice=0)
+    assert metrics["families"]["flux_loop"]["sigma_unit_factor"] == pytest.approx(
+        2 * np.pi, rel=1e-4
+    )
+    assert metrics["chi_squared_share"]["ip"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():
+    manifest = vaft.data.sample_manifest(48224)
+    path = vaft.data.sample(48224, representation="omas")
+    assert manifest["representations"]["omas"]["package"] == "repository-only"
+    assert verify_sample_artifacts(path.parent, manifest) == {
+        "omas": manifest["representations"]["omas"]["sha256"]
+    }
+    ods = vaft.omas.sample_ods(48224)
+    assert ods["dataset_description.data_entry.pulse"] == 48224
+    acceptance = manifest["acceptance"]
+    assert len(ods["thomson_scattering.channel"]) == acceptance["thomson_scattering"]["channel_count"]
+    assert len(ods["charge_exchange.channel"]) == acceptance["charge_exchange"]["channel_count"]
+    assert len(ods["core_profiles.profiles_1d"]) == acceptance["core_profiles"]["slice_count"]
+    np.testing.assert_allclose(ods["equilibrium.time"], acceptance["equilibrium_times"])
+    for ids in acceptance["required_ids"]:
+        assert ids in ods
+    # the full 17-point limiter, not the database's 5-point stub
+    from omas import ODS
+    from vaft.machine_mapping.wall import wall
+
+    reference = ODS()
+    wall(reference)
+    for axis in ("r", "z"):
+        np.testing.assert_allclose(
+            ods[f"wall.description_2d.0.limiter.unit.0.outline.{axis}"],
+            reference[f"wall.description_2d.0.limiter.unit.0.outline.{axis}"],
+        )
+
+
+def test_kinetic_sample_48224_carries_three_distinct_equilibria():
+    equilibria = vaft.omas.sample_equilibria(48224)
+    assert list(equilibria) == ["efit_reference", "efit_kinetic", "chease"]
+    q_axis = {}
+    for label, ods in equilibria.items():
+        np.testing.assert_allclose(ods["equilibrium.time"], [0.3])
+        q_axis[label] = float(ods["equilibrium.time_slice.0.global_quantities.q_axis"])
+        assert abs(float(ods["equilibrium.time_slice.0.global_quantities.ip"])) > 1.0e5
+    psi = {
+        label: np.asarray(ods["equilibrium.time_slice.0.profiles_2d.0.psi"])
+        for label, ods in equilibria.items()
+    }
+    assert psi["chease"].shape == (513, 513)
+    assert not np.allclose(psi["efit_reference"], psi["efit_kinetic"])
+    # the pressure constraint moves the axis q, and CHEASE keeps the kinetic one
+    assert q_axis["efit_reference"] > 2.0 * q_axis["efit_kinetic"]
+    assert q_axis["chease"] == pytest.approx(q_axis["efit_kinetic"], rel=0.02)
+
+
+def test_sample_equilibria_rejects_a_sample_without_them():
+    with pytest.raises(ValueError, match="declares no equilibria"):
+        vaft.omas.sample_equilibria(39915)

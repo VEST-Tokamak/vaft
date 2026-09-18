@@ -44,7 +44,11 @@
    ".models.series:markerfacecolor=none": 1
   },
   "equilibrium_overview_fit_quality": {
-   ".models.series:color=black": 3
+   ".models.series:color=0.6": 12,
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 1,
+   ".models.series:color=tab:red": 1,
+   ".models.series:markerfacecolor=none": 1
   },
   "equilibrium_overview_pressure_weight_scan": {
    ".models.series:color=#377eb8": 2,

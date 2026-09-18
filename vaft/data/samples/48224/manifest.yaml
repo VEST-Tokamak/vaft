@@ -1,0 +1,110 @@
+schema_version: 1
+reference_id: vest-48224-kinetic-300ms-v1
+shot: 48224
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: kinetic-profile-sample
+  description: >-
+    One slice of shot 48224 at 300 ms with the kinetic diagnostics beside it:
+    Thomson scattering (7 channels, 0.298-0.307 s), ion Doppler
+    charge_exchange (40 channels, C3+ impurity ion), the fitted
+    core_profiles slice and the equilibrium the profiles were mapped on. No
+    magnetics are packaged for this shot, so the EFIT runs below cannot be
+    replayed from constraints.
+  path: kineticEfit/ods_48224_300ms.json
+  sha256: b50eee7ba0b3a0f35800116532b942ef76725ccfc0b3e48063f833e53eab4f84
+  raw_inputs:
+  - path: kineticEfit/NeTe_48224.mat
+    sha256: c574c82de7d9e62fe737ab321c575fc03671d699952272e8c9a07c15dcd858c4
+  - path: kineticEfit/IDS_48224.mat
+    sha256: a1d9198b7025874824c6b5e6fa739833338de344b3c04540a68d58449471ca7b
+  recipe: vaft/data/README.md (kineticEfit section)
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    size: 713957
+    sha256: 6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7
+generation:
+  command: >-
+    gzip.compress(open('vaft/data/kineticEfit/ods_48224_300ms.json','rb').read(),
+    compresslevel=9, mtime=0)
+  canonical_source: ../../kineticEfit/ods_48224_300ms.json
+  canonical_policy: repository-only
+  note: >-
+    omas.json.gz decompresses to the frozen kinetic-profile ODS byte for byte;
+    nothing is re-derived. Its equilibrium is the g048224.00300 slice the
+    core_profiles were mapped on, so the profile coordinates and the
+    equilibrium agree; it stores psi in the legacy Wb/rad and declares no
+    COCOS (readers probe it, see vaft/data/README.md).
+  wall: >-
+    wall.description_2d.0.limiter.unit.0.outline is the full 17-point VEST
+    limiter, identical to vaft.machine_mapping.wall, not the 5-point
+    database stub.
+equilibria:
+  loader: vaft.omas.sample_equilibria(48224)
+  conversion: vaft.data.read_geqdsk(path).to_omas() (psi converted to Wb)
+  time: 0.3
+  entries:
+    efit_reference:
+      path: kineticEfit/g048224.00300
+      sha256: 9135c8aace3646bc4394195f3cc9a7a7b66b406629ec72c9fe2743ac9a416c9e
+      code: EFIT (build dated 09/12/2024)
+      role: >-
+        The g-file packaged as the kinetic chain's input equilibrium (the
+        notebook kinetic_efit_end_to_end.ipynb labels it "Magnetic EFIT"). It
+        is not shown to be a magnetics-only fit: its &OUT1 records KPRFIT
+        pressure points (npress = 6) and its &CHIOUT pressure chi-square is
+        nonzero, which EFIT computes only for FWTPRE > 0
+        (update_parameters.F90). The pressure weights themselves are not
+        recorded in the g-file, so how strongly it was pressure-constrained is
+        unknown.
+    efit_kinetic:
+      path: kineticEfit/g048224.00300.kinetic_efit
+      sha256: 6a45219140f40cb924e832a383158ea4c116cf2c62264ef0fe3d17533ea56f64
+      code: EFIT (build dated 09/12/2024)
+      role: >-
+        VAFT kinetic EFIT (vaft.code.efit.run_kinetic_efit, six pressure
+        points: raw6 in the notebook run, five Thomson points plus the
+        psi_N = 1, p = 0 edge anchor) on the filedb base k-file, converged at
+        PLASMA scale 1.0.
+    chease:
+      path: kineticEfit/g048224.00300.chease
+      sha256: 9316e0004845cc7479a412fa8f4d07b6a0d5cd820837e2587cc5ca16409a5c39
+      code: CHEASE (header COCOS=02, 513 x 513)
+      role: >-
+        CHEASE refinement of efit_kinetic. The header declares COCOS 2 but its
+        signs identify COCOS 7/8, so the conversion leaves it unlabelled; its
+        psi is shifted to zero on the boundary and Ip is negative.
+  not_reproducible: >-
+    The base k-file (/srv/vest.filedb/public/48224/efit/kfile/k048224.00300)
+    is not packaged and no magnetics are, so none of these runs can be
+    replayed offline.
+acceptance:
+  thomson_scattering:
+    channel_count: 7
+  charge_exchange:
+    channel_count: 40
+  core_profiles:
+    slice_count: 1
+  equilibrium_times:
+  - 0.3
+  equilibria:
+  - efit_reference
+  - efit_kinetic
+  - chease
+  required_ids:
+  - dataset_description
+  - thomson_scattering
+  - charge_exchange
+  - core_profiles
+  - equilibrium
+  - wall
+packaging_policy:
+  compact_pair: repository-only
+  canonical_source: repository-only
+  equilibria: repository-only
