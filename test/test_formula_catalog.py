@@ -88,8 +88,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # ring resistance, circular inductance, dIp/dt and the L/R time:
         # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
         # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
-        # the gas-keyed threshold: 28 + 2 = 30.
-        "startup": 30,
+        # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
+        # internal inductive-voltage splits: 30 + 2 = 32.
+        "startup": 32,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
