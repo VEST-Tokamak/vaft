@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: coils_non_axisymmetric · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Scientific diagrams · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/wall_modes/" />
+            <link rel="prev" href="/vaft/develop/reference/process/perturbation/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/neoclassical/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -145,7 +145,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    <li class="chapter active" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
                     
                         <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
                     </li>
@@ -232,7 +232,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: coils_non_axisymmetric</a>
+                            <a href="." >Scientific diagrams</a>
                         
                     </h1>
                 </div>
@@ -258,196 +258,158 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_coils_non_axisymmetric">Process reference: coils_non_axisymmetric</h1>
+                        <h1 id="/reference/Diagrams">Scientific diagrams</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.coils_non_axisymmetric, read from the standardized docstrings (issue 252).</dd>
-    <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Architecture position</dt><dd>Explanatory schematics drawn from vaft.formula physics and rendered to self-contained SVG.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Nothing to build a diagram or read its TikZ source; latex and dvisvgm to render a new SVG.</dd>
+    <dt>Expected result</dt><dd>One physical model drawn consistently in every projection, and committed SVG assets whose freshness CI checks.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
+<p><code class="language-plaintext highlighter-rouge">vaft.diagram</code> draws <strong>concepts</strong>: topology, coordinate systems, workflows. It does not draw data. The
+three layers split the work:</p>
 
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/coils_non_axisymmetric.py"><code class="language-plaintext highlighter-rouge">vaft/process/coils_non_axisymmetric.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("coils_non_axisymmetric.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Owns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code></td>
+      <td>the physics: every equation a diagram depends on</td>
+      <td><code class="language-plaintext highlighter-rouge">helical_phase</code>, <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.diagram</code></td>
+      <td>explanatory geometry: sampling, projection, camera, labels</td>
+      <td><code class="language-plaintext highlighter-rouge">magnetic_island(projection="3d")</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot</code></td>
+      <td>data and numerical results from an ODS</td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_2d_profiles</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="overview">Overview</h2>
+<p>A diagram never restates an equation. It calls the formula function, so the picture and the
+<a href="/vaft/develop/reference/formula/">formula reference</a> cannot drift apart.</p>
 
-<p>The two operations every 3-D coil workflow repeats, on plain arrays, with the
-sign conventions stated once.  Geometry objects live in
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric_geometry</code>; the IMAS mapper in
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.coils_non_axisymmetric</code>; the GPEC <code class="language-plaintext highlighter-rouge">coil.in</code>
-serialization in <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code>.  Nothing here reads an ODS or knows
-which machine the coils belong to.</p>
+<h2 id="magnetic-island">Magnetic island</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">d</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">magnetic_island</span><span class="p">(</span>
+    <span class="n">m</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.16</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="sh">"</span><span class="s">poloidal</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">r_s</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">,</span> <span class="n">triangularity</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span>   <span class="c1"># D-shaped plasma; defaults give a circle
+</span><span class="p">)</span>
+<span class="n">d</span><span class="p">.</span><span class="n">tikz</span>       <span class="c1"># the LaTeX/TikZ source; needs no TeX installation
+# With latex and dvisvgm installed:
+# d            -&gt; displays inline in Jupyter (SVG)
+# d.save("island.svg")
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Projection</th>
+      <th>Poloidal section at $\phi=0$</th>
+      <th>Top view $(R,\phi)$</th>
+      <th>3-D view of the O and X helices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td> </td>
+      <td><img src="/vaft/develop/assets/diagrams/magnetic_island_poloidal.svg" alt="poloidal" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/magnetic_island_top.svg" alt="top" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/magnetic_island_3d.svg" alt="3d" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>All three views are drawn from one model, and the convention is the same in each:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>Definition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>helical phase</td>
+      <td>$\xi = m\theta^* - n\phi - \phi_0$, where $\theta^*$ is the straight-field-line (PEST) angle of each surface, running from the outboard midplane towards the top, and $\phi$ runs counter-clockwise seen from above</td>
+    </tr>
+    <tr>
+      <td>straight-field-line angle</td>
+      <td>$\theta^* = 2\pi\int \mathcal{J}/R^2\,d\theta / \oint \mathcal{J}/R^2\,d\theta$ (<code class="language-plaintext highlighter-rouge">vaft.formula.straight_field_line_angle</code>), taken from the surface geometry alone. O- and X-points are evenly spaced in $\theta^*$, so they spread out on the low-field side even on circular surfaces</td>
+    </tr>
+    <tr>
+      <td>flux function</td>
+      <td>$\mathcal{H}(x,\xi) = \tfrac12 x^2 - (w/4)^2\cos\xi$, with $x = r - r_s$</td>
+    </tr>
+    <tr>
+      <td>O-points / X-points</td>
+      <td>$\xi = 0$ (minimum of $\mathcal{H}$) / $\xi = \pi$ (saddle): $m$ of each per poloidal section, alternating</td>
+    </tr>
+    <tr>
+      <td>separatrix</td>
+      <td>$\mathcal{H} = (w/4)^2$, so $x_\mathrm{sep} = \tfrac{w}{2}\lvert\cos(\xi/2)\rvert$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">width</code></td>
+      <td>the <strong>full</strong> radial width at the O-point, in units of the minor radius</td>
+    </tr>
+    <tr>
+      <td>geometry</td>
+      <td>Miller shaping: $R = R_0 + r\cos(\theta + \arcsin\delta(r)\,\sin\theta)$ and $Z = \kappa r\sin\theta$, with $\delta(r) = \delta\,r$ so the surfaces stay nested and become circular towards the axis. Lengths are in units of the minor radius $a$</td>
+    </tr>
+    <tr>
+      <td>caveats</td>
+      <td>The surfaces are prescribed, with no Shafranov shift, so $\theta^*$ is exact for these surfaces rather than for a Grad-Shafranov equilibrium. <code class="language-plaintext highlighter-rouge">width</code> is a width in the flux label $r$ and is a physical distance only on the outboard midplane</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The top view suppresses $Z$, so crossings of the projected O and X loci there are not reconnection
+points. The separatrix and $w$ are only visible in the poloidal section.</p>
+
+<h2 id="using-the-committed-assets">Using the committed assets</h2>
+
+<p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code> – complex Fourier coefficient of a
-per-sector quantity (typically coil currents) for each toroidal mode
-number, <code class="language-plaintext highlighter-rouge">C_n = &lt;v_k exp(-i n phi_k)&gt;</code>.</li>
-  <li><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code> – vacuum magnetic field of closed polyline
-filaments carrying given currents, at arbitrary probe points.</li>
+  <li>Documentation pages: <code class="language-plaintext highlighter-rouge">![island]({{ '/assets/diagrams/magnetic_island_poloidal.svg' | relative_url }})</code>.</li>
+  <li>The README, notebooks and slides: link or copy the SVG. It is self-contained, with glyphs stored as
+paths and no external fonts or images.</li>
 </ul>
 
-<h2 id="functions">Functions</h2>
+<p>They do not ship in the wheel. An installed package builds any diagram from its packaged TikZ
+template.</p>
 
-<ul class="formula-index">
-  <li><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a> &mdash; Vacuum magnetic field of closed polyline filaments at probe points.
-</li>
-  <li><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a> &mdash; Complex toroidal Fourier coefficient of a per-sector quantity.
-</li>
-</ul>
+<h2 id="regenerating-and-checking">Regenerating and checking</h2>
 
-<h3 id="biot_savart_filaments"><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code></h3>
-
-<p class="formula-signature"><code>biot_savart_filaments(points_xyz, currents_a, probes_xyz)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Vacuum magnetic field of closed polyline filaments at probe points.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>points_xyz</code></td><td>array_like</td><td>m</td><td><p>Filament vertices, shape <code class="language-plaintext highlighter-rouge">(F, P, 3)</code> or a sequence of <code class="language-plaintext highlighter-rouge">F</code> arrays <code class="language-plaintext highlighter-rouge">(P_f, 3)</code>; each filament is traversed in vertex order and must be closed (first vertex equals last).</p>
-</td></tr>
-  <tr><td><code>currents_a</code></td><td>array_like</td><td>A</td><td><p>Current in each filament, positive along the vertex order, shape <code class="language-plaintext highlighter-rouge">(F,)</code>; multiply by the winding turns first when a filament stands for a multi-turn coil.</p>
-</td></tr>
-  <tr><td><code>probes_xyz</code></td><td>array_like</td><td>m</td><td><p>Observation points, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>Cartesian field <code class="language-plaintext highlighter-rouge">(B_x, B_y, B_z)</code> at each probe, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>ValueError
-    A filament is not closed, the number of currents differs from the
-    number of filaments, or a probe coincides with a segment midpoint
-    (the field is singular on the conductor).</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Right-handed Cartesian axes.  Each straight segment contributes
-<code class="language-plaintext highlighter-rouge">mu0/(4 pi) I (dl x r) / |r|^3</code> with <code class="language-plaintext highlighter-rouge">dl</code> along the vertex order and
-<code class="language-plaintext highlighter-rouge">r</code> from the segment midpoint to the probe (midpoint rule), so the
-field is the one the right-hand rule assigns to a current flowing in the
-vertex order.  A coil traversed the other way, or a negative current,
-flips the sign.</p>
-
-<p><strong>Assumptions.</strong></p>
-
-<p>Filaments are thin (no conductor cross-section); the midpoint rule is
-second-order accurate in segment length.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.  Any set of polyline coils: RMP, error-field
-correction, PF coils sampled as polygons.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Transient memory is <code class="language-plaintext highlighter-rouge">O(S N)</code> per filament (<code class="language-plaintext highlighter-rouge">S</code> segments, <code class="language-plaintext highlighter-rouge">N</code>
-probes; two <code class="language-plaintext highlighter-rouge">(N, S, 3)</code> float arrays), whichever input form is used;
-call in probe blocks when <code class="language-plaintext highlighter-rouge">S * N</code> reaches ~1e7.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
-  <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Sec. 5.2: the Biot-Savart law for a line current.
-</li>
-  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> and <code class="language-plaintext highlighter-rouge">library/mast_u_input_convertor.py</code> carried three copies of this midpoint-rule kernel; this is the single replacement.
-</li>
-</ol>
-
-<h3 id="toroidal_mode_decomposition"><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code></h3>
-
-<p class="formula-signature"><code>toroidal_mode_decomposition(phi_rad, values, modes)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Complex toroidal Fourier coefficient of a per-sector quantity.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle of each sector sample, any order, shape <code class="language-plaintext highlighter-rouge">(K,)</code>.</p>
-</td></tr>
-  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The quantity at each sector, real or complex, shape <code class="language-plaintext highlighter-rouge">(K,)</code>; coil currents are the usual case.</p>
-</td></tr>
-  <tr><td><code>modes</code></td><td>iterable of int</td><td>-</td><td><p>Toroidal mode numbers <code class="language-plaintext highlighter-rouge">n</code> to evaluate.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict[int, complex]</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">C_n</code> for each requested <code class="language-plaintext highlighter-rouge">n</code>, in the units of <code class="language-plaintext highlighter-rouge">values</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">phi_rad</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, are not one-dimensional,
-    or are empty.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">C_n = (1/K) sum_k v_k exp(-i n phi_k)</code>, the plain sample mean, so a
-pattern <code class="language-plaintext highlighter-rouge">v_k = A cos(n phi_k + delta)</code> returns <code class="language-plaintext highlighter-rouge">C_n = (A/2) exp(+i delta)</code>
-when the sectors resolve <code class="language-plaintext highlighter-rouge">n</code> without aliasing: the peak amplitude is
-<code class="language-plaintext highlighter-rouge">2 |C_n|</code> and the phase of <code class="language-plaintext highlighter-rouge">C_n</code> is the pattern’s phase <code class="language-plaintext highlighter-rouge">delta</code> at
-<code class="language-plaintext highlighter-rouge">phi = 0</code>.  The <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code> kernel is the one GPEC’s <code class="language-plaintext highlighter-rouge">coil.in</code>
-documentation and the legacy hsyun_GPEC <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code>
-use; a <code class="language-plaintext highlighter-rouge">exp(+i n phi)</code> convention conjugates every coefficient.  No
-normalisation by <code class="language-plaintext highlighter-rouge">2/K</code> is applied, so <code class="language-plaintext highlighter-rouge">C_0</code> is the mean.</p>
-
-<p><strong>Assumptions.</strong></p>
-
-<p>Uniform weighting of the sectors.  With <code class="language-plaintext highlighter-rouge">K</code> equally spaced sectors the
-coefficients are exact for <code class="language-plaintext highlighter-rouge">|n| &lt; K/2</code>; with fewer or unevenly spaced
-sectors they are the least-squares-free sample projection and alias.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.  Any toroidal array of discrete elements: RMP coil
-rows, error-field correction coils, saddle loops.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
-  <li>GPEC <code class="language-plaintext highlighter-rouge">coil.in</code> documentation: per-coil currents are combined per toroidal harmonic with <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code>.
-</li>
-  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code> (same kernel), ported unchanged.
-</li>
-</ol>
-
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
-
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.diagram.build            <span class="c"># re-render diagrams whose TikZ source changed</span>
+python <span class="nt">-m</span> vaft.diagram.build <span class="nt">--check</span>    <span class="c"># verify the committed assets; needs no TeX</span>
 </code></pre></div></div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">manifest.json</code>, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
+was rendered from, together with the SHA-256 of the SVG itself. <code class="language-plaintext highlighter-rouge">--check</code> rebuilds the TikZ in pure
+Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
+missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+and not on SVG bytes, because two <code class="language-plaintext highlighter-rouge">dvisvgm</code> releases write different but equally correct SVG for the
+same picture. Rendering needs <code class="language-plaintext highlighter-rouge">latex</code> and <code class="language-plaintext highlighter-rouge">dvisvgm</code>, which TeX Live and MacTeX provide. The generated
+<code class="language-plaintext highlighter-rouge">.tex</code>, PDF, PNG and LaTeX by-products are never committed.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -460,7 +422,13 @@ The same text is available offline as <code class="language-plaintext highlighte
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
         
       </ul>
     </div>
@@ -526,13 +494,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/wall_modes/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: wall_modes">
+                        <a href="/vaft/develop/reference/process/perturbation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: perturbation">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/neoclassical/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: neoclassical">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -548,7 +516,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#biot_savart_filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">biot_savart_filaments</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_mode_decomposition" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_mode_decomposition</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -564,11 +532,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: neoclassical",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_neoclassical.md",
-            "ref": "_guide/Formula_reference_neoclassical.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -660,8 +628,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_coils_non_axisymmetric.md",
-        "mtime": "2026-09-05 10:00:00 +0000",
+        "path": "_guide/Diagrams.md",
+        "mtime": "2026-09-17 09:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

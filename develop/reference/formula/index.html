@@ -145,6 +145,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -234,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>42a2e07</code>. What is described
+  <code>58a2893</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -294,7 +300,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>81</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>82</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -302,7 +308,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>21</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>24</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -326,7 +332,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
-    <td><code>vaft.formula.startup</code></td><td>23</td><td>Start-up physics from the gas fill to the avalanche.</td>
+    <td><code>vaft.formula.startup</code></td><td>28</td><td>Start-up physics from the gas fill to the avalanche.</td>
   </tr>
   </tbody>
 </table>
@@ -417,7 +423,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">81 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">82 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -582,6 +588,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a> <em>(convention)</em> &mdash; Stored energy as pressure times volume, $W = pV$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#straight_field_line_angle"><code>straight_field_line_angle</code></a> <em>(convention)</em> &mdash; Straight-field-line (PEST) poloidal angle on one flux surface.
+</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#surface_poloidal_flux_from_psi_boundary"><code>surface_poloidal_flux_from_psi_boundary</code></a> <em>(convention)</em> &mdash; Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#toroidal_electric_field"><code>toroidal_electric_field</code></a> <em>(convention)</em> &mdash; Toroidal electric field $E_\varphi = -\dfrac{1}{2\pi R}\dfrac{\partial\psi}{\partial t}$.
@@ -677,7 +685,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="stability">Stability</h2>
 
-<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">21 functions</a>.</p>
+<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">24 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
@@ -701,6 +709,12 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/stability/#greenwald_density"><code>greenwald_density</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Greenwald density limit $n_G$.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a> <em>(convention)</em> &mdash; Greenwald fraction $f_G = n_e/n_G$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#helical_phase"><code>helical_phase</code></a> <em>(convention)</em> &mdash; Helical phase of an $m/n$ perturbation at a point on a flux surface.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a> <em>(convention)</em> &mdash; Local flux function of a constant-$\psi$ magnetic island.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#island_separatrix_half_width"><code>island_separatrix_half_width</code></a> <em>(convention)</em> &mdash; Radial half-width of the island separatrix at a given helical phase.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> <em>(convention)</em> &mdash; Full magnetic island width from the pitch-resonant flux.
 </li>
@@ -899,12 +913,14 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="startup">Startup</h2>
 
-<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">23 functions</a>.</p>
+<p>Start-up physics from the gas fill to the avalanche. — <a href="/vaft/develop/reference/formula/startup/">28 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a> <em>(convention)</em> &mdash; Atom inventory of a molecular gas fill.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#breakdown_margin"><code>breakdown_margin</code></a> <em>(convention)</em> &mdash; Available drive relative to the Lloyd breakdown threshold.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#critical_ionization_fraction_from_V_p_V_V"><code>critical_ionization_fraction_from_V_p_V_V</code></a> <em>(convention)</em> &mdash; Ionisation fraction at the top of the radiation-ionisation barrier.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</code></a> <em>(convention)</em> &mdash; Radial derivative of the Hirshman plasma inductance.
 </li>
@@ -918,11 +934,15 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> <em>(convention)</em> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
 </li>
+  <li><a href="/vaft/develop/reference/formula/startup/#ionization_fraction_from_n_e_n_D0"><code>ionization_fraction_from_n_e_n_D0</code></a> <em>(convention)</em> &mdash; Ionisation fraction of a partially ionised hydrogenic plasma.
+</li>
   <li><a href="/vaft/develop/reference/formula/startup/#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> <em>(empirical)</em> <em>(convention)</em> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> <em>(convention)</em> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#lr_time_from_L_R"><code>lr_time_from_L_R</code></a> <em>(convention)</em> &mdash; Characteristic time of an inductive-resistive circuit.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><code>neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</code></a> <em>(convention)</em> &mdash; Neutral atom density left in the vessel after some has been ionised.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> <em>(convention)</em> &mdash; Number density of a fill gas at a measured pressure and temperature.
 </li>
@@ -937,6 +957,10 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/startup/#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></a> <em>(convention)</em> &mdash; Loop resistance of a uniform-current elliptical plasma ring.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> <em>(convention)</em> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#radiation_ionization_barrier_from_P_RI_n_0_V_V"><code>radiation_ionization_barrier_from_P_RI_n_0_V_V</code></a> <em>(convention)</em> &mdash; Height of the radiation-ionisation barrier a burn-through must cross.
+</li>
+  <li><a href="/vaft/develop/reference/formula/startup/#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><code>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</code></a> <em>(convention)</em> &mdash; Radiation and ionisation power lost by a partially ionised plasma.
 </li>
   <li><a href="/vaft/develop/reference/formula/startup/#resistivity_from_n_e_nu_e"><code>resistivity_from_n_e_nu_e</code></a> <em>(convention)</em> &mdash; Resistivity from the electron momentum-transfer collision frequency.
 </li>
@@ -1209,7 +1233,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 11:00:40 +0000"
+        "time": "2026-09-18 14:09:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

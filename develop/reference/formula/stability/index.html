@@ -145,6 +145,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -234,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>42a2e07</code>. What is described
+  <code>58a2893</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
-21 public functions.  The category overview and notation come from the module
+24 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -319,6 +325,12 @@ limits, and transport parameters.</p>
   <li><a href="#greenwald_density"><code>greenwald_density</code></a> &mdash; Greenwald density limit $n_G$.
 </li>
   <li><a href="#greenwald_fraction"><code>greenwald_fraction</code></a> &mdash; Greenwald fraction $f_G = n_e/n_G$.
+</li>
+  <li><a href="#helical_phase"><code>helical_phase</code></a> &mdash; Helical phase of an $m/n$ perturbation at a point on a flux surface.
+</li>
+  <li><a href="#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a> &mdash; Local flux function of a constant-$\psi$ magnetic island.
+</li>
+  <li><a href="#island_separatrix_half_width"><code>island_separatrix_half_width</code></a> &mdash; Radial half-width of the island separatrix at a given helical phase.
 </li>
   <li><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> &mdash; Full magnetic island width from the pitch-resonant flux.
 </li>
@@ -904,6 +916,209 @@ lower fraction.</p>
 
 <ol class="formula-references">
   <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
+</li>
+</ol>
+
+<h3 id="helical_phase"><code class="language-plaintext highlighter-rouge">helical_phase</code></h3>
+
+<p class="formula-signature"><code>helical_phase(theta, phi, m_pol, n_tor, phase=0.0)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Helical phase of an $m/n$ perturbation at a point on a flux surface.</p>
+
+\[\xi = m\,\theta - n\,\phi - \phi_0\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>theta</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Poloidal angle.</p>
+</td></tr>
+  <tr><td><code>phi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Toroidal angle.</p>
+</td></tr>
+  <tr><td><code>m_pol</code></td><td>int</td><td>-</td><td><p>Poloidal mode number.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>phase</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Phase offset $\phi_0$ of the perturbation.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase $\xi$, not wrapped.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">m_pol</code> or <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$\theta$ is a straight-field-line poloidal angle (see
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.straight_field_line_angle</code>), increasing from
+the outboard midplane towards the top of the cross-section, and $\phi$
+increases counter-clockwise seen from above, so a field line of
+$q = m/n$ keeps $\xi$ constant. In a geometric poloidal angle it does
+not, even on circular surfaces. Both mode numbers are
+positive and the sign of the helicity sits in the minus sign; a
+perturbation of the opposite helicity is $n \to -n$ in this expression,
+not a negative argument. This $\phi$ is the IMAS one; only VEST’s port
+clock numbering runs the other way (see
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions</code>), which matters when a measured
+phase is converted, not for this definition.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The one coordinate a single-helicity perturbation depends on: every point
+with the same $\xi$ on the resonant surface sees the same perturbed field.
+O-points sit at $\xi = 0$ and X-points at $\xi = \pi$ (see
+<code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>), so a fixed-$\phi$ section shows $m$ of
+each and a fixed-$\theta$ trace shows $n$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.2.
+</li>
+  <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
+</li>
+</ol>
+
+<h3 id="island_pendulum_hamiltonian"><code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code></h3>
+
+<p class="formula-signature"><code>island_pendulum_hamiltonian(x, xi, width)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Local flux function of a constant-$\psi$ magnetic island.</p>
+
+\[H(x, \xi) = \tfrac{1}{2}x^{2} - \left(\frac{w}{4}\right)^{2}\cos\xi\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>x</code></td><td>float or np.ndarray</td><td>L</td><td><p>Radial distance from the rational surface, $r - r_s$.</p>
+</td></tr>
+  <tr><td><code>xi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>float</td><td>L</td><td><p>Full island width at the O-point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>L^2</td><td><p>Helical flux function, in the square of the unit of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Normalised so that <code class="language-plaintext highlighter-rouge">width</code> is the <strong>full</strong> radial width at the O-point
+and the separatrix is the level $H = (w/4)^{2}$. The minimum
+$H = -(w/4)^{2}$ at $x = 0$, $\xi = 0$ is the O-point; the saddle at
+$x = 0$, $\xi = \pi$ is the X-point. $x$ and $w$ share one length unit,
+which the function never converts.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The helical flux a single resonant harmonic leaves near its rational
+surface: a linear shear of the helical field plus a $\cos\xi$ ripple.
+Its level sets are the perturbed flux surfaces – closed around the
+O-points inside the separatrix, open and rippled outside it. It is the
+phase portrait of a pendulum, which is where the name comes from.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Constant-$\psi$ and a single helicity, with the shear taken constant
+across the island, which is what makes the island symmetric about the
+rational surface.</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>An island narrow compared with the distance to the neighbouring rational
+surfaces and to the plasma boundary. Overlapping islands (Chirikov
+parameter near one) are outside it.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
+</li>
+  <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
+</li>
+</ol>
+
+<h3 id="island_separatrix_half_width"><code class="language-plaintext highlighter-rouge">island_separatrix_half_width</code></h3>
+
+<p class="formula-signature"><code>island_separatrix_half_width(xi, width)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Radial half-width of the island separatrix at a given helical phase.</p>
+
+\[x_\mathrm{sep}(\xi) = \frac{w}{2}\,\left|\cos\frac{\xi}{2}\right|\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>xi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
+</td></tr>
+  <tr><td><code>width</code></td><td>float</td><td>L</td><td><p>Full island width at the O-point.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>L</td><td><p>Distance from the rational surface to the separatrix, the same on both sides.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">width</code> is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The separatrix of <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>: the level
+$H = (w/4)^{2}$ solved for $x$. It is $w/2$ at the O-point ($\xi = 0$),
+so the full width there is <code class="language-plaintext highlighter-rouge">width</code>, and zero at the X-point
+($\xi = \pi$), where the two branches cross.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The boundary between field lines trapped in the island and the ones that
+pass it. The separatrix is $2\pi$-periodic in $\xi$, so a fixed-$\phi$
+section closes into $m$ lobes.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>The same constant-$\psi$, single-helicity island as
+<code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
+</li>
+  <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
 </li>
 </ol>
 
@@ -1550,7 +1765,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pendulum_hamiltonian" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pendulum_hamiltonian</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_separatrix_half_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_separatrix_half_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1668,7 +1883,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 11:00:40 +0000"
+        "time": "2026-09-18 14:09:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

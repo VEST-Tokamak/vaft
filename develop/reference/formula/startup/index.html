@@ -145,6 +145,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -234,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>42a2e07</code>. What is described
+  <code>58a2893</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -267,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/startup.py"><code class="language-plaintext highlighter-rouge">vaft/formula/startup.py</code></a>:
-23 public functions.  The category overview and notation come from the module
+28 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("startup.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -328,6 +334,8 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 </li>
   <li><a href="#breakdown_margin"><code>breakdown_margin</code></a> &mdash; Available drive relative to the Lloyd breakdown threshold.
 </li>
+  <li><a href="#critical_ionization_fraction_from_V_p_V_V"><code>critical_ionization_fraction_from_V_p_V_V</code></a> &mdash; Ionisation fraction at the top of the radiation-ionisation barrier.
+</li>
   <li><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</code></a> &mdash; Radial derivative of the Hirshman plasma inductance.
 </li>
   <li><a href="#ejiri_f3_from_alpha"><code>ejiri_f3_from_alpha</code></a> &mdash; Low-temperature geometry factor of the Ejiri mirror proxy.
@@ -340,11 +348,15 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 </li>
   <li><a href="#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a> &mdash; Order-of-magnitude margin for a current channel to overcome stray field.
 </li>
+  <li><a href="#ionization_fraction_from_n_e_n_D0"><code>ionization_fraction_from_n_e_n_D0</code></a> &mdash; Ionisation fraction of a partially ionised hydrogenic plasma.
+</li>
   <li><a href="#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a> &mdash; Lloyd threshold toroidal field for hydrogenic tokamak breakdown.
 </li>
   <li><a href="#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a> &mdash; Lloyd’s breakdown figure of merit: toroidal drive times field-line pitch.
 </li>
   <li><a href="#lr_time_from_L_R"><code>lr_time_from_L_R</code></a> &mdash; Characteristic time of an inductive-resistive circuit.
+</li>
+  <li><a href="#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><code>neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</code></a> &mdash; Neutral atom density left in the vessel after some has been ionised.
 </li>
   <li><a href="#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a> &mdash; Number density of a fill gas at a measured pressure and temperature.
 </li>
@@ -359,6 +371,10 @@ disagreement: every function below takes $|E_\parallel|$.</p>
   <li><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></a> &mdash; Loop resistance of a uniform-current elliptical plasma ring.
 </li>
   <li><a href="#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a> &mdash; Poloidal field a circular current channel makes at its own edge.
+</li>
+  <li><a href="#radiation_ionization_barrier_from_P_RI_n_0_V_V"><code>radiation_ionization_barrier_from_P_RI_n_0_V_V</code></a> &mdash; Height of the radiation-ionisation barrier a burn-through must cross.
+</li>
+  <li><a href="#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><code>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</code></a> &mdash; Radiation and ionisation power lost by a partially ionised plasma.
 </li>
   <li><a href="#resistivity_from_n_e_nu_e"><code>resistivity_from_n_e_nu_e</code></a> &mdash; Resistivity from the electron momentum-transfer collision frequency.
 </li>
@@ -500,6 +516,61 @@ no-threshold region of <code class="language-plaintext highlighter-rouge">lloyd_
   <li>B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
 </li>
   <li>D. Mueller, Phys. Plasmas 20 (2013) 058101, Sec. II.
+</li>
+</ol>
+
+<h3 id="critical_ionization_fraction_from_V_p_V_V"><code class="language-plaintext highlighter-rouge">critical_ionization_fraction_from_V_p_V_V</code></h3>
+
+<p class="formula-signature"><code>critical_ionization_fraction_from_V_p_V_V(V_p_m3, V_V_m3)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Ionisation fraction at the top of the radiation-ionisation barrier.</p>
+
+\[\gamma_{iz,\mathrm{RIB}} = \frac{V_V}{V_V + V_p}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>V_p_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Plasma volume, finite and positive.</p>
+</td></tr>
+  <tr><td><code>V_V_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Vessel volume, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Critical ionisation fraction.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive volume.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Where the loss peaks, not where burn-through is complete.</strong>  With the
+closed-box inventory of
+<code class="language-plaintext highlighter-rouge">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</code>, the
+radiation-ionisation power $V_p P_{RI} n_e n_D^0$ is largest at
+$n_e = n_0 V_V/(2V_p)$, where the ionisation fraction is exactly this.
+Past it the loss falls as the fill runs out, which is why crossing it is
+the burn-through condition.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>radiation_ionization_barrier_from_P_RI_n_0_V_V
+ionization_fraction_from_n_e_n_D0</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, for the DYON burn-through model this reduces; the closed-box maximisation above is derived here, not quoted.
 </li>
 </ol>
 
@@ -968,6 +1039,56 @@ vaft.formula.equilibrium.poloidal_field_magnitude</p>
 </li>
 </ol>
 
+<h3 id="ionization_fraction_from_n_e_n_D0"><code class="language-plaintext highlighter-rouge">ionization_fraction_from_n_e_n_D0</code></h3>
+
+<p class="formula-signature"><code>ionization_fraction_from_n_e_n_D0(n_e_m3, n_D0_m3)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Ionisation fraction of a partially ionised hydrogenic plasma.</p>
+
+\[\gamma_{iz} = \frac{n_e}{n_e + n_D^0}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_e_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>n_D0_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Neutral atom density, finite and non-negative.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ionisation fraction, in $[0, 1]$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite or negative density, or both zero at once.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Local, in the plasma: both densities are the ones inside $V_p$.  Mixing the
+plasma’s electron density with a vessel-averaged neutral density gives a
+number that is neither.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>critical_ionization_fraction_from_V_p_V_V</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, for the DYON burn-through model this reduces.
+</li>
+</ol>
+
 <h3 id="lloyd_breakdown_field"><code class="language-plaintext highlighter-rouge">lloyd_breakdown_field</code></h3>
 
 <p class="formula-signature"><code>lloyd_breakdown_field(p_Pa, connection_length_m)</code></p>
@@ -1190,6 +1311,76 @@ scale this does not have.</p>
 
 <ol class="formula-references">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.7.
+</li>
+</ol>
+
+<h3 id="neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><code class="language-plaintext highlighter-rouge">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</code></h3>
+
+<p class="formula-signature"><code>neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(n_0_m3, n_e_m3, V_p_m3, V_V_m3)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Neutral atom density left in the vessel after some has been ionised.</p>
+
+\[n_D^0 = n_0 - \frac{V_p}{V_V}\,n_e\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>n_0_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Initial neutral atom density filling the vessel, finite and positive</p>
+</td></tr>
+  <tr><td><code>n_e_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density in the plasma, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>V_p_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Plasma volume, finite and positive.</p>
+</td></tr>
+  <tr><td><code>V_V_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Vessel volume the neutrals fill, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Remaining neutral atom density, <code class="language-plaintext highlighter-rouge">nan</code> where the plasma would hold more electrons than the fill had atoms.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Non-finite or non-positive inventory or volume, or a non-finite or
+    negative electron density.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Atoms, not molecules.</strong>  $n_0$ is the atomic-equivalent inventory,
+<code class="language-plaintext highlighter-rouge">atomic_inventory_from_molecular_gas</code> of the prefill, because each
+ion of a pure hydrogenic plasma consumes one atom.  Conservation is
+$n_D^0 V_V + n_e V_p = n_0 V_V$: the neutrals fill the whole vessel while
+the plasma occupies $V_p$ of it.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Pure hydrogenic plasma, no wall recycling or fuelling, no impurities.
+Recycling feeds neutrals back and is what makes a real burn-through slower
+than this closed-box inventory suggests.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>An electron density above $n_0 V_V/V_p$ needs more atoms than the fill
+had.  That is an inconsistent input rather than a state, so it warns and
+returns <code class="language-plaintext highlighter-rouge">nan</code> elementwise rather than a negative density.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>atomic_inventory_from_molecular_gas
+ionization_fraction_from_n_e_n_D0</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, for the DYON burn-through model this closed-box balance reduces.
 </li>
 </ol>
 
@@ -1709,6 +1900,137 @@ whether the plasma field <em>cancels</em> or <em>reinforces</em> a stray field.<
 
 <ol class="formula-references">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.1.
+</li>
+</ol>
+
+<h3 id="radiation_ionization_barrier_from_P_RI_n_0_V_V"><code class="language-plaintext highlighter-rouge">radiation_ionization_barrier_from_P_RI_n_0_V_V</code></h3>
+
+<p class="formula-signature"><code>radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI_W_m3, n_0_m3, V_V_m3)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Height of the radiation-ionisation barrier a burn-through must cross.</p>
+
+\[P_{\mathrm{RIB}} = \frac{V_V}{4}\,P_{RI}(T_e)\,n_0^2\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>P_RI_W_m3</code></td><td>float or np.ndarray</td><td>W m^3</td><td><p>Radiation-plus-ionisation power coefficient, as for <code class="language-plaintext highlighter-rouge">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</code>, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>n_0_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Initial neutral atom inventory, finite and positive.</p>
+</td></tr>
+  <tr><td><code>V_V_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Vessel volume, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>W</td><td><p>Peak radiation-plus-ionisation power over the burn-through.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite or negative coefficient, or a non-positive inventory or
+    volume.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The maximum of the loss, not a threshold fitted to data.</strong>  Substituting
+the closed-box inventory into $V_p P_{RI} n_e n_D^0$ and maximising over
+$n_e$ gives this, at $n_e = n_0 V_V/(2V_p)$ where the ionisation fraction
+is <code class="language-plaintext highlighter-rouge">critical_ionization_fraction_from_V_p_V_V</code>.  It does not depend
+on $V_p$ at all, and it goes as $p_0^2$ at fixed temperature, which is why
+a lower prefill eases burn-through.  Heating that exceeds it everywhere on
+the way – $P_\Omega + P_{\mathrm{aux}} &gt; P_{\mathrm{RIB}}$ – is the
+reduced accessibility condition; it is the caller’s comparison to make,
+because $P_{RI}$ varies with $T_e$ along the way.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Holds $P_{RI}$ fixed at one $T_e$ while $n_e$ varies, which is the reduced
+model’s simplification; DYON evolves them together.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p
+critical_ionization_fraction_from_V_p_V_V
+atomic_inventory_from_molecular_gas</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, for the DYON burn-through model this reduces; the closed-box maximisation above is derived here, not quoted.
+</li>
+</ol>
+
+<h3 id="radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><code class="language-plaintext highlighter-rouge">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</code></h3>
+
+<p class="formula-signature"><code>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI_W_m3, n_e_m3, n_D0_m3, V_p_m3)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Radiation and ionisation power lost by a partially ionised plasma.</p>
+
+\[P_{\mathrm{rad+iz}} = V_p\,P_{RI}(T_e)\,n_e\,n_D^0\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>P_RI_W_m3</code></td><td>float or np.ndarray</td><td>W m^3</td><td><p>Combined radiation-plus-ionisation power coefficient per electron and per neutral atom, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>n_e_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Electron density, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>n_D0_m3</code></td><td>float or np.ndarray</td><td>m^-3</td><td><p>Neutral atom density, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>V_p_m3</code></td><td>float or np.ndarray</td><td>m^3</td><td><p>Plasma volume, finite and positive.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>W</td><td><p>Power lost.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite or negative coefficient or density, or a non-positive
+    volume.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The coefficient is the caller’s.</strong>  $P_{RI}(T_e)$ carries the atomic
+physics – excitation radiation plus the ionisation energy per event times
+the ionisation rate – and this module does not invent a fit for it.  The
+radiation half is what
+<code class="language-plaintext highlighter-rouge">vaft.formula.atomic.line_cooling_coefficient</code> returns for an
+identified atomic source; the ionisation half is the rate times the
+ionisation energy.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Pure hydrogen with no impurity line radiation, which in a real start-up is
+often what actually sets the barrier.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>radiation_ionization_barrier_from_P_RI_n_0_V_V
+vaft.formula.atomic.line_cooling_coefficient</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>H.-T. Kim, W. Fundamenski and A. C. C. Sips, Nucl. Fusion 52 (2012) 103016, for the DYON burn-through model this reduces; the closed-box maximisation above is derived here, not quoted.
 </li>
 </ol>
 
@@ -2255,7 +2577,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#lr_time_from_L_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lr_time_from_L_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_circular_from_R0_a_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_circular_from_R0_a_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistivity_from_n_e_nu_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistivity_from_n_e_nu_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atomic_inventory_from_molecular_gas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">atomic_inventory_from_molecular_gas</a></li><li class="page-toc-item page-toc-level-3"><a href="#breakdown_margin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">breakdown_margin</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_ionization_fraction_from_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_ionization_fraction_from_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_f3_from_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_f3_from_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#electron_cyclotron_resonance_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">electron_cyclotron_resonance_radius</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_closure_margin_from_E_t_a_B_stray_eta</a></li><li class="page-toc-item page-toc-level-3"><a href="#ionization_fraction_from_n_e_n_D0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ionization_fraction_from_n_e_n_D0</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#lloyd_figure_of_merit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lloyd_figure_of_merit</a></li><li class="page-toc-item page-toc-level-3"><a href="#lr_time_from_L_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lr_time_from_L_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#neutral_density_from_pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">neutral_density_from_pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_external_inductance_hirshman_from_R_eps_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_circular_from_R0_a_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_circular_from_R0_a_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_inductance_hirshman_from_R_eps_kappa_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_self_field_from_I_p_a" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_self_field_from_I_p_a</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_barrier_from_P_RI_n_0_V_V" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_barrier_from_P_RI_n_0_V_V</a></li><li class="page-toc-item page-toc-level-3"><a href="#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistivity_from_n_e_nu_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistivity_from_n_e_nu_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#startup_geometry_from_limiter_radii" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">startup_geometry_from_limiter_radii</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_breakdown_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_breakdown_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#townsend_ionization_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">townsend_ionization_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#vertical_field_from_I_p_R0_a_beta_p_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vertical_field_from_I_p_R0_a_beta_p_li</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -2373,7 +2695,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 11:00:40 +0000"
+        "time": "2026-09-18 14:09:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
