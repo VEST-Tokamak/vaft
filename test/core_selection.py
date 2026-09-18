@@ -113,6 +113,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_notebook_outputs.py",
     "test_packaging_issue45.py",
     "test_process_docstrings.py",
+    # ML backbone (#669). The framework-free lifecycle -- group split, fingerprint,
+    # hash-pinned artifact, registry resolution -- on the NumPy backend, and the
+    # PyTorch backend, which skips where torch is not installed.
+    "test_process_ml_contract.py",
+    "test_process_ml_torch.py",
     # Documentation drift. File reads and getattr only: what the READMEs claim
     # VAFT is, the site's navigation contract, and whether a documented snippet
     # names an API that exists -- a library rename breaks the last without its

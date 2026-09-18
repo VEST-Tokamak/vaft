@@ -66,6 +66,10 @@ _HEAVY = (
     "sklearn",
     "uncertainties",
     "vaft.database",
+    # vaft.process.ml imports its ML frameworks only when a backend is used (#669)
+    "torch",
+    "onnx",
+    "onnxruntime",
 )
 
 #: Every name the narrowing drops, and the module that actually provides it.
@@ -314,8 +318,8 @@ def test_no_submodule_imports_the_package_it_lives_in():
     package = pathlib.Path(vaft.process.__file__).parent
     offenders = [
         path.name
-        for path in sorted(package.glob("*.py"))
-        if path.name != "__init__.py"
+        for path in sorted(package.rglob("*.py"))
+        if path != package / "__init__.py"
         and "from vaft.process import " in path.read_text(encoding="utf-8")
     ]
 
