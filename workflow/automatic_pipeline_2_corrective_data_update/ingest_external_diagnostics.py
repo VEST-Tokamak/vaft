@@ -61,6 +61,11 @@ DIAGNOSTIC_TREES = {
 RESERVED_TREES = ("camera_visible_fluctuation",)
 
 REGISTRY_NAME = "ingested_shots.json"
+#: Shots built between registry writes. Each write re-reads and merges the
+#: whole registry, which is harmless for a few hundred camera shots and
+#: quadratic for the ShotLog's ~44k; an interrupted run loses at most this many
+#: entries, whose products are simply rebuilt next time.
+REGISTRY_SAVE_EVERY = 500
 MANIFEST_NAME = "manifest.json"
 
 #: The product container is no longer chosen here. Each of these stages
@@ -262,12 +267,16 @@ def _input_fingerprint(root: Path, tree: str, shot: int) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
 
 
-def _unavailable_errors() -> tuple[type[BaseException], ...]:
+def _unavailable_errors(trees: Sequence[str]) -> tuple[type[BaseException], ...]:
     """Errors that mean "this shot has nothing to map", not "the run broke".
 
     Only the ShotLog raises these routinely: it has a record for every shot
-    since 2013, but a trigger card only from 2023.
+    since 2013, but a trigger card only from 2023. Imported only when a
+    shotlog tree is being built, so soft X-ray and camera runs never depend
+    on the pulse_schedule package.
     """
+    if "shotlog" not in trees:
+        return ()
     from vaft.machine_mapping.pulse_schedule import PulseScheduleUnavailableError
 
     return (PulseScheduleUnavailableError,)
@@ -294,7 +303,7 @@ def ingest(
     summary: dict[str, Any] = {
         "succeeded": 0, "failed": 0, "skipped": 0, "unavailable": 0, "failures": [],
     }
-    unavailable_errors = _unavailable_errors()
+    unavailable_errors = _unavailable_errors(trees)
 
     for tree in trees:
         # One registry per tree, so a camera run and a soft X-ray run touch
@@ -309,6 +318,7 @@ def ingest(
             available = available[:limit]
         LOGGER.info("%s: %d shots to build", tree, len(available))
 
+        pending = 0
         for shot in available:
             key = f"{tree}/{shot}"
             fingerprint = _input_fingerprint(root, tree, shot)
@@ -360,6 +370,11 @@ def ingest(
                 summary["succeeded"] += 1
                 LOGGER.info("%s -> %s (%s measured)", key, output_dir,
                             manifest["measured"]["count"])
+            pending += 1
+            if pending >= REGISTRY_SAVE_EVERY:
+                save_registry(registry_path, registry)
+                pending = 0
+        if pending:
             save_registry(registry_path, registry)
 
     return summary

@@ -156,6 +156,15 @@ rsync -a --partial --exclude='._*' --exclude='Thumbs.db' \
   vestuser1:/srv/vest.filedb/legacy/
 ```
 
+From a Mac, add `--iconv=utf-8-mac,utf-8`. macOS hands back Korean file
+names decomposed (NFD) -- on the exFAT archive too -- and Linux treats NFD and
+NFC as different names, so without it `legacy/shotlog/input/other/복사본 …` and
+the session documents of sheets named `…밤-HI` land under names the manifest
+does not use, and the next sync re-sends them as new files. Needs rsync 3
+(Homebrew); the system `openrsync` has no `--iconv`. The ShotLog products are
+built locally and synced as `omas/shotlog/` too, since the server's
+production checkout does not yet carry the mapping.
+
 ## What the archive holds, and what it costs
 
 Measured after the first full pass:
