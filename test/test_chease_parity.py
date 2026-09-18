@@ -11,8 +11,9 @@ the ones that workflow already produced: edge-zeroing, FFT boundary smoothing,
 Two things the donor did are deliberately *not* reproduced, because they were
 conventions rather than physics:
 
-  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The default is
-    6; the writer still emits 11 when asked for it.
+  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The adapter
+    now selects NIDEAL from its GEQDSK output contract (6, #516); the writer
+    still emits 11 through the deprecated raw override.
   * sampling q at ``sqrt(0.95)``, which constrains the surface at
     ``psi_norm = 0.9747`` rather than the conventional q95 surface at 0.95.
     ``q_constraint_psi_norm`` now means what it says.
@@ -94,13 +95,26 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
     Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
     before doing any equilibrium work on anything outside it, so the previous
     default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
-    a CHEASE built from the public repository. See #717.
+    a CHEASE built from the public repository. See #717. Since #516 a caller
+    names the output, not the number.
     """
-    cfg = ch.CHEASEConfig()
-    assert cfg.nideal == 6
-    assert 0 <= cfg.nideal <= 10
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # the default path must not warn
+        cfg = ch.CHEASEConfig()
+    assert cfg.output == "geqdsk"
+    assert cfg.nideal is None
+    assert cfg.resolved_nideal == ch.CHEASE_OUTPUT_NIDEAL["geqdsk"] == 6
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "NIDEAL=6," in text
+    assert "NEQDSK=0" in text  # EXPEQ input, written by the adapter itself
+
+
+def test_an_output_the_adapter_cannot_read_is_refused():
+    """NIDEAL=9 and friends write files nothing here reads (#516)."""
+    with pytest.raises(ValueError, match="not supported"):
+        ch.CHEASEConfig(output="gyrokinetic")
 
 
 def test_namelist_epslon_default_and_jsk95_nideal_on_request():
@@ -109,10 +123,13 @@ def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
     revision that group uses. It stopped being the default in #717 because
     upstream rejects it, but asking for it must still emit it -- that is the
-    parity claim this file exists to defend.
+    parity claim this file exists to defend. Asking is deprecated (#516), so
+    it warns.
     """
-    cfg = ch.CHEASEConfig(nideal=11)
+    with pytest.warns(FutureWarning, match="deprecated"):
+        cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
+    assert cfg.resolved_nideal == 11
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text

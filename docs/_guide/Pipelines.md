@@ -178,7 +178,8 @@ result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
 # CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
 # then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
-config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
+# GEQDSK in, GEQDSK out: the adapter selects CHEASE's NIDEAL itself (#516)
+config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
 # GPEC suite: one case per refined g-file

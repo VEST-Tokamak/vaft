@@ -163,7 +163,7 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
     from vaft.code import CHEASEConfig
 
     config = CHEASEConfig(
-        nideal=6, nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
+        nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
     )
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
@@ -208,7 +208,7 @@ def test_a_scan_survives_a_case_the_solver_cannot_take(tmp_path):
     from vaft.code import CHEASEConfig
 
     config = CHEASEConfig(
-        nideal=6, nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
+        nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
     )
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
