@@ -758,3 +758,78 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
     dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
     brute = cKDTree(dense).query(fit.contour.points)[0]
     assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# find_stationary_points (#220)
+# ---------------------------------------------------------------------------
+
+def _saddle_field():
+    """psi = (R-R0)^2 + z^2 - z^3/(3 zx): O-point at (R0, 0), saddle at (R0, 2 zx).
+
+    R0 and zx are chosen off the grid nodes so that recovering them is a
+    sub-grid statement rather than a grid lookup.
+    """
+    r0, zx = 1.0123, 0.2587
+    r = np.linspace(0.5, 1.5, 81)
+    z = np.linspace(-0.6, 0.8, 113)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = (rm - r0) ** 2 + zm**2 - zm**3 / (3 * zx)
+    psi_x = 4 * zx**2 / 3
+    eq = EquilibriumData(r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=psi_x)
+    return eq, (r0, 0.0), (r0, 2 * zx), float(max(np.diff(r).max(), np.diff(z).max()))
+
+
+def test_stationary_points_are_located_to_sub_grid_accuracy():
+    from vaft.process.equilibrium import find_stationary_points
+
+    eq, o_true, x_true, spacing = _saddle_field()
+    points = find_stationary_points(eq)
+    assert [point.kind for point in points] == ["o", "x"]
+    o_point, x_point = points
+    assert np.hypot(o_point.r - o_true[0], o_point.z - o_true[1]) < 1e-3 * spacing
+    assert np.hypot(x_point.r - x_true[0], x_point.z - x_true[1]) < 1e-3 * spacing
+    assert o_point.psi_n == pytest.approx(0.0, abs=1e-6)
+    assert x_point.psi_n == pytest.approx(1.0, abs=1e-6)
+    assert o_point.hessian_determinant > 0 > x_point.hessian_determinant
+
+
+def test_stationary_points_filter_by_kind_and_refuse_an_unknown_one():
+    from vaft.process.equilibrium import find_stationary_points
+
+    eq, *_ = _saddle_field()
+    assert [point.kind for point in find_stationary_points(eq, kind="x")] == ["x"]
+    assert [point.kind for point in find_stationary_points(eq, kind="o")] == ["o"]
+    with pytest.raises(ValueError, match="kind"):
+        find_stationary_points(eq, kind="saddle")
+
+
+def test_stationary_points_of_a_solovev_field_are_true_zeros_of_its_gradient():
+    """Checked against the closed-form gradient, not the spline that found them."""
+    from vaft.process._equilibrium_parametric import _solovev_components
+    from vaft.process.equilibrium import find_stationary_points, solovev_to_equilibrium
+
+    theta = np.linspace(0, 2 * np.pi, 9, endpoint=False)
+    model = solve_solovev_constraints(
+        [SolovevConstraint(1.0 + 0.3 * np.cos(t), 1.6 * 0.3 * np.sin(t), "psi", 0.0) for t in theta],
+        pprime=-1.0e4, ffprime=0.05, rref=1.0, psi_boundary=0.0,
+    )
+    r = np.linspace(0.6, 1.4, 65)
+    z = np.linspace(-0.6, 0.6, 97)
+    eq = solovev_to_equilibrium(model, r, z)
+    spacing = float(max(np.diff(r).max(), np.diff(z).max()))
+    o_points = find_stationary_points(eq, kind="o")
+    assert o_points, "a Solov'ev plasma has a magnetic axis"
+    axis = o_points[0]
+    assert np.hypot(axis.r - eq.magnetic_axis[0], axis.z - eq.magnetic_axis[1]) < 1e-2 * spacing
+    assert axis.psi_n == pytest.approx(0.0, abs=1e-6)
+    for point in find_stationary_points(eq):
+        _, dpsi_dr, dpsi_dz, _ = _solovev_components(model, point.r, point.z)
+        _, scale_r, scale_z, _ = _solovev_components(model, 1.3, 0.0)
+        assert np.hypot(dpsi_dr, dpsi_dz) < 1e-3 * np.hypot(scale_r, scale_z), point
+
+
+def test_stationary_points_of_a_record_without_psi_are_empty():
+    from vaft.process.equilibrium import find_stationary_points
+
+    assert find_stationary_points(EquilibriumData()) == ()

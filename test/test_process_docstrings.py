@@ -315,6 +315,7 @@ CONVENTION_SENSITIVE = frozenset({
     "evaluate_miller",
     "evaluate_solovev",
     "extract_flux_surface_contours",
+    "find_stationary_points",
     "fit_miller_sequence",
     "fit_miller_surface",
     "flux_surface_quantities",
