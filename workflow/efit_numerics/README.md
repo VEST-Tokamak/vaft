@@ -695,6 +695,40 @@ What does stand:
   are within iteration error and cannot be attributed.
 - The 129 grid is not the limiting error: its effect on the converged
   equilibrium is ~1 mm.
-- Next: repeat the `NXITER = 1` column under `uncertainty_mode =
-  "standard_deviation"` now that #921 makes that mean what EFIT fits against,
-  and ask whether the vertical drift disappears when the probes carry weight.
+
+### Under `standard_deviation`, nothing converges
+
+The same `NXITER = 1` column was then rerun with `--uncertainty-mode
+standard_deviation`, i.e. with the σ #921 makes EFIT fit against:
+`ConstraintErrors` relative errors (probes 1 %, 10 %, 1 % by family, flux
+loops 10 % / 1 %, Ip 5 %, PF 1e-4). The legacy column was rerun beside it with
+the same commit and reproduced the recorded table exactly (81 of 81 runs).
+The record is `test/data/efit_convergence_study_standard_deviation.json`.
+
+**0 of 81 runs converge**, on any grid or `ERRMIN`:
+
+- 39915 (all three slices) runs to the iteration cap (`MXITER = 514`). The Picard iteration
+  does not settle: at iteration 500 the axis still jumps between −19 and +23 cm
+  from one step to the next, with the increment near 1 and χ² 6000–10000.
+- 41524 and 41672 (all six slices) die in `bound` or `findax` within 2–27
+  iterations, before an m-file is written.
+
+This does not answer the vertical-drift question; it says the σ contract as
+configured cannot be used yet. Two causes are visible on 39915 @ 315, the one
+slice whose last iterate can be read:
+
+- **σ is four times tighter than the fit can get.** Weighted in, the probes
+  are fitted far better than under legacy weighting (median |m − r|/|m| 3.7 %
+  against 11 %), but σ is 1 %, so reduced χ² is about 96.
+- **One probe carries most of it.** EFIT channel 45, `MagneticFieldProbe_C4-04`,
+  has z = +65 and 70 % of the probe χ². It misses by 42–75 % on every 39915
+  slice and 130–270 % on every 41524 and 41672 slice under legacy weighting
+  too, where it had no weight to hide behind; on 41524 and 41672 its sign is
+  opposite to its neighbour C4-03. Whether that is calibration, sign or
+  position is for the wiring history (#956) to settle.
+
+So the order is: screen or repair C4-04, calibrate σ against the residuals the
+fit actually reaches (#891's calibration step, including absolute floors for
+near-zero channels), and only then repeat this column. Until a statistical σ
+converges, the stopping criterion stays where it is and the legacy findings
+above are what can be used.

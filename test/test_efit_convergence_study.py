@@ -335,3 +335,25 @@ def test_no_setting_is_recommended_under_legacy_sigma(recorded):
     assert verdict["recommended"] is None
     nearest = verdict["cases"]["g129_nx1_err1e-04"]["failures"]
     assert nearest == ["39915@327: did not stop on its criterion"]
+
+
+STATISTICAL = Path(__file__).resolve().parent / "data" / "efit_convergence_study_standard_deviation.json"
+
+
+def test_no_slice_converges_under_the_statistical_sigma_as_configured():
+    # README: probe sigma 1% is ~4x below the residual the fit reaches, and
+    # probe C4-04 carries 70% of the chi-square; 39915 oscillates to the cap,
+    # 41524 and 41672 die in `bound`/`findax` within 27 iterations.
+    import json
+
+    recorded = json.loads(STATISTICAL.read_text(encoding="utf-8"))
+    assert recorded["uncertainty_mode"] == "standard_deviation"
+    rows = recorded["analysis"]["rows"]
+    assert len(rows) == 81
+    assert not any(row["converged"] for row in rows)
+    exits = {(row["shot"], row["exit_path"]) for row in rows}
+    assert exits == {
+        (39915, "iterations_exhausted"),
+        (41524, "solver_error"),
+        (41672, "solver_error"),
+    }
