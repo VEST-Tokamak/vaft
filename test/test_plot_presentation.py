@@ -344,23 +344,43 @@ def test_the_packaged_psi_map_is_sized_by_the_wall(sample):
     assert axes.get_position().width > 0.45
 
 
-@pytest.mark.parametrize("plot", ["plot_equilibrium_field_psi", "plot_equilibrium_field_psi_vacuum"])
-def test_the_default_field_map_fills_its_canvas_both_ways(sample, plot):
+@pytest.mark.parametrize("fmt", [None, "single_column"])
+@pytest.mark.parametrize("plot", [
+    "plot_equilibrium_field_psi", "plot_equilibrium_field_psi_vacuum", "plot_vacuum_field",
+    "plot_wall_geometry_poloidal", "plot_soft_x_rays_geometry_lines_of_sight",
+    "plot_machine_geometry_topview",
+])
+def test_an_rz_view_is_as_large_as_its_format_allows_and_fits(sample, plot, fmt):
     # With nothing passed, the screen format sized the canvas from a fixed
-    # share for labels and colorbar; on the packaged tall machine the axes then
-    # filled half the height beside a full-height colorbar, and the title ran
-    # into it (publication_figures.ipynb cells 4 and 13).
-    figure, axes = getattr(vaft.omas, plot)(sample)
+    # share for labels and colorbar; on the packaged tall machine the psi map
+    # then filled half the height beside a full-height colorbar, and the title
+    # ran into it (publication_figures.ipynb cells 4 and 13).  Trimming that
+    # margin after tight_layout overshot instead: geometry views shrank by a
+    # third and their labels left the canvas.
+    figure, axes = getattr(vaft.omas, plot)(sample, **({} if fmt is None else {"format": fmt}))
+    limits = FORMATS[fmt or "screen"]
     figure.canvas.draw()
-    width, height = figure.get_size_inches()
-    assert width <= FORMATS["screen"].width_in and height <= FORMATS["screen"].max_height_in
-    drawn = axes.get_position()
-    assert drawn.height > 0.8, "the map fills the height, not half of it"
-    colorbar = next(a for a in figure.axes if a is not axes)
-    assert colorbar.get_position().height == pytest.approx(drawn.height, abs=0.02)
     renderer = figure.canvas.get_renderer()
-    title = axes.title.get_window_extent(renderer)
-    assert title.x1 <= colorbar.get_window_extent(renderer).x0 + 1.0, "the title stops short of the colorbar"
+    width, height = figure.get_size_inches()
+    assert width <= limits.width_in + 1e-6 and height <= limits.max_height_in + 1e-6
+    # The map is as large as the format allows: one of the two limits binds.
+    assert width == pytest.approx(limits.width_in, abs=0.05) or height == pytest.approx(
+        limits.max_height_in, abs=0.05
+    )
+    # Nothing leaves the canvas.
+    content = figure.get_tightbbox(renderer)
+    assert content.x0 >= -0.01 and content.y0 >= -0.01
+    assert content.x1 <= width + 0.01 and content.y1 <= height + 0.01
+    # The map fills its slot, and a colorbar stands exactly beside it.
+    drawn, slot = axes.get_position(), axes.get_position(original=True)
+    assert drawn.height == pytest.approx(slot.height, abs=0.01)
+    assert drawn.width == pytest.approx(slot.width, abs=0.01)
+    for colorbar in (a for a in figure.axes if a is not axes):
+        assert colorbar.get_position().height == pytest.approx(drawn.height, abs=0.01)
+        if axes.get_title():
+            # A long title may stand over the colorbar, never on it.
+            title = axes.title.get_window_extent(renderer)
+            assert not title.overlaps(colorbar.get_tightbbox(renderer))
 
 
 def test_an_image_keeps_its_pixel_ratio():
