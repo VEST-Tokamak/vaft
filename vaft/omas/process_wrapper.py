@@ -1375,15 +1375,17 @@ def compute_ejiri_mirror_proxy_ods(
             "neither the inboard limiter nor the end of a field line exists"
         )
 
+    # The private kernel rather than the public function, so its saturation
+    # warning blames this function's caller instead of this line.
     from vaft.process.equilibrium import (
-        ejiri_mirror_geometry,
+        _ejiri_mirror_geometry,
         make_vacuum_field_interpolator,
     )
 
     b_field = make_vacuum_field_interpolator(
         grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
     )
-    result = ejiri_mirror_geometry(
+    result = _ejiri_mirror_geometry(
         float(r_start),
         b_field,
         wall_r=wall_r,

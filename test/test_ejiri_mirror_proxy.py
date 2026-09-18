@@ -218,3 +218,43 @@ def test_the_inboard_limiter_is_the_nearest_crossing_inboard_of_the_start():
     # The midplane is crossed by the 0.15 edge only.
     out = ejiri_mirror_geometry(0.5, _parabola(0.6), wall_r=wall_r, wall_z=wall_z, dphi=STEP)
     assert out["r_inboard_limiter"] == pytest.approx(0.15, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Cold review of #958
+# ---------------------------------------------------------------------------
+
+def test_a_start_one_step_from_the_wall_reads_as_no_confinement():
+    # A steep poloidal field and a coarse step: the first step on one side
+    # already leaves the polygon, so that branch is a single point.  It used to
+    # reach np.argmin of an empty array and raise an unexplained ValueError, and
+    # a nanmedian of an empty slice warned on the way.  An electron heading that
+    # way is lost at once, so nothing is confined.
+    def steep(R, Z):
+        Z = np.asarray(Z, dtype=float)
+        return np.zeros_like(Z), np.full_like(Z, 5.0), R0B0 / np.asarray(R, dtype=float)
+
+    wall_r, wall_z = _box()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        out = ejiri_mirror_geometry(0.5, steep, wall_r=wall_r, wall_z=wall_z, dphi=np.deg2rad(5.0))
+    assert out["mirror"] is False
+    assert out["f3"] == 0.0
+    assert "wall" in (out["reason_upper"], out["reason_lower"])
+
+
+def test_the_labels_do_not_depend_on_which_direction_rises():
+    # Reversing the toroidal field swaps which trace direction climbs; the
+    # upper/lower labels must follow the geometry, not the direction.
+    wall_r, wall_z = _box(top=0.3, bottom=-0.5)
+
+    def reversed_parabola(R, Z):
+        b_r, b_z, b_phi = _parabola(0.6)(R, Z)
+        return b_r, b_z, -b_phi
+
+    a = ejiri_mirror_geometry(0.5, _parabola(0.6), wall_r=wall_r, wall_z=wall_z, dphi=STEP)
+    b = ejiri_mirror_geometry(0.5, reversed_parabola, wall_r=wall_r, wall_z=wall_z, dphi=STEP)
+    for out in (a, b):
+        assert out["z_max_upper"] == pytest.approx(0.3, abs=1e-3)
+        assert out["z_max_lower"] == pytest.approx(0.5, abs=1e-3)
+    assert a["f3"] == pytest.approx(b["f3"], rel=1e-9)

@@ -3709,7 +3709,8 @@ def ejiri_mirror_geometry(
     resonance, 50 m stops both branches short and gives $Z_{\max} = 0.13$ m and
     $F_3 = 0.38$, while 150, 500 and 1500 m all give $0.30$ m and $0.51$.  The
     quarter-$Z_{\max}$ window and the one-degree step are numerical
-    conveniences; halving the step moves $F_3$ in the fifth figure.
+    conveniences: at 2, 1, 0.5 and 0.25 degrees $F_3$ agrees to six figures and
+    $R_C$ and $Z_{\max}$ to four.
 
     Convention
     ----------
@@ -3757,7 +3758,10 @@ def ejiri_mirror_geometry(
     Limitations
     -----------
     An Ejiri-inspired geometric proxy, not the numerical orbit boundary: it
-    says nothing about EC power, collisions or breakdown itself.  A branch that
+    says nothing about EC power, collisions or breakdown itself.  A branch whose
+    first step already leaves the wall is read as an immediate loss on that
+    side, so a start point within one step of the wall reports no confinement
+    -- shorten ``dphi`` if that is not the answer wanted.  A branch that
     stops on ``max_length_m`` sets ``saturated`` and raises a
     ``RuntimeWarning``: that result is not converged and is not a bound, since a
     longer trace can move both the mirror point and the branch that binds.
@@ -3768,6 +3772,24 @@ def ejiri_mirror_geometry(
        orbit-boundary slope and the geometry factor.
     .. [2] The trace is :func:`trace_field_line`, and the two relations are the
        :mod:`vaft.formula.startup` kernels named in the processing steps.
+    """
+    return _ejiri_mirror_geometry(
+        r_start,
+        b_field,
+        wall_r=wall_r,
+        wall_z=wall_z,
+        z_fit=z_fit,
+        dphi=dphi,
+        max_length_m=max_length_m,
+    )
+
+
+def _ejiri_mirror_geometry(r_start, b_field, *, wall_r, wall_z, z_fit, dphi, max_length_m):
+    """The body of :func:`ejiri_mirror_geometry`.
+
+    Kept private so both public entry points -- that function and
+    :func:`vaft.omas.compute_ejiri_mirror_proxy_ods` -- call it directly and the
+    saturation warning, raised two frames down, always blames their caller.
     """
     from matplotlib.path import Path as MplPath
 
@@ -3808,14 +3830,17 @@ def ejiri_mirror_geometry(
             # trace_field_line returns points in order of increasing angle, so
             # the backward branch ends at the seed; walk it from the seed.
             R, Z = R[::-1], Z[::-1]
-        label = "upper" if np.nanmedian(Z[1:]) >= 0.0 else "lower"
-        if label in branches:
-            label = "lower" if label == "upper" else "upper"
         z_end, r_end, reason = _mirror_point(R, Z, trace["termination_reason"])
-        branches[label] = {
+        branches[direction] = {
             "R": R, "Z": Z, "trace": trace,
             "z_end": z_end, "r_end": r_end, "reason": reason,
+            # A one-point branch left the wall on its first step and has no
+            # direction of its own; it sorts below any branch that moved.
+            "height": float(np.median(Z[1:])) if Z.size > 1 else 0.0,
         }
+    upper_key = max(branches, key=lambda key: branches[key]["height"])
+    lower_key = "backward" if upper_key == "forward" else "forward"
+    branches = {"upper": branches[upper_key], "lower": branches[lower_key]}
 
     saturated = any(b["reason"] == "max_length_m" for b in branches.values())
     if saturated:
@@ -3824,7 +3849,7 @@ def ejiri_mirror_geometry(
             f"{max_length_m} m before the wall or a turning point, so the mirror "
             "geometry is not converged; raise max_length_m",
             RuntimeWarning,
-            stacklevel=2,
+            stacklevel=3,
         )
 
     binding = max(branches, key=lambda name: branches[name]["r_end"])
@@ -3906,6 +3931,11 @@ def _mirror_point(R, Z, termination_reason):
     tilted at the midplane, whose ``R`` first rises a hair before it dips, and
     for a line that dips more than once.  The seed itself is excluded.
     """
+    if R.size < 2:
+        # The first step already left the wall: nothing on this side raises
+        # |B| above its value at the seed, so an electron heading this way is
+        # lost at once.  Report the seed itself, which reads as "no mirror".
+        return 0.0, float(R[0]), "wall"
     index = int(np.argmin(R[1:])) + 1
     if index < R.size - 1:
         reason = "turning"

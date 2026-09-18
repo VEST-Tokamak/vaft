@@ -428,6 +428,18 @@ def test_the_ejiri_wrapper_is_the_process_function_on_the_same_field(solved, t_b
     assert ejiri["time"] == grid["time"]
 
 
+def test_the_ejiri_wrapper_saturation_warning_blames_the_caller(solved, t_breakdown, r_ecr):
+    # Through the ODS wrapper the warning used to be attributed to
+    # process_wrapper.py, so a sweep reported every unconverged instant against
+    # one library line.
+    with pytest.warns(RuntimeWarning, match="not converged") as record:
+        vaft.omas.compute_ejiri_mirror_proxy_ods(
+            solved, time=t_breakdown, r_start=r_ecr, max_length_m=50.0
+        )
+    converged = [w for w in record if "not converged" in str(w.message)]
+    assert converged and converged[0].filename == __file__
+
+
 def test_the_ejiri_wrapper_runs_on_the_vacuum_alone(solved, t_breakdown, r_ecr, ejiri):
     # No equilibrium in the copy: a pre-breakdown proxy must never reach for one.
     vacuum_only = _light_copy(solved, ("pf_active", "pf_passive", "wall", "tf"))
