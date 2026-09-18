@@ -29,7 +29,7 @@
         
 
         
-            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+            <link rel="next" href="/vaft/develop/reference/formula/transformer/" />
         
     </head>
     <body>
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>58a2893</code>. What is described
+  <code>64d15d1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -384,6 +384,78 @@ three layers split the work:</p>
 <p>The top view suppresses $Z$, so crossings of the projected O and X loci there are not reconnection
 points. The separatrix and $w$ are only visible in the poloidal section.</p>
 
+<h2 id="stability-and-operational-space-diagrams">Stability and operational-space diagrams</h2>
+
+<p>Textbook 2-D charts: two axes, the boundaries that divide the plane, and one label per region. A
+boundary that physics defines is computed by <code class="language-plaintext highlighter-rouge">vaft.formula</code>. Only the peeling–ballooning boundary,
+which has no closed form, is a schematic, and the figure says so.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">peeling_ballooning</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">s_alpha_ballooning</span><span class="p">(</span><span class="n">s_max</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">alpha_max</span><span class="o">=</span><span class="mf">3.5</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q_limit</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>          <span class="c1"># no size parameter: R, a, B cancel
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">beta_N_max</span><span class="o">=</span><span class="mf">2.8</span><span class="p">,</span> <span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/peeling_ballooning.svg" alt="peeling-ballooning" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/s_alpha_ballooning.svg" alt="s-alpha" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/hugill.svg" alt="Hugill" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/troyon.svg" alt="Troyon" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Question it answers</th>
+      <th>Axes</th>
+      <th>Boundaries</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Peeling–ballooning</td>
+      <td>Which edge instability limits the pedestal?</td>
+      <td>$\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units)</td>
+      <td><strong>Schematic.</strong> Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal</td>
+    </tr>
+    <tr>
+      <td>$s$–$\alpha$</td>
+      <td>How does shear set the ballooning limit, and where is second stability?</td>
+      <td>$\alpha$, $s$</td>
+      <td>The first and second stability boundaries come from <code class="language-plaintext highlighter-rouge">s_alpha_marginal_alpha</code>, which applies Newcomb’s criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of <code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code>. Not resolved below $s \approx 0.05$</td>
+    </tr>
+    <tr>
+      <td>Hugill</td>
+      <td>Where are the density and low-$q$ disruption limits?</td>
+      <td>$\bar n_e R/B_T$, $1/q_\mathrm{cyl}$</td>
+      <td>The Greenwald line comes from <code class="language-plaintext highlighter-rouge">greenwald_density</code> and <code class="language-plaintext highlighter-rouge">q_cyl_from_B_R_epsilon_kappa_I</code>. Its slope depends only on $\kappa_a$: $50\kappa_a/\pi$. The low-$q$ limit is $q_\mathrm{cyl} = q_\mathrm{limit}$</td>
+    </tr>
+    <tr>
+      <td>Troyon</td>
+      <td>How much pressure can the current hold?</td>
+      <td>$I_p/(aB_T)$, $\beta_T$</td>
+      <td>The beta limit is the line on which <code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> equals $\beta_{N,\max}$. The low-$q$ cutoff comes from <code class="language-plaintext highlighter-rouge">q_cyl_from_B_R_epsilon_kappa_I</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These charts show the <em>boundaries</em> of an operating space. For how measured discharges are projected
+onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
+analysis).</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -500,7 +572,7 @@ window.MathJax = {
                     
 
                     
-                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                        <a href="/vaft/develop/reference/formula/transformer/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: transformer">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -516,7 +588,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -532,11 +604,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "VEST diagnostics and data availability",
+            "title": "Formula reference: transformer",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/VEST_diagnostics.md",
-            "ref": "_guide/VEST_diagnostics.md",
+            "path": "_guide/Formula_reference_transformer.md",
+            "ref": "_guide/Formula_reference_transformer.md",
             "articles": []
         },
         
@@ -634,7 +706,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 14:09:13 +0000"
+        "time": "2026-09-18 15:41:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

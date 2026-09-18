@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>58a2893</code>. What is described
+  <code>64d15d1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -308,7 +308,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>24</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>26</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -333,6 +333,10 @@ numerical notes, references), and these pages are generated from those docstring
   <tr>
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
     <td><code>vaft.formula.startup</code></td><td>28</td><td>Start-up physics from the gas fill to the avalanche.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/formula/transformer/">transformer</a></td>
+    <td><code>vaft.formula.transformer</code></td><td>7</td><td>The plasma as a transformer secondary: Romero&#39;s exact current and inductance balance.</td>
   </tr>
   </tbody>
 </table>
@@ -492,7 +496,7 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#heating_power_from_p_ohm_p_aux"><code>heating_power_from_p_ohm_p_aux</code></a> &mdash; Total heating power $P_{heat} = P_{ohm} + P_{aux}$.
 </li>
-  <li><a href="/vaft/develop/reference/formula/equilibrium/#inductive_voltage_from_dW_magdt_I_p"><code>inductive_voltage_from_dW_magdt_I_p</code></a> &mdash; Inductive voltage from the rate of change of magnetic energy.
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#inductive_voltage_from_dW_magdt_I_p"><code>inductive_voltage_from_dW_magdt_I_p</code></a> <em>(convention)</em> &mdash; Inductive voltage from the rate of change of magnetic energy.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#inverse_aspect_ratio_from_a_R"><code>inverse_aspect_ratio_from_a_R</code></a> &mdash; Inverse aspect ratio $\varepsilon = a/R$.
 </li>
@@ -685,7 +689,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="stability">Stability</h2>
 
-<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">24 functions</a>.</p>
+<p>Plasma stability, operational limits, and transport calculations. — <a href="/vaft/develop/reference/formula/stability/">26 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> <em>(convention)</em> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
@@ -731,6 +735,10 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/stability/#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> <em>(convention)</em> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> <em>(convention)</em> &mdash; Normalised electron gyroradius $\rho_e/a$.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a> <em>(convention)</em> &mdash; Ideal ballooning stability of the circular $s$-$\alpha$ model.
+</li>
+  <li><a href="/vaft/develop/reference/formula/stability/#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a> <em>(convention)</em> &mdash; First and second ballooning stability boundaries of the $s$-$\alpha$ model.
 </li>
   <li><a href="/vaft/develop/reference/formula/stability/#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> <em>(empirical)</em> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -974,6 +982,27 @@ which documents the conventions and cites every entry.</p>
 </li>
 </ul>
 
+<h2 id="transformer">Transformer</h2>
+
+<p>The plasma as a transformer secondary: Romero’s exact current and inductance balance. — <a href="/vaft/develop/reference/formula/transformer/">7 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/develop/reference/formula/transformer/#current_weighted_flux_from_psi_j_dS"><code>current_weighted_flux_from_psi_j_dS</code></a> <em>(convention)</em> &mdash; Current-weighted average of the poloidal flux over the plasma cross-section.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#equilibrium_surface_voltage_from_I_p_dL_i_V_R"><code>equilibrium_surface_voltage_from_I_p_dL_i_V_R</code></a> <em>(convention)</em> &mdash; Voltage at the equilibrium flux surface, inferred from the inductance history.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R"><code>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</code></a> <em>(convention)</em> &mdash; Voltage at the equilibrium flux surface, inferred from the current history.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#internal_inductance_from_psi_C_psi_B_I_p"><code>internal_inductance_from_psi_C_psi_B_I_p</code></a> <em>(convention)</em> &mdash; Dimensional internal inductance from the equilibrium and boundary fluxes.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#internal_inductance_rate_from_I_p_V_R_V_C"><code>internal_inductance_rate_from_I_p_V_R_V_C</code></a> <em>(convention)</em> &mdash; Rate of change of the internal inductance, Romero’s exact balance.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#plasma_current_rate_from_L_i_V_B_V_C_V_R"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R</code></a> <em>(convention)</em> &mdash; Rate of change of the plasma current, Romero’s exact balance.
+</li>
+  <li><a href="/vaft/develop/reference/formula/transformer/#resistive_voltage_from_R_p_I_p_I_ni"><code>resistive_voltage_from_R_p_I_p_I_ni</code></a> <em>(convention)</em> &mdash; Resistive voltage of the plasma, net of non-inductive current drive.
+</li>
+</ul>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -1115,7 +1144,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#startup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Startup</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#startup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Startup</a></li><li class="page-toc-item page-toc-level-2"><a href="#transformer" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transformer</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1233,7 +1262,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 14:09:13 +0000"
+        "time": "2026-09-18 15:41:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

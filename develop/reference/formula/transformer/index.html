@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: transformer · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/profile/" />
+            <link rel="prev" href="/vaft/develop/reference/diagrams/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/equilibrium/" />
+            <link rel="next" href="/vaft/develop/reference/process/ml/" />
         
     </head>
     <body>
@@ -232,7 +232,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: atomic</a>
+                            <a href="." >Formula reference: transformer</a>
                         
                     </h1>
                 </div>
@@ -258,93 +258,103 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_atomic">Process reference: atomic</h1>
+                        <h1 id="/reference/formula/Formula_reference_transformer">Formula reference: transformer</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.atomic, read from the standardized docstrings (issue 252).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.transformer, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/process/atomic.py</code></a>:
-5 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("atomic.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/transformer.py"><code class="language-plaintext highlighter-rouge">vaft/formula/transformer.py</code></a>:
+7 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("transformer.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>This module owns profile selection, time alignment, impurity-density
-fallback and volume integration.  Numerical atomic physics remains in
-<code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code> and ADF11 file access in
-<code class="language-plaintext highlighter-rouge">vaft.data.open_adas</code>.  Which impurity species to include and what
-fraction to assume for them is machine policy, resolved by the pipeline
-(<code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_power_balance</code> from <code class="language-plaintext highlighter-rouge">vest.yaml</code>
-on VEST) and passed in; this module holds no such number (issue #420).</p>
+<p>Romero’s reduction of Poynting’s theorem to three voltages – the boundary
+loop voltage $V_B$, the resistive voltage $V_R$ and the voltage $V_C$ at the
+current-weighted “equilibrium” flux surface – closes the plasma current and
+the internal inductance exactly, with no assumption about the current profile.
+This module holds those identities and the definitions they rest on.  It owns
+no time derivative and no integral over time: $V_C = -\dot\psi_C$, the
+volt-second budget and any closure for $V_C$ belong to the process layer.</p>
 
 <table class="formula-table">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>n_e</td><td>electron density</td><td>m^-3</td></tr>
-  <tr><td>n_imp</td><td>impurity density</td><td>m^-3</td></tr>
-  <tr><td>T_e</td><td>electron temperature</td><td>eV</td></tr>
-  <tr><td>L_Z</td><td>line-radiation cooling coefficient of species Z</td><td>W m^3</td></tr>
-  <tr><td>epsilon</td><td>line emissivity, n_e n_imp L_Z</td><td>W/m^3</td></tr>
-  <tr><td>P_line</td><td>radiated line power, int epsilon dV</td><td>W</td></tr>
-  <tr><td>V</td><td>cumulative enclosed plasma volume</td><td>m^3</td></tr>
-  <tr><td>rho_tor_norm</td><td>normalized toroidal-flux radius</td><td>-</td></tr>
+  <tr><td>I_p</td><td>plasma current</td><td>A</td></tr>
+  <tr><td>L_i</td><td>dimensional internal inductance, 2 W_int / I_p^2</td><td>H</td></tr>
+  <tr><td>psi</td><td>poloidal flux through the toroidal circle, full</td><td>Wb</td></tr>
+  <tr><td>psi_B</td><td>psi at the plasma boundary</td><td>Wb</td></tr>
+  <tr><td>psi_C</td><td>current-weighted flux average, int psi j dS / I_p</td><td>Wb</td></tr>
+  <tr><td>V_B</td><td>boundary loop voltage, -d psi_B / dt</td><td>V</td></tr>
+  <tr><td>V_C</td><td>voltage at the equilibrium surface, -d psi_C / dt</td><td>V</td></tr>
+  <tr><td>V_R</td><td>resistive voltage, R_p (I_p - I_ni)</td><td>V</td></tr>
+  <tr><td>R_p</td><td>plasma resistance</td><td>Ohm</td></tr>
+  <tr><td>I_ni</td><td>non-inductively driven current</td><td>A</td></tr>
   </tbody>
 </table>
+
+<p><strong>Romero’s signs throughout.</strong>  $\psi$ is the full flux through the toroidal
+circle through a point, in weber and not per radian, and every voltage is
+$V = -\dot\psi$ (Lenz).  In this convention $\psi_C - \psi_B = L_i I_p$ has the
+sign of $I_p$, and a positive $V_B$ sustains a positive $I_p$ – the same sense
+as the loop voltage of
+<code class="language-plaintext highlighter-rouge">vaft.formula.startup.plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code>.
+An equilibrium stored in another COCOS must be brought to it first; the one
+function here that reads a flux refuses a result whose sign says it was not.</p>
+
+<p>This is <strong>not</strong> the convention of
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.loop_voltage_from_total_flux</code>, which is
+Ejima’s $+2\pi\,\dot\psi_b$ on a per-radian flux: the two differ in sign
+and by $2\pi$ in normalisation (#354).  Feeding that function’s output in as
+$V_B$ turns a ramp-up into a ramp-down.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a> &mdash; Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.
+  <li><a href="#current_weighted_flux_from_psi_j_dS"><code>current_weighted_flux_from_psi_j_dS</code></a> &mdash; Current-weighted average of the poloidal flux over the plasma cross-section.
 </li>
-  <li><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a> &mdash; An absolute time-matching tolerance adapted to the native time spacing.
+  <li><a href="#equilibrium_surface_voltage_from_I_p_dL_i_V_R"><code>equilibrium_surface_voltage_from_I_p_dL_i_V_R</code></a> &mdash; Voltage at the equilibrium flux surface, inferred from the inductance history.
 </li>
-  <li><a href="#find_time_match_index"><code>find_time_match_index</code></a> &mdash; Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.
+  <li><a href="#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R"><code>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</code></a> &mdash; Voltage at the equilibrium flux surface, inferred from the current history.
 </li>
-  <li><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a> &mdash; Integrate an emissivity profile to a total radiated power.
+  <li><a href="#internal_inductance_from_psi_C_psi_B_I_p"><code>internal_inductance_from_psi_C_psi_B_I_p</code></a> &mdash; Dimensional internal inductance from the equilibrium and boundary fluxes.
 </li>
-  <li><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a> &mdash; Normalize an element or ion label to a supported atomic symbol.
+  <li><a href="#internal_inductance_rate_from_I_p_V_R_V_C"><code>internal_inductance_rate_from_I_p_V_R_V_C</code></a> &mdash; Rate of change of the internal inductance, Romero’s exact balance.
+</li>
+  <li><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R</code></a> &mdash; Rate of change of the plasma current, Romero’s exact balance.
+</li>
+  <li><a href="#resistive_voltage_from_R_p_I_p_I_ni"><code>resistive_voltage_from_R_p_I_p_I_ni</code></a> &mdash; Resistive voltage of the plasma, net of non-inductive current drive.
 </li>
 </ul>
 
-<h3 id="compute_line_radiation_power_series"><code class="language-plaintext highlighter-rouge">compute_line_radiation_power_series</code></h3>
+<h3 id="current_weighted_flux_from_psi_j_dS"><code class="language-plaintext highlighter-rouge">current_weighted_flux_from_psi_j_dS</code></h3>
 
-<p class="formula-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></p>
+<p class="formula-signature"><code>current_weighted_flux_from_psi_j_dS(psi_Wb, j_phi_A_m2, dS_m2)</code></p>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+<p><strong>Convention-sensitive.</strong> </p>
 
-<p>Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.</p>
+<p>Current-weighted average of the poloidal flux over the plasma cross-section.</p>
 
-<p>For each species and time slice the local emissivity is
-<code class="language-plaintext highlighter-rouge">epsilon = n_e n_imp L_Z(n_e, T_e)</code> and the power <code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>.</p>
+\[\psi_C = \frac{\int_\Omega \psi\,j_\phi\,dS}{\int_\Omega j_\phi\,dS}\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d</code> and <code class="language-plaintext highlighter-rouge">equilibrium.time_slice</code>.</p>
+  <tr><td><code>psi_Wb</code></td><td>array_like</td><td>Wb</td><td><p>Poloidal flux at each cell inside the boundary, full flux in Romero’s sign, finite.</p>
 </td></tr>
-  <tr><td><code>eq_indices</code></td><td>list of int</td><td>-</td><td><p>Equilibrium slice indices to evaluate.</p>
+  <tr><td><code>j_phi_A_m2</code></td><td>array_like</td><td>A m^-2</td><td><p>Toroidal current density at the same cells, finite.</p>
 </td></tr>
-  <tr><td><code>eq_times</code></td><td>array_like</td><td>s</td><td><p>Time of each of those slices.</p>
-</td></tr>
-  <tr><td><code>volume_series</code></td><td>array_like</td><td>m^3</td><td><p>Total plasma volume of each slice, for the integration fallback.</p>
-</td></tr>
-  <tr><td><code>line_radiation_species</code></td><td>list of str, optional</td><td>-</td><td><p>Species to include; <code class="language-plaintext highlighter-rouge">None</code> for every species that has a configured fraction or an ion density profile in the ODS.</p>
-</td></tr>
-  <tr><td><code>impurity_fractions</code></td><td>dict of str to float, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">n_imp / n_e</code> per species, used when the ODS carries no profile for it; <code class="language-plaintext highlighter-rouge">None</code> means no assumption.</p>
-</td></tr>
-  <tr><td><code>Z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective charge, used only to infer a single species’ fraction when nothing else is known.</p>
-</td></tr>
-  <tr><td><code>return_assumptions</code></td><td>bool, optional</td><td>-</td><td><p>Also return what each species’ density was taken from.</p>
+  <tr><td><code>dS_m2</code></td><td>array_like</td><td>m^2</td><td><p>Poloidal cross-section area of each cell, finite and non-negative; broadcast against the other two.</p>
 </td></tr>
   </tbody>
 </table>
@@ -352,7 +362,7 @@ on VEST) and passed in; this module holds no such number (issue #420).</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray or tuple of (np.ndarray, dict)</td><td>W</td><td><p>Non-negative line-radiation power per <code class="language-plaintext highlighter-rouge">eq_indices</code> entry, and with <code class="language-plaintext highlighter-rouge">return_assumptions</code> a dict of <code class="language-plaintext highlighter-rouge">species</code>, per-species <code class="language-plaintext highlighter-rouge">impurity_source</code> (<code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">configured</code>, <code class="language-plaintext highlighter-rouge">inferred_from_zeff</code> or <code class="language-plaintext highlighter-rouge">none</code>), the <code class="language-plaintext highlighter-rouge">impurity_fraction</code> used, and <code class="language-plaintext highlighter-rouge">z_eff</code>.</p>
+  <tr><td></td><td>float</td><td>Wb</td><td><p>$\psi_C$.</p>
 </td></tr>
   </tbody>
 </table>
@@ -360,93 +370,49 @@ on VEST) and passed in; this module holds no such number (issue #420).</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Mismatched <code class="language-plaintext highlighter-rouge">eq_times</code> / <code class="language-plaintext highlighter-rouge">volume_series</code> lengths, non-finite times,
-    an unrecognized species label, or a negative or non-finite fraction.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Match each equilibrium time to a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice
-(<code class="language-plaintext highlighter-rouge">find_time_match_index</code>); an unmatched slice radiates nothing.</li>
-  <li>Interpolate <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> from the slice’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> onto the
-equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> (constant edge extrapolation).</li>
-  <li>For each species, take <code class="language-plaintext highlighter-rouge">n_imp / n_e</code> from, in order: the slice’s own
-ion density profile; <code class="language-plaintext highlighter-rouge">impurity_fractions</code>; a single-species inference
-from <code class="language-plaintext highlighter-rouge">Z_eff</code>; else zero with one warning per species.</li>
-  <li><code class="language-plaintext highlighter-rouge">L_Z</code> from the ADAS tables [FORMULA]; <code class="language-plaintext highlighter-rouge">epsilon = L_Z n_e n_imp</code>.</li>
-  <li><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code> per species, summed; clipped at
-zero.</li>
-</ol>
-
-<p><strong>Input semantics.</strong></p>
-
-<p>Stored kinetic profiles (fitted or synthetic) on their <code class="language-plaintext highlighter-rouge">core_profiles</code>
-grid, plus the equilibrium grid and volume.</p>
-
-<p><strong>Output semantics.</strong></p>
-
-<p>Synthetic: a modelled diagnostic-like quantity, not a measurement.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">impurity_fractions = None</code> and <code class="language-plaintext highlighter-rouge">line_radiation_species = None</code> mean
-<em>no assumption</em>.  The VEST carbon and oxygen fractions that used to be
-this function’s defaults are machine-specific settings, each an assumed
-value in <code class="language-plaintext highlighter-rouge">vest.yaml</code> resolved by the pipeline.  <code class="language-plaintext highlighter-rouge">Z_eff = None</code>
-disables the single-species inference, a numerical convenience.</p>
+    A non-finite input, a negative cell area, arrays that do not
+    broadcast, or a net enclosed current of zero.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p>The radial coordinate is <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> throughout: the <code class="language-plaintext highlighter-rouge">core_profiles</code>
-grid and the equilibrium <code class="language-plaintext highlighter-rouge">profiles_1d</code> both carry it and are interpolated
-against each other in it.  <code class="language-plaintext highlighter-rouge">n_i</code> for the impurity is <code class="language-plaintext highlighter-rouge">fraction * n_e</code>
-where a fraction is used; <code class="language-plaintext highlighter-rouge">Z_eff</code> inference assumes hydrogenic main ions,
-<code class="language-plaintext highlighter-rouge">n_imp/n_e = (Z_eff - 1)/(Z(Z - 1))</code>.</p>
+<p><strong>The cells must be the plasma, not the grid.</strong>  Cells outside the
+boundary carry vessel or coil current in a free-boundary solution and
+would pull $\psi_C$ toward the wall; mask them out, or pass
+$dS = 0$ for them.  The quadrature is the plain cell sum – the caller
+chooses the cells, which is the one approximation this makes.</p>
 
-<p><strong>Assumptions.</strong></p>
+<p>$V_C = -\dot\psi_C$ is the voltage the other functions here take; the
+time derivative is the process layer’s.</p>
 
-<p>Coronal equilibrium for <code class="language-plaintext highlighter-rouge">L_Z</code>; one impurity species at a time with no
-mutual dilution; the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice at the matched time describes
-the equilibrium slice.</p>
+<p><strong>See Also.</strong></p>
 
-<p><strong>Applicability.</strong></p>
+<p>internal_inductance_from_psi_C_psi_B_I_p</p>
 
-<p>Machine-independent.  Species and fractions arrive as arguments.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Every failure mode – no <code class="language-plaintext highlighter-rouge">core_profiles</code>, no matching time, no <code class="language-plaintext highlighter-rouge">n_e</code>
-or <code class="language-plaintext highlighter-rouge">T_e</code>, ADAS data unavailable, no fraction known – yields zero for
-that slice or species with a logged warning rather than an error, to keep
-an offline power balance running; the returned assumptions are how a
-caller can tell.  A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice stored on <code class="language-plaintext highlighter-rouge">rho_pol_norm</code>
-only (no equilibrium at its time) has no <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> and is skipped.</p>
-
-<p><strong>Provenance.</strong></p>
+<p><strong>References.</strong></p>
 
 <ol class="formula-references">
-  <li>ADAS tables [ADAS] through the cooling-coefficient kernel [FORMULA].
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eq. (34).
 </li>
 </ol>
 
-<h3 id="compute_time_match_atol"><code class="language-plaintext highlighter-rouge">compute_time_match_atol</code></h3>
+<h3 id="equilibrium_surface_voltage_from_I_p_dL_i_V_R"><code class="language-plaintext highlighter-rouge">equilibrium_surface_voltage_from_I_p_dL_i_V_R</code></h3>
 
-<p class="formula-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></p>
+<p class="formula-signature"><code>equilibrium_surface_voltage_from_I_p_dL_i_V_R(I_p_A, dL_i_dt_H_s, V_R_V)</code></p>
 
-<p><strong>Machine-independent.</strong> </p>
+<p><strong>Convention-sensitive.</strong> </p>
 
-<p>An absolute time-matching tolerance adapted to the native time spacing.</p>
+<p>Voltage at the equilibrium flux surface, inferred from the inductance history.</p>
 
-<p><code class="language-plaintext highlighter-rouge">max(base_atol, 0.25 * min(diff(unique_finite_times)))</code>, which absorbs
-floating-point drift in a time coordinate without ever matching an
-adjacent physical slice.</p>
+\[V_C^{(L)} = V_R - \frac{I_p}{2}\,\dot L_i\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate to be matched against.</p>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite.</p>
 </td></tr>
-  <tr><td><code>base_atol</code></td><td>float, optional</td><td>s</td><td><p>Floor on the tolerance.</p>
+  <tr><td><code>dL_i_dt_H_s</code></td><td>float or np.ndarray</td><td>H/s</td><td><p>Rate of change of the internal inductance, finite.</p>
+</td></tr>
+  <tr><td><code>V_R_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage, finite.</p>
 </td></tr>
   </tbody>
 </table>
@@ -454,7 +420,7 @@ adjacent physical slice.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float</td><td>s</td><td><p>The tolerance; <code class="language-plaintext highlighter-rouge">base_atol</code> when fewer than two distinct finite times exist.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>V</td><td><p>$V_C$.</p>
 </td></tr>
   </tbody>
 </table>
@@ -462,116 +428,49 @@ adjacent physical slice.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    <code class="language-plaintext highlighter-rouge">base_atol</code> non-finite or negative.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">base_atol = 1e-6</code> s and the factor <code class="language-plaintext highlighter-rouge">0.25</code> are numerical conveniences:
-a quarter of the smallest spacing can never reach the neighbouring slice.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="find_time_match_index"><code class="language-plaintext highlighter-rouge">find_time_match_index</code></h3>
-
-<p class="formula-signature"><code>find_time_match_index(time_array, target_time)</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate.</p>
-</td></tr>
-  <tr><td><code>target_time</code></td><td>float</td><td>s</td><td><p>The time to match.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>int or None</td><td>-</td><td><p>Index of the closest time within <code class="language-plaintext highlighter-rouge">compute_time_match_atol</code>; <code class="language-plaintext highlighter-rouge">None</code> for an empty array, a non-finite target, or no candidate within tolerance.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="integrate_emissivity_profile"><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code></h3>
-
-<p class="formula-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Integrate an emissivity profile to a total radiated power.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>emissivity_profile</code></td><td>np.ndarray</td><td>W/m^3</td><td><p>Local emissivity on the radial grid.</p>
-</td></tr>
-  <tr><td><code>volume_profile</code></td><td>np.ndarray or None</td><td>m^3</td><td><p>Cumulative enclosed volume on the same grid, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
-</td></tr>
-  <tr><td><code>total_volume</code></td><td>float</td><td>m^3</td><td><p>Total plasma volume, for the fallback.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>W</td><td><p><code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>, or the fallback, or <code class="language-plaintext highlighter-rouge">0</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>If <code class="language-plaintext highlighter-rouge">volume_profile</code> is given, matches the emissivity’s shape and has at
-least two finite points spanning a non-zero volume: trapezoidal
-integration of <code class="language-plaintext highlighter-rouge">epsilon</code> against <code class="language-plaintext highlighter-rouge">V</code>, in volume order.</li>
-  <li>Else, if <code class="language-plaintext highlighter-rouge">total_volume</code> is finite and positive:
-<code class="language-plaintext highlighter-rouge">nanmean(epsilon) * total_volume</code>.</li>
-  <li>Else <code class="language-plaintext highlighter-rouge">0</code>.</li>
-</ol>
+    A non-finite input.</p>
 
 <p><strong>Convention.</strong></p>
 
-<p><code class="language-plaintext highlighter-rouge">volume_profile</code> is the <em>cumulative enclosed</em> volume <code class="language-plaintext highlighter-rouge">V(rho)</code>, so
-<code class="language-plaintext highlighter-rouge">dV</code> is its difference; it is not a shell volume.</p>
+<p>Romero’s eq. (39) solved for $V_C$.  This and
+<code class="language-plaintext highlighter-rouge">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</code> read the same
+$V_C$ off two different measured histories, and a third route is
+$-\dot\psi_C$ from the equilibria; their disagreement is #781’s first
+validation target, and it lands on whichever input is worst – usually
+$R_p$, which enters both.</p>
 
-<p><strong>Applicability.</strong></p>
+<p><strong>See Also.</strong></p>
 
-<p>Machine-independent.</p>
+<p>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R
+current_weighted_flux_from_psi_j_dS</p>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>References.</strong></p>
 
-<p>The two fallbacks are silent: a volume profile of the wrong length drops to
-the mean-times-volume estimate, and a missing volume to zero, with no
-warning from this function.</p>
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eq. (39).
+</li>
+</ol>
 
-<h3 id="normalize_atomic_symbol"><code class="language-plaintext highlighter-rouge">normalize_atomic_symbol</code></h3>
+<h3 id="equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R"><code class="language-plaintext highlighter-rouge">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</code></h3>
 
-<p class="formula-signature"><code>normalize_atomic_symbol(label)</code></p>
+<p class="formula-signature"><code>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R(L_i_H, dI_p_dt_A_s, V_B_V, V_R_V)</code></p>
 
-<p><strong>Machine-independent.</strong> </p>
+<p><strong>Convention-sensitive.</strong> </p>
 
-<p>Normalize an element or ion label to a supported atomic symbol.</p>
+<p>Voltage at the equilibrium flux surface, inferred from the current history.</p>
 
-<p>Full English names and charge-decorated labels are accepted –
-<code class="language-plaintext highlighter-rouge">carbon6+</code> gives <code class="language-plaintext highlighter-rouge">C</code>, <code class="language-plaintext highlighter-rouge">neon</code> gives <code class="language-plaintext highlighter-rouge">Ne</code>.</p>
+\[V_C^{(I)} = L_i\,\dot I_p - V_B + 2V_R\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>label</code></td><td>str, bytes or None</td><td>-</td><td><p>The label as found in an ODS <code class="language-plaintext highlighter-rouge">ion.label</code> or a species list.</p>
+  <tr><td><code>L_i_H</code></td><td>float or np.ndarray</td><td>H</td><td><p>Dimensional internal inductance, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>dI_p_dt_A_s</code></td><td>float or np.ndarray</td><td>A/s</td><td><p>Rate of change of the plasma current, finite.</p>
+</td></tr>
+  <tr><td><code>V_B_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Boundary loop voltage, finite.</p>
+</td></tr>
+  <tr><td><code>V_R_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage, finite.</p>
 </td></tr>
   </tbody>
 </table>
@@ -579,31 +478,270 @@ warning from this function.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>str or None</td><td>-</td><td><p>The symbol, or <code class="language-plaintext highlighter-rouge">None</code> for an unrecognized label so the caller decides whether absence is fatal.</p>
+  <tr><td></td><td>float or np.ndarray</td><td>V</td><td><p>$V_C$.</p>
 </td></tr>
   </tbody>
 </table>
 
-<p><strong>Applicability.</strong></p>
+<p><strong>Raises.</strong></p>
 
-<p>Machine-independent.</p>
+<p>ValueError
+    A non-finite input or a negative internal inductance.</p>
 
-<p><strong>Limitations.</strong></p>
+<p><strong>Convention.</strong></p>
 
-<p>Only the elements in the module’s table are recognized (H through W, the
-common tokamak species); isotopes D and T map to their own symbols.</p>
+<p>Romero’s eq. (40) solved for $V_C$; see
+<code class="language-plaintext highlighter-rouge">equilibrium_surface_voltage_from_I_p_dL_i_V_R</code> for the other
+route and what their difference measures.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>equilibrium_surface_voltage_from_I_p_dL_i_V_R</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eq. (40).
+</li>
+</ol>
+
+<h3 id="internal_inductance_from_psi_C_psi_B_I_p"><code class="language-plaintext highlighter-rouge">internal_inductance_from_psi_C_psi_B_I_p</code></h3>
+
+<p class="formula-signature"><code>internal_inductance_from_psi_C_psi_B_I_p(psi_C_Wb, psi_B_Wb, I_p_A)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Dimensional internal inductance from the equilibrium and boundary fluxes.</p>
+
+\[L_i = \frac{\psi_C - \psi_B}{I_p}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_C_Wb</code></td><td>float or np.ndarray</td><td>Wb</td><td><p>Current-weighted flux average, Romero’s sign, finite.</p>
+</td></tr>
+  <tr><td><code>psi_B_Wb</code></td><td>float or np.ndarray</td><td>Wb</td><td><p>Boundary flux, same convention, finite.</p>
+</td></tr>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite and non-zero.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>H</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input, a zero current, or a negative result – which
+    means the flux is in a convention opposite to Romero’s.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>Exact, and a sign check on the flux convention.</strong>  With
+$W_{p,\mathrm{int}} = \tfrac12(\psi_C - \psi_B) I_p$ this is
+$2W_{p,\mathrm{int}}/I_p^2$, the same $L_i$ as
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.internal_inductance_from_W_int_Ip</code>, so it
+is positive for any current profile.  A negative value is therefore not a
+physical answer but an inverted $\psi$ – a COCOS whose flux grows
+outward for positive current – and is refused rather than returned.  A
+per-radian flux is $2\pi$ too small and passes that check: convert it
+before calling.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>current_weighted_flux_from_psi_j_dS</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eqs. (35)-(36).
+</li>
+</ol>
+
+<h3 id="internal_inductance_rate_from_I_p_V_R_V_C"><code class="language-plaintext highlighter-rouge">internal_inductance_rate_from_I_p_V_R_V_C</code></h3>
+
+<p class="formula-signature"><code>internal_inductance_rate_from_I_p_V_R_V_C(I_p_A, V_R_V, V_C_V)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Rate of change of the internal inductance, Romero’s exact balance.</p>
+
+\[\dot L_i = \frac{2\,(V_R - V_C)}{I_p}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite and non-zero.</p>
+</td></tr>
+  <tr><td><code>V_R_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage, finite.</p>
+</td></tr>
+  <tr><td><code>V_C_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Voltage at the equilibrium flux surface, finite.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>H/s</td><td><p>$\mathrm{d}L_i/\mathrm{d}t$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input or a zero plasma current.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Romero’s signs, as in the module docstring.  Exact: no current-profile
+model enters.  $L_i$ is steady exactly when $V_C = V_R$, and the full
+steady state is $V_C = V_R = V_B$, a flat loop-voltage profile.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>plasma_current_rate_from_L_i_V_B_V_C_V_R
+equilibrium_surface_voltage_from_I_p_dL_i_V_R</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eq. (39).
+</li>
+</ol>
+
+<h3 id="plasma_current_rate_from_L_i_V_B_V_C_V_R"><code class="language-plaintext highlighter-rouge">plasma_current_rate_from_L_i_V_B_V_C_V_R</code></h3>
+
+<p class="formula-signature"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R(L_i_H, V_B_V, V_C_V, V_R_V)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Rate of change of the plasma current, Romero’s exact balance.</p>
+
+\[\dot I_p = \frac{V_B + V_C - 2V_R}{L_i}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>L_i_H</code></td><td>float or np.ndarray</td><td>H</td><td><p>Dimensional internal inductance, finite and positive.</p>
+</td></tr>
+  <tr><td><code>V_B_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Boundary loop voltage, finite.</p>
+</td></tr>
+  <tr><td><code>V_C_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Voltage at the equilibrium flux surface, finite.</p>
+</td></tr>
+  <tr><td><code>V_R_V</code></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage, finite.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>A/s</td><td><p>$\mathrm{d}I_p/\mathrm{d}t$.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input or a non-positive internal inductance.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Romero’s signs.  Together with
+<code class="language-plaintext highlighter-rouge">internal_inductance_rate_from_I_p_V_R_V_C</code> it gives
+$L_i\dot I_p + \tfrac12 I_p\dot L_i = V_B - V_R$, the energy balance of
+the internal field, without assuming how $L_i$ evolves.  Only the
+internal inductance appears: the external one and the coils are inside
+$V_B$.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>internal_inductance_rate_from_I_p_V_R_V_C
+equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eq. (40).
+</li>
+</ol>
+
+<h3 id="resistive_voltage_from_R_p_I_p_I_ni"><code class="language-plaintext highlighter-rouge">resistive_voltage_from_R_p_I_p_I_ni</code></h3>
+
+<p class="formula-signature"><code>resistive_voltage_from_R_p_I_p_I_ni(R_p_ohm, I_p_A, I_ni_A)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Resistive voltage of the plasma, net of non-inductive current drive.</p>
+
+\[V_R = R_p\,(I_p - \hat I)\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>R_p_ohm</code></td><td>float or np.ndarray</td><td>Ohm</td><td><p>Plasma resistance, finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>I_p_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Plasma current, finite.</p>
+</td></tr>
+  <tr><td><code>I_ni_A</code></td><td>float or np.ndarray</td><td>A</td><td><p>Non-inductively driven current, finite; <code class="language-plaintext highlighter-rouge">0</code> asserts a purely Ohmic plasma.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>V</td><td><p>Resistive voltage.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A non-finite input or a negative resistance.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong><code class="language-plaintext highlighter-rouge">I_ni_A</code> has no default on purpose.</strong>  $\hat I = 0$ is a statement
+that nothing but the transformer drives current, true of a pure-Ohmic
+VEST discharge and false with EC, NBI or helicity injection; a caller
+must make it.  $R_p$ and $\hat I$ are Romero’s resistance-weighted
+definitions, $\int\eta j^2 dS/I_p^2$ and $\int\eta j\hat j dS/\int\eta j^2
+dS\cdot I_p$, which are what make $I_p V_R$ the dissipated power; a
+Spitzer ring resistance is an estimate of the first.</p>
+
+<p><strong>See Also.</strong></p>
+
+<p>vaft.formula.startup.plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eqs. (17)-(21).
+</li>
+</ol>
 
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
 </code></pre></div></div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
 validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -616,7 +754,7 @@ The same text is available offline as <code class="language-plaintext highlighte
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
         
       </ul>
     </div>
@@ -682,13 +820,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/profile/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: profile">
+                        <a href="/vaft/develop/reference/diagrams/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Scientific diagrams">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/equilibrium/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: equilibrium">
+                        <a href="/vaft/develop/reference/process/ml/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: ml">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -704,7 +842,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#compute_line_radiation_power_series" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_line_radiation_power_series</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_time_match_atol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_time_match_atol</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_time_match_index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_time_match_index</a></li><li class="page-toc-item page-toc-level-3"><a href="#integrate_emissivity_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">integrate_emissivity_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_atomic_symbol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_atomic_symbol</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#current_weighted_flux_from_psi_j_dS" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_weighted_flux_from_psi_j_dS</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_I_p_dL_i_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_I_p_dL_i_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_from_psi_C_psi_B_I_p" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_from_psi_C_psi_B_I_p</a></li><li class="page-toc-item page-toc-level-3"><a href="#internal_inductance_rate_from_I_p_V_R_V_C" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">internal_inductance_rate_from_I_p_V_R_V_C</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_current_rate_from_L_i_V_B_V_C_V_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_voltage_from_R_p_I_p_I_ni" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_voltage_from_R_p_I_p_I_ni</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -720,11 +858,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: equilibrium",
+            "title": "Process reference: ml",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_equilibrium.md",
-            "ref": "_guide/Process_reference_equilibrium.md",
+            "path": "_guide/Process_reference_ml.md",
+            "ref": "_guide/Process_reference_ml.md",
             "articles": []
         },
         
@@ -816,8 +954,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_atomic.md",
-        "mtime": "2026-09-03 10:05:00 +0000",
+        "path": "_guide/Formula_reference_transformer.md",
+        "mtime": "2026-09-17 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

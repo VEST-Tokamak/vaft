@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>58a2893</code>. What is described
+  <code>64d15d1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
-24 public functions.  The category overview and notation come from the module
+26 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -347,6 +347,10 @@ limits, and transport parameters.</p>
   <li><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
 </li>
   <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Normalised electron gyroradius $\rho_e/a$.
+</li>
+  <li><a href="#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a> &mdash; Ideal ballooning stability of the circular $s$-$\alpha$ model.
+</li>
+  <li><a href="#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a> &mdash; First and second ballooning stability boundaries of the $s$-$\alpha$ model.
 </li>
   <li><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
 </li>
@@ -449,8 +453,9 @@ ends), sign-sensitive to the direction of <code class="language-plaintext highli
 
 <p>Empirical fit.  A straight-line approximation of the first-stability
 boundary of the circular $s$-$\alpha$ diagram [1] for moderate shear
-($0.3 \lesssim s \lesssim 1.5$); the true boundary bends over and closes at
-$\alpha \approx 1$, with second stability beyond.</p>
+($0.3 \lesssim s \lesssim 1.5$). The boundary itself, computed from the
+ballooning equation, is <code class="language-plaintext highlighter-rouge">s_alpha_marginal_alpha</code>: it leaves this line
+at small shear and has a second-stable region beyond $\alpha_2(s)$.</p>
 
 <p><strong>Limitations.</strong></p>
 
@@ -1562,6 +1567,159 @@ dead <code class="language-plaintext highlighter-rouge">m_e</code> parameter is 
 </li>
 </ol>
 
+<h3 id="s_alpha_ballooning_stable"><code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code></h3>
+
+<p class="formula-signature"><code>s_alpha_ballooning_stable(s, alpha, theta_max=125.66370614359172, step=0.02)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Ideal ballooning stability of the circular $s$-$\alpha$ model.</p>
+
+\[\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
++ \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = 0,
+\qquad \Lambda = s\theta - \alpha\sin\theta\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear $r q’/q$.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td>float or np.ndarray</td><td>-</td><td><p>Normalised pressure gradient $-2\mu_0 R q^{2} p’/B^{2}$.</p>
+</td></tr>
+  <tr><td><code>theta_max</code></td><td>float</td><td>rad</td><td><p>Extent of the ballooning-angle integration.</p>
+</td></tr>
+  <tr><td><code>step</code></td><td>float</td><td>rad</td><td><p>Fixed fourth-order Runge-Kutta step.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>bool or np.ndarray</td><td>-</td><td><p>True where the marginal ballooning equation is stable, broadcast over <code class="language-plaintext highlighter-rouge">s</code> and <code class="language-plaintext highlighter-rouge">alpha</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">theta_max</code> or <code class="language-plaintext highlighter-rouge">step</code> is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Connor-Hastie-Taylor normalisation: $\alpha &gt; 0$ for pressure falling
+outwards (<code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code>), $s &gt; 0$ for $q$ rising
+outwards. Newcomb’s criterion on the even solution, $F(0) = 1$,
+$F’(0) = 0$: the point is unstable if $F$ crosses zero anywhere on
+$0 &lt; \theta \le \theta_\mathrm{max}$.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>$\alpha\cos\theta$ is the bad-curvature drive on the outboard side and
+$\Lambda$ the local shear that bends field lines against it. Raising
+$\alpha$ first destabilises (first stability boundary) and then, through
+the $-\alpha\sin\theta$ term that makes the local shear vanish on the
+outboard side and reverse elsewhere, restabilises (second stability).</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Large aspect ratio, circular shifted flux surfaces, infinite toroidal
+mode number, marginal stability ($\omega^{2} = 0$).</p>
+
+<p><strong>Validity.</strong></p>
+
+<p>$s \gtrsim 0.05$. Towards zero shear the solutions decay only
+algebraically and a finite <code class="language-plaintext highlighter-rouge">theta_max</code> resolves the boundary
+progressively worse; at $s \le 0$ the model is stable.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>A fixed-step integrator, vectorised over the broadcast inputs, so the
+result is deterministic and a whole $(s, \alpha)$ grid costs one pass.
+With the defaults, halving <code class="language-plaintext highlighter-rouge">step</code> does not move the boundary at the
+1e-4 level; extending <code class="language-plaintext highlighter-rouge">theta_max</code> to $2560\pi$ moves $\alpha_1$ by
+about 0.012 at $s = 0.1$ and 0.002 at $s = 1$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
+</li>
+</ol>
+
+<h3 id="s_alpha_marginal_alpha"><code class="language-plaintext highlighter-rouge">s_alpha_marginal_alpha</code></h3>
+
+<p class="formula-signature"><code>s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=0.001)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>First and second ballooning stability boundaries of the $s$-$\alpha$ model.</p>
+
+\[\alpha_1(s) = \min\{\alpha : \text{unstable}\}, \qquad
+\alpha_2(s) = \max\{\alpha : \text{unstable}\}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear $r q’/q$.</p>
+</td></tr>
+  <tr><td><code>alpha_max</code></td><td>float</td><td>-</td><td><p>Upper end of the searched $\alpha$ range.</p>
+</td></tr>
+  <tr><td><code>resolution</code></td><td>float</td><td>-</td><td><p>Bisection tolerance on each boundary.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>alpha_first</code></td><td>float or np.ndarray</td><td>-</td><td><p>Lowest unstable $\alpha$: the first stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where no instability is found.</p>
+</td></tr>
+  <tr><td><code>alpha_second</code></td><td>float or np.ndarray</td><td>-</td><td><p>Highest unstable $\alpha$: the second stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where none is found or the unstable band reaches <code class="language-plaintext highlighter-rouge">alpha_max</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">s</code> is not finite, <code class="language-plaintext highlighter-rouge">alpha_max</code> is below 0.1 or <code class="language-plaintext highlighter-rouge">resolution</code> is
+    not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>The boundaries of <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code> (same normalisation and
+Newcomb criterion). The unstable set at fixed $s$ is taken to be the
+single band $[\alpha_1, \alpha_2]$ it is in this model.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Below $\alpha_1$ the plasma is first-stable; above $\alpha_2$ it has
+reached second stability. $\alpha_1 \approx 0.6\,s$ at moderate shear,
+the line <code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code> uses.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>As for <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>A scan on a 0.05-spaced $\alpha$ grid brackets each boundary, then one
+vectorised bisection refines both to <code class="language-plaintext highlighter-rouge">resolution</code>. A band narrower than
+the scan spacing (very small $s$) can be missed.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
+</li>
+</ol>
+
 <h3 id="sawtooth_stability_criterion"><code class="language-plaintext highlighter-rouge">sawtooth_stability_criterion</code></h3>
 
 <p class="formula-signature"><code>sawtooth_stability_criterion(q_0, beta_pol)</code></p>
@@ -1765,7 +1923,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pendulum_hamiltonian" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pendulum_hamiltonian</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_separatrix_half_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_separatrix_half_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pendulum_hamiltonian" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pendulum_hamiltonian</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_separatrix_half_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_separatrix_half_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#s_alpha_ballooning_stable" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">s_alpha_ballooning_stable</a></li><li class="page-toc-item page-toc-level-3"><a href="#s_alpha_marginal_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">s_alpha_marginal_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1883,7 +2041,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 14:09:13 +0000"
+        "time": "2026-09-18 15:41:23 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

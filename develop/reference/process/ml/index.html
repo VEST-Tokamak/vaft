@@ -1,0 +1,1319 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: ml · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/transformer/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: ml</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>64d15d1</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_ml">Process reference: ml</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.ml, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/process/ml"><code class="language-plaintext highlighter-rouge">vaft/process/ml/</code></a>:
+13 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("ml.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Training is a VAFT processing stage like any other.  This package owns the
+whole path – dataset construction, group-aware splitting, windowing,
+training, evaluation, threshold calibration, artifact packaging, export,
+resolution of published versions and inference – while trained weights are
+distributed through the separate <code class="language-plaintext highlighter-rouge">VEST-Tokamak/vaft-nn</code> registry.</p>
+
+<p>Importing it loads NumPy only.  Frameworks are backends chosen by name in a
+<code class="language-plaintext highlighter-rouge">ModelSpec</code> (<code class="language-plaintext highlighter-rouge">"linear"</code>, a closed-form NumPy reference; <code class="language-plaintext highlighter-rouge">"torch"</code>,
+installed with <code class="language-plaintext highlighter-rouge">pip install 'vaft[ml]'</code>) and are imported on first use; no
+public signature takes or returns a framework object.</p>
+
+<p>A split assigns <em>groups</em> – the independent scientific unit, a shot or a
+simulation case – to partitions, and is made before windowing or
+augmentation; it then applies unchanged to every derived dataset.
+Normalisation moments come from the train partition only.  Every inference
+result carries the immutable identity of the model that produced it: exact
+version and manifest SHA-256, never only a stage alias.</p>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#build_dataset"><code>build_dataset</code></a> &mdash; Assemble a fingerprinted dataset from arrays.
+</li>
+  <li><a href="#calibrate_threshold"><code>calibrate_threshold</code></a> &mdash; Set a decision threshold on a per-sample model output from one partition.
+</li>
+  <li><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a> &mdash; SHA-256 content fingerprint of a dataset.
+</li>
+  <li><a href="#evaluate_model"><code>evaluate_model</code></a> &mdash; Standard ML metrics of a model on one partition, overall and per group.
+</li>
+  <li><a href="#export_model"><code>export_model</code></a> &mdash; Export the network to an inference format and prove it agrees.
+</li>
+  <li><a href="#load_model"><code>load_model</code></a> &mdash; Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.
+</li>
+  <li><a href="#load_model_artifact"><code>load_model_artifact</code></a> &mdash; Load an artifact directory, verifying every file against its manifest.
+</li>
+  <li><a href="#predict"><code>predict</code></a> &mdash; Run a model on new data and stamp the result with its exact identity.
+</li>
+  <li><a href="#resolve_model"><code>resolve_model</code></a> &mdash; Resolve a published model to one exact, hash-verified local version.
+</li>
+  <li><a href="#save_model_artifact"><code>save_model_artifact</code></a> &mdash; Write a model as an immutable, hash-pinned artifact directory.
+</li>
+  <li><a href="#split_groups"><code>split_groups</code></a> &mdash; Assign independent groups to train/validation/test partitions.
+</li>
+  <li><a href="#train_model"><code>train_model</code></a> &mdash; Train a model on the train partition and package it with its provenance.
+</li>
+  <li><a href="#window_dataset"><code>window_dataset</code></a> &mdash; Cut sliding windows that never cross a group boundary.
+</li>
+</ul>
+
+<h3 id="build_dataset"><code class="language-plaintext highlighter-rouge">build_dataset</code></h3>
+
+<p class="formula-signature"><code>build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Assemble a fingerprinted dataset from arrays.</p>
+
+<p>The generic entry point for every ML task: an engineered-feature table
+(pass <code class="language-plaintext highlighter-rouge">feature_spec</code>), a waveform or image tensor, or paired
+input-target supervision (pass <code class="language-plaintext highlighter-rouge">targets</code>).</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>inputs</code></td><td>array_like</td><td>any</td><td><p>Samples along the first axis, shape <code class="language-plaintext highlighter-rouge">(n, *input_shape)</code>.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td>array_like</td><td>-</td><td><p>Independent unit of each sample (shot number, simulation case), shape <code class="language-plaintext highlighter-rouge">(n,)</code>.</p>
+</td></tr>
+  <tr><td><code>spec</code></td><td>DatasetSpec</td><td>-</td><td><p>Name, task, group key and column names of the dataset.</p>
+</td></tr>
+  <tr><td><code>targets</code></td><td>array_like or None, optional</td><td>any</td><td><p>Paired targets, shape <code class="language-plaintext highlighter-rouge">(n, *target_shape)</code>; <code class="language-plaintext highlighter-rouge">None</code> for an unsupervised dataset.</p>
+</td></tr>
+  <tr><td><code>sample_meta</code></td><td>mapping of str to array_like or None, optional</td><td>any</td><td><p>Per-sample arrays that travel with every subset, such as window times.</p>
+</td></tr>
+  <tr><td><code>feature_spec</code></td><td>FeatureSpec or None, optional</td><td>-</td><td><p>Column schema of a 2-D engineered-feature table; returns a <code class="language-plaintext highlighter-rouge">FeatureDataset</code> when given.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>DatasetArtifact</td><td>-</td><td><p>The dataset with its <code class="language-plaintext highlighter-rouge">fingerprint</code> filled in.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    On mismatched lengths, a non-finite input, or a feature table whose
+    width differs from <code class="language-plaintext highlighter-rouge">feature_spec</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Inputs must be finite: imputation is a scientific choice (train-partition
+medians, a flag, a drop) that belongs to the caller before this point.</p>
+
+<h3 id="calibrate_threshold"><code class="language-plaintext highlighter-rouge">calibrate_threshold</code></h3>
+
+<p class="formula-signature"><code>calibrate_threshold(model, dataset, split, *, partition='validation', output='score', quantile=0.99, name=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Set a decision threshold on a per-sample model output from one partition.</p>
+
+<p>The second half of a two-stage detector: a score is only an event
+candidate once a threshold, fixed on data the network did not train on,
+has been applied.  Attach the result with
+<code class="language-plaintext highlighter-rouge">model.with_calibration(result)</code>; <code class="language-plaintext highlighter-rouge">predict</code> then reports
+<code class="language-plaintext highlighter-rouge">&lt;name&gt;_exceeds</code> for every sample.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+</td></tr>
+  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Data with the model’s input shape.</p>
+</td></tr>
+  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment selecting the partition.</p>
+</td></tr>
+  <tr><td><code>partition</code></td><td>str, optional</td><td>-</td><td><p>Partition the quantile is taken over.</p>
+</td></tr>
+  <tr><td><code>output</code></td><td>str, optional</td><td>-</td><td><p>Per-sample scalar output to threshold.</p>
+</td></tr>
+  <tr><td><code>quantile</code></td><td>float, optional</td><td>-</td><td><p>Quantile of that output on the partition, in <code class="language-plaintext highlighter-rouge">(0, 1)</code>.</p>
+</td></tr>
+  <tr><td><code>name</code></td><td>str or None, optional</td><td>-</td><td><p>Calibration name; <code class="language-plaintext highlighter-rouge">output</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>CalibrationResult</td><td>any</td><td><p>Threshold with the partition, quantile, sample count and groups it was set on.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When the output is not a per-sample scalar, the partition is empty,
+    or <code class="language-plaintext highlighter-rouge">quantile</code> is outside <code class="language-plaintext highlighter-rouge">(0, 1)</code>.</p>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">quantile = 0.99</code> is numerical convenience; a detector’s quantile is a
+task decision (the VEST IRE prototype used 0.85-0.90).</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="dataset_fingerprint"><code class="language-plaintext highlighter-rouge">dataset_fingerprint</code></h3>
+
+<p class="formula-signature"><code>dataset_fingerprint(dataset)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>SHA-256 content fingerprint of a dataset.</p>
+
+<p>Two datasets share a fingerprint only when their spec, feature schema,
+inputs, targets, groups and per-sample metadata are identical in value,
+dtype and shape.  A model records this fingerprint as part of its identity,
+so “which data trained it” is answerable from the artifact alone.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>The dataset to fingerprint; its own <code class="language-plaintext highlighter-rouge">fingerprint</code> field is ignored.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>str</td><td>-</td><td><p>64-character lowercase hex digest.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Hash the canonical JSON of the spec (and the feature spec, if any).</li>
+  <li>Hash inputs, targets, string group labels and each <code class="language-plaintext highlighter-rouge">sample_meta</code>
+array in sorted key order, each prefixed by its name, dtype and shape.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="evaluate_model"><code class="language-plaintext highlighter-rouge">evaluate_model</code></h3>
+
+<p class="formula-signature"><code>evaluate_model(model, dataset, split, partition='test')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Standard ML metrics of a model on one partition, overall and per group.</p>
+
+<p>This is training evaluation.  Whether a model is scientifically valid –
+campaign robustness, negative controls, cross-diagnostic timing – is a
+task-specific verdict for <code class="language-plaintext highlighter-rouge">vaft.validation</code>, not a number here.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+</td></tr>
+  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Data with the model’s input shape.</p>
+</td></tr>
+  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment selecting the partition.</p>
+</td></tr>
+  <tr><td><code>partition</code></td><td>str, optional</td><td>-</td><td><p>Partition to evaluate.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>EvaluationResult</td><td>any</td><td><p>Aggregate and per-group metrics: <code class="language-plaintext highlighter-rouge">mse</code>, <code class="language-plaintext highlighter-rouge">rmse</code>, <code class="language-plaintext highlighter-rouge">mae</code> and <code class="language-plaintext highlighter-rouge">r2</code> in target units for a supervised model; <code class="language-plaintext highlighter-rouge">score_mean</code>, <code class="language-plaintext highlighter-rouge">score_median</code>, <code class="language-plaintext highlighter-rouge">score_p95</code> in normalised units and <code class="language-plaintext highlighter-rouge">reconstruction_mse</code> in input units for an unsupervised one.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="export_model"><code class="language-plaintext highlighter-rouge">export_model</code></h3>
+
+<p class="formula-signature"><code>export_model(model, directory, *, format='onnx')</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Export the network to an inference format and prove it agrees.</p>
+
+<p>The training artifact and the deployment artifact need not be the same
+thing: a model trained in PyTorch can be served by ONNX Runtime.  The
+export is accepted only after the exported graph reproduces the source
+model on a probe batch.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+</td></tr>
+  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Output directory; must not exist or be empty.</p>
+</td></tr>
+  <tr><td><code>format</code></td><td>str, optional</td><td>-</td><td><p>Target format; <code class="language-plaintext highlighter-rouge">"onnx"</code> is the only one implemented.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict</td><td>-</td><td><p>Export record written to <code class="language-plaintext highlighter-rouge">export.json</code>: format, opset, parity difference and tolerance, runtimes, and the source model identity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When the backend cannot export to <code class="language-plaintext highlighter-rouge">format</code> or the parity check fails.
+BackendUnavailableError
+    When the exporter or runtime is not installed.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>The exported graph maps <em>normalised</em> inputs to <em>normalised</em> outputs;
+<code class="language-plaintext highlighter-rouge">normalization.npz</code> is written beside it and must be applied around it,
+exactly as <code class="language-plaintext highlighter-rouge">predict</code> does.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>VEST-Tokamak/vaft#669, section 12: training and inference artifacts are separate, with numerical validation between them.
+</li>
+</ol>
+
+<h3 id="load_model"><code class="language-plaintext highlighter-rouge">load_model</code></h3>
+
+<p class="formula-signature"><code>load_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Registry model name.</p>
+</td></tr>
+  <tr><td><code>version</code></td><td>str or None, optional</td><td>-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+</td></tr>
+  <tr><td><code>stage</code></td><td>str or None, optional</td><td>-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>.</p>
+</td></tr>
+  <tr><td><code>registry</code></td><td>str or path-like or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>cache</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else <code class="language-plaintext highlighter-rouge">~/.cache/vaft-nn</code>.</p>
+</td></tr>
+  <tr><td><code>env</code></td><td>mapping or None, optional</td><td>-</td><td><p>Environment to read the two variables from.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ModelArtifact</td><td>-</td><td><p>The model, carrying the identity <code class="language-plaintext highlighter-rouge">resolve_model</code> returned.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="load_model_artifact"><code class="language-plaintext highlighter-rouge">load_model_artifact</code></h3>
+
+<p class="formula-signature"><code>load_model_artifact(directory, *, manifest=None, verify=True)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Load an artifact directory, verifying every file against its manifest.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Directory holding the weights and normalisation files.</p>
+</td></tr>
+  <tr><td><code>manifest</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Manifest to trust; <code class="language-plaintext highlighter-rouge">directory/manifest.json</code> when <code class="language-plaintext highlighter-rouge">None</code>.  The resolver passes the registry’s reviewed copy here, so a tampered cache cannot vouch for itself.</p>
+</td></tr>
+  <tr><td><code>verify</code></td><td>bool, optional</td><td>-</td><td><p>Check the SHA-256 and size of every file before loading.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ModelArtifact</td><td>-</td><td><p>The model with an identity naming the directory, version and manifest hash.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelResolutionError
+    When the manifest is missing or a file is missing or differs.
+ModelContractError
+    When the manifest’s schema version is not one this VAFT reads.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>VEST-Tokamak/vaft#669, section 13: resolution verifies identity, version and artifact hash.
+</li>
+</ol>
+
+<h3 id="predict"><code class="language-plaintext highlighter-rouge">predict</code></h3>
+
+<p class="formula-signature"><code>predict(model, data)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Run a model on new data and stamp the result with its exact identity.</p>
+
+<p>Accepts a dataset (checked against the model’s feature schema) or a bare
+array.  The result records the model’s immutable identity – name, exact
+version, manifest and weight hashes – never an alias such as
+<code class="language-plaintext highlighter-rouge">production</code>, so a stored result keeps meaning what it meant when it was
+produced.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained, loaded or resolved model.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td>DatasetArtifact or array_like</td><td>any</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n, *model.input_shape)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>InferenceResult</td><td>any</td><td><p>Outputs aligned with the samples (<code class="language-plaintext highlighter-rouge">prediction</code>; or <code class="language-plaintext highlighter-rouge">reconstruction</code> and a per-sample <code class="language-plaintext highlighter-rouge">score</code>; plus <code class="language-plaintext highlighter-rouge">&lt;name&gt;_exceeds</code> for every calibration), the model identity, and the groups and per-sample metadata of a dataset input.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When the input shape, or a dataset’s column names, differ from the
+    model’s.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">prediction</code> and <code class="language-plaintext highlighter-rouge">reconstruction</code> are in the units of the targets and
+inputs; <code class="language-plaintext highlighter-rouge">score</code> is the mean squared reconstruction error in the model’s
+normalised units.  A score or an exceedance is a model output, not a
+physical event: an <code class="language-plaintext highlighter-rouge">IRE-like candidate</code>, never a reconnection onset
+(#669 section 16).</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<h3 id="resolve_model"><code class="language-plaintext highlighter-rouge">resolve_model</code></h3>
+
+<p class="formula-signature"><code>resolve_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Resolve a published model to one exact, hash-verified local version.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Registry model name, e.g. <code class="language-plaintext highlighter-rouge">"ire_detector"</code>.</p>
+</td></tr>
+  <tr><td><code>version</code></td><td>str or None, optional</td><td>-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+</td></tr>
+  <tr><td><code>stage</code></td><td>str or None, optional</td><td>-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>, resolved to an exact version before anything is loaded.</p>
+</td></tr>
+  <tr><td><code>registry</code></td><td>str or path-like or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>cache</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else <code class="language-plaintext highlighter-rouge">~/.cache/vaft-nn</code>.</p>
+</td></tr>
+  <tr><td><code>env</code></td><td>mapping or None, optional</td><td>-</td><td><p>Environment to read the two variables from; <code class="language-plaintext highlighter-rouge">os.environ</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ModelIdentity</td><td>-</td><td><p>Name, exact version, manifest SHA-256, requested stage, lifecycle status and the verified artifact directory (<code class="language-plaintext highlighter-rouge">source</code>).</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelResolutionError
+    When the registry, model, version, stage, manifest or a cached file is
+    missing, or a hash differs from the one the registry pins.
+ModelContractError
+    When both or neither of <code class="language-plaintext highlighter-rouge">version</code> and <code class="language-plaintext highlighter-rouge">stage</code> are given.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Read <code class="language-plaintext highlighter-rouge">models/&lt;name&gt;/releases.yaml</code> from the registry.</li>
+  <li>Map <code class="language-plaintext highlighter-rouge">stage</code> to its version, or take <code class="language-plaintext highlighter-rouge">version</code>; refuse a stage that
+points at a deprecated version.</li>
+  <li>Check the registry manifest’s SHA-256 against the pinned one.</li>
+  <li>Check every file the manifest lists in <code class="language-plaintext highlighter-rouge">&lt;cache&gt;/&lt;name&gt;/&lt;version&gt;/</code>
+for presence, size and SHA-256.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>A stage alias is mutable and a version is not.  The returned identity
+always carries the exact version and manifest hash; <code class="language-plaintext highlighter-rouge">stage</code> only records
+what was asked for.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The cache is not filled automatically; fetching release assets from the
+private <code class="language-plaintext highlighter-rouge">vaft-nn</code> repository is tracked in #669 (phase 6).</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>VEST-Tokamak/vaft#669, sections 9 and 13: lifecycle aliases resolve to immutable artifacts, and resolution verifies the hash.
+</li>
+</ol>
+
+<h3 id="save_model_artifact"><code class="language-plaintext highlighter-rouge">save_model_artifact</code></h3>
+
+<p class="formula-signature"><code>save_model_artifact(model, directory, *, version)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Write a model as an immutable, hash-pinned artifact directory.</p>
+
+<p>The directory is what gets attached to a <code class="language-plaintext highlighter-rouge">vaft-nn</code> release; its
+<code class="language-plaintext highlighter-rouge">manifest.json</code> is what gets committed to the registry.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained model; <code class="language-plaintext highlighter-rouge">model.name</code> must be lower_snake_case.</p>
+</td></tr>
+  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Target directory; must not exist or be empty.</p>
+</td></tr>
+  <tr><td><code>version</code></td><td>str</td><td>-</td><td><p>Semantic version of this artifact, e.g. <code class="language-plaintext highlighter-rouge">"0.1.0"</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ModelArtifact</td><td>-</td><td><p>The same model carrying its saved identity: version, manifest SHA-256 and weight SHA-256.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    On an invalid name or version, or a non-empty target directory.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Write the backend weights and the normalisation moments.</li>
+  <li>Hash each file and write <code class="language-plaintext highlighter-rouge">manifest.json</code> (sorted keys, two-space
+indent) pinning every hash and size.</li>
+  <li>Hash the manifest; that hash is the artifact’s identity.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>VEST-Tokamak/vaft#669, sections 10-11: the <code class="language-plaintext highlighter-rouge">vaft-nn</code> release layout and manifest contract.
+</li>
+</ol>
+
+<h3 id="split_groups"><code class="language-plaintext highlighter-rouge">split_groups</code></h3>
+
+<p class="formula-signature"><code>split_groups(groups, spec=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Assign independent groups to train/validation/test partitions.</p>
+
+<p>Splits the <em>groups</em> – never the samples – so correlated samples of one
+shot or one simulation case can never sit on both sides of a holdout.  Do
+this on the record-level data, before any windowing or augmentation; the
+returned <code class="language-plaintext highlighter-rouge">Split</code> then applies unchanged to everything derived.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>groups</code></td><td>array_like or DatasetArtifact</td><td>-</td><td><p>Group label of every sample, or a dataset whose groups are used.</p>
+</td></tr>
+  <tr><td><code>spec</code></td><td>SplitSpec or None, optional</td><td>-</td><td><p>Partition fractions (of groups), seed and pinned groups; <code class="language-plaintext highlighter-rouge">None</code> uses 70/15/15 with seed 0.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>Split</td><td>-</td><td><p>Group-to-partition assignment.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When a pinned group is absent, or when there are fewer groups than
+    partitions with a positive fraction.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Take the unique groups as strings, sorted, so the result depends on the
+set of groups and the seed only – not on sample order.</li>
+  <li>Assign the groups <code class="language-plaintext highlighter-rouge">spec.fixed</code> pins.</li>
+  <li>Permute the remaining groups with <code class="language-plaintext highlighter-rouge">numpy.random.default_rng(seed)</code> and
+cut the permutation at the cumulative fractions, rounding so every
+partition with a positive fraction receives at least one group.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The 70/15/15 fractions are numerical convenience, the same shares the VEST
+IRE prototype used [ire].</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>S. Kaufman, S. Rosset, C. Perlich, O. Stitelman, “Leakage in data mining: formulation, detection, and avoidance”, ACM TKDD 6, 15 (2012).
+</li>
+  <li>VEST IRE two-stage anomaly-detection notebook (v4), shot-level split; reviewed in issue #669 section 15A.
+</li>
+</ol>
+
+<h3 id="train_model"><code class="language-plaintext highlighter-rouge">train_model</code></h3>
+
+<p class="formula-signature"><code>train_model(dataset, split, model_spec, config=None, *, name=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Train a model on the train partition and package it with its provenance.</p>
+
+<p>The one training entry point for every backend and architecture.  What
+comes back is a <code class="language-plaintext highlighter-rouge">ModelArtifact</code>, not a framework object: its
+trained state is opaque bytes and everything that identifies it – data,
+split, configuration, software – travels with it.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Fingerprinted training data from <code class="language-plaintext highlighter-rouge">build_dataset</code>.</p>
+</td></tr>
+  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment from <code class="language-plaintext highlighter-rouge">split_groups</code>, made before any windowing.</p>
+</td></tr>
+  <tr><td><code>model_spec</code></td><td>ModelSpec</td><td>-</td><td><p>Backend, architecture, task and hyperparameters.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td>TrainingConfig or None, optional</td><td>-</td><td><p>Optimisation settings; <code class="language-plaintext highlighter-rouge">None</code> uses the defaults.</p>
+</td></tr>
+  <tr><td><code>name</code></td><td>str or None, optional</td><td>-</td><td><p>Model name used when publishing; <code class="language-plaintext highlighter-rouge">model_spec.task</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>TrainingResult</td><td>-</td><td><p>The artifact, the per-epoch loss history, the split and the epoch whose weights were kept.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When the dataset has no fingerprint, a group is missing from the split,
+    the train partition is empty, or a supervised architecture has no
+    targets.
+BackendUnavailableError
+    When the backend’s framework is not installed.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Select the train and validation partitions through the split’s group
+assignment.</li>
+  <li>Compute input (and target) normalisation moments per element on the
+train partition only.</li>
+  <li>Fit the backend on the normalised arrays; an unsupervised architecture
+learns to reproduce its input.  The validation loss drives early
+stopping and the best epoch’s weights are kept.</li>
+  <li>Record dataset fingerprint and spec, split groups, model spec,
+configuration, software revision and runtimes, and the loss history.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>The <code class="language-plaintext highlighter-rouge">TrainingConfig</code> defaults (Adam, learning rate 1e-3, batch 64,
+patience 10) are numerical convenience, not tuned for any task.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Normalisation is a per-element z-score, <code class="language-plaintext highlighter-rouge">(x - mean) / std</code>, with a
+constant element given <code class="language-plaintext highlighter-rouge">std = 1</code>; the reconstruction <code class="language-plaintext highlighter-rouge">score</code> of an
+unsupervised model is measured in these normalised units.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>VEST-Tokamak/vaft#669, sections 6 and 7: training as a VAFT processing stage, dataset provenance as part of model identity.
+</li>
+</ol>
+
+<h3 id="window_dataset"><code class="language-plaintext highlighter-rouge">window_dataset</code></h3>
+
+<p class="formula-signature"><code>window_dataset(dataset, window, step, *, target_mode=None)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Cut sliding windows that never cross a group boundary.</p>
+
+<p>Turns a record-level dataset – samples in time order, one row per time
+point – into a window dataset for a sequence model or a feature extractor.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Record-level samples in time order within each group.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>int</td><td>-</td><td><p>Samples per window.</p>
+</td></tr>
+  <tr><td><code>step</code></td><td>int</td><td>-</td><td><p>Samples between consecutive window starts.</p>
+</td></tr>
+  <tr><td><code>target_mode</code></td><td>{"window", "last", "none"} or None, optional</td><td>-</td><td><p>What each window’s target is: the target rows over the window, the target at its last sample, or none; <code class="language-plaintext highlighter-rouge">None</code> is <code class="language-plaintext highlighter-rouge">"window"</code> for a dataset with targets and <code class="language-plaintext highlighter-rouge">"none"</code> otherwise.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>DatasetArtifact</td><td>-</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n_windows, window, *input_shape)</code>; groups repeated per window; <code class="language-plaintext highlighter-rouge">sample_meta</code> carries each window’s <code class="language-plaintext highlighter-rouge">window_start</code> and <code class="language-plaintext highlighter-rouge">window_stop</code> source indices and, for every per-sample array of the source, its value at the window’s first sample.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ModelContractError
+    When <code class="language-plaintext highlighter-rouge">window</code> or <code class="language-plaintext highlighter-rouge">step</code> is not a positive integer, or a target mode
+    asks for targets the dataset does not have.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Find the maximal contiguous runs of one group label.</li>
+  <li>Within each run, start a window every <code class="language-plaintext highlighter-rouge">step</code> samples while a full
+<code class="language-plaintext highlighter-rouge">window</code> fits; a shorter tail is dropped.</li>
+  <li>Recompute the fingerprint of the result.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>One row per sample time, grouped and time-ordered within each group.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>One row per window.  The group of every window is the group of all of its
+samples, so a <code class="language-plaintext highlighter-rouge">Split</code> made on the source applies unchanged.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>S. Kaufman et al., “Leakage in data mining”, ACM TKDD 6, 15 (2012): windows from one unit on both sides of a holdout leak.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/transformer/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: transformer">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#build_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">build_dataset</a></li><li class="page-toc-item page-toc-level-3"><a href="#calibrate_threshold" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calibrate_threshold</a></li><li class="page-toc-item page-toc-level-3"><a href="#dataset_fingerprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_fingerprint</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_model_artifact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_model_artifact</a></li><li class="page-toc-item page-toc-level-3"><a href="#predict" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">predict</a></li><li class="page-toc-item page-toc-level-3"><a href="#resolve_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resolve_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#save_model_artifact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">save_model_artifact</a></li><li class="page-toc-item page-toc-level-3"><a href="#split_groups" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">split_groups</a></li><li class="page-toc-item page-toc-level-3"><a href="#train_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">train_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#window_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">window_dataset</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_ml.md",
+        "mtime": "2026-09-17 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-18 15:41:23 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>
