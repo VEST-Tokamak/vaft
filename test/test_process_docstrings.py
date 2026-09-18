@@ -227,6 +227,7 @@ CONVENTION_SENSITIVE = frozenset({
     "lab_to_straight_field_line",
     "straight_field_line_tables",
     "cocos_field_scales",
+    "identify_flux_exponent_from_q",
     "resonant_delta",
     "resonant_geometric_factor",
     "align_surfaces_by_q",
