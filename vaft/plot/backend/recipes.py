@@ -10283,22 +10283,85 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 )
 
 
+#: Solvers whose ``energy_perturbed`` is a *drive* energy -- a positive
+#: magnitude of the response to an applied field -- rather than a signed
+#: potential energy whose sign is the stability verdict.  The distinction
+#: decides which end of the ranking is the interesting one, and it cannot be
+#: read off the number: a stable DCON mode and a weakly driven GPEC mode are
+#: both small and positive.
+_DRIVE_ENERGY_SOLVERS = frozenset({"gpec"})
+
+
+def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
+    """Which solver wrote each ``(time_slice, n_tor)`` block of ``code.parameters``.
+
+    Read shape-agnostically for the reason :func:`_mhd_linear_radial_stride`
+    documents: ``code.parameters`` reaches a reader either as the string the
+    mapper wrote or as the tree OMAS decoded, and which one depends on the
+    document.  A block with no ``time_slice`` attribute -- DCON writes none --
+    is keyed on ``None`` and matches any slice.
+    """
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    found: dict[tuple[int | None, int], str] = {}
+    if isinstance(parameters, str):
+        for attributes in re.findall(r"<solver\b([^>]*)>", parameters):
+            named = dict(re.findall(r'(\w+)="([^"]*)"', attributes))
+            try:
+                n_tor = int(named["n_tor"])
+            except (KeyError, ValueError):
+                continue
+            slice_index = (
+                int(named["time_slice"]) if named.get("time_slice", "").strip().isdigit()
+                else None
+            )
+            found[(slice_index, n_tor)] = str(named.get("name", "")).lower()
+        return found
+
+    def _children(node: Any, tag: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag not in node:
+            return []
+        value = node[tag]
+        return list(value) if isinstance(value, (list, tuple)) else [value]
+
+    for solver in _children(parameters, "solver"):
+        if "@n_tor" not in solver:
+            continue
+        try:
+            n_tor = int(_scalar(solver["@n_tor"]))
+        except (TypeError, ValueError):
+            continue
+        slice_index = (
+            int(_scalar(solver["@time_slice"])) if "@time_slice" in solver else None
+        )
+        found[(slice_index, n_tor)] = str(_scalar(solver.get("@name", ""))).lower()
+    return found
+
+
 def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
     """Locate the ``(time_slice, toroidal_mode)`` cell whose eigenfunction to draw.
 
     A profile is one radial curve set, but a shot carries one eigenfunction per
-    time slice and toroidal mode.  The default picks the *least stable* cell --
-    the most negative ``energy_perturbed`` -- because that is the case a reader
-    opens this figure to look at; ``time_slice`` and ``n_tor`` name one
-    explicitly.  Cells with no perturbed energy sort last rather than being
-    dropped, so a run that mapped an eigenfunction but no eigenvalue is still
-    drawable.
+    time slice and toroidal mode.  ``time_slice`` and ``n_tor`` name one
+    explicitly; without them the default picks the case a reader opens the
+    figure to look at, and *which* case that is depends on what
+    ``energy_perturbed`` means for the solver that wrote the cell.  For DCON
+    and the resistive codes it is a signed potential energy, so the most
+    negative cell is the least stable one.  For GPEC it is the positive
+    energy of the response to an applied field
+    (``gpec_control_output``'s energy attributes, summed), so the *largest*
+    cell is the strongly driven one and the smallest is a mode the coils
+    barely excite -- ranking those two the same way picks the dead mode.  The
+    solver comes from the ``<solver name=...>`` block the mapper wrote beside
+    the data; a cell with no block, and one with no perturbed energy, sorts
+    last rather than being dropped, so a run that mapped an eigenfunction but
+    no eigenvalue is still drawable.
     """
     count = _count(ods, "mhd_linear.time_slice")
     if count == 0:
         raise ValueError("mhd_linear ODS carries no time slices")
     requested_time = options.get("time_slice")
     requested_n_tor = options.get("n_tor")
+    solvers = _mhd_linear_solver_names(ods)
 
     candidates: list[tuple[float, int, int, str, int]] = []
     for index in range(count):
@@ -10317,7 +10380,9 @@ def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
             if grid is None or harmonics is None or grid.size == 0 or harmonics.size == 0:
                 continue
             energy = _get(ods, f"{base}.energy_perturbed")
-            rank = _scalar(energy) if energy is not None else float("nan")
+            value = _scalar(energy) if energy is not None else float("nan")
+            solver = solvers.get((index, int(n_tor)), solvers.get((None, int(n_tor)), ""))
+            rank = -value if solver in _DRIVE_ENERGY_SOLVERS else value
             if not np.isfinite(rank):
                 rank = float("inf")
             candidates.append((rank, index, int(n_tor), base, position))
@@ -10327,16 +10392,38 @@ def _mhd_linear_eigenfunction_cell(ods: Any, **options: Any) -> dict[str, Any]:
             "the companion `match` produce solutions.bin, and none was mapped here"
         )
 
-    rank, time_index, n_tor, base, _position = min(candidates, key=lambda item: item[:3])
+    _rank, time_index, n_tor, base, _position = min(candidates, key=lambda item: item[:3])
+    solver = solvers.get((time_index, n_tor), solvers.get((None, n_tor), ""))
+    # The stored value, never the sort key: the key is negated for a drive
+    # energy, and a title built from it would report a positive response
+    # energy as a negative one.
+    energy = _get(ods, f"{base}.energy_perturbed")
+    energy = _scalar(energy) if energy is not None else float("nan")
     return {
         "base": base,
         "time_slice": time_index,
         "n_tor": n_tor,
-        "energy_perturbed": None if not np.isfinite(rank) else rank,
+        "solver": solver,
+        "energy_perturbed": None if not np.isfinite(energy) else float(energy),
         "psi_n": np.asarray(_array(ods, f"{base}.plasma.grid.dim1"), dtype=float),
         "m": np.asarray(_array(ods, f"{base}.plasma.grid.dim2"), dtype=float),
         "m_pol_dominant": _get(ods, f"{base}.m_pol_dominant"),
     }
+
+
+def _mhd_linear_energy_note(cell: Mapping[str, Any]) -> str:
+    """How a cell's ``energy_perturbed`` should be named on a title.
+
+    ``delta W`` is DCON's: a signed potential energy. GPEC's is the positive
+    energy of the driven response, and writing it as ``delta W`` invites a
+    reader to take its sign for a stability verdict it does not carry.
+    """
+    energy = cell.get("energy_perturbed")
+    if energy is None:
+        return ""
+    if cell.get("solver") in _DRIVE_ENERGY_SOLVERS:
+        return rf", $W_\mathrm{{drive}}$={energy:.3g} J"
+    return rf", $\delta W$={energy:.3g}"
 
 
 def _code_parameter_values(node: Any, name: str) -> list[Any]:
@@ -10431,9 +10518,7 @@ def _build_mhd_linear_eigenfunction_profile(
     )
 
     dominant = cell["m_pol_dominant"]
-    title = f"{description} — n={cell['n_tor']}"
-    if cell["energy_perturbed"] is not None:
-        title += rf", $\delta W$={cell['energy_perturbed']:.3g}"
+    title = f"{description} — n={cell['n_tor']}" + _mhd_linear_energy_note(cell)
     if dominant is not None:
         title += f", dominant m={int(_scalar(dominant))}"
     notes = []
@@ -10715,6 +10800,229 @@ RECIPES["mhd_linear_profile_b_field_perturbed"] = CallableRecipe(
     reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
     backend=NEUTRAL,
 )
+
+# ---------------------------------------------------------------------------
+# GPEC mode spectrum and island overlap (migration slice V5)
+# ---------------------------------------------------------------------------
+
+def _mhd_linear_spectral_amplitude(ods: Any, **options: Any) -> dict[str, Any]:
+    """The mapped ``(psi_n, m)`` perturbed flux of one cell, as an amplitude.
+
+    The same cell selection the eigenfunction profiles use, so two figures
+    drawn from one ODS with the same options describe one mode.
+    """
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    base = cell["base"]
+    real = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.real")
+    imaginary = _array(ods, f"{base}.plasma.b_field_perturbed.coordinate1.imaginary")
+    if real is None or imaginary is None:
+        raise ValueError(
+            "mhd_linear ODS carries a grid but no perturbed flux for time slice "
+            f"{cell['time_slice']}, n={cell['n_tor']}"
+        )
+    amplitude = np.hypot(np.asarray(real, dtype=float), np.asarray(imaginary, dtype=float))
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    if amplitude.shape != (psi_n.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {amplitude.shape}, but the declared "
+            f"(psi, m) grid is {(psi_n.size, harmonics.size)}"
+        )
+    if not np.isfinite(amplitude).any():
+        raise ValueError("the mapped perturbed flux holds no finite amplitude to plot")
+    cell["amplitude"] = amplitude
+    return cell
+
+
+def _mhd_linear_field_display(amplitude: np.ndarray, options: Mapping[str, Any]):
+    """Resolve the display unit of a perturbed field; never imply one.
+
+    ``unit="auto"`` is the default rather than the ``mT`` a magnetic field
+    otherwise takes: a plasma response spans several decades between its
+    resonant harmonics and the edges of the band, and which unit puts the
+    median harmonic on a readable axis is the data's business.  The unit
+    reaches the axis label either way, so gauss is never mistaken for tesla.
+    """
+    return resolve_display(
+        "T", unit=options.get("unit", "auto"), subject="mhd_linear", data=amplitude,
+    )
+
+
+def _build_mhd_linear_field_spectrum(ods: Any, **options: Any) -> Field2D:
+    """The whole ``(psi_n, m)`` amplitude map of one mode's perturbed flux."""
+    cell = _mhd_linear_spectral_amplitude(ods, **options)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    amplitude = cell["amplitude"]
+    # The unit is chosen from the per-radius envelope, not from the whole
+    # map: most of a (psi_N, m) map is the band edge, so the median over
+    # every cell characterises the noise floor rather than anything a reader
+    # looks at.
+    display = _mhd_linear_field_display(
+        np.nanmax(np.where(np.isfinite(amplitude), amplitude, -np.inf), axis=1), options
+    )
+    title = (
+        f"Perturbed normal flux spectrum — n={cell['n_tor']}"
+        + _mhd_linear_energy_note(cell)
+    )
+    return Field2D(
+        # dim1 of the mapped grid is the radial label and dim2 the harmonic,
+        # so the amplitude transposes into Field2D's (vertical, horizontal).
+        r=psi_n,
+        z=harmonics,
+        values=np.ascontiguousarray(amplitude.T) * display.scale,
+        value_label=rf"$|b_\psi|$ [{display.unit}]",
+        x_label=r"$\psi_N$",
+        y_label=r"poloidal harmonic $m$",
+        title=title,
+        # A flux label against a mode number: the axes share no unit, and an
+        # equal aspect would squeeze the map into a line.
+        aspect_equal=False,
+        display=display,
+    )
+
+
+def _build_mhd_linear_spectrum_b_field_perturbed(ods: Any, **options: Any) -> Profile1D:
+    """The harmonic spectrum at one flux surface.
+
+    The default surface is the outermost one the run mapped -- GPEC's control
+    surface, which is where the spectrum this replaces was read.  ``psi_n=``
+    names another; either way the title reports the surface actually drawn,
+    because the mapped radial grid is GPEC's own and clusters around the
+    singular surfaces rather than landing on round numbers.
+    """
+    cell = _mhd_linear_spectral_amplitude(ods, **options)
+    psi_n, harmonics = cell["psi_n"], cell["m"]
+    amplitude = cell["amplitude"]
+    requested = options.get("psi_n")
+    if requested is None:
+        index = int(np.argmax(psi_n))
+    else:
+        target = float(requested)
+        low, high = float(np.min(psi_n)), float(np.max(psi_n))
+        if not low <= target <= high:
+            # Snapping would draw the boundary spectrum under a label naming
+            # the surface the caller asked for. GPEC's grid stops short of
+            # psi_N = 1, so "1.0" is a request outside it and has to say so.
+            raise ValueError(
+                f"psi_n={target:g} is outside the mapped radial grid "
+                f"[{low:.6f}, {high:.6f}] for n={cell['n_tor']}"
+            )
+        index = int(np.argmin(np.abs(psi_n - target)))
+    surface = float(psi_n[index])
+    values = amplitude[index, :]
+    display = _mhd_linear_field_display(values, options)
+    where = (
+        "outermost mapped surface" if requested is None
+        else f"nearest to {float(requested):g}"
+    )
+    return Profile1D(
+        series=(
+            Series(x=harmonics, y=values * display.scale, label=rf"$\psi_N$={surface:.4f}"),
+        ),
+        coordinate_label=r"poloidal harmonic $m$",
+        y_label=rf"$|b_\psi|$ [{display.unit}]",
+        y_unit=display.unit,
+        title=(
+            f"Perturbed normal flux spectrum — n={cell['n_tor']}, "
+            rf"$\psi_N$={surface:.4f} ({where})"
+        ),
+        display=display,
+    )
+
+
+def _pedestal_reference_lines(options: Mapping[str, Any]) -> tuple[ReferenceLine, ...]:
+    """The pedestal-top marker, drawn only when the caller carries one.
+
+    D-05: a figure shows the boundary its own result carries, with the method
+    that produced it, and never a hard-coded window.  ``pedestal=`` takes a
+    :class:`~vaft.process.profile.PedestalTop`; without one the figure draws
+    no boundary at all.  Falling back to the process layer's 0.85 would put a
+    line labelled "pedestal top" on a figure where nothing had been fitted,
+    which is the failure D-05 exists to prevent.
+    """
+    pedestal = options.get("pedestal")
+    if pedestal is None:
+        return ()
+    if pedestal.coordinate != "psi_norm":
+        raise ValueError(
+            f"the pedestal top is in {pedestal.coordinate!r}; this figure's abscissa "
+            "is normalized poloidal flux, and nothing here can convert between them"
+        )
+    return (
+        ReferenceLine(
+            x=float(pedestal.position),
+            label=(
+                rf"pedestal top ({pedestal.quantity}, {pedestal.method})"
+                + (f": {pedestal.reason}" if pedestal.reason else "")
+            ),
+        ),
+    )
+
+
+def _build_mhd_linear_profile_chirikov(ods: Any, **options: Any) -> Profile1D:
+    """Island overlap per rational surface, with the K = 1 criterion drawn.
+
+    The surface definition -- each island's width over the distance to its
+    nearest neighbour -- because that is the one GPEC reports as ``K_isl``,
+    so the curve is comparable with a run's own file.
+    """
+    from vaft.process.perturbation import chirikov
+
+    table = _gpec_resonant_table(ods, **options)
+    rows = table["rows"]
+    psi = np.asarray([row["psi_n"] for row in rows], dtype=float)
+    width = np.asarray([row["w_isl"] for row in rows], dtype=float)
+    if psi.size < 2:
+        raise ValueError(
+            "island overlap is measured against a neighbour, and "
+            f"n={table['n_tor']} resonates at {psi.size} surface(s) inside the "
+            "mapped harmonic band"
+        )
+    k_isl = chirikov(psi, width, definition="surface")
+    span = np.asarray([psi.min(), psi.max()], dtype=float)
+    return Profile1D(
+        series=(
+            Series(
+                x=psi, y=k_isl,
+                label=", ".join(f"m={row['m_pol']}" for row in rows[:4])
+                + (" ..." if len(rows) > 4 else ""),
+            ),
+            # The criterion itself, as a series rather than a styling
+            # flourish, so it reaches to_xarray and the plotly backend with
+            # the rest of the figure.
+            Series(x=span, y=np.ones(2), label="K = 1 (islands touch)"),
+        ),
+        coordinate_label=r"$\psi_N$",
+        y_label=r"$K_{isl}$",
+        title=(
+            f"Island overlap — n={table['n_tor']}, {len(rows)} rational surfaces "
+            "(derived from the mapped flux, not read from the IDS)"
+        ),
+        reference_lines=_pedestal_reference_lines(options),
+    )
+
+
+RECIPES["mhd_linear_field_spectrum"] = CallableRecipe(
+    builder=_build_mhd_linear_field_spectrum,
+    description="Perturbed normal flux amplitude over the mapped (psi_n, m) grid.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_spectrum_b_field_perturbed"] = CallableRecipe(
+    builder=_build_mhd_linear_spectrum_b_field_perturbed,
+    description="Perturbed normal flux amplitude against poloidal harmonic at one surface.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
+RECIPES["mhd_linear_profile_chirikov"] = CallableRecipe(
+    builder=_build_mhd_linear_profile_chirikov,
+    description="Island-overlap parameter per rational surface, derived from the "
+                "mapped spectral field.",
+    reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1"),
+    backend=NEUTRAL,
+)
+
 
 RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
     members=(

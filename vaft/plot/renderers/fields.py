@@ -16,6 +16,7 @@ from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
 __all__ = [
+    "mhd_linear_field_spectrum",
     "passive_structure_field_wall_reduction",
     "electron_density_field",
     "electron_temperature_field",
@@ -279,4 +280,29 @@ def electron_density_field(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Electron density mapped onto the poloidal plane."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="mhd_linear", quantity="spectrum",
+    subject="mhd_linear",
+    description="Perturbed normal flux amplitude over the mapped (psi_N, m) grid: "
+                "the radial label on the abscissa and the poloidal harmonic on the "
+                "ordinate, which is why this map is not drawn to an equal aspect.",
+    ids=("mhd_linear",),
+    required_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+    ),
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+    ),
+)
+def mhd_linear_field_spectrum(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Perturbed normal flux amplitude over the (psi_N, m) grid."""
     return render_field_2d(model, ax=ax, show=show, **style)
