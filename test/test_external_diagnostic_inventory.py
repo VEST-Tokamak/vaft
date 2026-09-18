@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import sys
 
 import pytest
@@ -405,6 +406,89 @@ class TestReviewRegressions:
             counts = CONSOLIDATE.execute([operation], manifest)
         assert counts.get("already_present") == 1
         assert source.exists(), "the source must be left alone, not half-moved"
+
+    # -- cold review data F7: a resumed cross-device copy ---------------------
+
+    @staticmethod
+    def _acquisition(tmp_path, frames=5):
+        source = tmp_path / "src" / "27134_50kHz"
+        source.mkdir(parents=True)
+        renames = {}
+        for index in range(frames):
+            name = f"27134_50kHz_{index:08d}.bmp"
+            (source / name).write_bytes(b"x" * 1000)
+            renames[name] = f"27134_{index:08d}.bmp"
+        target = tmp_path / "dst" / "camera_visible" / "27134"
+        operation = CONSOLIDATE.Operation(
+            kind="move_directory", source=str(source), target=str(target),
+            diagnostic="camera_visible", shot=27134, renames=renames,
+        )
+        return source, target, operation
+
+    def test_an_interrupted_cross_device_copy_is_redone_not_accepted(
+        self, tmp_path, monkeypatch
+    ):
+        """A copy that died half way must never become the target."""
+        source, target, operation = self._acquisition(tmp_path)
+        monkeypatch.setattr(CONSOLIDATE, "_same_device", lambda *a: False)
+        real_copytree = shutil.copytree
+
+        def dies(src, dst, *args, **kwargs):
+            Path(dst).mkdir(parents=True)
+            for index, member in enumerate(sorted(Path(src).iterdir())):
+                if index == 2:
+                    (Path(dst) / member.name).write_bytes(b"x" * 300)
+                    raise OSError(5, "Input/output error")
+                shutil.copy2(member, Path(dst) / member.name)
+
+        monkeypatch.setattr(CONSOLIDATE.shutil, "copytree", dies)
+        with CONSOLIDATE.Manifest(tmp_path / "m.jsonl") as manifest:
+            with pytest.raises(OSError):
+                CONSOLIDATE.execute([operation], manifest)
+        assert not target.exists(), "a truncated copy must not occupy the target"
+
+        monkeypatch.setattr(CONSOLIDATE.shutil, "copytree", real_copytree)
+        with CONSOLIDATE.Manifest(tmp_path / "m.jsonl") as manifest:
+            counts = CONSOLIDATE.execute([operation], manifest)
+
+        assert counts.get("copy") == 1 and "already_present" not in counts
+        assert sorted(p.name for p in target.iterdir()) == sorted(
+            [*operation.renames.values(), CONSOLIDATE.PROVENANCE_NAME]
+        )
+        assert all((target / name).stat().st_size == 1000 for name in operation.renames.values())
+        assert not source.exists()
+        assert not list(target.parent.glob(".*partial"))
+
+    def test_a_truncated_target_from_an_older_run_is_refused(self, tmp_path):
+        """0.7.0 copied straight onto the target, so resume can meet one."""
+        source, target, operation = self._acquisition(tmp_path)
+        target.mkdir(parents=True)
+        for index, name in enumerate(sorted(operation.renames)):
+            if index < 3:
+                (target / name).write_bytes(b"x" * (1000 if index < 2 else 300))
+
+        with CONSOLIDATE.Manifest(tmp_path / "m.jsonl") as manifest:
+            with pytest.raises(CONSOLIDATE.ConsolidationError, match="does not match"):
+                CONSOLIDATE.execute([operation], manifest)
+
+        assert not (target / CONSOLIDATE.PROVENANCE_NAME).exists()
+        assert len(list(source.iterdir())) == 5
+
+    def test_a_verified_existing_target_is_finished_once(self, tmp_path):
+        """Whole but un-renamed and without provenance: finish it, then no-op."""
+        source, target, operation = self._acquisition(tmp_path)
+        shutil.copytree(source, target)
+
+        for _ in range(2):
+            with CONSOLIDATE.Manifest(tmp_path / "m.jsonl") as manifest:
+                counts = CONSOLIDATE.execute([operation], manifest)
+            assert counts == {"already_present": 1}
+
+        assert sorted(p.name for p in target.iterdir()) == sorted(
+            [*operation.renames.values(), CONSOLIDATE.PROVENANCE_NAME]
+        )
+        provenance = json.loads((target / CONSOLIDATE.PROVENANCE_NAME).read_text("utf-8"))
+        assert "additional_sources" not in provenance
 
     def test_a_file_under_both_names_is_refused(self, tmp_path):
         """A half-renamed directory still looks complete to camera_visible.

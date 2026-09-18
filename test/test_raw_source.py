@@ -435,6 +435,24 @@ def test_a_shot_in_neither_table_resolves_to_nothing():
     assert raw.waveform_generation_for_shot(conn, 29400) is None
 
 
+def test_a_shot_not_written_yet_is_asked_about_again():
+    """Cold review data F15: `None` was cached for the life of the process.
+
+    On the day of a shot, a poller that asks before the DAQ has written the
+    waveforms must see them once they arrive.
+    """
+    raw._GENERATION_CACHE.clear()
+    early = _FakeConnection({"shotDataWaveform_2": 0, "shotDataWaveform_3": 0})
+    assert raw.waveform_generation_for_shot(early, 48900) is None
+
+    written = _FakeConnection({"shotDataWaveform_2": 0, "shotDataWaveform_3": 5})
+    assert raw.waveform_generation_for_shot(written, 48900) == 3
+
+    # A real answer is still cached: the next call does not touch the database.
+    assert raw.waveform_generation_for_shot(early, 48900) == 3
+    assert early.cursors == 2
+
+
 def test_vest_check_table_asks_the_database_before_guessing():
     raw._GENERATION_CACHE.clear()
     conn = _FakeConnection({"shotDataWaveform_2": 141, "shotDataWaveform_3": 2})

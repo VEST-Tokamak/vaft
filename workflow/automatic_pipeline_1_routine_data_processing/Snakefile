@@ -1148,7 +1148,23 @@ wildcard_constraints:
     # wildcard keyed on the module could never tell one cell from the other.
     # Constrained to the configured products, so Snakemake's greedy matching
     # cannot read a neighbouring segment as the product.
-    product="|".join(re.escape(name) for name in GPEC_PATH_CODES),
+    # `shot_first` files a cell under its solver *module* (`dcon`, `gpec`), so
+    # that spelling is what its paths carry and has to be matchable too; every
+    # use of the wildcard below goes through `stability_product`/`solver_module`,
+    # which accept either.
+    product="|".join(
+        re.escape(name)
+        for name in dict.fromkeys(
+            [
+                *GPEC_PATH_CODES,
+                *(
+                    solver_module(code)
+                    for code in GPEC_PATH_CODES
+                    if PATHS.layout != FILEDB
+                ),
+            ]
+        )
+    ),
     mode=r"\d+"
 
 # One job per (shot, product, mode): a failed RDCON n=2 case can be retried on
@@ -1162,7 +1178,7 @@ rule run_gpec_module:
         status=PATHS.shot_pattern("chease_status"),
         dcon_status=lambda wildcards: (
             PATHS.gpec_module_status(wildcards.shot, stability_product("dcon"), int(wildcards.mode))
-            if wildcards.product == "ideal-gpec"
+            if stability_product(wildcards.product) == "ideal-gpec"
             else []
         )
     output:
@@ -1181,11 +1197,11 @@ rule run_gpec_module:
         ),
         dcon_option=lambda wildcards: (
             f'--dcon-workdir "{PATHS.gpec_workdir(wildcards.shot, stability_product("dcon"), int(wildcards.mode))}"'
-            if wildcards.product == "ideal-gpec"
+            if stability_product(wildcards.product) == "ideal-gpec"
             else ""
         ),
         coil_option=lambda wildcards: (
-            GPEC_COIL_SET_FLAGS if wildcards.product == "ideal-gpec" else ""
+            GPEC_COIL_SET_FLAGS if stability_product(wildcards.product) == "ideal-gpec" else ""
         )
     conda:
         CONDA if CONDA else None

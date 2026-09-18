@@ -36,7 +36,12 @@ def holdings(monkeypatch):
         held = store.get((int(shot), source), [])
         return any(name in held for name in ids)
 
+    def fake_source_shots(source):
+        return tuple(sorted(shot for shot, name in store if name == source))
+
     monkeypatch.setattr(retirement, "_has_ids", fake_has_ids)
+    monkeypatch.setattr(retirement, "_source_holds", fake_has_ids)
+    monkeypatch.setattr(retirement, "_source_shots", fake_source_shots)
     return store
 
 
@@ -98,6 +103,117 @@ def test_a_shot_the_old_source_never_held_does_not_block(holdings):
     assert row.deletable
 
 
+# --------------------------------------------------------------------------- #
+# unreadable is not absent (cold review data F1)
+# --------------------------------------------------------------------------- #
+
+
+def _fake_hsds(monkeypatch, *, folder, load):
+    """Fake the two remote seams the source probe uses: the listing and the read."""
+    import types
+
+    class Folder:
+        def __init__(self, path, mode="r"):
+            self._names = folder(path)
+
+        def __iter__(self):
+            return iter(self._names)
+
+    monkeypatch.setattr(
+        "vaft.database.utils.h5pyd", types.SimpleNamespace(Folder=Folder)
+    )
+    monkeypatch.setattr("vaft.database.load", load)
+
+
+def test_a_source_read_that_raises_blocks_the_deletion(monkeypatch):
+    """With every read failing the plan used to be clean and print `hsdel`."""
+
+    def folder(path):
+        if path == "/chease-mhd-stability/":
+            return ["39915"]
+        if path == "/chease-mhd-stability/39915/":
+            return ["master.h5", "equilibrium.h5", "mhd_linear.h5"]
+        raise OSError(404, "Not Found")
+
+    def busy(shot, **kwargs):
+        raise OSError(503, "Service Unavailable")
+
+    _fake_hsds(monkeypatch, folder=folder, load=busy)
+
+    report = plan_retirement([39915])
+
+    (row,) = report.shots
+    assert row.refinement == "unreadable" and row.stability == "unreadable"
+    assert "Service Unavailable" in row.detail
+    assert not row.deletable and not report.deletable
+    with pytest.raises(RetirementError, match="could not be read"):
+        delete_retired_source(report, apply=True)
+
+
+def test_an_unlistable_shot_folder_is_unreadable_not_absent(monkeypatch):
+    def folder(path):
+        if path == "/chease-mhd-stability/":
+            return ["39915"]
+        raise OSError(503, "Service Unavailable")
+
+    _fake_hsds(monkeypatch, folder=folder, load=lambda shot, **kw: None)
+
+    report = plan_retirement([39915])
+
+    assert report.shots[0].refinement == "unreadable"
+    assert not report.deletable
+
+
+def test_a_definite_not_found_is_still_absent(monkeypatch):
+    """The 404 case keeps its meaning: nothing there, nothing to lose."""
+
+    def folder(path):
+        if path == "/chease-mhd-stability/":
+            return ["39915"]
+        if path == "/chease-mhd-stability/39915/":
+            return ["master.h5", "equilibrium.h5"]
+        raise OSError(404, "Not Found")
+
+    _fake_hsds(monkeypatch, folder=folder, load=lambda shot, **kw: None)
+
+    (row,) = plan_retirement([41524]).shots
+
+    assert row.refinement == "absent" and row.stability == "absent"
+    assert row.deletable
+
+
+def test_a_partial_shot_list_never_yields_a_delete_command(holdings):
+    """`hsdel` removes the namespace, not the shots somebody thought to list."""
+    for shot in (1, 2, 3):
+        holdings[(shot, "chease-mhd-stability")] = ["mhd_linear"]
+    holdings[(1, "main/chease/rdcon")] = ["mhd_linear"]
+
+    report = plan_retirement([1])
+
+    assert report.shots[0].deletable
+    assert report.unexamined == (2, 3)
+    assert not report.deletable
+    with pytest.raises(RetirementError, match="never\s+examined"):
+        delete_retired_source(report, apply=True)
+
+
+def test_a_source_that_cannot_be_listed_is_not_deletable(holdings, monkeypatch):
+    holdings[(39915, "chease-mhd-stability")] = ["equilibrium"]
+    holdings[(39915, "main/chease")] = ["equilibrium"]
+
+    def unlistable(source):
+        raise OSError(503, "Service Unavailable")
+
+    monkeypatch.setattr(retirement, "_source_shots", unlistable)
+
+    report = plan_retirement([39915])
+
+    assert report.shots[0].deletable
+    assert not report.deletable
+    with pytest.raises(RetirementError, match="could not be listed"):
+        delete_retired_source(report)
+
+
 def test_an_empty_report_is_not_deletable():
     """"No shots examined" and "every shot safe" are different findings.
 
@@ -149,7 +265,9 @@ def test_the_report_serializes_for_review(holdings):
 
     assert payload["dry_run"] is True
     assert payload["deletable"] is False
-    assert payload["summary"] == {"shots": 1, "deletable": 0, "blocking": 1}
+    assert payload["summary"] == {
+        "shots": 1, "deletable": 0, "blocking": 1, "unexamined": 0,
+    }
     import json
 
     json.dumps(payload, allow_nan=False)

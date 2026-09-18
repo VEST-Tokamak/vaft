@@ -1106,6 +1106,11 @@ class GrammarRelocationReport:
     already_canonical: tuple[str, ...]
     collisions: tuple[str, ...]
     unrecognized: tuple[str, ...]
+    #: Old-shape per-product stage products (``omas/mhd_linear/{shot}``) that
+    #: are left exactly where they are. The grammar files them under one
+    #: stability product and the path records none, so any destination would be
+    #: invented provenance; the stage has to be regenerated instead.
+    unattributable: tuple[str, ...] = ()
 
     @property
     def safe_to_apply(self) -> bool:
@@ -1127,13 +1132,21 @@ class GrammarRelocationReport:
                 "already_canonical": len(self.already_canonical),
                 "collisions": len(self.collisions),
                 "unrecognized": len(self.unrecognized),
+                "unattributable": len(self.unattributable),
                 "safe_to_apply": self.safe_to_apply,
             },
             "relocations": [asdict(item) for item in self.relocations],
             "already_canonical": list(self.already_canonical),
             "collisions": list(self.collisions),
             "unrecognized": list(self.unrecognized),
+            "unattributable": list(self.unattributable),
         }
+
+
+#: The one product a per-product stage can be attributed to from its path
+#: alone. ``gpec_ideal`` is only ever written by ideal GPEC; ``mhd_linear`` is
+#: written by four products and its old path says nothing about which.
+_SOLE_PRODUCT = {OMASStage.GPEC_IDEAL.value: StabilityProduct.IDEAL_GPEC.value}
 
 
 def _is_shot_directory(name: str) -> bool:
@@ -1152,6 +1165,7 @@ def _plan_grammar_relocation(root: Path) -> GrammarRelocationReport:
     relocations: list[GrammarRelocation] = []
     already: list[str] = []
     unrecognized: list[str] = []
+    unattributable: list[str] = []
 
     families = {item.value for item in EquilibriumFamily}
     legacy_codes = {item.value for item in GPECCode}
@@ -1209,17 +1223,47 @@ def _plan_grammar_relocation(root: Path) -> GrammarRelocationReport:
         for stage_dir in sorted(omas.iterdir()):
             if not stage_dir.is_dir() or stage_dir.name not in _FAMILY_STAGES:
                 continue
+            per_product = stage_dir.name in _PRODUCT_STAGES
+            sole_product = _SOLE_PRODUCT.get(stage_dir.name)
+
+            def place(node: Path, rule: str) -> None:
+                """File one old-shape ``{shot}`` directory of this stage."""
+                if not per_product:
+                    record(node, stage_dir / LEGACY_FAMILY / node.name, rule)
+                elif sole_product is not None:
+                    record(
+                        node,
+                        stage_dir / LEGACY_FAMILY / LEGACY_REFINEMENT
+                        / sole_product / node.name,
+                        rule,
+                    )
+                else:
+                    # `{family}/{shot}` is a path no resolver call produces, so
+                    # moving it there would orphan the product while looking
+                    # like a success. It stays where it is and is named.
+                    unattributable.append(node.relative_to(root).as_posix())
+
             for node in sorted(stage_dir.iterdir()):
                 if not node.is_dir():
                     unrecognized.append(node.relative_to(root).as_posix())
                 elif node.name in families:
-                    already.append(node.relative_to(root).as_posix())
+                    # For a per-product stage a family directory is canonical
+                    # only while its children are refinements. Shot directories
+                    # directly under it are what the 0.7.0 relocation left
+                    # behind, and certifying them would hide the orphans.
+                    stranded = [
+                        child
+                        for child in sorted(node.iterdir())
+                        if per_product
+                        and child.is_dir()
+                        and _is_shot_directory(child.name)
+                    ]
+                    if not stranded:
+                        already.append(node.relative_to(root).as_posix())
+                    for child in stranded:
+                        place(child, f"omas/{stage_dir.name}/{{family}}/{{shot}}")
                 elif _is_shot_directory(node.name):
-                    record(
-                        node,
-                        stage_dir / LEGACY_FAMILY / node.name,
-                        f"omas/{stage_dir.name}/{{shot}}",
-                    )
+                    place(node, f"omas/{stage_dir.name}/{{shot}}")
                 else:
                     unrecognized.append(node.relative_to(root).as_posix())
 
@@ -1233,6 +1277,7 @@ def _plan_grammar_relocation(root: Path) -> GrammarRelocationReport:
         already_canonical=tuple(already),
         collisions=collisions,
         unrecognized=tuple(unrecognized),
+        unattributable=tuple(unattributable),
     )
 
 
@@ -1249,6 +1294,12 @@ def audit_filedb_grammar(
     Re-running on an already-moved tree reports every subtree as
     `already_canonical` and plans nothing, because a shot directory and a family
     directory can never be confused -- see :func:`_is_shot_directory`.
+
+    The per-product stages are the exception to "everything moves".
+    ``omas/gpec_ideal/{shot}`` has one possible product and moves to its full
+    lineage; ``omas/mhd_linear/{shot}`` could belong to any of four, so it is
+    left in place and listed as ``unattributable`` on every run until the stage
+    is regenerated.
     """
     source = Path(root).expanduser()
     if not source.is_dir():

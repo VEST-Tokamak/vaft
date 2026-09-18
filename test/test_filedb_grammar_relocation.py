@@ -248,3 +248,69 @@ def test_the_cli_dry_runs_by_default_and_reports_collisions_in_its_exit_code(
 def test_an_unreadable_root_is_named_rather_than_silently_empty(tmp_path):
     with pytest.raises(FileNotFoundError, match="not a directory"):
         audit_filedb_grammar(tmp_path / "does-not-exist")
+
+
+# --------------------------------------------------------------------------- #
+# per-product stages (cold review data F5)
+# --------------------------------------------------------------------------- #
+
+
+def _product_stage_tree(root, *, under=""):
+    for stage in ("mhd_linear", "gpec_ideal"):
+        path = root / f"omas/{stage}/{under}{SHOT}/output/{stage}{PRODUCT_SUFFIX}"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+
+
+def test_a_relocated_per_product_stage_resolves_and_the_rest_stays_put(tmp_path):
+    """A move is only a success if the resolver can find what was moved.
+
+    `omas/{stage}/magnetic/{shot}` is a path no FileDB call produces for a
+    per-product stage, so moving there orphans the product while reporting
+    success. gpec_ideal has one possible product and gets its full lineage;
+    mhd_linear could be any of four and is left in place, by name.
+    """
+    root = tmp_path / "FileDB"
+    _old_grammar_tree(root)
+    _product_stage_tree(root)
+
+    report = relocate_filedb_grammar(root, apply=True)
+
+    db = FileDB(root)
+    assert db.omas_product(
+        "gpec_ideal", shot=SHOT, family="magnetic", refinement="chease",
+        product="ideal-gpec",
+    ).exists()
+    assert report.unattributable == (f"omas/mhd_linear/{SHOT}",)
+    assert (root / f"omas/mhd_linear/{SHOT}/output").is_dir()
+    assert not (root / "omas/mhd_linear/magnetic").exists()
+
+    again = audit_filedb_grammar(root)
+    assert again.relocations == ()
+    assert again.unattributable == (f"omas/mhd_linear/{SHOT}",)
+    assert "omas/gpec_ideal/magnetic" in again.already_canonical
+    assert not any("mhd_linear" in item for item in again.already_canonical)
+    assert again.to_dict()["summary"]["unattributable"] == 1
+
+
+def test_shots_the_0_7_0_relocation_stranded_are_not_certified_canonical(tmp_path):
+    """0.7.0 moved both stages to `{family}/{shot}` and then attested it."""
+    root = tmp_path / "FileDB"
+    _product_stage_tree(root, under="magnetic/")
+
+    report = audit_filedb_grammar(root)
+
+    assert {item.source: item.target for item in report.relocations} == {
+        f"omas/gpec_ideal/magnetic/{SHOT}":
+            f"omas/gpec_ideal/magnetic/chease/ideal-gpec/{SHOT}",
+    }
+    assert report.unattributable == (f"omas/mhd_linear/magnetic/{SHOT}",)
+    assert report.already_canonical == ()
+
+    relocate_filedb_grammar(root, apply=True)
+
+    assert FileDB(root).omas_product(
+        "gpec_ideal", shot=SHOT, family="magnetic", refinement="chease",
+        product="ideal-gpec",
+    ).exists()
+    assert (root / f"omas/mhd_linear/magnetic/{SHOT}/output").is_dir()

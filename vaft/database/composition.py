@@ -240,7 +240,7 @@ def compose_stage_products(
 
     recorded: str | None = None
     if eddy_manifest is not None:
-        manifest = json.loads(Path(eddy_manifest).read_text())
+        manifest = json.loads(Path(eddy_manifest).read_text(encoding="utf-8"))
         recorded = (manifest.get("input") or {}).get("diagnostics_sha256")
 
     actual = _sha256_file(diagnostics_path)
