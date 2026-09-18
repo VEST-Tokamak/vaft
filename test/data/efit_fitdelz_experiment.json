@@ -1,0 +1,1162 @@
+{
+ "question": "#924: does FITDELZ remove the upward drift between ERRMIN 1e-2 and 1e-4 (NXITER=1, packaged 129 table)?",
+ "runs": {
+  "legacy": {
+   "excluded_probes": [],
+   "namelist_overrides": {},
+   "slices": [
+    {
+     "drift": {
+      "after_shift_mm": 2.2923554819618848,
+      "lcfs_rms_mm": 10.161778366329225,
+      "rigid_dz_mm": 15.000000000000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234371237,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 11,
+      "loop_residual": 0.08139111396029865,
+      "probe_residual": 0.16909529800296771
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234376694,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 66,
+      "loop_residual": 0.08842198275157401,
+      "probe_residual": 0.1575534847280078
+     },
+     "shot": 39915,
+     "time_ms": 315
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.261808750986709,
+      "lcfs_rms_mm": 10.228150065508759,
+      "rigid_dz_mm": 15.320312500000002
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 3.43505651e-07,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.12297228751227475,
+      "probe_residual": 0.21136221979719289
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234373884,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 107,
+      "loop_residual": 0.12221895276508402,
+      "probe_residual": 0.21406427441638565
+     },
+     "shot": 39915,
+     "time_ms": 320
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 8.10790654e-08,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 10,
+      "loop_residual": 0.09733705105966943,
+      "probe_residual": 0.4645904417129038
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 112,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 39915,
+     "time_ms": 327
+    },
+    {
+     "drift": {
+      "after_shift_mm": 5.499769846073283,
+      "lcfs_rms_mm": 35.21826944137374,
+      "rigid_dz_mm": 55.24218750000003
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0108899665,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.11894407411621995,
+      "probe_residual": 0.4861772158668142
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0581564619,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 190,
+      "loop_residual": 0.13370367637542346,
+      "probe_residual": 0.48146529930958004
+     },
+     "shot": 41524,
+     "time_ms": 327
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.3845226708020832,
+      "lcfs_rms_mm": 13.714264943440217,
+      "rigid_dz_mm": 20.781250000000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 5.47709905e-07,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.17504529545361275,
+      "probe_residual": 0.6051895325126311
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0253529057,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 126,
+      "loop_residual": 0.1742356126283471,
+      "probe_residual": 0.6028373665723641
+     },
+     "shot": 41524,
+     "time_ms": 331
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.0394309918440756,
+      "lcfs_rms_mm": 5.864273142781119,
+      "rigid_dz_mm": 8.648437500000002
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.00255344945,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.14499987304757017,
+      "probe_residual": 0.7180832107166608
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0111481266,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 130,
+      "loop_residual": 0.1446598284658845,
+      "probe_residual": 0.7178707798829492
+     },
+     "shot": 41524,
+     "time_ms": 334
+    },
+    {
+     "drift": {
+      "after_shift_mm": 15.098055874447516,
+      "lcfs_rms_mm": 100.98374986756913,
+      "rigid_dz_mm": 158.1484375000001
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234377809,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 12,
+      "loop_residual": 0.48807020647797233,
+      "probe_residual": 0.49258464989958606
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.187499893,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 244,
+      "loop_residual": 0.5310302007596139,
+      "probe_residual": 0.594719030860253
+     },
+     "shot": 41672,
+     "time_ms": 321
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.5578797499142794,
+      "lcfs_rms_mm": 13.304227685041683,
+      "rigid_dz_mm": 20.093750000000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 4.66324872e-07,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.17682214271853816,
+      "probe_residual": 0.49851780184380706
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234376462,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 136,
+      "loop_residual": 0.17552990883020853,
+      "probe_residual": 0.5074888813169594
+     },
+     "shot": 41672,
+     "time_ms": 331
+    },
+    {
+     "drift": {
+      "after_shift_mm": 0.808426994596226,
+      "lcfs_rms_mm": 0.8088644022869796,
+      "rigid_dz_mm": -0.0390625
+     },
+     "errmin_1e-2": {
+      "axis_z_m": -6.55432521e-09,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.14302686853602192,
+      "probe_residual": 0.7170828759328385
+     },
+     "errmin_1e-4": {
+      "axis_z_m": -1.02513175e-08,
+      "converged": true,
+      "delz_m": null,
+      "exit_path": "iconvr=2",
+      "iterations_n": 24,
+      "loop_residual": 0.14279656295565726,
+      "probe_residual": 0.7185564498836539
+     },
+     "shot": 41672,
+     "time_ms": 342
+    }
+   ],
+   "toolchain_efit_sha256": "4a4e645e59dc3f58c8261518d2034c607a2f86e45909de875883a8f232d6c62a",
+   "uncertainty_mode": "legacy_weight"
+  },
+  "legacy_fitdelz": {
+   "excluded_probes": [],
+   "namelist_overrides": {
+    "FITDELZ": true
+   },
+   "slices": [
+    {
+     "drift": {
+      "after_shift_mm": 2.288401310720967,
+      "lcfs_rms_mm": 10.095079317849846,
+      "rigid_dz_mm": 14.898437500000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234371239,
+      "converged": true,
+      "delz_m": -0.0002892,
+      "exit_path": "iconvr=2",
+      "iterations_n": 11,
+      "loop_residual": 0.0813920613370129,
+      "probe_residual": 0.16909378517080445
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234376657,
+      "converged": true,
+      "delz_m": 0.0006432,
+      "exit_path": "iconvr=2",
+      "iterations_n": 67,
+      "loop_residual": 0.08836264014231808,
+      "probe_residual": 0.15756871488032062
+     },
+     "shot": 39915,
+     "time_ms": 315
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.2527871110104236,
+      "lcfs_rms_mm": 10.086159048655286,
+      "rigid_dz_mm": 15.109375000000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 3.41489596e-07,
+      "converged": true,
+      "delz_m": -0.002108,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.12296940012628443,
+      "probe_residual": 0.21137191334350366
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234373753,
+      "converged": true,
+      "delz_m": 0.000748,
+      "exit_path": "iconvr=2",
+      "iterations_n": 111,
+      "loop_residual": 0.1222144916015913,
+      "probe_residual": 0.21393754898885614
+     },
+     "shot": 39915,
+     "time_ms": 320
+    },
+    {
+     "drift": {
+      "after_shift_mm": 0.7023108958146229,
+      "lcfs_rms_mm": 1.7822838690340792,
+      "rigid_dz_mm": 2.3828125000000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 6.92358023e-08,
+      "converged": true,
+      "delz_m": 0.01127,
+      "exit_path": "iconvr=2",
+      "iterations_n": 10,
+      "loop_residual": 0.0973373523876221,
+      "probe_residual": 0.4645810982166387
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 2.72565211e-07,
+      "converged": true,
+      "delz_m": 0.01078,
+      "exit_path": "iconvr=2",
+      "iterations_n": 33,
+      "loop_residual": 0.09731568179236896,
+      "probe_residual": 0.4694443844658508
+     },
+     "shot": 39915,
+     "time_ms": 327
+    },
+    {
+     "drift": {
+      "after_shift_mm": 5.398536916218171,
+      "lcfs_rms_mm": 34.416076600958,
+      "rigid_dz_mm": 53.95312500000002
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0108751181,
+      "converged": true,
+      "delz_m": 0.003848,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.11894943762314594,
+      "probe_residual": 0.48617105424574725
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0570543603,
+      "converged": true,
+      "delz_m": 0.002247,
+      "exit_path": "iconvr=2",
+      "iterations_n": 151,
+      "loop_residual": 0.133167992364074,
+      "probe_residual": 0.4812496354869987
+     },
+     "shot": 41524,
+     "time_ms": 327
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.3103322550832792,
+      "lcfs_rms_mm": 12.25793908880925,
+      "rigid_dz_mm": 18.625000000000007
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.00534211173,
+      "converged": true,
+      "delz_m": -0.005969,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.17504856313557493,
+      "probe_residual": 0.605170178169849
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0233527665,
+      "converged": true,
+      "delz_m": 0.007782,
+      "exit_path": "iconvr=2",
+      "iterations_n": 85,
+      "loop_residual": 0.17425034135579412,
+      "probe_residual": 0.602908454758856
+     },
+     "shot": 41524,
+     "time_ms": 331
+    },
+    {
+     "drift": {
+      "after_shift_mm": 0.7190633695134971,
+      "lcfs_rms_mm": 1.25434780524766,
+      "rigid_dz_mm": -1.5546875
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.00263018339,
+      "converged": true,
+      "delz_m": 0.01259,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.14500338603671137,
+      "probe_residual": 0.7180504864461127
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.00103680789,
+      "converged": true,
+      "delz_m": 0.02134,
+      "exit_path": "iconvr=2",
+      "iterations_n": 26,
+      "loop_residual": 0.14468950891639268,
+      "probe_residual": 0.7191682235756905
+     },
+     "shot": 41524,
+     "time_ms": 334
+    },
+    {
+     "drift": {
+      "after_shift_mm": 15.103035783655313,
+      "lcfs_rms_mm": 101.0030594582902,
+      "rigid_dz_mm": 158.1796875000001
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234377813,
+      "converged": true,
+      "delz_m": -0.0003106,
+      "exit_path": "iconvr=2",
+      "iterations_n": 12,
+      "loop_residual": 0.48807202586252807,
+      "probe_residual": 0.4925852604963306
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.187499895,
+      "converged": true,
+      "delz_m": -9.098e-07,
+      "exit_path": "iconvr=2",
+      "iterations_n": 242,
+      "loop_residual": 0.5310471609386631,
+      "probe_residual": 0.5947599403034427
+     },
+     "shot": 41672,
+     "time_ms": 321
+    },
+    {
+     "drift": {
+      "after_shift_mm": 1.46560207586074,
+      "lcfs_rms_mm": 11.895231021427083,
+      "rigid_dz_mm": 17.945312500000004
+     },
+     "errmin_1e-2": {
+      "axis_z_m": 4.5717754e-07,
+      "converged": true,
+      "delz_m": 0.006956,
+      "exit_path": "iconvr=2",
+      "iterations_n": 8,
+      "loop_residual": 0.17681911841415565,
+      "probe_residual": 0.49850417524998253
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234374666,
+      "converged": true,
+      "delz_m": 0.006446,
+      "exit_path": "iconvr=2",
+      "iterations_n": 89,
+      "loop_residual": 0.17555927366540325,
+      "probe_residual": 0.5062276870927969
+     },
+     "shot": 41672,
+     "time_ms": 331
+    },
+    {
+     "drift": {
+      "after_shift_mm": 0.8106300831880695,
+      "lcfs_rms_mm": 0.8136393061603349,
+      "rigid_dz_mm": -0.10156250000000001
+     },
+     "errmin_1e-2": {
+      "axis_z_m": -8.80432416e-09,
+      "converged": true,
+      "delz_m": 0.002082,
+      "exit_path": "iconvr=2",
+      "iterations_n": 9,
+      "loop_residual": 0.14302693900517122,
+      "probe_residual": 0.7170797910211438
+     },
+     "errmin_1e-4": {
+      "axis_z_m": -1.78195737e-08,
+      "converged": true,
+      "delz_m": 0.0007291,
+      "exit_path": "iconvr=2",
+      "iterations_n": 23,
+      "loop_residual": 0.14279713974319425,
+      "probe_residual": 0.7185323291610727
+     },
+     "shot": 41672,
+     "time_ms": 342
+    }
+   ],
+   "toolchain_efit_sha256": "4a4e645e59dc3f58c8261518d2034c607a2f86e45909de875883a8f232d6c62a",
+   "uncertainty_mode": "legacy_weight"
+  },
+  "sd_without_c4_04": {
+   "excluded_probes": [
+    "MagneticFieldProbe_C4-04"
+   ],
+   "namelist_overrides": {},
+   "slices": [
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234376595,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.09786826535749966,
+      "probe_residual": 0.052392768234655406
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234376595,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.09786826535749966,
+      "probe_residual": 0.052392768234655406
+     },
+     "shot": 39915,
+     "time_ms": 315
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.023437996,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.06339573656713621,
+      "probe_residual": 0.07805646667688482
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.023437996,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.06339573656713621,
+      "probe_residual": 0.07805646667688482
+     },
+     "shot": 39915,
+     "time_ms": 320
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": -4.06286111e-07,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.05025085844711871,
+      "probe_residual": 0.07931698722629646
+     },
+     "errmin_1e-4": {
+      "axis_z_m": -4.06286111e-07,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.05025085844711871,
+      "probe_residual": 0.07931698722629646
+     },
+     "shot": 39915,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 28,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 28,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 334
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 58,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 58,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 321
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 176,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": null,
+      "exit_path": "solver_error",
+      "iterations_n": 176,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 342
+    }
+   ],
+   "toolchain_efit_sha256": "4a4e645e59dc3f58c8261518d2034c607a2f86e45909de875883a8f232d6c62a",
+   "uncertainty_mode": "standard_deviation"
+  },
+  "sd_without_c4_04_fitdelz": {
+   "excluded_probes": [
+    "MagneticFieldProbe_C4-04"
+   ],
+   "namelist_overrides": {
+    "FITDELZ": true
+   },
+   "slices": [
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.0234376595,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.09786826535749966,
+      "probe_residual": 0.052392768234655406
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0234376595,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.09786826535749966,
+      "probe_residual": 0.052392768234655406
+     },
+     "shot": 39915,
+     "time_ms": 315
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.023437996,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.06339573656713621,
+      "probe_residual": 0.07805646667688482
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.023437996,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.06339573656713621,
+      "probe_residual": 0.07805646667688482
+     },
+     "shot": 39915,
+     "time_ms": 320
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": -4.06286111e-07,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.05025085844711871,
+      "probe_residual": 0.07931698722629646
+     },
+     "errmin_1e-4": {
+      "axis_z_m": -4.06286111e-07,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.05025085844711871,
+      "probe_residual": 0.07931698722629646
+     },
+     "shot": 39915,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 28,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 28,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 334
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 58,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 58,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 321
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 109,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 109,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 342
+    }
+   ],
+   "toolchain_efit_sha256": "4a4e645e59dc3f58c8261518d2034c607a2f86e45909de875883a8f232d6c62a",
+   "uncertainty_mode": "standard_deviation"
+  },
+  "sd_without_c4_04_fitdelz_forced": {
+   "excluded_probes": [
+    "MagneticFieldProbe_C4-04"
+   ],
+   "namelist_overrides": {
+    "ERRDELZ": 10.0,
+    "FITDELZ": true
+   },
+   "slices": [
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.0695569255,
+      "converged": false,
+      "delz_m": 3.684,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.1289301908642638,
+      "probe_residual": 0.07569703791920432
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.0695569255,
+      "converged": false,
+      "delz_m": 3.684,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.1289301908642638,
+      "probe_residual": 0.07569703791920432
+     },
+     "shot": 39915,
+     "time_ms": 315
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": 0.026291595,
+      "converged": false,
+      "delz_m": 0.3351,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.04524295101153408,
+      "probe_residual": 0.06511403371975352
+     },
+     "errmin_1e-4": {
+      "axis_z_m": 0.026291595,
+      "converged": false,
+      "delz_m": 0.3351,
+      "exit_path": "iterations_exhausted",
+      "iterations_n": 515,
+      "loop_residual": 0.04524295101153408,
+      "probe_residual": 0.06511403371975352
+     },
+     "shot": 39915,
+     "time_ms": 320
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -0.3828,
+      "exit_path": "solver_error",
+      "iterations_n": 79,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -0.3828,
+      "exit_path": "solver_error",
+      "iterations_n": 79,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 39915,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -0.8531,
+      "exit_path": "solver_error",
+      "iterations_n": 14,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -0.8531,
+      "exit_path": "solver_error",
+      "iterations_n": 14,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 327
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -6.874,
+      "exit_path": "solver_error",
+      "iterations_n": 60,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -6.874,
+      "exit_path": "solver_error",
+      "iterations_n": 60,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 2,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41524,
+     "time_ms": 334
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -2.586,
+      "exit_path": "solver_error",
+      "iterations_n": 21,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": -2.586,
+      "exit_path": "solver_error",
+      "iterations_n": 21,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 321
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 1.936,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 1.936,
+      "exit_path": "solver_error",
+      "iterations_n": 4,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 331
+    },
+    {
+     "drift": null,
+     "errmin_1e-2": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 21,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "errmin_1e-4": {
+      "axis_z_m": null,
+      "converged": false,
+      "delz_m": 0.0,
+      "exit_path": "solver_error",
+      "iterations_n": 21,
+      "loop_residual": null,
+      "probe_residual": null
+     },
+     "shot": 41672,
+     "time_ms": 342
+    }
+   ],
+   "toolchain_efit_sha256": "4a4e645e59dc3f58c8261518d2034c607a2f86e45909de875883a8f232d6c62a",
+   "uncertainty_mode": "standard_deviation"
+  }
+ },
+ "schema_version": 1
+}

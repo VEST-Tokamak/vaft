@@ -217,6 +217,14 @@ class MEQDSK:
             if wrote:
                 ods[f"{constraints}.{family}.exact"] = 0
 
+        # `cerror` is EFIT's iteration increment, max|psi - psi_previous| over
+        # |delta psi| (divided by the relaxation factor): how much the last
+        # Picard step moved the flux. It is NOT a residual of the
+        # Grad-Shafranov equation, although the IMAS field it lands in is named
+        # for one. A converged-looking increment says the iteration stalled,
+        # not that force balance holds; the equation's own residual is
+        # `vaft.process.equilibrium.grad_shafranov_residual` on the g-file
+        # (#924).
         cerror = self._at("cerror", time_index_efit)
         if cerror is not None:
             errors = np.asarray(cerror, dtype=float).reshape(-1)
