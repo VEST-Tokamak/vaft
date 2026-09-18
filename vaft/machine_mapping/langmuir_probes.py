@@ -100,6 +100,17 @@ class LangmuirProbeConfigError(ValueError):
     """Raised when the VEST langmuir_probes configuration cannot resolve a shot."""
 
 
+class LangmuirProbeEraGapError(LangmuirProbeConfigError):
+    """The shot falls in a documented gap between bias/tip-geometry eras.
+
+    Not a configuration bug: the setting for that shot is unknown and must be
+    verified, not assumed (#152). The diagnostics stage therefore records the
+    Langmuir component as unavailable and keeps the rest of the product
+    (#989), whereas every other :class:`LangmuirProbeConfigError` -- an
+    overlap, a missing key, an unknown gas -- still fails it.
+    """
+
+
 def _vest_config(info_file: str | None = None) -> Mapping[str, Any]:
     # Deliberately uncached: the mapping file is small, this is not a hot
     # path, and a cache here would serve stale settings to anything that
@@ -141,7 +152,7 @@ def _resolve_era(config: Mapping[str, Any], shot: int, *, assembly_key: str) -> 
         matches.append(era)
 
     if not matches:
-        raise LangmuirProbeConfigError(
+        raise LangmuirProbeEraGapError(
             f"No bias-voltage/tip-geometry configuration for shot {numeric_shot} in "
             f"langmuir_probes.{assembly_key}. This shot falls in a documented but "
             "unresolved era gap and must be verified, not assumed."
@@ -490,6 +501,7 @@ def apply_langmuir_probe_measured_positions(
 
 __all__ = [
     "LangmuirProbeConfigError",
+    "LangmuirProbeEraGapError",
     "apply_langmuir_probe_measured_positions",
     "langmuir_probes",
     "langmuir_probes_from_raw_database",

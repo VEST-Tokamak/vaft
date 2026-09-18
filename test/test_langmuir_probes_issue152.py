@@ -570,3 +570,13 @@ def test_the_default_position_table_is_shipped_by_every_packaging_rule():
     assert f"vaft/{relative}" in verify_dist.REQUIRED_FILES, (
         "test/verify_dist.py would not notice a distribution that lacks the table"
     )
+
+
+@pytest.mark.parametrize("shot", [42138, 42144, 42641])
+def test_an_era_gap_is_its_own_error_type(shot):
+    """The diagnostics stage isolates exactly this condition (#989), so it has
+    to be distinguishable from every other configuration failure."""
+    config = lp.resolve_langmuir_probe_config("mid", shot)
+    with pytest.raises(lp.LangmuirProbeEraGapError, match="unresolved era gap"):
+        lp._resolve_era(config, shot, assembly_key="mid")
+    assert issubclass(lp.LangmuirProbeEraGapError, lp.LangmuirProbeConfigError)
