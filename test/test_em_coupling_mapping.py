@@ -229,3 +229,47 @@ def test_a_wall_2409_product_as_reference_is_not_extended_twice(tmp_path):
     ods = _mapped_coupling(43017)
     assert append_wall_loops(ods, "2409") == 0
     assert len(ods["pf_passive.loop"]) == 965
+
+
+def test_a_wall_2409_product_is_accepted_back_as_the_reference(tmp_path):
+    """Its 965-row matrix is used as it stands, not extended a second time."""
+    from omas import save_omas_json
+
+    product = _mapped_coupling(45000)
+    path = tmp_path / "wall2409.json"
+    save_omas_json(product, str(path))
+
+    ods = ODS(consistency_check=False)
+    vfit_pf_active_static(ods, shot=45000)
+    pf_passive(ods, source=path, shot=45000)
+    em_coupling(ods, source=path, shot=45000)
+
+    np.testing.assert_allclose(
+        np.asarray(ods["em_coupling.mutual_passive_passive"]),
+        np.asarray(product["em_coupling.mutual_passive_passive"]),
+        rtol=0,
+        atol=0,
+    )
+    np.testing.assert_array_equal(
+        np.asarray(ods["em_coupling.mutual_passive_active"]),
+        np.asarray(product["em_coupling.mutual_passive_active"]),
+    )
+
+
+def test_a_reference_with_another_base_wall_is_refused_for_wall_2409(tmp_path):
+    """The added rows belong to the packaged base loops; they are not grafted
+    onto a different wall."""
+    from omas import save_omas_json
+
+    legacy = _mapped_coupling(43016)
+    legacy["pf_passive.loop.3.element.0.geometry.outline.r"] = (
+        np.asarray(legacy["pf_passive.loop.3.element.0.geometry.outline.r"]) + 0.001
+    )
+    path = tmp_path / "legacy.json"
+    save_omas_json(legacy, str(path))
+
+    ods = ODS(consistency_check=False)
+    vfit_pf_active_static(ods, shot=45000)
+    pf_passive(ods, source=path, shot=45000)
+    with pytest.raises(ValueError, match="base loop 4 unlike the packaged wall"):
+        em_coupling(ods, source=path, shot=45000)

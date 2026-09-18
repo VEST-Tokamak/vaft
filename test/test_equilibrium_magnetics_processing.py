@@ -470,3 +470,26 @@ def test_nan_contaminated_baseline_window_raises():
     with pytest.raises(DegenerateBaselineWindowError) as exc_info:
         vest_b_field_pol_probe_legacy(time, raw, 1.0, shot=41445, config=cfg)
     assert "1 valid sample(s)" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("shot", "plus_006", "minus_042"),
+    [
+        (37000, "MagneticFieldProbe_C2-04_Bz", "MagneticFieldProbe_C4-05"),
+        (39438, "MagneticFieldProbe_C4-05", "MagneticFieldProbe_C2-04_Bz"),
+        (0, "MagneticFieldProbe_C4-05", "MagneticFieldProbe_C2-04_Bz"),
+    ],
+)
+def test_a_probe_is_named_after_the_channel_it_reads_on_that_shot(shot, plus_006, minus_042):
+    """Names label DAQ channels (table.yaml, by field), so on a discharge they
+    follow the wiring; the era inventory (shot 0) keeps the 2409 labels."""
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import vfit_magnetics_static
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, shot)
+
+    assert ods["magnetics.b_field_pol_probe.35.identifier"] == plus_006
+    assert ods["magnetics.b_field_pol_probe.47.identifier"] == minus_042
+    assert ods["magnetics.b_field_pol_probe.35.position.z"] == pytest.approx(0.06)

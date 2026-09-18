@@ -303,11 +303,31 @@ def em_coupling(
         if "em_coupling.mutual_passive_passive" in reference
         else packaged_mutual_pp
     )
-    if mutual_pp.shape != (n_passive, n_passive):
+    n_added = (
+        len(load_wall_2409_additions()["loops"]) if wall_version != "1512" else 0
+    )
+    # A wall 2409 product passed back in already carries the added rows; its
+    # matrix is used as it stands and only the base is ever extended.
+    reference_extended = n_added > 0 and mutual_pp.shape == (n_passive + n_added,) * 2
+    if mutual_pp.shape != (n_passive, n_passive) and not reference_extended:
         raise ValueError(
             "Reference mutual_passive_passive matrix has incompatible shape "
             f"{mutual_pp.shape}; expected ({n_passive}, {n_passive})"
         )
+    if n_added and not reference_extended and Path(reference_path) != Path(DEFAULT_REFERENCE_ODS):
+        # The added rows were computed against the packaged base loops; a
+        # reference with other base geometry would get rows for a wall it
+        # does not have.
+        packaged = load_static_ods(DEFAULT_REFERENCE_ODS)
+        for index in range(n_passive):
+            if _static_signature(reference[f"pf_passive.loop.{index}"]) != _static_signature(
+                packaged[f"pf_passive.loop.{index}"]
+            ):
+                raise ValueError(
+                    f"reference {reference_path} has base loop {index + 1} unlike the packaged "
+                    f"wall, but shot {shot} is on wall {wall_version}, whose added coupling "
+                    "rows were computed against the packaged base loops"
+                )
     # Reciprocity is a property of the physics, not of the file the matrix came
     # from, so it is enforced on whichever source won above (issue #347).
     mutual_pp, passive_asymmetry = _symmetrize_passive_coupling(
@@ -317,9 +337,14 @@ def em_coupling(
             else str(DEFAULT_VERSIONED_COUPLING.name)
         ),
     )
-    mutual_pa, mutual_pp = _extend_to_wall(
-        mutual_pa, mutual_pp, pf_version=geometry_version, wall_version=wall_version
-    )
+    if reference_extended:
+        mutual_pa, _ = _extend_to_wall(
+            mutual_pa, packaged_mutual_pp, pf_version=geometry_version, wall_version=wall_version
+        )
+    else:
+        mutual_pa, mutual_pp = _extend_to_wall(
+            mutual_pa, mutual_pp, pf_version=geometry_version, wall_version=wall_version
+        )
     n_passive = mutual_pp.shape[0]
     present = len(ods["pf_passive.loop"]) if "pf_passive.loop" in ods else 0
     if present and present != n_passive:

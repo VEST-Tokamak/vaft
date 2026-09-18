@@ -1601,11 +1601,15 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
 
 def _populate_probe_static(ods: object, shot: int = 0) -> None:
     names = _load_names_by_code()
+    # Names come from table.yaml by raw field, so they label the DAQ channel a
+    # position reads. For a discharge that is the shot's wiring (#956); the
+    # era inventory (shot 0) keeps the 2409 labels its geometry file carries.
+    wiring = magnetics_wiring_for_shot(int(shot)).channels if shot else None
     probe_index = 0
-    for channel in _load_static_channels():
+    for index, channel in enumerate(_load_static_channels()):
         if channel["kind"] != "b_field_pol_probe":
             continue
-        field_code = int(channel["field_code"])
+        field_code = int((wiring[index] if wiring is not None else channel)["field_code"])
         name = names[field_code]
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)

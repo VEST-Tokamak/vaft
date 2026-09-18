@@ -34,6 +34,7 @@ from vaft.validation.magnetics import (
     magnetics_quality_metrics,
     offset_jump_samples,
     project_validity,
+    recorded_faults_for,
     spike_intervals,
     unusable_channels_at,
     validate_magnetics_signals,
@@ -832,3 +833,26 @@ def test_efit_drops_a_recorded_fault_through_validity_alone():
 
     assert apply_validity_exclusions(ods, equilibrium) == {("b_field_pol_probe", 0): [0]}
     assert equilibrium["time_slice.0.constraints.bpol_probe.1.weight"] == 1.0
+
+
+def test_a_re_assessment_of_a_vest_product_keeps_its_recorded_fault():
+    """Any later caller that re-runs the assessment (the vacuum quality gate,
+    the stage evidence) must reach the diagnostics stage's verdict, not undo
+    it: the record is looked up from the product's own pulse."""
+    probes = {index: _clean(seed=index) for index in range(36)}
+    ods = _ods(probes=probes)
+    ods["dataset_description.data_entry.machine"] = "VEST"
+    ods["dataset_description.data_entry.pulse"] = 34125
+
+    assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35)}
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 0.0
+    assert validate_magnetics_signals(ods, known_faults={})[35].valid_fraction == 1.0
+
+    ods["dataset_description.data_entry.pulse"] = 36481
+    assert validate_magnetics_signals(ods)[35].valid_fraction == 1.0
+
+
+def test_an_ods_that_names_no_vest_pulse_has_no_recorded_faults():
+    ods = _ods(probes={0: _clean()})
+    assert recorded_faults_for(ods) == {}
+    assert "dataset_description" not in ods  # the lookup did not materialize it
