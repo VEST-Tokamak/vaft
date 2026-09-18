@@ -1041,12 +1041,12 @@ def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
     and a grid point landing on one reads a meaningless spike.  That is a
     question for the contour levels, not for the extent.
     """
-    try:
-        wall_r = np.asarray(
-            ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
-        wall_z = np.asarray(
-            ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
-    except (KeyError, ValueError, IndexError):
+    # _limiter_outline, not ods[...]: reading a missing OMAS path does not raise,
+    # it creates the path, so the except below never fired and every caller --
+    # the connection-length and Ejiri wrappers among them -- was handed back an
+    # ODS with an empty wall it did not have before.
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
         wall_r = wall_z = np.asarray([])
     if wall_r.size < 3:
         # No wall: fall back to the filaments' own extent, which at least
@@ -1258,14 +1258,15 @@ def compute_connection_length_map_ods(
     grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
     product = _vacuum_toroidal_product(ods, grid["time"])
 
-    try:
-        wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
-        wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
-    except (KeyError, ValueError) as error:
+    # Read through _limiter_outline, not ods[...]: a missing OMAS path does not
+    # raise, it returns an empty array and creates the path in the caller's ODS,
+    # so a try/except KeyError here never fired and left an empty wall behind.
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
         raise ValueError(
             "a limiter outline is required for a connection length; without a wall "
             "nothing terminates a field line"
-        ) from error
+        )
 
     # Keyed on what the length is a function of -- the field on this grid, the
     # toroidal product and the wall -- and not on the machine's geometry: every
@@ -1313,6 +1314,85 @@ def compute_connection_length_map_ods(
         "time": grid["time"],
         "time_index": grid["time_index"],
     }
+
+
+def compute_ejiri_mirror_proxy_ods(
+    ods: ODS,
+    *,
+    time: float,
+    r_start: float,
+    resolution: int = 65,
+    z_fit: Optional[float] = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 150.0,
+) -> Dict[str, Any]:
+    """Ejiri mirror-confinement proxy in the vacuum field, at one instant.
+
+    Whether the configuration could hold an electron an EC wave produced at
+    ``r_start`` -- the geometric half of issue #676.  The field is the vacuum
+    field, coils and vessel with no plasma, because the model is for the
+    configuration before breakdown.
+
+    Args:
+        ods: OMAS data structure carrying ``pf_active``, ``pf_passive``, ``tf``
+            and ``wall``, with the vessel currents already solved.
+        time: Instant to evaluate, snapped to the nearest stored PF sample [s].
+        r_start: Major radius the electron starts at on the midplane [m].
+            Deliberately required rather than defaulted: the usual choice is the
+            electron-cyclotron resonance,
+            :func:`vaft.formula.startup.electron_cyclotron_resonance_radius`, but
+            which harmonic and which launcher is the caller's decision.
+        resolution: Points per axis of the vacuum-field grid the line is traced
+            through [-].
+        z_fit: Half-height of the midplane parabola fit; ``None`` takes the
+            process default [m].
+        dphi_deg: Fixed step in toroidal angle [deg].
+        max_length_m: Path length at which to stop each branch; the default
+            matches the process function's, where VEST converges [m].
+
+    Returns:
+        The mapping :func:`vaft.process.equilibrium.ejiri_mirror_geometry`
+        returns -- ``r_start``, ``r_inboard_limiter``, ``curvature_radius``,
+        ``z_max``, ``alpha``, ``f3``, ``mirror`` and the per-branch diagnostics --
+        plus the ``time`` and ``time_index`` actually used.
+
+    Raises:
+        ValueError: The toroidal field product or the limiter outline is
+            missing, or the process function rejects the geometry.
+
+    Notes:
+        The wall is read from the same path as
+        :func:`compute_connection_length_map_ods`, so the two agree on what
+        terminates a line.  ``r_inboard_limiter`` is limiter-sensitive, so a
+        stub outline gives a stub answer; this does not normalise the wall.
+    """
+    grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
+    product = _vacuum_toroidal_product(ods, grid["time"])
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
+        raise ValueError(
+            "a limiter outline is required for the Ejiri proxy; without a wall "
+            "neither the inboard limiter nor the end of a field line exists"
+        )
+
+    from vaft.process.equilibrium import (
+        ejiri_mirror_geometry,
+        make_vacuum_field_interpolator,
+    )
+
+    b_field = make_vacuum_field_interpolator(
+        grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
+    )
+    result = ejiri_mirror_geometry(
+        float(r_start),
+        b_field,
+        wall_r=wall_r,
+        wall_z=wall_z,
+        z_fit=z_fit,
+        dphi=np.deg2rad(float(dphi_deg)),
+        max_length_m=float(max_length_m),
+    )
+    return {**result, "time": grid["time"], "time_index": grid["time_index"]}
 
 
 # ---------------------------------------------------------------------------
