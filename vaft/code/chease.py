@@ -536,8 +536,20 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     if rcen == 0.0 or amin <= 0.0:
         raise ValueError("Invalid CHEASE boundary geometry: zero major/minor radius")
 
+    from vaft.data.eqdsk import vacuum_b0_magnitude
+
     aspct = amin / rcen
-    b0exp = float(geqdsk["RCENTR"]) * abs(float(geqdsk["BCENTR"])) / rcen
+    # |B0| comes from FPOL, not BCENTR: a g-file spells the same vacuum field
+    # both ways at nine significant digits, the two spellings do not round to
+    # the same double, and `to_omas()` canonicalizes on the FPOL one (issue
+    # #325). Reading BCENTR here made a g-file and the ODS built from that same
+    # g-file produce EXPEQ/namelist pairs differing by 3.3e-9 in B0EXP. On the
+    # VEST shots where BCENTR drifts away from FPOL outright -- by up to 101%
+    # within a single shot, which is what #325 is about -- the same
+    # inconsistency was not a rounding gap but two different equilibria, and
+    # the one CHEASE was being handed was normalized to a vacuum field the
+    # equilibrium had not been solved with.
+    b0exp = float(geqdsk["RCENTR"]) * vacuum_b0_magnitude(geqdsk) / rcen
     if b0exp == 0.0:
         raise ValueError("Invalid CHEASE normalization: B0EXP is zero")
 
