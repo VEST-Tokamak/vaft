@@ -699,6 +699,9 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     final_error = terror
     final_error_source = "aeqdsk.terror"
     if not np.isfinite(final_error):
+        # EFIT's `cerror`, an iteration increment, under the IMAS name of a
+        # Grad-Shafranov deviation (see `vaft.data.meqdsk`, #924); it is the
+        # same quantity as `terror`, so the fallback compares like with like.
         final_error = _scalar(
             _get(ods, f"{root}.convergence.grad_shafranov_deviation_value")
         )

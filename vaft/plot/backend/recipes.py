@@ -9196,7 +9196,9 @@ def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
 
     # Convergence is context for the residuals, never a substitute for them.
     for path, title, unit in (
-        ("convergence.grad_shafranov_deviation_value", "Grad-Shafranov deviation", ""),
+        # Stored under the IMAS name of a Grad-Shafranov deviation, but what
+        # EFIT writes there is its last Picard step's flux increment (#924).
+        ("convergence.grad_shafranov_deviation_value", "EFIT iteration increment (cerror)", ""),
         ("convergence.iterations_n", "Iterations", ""),
     ):
         values = np.array(
