@@ -8,6 +8,8 @@ applies unchanged to every windowed or augmented dataset derived afterwards.
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 from typing import Mapping
 
 import numpy as np
@@ -23,7 +25,14 @@ from ._types import (
     canonical_json,
 )
 
-__all__ = ["build_dataset", "dataset_fingerprint", "split_groups", "window_dataset"]
+__all__ = [
+    "build_dataset",
+    "dataset_fingerprint",
+    "load_dataset",
+    "save_dataset",
+    "split_groups",
+    "window_dataset",
+]
 
 
 def _hash_array(digest, label: str, array: np.ndarray) -> None:
@@ -55,8 +64,9 @@ def dataset_fingerprint(dataset):
     Processing steps
     ----------------
     1. Hash the canonical JSON of the spec (and the feature spec, if any).
-    2. Hash inputs, targets, string group labels and each ``sample_meta``
-       array in sorted key order, each prefixed by its name, dtype and shape.
+    2. Hash inputs, targets, string group labels, the availability mask (when
+       one is set) and each ``sample_meta`` array in sorted key order, each
+       prefixed by its name, dtype and shape.
 
     Applicability
     -------------
@@ -70,12 +80,14 @@ def dataset_fingerprint(dataset):
     if dataset.targets is not None:
         _hash_array(digest, "targets", np.asarray(dataset.targets))
     _hash_array(digest, "groups", dataset.group_labels.astype(str))
+    if dataset.available is not None:
+        _hash_array(digest, "available", np.asarray(dataset.available))
     for key in sorted(dataset.sample_meta):
         _hash_array(digest, f"meta:{key}", np.asarray(dataset.sample_meta[key]))
     return digest.hexdigest()
 
 
-def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None):
+def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None, available=None):
     """Assemble a fingerprinted dataset from arrays.
 
     The generic entry point for every ML task: an engineered-feature table
@@ -99,6 +111,12 @@ def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, featu
     feature_spec : FeatureSpec or None, optional
         Column schema of a 2-D engineered-feature table; returns a
         :class:`FeatureDataset` when given [-].
+    available : array_like of bool or None, optional
+        Per-sample availability: ``False`` where the inputs do not exist (a
+        diagnostic absent for that shot).  Such samples may hold non-finite
+        inputs; they are stored as zeros and excluded from training,
+        calibration and evaluation, and :func:`predict` reports them as
+        unavailable.  ``None`` means every sample is available [-].
 
     Returns
     -------
@@ -108,8 +126,8 @@ def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, featu
     Raises
     ------
     ModelContractError
-        On mismatched lengths, a non-finite input, or a feature table whose
-        width differs from ``feature_spec``.
+        On mismatched lengths, a non-finite input in an available sample, or a
+        feature table whose width differs from ``feature_spec``.
 
     Applicability
     -------------
@@ -117,16 +135,29 @@ def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, featu
 
     Limitations
     -----------
-    Inputs must be finite: imputation is a scientific choice (train-partition
-    medians, a flag, a drop) that belongs to the caller before this point.
+    Available inputs must be finite: imputation is a scientific choice
+    (train-partition medians, a flag, a drop) that belongs to the caller.
+    Unavailability is per sample, not per feature: a two-stage model whose
+    second stage lacks a diagnostic builds that stage's dataset with its own
+    ``available``.
     """
     if not isinstance(spec, DatasetSpec):
         raise ModelContractError("spec must be a DatasetSpec")
     x = np.asarray(inputs)
     if x.ndim < 2:
         raise ModelContractError(f"inputs need a sample axis and at least one feature axis; got {x.shape}")
+    mask = None
+    if available is not None:
+        mask = np.asarray(available)
+        if mask.dtype != bool or mask.shape != (len(x),):
+            raise ModelContractError(f"available must be a boolean array of shape ({len(x)},)")
+        x = x.astype(np.result_type(x.dtype, np.float64), copy=True)
+        x[~mask] = 0.0
     if not np.all(np.isfinite(x)):
-        raise ModelContractError("inputs contain non-finite values; impute or drop them first")
+        raise ModelContractError(
+            "inputs contain non-finite values in available samples; impute or drop them, "
+            "or mark the samples unavailable"
+        )
     y = None if targets is None else np.asarray(targets)
     if y is not None and y.ndim == 1:
         y = y[:, None]
@@ -134,7 +165,7 @@ def build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, featu
     if g.ndim != 1:
         raise ModelContractError(f"groups must be one-dimensional; got {g.shape}")
     meta = {str(k): np.asarray(v) for k, v in dict(sample_meta or {}).items()}
-    fields = dict(spec=spec, inputs=x, groups=g, targets=y, sample_meta=meta)
+    fields = dict(spec=spec, inputs=x, groups=g, targets=y, sample_meta=meta, available=mask)
     if feature_spec is not None:
         if not isinstance(feature_spec, FeatureSpec):
             raise ModelContractError("feature_spec must be a FeatureSpec")
@@ -176,9 +207,13 @@ def split_groups(groups, spec=None):
     1. Take the unique groups as strings, sorted, so the result depends on the
        set of groups and the seed only -- not on sample order.
     2. Assign the groups ``spec.fixed`` pins.
-    3. Permute the remaining groups with ``numpy.random.default_rng(seed)`` and
-       cut the permutation at the cumulative fractions, rounding so every
-       partition with a positive fraction receives at least one group.
+    3. With ``method="permutation"``, permute the remaining groups with
+       ``numpy.random.default_rng(seed)`` and cut the permutation at the
+       cumulative fractions, rounding so every partition with a positive
+       fraction receives at least one group.  With ``method="hash"``, map
+       each group to ``u = int(sha256("seed:group")) / 2**256`` in ``[0, 1)``
+       and place it in the partition whose cumulative-fraction interval holds
+       ``u``; no partition is guaranteed a group.
 
     Defaults
     --------
@@ -205,6 +240,13 @@ def split_groups(groups, spec=None):
         raise ModelContractError(f"SplitSpec.fixed pins groups not present: {missing}")
     assignment = dict(spec.fixed)
     free = [g for g in unique if g not in assignment]
+    if spec.method == "hash":
+        edges = np.cumsum(list(spec.fractions.values()))
+        names = list(spec.fractions)
+        for g in free:
+            u = int.from_bytes(hashlib.sha256(f"{spec.seed}:{g}".encode()).digest(), "big") / 2.0**256
+            assignment[g] = names[min(int(np.searchsorted(edges, u, side="right")), len(names) - 1)]
+        return Split(spec=spec, assignment=assignment)
     order = np.random.default_rng(spec.seed).permutation(len(free))
     free = [free[i] for i in order]
     positive = [p for p, f in spec.fractions.items() if f > 0]
@@ -292,7 +334,8 @@ def window_dataset(dataset, window, step, *, target_mode=None):
     Output semantics
     ----------------
     One row per window.  The group of every window is the group of all of its
-    samples, so a :class:`Split` made on the source applies unchanged.
+    samples, so a :class:`Split` made on the source applies unchanged.  A
+    window is available only when every sample in it is.
 
     Applicability
     -------------
@@ -328,11 +371,145 @@ def window_dataset(dataset, window, step, *, target_mode=None):
         targets = None
     meta: Mapping[str, np.ndarray] = {key: np.asarray(v)[idx] for key, v in dataset.sample_meta.items()}
     meta = {**meta, "window_start": idx, "window_stop": idx + window}
+    available = None
+    if dataset.available is not None:
+        available = dataset.available[take].all(axis=1) if len(idx) else np.zeros(0, dtype=bool)
     windowed = DatasetArtifact(
         spec=dataset.spec,
         inputs=inputs,
         groups=np.asarray(dataset.groups)[idx],
         targets=targets,
         sample_meta=meta,
+        available=available,
     )
     return windowed.replace(fingerprint=dataset_fingerprint(windowed))
+
+
+_DATASET_ARRAYS = "arrays.npz"
+_DATASET_RECORD = "dataset.json"
+
+
+def save_dataset(dataset, directory):
+    """Materialise a dataset on disk so training can run elsewhere.
+
+    Building a corpus-scale dataset (reading thousands of shots) and training
+    on it are separate steps, often on separate machines; this is the hand-off.
+
+    Parameters
+    ----------
+    dataset : DatasetArtifact
+        Fingerprinted dataset from :func:`build_dataset` [-].
+    directory : str or path-like
+        Target directory; must not exist or be empty [-].
+
+    Returns
+    -------
+    str
+        The dataset fingerprint, which :func:`load_dataset` re-checks [-].
+
+    Raises
+    ------
+    ModelContractError
+        When the dataset has no fingerprint, the directory is not empty, or an
+        array has dtype ``object``.
+
+    Applicability
+    -------------
+    Machine-independent.
+    """
+    if not dataset.fingerprint:
+        raise ModelContractError("dataset has no fingerprint; build it with build_dataset")
+    directory = Path(directory)
+    if directory.exists() and any(directory.iterdir()):
+        raise ModelContractError(f"{directory} is not empty")
+    directory.mkdir(parents=True, exist_ok=True)
+    arrays = {"inputs": np.asarray(dataset.inputs), "groups": dataset.group_labels.astype(str)}
+    if dataset.targets is not None:
+        arrays["targets"] = np.asarray(dataset.targets)
+    if dataset.available is not None:
+        arrays["available"] = np.asarray(dataset.available)
+    for key, value in dataset.sample_meta.items():
+        arrays[f"meta:{key}"] = np.asarray(value)
+    for key, value in arrays.items():
+        if value.dtype == object:
+            raise ModelContractError(f"{key} has dtype object and cannot be stored without pickle")
+    np.savez(directory / _DATASET_ARRAYS, **arrays)
+    record = {
+        "fingerprint": dataset.fingerprint,
+        "spec": dataset.spec.to_dict(),
+        "feature_spec": dataset.feature_spec.to_dict() if isinstance(dataset, FeatureDataset) else None,
+        "group_dtype": str(np.asarray(dataset.groups).dtype),
+    }
+    (directory / _DATASET_RECORD).write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return dataset.fingerprint
+
+
+def load_dataset(directory):
+    """Load a dataset written by :func:`save_dataset`, verifying its fingerprint.
+
+    Parameters
+    ----------
+    directory : str or path-like
+        Directory holding ``arrays.npz`` and ``dataset.json`` [-].
+
+    Returns
+    -------
+    DatasetArtifact
+        The dataset, a :class:`FeatureDataset` when one was saved [-].
+
+    Raises
+    ------
+    ModelContractError
+        When the files are missing or the recomputed fingerprint differs from
+        the recorded one -- the arrays changed after they were saved.
+
+    Applicability
+    -------------
+    Machine-independent.
+    """
+    directory = Path(directory)
+    record_path = directory / _DATASET_RECORD
+    if not record_path.is_file() or not (directory / _DATASET_ARRAYS).is_file():
+        raise ModelContractError(f"{directory} does not hold a saved dataset")
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    with np.load(directory / _DATASET_ARRAYS, allow_pickle=False) as payload:
+        arrays = {key: payload[key] for key in payload.files}
+    spec_record = record["spec"]
+    spec = DatasetSpec(
+        name=spec_record["name"],
+        task=spec_record["task"],
+        group_key=spec_record.get("group_key", "group"),
+        input_names=tuple(spec_record.get("input_names", ())),
+        target_names=tuple(spec_record.get("target_names", ())),
+        description=spec_record.get("description", ""),
+        metadata=spec_record.get("metadata", {}),
+    )
+    groups = arrays["groups"]
+    if np.dtype(record.get("group_dtype", groups.dtype)).kind in "iu":
+        groups = groups.astype(record["group_dtype"])
+    fields = dict(
+        spec=spec,
+        inputs=arrays["inputs"],
+        groups=groups,
+        targets=arrays.get("targets"),
+        sample_meta={k[len("meta:"):]: v for k, v in arrays.items() if k.startswith("meta:")},
+        available=arrays.get("available"),
+    )
+    fs = record.get("feature_spec")
+    if fs is not None:
+        dataset = FeatureDataset(
+            feature_spec=FeatureSpec(
+                feature_names=tuple(fs["feature_names"]),
+                blocks={k: tuple(v) for k, v in fs.get("blocks", {}).items()},
+                version=fs.get("version", ""),
+            ),
+            **fields,
+        )
+    else:
+        dataset = DatasetArtifact(**fields)
+    fingerprint = dataset_fingerprint(dataset)
+    if fingerprint != record["fingerprint"]:
+        raise ModelContractError(
+            f"dataset in {directory} has fingerprint {fingerprint}, but was saved as {record['fingerprint']}"
+        )
+    return dataset.replace(fingerprint=fingerprint)

@@ -46,7 +46,7 @@ The project defines five extras; none is needed for the first result on this pag
 | `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
-| `ml` | torch, onnx, onnxruntime | the neural-network backend of `vaft.process.ml` and ONNX export; datasets, splits, the NumPy reference backend and resolving a published model need no extra |
+| `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash
@@ -206,6 +206,25 @@ That root holds no executables at all — it is a
 with no variable set. `onnxruntime` is optional
 (`pip install 'vaft[surrogate]'`) and is needed only to *run* a network; deciding whether a model
 applies to a given plasma needs neither the runtime nor a prediction, and is the question to ask first.
+
+VAFT's own trained models are a third kind. `vaft.process.ml` trains them, and
+[`vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn) publishes them. This is a **private registry
+repository**: each version's manifest and hashes are in git, and the weights are GitHub Release
+assets. Point VAFT at a checkout of it the same way:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn         # registry: models/<name>/releases.yaml + manifests
+export VAFT_NN_CACHE=~/scratch/vaft-nn    # optional; default is the platform cache directory
+gh auth login                             # once; fetching reuses the GitHub CLI's login
+python install/check_vaft_nn.py           # registry, cache and gh access, layer by layer
+```
+
+`vaft.process.ml.fetch_model(name, version=...)` downloads a release into the cache.
+Alternatively, `load_model(..., fetch=True)` fetches on a cache miss. Either way, a file is accepted
+only if its SHA-256 matches the manifest the registry pins. VAFT never reads or stores a GitHub token
+itself. Training and inference with the `torch` and `sklearn` backends need
+`pip install 'vaft[ml]'`; resolving and verifying a model does not.
 
 On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:
