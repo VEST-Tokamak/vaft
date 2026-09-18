@@ -541,7 +541,7 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
 | `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
-| `ExecutionBackend`, `LocalBackend`, `resolve_backend` | the protocol, the local implementation, and the config lookup |
+| `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `resolve_backend` | the protocol, the local and Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`) |
 | `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
 
 A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
@@ -554,6 +554,64 @@ carries the field too. EFIT and EFUND declare one thread per task (`threads_per_
 `NUMEXPR_NUM_THREADS` to 1 unless the environment already sets them. GACODE
 declares `n_mpi` and FLARE declares `processes` as `ntasks` for scheduler backends, while their
 launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.
+
+### Running under Slurm
+
+`SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument
+changes:
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import EFITConfig, SlurmBackend, run_efit
+
+config = EFITConfig(timeout=1800, backend=SlurmBackend(partition="short", account="vest"))
+result = run_efit(inputs, config)          # same EFITResult as a local run
+```
+
+**Modes.** The backend picks one of two automatically. Pass `mode="step"` or `mode="batch"` to force it.
+
+- **Step** (inside an allocation, i.e. `SLURM_JOB_ID` is set). The command runs as a job step with
+  `srun`. The timeout is enforced twice: as `srun --time`, and as a local deadline after which `srun`
+  is interrupted so that it cancels the step. The backend adds `--overlap` when the caller is itself
+  running in a step.
+- **Batch** (everywhere else). The backend writes a job script with mode 0700 under
+  `<workdir>/.vaft-slurm/`, submits it with `sbatch --parsable --no-requeue`, and polls `squeue` until
+  the job is no longer live. The script records the program's exit status itself, so the backend
+  does not need `sacct`. When `sacct` is available, the backend uses it to refine the job state.
+
+**Resources.** Both modes request `--nodes=1 --ntasks=1 --cpus-per-task=<ntasks x threads>`.
+`ResourceRequest.ntasks` counts the ranks that a self-launching program (GACODE, FLARE) starts
+itself, and those ranks have to fit inside that single task. Each MPI launcher integrates with
+Slurm differently, so test each such code on a real cluster before relying on it.
+
+**Timeouts.**
+
+- `timeout` becomes the walltime (`--time`), rounded up to whole minutes.
+- `timeout=None` sends no `--time`, so the partition's default walltime applies.
+- A job that Slurm ends as `TIMEOUT` returns `timed_out=True`.
+- `max_wait` caps the total time the backend blocks, including time in the queue. After that the
+  job is cancelled, and the reason is written to `stderr` or appended to the log.
+
+**Other outcomes.**
+
+- If `sbatch` or `srun` is missing, or Slurm rejects the submission, the backend raises
+  `ExecutableNotLaunchable`.
+- A job that ends without the program finishing (cancelled, node failure, preemption, out of memory)
+  gets a non-zero `returncode`, and its Slurm state is appended to `stderr` or to the log.
+- An executable that exists on the login node but not on the compute node shows up as exit status 127.
+- `KeyboardInterrupt` while waiting cancels the job.
+
+**Environment.** The job script exports only the environment entries that differ from the
+submitting process; `--export=ALL` carries everything else. The backend never exports `SLURM_*`,
+`SBATCH_*` or `SRUN_*` variables, and never exports names that are not valid shell identifiers.
+
+**Shared filesystem.** The working directory and the executables must be on a filesystem that the
+compute nodes share. The backend does not check this.
+
+**Switching everything at once.** Setting `VAFT_EXECUTION_BACKEND=slurm` moves every adapter that
+names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
+`VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
+such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
 
 # `vaft.data`
 
