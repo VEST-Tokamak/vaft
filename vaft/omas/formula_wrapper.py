@@ -573,6 +573,51 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     
     return tau_E_exp
 
+#: The equilibrium leaves the li_3 derivation reads, copied into a scratch ODS
+#: so the caller's structure is neither read wholesale nor written to.
+_LI3_GLOBAL_LEAVES = (
+    "equilibrium.ids_properties.cocos", "equilibrium.ids_properties.comment",
+    "equilibrium.ids_properties.homogeneous_time",
+    "equilibrium.vacuum_toroidal_field.r0",
+)
+_LI3_SLICE_LEAVES = (
+    "time", "boundary.outline.r", "boundary.outline.z",
+    "global_quantities.ip", "global_quantities.psi_axis", "global_quantities.psi_boundary",
+    "global_quantities.magnetic_axis.r", "global_quantities.magnetic_axis.z",
+    "profiles_1d.psi", "profiles_1d.pressure", "profiles_1d.volume", "profiles_1d.f",
+    "profiles_1d.q", "profiles_1d.phi", "profiles_1d.rho_tor_norm",
+    "profiles_2d.0.grid_type.index", "profiles_2d.0.grid.dim1",
+    "profiles_2d.0.grid.dim2", "profiles_2d.0.psi",
+)
+
+
+def _equilibrium_leaves_copy(ods, idxs):
+    """Scratch ODS holding only the li_3 inputs of slices ``idxs``, renumbered 0.."""
+    import copy
+
+    work = ODS()
+    for path in _LI3_GLOBAL_LEAVES:
+        if path in ods:
+            work[path] = copy.deepcopy(ods[path])
+    # equilibrium.time and the b0 trace are per slice only when their length
+    # says so; a hand-built ODS can carry more slices than time entries, and
+    # each slice's own time is copied below regardless.
+    n_slices = len(ods['equilibrium.time_slice'])
+    if 'equilibrium.time' in ods:
+        times = np.atleast_1d(np.asarray(ods['equilibrium.time'], float))
+        if times.size == n_slices:
+            work['equilibrium.time'] = times[list(idxs)]
+    if 'equilibrium.vacuum_toroidal_field.b0' in ods:
+        b0 = np.atleast_1d(np.asarray(ods['equilibrium.vacuum_toroidal_field.b0'], float))
+        work['equilibrium.vacuum_toroidal_field.b0'] = b0[list(idxs)] if b0.size == n_slices else b0
+    for k, i in enumerate(idxs):
+        source = ods['equilibrium.time_slice'][i]
+        for leaf in _LI3_SLICE_LEAVES:
+            if leaf in source:
+                work[f'equilibrium.time_slice.{k}.{leaf}'] = copy.deepcopy(source[leaf])
+    return work
+
+
 def compute_voltage_consumption(
     ods: ODS,
     time_slice=None
@@ -657,24 +702,22 @@ def compute_voltage_consumption(
     # over the plasma volume (26 kJ against 0.4 kJ on 39915) and so turns a
     # volume change into a "voltage".  li_3 is recomputed on a copy with any
     # stored leaf removed first: its normalising radius is not recorded.
-    import copy
-
     from vaft.formula.constants import MU0
     from vaft.omas.update import (
         resolve_reference_major_radius,
         update_equilibrium_global_quantities_beta_li,
     )
 
-    work = copy.deepcopy(ods)
-    for i in idxs:
-        slice_node = work['equilibrium.time_slice'][i]
-        if 'global_quantities.li_3' in slice_node:
-            del slice_node['global_quantities.li_3']
-    update_equilibrium_global_quantities_beta_li(work, time_slice=idxs)
+    # Only the leaves the li_3 derivation reads are copied, not the whole ODS:
+    # a deep copy would read every IDS it carries, which the plot recipes
+    # that call this declare against (test_plot_recipe_reads), and a stored
+    # li_3 is left behind on purpose.
+    work = _equilibrium_leaves_copy(ods, idxs)
+    update_equilibrium_global_quantities_beta_li(work, time_slice=list(range(len(idxs))))
     r0 = float(resolve_reference_major_radius(work))
     W_mag = np.full(len(idxs), np.nan, dtype=float)
-    for k, i in enumerate(idxs):
-        slice_node = work['equilibrium.time_slice'][i]
+    for k in range(len(idxs)):
+        slice_node = work['equilibrium.time_slice'][k]
         if 'global_quantities.li_3' in slice_node:
             W_mag[k] = 0.25 * MU0 * r0 * float(slice_node['global_quantities.li_3']) * Ip[k] ** 2
 
