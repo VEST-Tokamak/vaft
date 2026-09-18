@@ -14,14 +14,17 @@ conductor polygons suitable for ``gs_Domain.define_region(..., 'conductor')``:
   an exact staircase for stepped strips (cones), degenerating to the bounding
   rectangle for straight runs — validated against the summed loop area with a
   bounding-box fallback;
-- resistivity defaults to ``TokaMakerConfig.eta_vessel`` (7.8e-7 Ohm·m
-  SUS316LN, which exactly reproduces the packaged W2–W10 loop resistances via
-  ``R = 2*pi*R*eta/A``) with per-segment/region overrides. The outboard wall
-  ``W1`` carries a black-box per-loop calibration in the ODS (issue #191);
-  its ODS median is recorded for provenance but NOT applied automatically.
-
-``W11`` (0.1 mm tungsten inboard limiter tiles) is excluded by default: it is
-a degenerate sliver and tiles, not vessel structure.
+- resistivity defaults to the segment's material: ``TokaMakerConfig.eta_vessel``
+  (7.8e-7 Ohm·m SUS316LN, which exactly reproduces the packaged W2–W10 loop
+  resistances via ``R = 2*pi*R*eta/A``) for stainless, and the nominal
+  tungsten value of :mod:`vaft.machine_mapping.wall_resistance` for ``W11``,
+  with per-segment/region overrides. The outboard wall ``W1`` and ``W11``
+  carry a black-box per-loop calibration in the ODS (issue #191); its ODS
+  median is recorded for provenance but NOT applied automatically;
+- a strip thinner than ``TokaMakerConfig.vessel_min_thickness`` is widened
+  about its centreline to that thickness and its eta scaled by the same
+  factor, so its sheet resistance is unchanged. ``W11`` (0.1 mm tungsten
+  inboard limiter tiles) is meshed this way rather than excluded (issue #965).
 """
 
 from __future__ import annotations
@@ -30,6 +33,8 @@ import logging
 from typing import Any
 
 import numpy as np
+
+from vaft.machine_mapping.wall_resistance import NOMINAL_RESISTIVITY, region_material
 
 from .config import TokaMakerConfig
 
@@ -290,8 +295,38 @@ def _resolve_eta(
     ods_values = np.array([rect["resistivity"] for rect in rects])
     ods_median = float(np.nanmedian(ods_values)) if np.any(np.isfinite(ods_values)) else float("nan")
     overrides = {str(k).upper(): float(v) for k, v in (config.vessel_eta or {}).items()}
-    eta = overrides.get(region, overrides.get(segment, float(config.eta_vessel)))
+    material = region_material(segment)
+    default = float(config.eta_vessel) if material == "stainless" else float(NOMINAL_RESISTIVITY[material])
+    eta = overrides.get(region, overrides.get(segment, default))
     return eta, ods_median
+
+
+def _thicken_thin_strip(
+    rects: list[dict[str, float]], min_thickness: float, gap: float
+) -> tuple[list[dict[str, float]], float]:
+    """Widen a strip thinner than ``min_thickness`` about its centreline.
+
+    The strip is widened to ``min_thickness + gap`` so that, after
+    :func:`_deconflict_clusters` shrinks it by ``gap/2`` per side, the meshed
+    conductor is exactly ``min_thickness`` thick. Returns the widened
+    rectangles and ``min_thickness / thickness`` (1.0 when the strip is thick
+    enough already). The caller multiplies eta by that factor, which keeps the
+    sheet resistance ``eta / t`` -- and so each loop's hoop resistance
+    ``2*pi*R*eta/A`` -- what the thin strip had.
+    """
+    trans_lo, trans_hi = ("r_lo", "r_hi") if _is_vertical(rects) else ("z_lo", "z_hi")
+    thickness = float(np.median([rect[trans_hi] - rect[trans_lo] for rect in rects]))
+    if min_thickness <= 0.0 or thickness <= 0.0 or thickness >= min_thickness:
+        return rects, 1.0
+    width = min_thickness + gap
+    widened = []
+    for rect in rects:
+        centre = 0.5 * (rect[trans_lo] + rect[trans_hi])
+        out = dict(rect)
+        out[trans_lo] = centre - 0.5 * width
+        out[trans_hi] = centre + 0.5 * width
+        widened.append(out)
+    return widened, min_thickness / thickness
 
 
 def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dict]:
@@ -315,11 +350,15 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
 
     named_clusters: dict[str, list[dict[str, float]]] = {}
     segment_of: dict[str, str] = {}
+    thickened: dict[str, float] = {}
     for segment in sorted(segments):
         if segment in excluded:
             continue
         clusters = _split_z_clusters(segments[segment])
         for cluster_index, cluster in enumerate(clusters):
+            cluster, factor = _thicken_thin_strip(
+                cluster, float(config.vessel_min_thickness), float(config.vessel_gap)
+            )
             if len(clusters) == 1:
                 region = segment
             elif len(clusters) == 2:
@@ -331,6 +370,7 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
                 region = f"{segment}_{cluster_index + 1}"
             named_clusters[region] = cluster
             segment_of[region] = segment
+            thickened[region] = factor
 
     named_clusters = _deconflict_clusters(named_clusters, config.vessel_gap)
     _assert_disjoint(named_clusters)
@@ -353,12 +393,13 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
 
         regions[region] = {
             "contour": [[float(r), float(z)] for r, z in contour],
-            "eta": eta,
+            "eta": eta * thickened[region],
             "dx": dx,
             "noncontinuous": region in noncontinuous or segment in noncontinuous,
             "segment": segment,
             "n_loops": len(cluster),
             "eta_ods_median": eta_ods_median,
+            "thickness_factor": thickened[region],
         }
 
     if not regions:

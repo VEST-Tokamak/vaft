@@ -112,7 +112,7 @@ termination setting can move that.
 The proposed envelope is derived from the machine, never fitted to a
 discharge — the same rule the Green-table work had to keep.
 `vest_acceptance_envelope` takes the limiter outline from the canonical static
-ODS (R 0.104–0.760 m, Z ±1.185 m) and the grid, and sets `aminor_max` to half
+ODS (R 0.104–0.760 m at the time; the inboard face is 0.105 m since #965, Z ±1.185 m) and the grid, and sets `aminor_max` to half
 the limiter's radial extent, `aminor_min` to five grid cells (below which a
 boundary is not resolved), and the centre and centroid bounds to the limiter
 inset by `aminor_min`. It rejects none of the 38 reconstructions. The physics
