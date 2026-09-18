@@ -132,11 +132,29 @@ def test_the_magnitude_view_stays_silent_when_bcentr_and_fpol_signs_disagree():
         assert vacuum_b0_magnitude(data) == pytest.approx(0.15)
 
 
-def test_a_drifting_bcentr_loses_to_fpol_in_the_magnitude_view_too():
+def test_a_drifting_bcentr_loses_to_fpol_in_the_magnitude_view_and_still_says_so():
+    """Sign-blindness must not buy silence about the #325 drift.
+
+    The whole point of the magnitude view is to tolerate a sign the caller
+    chose, not to stop reporting a BCENTR that has wandered away from FPOL.
+    A VEST g-file drifting by up to 101% is exactly what must not normalize
+    an EXPEQ quietly -- CHEASE's workdir records no disagreement anywhere
+    else, so this warning is the only trace it leaves.
+    """
     data = {"BCENTR": 0.25899, "RCENTR": 0.4, "FPOL": np.full(5, -0.059906)}
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+    with pytest.warns(RuntimeWarning, match=r"\|BCENTR\|=0\.25899.*disagrees.*issue #325"):
         assert vacuum_b0_magnitude(data) == pytest.approx(0.059906 / 0.4)
+
+
+def test_the_magnitude_view_warns_on_a_real_chease_input_that_has_drifted(tmp_path):
+    """Through `_write_expeq`, on a sign-forced GEQDSK -- the actual call site."""
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs
+
+    g = _gfile()
+    g["BCENTR"] = float(g["BCENTR"]) * 1.73  # the 39915 drift, injected
+
+    with pytest.warns(RuntimeWarning, match="issue #325"):
+        prepare_chease_inputs(g, CHEASEConfig(workdir=tmp_path, create_plot=False))
 
 
 # --- through to_omas, where three leaves depend on it ------------------------

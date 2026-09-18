@@ -564,9 +564,15 @@ def vacuum_b0_magnitude(data: Mapping[str, Any]) -> float:
 
     The magnitude-only counterpart of :func:`_vacuum_b0`, for callers that
     have already normalized the equilibrium's signs (CHEASE's EXPEQ writer)
-    and so cannot use the signed value or its self-consistency warning --
-    after a COCOS sign forcing ``BCENTR`` and ``FPOL`` are flipped
-    independently, and their signs legitimately disagree.
+    and so cannot use the signed value -- after a COCOS sign forcing
+    ``BCENTR`` and ``FPOL`` are flipped independently, and their signs
+    legitimately disagree.
+
+    The #325 self-consistency check survives that, compared on magnitudes:
+    a sign the caller chose is not a disagreement, but a ``BCENTR`` that has
+    drifted away from ``FPOL`` still is, and it is the one thing here worth
+    interrupting over.  Dropping the warning would let a VEST g-file whose
+    ``BCENTR`` drifts by up to 101% normalize an EXPEQ silently.
 
     It exists so that every route into a CHEASE input picks the same ``B0``
     that :func:`to_omas` stores.  A g-file records the vacuum field twice, at
@@ -578,10 +584,22 @@ def vacuum_b0_magnitude(data: Mapping[str, Any]) -> float:
     ``CURRT`` and both EXPEQ profile blocks) depending on whether the caller
     passed the g-file or an ODS built from that same g-file.
     """
+    bcentr = abs(_scalar(data.get("BCENTR"), 0.0))
     derived = _fpol_derived_b0(data)
-    if derived is not None:
-        return abs(derived)
-    return abs(_scalar(data.get("BCENTR"), 0.0))
+    if derived is None:
+        return bcentr
+    derived = abs(derived)
+    if bcentr != 0.0 and np.isfinite(bcentr) and not np.isclose(
+        derived, bcentr, rtol=BCENTR_FPOL_RTOL, atol=0.0
+    ):
+        warnings.warn(
+            f"g-file |BCENTR|={bcentr:.6g} T disagrees with |FPOL[-1]/RCENTR|="
+            f"{derived:.6g} T; using the FPOL value, which is the field the "
+            "equilibrium was solved with (issue #325)",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return derived
 
 
 def _vacuum_b0(data: Mapping[str, Any]) -> float:
