@@ -934,6 +934,7 @@ def build_diagnostics_ods(
         field for field in magnetics_channels if field not in archived_fields
     )
     magnetics_policy = policies["magnetics"]
+    magnetics_left_out: dict[str, str] = {}
     run_component(
         "magnetics",
         ("magnetics",),
@@ -945,7 +946,7 @@ def build_diagnostics_ods(
             # different indices depending on whether a product came from this
             # pipeline or from a fresh mapping.
             vfit_magnetics_static(component, shot),
-            vfit_magnetics_dynamic(
+            magnetics_left_out.update(vfit_magnetics_dynamic(
                 component,
                 shot,
                 magnetics_policy.tstart,
@@ -954,13 +955,18 @@ def build_diagnostics_ods(
                 processing_config=processing,
                 raw_source=raw_path,
                 target_time=policy_grid("magnetics"),
-            ),
+            ) or {}),
         ),
         processing="VestMagneticsProcessingConfig",
         component_status="partial" if missing_magnetics_channels else "success",
         missing_channels=missing_magnetics_channels,
     )
     grids["magnetics"] = policy_grid("magnetics")
+    if magnetics_left_out and statuses["magnetics"]["status"] != "unavailable":
+        # The IDS was built without these signals (#993): a partial record,
+        # with the reason each one is missing, not a silent success.
+        statuses["magnetics"]["status"] = "partial"
+        statuses["magnetics"]["signals_left_out"] = dict(magnetics_left_out)
 
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
@@ -1032,7 +1038,14 @@ def build_diagnostics_ods(
         "magnetics_quality": magnetics_quality,
         "channel_status": statuses,
         "quality_summary": {
-            "missing": sorted(unavailable + missing_channels),
+            "missing": sorted(
+                unavailable
+                + missing_channels
+                + [
+                    f"magnetics:{signal}"
+                    for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+            ),
             "repaired": [],
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],

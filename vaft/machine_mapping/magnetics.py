@@ -2324,8 +2324,17 @@ def vfit_magnetics_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
-) -> None:
-    """Populate dynamic magnetics nodes from required raw waveforms."""
+) -> dict[str, str]:
+    """Populate dynamic magnetics nodes from required raw waveforms.
+
+    Returns ``{signal: reason}`` for the signals left out because they could
+    not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
+    loop is one channel with its own acquisition history (#993): when it
+    carries nothing usable (pinned at the ADC rail for the whole record, or
+    not archived) its node is simply not written, rather than the probes,
+    flux loops and Ip going down with it. Nothing is fabricated; the caller
+    records the reason.
+    """
     context = _prepare_magnetics_context(
         shot,
         tstart,
@@ -2350,7 +2359,19 @@ def vfit_magnetics_dynamic(
     _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     _map_ip(ods, context.target_time, ip_time, ip)
-    _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
+    left_out: dict[str, str] = {}
+    try:
+        _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
+    except (raw_db.RawSignalUnavailableError, SignalRepairError) as error:
+        # _map_diamagnetic_flux writes nothing before its last step, so there
+        # is no partial node to remove. Only the loop's own field (and its
+        # clip repair) raise these two types here; an Ip failure happened
+        # above and still fails the IDS. Reading live SQL without a raw
+        # archive, a failed query also reaches here as "unavailable": the
+        # pipeline reads archived dumps, where absent means absent.
+        left_out["diamagnetic_flux"] = str(error)
+        warnings.warn(f"shot {shot}: diamagnetic flux left out: {error}", RuntimeWarning, stacklevel=2)
+    return left_out
 
 
 def vfit_magnetics_for_shot(

@@ -447,3 +447,86 @@ def test_a_window_past_the_rogowski_record_is_said_in_the_provenance():
     assert detailed["window_clipped_to_record"] is True
     _, _, inside = magnetics.vest_diamagnetic_flux_detailed(SYNTHETIC_SHOT, 0.30, 0.36, raw_source=SAMPLE_SOURCE)
     assert inside["window_clipped_to_record"] is False
+
+
+# --------------------------------------------------------------------------
+# A diamagnetic loop that carries nothing costs only itself (#993)
+# --------------------------------------------------------------------------
+
+
+def _dump_without_diamagnetic(tmp_path):
+    fields = _packaged_fields(SYNTHETIC_SHOT)
+    del fields[str(FIELD)]
+    path = tmp_path / f"vest_{SYNTHETIC_SHOT}_daq_raw.json.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump({"shot": SYNTHETIC_SHOT, "fields": fields}, handle)
+    return str(path)
+
+
+@pytest.mark.parametrize("case", ["pinned", "absent"])
+def test_an_unusable_diamagnetic_loop_leaves_the_rest_of_magnetics(tmp_path, case):
+    """1,277 production shots lost their probes, flux loops and Ip because the
+    diamagnetic channel sat at the rail for the whole record (#993). The loop
+    is left out, with the reason; nothing else is."""
+    from omas import ODS
+
+    if case == "pinned":
+        source = _dump_with_diamagnetic(tmp_path, np.full(N_SAMPLES, NEGATIVE_RAIL))
+    else:
+        source = _dump_without_diamagnetic(tmp_path)
+    ods = ODS(consistency_check=False)
+    magnetics.vfit_magnetics_static(ods, SYNTHETIC_SHOT)
+
+    with pytest.warns(RuntimeWarning, match="diamagnetic flux left out"):
+        left_out = magnetics.vfit_magnetics_dynamic(
+            ods, SYNTHETIC_SHOT, 0.26, 0.36, 4e-5, raw_source=source
+        )
+
+    assert set(left_out) == {"diamagnetic_flux"}
+    assert ("saturated" if case == "pinned" else "257") in left_out["diamagnetic_flux"]
+    assert "magnetics.diamagnetic_flux" not in ods
+    assert np.all(np.isfinite(np.asarray(ods["magnetics.ip.0.data"], dtype=float)))
+    assert len(ods["magnetics.flux_loop.0.flux.data"]) > 0
+    probes_with_data = sum(
+        len(ods[f"magnetics.b_field_pol_probe.{i}.field.data"]) > 0
+        for i in range(len(ods["magnetics.b_field_pol_probe"]))
+    )
+    assert probes_with_data > 50  # field 179 is simply not archived on this shot
+
+
+def test_a_usable_diamagnetic_loop_leaves_nothing_out():
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    magnetics.vfit_magnetics_static(ods, SYNTHETIC_SHOT)
+    left_out = magnetics.vfit_magnetics_dynamic(
+        ods, SYNTHETIC_SHOT, 0.26, 0.36, 4e-5, raw_source=SAMPLE_SOURCE.format(shot=SYNTHETIC_SHOT)
+    )
+    assert left_out == {}
+    assert "magnetics.diamagnetic_flux.0.data" in ods
+
+
+def test_the_diagnostics_product_marks_magnetics_partial_with_the_reason(tmp_path):
+    from vaft.omas.vest_upstream import (
+        build_diagnostics_ods,
+        build_static_ods,
+        machine_era_for_shot,
+        write_stage_product,
+    )
+
+    source = _dump_with_diamagnetic(tmp_path, np.full(N_SAMPLES, NEGATIVE_RAIL))
+    static, static_manifest = build_static_ods(machine_era_for_shot(SYNTHETIC_SHOT).name)
+    static_path = tmp_path / "static.json.gz"
+    write_stage_product(static, static_manifest, output=static_path, metadata=tmp_path / "static.json")
+
+    ods, manifest = build_diagnostics_ods(
+        shot=SYNTHETIC_SHOT, raw_source=source, static_ods=static_path,
+        tstart=0.26, tend=0.36, dt=4e-5,
+    )
+
+    status = manifest["channel_status"]["magnetics"]
+    assert status["status"] == "partial"
+    assert "saturated" in status["signals_left_out"]["diamagnetic_flux"]
+    assert "magnetics:diamagnetic_flux" in manifest["quality_summary"]["missing"]
+    assert "magnetics.ip.0.data" in ods
+    assert "magnetics.diamagnetic_flux" not in ods
