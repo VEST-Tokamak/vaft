@@ -138,6 +138,7 @@ CONVENTION_SENSITIVE = frozenset({
     "equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R",
     "current_weighted_flux_from_psi_j_dS",
     "internal_inductance_from_psi_C_psi_B_I_p",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
     # atomic: ADF11 table units
     "interpolate_adf11",
     "fractional_abundances",
@@ -211,6 +212,7 @@ EMPIRICAL = frozenset({
     "lloyd_breakdown_field",
     "townsend_coefficients_for_gas",
     "townsend_breakdown_field_for_gas",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
 })
 
 SPECS = catalog.list_formulas()

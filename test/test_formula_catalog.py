@@ -76,7 +76,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
-        "transformer": 7,
+        "transformer": 8,   # +Romero first-order closure (#781 child C)
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and

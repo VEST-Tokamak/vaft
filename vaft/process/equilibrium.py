@@ -131,6 +131,7 @@ __all__ = [
     "connection_length_map",
     "ejiri_mirror_geometry",
     "romero_flux_balance",
+    "integrate_romero_closure",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
@@ -5341,4 +5342,166 @@ def romero_flux_balance(
         "Phi_R": phi_r,
         "Phi_I": phi_i,
         "Phi_closure": phi_b - phi_r - phi_i,
+    }
+
+
+def integrate_romero_closure(
+    time: np.ndarray,
+    V_B: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+    *,
+    I_p0: float,
+    L_i0: float,
+    V_CB0: float = 0.0,
+    k: float,
+    tau: float,
+    rtol: float = 1e-8,
+) -> dict[str, np.ndarray]:
+    r"""Integrate Romero's first-order closure from a boundary-voltage history.
+
+    Evolves the plasma current $I_p$, the internal inductance $L_i$ and
+    $V = V_C - V_B$ under a prescribed boundary loop voltage, resistance and
+    non-inductive current, with the rates of
+    :func:`vaft.formula.transformer.romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau`.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Output times, strictly increasing, at least two; the inputs are given
+        on the same axis [s].
+    V_B : np.ndarray
+        Boundary loop voltage, Romero's sign, one per time [V].
+    R_p : np.ndarray
+        Plasma resistance, one per time or one value [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current, one per time or one value; ``0``
+        asserts a purely Ohmic plasma [A].
+    I_p0 : float
+        Plasma current at the first time, non-zero [A].
+    L_i0 : float
+        Internal inductance at the first time, positive [H].
+    V_CB0 : float, optional
+        $V_C - V_B$ at the first time [V].
+    k : float
+        Closure gain [-].
+    tau : float
+        Closure time constant, positive [s].
+    rtol : float, optional
+        Relative tolerance of the integrator [-].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        ``time`` [s]; ``I_p`` [A]; ``L_i`` [H]; ``V_CB`` and ``V_C`` $= V_B +
+        V$ and ``V_R`` $= R_p (I_p - \hat I)$ [V] [-].
+
+    Raises
+    ------
+    ValueError
+        Inputs of the wrong length, a time axis that does not strictly
+        increase, a non-finite input, or a trajectory that reaches zero
+        current or non-positive inductance [-].
+
+    Processing steps
+    ----------------
+    1. Interpolate ``V_B``, ``R_p`` and ``I_ni`` linearly in time.
+    2. Integrate the three rates with :func:`scipy.integrate.solve_ivp`
+       (RK45) from the initial state, reporting at ``time``.
+    3. Rebuild $V_C$ and $V_R$ from the state and the inputs.
+
+    Defaults
+    --------
+    ``V_CB0 = 0`` starts from a flat loop-voltage profile, a modelling choice
+    the caller should replace with a measured $V_C - V_B$ when there is one.
+    ``rtol = 1e-8`` is a numerical convenience; the absolute tolerances are
+    scaled from the initial state.
+
+    Convention
+    ----------
+    Romero's signs: full-weber flux, $V = -\dot\psi$, and a positive $V_B$
+    driving a positive $I_p$.  The first two state equations are exact; the
+    third is the closure, so every departure of the trajectory from a
+    measured one is attributable to $k$, $\tau$ or the inputs.
+
+    Applicability
+    -------------
+    Machine-independent.  $k$ and $\tau$ are the caller's, identified for the
+    machine and regime; none are supplied.
+
+    Limitations
+    -----------
+    Linear interpolation of the inputs, so a voltage history sampled more
+    coarsely than $\tau$ is smoothed.  The integration stops with an error
+    if the current falls to 0.1 % of its initial value: $\dot L_i \propto
+    1/I_p$ is undefined at a reversal, and the step size collapses before one.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (41)-(45).
+    """
+    from scipy.integrate import solve_ivp
+
+    from vaft.formula.transformer import (
+        romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau,
+    )
+
+    t = np.asarray(time, dtype=float)
+    if t.ndim != 1 or t.size < 2 or not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite, one-dimensional and strictly increasing")
+    try:
+        v_b, r_p, i_ni = (
+            np.broadcast_to(np.asarray(values, dtype=float), t.shape).copy()
+            for values in (V_B, R_p, I_ni)
+        )
+    except ValueError:
+        raise ValueError("V_B, R_p and I_ni must be scalars or match time") from None
+    for name, values in (("V_B", v_b), ("R_p", r_p), ("I_ni", i_ni)):
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} must be finite")
+    if not (np.isfinite(I_p0) and I_p0 != 0.0):
+        raise ValueError(f"I_p0 must be finite and non-zero; got {I_p0!r}")
+    if not (np.isfinite(L_i0) and L_i0 > 0.0):
+        raise ValueError(f"L_i0 must be finite and positive; got {L_i0!r}")
+
+    def rates(tt, state):
+        current, inductance, relative = state
+        v_r = np.interp(tt, t, r_p) * (current - np.interp(tt, t, i_ni))
+        return romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(
+            current, inductance, relative, np.interp(tt, t, v_b), v_r, k, tau
+        )
+
+    current_floor = 1e-3 * abs(I_p0)
+
+    def current_collapses(tt, state):
+        return abs(state[0]) - current_floor
+
+    # dL_i/dt goes as 1/I_p, so near a reversal the step size collapses before
+    # the current is ever sampled at zero; stop at 0.1 % of the initial current
+    # instead, where the trajectory is still resolved.
+    current_collapses.terminal = True
+    current_collapses.direction = -1
+
+    scale = np.array([abs(I_p0), L_i0, max(abs(V_CB0), float(np.max(np.abs(v_b))), 1e-3)])
+    solution = solve_ivp(
+        rates, (t[0], t[-1]), [I_p0, L_i0, V_CB0], t_eval=t,
+        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_collapses,
+    )
+    if solution.status == 1:
+        raise ValueError(
+            "the plasma current falls to 0.1 % of its initial value at "
+            f"t = {solution.t_events[0][0]:.6g} s; L_i is undefined through a "
+            "reversal -- end the window before it"
+        )
+    if not solution.success:
+        raise ValueError(f"the closure could not be integrated: {solution.message}")
+    current, inductance, relative = solution.y
+    return {
+        "time": t,
+        "I_p": current,
+        "L_i": inductance,
+        "V_CB": relative,
+        "V_C": v_b + relative,
+        "V_R": r_p * (current - i_ni),
     }
