@@ -34,15 +34,29 @@ from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibri
     ("shot", "expected"),
     [
         (43016, "vest-pre-43017-pf1906"),
-        (43017, "vest-43017-45957-pf1906"),
-        (45957, "vest-43017-45957-pf1906"),
-        (45958, "vest-45958-45966-pf2507"),
-        (45966, "vest-45958-45966-pf2507"),
-        (45967, "vest-45967-plus-pf2507"),
+        (43017, "vest-43017-45967-pf1906"),
+        (45967, "vest-43017-45967-pf1906"),
+        (45968, "vest-45968-plus-pf2507"),
     ],
 )
 def test_machine_era_boundaries_are_explicit(shot, expected):
     assert machine_era_for_shot(shot).name == expected
+
+
+@pytest.mark.parametrize(
+    ("shot", "pf", "wall"),
+    [(43016, "1906", "1512"), (43017, "1906", "2409"), (45967, "1906", "2409"), (45968, "2507", "2409")],
+)
+def test_each_era_names_the_conductors_its_shots_select(shot, pf, wall):
+    """An era's declared geometry is what the mappers pick for its shots (#956)."""
+    from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
+    from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
+
+    era = machine_era_for_shot(shot)
+    assert (era.pf_geometry, era.wall_geometry) == (pf, wall)
+    for probe in {era.reference_shot, shot, era.first_shot or shot, era.last_shot or shot}:
+        assert pf_geometry_version_for_shot(probe) == era.pf_geometry
+        assert wall_geometry_version_for_shot(probe) == era.wall_geometry
 
 
 def test_default_diagnostics_grid_is_half_open_and_25_khz():
@@ -76,7 +90,7 @@ def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
 
 
 def test_static_product_is_not_a_reference_shot_container():
-    ods, manifest = build_static_ods("vest-45958-45966-pf2507")
+    ods, manifest = build_static_ods("vest-45968-plus-pf2507")
 
     assert set(ods.keys()) == {
         "wall",
@@ -90,7 +104,10 @@ def test_static_product_is_not_a_reference_shot_container():
     assert "pf_active.time" not in ods
     assert "pf_passive.time" not in ods
     assert "pf_passive.loop.0.current" not in ods
-    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+    # Wall 2409: the 950 base loops plus fifteen SUS316LN elements (#956).
+    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (965, 965)
+    assert manifest["machine_era"]["wall_geometry"] == "2409"
+    assert manifest["input"]["wall_additions"]["name"] == "VEST_passive_wall_2409.npz"
     # PF2 left this list in #708: it has an acquisition channel (field 4) and
     # shot 46742 uses it. The four that remain have no channel at all -- the
     # donor gives PF3/PF4 the same code as PF5 and none of the four a gain --
@@ -114,7 +131,7 @@ def test_static_product_marks_time_independent_ids_as_such():
     `wall` and `em_coupling` have no dynamic counterpart at all, so they are
     fixed at the source instead.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     for ids_name in ("wall", "em_coupling", "pf_active", "pf_passive", "magnetics", "tf"):
         assert ods[f"{ids_name}.ids_properties.homogeneous_time"] == 2
@@ -128,7 +145,7 @@ def test_static_wall_completeness():
     never populated; the outline is a genuinely closed polygon but the DD's
     `closed` flag was never set to say so.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     description = ods["wall.description_2d.0"]
     assert description["type.index"] == 1

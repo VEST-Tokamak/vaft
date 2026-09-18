@@ -337,6 +337,7 @@ def _machine_block(ods: Any, manifest: Mapping[str, Any] | None) -> dict[str, An
         era = manifest.get("machine_era") or {}
         block["era"] = era.get("name")
         block["pf_geometry"] = era.get("pf_geometry")
+        block["wall_geometry"] = era.get("wall_geometry", "1512")
         block["reference_shot"] = era.get("reference_shot")
         block["static_inputs"] = {
             key: dict(value) for key, value in (manifest.get("input") or {}).items()

@@ -10,10 +10,14 @@ import pytest
 
 from vaft.machine_mapping.magnetics import (
     UnsupportedMagneticsGeometryError,
+    _pinned_probe_index,
     equilibrium_magnetics_processing_config,
+    known_magnetics_faults,
+    magnetics_wiring_for_shot,
     require_supported_magnetics_geometry,
     vfit_equilibrium_magnetics,
 )
+from vaft.machine_mapping.utils import VestConfigurationError
 from vaft.process.magnetics import (
     DegenerateBaselineWindowError,
     UnsupportedMagneticsDaqModeError,
@@ -149,31 +153,101 @@ def test_physical_time_flux_baseline_is_sample_rate_independent():
 
 
 # --------------------------------------------------------------------------
-# Shot 39204 geometry provenance (issue #195 section 5)
+# Probe wiring history (issues #195 section 5, #956)
 # --------------------------------------------------------------------------
 
 
-def test_shot_39204_is_not_silently_given_the_shipped_geometry():
-    """The legacy VFIT source overrides the magnetics geometry for shot
-    39204 specifically (ver_2310). This repository ships ver_2302 only, so
-    the shot must fail clearly rather than be assigned wrong sensor
-    positions -- and must not reach for an external MATLAB file."""
-    with pytest.raises(UnsupportedMagneticsGeometryError, match="2310"):
-        require_supported_magnetics_geometry(39204)
+@pytest.mark.parametrize(
+    ("shot", "layout", "plus_006", "minus_042"),
+    [
+        (29350, "pre-39438", (170, 0.004539265), (225, -0.00452284)),
+        (39204, "pre-39438", (170, 0.004539265), (225, -0.00452284)),
+        (39437, "pre-39438", (170, 0.004539265), (225, -0.00452284)),
+        (39438, "2409", (225, 0.004543389), (170, -0.00452284)),
+        (48000, "2409", (225, 0.004543389), (170, -0.00452284)),
+    ],
+)
+def test_the_outboard_wiring_switches_overnight_to_39438(shot, layout, plus_006, minus_042):
+    """Z=+0.06 and Z=-0.42 trade fields 170 and 225 (with their signs)
+    between 2023-05-29 (39437) and 2023-05-30 (39438); see vest.yaml."""
+    wiring = magnetics_wiring_for_shot(shot)
+    channels = wiring.channels
+
+    assert wiring.layout == layout
+    assert (channels[35]["field_code"], channels[35]["calibration"]) == plus_006
+    assert (channels[47]["field_code"], channels[47]["calibration"]) == minus_042
 
 
-@pytest.mark.parametrize("shot", [39203, 39205, 43685, 46402, None])
-def test_other_shots_are_unaffected_by_the_geometry_guard(shot):
-    require_supported_magnetics_geometry(shot)
+def test_only_the_two_outboard_positions_are_rewired():
+    """The other rows where VFIT's 2302 file differs (field 197 sign, fields
+    179/180 calibration) are not supported by the raw signals and stay."""
+    before = magnetics_wiring_for_shot(39437).channels
+    after = magnetics_wiring_for_shot(39438).channels
+
+    changed = {index for index, (a, b) in enumerate(zip(before, after)) if a != b}
+    assert changed == {35, 47}
+    assert [c["kind"] for c in before] == [c["kind"] for c in after]
+    assert sorted(c["field_code"] for c in before) == sorted(c["field_code"] for c in after)
 
 
-def test_geometry_guard_fires_before_any_raw_data_is_touched():
-    """vfit_equilibrium_magnetics must refuse shot 39204 up front rather
-    than partway through processing. `raw_source` points at a path that does
-    not exist, so reaching the loader at all would surface a different
-    error than the geometry guard."""
-    with pytest.raises(UnsupportedMagneticsGeometryError):
-        vfit_equilibrium_magnetics(39204, raw_source="/nonexistent/raw.json.gz")
+def test_an_override_names_the_position_it_rewires():
+    """Pinned by r and z, so a reordered asset cannot rewire the wrong probe."""
+    with pytest.raises(VestConfigurationError, match="not the probe at"):
+        _pinned_probe_index({"index": 35, "r": 0.796, "z": -0.42}, context="test")
+
+
+@pytest.mark.parametrize(
+    ("shot", "faulted"),
+    [
+        (29350, True),
+        (36480, True),
+        (36481, False),
+        (36821, False),
+        (36822, True),
+        (36905, True),
+        (36906, False),
+        (39438, False),
+    ],
+)
+def test_the_z_plus_006_probe_is_recorded_broken_where_the_scan_found_it(shot, faulted):
+    faults = known_magnetics_faults(shot)
+    assert (("b_field_pol_probe", 35) in faults) is faulted
+    assert set(faults) <= {("b_field_pol_probe", 35)}
+
+
+def test_39204_is_processed_with_the_layout_of_its_neighbours():
+    """VFIT's `shot == 39204 -> ver_2310` override does not survive the raw
+    signals (#956); 39204 is no longer refused."""
+    require_supported_magnetics_geometry(39204)
+    assert magnetics_wiring_for_shot(39204).channels == magnetics_wiring_for_shot(39203).channels
+
+
+def test_the_processing_reads_the_shots_wiring(monkeypatch):
+    import vaft.machine_mapping.magnetics as magnetics
+
+    seen = {}
+
+    def record(shot, channels, *args, **kwargs):
+        seen[shot] = [int(channel["field_code"]) for channel in channels]
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(magnetics, "vest_equilibrium_magnetics_detailed", record)
+    for shot in (39437, 39438):
+        with pytest.raises(RuntimeError, match="stop"):
+            magnetics.vfit_equilibrium_magnetics_detailed(shot, raw_source="/nonexistent/raw.json.gz")
+
+    assert (seen[39437][35], seen[39437][47]) == (170, 225)
+    assert (seen[39438][35], seen[39438][47]) == (225, 170)
+
+
+def test_the_guard_still_refuses_a_shot_whose_layout_is_unknown(monkeypatch):
+    """No shot needs it today; the mechanism stays, and fires before any raw
+    data is touched (`raw_source` does not exist)."""
+    import vaft.machine_mapping.magnetics as magnetics
+
+    monkeypatch.setitem(magnetics.UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS, 12345, "9999")
+    with pytest.raises(UnsupportedMagneticsGeometryError, match="9999"):
+        vfit_equilibrium_magnetics(12345, raw_source="/nonexistent/raw.json.gz")
 
 
 def test_native_flux_baseline_matches_the_matlab_leading_sample_fit():

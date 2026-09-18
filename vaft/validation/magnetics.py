@@ -916,6 +916,8 @@ def _whole_record_reason(found: _Detections) -> str:
     """Why a channel was condemned outright, when it was -- every cause, joined."""
     reasons = {reason for _interval, reason in found.hard}
     parts: list[str] = []
+    if "known_fault" in reasons:
+        parts.append(f"recorded as broken for this shot: {found.metrics['known_fault']}")
     if "implausible_magnitude" in reasons:
         parts.append(
             f"amplitude {found.metrics['amplitude']:.3g} exceeds the physical ceiling; "
@@ -937,8 +939,17 @@ def validate_magnetics_signals(
     *,
     config: MagneticsQualityConfig | None = None,
     kinds: Iterable[str] = tuple(QUANTITY_BY_KIND),
+    known_faults: Mapping[tuple[str, int], str] | None = None,
 ) -> tuple[ChannelQuality, ...]:
     """Assess every equilibrium magnetics channel's processed waveform.
+
+    ``known_faults`` maps ``(kind, index)`` to the reason a channel's
+    acquisition is recorded as broken for this shot (for VEST,
+    :func:`vaft.machine_mapping.magnetics.known_magnetics_faults`). Such a
+    record is condemned outright -- it is an assessment of this datum, made
+    once from the raw signals rather than rediscovered per shot -- and does not
+    vote in the family review, where its level would move the median its
+    healthy neighbours are judged against.
 
     Nothing is written: the result is a report, and :func:`project_validity`
     puts the standardized part of it into the IDS.  Channels carrying no
@@ -973,9 +984,15 @@ def validate_magnetics_signals(
             # rather than assumed identical.
             voltage = read_validity(source, f"magnetics.{kind}.{index}.voltage")
             seed = VALIDITY_VALID if voltage is None else min(VALIDITY_VALID, int(voltage))
-            detections[(kind, index)] = _detect(
-                *waveform, config=settings, seed=seed, kind=kind
-            )
+            found = _detect(*waveform, config=settings, seed=seed, kind=kind)
+            fault = (known_faults or {}).get((kind, index))
+            if fault is not None:
+                found = replace(
+                    found,
+                    hard=found.hard + (((0, found.data.size), "known_fault"),),
+                    metrics={**found.metrics, "known_fault": str(fault)},
+                )
+            detections[(kind, index)] = found
 
     coherent = _coherent_jump_times(detections, settings)
     _population_review(source, detections, settings)

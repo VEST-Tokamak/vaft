@@ -30,6 +30,10 @@
     # second -- and `test/test_magnetics_geometry_join.py` asserts they name the
     # same probe at every index.
     #
+    # MD.yaml is the 2409 wiring. Where a shot's wiring differs, the entries it
+    # changes are revised per shot in `diagnostics.equilibrium_magnetics.
+    # processing.wiring` below (issue #956); positions never move.
+    #
     # A 64-entry `b_field_pol_probe.channels` block used to sit here carrying a
     # third description: same probes, same values, but ordered differently, so
     # it disagreed with the live pair at 11 of 64 positions. Nothing read it --
@@ -569,6 +573,59 @@
               flux_baseline_window: null
               flux_baseline_samples: 1750
               daq_mode: native_daq
+        # Which raw DAQ field (and calibration sign) feeds each probe position
+        # (issue #956). The base is the shipped MD.yaml, the VFIT ver_2409
+        # layout; a revision replaces only the listed probe indices (the
+        # MD.yaml / geometry list position, pinned by r and z so a reordered
+        # asset fails loudly instead of rewiring the wrong probe).
+        #
+        # Shots <= 39437 (last shot 2023-05-29) carry the older outboard
+        # layout that VFIT ver_2302/2305 record: Z=+0.06 on field 170 and
+        # Z=-0.42 on field 225 (negative), the reverse of 2409. The swap
+        # happened overnight to 39438 (2023-05-30). Established from the raw
+        # signals by `workflow/magnetics_geometry/verify_wiring.py`, which
+        # scores each VFIT layout against the linear prediction of the
+        # untouched neighbours in the same R = 0.796 m column (250+ shots,
+        # 2022-05..2026; 39437 prefers 2302 by 4.5x, 39438 prefers 2409).
+        # Only these two positions are revised: the other rows in which the
+        # 2302/2305 files differ (inboard field 197 sign, fields 179/180
+        # calibration) are NOT supported by the same test -- field 197 keeps
+        # the 2409 sign on pre-39438 shots (gain +1.08 on 37000) -- and are
+        # left at 2409. VFIT's `shot == 39204 -> ver_2310` override is
+        # contradicted by the data (39204 fits this layout 2.5x better).
+        wiring:
+          layout: "2409"
+          probe_overrides: []
+          revisions:
+            - to_shot: 39437
+              layout: "pre-39438"
+              probe_overrides:
+                - {index: 35, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
+                - {index: 47, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
+        # Probe positions whose acquisition is known to be broken for a range
+        # of shots (issue #956). The magnetics validation marks the whole
+        # record invalid with this reason; data is kept, not dropped, and EFIT
+        # rejects a condemned channel through the ordinary validity path.
+        # Z=+0.06 (field 170 in the pre-39438 layout), from a scan of its
+        # mean voltage and its gain against the field 169/171 neighbours:
+        #   <= 36480  DC offset -140..-190 mV to 2022-01 (neighbours +-1 mV),
+        #             gain -46..+21; then -2..-9 mV with gain 0..2.6. The
+        #             offset disappears at 36481 (2022-06-23 11:26), after
+        #             which gain is 0.98, residual 0.02. Raw data start at
+        #             29350, already in this state.
+        #   36822..36905  pinned at the -5 V rail, then -2.5 V (2022-07-28 ..
+        #             08-11). The shots on either side carry no field 170;
+        #             36617 before and 36943 after are good.
+        known_faults:
+          probes: []
+          revisions:
+            - to_shot: 36480
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition broken: DC offset and gain unrelated to its neighbours (field 170)"}
+            - from_shot: 36822
+              to_shot: 36905
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and
