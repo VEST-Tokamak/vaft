@@ -365,11 +365,13 @@ class Presentation:
         A theme alone never changes geometry.  Width is the format's; height
         follows the view kind's geometry policy and is held below the
         format's ceiling.  A view whose coordinates must keep their ratio --
-        an R-Z machine, an image -- is the exception both ways: when the
-        ceiling binds, the width shrinks with it, so the canvas follows the
-        axes rather than framing it in margin; the format's width is then a
-        maximum.  ``colorbar`` says whether a field map draws one, which
-        takes part of the width the axes would have had.
+        an R-Z machine, an image -- is the exception both ways: the format's
+        width and ceiling are then maxima, and this is only the canvas the
+        render starts from.  What its labels, title and colorbar really take
+        is known once it is laid out, so :func:`presented` trims the margin
+        the equal-scaled axes cannot use afterwards (:func:`_fit_canvas`).
+        ``colorbar`` says whether a field map draws one, which takes part of
+        the width the axes would have had.
         """
         if self.format is None:
             return fallback
@@ -468,19 +470,66 @@ class Presentation:
 
 
 def _snug(width: float, ratio: float, usable: float, ceiling: float) -> tuple[float, float]:
-    """A canvas that fits axes of ``ratio`` (height/width) and nothing more.
+    """The canvas an axes of ``ratio`` (height/width) starts from.
 
-    The axes takes ``usable`` of the width and ``_RZ_AXES_HEIGHT_FRACTION``
-    of the height; when the height that implies exceeds the ceiling, the
-    width comes down with it so the axes still fills the canvas.  A canvas
-    is never narrower than a third of its height, so a very tall machine
-    keeps room for its labels.
+    The axes is estimated to take ``usable`` of the width and
+    ``_RZ_AXES_HEIGHT_FRACTION`` of the height, and the height that implies
+    is held below the ceiling.  The width stays the format's even when the
+    ceiling binds: the estimate cannot know what the labels, the title and
+    a colorbar take -- a cost in inches, not a fraction -- and narrowing on
+    it squeezed a tall machine into a strip whose axes filled half the
+    height beside a full-height colorbar.  :func:`_fit_canvas` narrows or
+    shortens the canvas from the laid-out figure instead.
     """
-    height = width * usable * ratio / _RZ_AXES_HEIGHT_FRACTION
-    if height > ceiling:
-        height = ceiling
-        width = max(height * _RZ_AXES_HEIGHT_FRACTION / ratio / usable, height / 3.0)
+    height = min(width * usable * ratio / _RZ_AXES_HEIGHT_FRACTION, ceiling)
     return (width, max(height, 0.3 * width))
+
+
+#: Margin, in inches, an equal-scaled axes may leave unused in its slot
+#: before :func:`_fit_canvas` trims it.
+_FIT_TOLERANCE_IN = 0.02
+
+
+def _fit_canvas(
+    figure: Any, axes: Any, pad: float | None, *, ceiling: float | None = None, passes: int = 4,
+) -> None:
+    """Trim the canvas to an equal-scaled axes once the figure is laid out.
+
+    ``set_aspect("equal", adjustable="box")`` shrinks the axes inside the
+    slot the layout gave it, which leaves margin along one direction and a
+    colorbar standing taller (or wider) than the map it labels.  Each pass
+    measures that margin -- the slot less the drawn box -- and lays the
+    figure out again without it.  Margin beside the axes is first spent on
+    height, up to ``ceiling``, so the format's width stays the width while
+    the map can still grow; only what the ceiling refuses narrows the
+    canvas.  Margin above and below is taken off the height.  One pass
+    usually suffices; a title wider than a narrowed axes can move the
+    margin to the other direction, which the next pass takes.  Figures with
+    no equal-scaled axes, or with several (a composite sizes its rows
+    itself), are left alone.
+    """
+    from .style import finalize
+
+    fixed = [axis for axis in _axes_of(axes) if axis.get_aspect() != "auto"]
+    if len(fixed) != 1:
+        return
+    axis = fixed[0]
+    for _ in range(passes):
+        axis.apply_aspect()
+        width, height = figure.get_size_inches()
+        slot, drawn = axis.get_position(original=True), axis.get_position()
+        spare_w = (slot.width - drawn.width) * width
+        spare_h = (slot.height - drawn.height) * height
+        if max(spare_w, spare_h) < _FIT_TOLERANCE_IN:
+            break
+        if spare_w > 0.0 and ceiling is not None and height < ceiling - _FIT_TOLERANCE_IN:
+            # The axes is height-bound: the height it could use at this width.
+            ratio = (drawn.height * height) / max(drawn.width * width, 1e-9)
+            grown = min(height + spare_w * ratio, ceiling)
+            figure.set_size_inches(width, grown)
+        else:
+            figure.set_size_inches(width - max(spare_w, 0.0), height - max(spare_h, 0.0))
+        finalize(figure, axes, show=False, tight_layout=True, pad=pad)
 
 
 def _has_colorbar(model: Any) -> bool:
@@ -712,6 +761,18 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                     from .style import finalize
 
                     finalize(figure, axes, show=False, tight_layout=True, pad=presentation.pad)
+                    # Only a canvas the machine or the image sizes is fitted: a
+                    # boundary alone keeps the fallback ratio, so the canvas does
+                    # not follow the plasma from shot to shot.
+                    policy = GEOMETRY.get(type(model).__name__)
+                    if policy is not None and (
+                        policy.kind == "native"
+                        or (policy.kind == "extent" and rz_extent(model) is not None)
+                    ):
+                        _fit_canvas(
+                            figure, axes, presentation.pad,
+                            ceiling=presentation.format.max_height_in,
+                        )
                 # An animation written to save_path= is saved instead of shown.
                 if show and kwargs.get("save_path") is None:
                     import matplotlib.pyplot as plt

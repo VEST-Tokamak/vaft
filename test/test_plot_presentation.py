@@ -344,6 +344,25 @@ def test_the_packaged_psi_map_is_sized_by_the_wall(sample):
     assert axes.get_position().width > 0.45
 
 
+@pytest.mark.parametrize("plot", ["plot_equilibrium_field_psi", "plot_equilibrium_field_psi_vacuum"])
+def test_the_default_field_map_fills_its_canvas_both_ways(sample, plot):
+    # With nothing passed, the screen format sized the canvas from a fixed
+    # share for labels and colorbar; on the packaged tall machine the axes then
+    # filled half the height beside a full-height colorbar, and the title ran
+    # into it (publication_figures.ipynb cells 4 and 13).
+    figure, axes = getattr(vaft.omas, plot)(sample)
+    figure.canvas.draw()
+    width, height = figure.get_size_inches()
+    assert width <= FORMATS["screen"].width_in and height <= FORMATS["screen"].max_height_in
+    drawn = axes.get_position()
+    assert drawn.height > 0.8, "the map fills the height, not half of it"
+    colorbar = next(a for a in figure.axes if a is not axes)
+    assert colorbar.get_position().height == pytest.approx(drawn.height, abs=0.02)
+    renderer = figure.canvas.get_renderer()
+    title = axes.title.get_window_extent(renderer)
+    assert title.x1 <= colorbar.get_window_extent(renderer).x0 + 1.0, "the title stops short of the colorbar"
+
+
 def test_an_image_keeps_its_pixel_ratio():
     wide = Image2D(values=np.zeros((10, 40)), value_label="counts")
     tall = Image2D(values=np.zeros((40, 10)), value_label="counts")
