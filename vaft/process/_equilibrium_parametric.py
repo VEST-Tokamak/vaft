@@ -1772,9 +1772,11 @@ def solovev_to_equilibrium(
     The 2*pi factor multiplies psi, its axis and boundary values and ``psi_1d``,
     and divides the two d/dpsi sources ``pprime`` and ``ffprime``.  Nothing else
     is rescaled, deliberately: ``ip`` is integrated from the analytic ``j_phi``,
-    a physical current density that no flux-storage choice changes, and ``f``,
-    ``bt0`` and ``pressure`` are physical fields too.  Any orientation sign
-    they carry under another *convention* is applied by :func:`convert_cocos`.
+    a current density that no flux-storage choice changes, and ``f``, ``bt0``
+    and ``pressure`` are physical fields too.  Any orientation sign they carry
+    under another *convention* is applied by :func:`convert_cocos`.  That says
+    nothing about whether the sign of :func:`evaluate_solovev`'s ``j_phi`` is
+    consistent with its poloidal field; that is a separate question (#966).
 
     Applicability
     -------------
@@ -1959,7 +1961,9 @@ def find_stationary_points(equilibrium: Any, *, kind: str | None = None) -> tupl
         curvature of each point.  O-points come first, nearest the axis flux
         first; then saddles, nearest the boundary flux first; points without a
         normalized flux last within their kind.  Empty when the record has no
-        usable psi map.  Positions in metres, psi in the record's flux unit [-].
+        usable psi map.  Positions in metres; psi in the record's flux unit;
+        the determinant in that unit squared per m^4 and the curvature in that
+        unit per m^2, so both scale with the record's flux normalization [-].
 
     Raises
     ------
@@ -1983,9 +1987,10 @@ def find_stationary_points(equilibrium: Any, *, kind: str | None = None) -> tupl
     -----------
     A saddle is only a candidate X-point: numerical saddles far from the plasma
     are common on reconstructed maps.  Whether one bounds the plasma is decided
-    by :func:`derive_boundary_representation`.  A stationary point closer than
-    one grid cell to the grid edge is not seeded, and two closer than half a cell
-    are reported once.
+    by :func:`derive_boundary_representation`.  Searches start only from
+    interior grid nodes and keep only roots strictly inside the grid, so a point
+    in the outermost cell may be missed; two closer than half a cell are
+    reported once.
 
     Provenance
     ----------

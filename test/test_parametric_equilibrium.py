@@ -829,6 +829,46 @@ def test_stationary_points_of_a_solovev_field_are_true_zeros_of_its_gradient():
         assert np.hypot(dpsi_dr, dpsi_dz) < 1e-3 * np.hypot(scale_r, scale_z), point
 
 
+def test_a_double_null_solovev_field_has_its_saddles_where_they_were_put():
+    """The #220 criterion names Solov'ev saddles as well as its axis.
+
+    Constraining psi and both of its derivatives to vanish at (0.88, +-0.47) --
+    the basis is even in Z, so one constraint covers both -- places the
+    X-points there exactly, off every grid node.
+    """
+    from vaft.process._equilibrium_parametric import _solovev_components
+    from vaft.process.equilibrium import find_stationary_points
+
+    x_r, x_z = 0.88, 0.47
+    model = solve_solovev_constraints(
+        [
+            SolovevConstraint(1.3, 0.0, "psi", 0.0),
+            SolovevConstraint(0.7, 0.0, "psi", 0.0),
+            SolovevConstraint(x_r, x_z, "psi", 0.0),
+            SolovevConstraint(x_r, x_z, "dpsi_dr", 0.0),
+            SolovevConstraint(x_r, x_z, "dpsi_dz", 0.0),
+        ],
+        pprime=-1.0e4, ffprime=0.05, rref=1.0, psi_boundary=0.0,
+    )
+    r = np.linspace(0.5, 1.5, 101)
+    z = np.linspace(-0.7, 0.7, 141)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = evaluate_solovev(model, rm, zm, cocos=11)["psi"]
+    spacing = float(max(np.diff(r).max(), np.diff(z).max()))
+    saddles = find_stationary_points(EquilibriumData(r=r, z=z, psi=psi), kind="x")
+    for target_z in (x_z, -x_z):
+        nearest = min(saddles, key=lambda p: np.hypot(p.r - x_r, p.z - target_z))
+        assert np.hypot(nearest.r - x_r, nearest.z - target_z) < 1e-3 * spacing
+    # Gradient scale from a generic interior point: (1.3, 0) is itself nearly
+    # a saddle of this field, so its gradient is no scale at all.
+    _, scale_r, scale_z, _ = _solovev_components(model, 1.1, 0.3)
+    scale = float(np.hypot(scale_r, scale_z))
+    assert scale > 0
+    for point in saddles:
+        _, dpsi_dr, dpsi_dz, _ = _solovev_components(model, point.r, point.z)
+        assert np.hypot(dpsi_dr, dpsi_dz) < 1e-3 * scale, point
+
+
 def test_stationary_points_of_a_record_without_psi_are_empty():
     from vaft.process.equilibrium import find_stationary_points
 
