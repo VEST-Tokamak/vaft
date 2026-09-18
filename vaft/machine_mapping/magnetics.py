@@ -2364,9 +2364,13 @@ def vfit_magnetics_dynamic(
         _map_diamagnetic_flux(ods, shot, context.target_time, ip_time, ip, raw_source)
     except (raw_db.RawSignalUnavailableError, SignalRepairError) as error:
         # _map_diamagnetic_flux writes nothing before its last step, so there
-        # is no partial node to remove.
+        # is no partial node to remove. Only the loop's own field (and its
+        # clip repair) raise these two types here; an Ip failure happened
+        # above and still fails the IDS. Reading live SQL without a raw
+        # archive, a failed query also reaches here as "unavailable": the
+        # pipeline reads archived dumps, where absent means absent.
         left_out["diamagnetic_flux"] = str(error)
-        logger.warning("shot %s: diamagnetic flux left out: %s", shot, error)
+        warnings.warn(f"shot {shot}: diamagnetic flux left out: {error}", RuntimeWarning, stacklevel=2)
     return left_out
 
 

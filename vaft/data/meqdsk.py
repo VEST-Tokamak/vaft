@@ -62,6 +62,20 @@ class MEQDSK:
             return None
         return float(np.asarray(value).reshape(-1)[0]) / 1000.0
 
+    def _switched_off_without_data(self, time_index_efit: int) -> bool:
+        """Whether the diamagnetic row was written off *because there was no measurement*.
+
+        A shot whose diamagnetic loop carried nothing gets ``DFLUX=0``,
+        ``SIGDLC=0``, ``FWTDLC=0`` in its k-file (#993), and EFIT copies the
+        zero into ``diamag``. Mapped back as ``measured`` it would publish a
+        diamagnetic flux of exactly 0 Wb that was never measured. A real
+        measurement is never exactly zero with a zero sigma, so all three at
+        zero means "not measured"; the reconstructed ``cdflux`` and the weight
+        are still EFIT's and still mapped.
+        """
+        values = [self._at(name, time_index_efit) for name in ("fwtdia", "diamag", "sigdia")]
+        return all(value is not None and float(np.asarray(value)) == 0.0 for value in values)
+
     def _at(self, name: str, time_index_efit: int) -> Any | None:
         variable = self.variables.get(name)
         if variable is None:
@@ -209,7 +223,12 @@ class MEQDSK:
         }
         for family, mapping in scalars.items():
             wrote = False
+            not_measured = family == "diamagnetic_flux" and self._switched_off_without_data(
+                time_index_efit
+            )
             for field, variable in mapping.items():
+                if not_measured and field in ("measured", "measured_error_upper", "chi_squared"):
+                    continue
                 value = self._at(variable, time_index_efit)
                 if value is not None:
                     ods[f"{constraints}.{family}.{field}"] = float(np.asarray(value))

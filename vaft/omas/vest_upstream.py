@@ -1038,7 +1038,14 @@ def build_diagnostics_ods(
         "magnetics_quality": magnetics_quality,
         "channel_status": statuses,
         "quality_summary": {
-            "missing": sorted(unavailable + missing_channels),
+            "missing": sorted(
+                unavailable
+                + missing_channels
+                + [
+                    f"magnetics:{signal}"
+                    for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+            ),
             "repaired": [],
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],

@@ -477,9 +477,10 @@ def test_an_unusable_diamagnetic_loop_leaves_the_rest_of_magnetics(tmp_path, cas
     ods = ODS(consistency_check=False)
     magnetics.vfit_magnetics_static(ods, SYNTHETIC_SHOT)
 
-    left_out = magnetics.vfit_magnetics_dynamic(
-        ods, SYNTHETIC_SHOT, 0.26, 0.36, 4e-5, raw_source=source
-    )
+    with pytest.warns(RuntimeWarning, match="diamagnetic flux left out"):
+        left_out = magnetics.vfit_magnetics_dynamic(
+            ods, SYNTHETIC_SHOT, 0.26, 0.36, 4e-5, raw_source=source
+        )
 
     assert set(left_out) == {"diamagnetic_flux"}
     assert ("saturated" if case == "pinned" else "257") in left_out["diamagnetic_flux"]
@@ -526,5 +527,6 @@ def test_the_diagnostics_product_marks_magnetics_partial_with_the_reason(tmp_pat
     status = manifest["channel_status"]["magnetics"]
     assert status["status"] == "partial"
     assert "saturated" in status["signals_left_out"]["diamagnetic_flux"]
+    assert "magnetics:diamagnetic_flux" in manifest["quality_summary"]["missing"]
     assert "magnetics.ip.0.data" in ods
     assert "magnetics.diamagnetic_flux" not in ods

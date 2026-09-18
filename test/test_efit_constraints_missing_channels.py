@@ -363,7 +363,8 @@ def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input
 
     kfile_dir = tmp_path / "kfile"
     config = _build_kfile_config(nbcoil=len(EQ["time_slice.0.constraints.pf_current"]))
-    generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
+    with pytest.warns(RuntimeWarning, match="no diamagnetic flux measurement"):
+        generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
     text = sorted((kfile_dir / "kfile").glob("*"))[0].read_text(encoding="utf-8")
     assert "FWTDLC= 0" in text
     assert "DFLUX= 0.0" in text

@@ -1001,6 +1001,13 @@ def generate_kfile(
         # row is written switched off, with a zero value and sigma EFIT never
         # reads while FWTDLC is 0.
         measured_dia = "diamagnetic_flux.measured" in CSTR
+        if not measured_dia and constraint_config.use_diamagnetic_flux:
+            warnings.warn(
+                f"shot {shotnumber}, slice {time_idx}: no diamagnetic flux measurement; "
+                "the row is written switched off (FWTDLC=0)",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         # "imas" writes the stored, signed value: EFIT's convention (#385).
         VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale if measured_dia else 0.0
         if constraint_config.diamagnetic_flux_sign == "absolute":
