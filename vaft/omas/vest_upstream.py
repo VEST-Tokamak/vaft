@@ -32,7 +32,7 @@ from vaft.machine_mapping.impa import (
     impa_probe_indices,
     resolve_impa_config,
 )
-from vaft.machine_mapping.langmuir_probes import langmuir_probes
+from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langmuir_probes
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
@@ -780,6 +780,10 @@ def build_diagnostics_ods(
             raw_db.RawSignalUnavailableError,
             FileNotFoundError,
             SignalRepairError,
+            # A shot between two documented Langmuir bias/tip eras has no
+            # known setting (#152); that is the Langmuir component's gap,
+            # not a reason to lose every other diagnostic (#989).
+            LangmuirProbeEraGapError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes

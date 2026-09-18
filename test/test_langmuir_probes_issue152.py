@@ -570,3 +570,57 @@ def test_the_default_position_table_is_shipped_by_every_packaging_rule():
     assert f"vaft/{relative}" in verify_dist.REQUIRED_FILES, (
         "test/verify_dist.py would not notice a distribution that lacks the table"
     )
+
+
+@pytest.mark.parametrize("shot", [42138, 42144, 42641])
+def test_an_era_gap_is_its_own_error_type(shot):
+    """The diagnostics stage isolates exactly this condition (#989), so it has
+    to be distinguishable from every other configuration failure."""
+    config = lp.resolve_langmuir_probe_config("mid", shot)
+    with pytest.raises(lp.LangmuirProbeEraGapError, match="unresolved era gap"):
+        lp._resolve_era(config, shot, assembly_key="mid")
+    assert issubclass(lp.LangmuirProbeEraGapError, lp.LangmuirProbeConfigError)
+
+
+def _era_gaps(config):
+    """Closed shot intervals no era of *config* covers (open ends at +-inf)."""
+    eras = sorted(
+        (
+            float("-inf") if era.get("min_shot") is None else int(era["min_shot"]),
+            float("inf") if era.get("max_shot") is None else int(era["max_shot"]),
+        )
+        for era in config.get("shot_era_overrides") or ()
+    )
+    gaps, covered = [], float("-inf")
+    for low, high in eras:
+        if low > covered + 1:
+            gaps.append((covered + 1, low - 1))
+        covered = max(covered, high)
+    if covered < float("inf"):
+        gaps.append((covered + 1, float("inf")))
+    return gaps
+
+
+def test_no_langmuir_era_gap_falls_where_another_assembly_is_installed():
+    """An era gap drops the whole Langmuir component (#989), so a gap in one
+    assembly must never coincide with another assembly producing data --
+    otherwise filling or editing the table could silently discard it."""
+    shot = 50000  # any shot: the era tables live in the default block
+    configs = {a["key"]: lp.resolve_langmuir_probe_config(a["key"], shot) for a in lp.ASSEMBLIES}
+    installed_from = {
+        key: float("-inf") if config.get("first_shot") is None else int(config["first_shot"])
+        for key, config in configs.items()
+    }
+    for key, config in configs.items():
+        for low, high in _era_gaps(config):
+            # Only the part of the gap where this assembly itself is installed
+            # can raise (before first_shot it is skipped).
+            low = max(low, installed_from[key])
+            if low > high:
+                continue
+            for other, start in installed_from.items():
+                if other != key:
+                    assert high < start, (
+                        f"langmuir_probes.{key} has an era gap {low}-{high} while "
+                        f"langmuir_probes.{other} is installed (from {start})"
+                    )
