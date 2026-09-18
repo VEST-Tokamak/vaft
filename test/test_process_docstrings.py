@@ -123,6 +123,7 @@ PIPELINE = frozenset({
     "solve_solovev_constraints",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
     "trace_field_line",
     # cocos (#419)
     "validate_cocos",
@@ -340,6 +341,7 @@ CONVENTION_SENSITIVE = frozenset({
     "solve_solovev_constraints",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",

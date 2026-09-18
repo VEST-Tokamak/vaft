@@ -127,6 +127,7 @@ __all__ = [
     "shafranov_integrals",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
@@ -5028,3 +5029,171 @@ def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
     angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
     result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
     return float(result) if np.ndim(theta_lab) == 0 else result
+
+
+def romero_flux_balance(
+    time: np.ndarray,
+    I_p: np.ndarray,
+    psi_boundary: np.ndarray,
+    psi_equilibrium: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+) -> dict[str, np.ndarray]:
+    r"""Romero's exact voltage and volt-second balance over a sampled discharge.
+
+    Differentiates the boundary and equilibrium fluxes and the plasma current,
+    evaluates every term of Romero's balance with :mod:`vaft.formula.transformer`,
+    and integrates the three volt-second budgets, so the residual of each
+    identity is visible sample by sample and cumulatively.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Sample times, strictly increasing, at least three [s].
+    I_p : np.ndarray
+        Plasma current at each time, non-zero, same sense throughout [A].
+    psi_boundary : np.ndarray
+        Boundary flux $\psi_B$, full flux in Romero's sign [Wb].
+    psi_equilibrium : np.ndarray
+        Current-weighted flux $\psi_C$ from
+        :func:`vaft.formula.transformer.current_weighted_flux_from_psi_j_dS`,
+        same convention [Wb].
+    R_p : np.ndarray
+        Plasma resistance at each time, or one value for all [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current at each time, or one value; ``0``
+        asserts a purely Ohmic discharge [A].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        Per sample: ``time`` [s]; ``L_i`` [H] and ``dL_i_dt`` [H/s];
+        ``dI_p_dt`` [A/s]; the voltages ``V_B``, ``V_C`` (from
+        $-\dot\psi_C$), ``V_R``, ``V_I`` $= L_i\dot I_p + \tfrac12 I_p\dot L_i$,
+        ``V_C_from_L_i`` and ``V_C_from_I_p`` (Romero's eqs. 39 and 40 solved
+        for $V_C$) and ``balance_residual`` $= V_B - V_R - V_I$ [V]; and,
+        cumulative from the first sample, ``Phi_B`` $=\int V_B\,dt$,
+        ``Phi_B_direct`` $= -(\psi_B - \psi_B(t_0))$, ``Phi_R``, ``Phi_I`` and
+        ``Phi_closure`` $= \Phi_B - \Phi_R - \Phi_I$ [Wb] [-].
+
+    Raises
+    ------
+    ValueError
+        Arrays of different lengths, fewer than three samples, a time axis
+        that does not strictly increase, a non-finite input, a zero plasma
+        current, or fluxes whose sign says they are not in Romero's convention
+        [-].
+
+    Processing steps
+    ----------------
+    1. $L_i = (\psi_C - \psi_B)/I_p$ at every sample
+       (:func:`vaft.formula.transformer.internal_inductance_from_psi_C_psi_B_I_p`),
+       which refuses a flux in the opposite convention.
+    2. $\dot I_p$, $\dot L_i$, $V_B = -\dot\psi_B$ and $V_C = -\dot\psi_C$ with
+       :func:`vaft.process.numerical.time_derivative`.
+    3. $V_R = R_p(I_p - \hat I)$ and $V_I = L_i\dot I_p + \tfrac12 I_p\dot L_i$.
+    4. The two inferred $V_C$: eq. (39) from $\dot L_i$ and $V_R$, eq. (40)
+       from $\dot I_p$, $V_B$ and $V_R$.
+    5. Cumulative trapezoidal integrals of $V_B$, $V_R$ and $V_I$ from the
+       first sample, and the direct flux change $-\Delta\psi_B$ beside them.
+
+    Convention
+    ----------
+    **Romero's signs: full-weber flux and $V = -\dot\psi$.**  This is not
+    :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`'s
+    convention (#354); a COCOS-11 equilibrium has to be brought to this one
+    before the call, and step 1 refuses fluxes that were not.
+
+    **What each residual measures.**  With $L_i$ read from the same fluxes,
+    $V_B - V_C = \mathrm{d}(L_i I_p)/\mathrm{d}t$ holds to differencing error
+    on its own, so the three $V_C$ and ``balance_residual`` all disagree only
+    through $V_R$ -- they test the resistance estimate and $\hat I$, not the
+    equilibria.  ``Phi_B`` against ``Phi_B_direct`` tests the differencing and
+    the integration alone: the two agree to the trapezoid error whatever the
+    physics.
+
+    Applicability
+    -------------
+    Machine-independent.  Closed-flux phase only: $\psi_C$ and $L_i$ need an
+    equilibrium with a boundary, so a start-up window before flux closure must
+    be cut off by the caller, and a zero $I_p$ is refused rather than divided
+    by.
+
+    Limitations
+    -----------
+    All inputs must already be on one time axis, matched by time and not by
+    index; nothing here resamples.  Differentiation amplifies equilibrium
+    noise, and $\dot L_i$ from reconstructed fluxes is the noisiest term --
+    smooth upstream if the residuals are dominated by it.  $R_p$ and $\hat I$
+    are the caller's estimates, and the balance cannot tell which one is
+    wrong.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (12), (23)-(27), (34)-(40); the volt-second split
+           follows issue #781, Sec. 5.
+    """
+    from scipy.integrate import cumulative_trapezoid
+
+    from vaft.formula.transformer import (
+        equilibrium_surface_voltage_from_I_p_dL_i_V_R,
+        equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R,
+        internal_inductance_from_psi_C_psi_B_I_p,
+        resistive_voltage_from_R_p_I_p_I_ni,
+    )
+    from vaft.process.numerical import time_derivative
+
+    t = np.asarray(time, dtype=float)
+    series = {
+        "I_p": np.asarray(I_p, dtype=float),
+        "psi_boundary": np.asarray(psi_boundary, dtype=float),
+        "psi_equilibrium": np.asarray(psi_equilibrium, dtype=float),
+    }
+    if t.ndim != 1 or t.size < 3:
+        raise ValueError("time must be one-dimensional with at least three samples")
+    if not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite and strictly increasing")
+    for name, values in series.items():
+        if values.shape != t.shape:
+            raise ValueError(f"{name} has shape {values.shape}; time has {t.shape}")
+    ip, psi_b, psi_c = series["I_p"], series["psi_boundary"], series["psi_equilibrium"]
+    try:
+        r_p, i_ni = np.broadcast_to(np.asarray(R_p, dtype=float), t.shape), np.broadcast_to(
+            np.asarray(I_ni, dtype=float), t.shape
+        )
+    except ValueError:
+        raise ValueError("R_p and I_ni must be scalars or match time") from None
+
+    l_i = np.asarray(internal_inductance_from_psi_C_psi_B_I_p(psi_c, psi_b, ip))
+    di_dt = time_derivative(t, ip)
+    dl_dt = time_derivative(t, l_i)
+    v_b = -time_derivative(t, psi_b)
+    v_c = -time_derivative(t, psi_c)
+    v_r = np.asarray(resistive_voltage_from_R_p_I_p_I_ni(r_p, ip, i_ni))
+    v_i = l_i * di_dt + 0.5 * ip * dl_dt
+
+    def running(values):
+        return cumulative_trapezoid(values, t, initial=0.0)
+
+    phi_b, phi_r, phi_i = running(v_b), running(v_r), running(v_i)
+    return {
+        "time": t,
+        "L_i": l_i,
+        "dL_i_dt": dl_dt,
+        "dI_p_dt": di_dt,
+        "V_B": v_b,
+        "V_C": v_c,
+        "V_R": v_r,
+        "V_I": v_i,
+        "V_C_from_L_i": np.asarray(equilibrium_surface_voltage_from_I_p_dL_i_V_R(ip, dl_dt, v_r)),
+        "V_C_from_I_p": np.asarray(
+            equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R(l_i, di_dt, v_b, v_r)
+        ),
+        "balance_residual": v_b - v_r - v_i,
+        "Phi_B": phi_b,
+        "Phi_B_direct": -(psi_b - psi_b[0]),
+        "Phi_R": phi_r,
+        "Phi_I": phi_i,
+        "Phi_closure": phi_b - phi_r - phi_i,
+    }
