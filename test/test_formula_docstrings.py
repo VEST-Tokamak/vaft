@@ -176,6 +176,9 @@ CONVENTION_SENSITIVE = frozenset({
     # rather than vessel averages.
     "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
     "ionization_fraction_from_n_e_n_D0",
+    # #782: Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
+    "boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j",
+    "internal_inductive_voltage_terms_from_L_i_I_p",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

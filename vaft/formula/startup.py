@@ -1893,6 +1893,15 @@ def plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
     into a ramp-down.  $I_p\dot L_p$ is kept because a plasma that grows or
     moves changes its inductance, and during start-up that term is not small.
 
+    **With $L_p = L_e + L_i$, pass** ``dL_p_dt_H_s`` **$= \dot L_e +
+    \tfrac12\dot L_i$, not $\dot L_e + \dot L_i$.**  The external inductance
+    is a flux linkage and takes the full rate; the internal one is defined by
+    the energy $\tfrac12 L_i I_p^2$ and takes half (Romero, eq. 23), so the
+    naive sum overstates the profile term by $\tfrac12 I_p\dot L_i$.
+    :func:`internal_inductive_voltage_terms_from_L_i_I_p` and
+    :func:`boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j` keep the two
+    apart.
+
     The power this balances is not the Ohmic power.
     $V_{\mathrm{loop}} I_p = R_p I_p^2 + \mathrm{d}(\tfrac12 L_p I_p^2)/
     \mathrm{d}t + \tfrac12 I_p^2 \dot L_p$: part of the transformer's work goes
@@ -1912,10 +1921,13 @@ def plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
            Sec. 3.7.
     .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
            Eq. (2.1).
+    .. [3] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (23) and (31).
 
     See Also
     --------
     lr_time_from_L_R
+    internal_inductive_voltage_terms_from_L_i_I_p
     plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
     plasma_inductance_circular_from_R0_a_li
     """
@@ -1977,6 +1989,233 @@ def lr_time_from_L_R(L_H, R_ohm):
     inductance = _require_positive("L_H", L_H)
     resistance = _require_positive("R_ohm", R_ohm)
     return _maybe_scalar(inductance / resistance, L_H, R_ohm)
+
+
+def _require_finite(name, value):
+    """Reject a non-finite signed input by name."""
+    array = np.asarray(value, dtype=float)
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be finite; got {value!r}")
+    return array
+
+
+def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
+    L_e_H,
+    I_p_A,
+    dI_p_dt_A_s,
+    dL_e_dt_H_s=0.0,
+    M_pj_H=None,
+    I_j_A=None,
+    dI_j_dt_A_s=None,
+    dM_pj_dt_H_s=None,
+):
+    r"""Boundary loop voltage split into the four ways the boundary flux can change.
+
+    $$V_B = -\frac{\mathrm{d}\psi_B}{\mathrm{d}t},\qquad
+      \psi_B = L_e I_p + \sum_j M_{pj} I_j$$
+
+    $$V_B = \underbrace{-L_e \dot I_p}_{\text{ramp}}
+            \underbrace{- I_p \dot L_e}_{\text{shape}}
+            \underbrace{- \textstyle\sum_j M_{pj} \dot I_j}_{\text{drive}}
+            \underbrace{- \textstyle\sum_j I_j \dot M_{pj}}_{\text{geometry}}$$
+
+    Parameters
+    ----------
+    L_e_H : float or np.ndarray
+        Plasma external inductance, finite and positive [H].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    dI_p_dt_A_s : float or np.ndarray
+        Rate of change of the plasma current, finite [A/s].
+    dL_e_dt_H_s : float or np.ndarray, optional
+        Rate of change of the external inductance; default 0, fixed boundary
+        [H/s].
+    M_pj_H : array_like, optional
+        Plasma-coil mutual inductances, coils along the last axis, finite [H].
+    I_j_A : array_like, optional
+        Coil circuit currents, same shape as ``M_pj_H``, finite [A].
+    dI_j_dt_A_s : array_like, optional
+        Rates of change of the coil currents, same shape, finite [A/s].
+    dM_pj_dt_H_s : array_like, optional
+        Rates of change of the mutual inductances, same shape; default 0,
+        fixed geometry [H/s].
+
+    Returns
+    -------
+    V_ramp : float or np.ndarray
+        $-L_e \dot I_p$, the plasma current changing at fixed boundary [V].
+    V_shape : float or np.ndarray
+        $-I_p \dot L_e$, the boundary moving or reshaping [V].
+    V_drive : float or np.ndarray
+        $-\sum_j M_{pj}\dot I_j$, the external circuits driving [V].
+    V_geometry : float or np.ndarray
+        $-\sum_j I_j \dot M_{pj}$, the plasma moving relative to the coils [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a non-positive external inductance, coil arrays
+        of different shapes, or only some of ``M_pj_H``, ``I_j_A`` and
+        ``dI_j_dt_A_s`` given.
+
+    Convention
+    ----------
+    **Romero's signs: $\psi$ is the full flux through the toroidal circle, in
+    weber, not per radian, and $V_B = -\dot\psi_B$.**  $I_p$, the $I_j$ and
+    the $M_{pj}$ are all referred to one toroidal direction, so a coil wound
+    against the plasma current has a negative $M_{pj}$.  In this convention a
+    positive $V_B$ sustains a positive $I_p$, the same sense as the
+    ``V_loop_V`` of
+    :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p`.  VAFT's
+    two flux-to-voltage kernels disagree on both points (#354), so a $V_B$
+    from a flux map must be brought to this convention before it is compared
+    with the sum of these terms.
+
+    $V_B$ is the sum of the four; they are returned apart because #782 asks
+    for the ramp, the shape change and the drive to be inspectable rather than
+    folded into one inductive voltage.  The drive and geometry terms are zero
+    when no coils are given.  $M_{pj}$ multiplies the *circuit* current, so a
+    multi-turn coil's turns belong in $M_{pj}$.
+
+    Physical interpretation
+    -----------------------
+    Only the external inductance appears: $\psi_B$ is the flux *at* the
+    boundary, and the internal inductance enters the balance on the other
+    side, $V_B = R_p I_p + V_{\mathrm{ind}}$ with $V_{\mathrm{ind}}$ from
+    :func:`internal_inductive_voltage_terms_from_L_i_I_p`.
+
+    Limitations
+    -----------
+    Needs $L_e$, $M_{pj}$ and their rates from somewhere else: the Hirshman
+    fit for $L_e$ ignores triangularity, and nothing here computes $M_{pj}$
+    from a boundary.  Vessel eddy currents are coils in this sum, with their
+    own $M_{pj}$ and $I_j$; leaving them out is the usual reason a VEST
+    start-up balance does not close.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (12) and (28).
+
+    See Also
+    --------
+    internal_inductive_voltage_terms_from_L_i_I_p
+    plasma_external_inductance_hirshman_from_R_eps_kappa
+    """
+    external = _require_positive("L_e_H", L_e_H)
+    current = _require_finite("I_p_A", I_p_A)
+    ramp_rate = _require_finite("dI_p_dt_A_s", dI_p_dt_A_s)
+    shape_rate = _require_finite("dL_e_dt_H_s", dL_e_dt_H_s)
+    v_ramp = -external * ramp_rate
+    v_shape = -current * shape_rate
+
+    coils = (M_pj_H, I_j_A, dI_j_dt_A_s)
+    given = [item is not None for item in coils]
+    if any(given) and not all(given):
+        raise ValueError(
+            "M_pj_H, I_j_A and dI_j_dt_A_s must be given together, or none of them"
+        )
+    if all(given):
+        mutual = _require_finite("M_pj_H", M_pj_H)
+        coil_current = _require_finite("I_j_A", I_j_A)
+        coil_rate = _require_finite("dI_j_dt_A_s", dI_j_dt_A_s)
+        mutual_rate = (
+            np.zeros_like(mutual)
+            if dM_pj_dt_H_s is None
+            else _require_finite("dM_pj_dt_H_s", dM_pj_dt_H_s)
+        )
+        shapes = {mutual.shape, coil_current.shape, coil_rate.shape, mutual_rate.shape}
+        if len(shapes) != 1:
+            raise ValueError(
+                f"coil arrays must share one shape; got {sorted(shapes)}"
+            )
+        v_drive = -np.sum(mutual * coil_rate, axis=-1)
+        v_geometry = -np.sum(coil_current * mutual_rate, axis=-1)
+    elif dM_pj_dt_H_s is not None:
+        raise ValueError("dM_pj_dt_H_s was given without the coils it belongs to")
+    else:
+        v_drive = v_geometry = np.zeros(())
+
+    terms = np.broadcast_arrays(v_ramp, v_shape, v_drive, v_geometry)
+    if terms[0].ndim == 0:
+        return tuple(float(term) for term in terms)
+    return tuple(np.array(term) for term in terms)
+
+
+def internal_inductive_voltage_terms_from_L_i_I_p(L_i_H, I_p_A, dI_p_dt_A_s, dL_i_dt_H_s=0.0):
+    r"""Inductive voltage of the internal inductance, split into ramp and profile terms.
+
+    $$V_{\mathrm{ind}} = \frac{1}{I_p}\frac{\mathrm{d}}{\mathrm{d}t}
+      \left(\tfrac12 L_i I_p^2\right)
+      = \underbrace{L_i \dot I_p}_{\text{ramp}}
+      + \underbrace{\tfrac12 I_p \dot L_i}_{\text{profile}}$$
+
+    Parameters
+    ----------
+    L_i_H : float or np.ndarray
+        Dimensional internal inductance, finite and non-negative [H].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    dI_p_dt_A_s : float or np.ndarray
+        Rate of change of the plasma current, finite [A/s].
+    dL_i_dt_H_s : float or np.ndarray, optional
+        Rate of change of the internal inductance; default 0, a frozen current
+        profile [H/s].
+
+    Returns
+    -------
+    V_ramp : float or np.ndarray
+        $L_i \dot I_p$ [V].
+    V_profile : float or np.ndarray
+        $\tfrac12 I_p \dot L_i$, the current profile redistributing [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a negative internal inductance.
+
+    Convention
+    ----------
+    **The profile term carries one half, not one.**  $L_i I_p$ is not a flux
+    linked by a single loop, so the internal term is fixed by the energy
+    $W_{p,\mathrm{int}} = \tfrac12 L_i I_p^2$ and $I_p V_{\mathrm{ind}} =
+    \dot W_{p,\mathrm{int}}$ exactly; the external inductance is a flux
+    linkage, and there the full $I_p\dot L_e$ is right.  So a lumped circuit
+    with $L_p = L_e + L_i$ closes Romero's balance only with
+    $\dot L_p = \dot L_e + \tfrac12\dot L_i$.
+
+    Signed in the sense of $I_p$, as for
+    :func:`boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j`: Romero's
+    balance is $V_B = R_p I_p + V_{\mathrm{ind}}$, with any non-inductive
+    current drive inside the resistive term.
+
+    Physical interpretation
+    -----------------------
+    A peaking current profile raises $L_i$ and costs flux even at constant
+    $I_p$; a broadening one returns it.  That profile term is what separates
+    a start-up with an evolving $l_i$ from one with a frozen profile.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (22)-(24).
+
+    See Also
+    --------
+    boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j
+    vaft.formula.equilibrium.internal_inductance_from_W_int_Ip
+    """
+    internal = np.asarray(L_i_H, dtype=float)
+    if not np.all(np.isfinite(internal)) or np.any(internal < 0.0):
+        raise ValueError(f"L_i_H must be finite and non-negative; got {L_i_H!r}")
+    current = _require_finite("I_p_A", I_p_A)
+    ramp_rate = _require_finite("dI_p_dt_A_s", dI_p_dt_A_s)
+    profile_rate = _require_finite("dL_i_dt_H_s", dL_i_dt_H_s)
+    inputs = (L_i_H, I_p_A, dI_p_dt_A_s, dL_i_dt_H_s)
+    return (
+        _maybe_scalar(internal * ramp_rate, *inputs),
+        _maybe_scalar(0.5 * current * profile_rate, *inputs),
+    )
 
 
 # ------------------------------------------------------------------
