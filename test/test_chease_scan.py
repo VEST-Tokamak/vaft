@@ -358,3 +358,31 @@ def test_a_shape_variation_reaches_the_expeq_boundary(monkeypatch, tmp_path):
         for case in cases
     }
     assert kappa["elong_up"] == pytest.approx(1.10 * kappa["control"], rel=0.02)
+    # The override is recorded, since the namelist cannot show it.
+    import json
+
+    for case in cases:
+        assert case.target_psin == 1.0
+        record = json.loads((case.workdir / "scan_boundary.json").read_text())
+        assert record["requested_target_psin"] == 0.993
+        assert record["solved_target_psin"] == 1.0
+
+
+def test_a_scan_without_shape_variation_keeps_the_configured_contour(monkeypatch, tmp_path):
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+
+    seen = []
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: seen.append(config.target_psin)
+        or module.CHEASEResult(returncode=1, workdir=config.workdir),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("beta_up", pressure_scale=1.5)],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    assert seen == [0.993, 0.993]
+    assert [case.target_psin for case in cases] == [0.993, 0.993]

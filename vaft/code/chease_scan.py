@@ -22,6 +22,7 @@ cases that did solve.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import json
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
@@ -46,7 +47,10 @@ class EquilibriumVariation:
     unperturbed case and are worth including in a scan as its control.
     ``elongation_scale`` and ``triangularity_shift`` act on the Miller
     parameters fitted from the source boundary, and :func:`scan_chease` hands
-    that Miller boundary to CHEASE as the ``EXPEQ`` boundary it solves.
+    that Miller boundary to CHEASE as the ``EXPEQ`` boundary it solves.  With
+    the default q constraint (``ncscal=1``) CHEASE holds q at psi_N 0.95 fixed,
+    not the plasma current, so a more elongated case carries more current and
+    its ``li``/``beta_N`` change includes that.
 
     ``current_peaking`` redistributes ``FF'`` toward the axis as
     ``(1 - psi_n)**current_peaking``, renormalized to preserve ``int|FF'|``
@@ -95,6 +99,10 @@ class CHEASEScanCase:
     error: Optional[str] = None
     #: ``(r0, a, kappa, delta)`` the boundary actually carried into the solve.
     shape: Optional[tuple[float, float, float, float]] = None
+    #: The ``target_psin`` the case was solved with -- 1 for every case of a
+    #: scan that varies the shape, whatever the caller's config said.  Also
+    #: written to ``scan_boundary.json`` in :attr:`workdir`.
+    target_psin: Optional[float] = None
 
     @property
     def converged(self) -> bool:
@@ -268,6 +276,24 @@ def scan_chease(
     for variation in variations:
         case_dir = root / variation.label
         case_dir.mkdir(parents=True, exist_ok=True)
+        # The override is invisible in the namelist, so a workdir read later
+        # has to be able to say which boundary its solve used.
+        (case_dir / "scan_boundary.json").write_text(
+            json.dumps(
+                {
+                    "requested_target_psin": float(base_config.target_psin),
+                    "solved_target_psin": float(solve_config.target_psin),
+                    "boundary": "miller_rbbbs" if refit else "adapter_default",
+                    "reason": (
+                        "the scan varies the shape, so every case solves on the "
+                        "Miller boundary written to RBBBS (#887)"
+                        if refit else "no shape variation in this scan"
+                    ),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         try:
             modified, shape = apply_equilibrium_variation(
                 geqdsk, variation, refit_boundary=refit
@@ -278,6 +304,7 @@ def scan_chease(
                 case_dir,
                 result=result,
                 shape=shape,
+                target_psin=float(solve_config.target_psin),
                 error=None if result.ok else (
                     f"CHEASE exited {result.returncode}; see {case_dir / 'chease.log'}"
                 ),
@@ -286,7 +313,8 @@ def scan_chease(
             if not keep_going:
                 raise
             case = CHEASEScanCase(
-                variation, case_dir, error=f"{type(error).__name__}: {error}"
+                variation, case_dir, error=f"{type(error).__name__}: {error}",
+                target_psin=float(solve_config.target_psin),
             )
         cases.append(case)
         if on_case is not None:
