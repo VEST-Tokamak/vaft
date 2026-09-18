@@ -575,7 +575,7 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
 
 def compute_voltage_consumption(
     ods: ODS,
-    time_slice: Optional[int] = None
+    time_slice=None
     ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """
     Compute loop / inductive / resistive voltage time series using:
@@ -586,9 +586,27 @@ def compute_voltage_consumption(
 
     Notes
     -----
-    - Uses magnetic energy W_mag computed from 2D psi via
-      `vaft.omas.process_wrapper.compute_magnetic_energy`.
-    - If `time_slice` is provided, returns arrays of length 1.
+    - ``V_loop`` is the boundary loop voltage: the rate of change of the flux
+      *at* the boundary, which is what an inboard flux loop measures.  It is
+      not ``d(ψ_boundary - ψ_axis)/dt``, the change of the flux inside the
+      plasma, which this used to compute (#652): the two agreed to 12 % on
+      39915 by coincidence and differ nine-fold on 41672.
+    - Sign: ``+2π dψ_b/dt`` in the stored COCOS (see
+      :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`), so on
+      IMAS COCOS-11 data with positive current a driving voltage is positive.
+    - ``V_ind`` is the exact inductive voltage of the internal field (Romero,
+      NF 50 (2010) 115002, eq. 24), so ``V_res`` is the resistive voltage
+      ``R_p (I_p - I_ni)``.
+    - ``W_mag`` is the poloidal-field energy inside the plasma,
+      ``mu0 R0 li_3 I_p^2 / 4``, with ``li_3`` from
+      :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
+      on a copy; a slice it cannot derive gives ``nan`` there.  It used to be
+      `vaft.omas.process_wrapper.compute_magnetic_energy`, which includes the
+      vacuum toroidal field and so is 60 times too large and moves with the
+      plasma volume (#652).
+    - ``time_slice``: ``None`` for every slice, an ``int`` for one (arrays of
+      length 1), or a sequence of indices -- the flux-closure window -- which
+      keeps a degenerate slice outside it from being read at all.
 
     Returns
     -------
@@ -597,8 +615,6 @@ def compute_voltage_consumption(
     V_ind : ndarray
     V_res : ndarray
     """
-    from vaft.omas.process_wrapper import compute_magnetic_energy
-
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
         raise KeyError("equilibrium.time_slice not found in ODS")
 
@@ -607,10 +623,10 @@ def compute_voltage_consumption(
     if time_slice is None:
         idxs = list(range(n_eq))
     else:
-        idx = int(time_slice)
-        if idx < 0 or idx >= n_eq:
-            raise IndexError(f"time_slice {idx} is out of bounds for equilibrium.time_slice")
-        idxs = [idx]
+        idxs = [int(i) for i in np.atleast_1d(time_slice)]
+        for idx in idxs:
+            if idx < 0 or idx >= n_eq:
+                raise IndexError(f"time_slice {idx} is out of bounds for equilibrium.time_slice")
 
     # Time, psi_boundary, Ip arrays
     t = np.zeros(len(idxs), dtype=float)
@@ -623,9 +639,7 @@ def compute_voltage_consumption(
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
         # psi in Wb/rad; convert from the ODS storage convention (issue #236).
         _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
-        psi_boundary[k] = (
-            float(ts['global_quantities.psi_boundary']) - float(ts['global_quantities.psi_axis'])
-        ) * _psi_factor
+        psi_boundary[k] = float(ts['global_quantities.psi_boundary']) * _psi_factor
         Ip[k] = float(ts['global_quantities.ip'])
 
     # V_loop from total flux (2π psi_boundary)
@@ -637,10 +651,32 @@ def compute_voltage_consumption(
     else:
         V_loop = loop_voltage_from_total_flux(t, psi_boundary)
 
-    # Magnetic energy time series
-    W_mag = np.zeros(len(idxs), dtype=float)
+    # Poloidal-field energy inside the plasma, W_int = L_i I_p^2 / 2 with
+    # L_i = mu0 R0 li_3 / 2 -- the energy Romero's inductive voltage is made
+    # of.  Not compute_magnetic_energy, which adds the vacuum toroidal field
+    # over the plasma volume (26 kJ against 0.4 kJ on 39915) and so turns a
+    # volume change into a "voltage".  li_3 is recomputed on a copy with any
+    # stored leaf removed first: its normalising radius is not recorded.
+    import copy
+
+    from vaft.formula.constants import MU0
+    from vaft.omas.update import (
+        resolve_reference_major_radius,
+        update_equilibrium_global_quantities_beta_li,
+    )
+
+    work = copy.deepcopy(ods)
+    for i in idxs:
+        slice_node = work['equilibrium.time_slice'][i]
+        if 'global_quantities.li_3' in slice_node:
+            del slice_node['global_quantities.li_3']
+    update_equilibrium_global_quantities_beta_li(work, time_slice=idxs)
+    r0 = float(resolve_reference_major_radius(work))
+    W_mag = np.full(len(idxs), np.nan, dtype=float)
     for k, i in enumerate(idxs):
-        W_mag[k] = float(compute_magnetic_energy(ods, time_slice=i))
+        slice_node = work['equilibrium.time_slice'][i]
+        if 'global_quantities.li_3' in slice_node:
+            W_mag[k] = 0.25 * MU0 * r0 * float(slice_node['global_quantities.li_3']) * Ip[k] ** 2
 
     # dW/dt using time_derivative function
     from vaft.process.numerical import time_derivative
