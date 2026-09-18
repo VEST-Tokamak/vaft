@@ -42,7 +42,7 @@ f_\phi = \frac{v_\phi}{2\pi R}$$
 
 - **tearing mode** — carried by the plasma: $f_{\mathrm{lab}}$ is largely rotation
 - **locked mode** — $f_{\mathrm{lab}} \to 0$: zero frequency is not zero perturbation
-- **Alfvén eigenmode** — intrinsic frequency dominates: not a convection frequency
+- **Alfven eigenmode** — intrinsic frequency dominates: not a convection frequency
 
 On VEST (CES on shot 48224): $f_\phi \approx 4$–$22$ kHz, as large as the
 observed 3–9 kHz line or larger.
@@ -104,7 +104,7 @@ is part of the figure.
 
 - locked / slow MHD: ~0 to a few kHz
 - tearing / NTM, IRE precursor: kHz to tens of kHz
-- fishbones: tens of kHz; Alfvén eigenmodes: tens to hundreds of kHz
+- fishbones: tens of kHz; Alfven eigenmodes: tens to hundreds of kHz
 - IRE, disruption: **not one frequency** --- a sequence
 
 `plot_fluctuation_frequency_coverage` puts these beside each diagnostic's
@@ -151,10 +151,10 @@ Start with the magnetic probes on 45531.
 ## Mirnov: a line, its floor, its mode number
 
 - tracked line 7 kHz (harmonic near 14 kHz), falling to 3 kHz during the flat-top
-- 2--40 kHz band power **150×** the pre-discharge floor
+- 2--40 kHz band power **150$\times$** the pre-discharge floor
 - a coil measures $dB/dt$: $S_{dB/dt} = (2\pi f)^2 S_B$; a fitted index is the field's **+2**
-- midplane trio at 135/225/315°: **$n = 1$ modulo 4**, 8° residual
-- off-midplane trios: $n = 2, 0, 1$ at 27--42° --- they **disagree**
+- midplane trio at 135/225/315$^\circ$: **$n = 1$ modulo 4**, 8$^\circ$ residual
+- off-midplane trios: $n = 2, 0, 1$ at 27--42$^\circ$ --- they **disagree**
   (candidates $-1..2$: one per residue modulo 4)
 
 ::: {.notes}
@@ -205,7 +205,7 @@ Now the same perturbation from inside the plasma.
 - baseline from the quiet tail; vacuum subtraction **optional**, and not applied
   (no vacuum shot in the sample)
 - Bottom Al Ch 16 shows the 3--4 kHz branch strongly in the second half
-- two arrays 120° apart: Hilbert phases rank $n = -1$ and $n = +2$ **tied**
+- two arrays 120$^\circ$ apart: Hilbert phases rank $n = -1$ and $n = +2$ **tied**
 - and their chords view different poloidal locations: $m\,\Delta\theta$ mixes in
 
 ::: {.notes}
@@ -265,7 +265,7 @@ $$C_{xy}(f) = \frac{|S_{xy}|^2}{S_{xx}S_{yy}}, \qquad \phi_{xy} = \arg S_{xy}$$
 - Mirnov vs every SXR chord, 2--5 kHz (6 bins, 12 segments): **38 of 52** chords
   above the Bonferroni line 0.35 (single-bin line 0.24)
 - pre-plasma control, coils energised (7 segments): **1 of 52** --- noise expects ~2.6
-- best chord 0.88, phase steady near **−85°** across 2.4--5.2 kHz
+- best chord 0.88, phase steady near **-85$^\circ$** across 2.4--5.2 kHz
 - first 4 ms only: **2 segments, line 0.95** --- a high value there means nothing
 - probe vs camera (40600): coherent bins at 7.5--12 and 14--14.5 kHz
 
@@ -288,10 +288,10 @@ TRANSITION:
 Assemble what has been measured.
 :::
 
-## Frequency + phase + n + consistency → mode
+## Frequency + phase + n + consistency $\to$ mode
 
 - $f$: 9 kHz falling to 3 kHz; $n = 1$ mod 4; coherent in $\delta B$ and $\delta\epsilon$
-- **$m$ is not measured**: outboard probes outside the LCFS span only ~16--20°
+- **$m$ is not measured**: outboard probes outside the LCFS span only ~16--20$^\circ$
   of $\theta^*$ on 39915 (#472, #506)
 - $q = m/n$: for $n = 1$, 39915 has **9 surfaces** ($m = 3$--$11$), and no
   $q = 1$ surface
@@ -315,12 +315,12 @@ Events rather than modes.
 
 ## Transients are sequences of numbers
 
-- 45531: $I_p$ 163.4 kA; **80--20 % in 2.64 ms**; no spike above 5 σ;
+- 45531: $I_p$ 163.4 kA; **80--20 % in 2.64 ms**; no spike above 5 $\sigma$;
   no equilibrium, so no vertical position (said, not zeroed)
 - 39915: 80--20 % in **7.23 ms** (crossings read from the raw trace, by design); steepest $dI_p/dt$
-  −64.6 / −43.0 / −24.5 MA/s (raw / 0.2 / 0.5 ms), because a
+  -64.6 / -43.0 / -24.5 MA/s (raw / 0.2 / 0.5 ms), because a
   **+6.9 kA spike** sits inside the quench at 327.52 ms
-- 39915 $Z_{\mathrm{axis}}$: 23.4 mm → ~0 (sub-micron) between two slices --- a step between
+- 39915 $Z_{\mathrm{axis}}$: 23.4 mm $\to$ ~0 (sub-micron) between two slices --- a step between
   reconstructions, not a plasma moving
 
 VAFT has **no classifier**: nothing is named IRE or disruption.
