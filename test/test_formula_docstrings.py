@@ -119,6 +119,15 @@ CONVENTION_SENSITIVE = frozenset({
     "green_psi_exact",
     "green_br_bz_exact",
     "green_r",
+    # Romero's transformer (#781): full-weber flux, V = -dpsi/dt, and the
+    # sign of psi_C - psi_B.
+    "resistive_voltage_from_R_p_I_p_I_ni",
+    "internal_inductance_rate_from_I_p_V_R_V_C",
+    "plasma_current_rate_from_L_i_V_B_V_C_V_R",
+    "equilibrium_surface_voltage_from_I_p_dL_i_V_R",
+    "equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R",
+    "current_weighted_flux_from_psi_j_dS",
+    "internal_inductance_from_psi_C_psi_B_I_p",
     # atomic: ADF11 table units
     "interpolate_adf11",
     "fractional_abundances",
