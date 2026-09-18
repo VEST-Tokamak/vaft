@@ -506,6 +506,12 @@ def test_a_step_does_not_inherit_the_enclosing_steps_binding(tmp_path, slurm, mo
     assert not set(inherited + ("SLURM_MEM_PER_CPU",)) & set(environment)
     assert environment["SLURM_JOB_ID"] == "4242"
 
+    # A full os.environ snapshot as the overlay (GACODE/GPEC/EFIT pass one)
+    # must not smuggle the enclosing binding back in.
+    SlurmBackend().run(_python(work, "pass", env=dict(os.environ)))
+    environment = json.loads((slurm.directory / "srun_env.json").read_text())
+    assert not set(inherited) & set(environment)
+
     # Without --mem the job's memory default is kept; an explicit overlay wins.
     SlurmBackend().run(_python(work, "pass", env={"SLURM_CPU_BIND": "none"}))
     environment = json.loads((slurm.directory / "srun_env.json").read_text())

@@ -68,6 +68,7 @@ import signal
 import subprocess
 import time
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
 
@@ -161,13 +162,22 @@ def _step_environment(request: ExecutionRequest) -> dict[str, str]:
     """The environment for ``srun``: inherited step defaults dropped, then the
     request's own overlay and thread defaults applied as for a local launch.
 
-    Only the *inherited* environment is filtered, so a caller who sets, say,
-    ``SLURM_CPU_BIND`` in ``request.env`` (or passes ``--cpu-bind`` through
-    ``extra_args``) still gets it.
+    Only *inherited* values are filtered, so a caller who sets, say,
+    ``SLURM_CPU_BIND`` in ``request.env`` to something new (or passes
+    ``--cpu-bind`` through ``extra_args``) still gets it. An overlay entry that
+    merely repeats the inherited value counts as inherited: GACODE, GPEC and
+    EFIT pass a full ``os.environ`` snapshot as their overlay, and it would
+    otherwise carry the enclosing step's binding straight back in (measured on
+    Slurm 22.05 with NEO under ``srun python driver.py``).
     """
     dropped = _STEP_INHERITED + (_STEP_MEMORY if request.resources.memory_mb is not None else ())
     inherited = {key: value for key, value in os.environ.items() if not key.startswith(dropped)}
-    return execution_environment(request, base=inherited)
+    overlay = {
+        key: value
+        for key, value in request.env.items()
+        if not str(key).startswith(dropped) or os.environ.get(str(key)) != str(value)
+    }
+    return execution_environment(replace(request, env=overlay), base=inherited)
 
 
 def _cpus(request: ExecutionRequest) -> int:
