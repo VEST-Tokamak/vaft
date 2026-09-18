@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -360,6 +360,7 @@ to kA) and it does so through an explicit <code class="language-plaintext highli
 
 <p>The historical, and still the shortest, way to get a shot:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># eager omas.ODS
@@ -370,6 +371,7 @@ to kA) and it does so through an explicit <code class="language-plaintext highli
 <p><code class="language-plaintext highlighter-rouge">load()</code> returns an ODS unless <code class="language-plaintext highlighter-rouge">representation="imas"</code> is requested. <code class="language-plaintext highlighter-rouge">paths</code> scopes OMAS requests to
 IDS roots or leaves; native requests accept top-level IDS names:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">eq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span>
     <span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">imas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span>
 <span class="p">)</span>
@@ -377,11 +379,12 @@ IDS roots or leaves; native requests accept top-level IDS names:</p>
 
 <p>Full signatures:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
                    <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
                    <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
                    <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">export</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
                      <span class="n">occurrence</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
@@ -398,6 +401,7 @@ is never required by the documentation examples.</p>
 
 <p><code class="language-plaintext highlighter-rouge">vaft.database.raw</code> talks to the VEST SQL archive directly:</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
 
 <span class="n">time</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">vest_load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="mi">109</span><span class="p">)</span>     <span class="c1"># (time_array, data_array), or None on failure
@@ -419,6 +423,7 @@ how the test suite decides to skip online tests. Credentials are managed by <cod
 
 <p>Connection and inventory helpers for the HSDS side live in <code class="language-plaintext highlighter-rouge">vaft.database.utils</code>:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">utils</span>
 
 <span class="n">utils</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>                                   <span class="c1"># is HSDS reachable?
@@ -442,6 +447,7 @@ how the test suite decides to skip online tests. Credentials are managed by <cod
 
 <h2 id="shot-introspection--general">Shot introspection — <code class="language-plaintext highlighter-rouge">general</code></h2>
 
+<!-- docs-snippet: skip needs-data (API listing; find_major_radius reads core_profiles, which the packaged sample lacks) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotnumber</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_shotclass</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>             <span class="c1"># lenient classify_shot: None when the ODS cannot be classified
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">find_chamber_boundary</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
@@ -460,15 +466,25 @@ how the test suite decides to skip online tests. Credentials are managed by <cod
 
 <p>The finders answer from the shared timings with provenance, which are available directly:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="n">plasma_timing</span><span class="p">.</span><span class="nf">plasma_timing</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>          <span class="c1"># PlasmaTiming: window, source, agreement, flags
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="n">discharge_timing</span><span class="p">.</span><span class="nf">discharge_timing</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>    <span class="c1"># DischargeTiming: coil onsets, ohmic onset, vloop event
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="n">plasma_features</span><span class="p">.</span><span class="nf">plasma_features</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">timing</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>      <span class="c1"># PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="n">shot_class</span><span class="p">.</span><span class="nf">shot_class</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">timing</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>                <span class="c1"># ShotClass: the label and the check that decided it
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.omas.plasma_timing</span> <span class="kn">import</span> <span class="n">plasma_timing</span>
+<span class="kn">from</span> <span class="n">vaft.omas.discharge_timing</span> <span class="kn">import</span> <span class="n">discharge_timing</span>
+<span class="kn">from</span> <span class="n">vaft.omas.plasma_features</span> <span class="kn">import</span> <span class="n">plasma_features</span>
+<span class="kn">from</span> <span class="n">vaft.omas.shot_class</span> <span class="kn">import</span> <span class="n">shot_class</span>
+
+<span class="nf">plasma_timing</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>       <span class="c1"># PlasmaTiming: window, source, agreement, flags
+</span><span class="nf">discharge_timing</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>    <span class="c1"># DischargeTiming: coil onsets, ohmic onset, vloop event
+</span><span class="nf">plasma_features</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">timing</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>     <span class="c1"># PlasmaFeatures: peaks of Ip, H-alpha, lines, diamagnetic flux
+</span><span class="nf">shot_class</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">timing</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>          <span class="c1"># ShotClass: the label and the check that decided it
 </span></code></pre></div></div>
+
+<p>Import them from their submodules as shown. <code class="language-plaintext highlighter-rouge">import vaft</code> does not load these four submodules, so
+<code class="language-plaintext highlighter-rouge">vaft.omas.plasma_timing.plasma_timing(...)</code> raises <code class="language-plaintext highlighter-rouge">AttributeError</code> until something else has
+imported the submodule.</p>
 
 <p>Time-base bookkeeping (DAQ time versus event-referenced time) and container plumbing. The convention
 change logs its shift (logger <code class="language-plaintext highlighter-rouge">vaft.omas.general</code>) rather than printing it:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name one_ods is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">shift_time</span><span class="p">(</span><span class="n">one_ods</span><span class="p">,</span> <span class="n">time_shift</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">change_time_convention</span><span class="p">(</span><span class="n">odc_or_ods</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">vloop</span><span class="sh">"</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">odc_or_ods_check</span><span class="p">(</span><span class="n">odc_or_ods</span><span class="p">)</span>     <span class="c1"># returns an ODC either way
@@ -479,6 +495,7 @@ change logs its shift (logger <code class="language-plaintext highlighter-rouge"
 
 <p>These pull geometry and signals out of the ODS, call into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and hand back arrays.</p>
 
+<!-- docs-snippet: skip fragment (placeholder name xvar is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Electromagnetic response and eddy currents
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_grid_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">xvar</span><span class="p">,</span> <span class="n">zvar</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_point_response_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">rz</span><span class="p">,</span> <span class="n">plasma</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
@@ -503,6 +520,7 @@ change logs its shift (logger <code class="language-plaintext highlighter-rouge"
 
 <h2 id="physics-scalings--formula_wrapper">Physics scalings — <code class="language-plaintext highlighter-rouge">formula_wrapper</code></h2>
 
+<!-- docs-snippet: skip fragment (placeholder name time_slice is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_exp</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">compute_tau_E_scaling</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="sh">"</span><span class="s">IBP98y2</span><span class="sh">"</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
                                 <span class="n">eng_params</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
@@ -520,6 +538,7 @@ change logs its shift (logger <code class="language-plaintext highlighter-rouge"
 <p><code class="language-plaintext highlighter-rouge">update_*</code> functions <strong>mutate the ODS</strong>: they fill IMAS fields that the reconstruction itself did not
 provide. Run them once after loading, then plot.</p>
 
+<!-- docs-snippet: skip needs-data (API listing over every time slice; the last slice of the packaged sample has no boundary outline) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_1d_normalized_psi</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_profiles_1d_radial_coordinates</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">update_equilibrium_boundary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
@@ -616,26 +635,39 @@ physics layer. Neither one touches an ODS. Modules at a glance:</p>
 with a uniform signature — <code class="language-plaintext highlighter-rouge">(ods, shot, tstart, tend, dt)</code> — that fills the corresponding IDS in
 place:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">dataset_description</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_active</span> <span class="kn">import</span> <span class="n">pf_active</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.tf</span> <span class="kn">import</span> <span class="n">tf</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.barometry</span> <span class="kn">import</span> <span class="n">barometry</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.spectrometer_uv</span> <span class="kn">import</span> <span class="n">spectrometer_uv</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
 <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span> <span class="o">=</span> <span class="mi">39915</span><span class="p">,</span> <span class="mf">0.24</span><span class="p">,</span> <span class="mf">0.36</span><span class="p">,</span> <span class="mf">1e-4</span>
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">pf_active</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">tf</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">barometry</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">spectrometer_uv</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">dataset_description</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
+<span class="nf">pf_active</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">tf</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">barometry</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="nf">spectrometer_uv</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">tstart</span><span class="p">,</span> <span class="n">tend</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>Geometry, coupling and model IDSs take a <code class="language-plaintext highlighter-rouge">source</code> instead of a time window:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">pf_passive</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>            <span class="c1"># source=None uses the packaged geometry
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">em_coupling</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>           <span class="c1"># packaged mutual-inductance matrices
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">mhd_linear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>    <span class="c1"># source = a linear-MHD output file
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">summary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.pf_passive</span> <span class="kn">import</span> <span class="n">pf_passive</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.em_coupling</span> <span class="kn">import</span> <span class="n">em_coupling</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.mhd_linear</span> <span class="kn">import</span> <span class="n">mhd_linear</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.summary</span> <span class="kn">import</span> <span class="n">summary</span>
+
+<span class="nf">pf_passive</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>            <span class="c1"># source=None uses the packaged geometry
+</span><span class="nf">em_coupling</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>           <span class="c1"># packaged mutual-inductance matrices
+</span><span class="nf">mhd_linear</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>    <span class="c1"># source = a linear-MHD output file
+</span><span class="nf">summary</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>There is no <code class="language-plaintext highlighter-rouge">equilibrium</code> or <code class="language-plaintext highlighter-rouge">pf_plasma</code> mapper in this namespace: equilibria enter the ODS through
@@ -643,9 +675,14 @@ place:</p>
 
 <p>Kinetic and imaging diagnostics take a shot number plus an optional data root:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">mat_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="sh">"</span><span class="s">ces</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">soft_x_rays</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">daq_label</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">digitizer_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.thomson_scattering</span> <span class="kn">import</span> <span class="n">thomson_scattering</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.charge_exchange</span> <span class="kn">import</span> <span class="n">charge_exchange</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.soft_x_rays</span> <span class="kn">import</span> <span class="n">soft_x_rays</span>
+
+<span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">mat_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="sh">"</span><span class="s">ces</span><span class="sh">"</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="nf">soft_x_rays</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">daq_label</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">digitizer_file</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>The <code class="language-plaintext highlighter-rouge">*_from_raw_database</code> variants — <code class="language-plaintext highlighter-rouge">magnetics_from_raw_database</code>, <code class="language-plaintext highlighter-rouge">pf_active_from_raw_database</code>,
@@ -664,6 +701,7 @@ raise <code class="language-plaintext highlighter-rouge">NotImplementedError</co
 <p>Uncertainties for equilibrium reconstruction are not hard-coded in the mapping; they come from a
 central table:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name uncertainty is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="n">DEFAULT_CONSTRAINT_UNCERTAINTIES</span>       <span class="c1"># dict
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="n">DEFAULT_CONSTRAINT_UNCERTAINTY_VECTOR</span>  <span class="c1"># ordered vector
 </span>
@@ -769,6 +807,7 @@ code, and a <code class="language-plaintext highlighter-rouge">collect_*</code> 
 installation roots: <code class="language-plaintext highlighter-rouge">EFITHOME</code>, <code class="language-plaintext highlighter-rouge">CHEASEHOME</code>, <code class="language-plaintext highlighter-rouge">GPECHOME</code>, <code class="language-plaintext highlighter-rouge">TESHOME</code>, and <code class="language-plaintext highlighter-rouge">NUBEAMHOME</code>. Missing
 binaries are a readiness state, not a failure of deterministic input preparation.</p>
 
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">prepare_efit_inputs</span><span class="p">,</span> <span class="n">run_efit</span><span class="p">,</span> <span class="n">collect_efit_outputs</span>
 
 <span class="n">cfg</span>     <span class="o">=</span> <span class="nc">EFITConfig</span><span class="p">(...)</span>
@@ -876,6 +915,7 @@ parameter and collects every result. Snakemake rules should start with
 
 <p>Portable file formats and the packaged sample files.</p>
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_geqdsk</span><span class="p">,</span> <span class="n">write_geqdsk</span><span class="p">,</span> <span class="n">to_omas</span><span class="p">,</span> <span class="n">from_omas</span><span class="p">,</span> <span class="n">sample_geqdsk</span><span class="p">,</span> <span class="n">data_path</span>
 
 <span class="n">geq</span> <span class="o">=</span> <span class="nf">read_geqdsk</span><span class="p">(</span><span class="sh">"</span><span class="s">g039915.00319</span><span class="sh">"</span><span class="p">)</span>          <span class="c1"># GEQDSK
@@ -1336,7 +1376,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

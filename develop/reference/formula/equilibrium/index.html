@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -3421,7 +3421,7 @@ The sign $\sigma$ is determined by Sauter Eq. 23: $\sigma_q = \sigma_{Ip}\sigma_
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>psi</code></td><td>np.ndarray</td><td>Wb/rad</td><td><p>Poloidal flux profile, monotonic.</p>
+  <tr><td><code>psi</code></td><td>np.ndarray</td><td>Wb</td><td><p>Poloidal flux profile, monotonic, full weber.</p>
 </td></tr>
   <tr><td><code>phi</code></td><td>np.ndarray</td><td>Wb</td><td><p>Toroidal flux enclosed by the same surfaces.</p>
 </td></tr>
@@ -3439,12 +3439,14 @@ The sign $\sigma$ is determined by Sauter Eq. 23: $\sigma_q = \sigma_{Ip}\sigma_
 <p><strong>Convention.</strong></p>
 
 <p>Sauter and Medvedev define $q = \sigma_{\rho\theta\varphi}\sigma_{B_p}
-(2\pi)^{-e_{B_p}}\,d\Phi/d\psi$.  This routine applies neither sign nor
-$2\pi$: it is exact for <code class="language-plaintext highlighter-rouge">psi</code> in Wb/rad (COCOS 1-8, $e_{B_p}=0$) up to the
-orientation sign, and returns $2\pi q$ when <code class="language-plaintext highlighter-rouge">psi</code> is the IMAS full-weber
-flux.  Convert with <code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code>
-first, or take <code class="language-plaintext highlighter-rouge">profiles_1d.q</code> from the equilibrium directly.  Tracked in
-#354.</p>
+(2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies neither sign nor
+$2\pi$: it is exact, up to the orientation sign, for <code class="language-plaintext highlighter-rouge">psi</code> in full weber
+(the IMAS Data Dictionary flux, COCOS 11-18, $e_{B_p}=1$), and returns
+$2\pi q$ when <code class="language-plaintext highlighter-rouge">psi</code> is per radian (COCOS 1-8, $e_{B_p}=0$, the g-file
+flux) – multiply such a <code class="language-plaintext highlighter-rouge">psi</code> by $2\pi$ first.  This is the inverse of
+<code class="language-plaintext highlighter-rouge">toroidal_flux_from_q_psi</code>, which integrates on the same full-weber
+grid.  <code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code> tells which
+family an ODS stores.  Tracked in #354.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
@@ -3481,7 +3483,7 @@ samples and a strictly monotonic <code class="language-plaintext highlighter-rou
 </td></tr>
   <tr><td><code>rhoN</code></td><td>np.ndarray</td><td>-</td><td><p>Normalised toroidal-flux radius on the same surfaces.</p>
 </td></tr>
-  <tr><td><code>C</code></td><td>float, optional</td><td>-</td><td><p>Prefactor $2\Phi_b/(\psi_b-\psi_a)$ with $\psi$ in Wb/rad; default 1.</p>
+  <tr><td><code>C</code></td><td>float, optional</td><td>-</td><td><p>Prefactor $2\Phi_b/(\psi_b-\psi_a)$ with $\psi$ in full weber; default 1.</p>
 </td></tr>
   </tbody>
 </table>
@@ -3498,8 +3500,10 @@ samples and a strictly monotonic <code class="language-plaintext highlighter-rou
 
 <p>With <code class="language-plaintext highlighter-rouge">C=1</code> the result is $q$ up to the constant $2\Phi_b/(\psi_b-\psi_a)$
 and is only proportional to the true profile.  Supply <code class="language-plaintext highlighter-rouge">C</code> from the
-equilibrium (with $\psi$ per radian, or $2\pi$ smaller with full-weber
-$\psi$) for absolute values; the orientation sign is not applied.</p>
+equilibrium with $\psi$ in full weber for absolute values (from
+$q = d\Phi/d\psi_{wb}$); a per-radian $\psi_b-\psi_a$ makes <code class="language-plaintext highlighter-rouge">C</code>, and so
+$q$, $2\pi$ too large, so multiply it by $2\pi$ first.  The orientation
+sign is not applied.</p>
 
 <p><strong>Numerical notes.</strong></p>
 
@@ -4794,7 +4798,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

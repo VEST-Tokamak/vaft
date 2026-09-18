@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -318,6 +318,7 @@ need <code class="language-plaintext highlighter-rouge">import vaft.database</co
 submodules in the order <code class="language-plaintext highlighter-rouge">ods</code>, <code class="language-plaintext highlighter-rouge">ids</code>, <code class="language-plaintext highlighter-rouge">raw</code>, <code class="language-plaintext highlighter-rouge">utils</code>, so helpers defined in <code class="language-plaintext highlighter-rouge">raw.py</code> or <code class="language-plaintext highlighter-rouge">utils.py</code>
 are reachable flat:</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>          <span class="c1"># defined in database/utils.py
@@ -360,6 +361,7 @@ client and its <code class="language-plaintext highlighter-rouge">hsconfigure</c
 <p>This writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code>; <code class="language-plaintext highlighter-rouge">h5pyd</code> also recognizes a project-local <code class="language-plaintext highlighter-rouge">.hscfg</code>. Never commit that file.
 Check the connection from Python:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>   <span class="c1"># True when the HSDS server reports state == "READY"
@@ -371,6 +373,7 @@ the full environment setup.</p>
 
 <h2 id="listing-shots">Listing shots</h2>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">()</span>                       <span class="c1"># numeric shot folders in /public/, newest first
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># True / False
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>       <span class="c1"># ascending
@@ -379,6 +382,7 @@ the full environment setup.</p>
 
 <p>Full signature:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">exist_shot</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">data_filter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sort</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -398,6 +402,7 @@ and returns <code class="language-plaintext highlighter-rouge">[]</code> / <code
 <p><code class="language-plaintext highlighter-rouge">vaft.database.load</code> materializes data before returning it. The default representation is an
 <strong>OMAS ODS</strong>:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">magnetics</span><span class="sh">"</span><span class="p">)</span>
@@ -408,13 +413,18 @@ and returns <code class="language-plaintext highlighter-rouge">[]</code> / <code
 
 <p>The current high-level signature is:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
      <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">source=None</code> resolves to the default source, <code class="language-plaintext highlighter-rouge">main</code>; pass <code class="language-plaintext highlighter-rouge">source="public"</code> for the legacy public
+lineage the worked examples on this site read.</p>
 
 <p>Set <code class="language-plaintext highlighter-rouge">representation="imas"</code> for native IDS objects. OMAS <code class="language-plaintext highlighter-rouge">paths</code> may point at an IDS root or leaf;
 native IMAS requests accept top-level IDS names only.</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Several shots at once -&gt; list of ODS
 </span><span class="n">ods_list</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">([</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">39916</span><span class="p">,</span> <span class="mi">39917</span><span class="p">],</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">magnetics</span><span class="sh">"</span><span class="p">)</span>
 
@@ -439,16 +449,17 @@ when conversion is required.</p>
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">/tmp/shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">/tmp/shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
 
-<span class="c1"># Native IMAS AL5/URI targets use the corresponding bridge
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">imas:hdf5?path=/tmp/imas-entry</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">imas:hdf5?path=/tmp/imas-entry</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># A native IMAS HDF5 entry is a directory (master.h5 plus one image per IDS)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">imas-entry</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">imas-entry</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">vaft.database.filedb.FileDB</code> resolves canonical, OMAS-first archive locations without writing:</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database.filedb</span> <span class="kn">import</span> <span class="n">FileDB</span>
 
 <span class="n">db</span> <span class="o">=</span> <span class="n">FileDB</span><span class="p">.</span><span class="nf">from_config</span><span class="p">({</span><span class="sh">"</span><span class="s">filedb</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">root</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">/srv/vest.filedb</span><span class="sh">"</span><span class="p">}})</span>
@@ -466,6 +477,7 @@ read-only and propose legacy-to-canonical mappings without moving data.</p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft <span class="nb">export</span> <span class="nt">--shot</span> 41672 <span class="nt">--source</span> public <span class="nt">--backend</span> imas-nc omas-json geqdsk
 </code></pre></div></div>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">export</span><span class="p">(</span><span class="mi">41672</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">imas-nc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">omas-json</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">geqdsk</span><span class="sh">"</span><span class="p">])</span>
 </code></pre></div></div>
 
@@ -521,15 +533,19 @@ Both netCDF backends need the <code class="language-plaintext highlighter-rouge"
 
 <h2 id="saving-to-hsds">Saving to HSDS</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
      <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Remote writes are admin-restricted; ordinary documentation and analysis are read-only.
-</span><span class="n">uri</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="sh">"</span><span class="s">my-authorized-namespace</span><span class="sh">"</span><span class="p">)</span>
+</span><span class="n">uri</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">my-authorized-namespace</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">target</code> must be a bare HSDS namespace, never an <code class="language-plaintext highlighter-rouge">hdf5://</code> URI. VAFT infers OMAS versus native IMAS
+<p><code class="language-plaintext highlighter-rouge">source</code> must be a bare HSDS namespace, never an <code class="language-plaintext highlighter-rouge">hdf5://</code> URI. It defaults to <code class="language-plaintext highlighter-rouge">None</code>, which resolves
+to <code class="language-plaintext highlighter-rouge">main</code>; the legacy <code class="language-plaintext highlighter-rouge">public</code> source is read-only, so <code class="language-plaintext highlighter-rouge">save(..., source="public")</code> raises
+<code class="language-plaintext highlighter-rouge">ReadOnlySourceError</code>. <code class="language-plaintext highlighter-rouge">target=</code> and <code class="language-plaintext highlighter-rouge">directory=</code> are deprecated aliases for <code class="language-plaintext highlighter-rouge">source=</code> and warn. VAFT infers OMAS versus native IMAS
 from the supplied object and rejects a conflicting explicit <code class="language-plaintext highlighter-rouge">representation</code>.</p>
 
 <h2 id="native-imas-ids-objects">Native IMAS IDS objects</h2>
@@ -537,6 +553,7 @@ from the supplied object and rejects a conflicting explicit <code class="languag
 <p>When you want an <code class="language-plaintext highlighter-rouge">IDSToplevel</code> from <code class="language-plaintext highlighter-rouge">imas</code> rather than an OMAS ODS, use the IDS pair. These live on the
 <code class="language-plaintext highlighter-rouge">vaft.database.ids</code> submodule; there is no <code class="language-plaintext highlighter-rouge">vaft.database.load_ids</code> / <code class="language-plaintext highlighter-rouge">save_ids</code> at package level.</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">eq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">ids</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="sh">"</span><span class="s">3.41.0</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="c1"># A list of IDS names returns a dict {name: ids}
@@ -546,6 +563,7 @@ from the supplied object and rejects a conflicting explicit <code class="languag
 <p>For a whole shot as native IMAS rather than one IDS, <code class="language-plaintext highlighter-rouge">vaft.database.load</code> takes
 <code class="language-plaintext highlighter-rouge">representation="imas"</code>.</p>
 
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ids</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">ids_name</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">occurrence</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
          <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
 <span class="n">ids</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
@@ -557,6 +575,7 @@ with <code class="language-plaintext highlighter-rouge">imas.DBEntry("imas:hdf5?
 
 <p>Saving a native IDS goes through <code class="language-plaintext highlighter-rouge">ids.save</code>, <strong>not</strong> <code class="language-plaintext highlighter-rouge">vaft.database.save</code>:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">uri</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">ids</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">eq</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="sh">"</span><span class="s">3.41.0</span><span class="sh">"</span><span class="p">)</span>
 <span class="c1"># -&gt; "hdf5://{username}/2/equilibrium.h5"
 </span></code></pre></div></div>
@@ -613,6 +632,7 @@ different function from the package-level <code class="language-plaintext highli
 <p>Raw signals are addressed by an integer <strong>field code</strong> and returned as <code class="language-plaintext highlighter-rouge">(time, data)</code> NumPy arrays,
 with time in seconds.</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
 
 <span class="n">raw</span><span class="p">.</span><span class="nf">setup_raw_db</span><span class="p">()</span>   <span class="c1"># interactive: prompts for hostname / username / password
@@ -628,6 +648,7 @@ with time in seconds.</p>
 unattended notebook — <code class="language-plaintext highlighter-rouge">init_pool()</code> and <code class="language-plaintext highlighter-rouge">configuration()</code> will call it if the YAML is missing.
 <code class="language-plaintext highlighter-rouge">load_raw</code> initialises the pool automatically when it has not been built yet.</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load_raw</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">daq_type</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sample_opt</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -637,6 +658,7 @@ shape <code class="language-plaintext highlighter-rouge">(N, n_fields)</code>, c
   <li><code class="language-plaintext highlighter-rouge">load_raw</code> never raises — it logs and returns <code class="language-plaintext highlighter-rouge">None</code> on any failure. Always check the result.</li>
 </ul>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">loaded</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">101</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
 <span class="k">if</span> <span class="n">loaded</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
     <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="sh">"</span><span class="s">raw load failed</span><span class="sh">"</span><span class="p">)</span>
@@ -646,6 +668,7 @@ shape <code class="language-plaintext highlighter-rouge">(N, n_fields)</code>, c
 
 <h3 id="finding-field-codes-and-shots">Finding field codes and shots</h3>
 
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw</span><span class="p">.</span><span class="nf">name</span><span class="p">(</span><span class="mi">102</span><span class="p">)</span>                             <span class="c1"># -&gt; (field name, remark) from the shotDataField table
 </span><span class="n">raw</span><span class="p">.</span><span class="nf">vest_load_by_name</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="sh">"</span><span class="s">Plasma Current</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># load by human name (alias: raw.vest_loadn)
 </span><span class="n">raw</span><span class="p">.</span><span class="nf">get_all_field_codes_for_shot</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># every field code recorded for the shot
@@ -660,6 +683,7 @@ shape <code class="language-plaintext highlighter-rouge">(N, n_fields)</code>, c
 <code class="language-plaintext highlighter-rouge">vaft/data/legacy/sql_table.txt</code> (a JSON mapping such as <code class="language-plaintext highlighter-rouge">{"TF Current": 1, "Plasma Current": 102, …}</code>),
 also exposed as <code class="language-plaintext highlighter-rouge">raw.SQL_TABLE_PATH</code>:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
 <span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
 
@@ -727,6 +751,7 @@ processing pipelines run without database access. Two environment variables cont
 (unless offline-only) the MySQL pool. <code class="language-plaintext highlighter-rouge">raw.raw_offline_only()</code> reports the current mode, and
 <code class="language-plaintext highlighter-rouge">raw.sql_loading_available()</code> reports whether the MySQL driver imported at all.</p>
 
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
 
@@ -738,10 +763,12 @@ processing pipelines run without database access. Two environment variables cont
 
 <p>Produce your own archive for a shot with:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw</span><span class="p">.</span><span class="nf">init_pool</span><span class="p">()</span>
 <span class="n">raw</span><span class="p">.</span><span class="nf">dump_all_raw_signals_for_shot</span><span class="p">(</span><span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="sh">"</span><span class="s">vest_raw_44740.json.gz</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
+<!-- docs-snippet: skip fragment (placeholder name dump_all_raw_signals_for_shot is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">dump_all_raw_signals_for_shot</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
                               <span class="n">daq_type</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">slow_dt_threshold</span><span class="o">=</span><span class="mf">5e-6</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
 </code></pre></div></div>
@@ -1119,7 +1146,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

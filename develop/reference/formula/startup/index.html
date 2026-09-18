@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -393,8 +393,8 @@ disagreement: every function below takes $|E_\parallel|$.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Infinite, zero or negative density or atom count; <code class="language-plaintext highlighter-rouge">nan</code> passes
-    through as a missing value.</p>
+    Non-finite (<code class="language-plaintext highlighter-rouge">nan</code> included), zero or negative density or atom
+    count.</p>
 
 <p><strong>Convention.</strong></p>
 
@@ -1161,8 +1161,8 @@ derived.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Infinite, zero or negative pressure or temperature; <code class="language-plaintext highlighter-rouge">nan</code> passes
-    through as a missing value.</p>
+    Non-finite (<code class="language-plaintext highlighter-rouge">nan</code> included), zero or negative pressure or
+    temperature. Mask a gauge trace’s gaps before calling.</p>
 
 <p><strong>Convention.</strong></p>
 
@@ -2002,7 +2002,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

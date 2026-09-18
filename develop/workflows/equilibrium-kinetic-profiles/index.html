@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -291,14 +291,16 @@ re-fit with a different model without recomputing the mapping.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.thomson_scattering</span> <span class="kn">import</span> <span class="n">thomson_scattering</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.charge_exchange</span> <span class="kn">import</span> <span class="n">charge_exchange</span>
 
 <span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
 
 <span class="c1"># thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">46051</span><span class="p">,</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/46051_NeTe.mat</span><span class="sh">"</span><span class="p">))</span>
+</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">46051</span><span class="p">,</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/46051_NeTe.mat</span><span class="sh">"</span><span class="p">))</span>
 
 <span class="c1"># charge_exchange(ods, shotnumber, options="ces", data_root=None, mat_file=None)
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">47514</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/CES_47514.mat</span><span class="sh">"</span><span class="p">))</span>
+</span><span class="nf">charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">47514</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/CES_47514.mat</span><span class="sh">"</span><span class="p">))</span>
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">data_root</code> accepts either a directory or a path to a specific <code class="language-plaintext highlighter-rouge">*.mat</code> file. This populates
@@ -345,6 +347,7 @@ equilibrium and return <strong>every radial coordinate the equilibrium supports<
 \rho_{pol,N} = \sqrt{\psi_N}, \qquad
 \rho_{tor,N} = \sqrt{\Phi(\psi)/\Phi_{boundary}},\ \Phi = \int q\,d\psi\]
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no Thomson scattering channels) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">geq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">read_geqdsk</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">efit/g040330.00320</span><span class="sh">"</span><span class="p">))</span>
 
 <span class="n">mapped</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
@@ -371,6 +374,7 @@ Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/"
 
 <h2 id="stage-2--profile-fitting">Stage 2 — profile fitting</h2>
 
+<!-- docs-snippet: skip fragment (placeholder name mapped is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">,</span> <span class="n">coeffs_ne</span><span class="p">,</span> <span class="n">coeffs_te</span><span class="p">,</span> <span class="n">n_e_rho</span><span class="p">,</span> <span class="n">T_e_rho</span> <span class="o">=</span> \
     <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_thomson_scattering</span><span class="p">(</span>
         <span class="n">ods</span><span class="p">,</span>
@@ -394,6 +398,7 @@ them. <code class="language-plaintext highlighter-rouge">n_e_rho</code> and <cod
 
 <p>The CES counterpart mirrors it, with <code class="language-plaintext highlighter-rouge">ion_index</code> selecting the ion species:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name mapped_ces is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Vtor_fn</span><span class="p">,</span> <span class="n">Ti_fn</span><span class="p">,</span> <span class="n">coeffs_vtor</span><span class="p">,</span> <span class="n">coeffs_ti</span><span class="p">,</span> <span class="n">Vtor_rho</span><span class="p">,</span> <span class="n">Ti_rho</span> <span class="o">=</span> \
     <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_charge_exchange</span><span class="p">(</span>
         <span class="n">ods</span><span class="p">,</span>
@@ -469,6 +474,7 @@ re-runs an identical fit at every order.</p>
 
 <p>For data that is not in an IDS, use the engine itself:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name x is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">y_eval</span><span class="p">,</span> <span class="n">y_std_eval</span><span class="p">,</span> <span class="n">fit_function</span><span class="p">,</span> <span class="n">coeffs</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">fit_profile</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_std</span><span class="p">,</span>
     <span class="n">x_eval</span><span class="p">,</span>
@@ -491,6 +497,7 @@ estimate), a callable, and the coefficients. <code class="language-plaintext hig
 results from different studies incomparable. <code class="language-plaintext highlighter-rouge">vaft.process.profile.pedestal_top</code> finds it from the
 profile instead, and records how:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name psi_norm is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.profile</span> <span class="kn">import</span> <span class="n">pedestal_top</span>
 
 <span class="n">top</span> <span class="o">=</span> <span class="nf">pedestal_top</span><span class="p">(</span><span class="n">psi_norm</span><span class="p">,</span> <span class="n">p_total</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="sh">"</span><span class="s">p_total</span><span class="sh">"</span><span class="p">)</span>
@@ -525,6 +532,7 @@ it actually draws is almost flat. The test is on the curve, not the parameters.<
 
 <p><code class="language-plaintext highlighter-rouge">vaft.process.core_profiles</code> evaluates the fit callables and stores the result as a <code class="language-plaintext highlighter-rouge">profiles_1d</code> slice:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name mapped is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span>
     <span class="n">time_ms</span><span class="o">=</span><span class="mf">320.0</span><span class="p">,</span>
@@ -568,7 +576,9 @@ re-fitting the same time in a loop is safe.</p>
 <p>When there is no Thomson data, profiles can be back-derived from the equilibrium pressure by assuming
 $n_e$ and $T_e$ share a shape, with $P = 2 n_e T_e e$ and $g(\rho) = \sqrt{P(\rho)/P(0)}$:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pin the on-axis temperature (eV) and let density follow
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>      <span class="c1"># any ODS that holds an equilibrium
+</span>
+<span class="c1"># Pin the on-axis temperature (eV) and let density follow
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles_from_eq</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">Te0_eV</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">eq_time_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
 <span class="c1"># Or pin the density/temperature ratio (m^-3 per eV)
@@ -585,6 +595,7 @@ input, not a measurement.</p>
 <p>Each stage has a canonical plot, reached through the <code class="language-plaintext highlighter-rouge">vaft.omas.plot_*</code> adapters. They draw what the ODS
 already holds — fitting is a <code class="language-plaintext highlighter-rouge">vaft.process</code> step, not a plotting option:</p>
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no Thomson scattering geometry) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_geometry_poloidal</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>            <span class="c1"># channel positions in the poloidal plane
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_time_electron_temperature</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>    <span class="c1"># per-channel Te history
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_thomson_scattering_time_electron_density</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>        <span class="c1"># per-channel ne history
@@ -605,6 +616,7 @@ equilibrium profiles accept more, including <code class="language-plaintext high
 
 <p>For CES, map the channels onto the equilibrium and fit in <code class="language-plaintext highlighter-rouge">vaft.process</code>, then plot:</p>
 
+<!-- docs-snippet: skip needs-data (the packaged sample carries no charge-exchange channels) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">mapped</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_charge_exchange</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>
 <span class="n">fit</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_charge_exchange</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">mapped_positions</span><span class="o">=</span><span class="n">mapped</span><span class="p">,</span> <span class="n">ion_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
@@ -620,6 +632,7 @@ equilibrium profiles accept more, including <code class="language-plaintext high
 <p><code class="language-plaintext highlighter-rouge">vaft.data.kinetic_profiles</code> is the container the kinetic-profile file formats read into and write
 from — GPEC’s <code class="language-plaintext highlighter-rouge">.kin</code> today, the Osborne pfile and MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code> to follow:</p>
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_kin</span><span class="p">,</span> <span class="n">write_kin</span><span class="p">,</span> <span class="n">normalize_psi</span>
 
 <span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_kin</span><span class="p">(</span><span class="sh">"</span><span class="s">g045453.00750.kin</span><span class="sh">"</span><span class="p">)</span>
@@ -662,6 +675,7 @@ that does not increase. Line endings are LF, so a CRLF file does not round-trip 
 <p>A pfile is read in two steps, because it carries more than a profile set does: per-section units, a
 derivative column, and an <code class="language-plaintext highlighter-rouge">N Z A of ION SPECIES</code> block.</p>
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_pfile</span><span class="p">,</span> <span class="n">write_pfile</span><span class="p">,</span> <span class="n">kinetic_profiles_from_pfile</span>
 
 <span class="n">pf</span> <span class="o">=</span> <span class="nf">read_pfile</span><span class="p">(</span><span class="sh">"</span><span class="s">p045453.00750</span><span class="sh">"</span><span class="p">)</span>
@@ -733,6 +747,7 @@ silent factor of a million, but not on one kept in <code class="language-plainte
 
 <p>MARS reads its kinetic profiles as a deck of two-column ASCII files, one quantity each.</p>
 
+<!-- docs-snippet: skip needs-file (reads a user-supplied file that the repository does not ship) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">read_mars_profiles</span><span class="p">,</span> <span class="n">write_mars_profiles</span>
 
 <span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_mars_profiles</span><span class="p">(</span><span class="sh">"</span><span class="s">mars_input/</span><span class="sh">"</span><span class="p">)</span>      <span class="c1"># the whole deck
@@ -810,6 +825,7 @@ another, and so is a header row count that disagrees with the rows beneath it.</
 
 <p>To hand fitted electron profiles to an external code:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name n_e_fn is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">export_electron_profile_txt</span><span class="p">(</span>
     <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">,</span> <span class="n">coeffs_ne</span><span class="p">,</span> <span class="n">coeffs_te</span><span class="p">,</span>
     <span class="n">rho_points</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
@@ -824,15 +840,17 @@ another, and so is a header row count that disagrees with the rows beneath it.</
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.dataset_description</span> <span class="kn">import</span> <span class="n">dataset_description</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.thomson_scattering</span> <span class="kn">import</span> <span class="n">thomson_scattering</span>
 
 <span class="n">shot</span> <span class="o">=</span> <span class="mi">40330</span>
 
 <span class="n">geq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">read_geqdsk</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">efit/g040330.00320</span><span class="sh">"</span><span class="p">))</span>
 <span class="n">ods</span> <span class="o">=</span> <span class="n">geq</span><span class="p">.</span><span class="nf">to_omas</span><span class="p">()</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">dataset_description</span><span class="p">(</span>
+<span class="nf">dataset_description</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">source_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">shot</span><span class="sh">"</span><span class="p">},</span>
 <span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span>
+<span class="nf">thomson_scattering</span><span class="p">(</span>
     <span class="n">ods</span><span class="p">,</span> <span class="mi">46051</span><span class="p">,</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/46051_NeTe.mat</span><span class="sh">"</span><span class="p">),</span>
 <span class="p">)</span>
 
@@ -1220,7 +1238,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

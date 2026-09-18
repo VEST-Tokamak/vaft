@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -277,14 +277,50 @@ python <span class="nt">-m</span> pip <span class="nb">install</span> <span clas
 </code></pre></div></div>
 
 <p>The declared dependencies include OMAS, IMAS-Python, plotting tools, Snakemake and <code class="language-plaintext highlighter-rouge">h5pyd</code>. NumPy 2
-is the default numerical stack. The older PyPI package is retained for compatibility but is not the
-recommended installation route.</p>
+is the default numerical stack.</p>
 
-<h3 id="development-tooling">Development tooling</h3>
+<p><code class="language-plaintext highlighter-rouge">pip install vaft</code> installs the latest published release from PyPI instead. Install from source, as
+above, when you need unreleased changes from <code class="language-plaintext highlighter-rouge">develop</code> or the tutorial notebooks that live in the
+repository.</p>
 
-<p><code class="language-plaintext highlighter-rouge">dev</code> is the only optional-dependency group defined by the project:</p>
+<h3 id="optional-dependency-groups">Optional-dependency groups</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[dev]"</span>
+<p>The project defines four extras; none is needed for the first result on this page:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Extra</th>
+      <th>Installs</th>
+      <th>Needed for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sklearn</code></td>
+      <td>scikit-learn</td>
+      <td><code class="language-plaintext highlighter-rouge">fit_profile(fitting_function='gp_sklearn')</code>; the default <code class="language-plaintext highlighter-rouge">'gp'</code> mode runs on SciPy alone</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">surrogate</code></td>
+      <td>onnxruntime</td>
+      <td>running a TGLF neural-network surrogate (<code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.surrogate</code>); resolving a model and auditing an input need no extra</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tokamaker</code></td>
+      <td>openfusiontoolkit</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.tokamaker</code>, the one external code VAFT drives in-process</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dev</code></td>
+      <td>pytest, pytest-xdist, pre-commit and the two runtimes above</td>
+      <td>running the test suite and contributing</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[dev]"</span>            <span class="c"># development tooling</span>
+python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[sklearn,surrogate]"</span>
 </code></pre></div></div>
 
 <h3 id="updating-an-existing-installation">Updating an existing installation</h3>
@@ -342,6 +378,7 @@ Quit? <span class="o">(</span>Y/N<span class="o">)</span>Y
 
 <p>A successful read uses the public namespace and does not modify the database:</p>
 
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="k">with</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">ods</span><span class="p">:</span>
@@ -623,7 +660,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#development-tooling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Development tooling</a></li><li class="page-toc-item page-toc-level-3"><a href="#updating-an-existing-installation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Updating an existing installation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-install-vaft-from-source" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Install VAFT from source</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#optional-dependency-groups" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Optional-dependency groups</a></li><li class="page-toc-item page-toc-level-3"><a href="#updating-an-existing-installation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Updating an existing installation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#2-produce-the-first-offline-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Produce the first offline result</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-configure-read-only-public-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Configure read-only public HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-optional-external-fusion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Optional external fusion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#expected-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expected outputs</a></li></ul>
     </nav>
 </aside>
 
@@ -741,7 +778,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

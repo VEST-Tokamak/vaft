@@ -234,7 +234,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b97af27</code>. What is described
+  <code>6ae093b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -312,6 +312,7 @@ padding, an even <code class="language-plaintext highlighter-rouge">span</code> 
 
 <p>For PF coil-current traces there is a dedicated single-sample spike remover:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name raw_coil_current is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">clean</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">vest_coil_current_noise_reduction</span><span class="p">(</span><span class="n">raw_coil_current</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -361,6 +362,7 @@ disappear — it folds back into the band, where nothing downstream can tell it 
 <p><code class="language-plaintext highlighter-rouge">np.interp</code> performs both and announces neither. Use <code class="language-plaintext highlighter-rouge">resample_to_time</code> instead anywhere a diagnostic
 is written onto a common time grid:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name source_time is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">resample_to_time</span>
 
 <span class="n">intensity</span> <span class="o">=</span> <span class="nf">resample_to_time</span><span class="p">(</span><span class="n">source_time</span><span class="p">,</span> <span class="n">source_data</span><span class="p">,</span> <span class="n">target_time</span><span class="p">)</span>
@@ -663,6 +665,7 @@ radial line, a null-search stencil — and returns matrices of shape
 with a different positional argument order. <code class="language-plaintext highlighter-rouge">calc_grid</code>, which builds the same physics on a regular
 grid, returns <strong><code class="language-plaintext highlighter-rouge">(br, bz, phi)</code></strong> instead:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name xvar is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">br</span><span class="p">,</span> <span class="n">bz</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">calc_grid</span><span class="p">(</span>
     <span class="n">xvar</span><span class="p">,</span> <span class="n">zvar</span><span class="p">,</span>                                   <span class="c1"># 1-D R and Z grid vectors
 </span>    <span class="n">coil_turns</span><span class="p">,</span> <span class="n">coil_r</span><span class="p">,</span> <span class="n">coil_z</span><span class="p">,</span>                   <span class="c1"># per-coil, per-element arrays
@@ -733,6 +736,7 @@ integrates this with an <strong>eigenvalue decomposition</strong> of $A = -M^{-1
 $E \, \mathrm{diag}(e^{\lambda \delta t}) \, E^{-1}$ is formed once, marched on a fine sub-step grid
 (<code class="language-plaintext highlighter-rouge">dt_sub</code>, default $5 \times 10^{-5}$ s), then interpolated back onto the input time base.</p>
 
+<!-- docs-snippet: skip fragment (placeholder name coil_plasma_currents is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">I_w</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">solve_eddy_currents</span><span class="p">(</span>
     <span class="n">R_mat</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">,</span>
     <span class="n">coil_plasma_currents</span><span class="p">,</span>      <span class="c1"># (n_times, nbcoil + nbplas)
@@ -857,6 +861,7 @@ every shot ≥ 41660 use the “late” window (<code class="language-plaintext 
 
 <p>Per-channel entry points:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name time is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">vest_b_field_pol_probe_legacy</span><span class="p">,</span> <span class="n">vest_flux_loop_legacy</span>
 
 <span class="n">field</span> <span class="o">=</span> <span class="nf">vest_b_field_pol_probe_legacy</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">calibration</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
@@ -877,19 +882,22 @@ config=None)</code>, where <code class="language-plaintext highlighter-rouge">ch
 <code class="language-plaintext highlighter-rouge">(shot, field_code) -&gt; (time, data) | None</code> — returning <code class="language-plaintext highlighter-rouge">None</code> yields a zero-filled trace. VEST’s own
 channel table and raw-database loader are already wired up in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>:</p>
 
+<!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 <span class="kn">from</span> <span class="n">omas</span> <span class="kn">import</span> <span class="n">ODS</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.magnetics</span> <span class="kn">import</span> <span class="n">magnetics</span>
 
 <span class="n">time</span><span class="p">,</span> <span class="n">flux_loops</span><span class="p">,</span> <span class="n">probes</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">vfit_md</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># -&gt; (time, list, list)
 </span>
 <span class="n">ods</span> <span class="o">=</span> <span class="nc">ODS</span><span class="p">()</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">machine_mapping</span><span class="p">.</span><span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">tstart</span><span class="o">=</span><span class="mf">0.26</span><span class="p">,</span> <span class="n">tend</span><span class="o">=</span><span class="mf">0.34</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">4e-5</span><span class="p">)</span>
+<span class="nf">magnetics</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">tstart</span><span class="o">=</span><span class="mf">0.26</span><span class="p">,</span> <span class="n">tend</span><span class="o">=</span><span class="mf">0.34</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">4e-5</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h2 id="standalone-processing-chains">Standalone processing chains</h2>
 
 <p>Three self-contained multi-channel routines exist for working outside the ODS:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name time is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="n">rogowski_coil_ip</span><span class="p">,</span> <span class="n">flux_loop_flux</span><span class="p">,</span> <span class="n">b_field_pol_probe_field</span>
 
 <span class="n">t</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="nf">rogowski_coil_ip</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">rogowski_raw</span><span class="p">,</span> <span class="n">flux_loop_raw</span><span class="p">,</span>
@@ -913,6 +921,7 @@ Processing returns arrays, and drawing them is <code class="language-plaintext h
 
 <h2 id="mirnov-fluctuations-and-toroidal-mode-numbers">Mirnov fluctuations and toroidal mode numbers</h2>
 
+<!-- docs-snippet: skip fragment (placeholder name data is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.magnetics</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">mirnov_preprocess_signal</span><span class="p">,</span> <span class="n">mirnov_spectrogram</span><span class="p">,</span>
     <span class="n">toroidal_mode_analysis</span><span class="p">,</span> <span class="n">toroidal_phase_fit_at_time</span><span class="p">,</span>
@@ -932,6 +941,7 @@ $= 2 \lvert \mathrm{FFT} \rvert / N_{\rm win}$) that reproduces the legacy <code
 
 <p>Two-probe cross-spectral mode number, and multi-probe wrapped-phase fit:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name signal_a is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">res</span> <span class="o">=</span> <span class="nf">toroidal_mode_analysis</span><span class="p">(</span><span class="n">signal_a</span><span class="p">,</span> <span class="n">signal_b</span><span class="p">,</span>
                              <span class="n">sample_rate</span><span class="o">=</span><span class="mf">250_000.0</span><span class="p">,</span>
                              <span class="n">phase_geometry</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">,</span>          <span class="c1"># toroidal separation [rad]
@@ -969,6 +979,7 @@ frequency.</p>
 <p><code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code> fits a log-log power-law scaling
 $\tau_E \propto \prod_k x_k^{\alpha_k}$ by ordinary least squares.</p>
 
+<!-- docs-snippet: skip fragment (placeholder name excel_file is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process</span> <span class="kn">import</span> <span class="n">statistical_analysis</span>
 
 <span class="n">df</span> <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">load_data_from_excel</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">excel_file</span><span class="p">))</span>
@@ -994,6 +1005,7 @@ $\tau_E \propto \prod_k x_k^{\alpha_k}$ by ordinary least squares.</p>
 <code class="language-plaintext highlighter-rouge">get_individual_correlations</code> take the <strong>log-transformed</strong> frame (<code class="language-plaintext highlighter-rouge">results.log_df</code>, or the output of
 <code class="language-plaintext highlighter-rouge">log_transform</code>). Mixing them up silently produces garbage rather than an error.</p>
 
+<!-- docs-snippet: skip fragment (placeholder name results is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">log_df</span> <span class="o">=</span> <span class="n">results</span><span class="p">.</span><span class="n">log_df</span>
 <span class="n">corr</span>   <span class="o">=</span> <span class="n">statistical_analysis</span><span class="p">.</span><span class="nf">get_correlation_matrix</span><span class="p">(</span><span class="n">log_df</span><span class="p">,</span> <span class="n">eng_params</span><span class="p">,</span> <span class="n">target_param</span><span class="p">)</span>
 
@@ -1407,7 +1419,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 04:52:24 +0000"
+        "time": "2026-09-18 04:58:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
