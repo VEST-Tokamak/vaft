@@ -1606,6 +1606,21 @@ def plot_mirnov_spectrum(
     return render("mirnov_spectrum", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_diagnostics_spectrum_coherence(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Coherence and relative phase of two fluctuation channels (issue #1005).
+
+    Renders with :func:`vaft.plot.diagnostics_spectrum_coherence` from native IMAS input.
+    """
+    return render("diagnostics_spectrum_coherence", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_mirnov_time_voltage(
     source: Any,
     *,
@@ -2108,6 +2123,7 @@ def plot_wall_geometry_poloidal(
 
 
 __all__ += [
+    "plot_diagnostics_spectrum_coherence",
     "plot_b_field_probe_time_field",
     "plot_barometry_time_pressure",
     "plot_camera_visible_animation_frames",

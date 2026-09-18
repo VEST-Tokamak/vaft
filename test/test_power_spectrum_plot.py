@@ -170,6 +170,8 @@ class TestRegistration:
             "mirnov_spectrum",
             "soft_x_rays_spectrum",
             "interferometer_spectrum",
+            # issue #1005: two channels' coherence and phase, a Panels model
+            "diagnostics_spectrum_coherence",
         }
 
     def test_every_spectrum_renderer_is_exported(self):

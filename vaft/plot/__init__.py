@@ -350,6 +350,7 @@ from .renderers.profiles import (
     thomson_scattering_profile_fit,
 )
 from .renderers.spectra import (
+    diagnostics_spectrum_coherence,
     interferometer_spectrum,
     mirnov_spectrum,
     soft_x_rays_spectrum,
@@ -366,6 +367,11 @@ from .analytic import (
     plot_miller_surfaces,
     plot_solovev_equilibrium,
     solovev_equilibrium_model,
+)
+from .fluctuation import (
+    cross_spectrum_model,
+    plot_cross_spectrum,
+    plot_fluctuation_frequency_coverage,
 )
 
 # Public surface that is not a canonical renderer.
@@ -415,6 +421,9 @@ _SUPPORT_EXPORTS = (
     "plot_miller_surfaces",
     "plot_solovev_equilibrium",
     "solovev_equilibrium_model",
+    "cross_spectrum_model",
+    "plot_cross_spectrum",
+    "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",
 )

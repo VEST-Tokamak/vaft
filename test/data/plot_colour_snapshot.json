@@ -1,5 +1,10 @@
 {
  "colours": {
+  "diagnostics_spectrum_coherence": {
+   ".models.series:color=#377eb8": 2,
+   ".models.series:color=0.75": 1,
+   ".models.series:color=k": 1
+  },
   "equilibrium_field_2d": {
    ".overlays:color=#d62728": 549,
    ".overlays:color=#e41a1c": 1,
@@ -70,7 +75,7 @@
   "machine_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#d62728": 549,
-   ".layers:color=#ff7f00": 66,
+   ".layers:color=#ff7f00": 65,
    ".layers:color=0.4": 1,
    ".layers:color=0.55": 950
   },
@@ -81,11 +86,7 @@
   },
   "magnetics_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
-   ".layers:color=#ff7f00": 66
-  },
-  "mirnov_spatial_phase": {
-   ".series:color=#377eb8": 2,
-   ".series:color=#e41a1c": 2
+   ".layers:color=#ff7f00": 65
   },
   "passive_structure_field_wall_reduction": {
    ".overlays:color=k": 1
