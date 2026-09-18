@@ -128,7 +128,7 @@ Each has further projections of the same computed orbits, chosen with `projectio
 | `magnetization_current` | `perpendicular`, `3d` | Helical columns along $\mathbf{B}$ with the edge current looping around them |
 | `toroidal_drift` | `3d`, `poloidal`, `top` | `poloidal` is the textbook $(R, z)$ cross-section. `top` shows the circular field lines, with the vertical drifts pointing out of the page |
 
-The units are normalised ($|q| = 1$, $B = 1$, $m_e = 1$). The ion-to-electron mass ratio is reduced (4 by
+The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
 default) so that both orbits are visible; the figures state this.
 
 ## Using the committed assets

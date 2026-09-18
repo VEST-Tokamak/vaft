@@ -45,7 +45,7 @@ def test_the_orbit_radius_is_the_larmor_radius(q, m):
     x, _ = boris_orbit(q, m, [0, 0, 0], [0.7, 0, 0], ZERO, _uniform([0, 0, B]), dt, n)
     center = x.mean(axis=0)
     radius = np.hypot(*(x[:, :2] - center[:2]).T)
-    assert radius.mean() == pytest.approx(larmor_radius(m, 0.7, q, B), rel=1e-4)
+    assert radius.mean() == pytest.approx(larmor_radius(q, m, 0.7, B), rel=1e-4)
 
 
 def test_ions_and_electrons_gyrate_in_opposite_senses():
@@ -109,4 +109,4 @@ def test_drift_formulas_reject_bad_input():
     with pytest.raises(ValueError):
         boris_orbit(1.0, 1.0, [0, 0, 0], [1, 0, 0], ZERO, ZERO, -1.0, 10)
     with pytest.raises(ValueError):
-        larmor_radius(1.0, 1.0, 0.0, 1.0)
+        larmor_radius(0.0, 1.0, 1.0, 1.0)

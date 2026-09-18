@@ -2,13 +2,13 @@
   "diagrams": {
     "curvature_drift.svg": {
       "call": "vaft.diagram.curvature_drift()",
-      "source_sha256": "7f082d981b911c3c583827aadd82ae31b5f8abee0de6de76f37a3762b8508f38",
-      "svg_sha256": "e5d1fbeb4e8956349ecbb5fe9cc132f693e08cc090e4ffb56a1e2f7e62d910e9"
+      "source_sha256": "c90572e2de27429726801903e7ea1d2c7261bfc2bc5de8ad5e4b662681eb83b7",
+      "svg_sha256": "c9840d98246a1c9d1566ca4eb5f41d502ba1075e5e1bc6258b2ab5d8a0c1e686"
     },
     "curvature_drift_poloidal.svg": {
       "call": "vaft.diagram.curvature_drift(projection='poloidal')",
-      "source_sha256": "64175414f462c9ed2fbbc0b36d722c25eeeb4f5eac79645279a49e87d1c466db",
-      "svg_sha256": "6051bb3897a1a21304d4479c7a05f4d43357b845d93e12569298dabe3aba4fb7"
+      "source_sha256": "032ec4c660252707bbe9c8845739f9bfffee198ae1b8a1851af5ab209982ae34",
+      "svg_sha256": "8317b7514b02b92f609354fdaaf8506b94a9f6b1c31b5548907aa147320c4bd9"
     },
     "curvature_drift_top.svg": {
       "call": "vaft.diagram.curvature_drift(projection='top')",
@@ -77,8 +77,8 @@
     },
     "toroidal_drift_top.svg": {
       "call": "vaft.diagram.toroidal_drift(projection='top')",
-      "source_sha256": "b8fc6c83ae315bff945eac41611e1ae236acc18c104dc67f26163b6061f58566",
-      "svg_sha256": "eebcc3c342c106aa36d0fa14385ec6da0a11dd7c13501927c3338e5c4d7a0db2"
+      "source_sha256": "2350aedffc874fd3589697488d223f0b4fc32dd2f42b38fa7c144e66e350f2a5",
+      "svg_sha256": "55bf4f58c5e3f2db85319e4aaa2d8c3eb07e091bc8f81fc596417f088e907982"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",

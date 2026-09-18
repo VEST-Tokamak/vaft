@@ -81,8 +81,13 @@ def test_the_net_edge_current_is_diamagnetic_and_the_interior_cancels():
     assert fig.parameters["right_edge_current"] > 0
     assert fig.parameters["top_edge_current"] < 0
     assert Jy[edges[1:] <= rho].sum() < 0
+    # the lattice is much finer than rho, so the current cancels bin by bin inside --
+    # not just in total, which any symmetric arrangement would give
+    assert fig.parameters["lattice_spacing"] < 0.5 * rho
     interior = (edges[:-1] >= 2 * rho) & (edges[1:] <= side - 2 * rho)
-    assert abs(Jy[interior].sum()) < 0.1 * abs(fig.parameters["right_edge_current"])
+    assert interior.sum() >= 10
+    assert np.max(np.abs(Jy[interior])) < 0.01 * np.max(np.abs(Jy))
+    assert np.max(np.abs(fig.vectors["J_x_of_y"][interior])) < 0.01 * np.max(np.abs(fig.vectors["J_x_of_y"]))
 
 
 # --- toroidal drift --------------------------------------------------------------------
@@ -109,7 +114,9 @@ def test_every_particle_diagram_is_deterministic_and_lazy(name):
 
 @pytest.mark.parametrize("fn, kw", [
     (vaft.diagram.exb_drift, {"mass_ratio": 0.5}),
+    (vaft.diagram.exb_drift, {"mass_ratio": 1836.0}),
     (vaft.diagram.toroidal_drift, {"aspect_ratio": 1.1}),
+    (vaft.diagram.toroidal_drift, {"aspect_ratio": float("inf")}),
 ])
 def test_invalid_parameters_fail_explicitly(fn, kw):
     with pytest.raises(ValueError):
@@ -201,3 +208,33 @@ def test_formula_equation_refuses_a_function_without_one():
 
     with pytest.raises(ValueError, match="documents no"):
         pm.formula_equation(lambda: None)
+
+
+def _arrow_direction(diagram, role):
+    arrows = [it for it in diagram.scene.role(role) if hasattr(it, "end")]
+    step = np.subtract(arrows[0].end, arrows[0].start)
+    return step / np.linalg.norm(step)
+
+
+def test_the_3d_views_draw_the_computed_directions():
+    from vaft.diagram._projection import project
+
+    def screen(vec):
+        d = project(np.asarray(vec, dtype=float)) - project(np.zeros(3))
+        return d / np.linalg.norm(d)
+
+    d = vaft.diagram.curvature_drift()
+    assert np.allclose(_arrow_direction(d, "drift"), screen(d.model.vectors["drift"]), atol=1e-6)
+    d = vaft.diagram.exb_drift(projection="3d")
+    assert np.allclose(_arrow_direction(d, "legend_vE"), screen(d.model.vectors["ion_drift"]), atol=1e-6)
+    d = vaft.diagram.toroidal_drift()
+    assert np.allclose(_arrow_direction(d, "v_E"), screen(d.model.vectors["v_E"]), atol=1e-6)
+
+
+def test_the_top_views_point_grad_b_inward():
+    d = vaft.diagram.toroidal_drift(projection="top")
+    (arrow,) = [it for it in d.scene.role("grad_B") if hasattr(it, "end")]
+    assert np.linalg.norm(arrow.end) < np.linalg.norm(arrow.start)  # towards the machine axis
+    d = vaft.diagram.curvature_drift(projection="top")
+    (arrow,) = [it for it in d.scene.role("grad_B") if hasattr(it, "end")]
+    assert np.linalg.norm(arrow.end) < np.linalg.norm(arrow.start)

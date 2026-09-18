@@ -141,12 +141,12 @@
 <use x='78.576037' y='92.210652' xlink:href='#g36'/>
 </g>
 <g stroke-width='0.55'>
-<path d='M41.78561 101.66463L99.90503 67.32129' fill='none'/>
-<g transform='matrix(.86087 -.50871 .50871 .86087 99.90503 67.32129)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
+<path d='M161.28705 24.84187L108.64148 61.69402' fill='none'/>
+<g transform='matrix(-.81921 .57346 -.57346 -.81921 108.6415 61.694)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
  <path d='M4.06616 0C3.56682 .12268 1.37186 .81784 0 1.57434V-1.57434C1.37186-.81784 3.56682-.12268 4.06616 0Z'/>
  </g>
 </g>
-<g transform='matrix(1.00375 0 0 -1.00375 -60.901982 189.921084)' stroke='none' fill='#000'>
+<g transform='matrix(1.00375 0 0 -1.00375 130.483168 113.098324)' stroke='none' fill='#000'>
 <use x='35.625985' y='90.417389' xlink:href='#g28'/>
 <use x='40.607324' y='90.417389' xlink:href='#g52'/>
 <use x='46.142141' y='90.417389' xlink:href='#g18'/>

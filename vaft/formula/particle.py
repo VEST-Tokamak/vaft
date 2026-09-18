@@ -89,19 +89,19 @@ def gyrofrequency(q, m, B):
     return np.asarray(q, dtype=float) * np.asarray(B, dtype=float) / m
 
 
-def larmor_radius(m, v_perp, q, B):
+def larmor_radius(q, m, v_perp, B):
     r"""Larmor (gyro) radius of a charged particle.
 
     $$\rho = \frac{m\,v_\perp}{|q|\,B}$$
 
     Parameters
     ----------
+    q : float or np.ndarray
+        Particle charge; only its magnitude enters [C].
     m : float or np.ndarray
         Particle mass [kg].
     v_perp : float or np.ndarray
         Speed perpendicular to the magnetic field [m/s].
-    q : float or np.ndarray
-        Particle charge; only its magnitude enters [C].
     B : float or np.ndarray
         Magnetic-field magnitude [T].
 
