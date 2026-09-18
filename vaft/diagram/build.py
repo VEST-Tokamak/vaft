@@ -40,8 +40,15 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
 
 
 def default_output() -> Path:
-    """``docs/assets/diagrams`` of the source checkout this module runs from."""
-    return Path(__file__).resolve().parents[2] / "docs" / "assets" / "diagrams"
+    """``docs/assets/diagrams`` of the source checkout this module runs from.
+
+    An installed package has no ``docs/`` next to it; rather than write into
+    ``site-packages``, that asks for an explicit ``--output``.
+    """
+    root = Path(__file__).resolve().parents[2]
+    if not (root / "pyproject.toml").is_file() or not (root / "docs").is_dir():
+        raise SystemExit("not running from a VAFT source checkout: pass --output DIR")
+    return root / "docs" / "assets" / "diagrams"
 
 
 def _sha256(data: bytes) -> str:
@@ -63,7 +70,7 @@ def _read_manifest(out_dir: Path) -> dict:
     path = out_dir / MANIFEST
     if not path.exists():
         return {}
-    return json.loads(path.read_text()).get("diagrams", {})
+    return json.loads(path.read_text(encoding="utf-8")).get("diagrams", {})
 
 
 def check(out_dir: Optional[Path] = None) -> List[str]:
@@ -81,7 +88,7 @@ def check(out_dir: Optional[Path] = None) -> List[str]:
             problems.append(f"{name}: missing")
             continue
         if _diagram(builder, kwargs).source_sha256 != entry.get("source_sha256"):
-            problems.append(f"{name}: stale -- its TikZ source changed; run python -m vaft.diagram.build")
+            problems.append(f"{name}: stale -- its TikZ source or the render recipe changed; run python -m vaft.diagram.build")
         if _sha256(svg.read_bytes()) != entry.get("svg_sha256"):
             problems.append(f"{name}: the SVG does not match {MANIFEST} (edited by hand?)")
     for name in sorted(set(recorded) - set(CANONICAL)):
@@ -110,7 +117,7 @@ def build(out_dir: Optional[Path] = None, *, force: bool = False) -> List[str]:
             and entry.get("svg_sha256") == _sha256(svg_path.read_bytes())
         )
         if not fresh:
-            svg_path.write_text(diagram.svg)
+            svg_path.write_text(diagram.svg, encoding="utf-8", newline="\n")
             written.append(name)
         manifest[name] = {
             "call": _call_text(builder, kwargs),
@@ -119,10 +126,11 @@ def build(out_dir: Optional[Path] = None, *, force: bool = False) -> List[str]:
         }
     document = {
         "generator": "python -m vaft.diagram.build",
-        "note": "source_sha256 hashes the generated TikZ document; --check compares it without TeX.",
+        "note": "source_sha256 hashes the render recipe and the generated TikZ document; --check compares it without TeX.",
         "diagrams": manifest,
     }
-    (out_dir / MANIFEST).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
+    (out_dir / MANIFEST).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n",
+                                    encoding="utf-8", newline="\n")
     return written
 
 

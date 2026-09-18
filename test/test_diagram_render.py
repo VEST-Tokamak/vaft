@@ -93,3 +93,31 @@ def test_rendering_is_deterministic_and_saves(tmp_path):
     first = vaft.diagram.magnetic_island(projection="top").save(tmp_path / "a.svg").read_text()
     second = vaft.diagram.magnetic_island(projection="top").svg
     assert first == second
+
+
+def _copy_assets(tmp_path):
+    for item in ASSETS.iterdir():
+        shutil.copy(item, tmp_path / item.name)
+    return tmp_path
+
+
+def test_check_catches_a_stale_or_missing_asset(tmp_path, monkeypatch):
+    _copy_assets(tmp_path)
+    (tmp_path / "magnetic_island_3d.svg").unlink()
+    problems = build.check(tmp_path)
+    assert any("magnetic_island_3d.svg" in p and "missing" in p for p in problems)
+    # a change to the render recipe makes every asset stale
+    monkeypatch.setattr(_render, "RENDER_RECIPE", _render.RENDER_RECIPE + " changed")
+    problems = build.check(tmp_path)
+    assert sum("stale" in p for p in problems) == 2
+
+
+def test_the_committed_assets_are_checked_out_with_lf_everywhere():
+    out = subprocess.run(
+        ["git", "check-attr", "eol", "--", "docs/assets/diagrams/manifest.json",
+         "docs/assets/diagrams/magnetic_island_poloidal.svg"],
+        cwd=ASSETS.parents[2], capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        pytest.skip("not a git checkout")
+    assert out.stdout.count("eol: lf") == 2, out.stdout

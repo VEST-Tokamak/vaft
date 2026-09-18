@@ -730,15 +730,18 @@ def straight_field_line_angle(theta, jacobian, R):
     Raises
     ------
     ValueError
-        The arrays differ in shape, ``theta`` is not strictly increasing, or
-        it does not span exactly one period.
+        The arrays differ in shape, ``theta`` is not strictly increasing, it
+        does not span exactly one period, or ``jacobian`` changes sign (the
+        coordinates fold over, and no angle is defined).
 
     Convention
     ----------
     PEST: $\theta^*$ is the poloidal angle in which a field line on the
     surface is straight, $\mathrm{d}\phi/\mathrm{d}\theta^* = q$, with the
     toroidal angle left geometric. It runs in the same direction as
-    ``theta`` and shares its origin; the sign of $\mathcal{J}$ is ignored.
+    ``theta`` and shares its origin. The overall sign of $\mathcal{J}$ (the
+    handedness of the coordinates) is ignored, but it must not change along
+    the surface.
     A helical phase $m\theta^* - n\phi$ is constant along a field line of
     $q = m/n$ only in this angle.
 
@@ -784,6 +787,8 @@ def straight_field_line_angle(theta, jacobian, R):
         raise ValueError("theta must be strictly increasing with at least three points")
     if not np.isclose(theta[-1] - theta[0], 2.0 * np.pi, rtol=0.0, atol=1e-9):
         raise ValueError(f"theta must span exactly one period (2 pi), not {theta[-1] - theta[0]!r}")
+    if not (np.all(jacobian > 0.0) or np.all(jacobian < 0.0)):
+        raise ValueError("jacobian changes sign or vanishes along the surface: the coordinates fold over")
     weight = np.abs(jacobian) / R ** 2
     cumulative = np.concatenate([[0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * np.diff(theta))])
     return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]

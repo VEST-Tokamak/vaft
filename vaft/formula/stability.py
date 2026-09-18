@@ -1112,9 +1112,10 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
     not, even on circular surfaces. Both mode numbers are
     positive and the sign of the helicity sits in the minus sign; a
     perturbation of the opposite helicity is $n \to -n$ in this expression,
-    not a negative argument. The IMAS toroidal angle runs the other way on
-    VEST (see ``vaft.machine_mapping`` port geometry), which flips the sign
-    of a measured $n$ but not this definition.
+    not a negative argument. This $\phi$ is the IMAS one; only VEST's port
+    clock numbering runs the other way (see
+    ``vaft.machine_mapping.conventions``), which matters when a measured
+    phase is converted, not for this definition.
 
     Physical interpretation
     -----------------------

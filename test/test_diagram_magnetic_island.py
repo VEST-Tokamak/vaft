@@ -144,6 +144,7 @@ def test_the_helices_close_after_m_toroidal_turns_and_stay_on_the_rational_surfa
     ({"aspect_ratio": 0.9}, "aspect_ratio"),
     ({"elongation": -1.0}, "elongation"),
     ({"triangularity": 1.0}, "triangularity"),
+    ({"triangularity": 0.95}, "triangularity"),
     ({"triangularity": -1.2}, "triangularity"),
 ])
 def test_invalid_parameters_fail_explicitly(kw, match):
@@ -345,3 +346,31 @@ def test_the_width_arrow_follows_the_o_point_helical_line():
         theta = model.theta_at(0.0, 0.0, 0, r=r)
         assert np.allclose(np.asarray(end) / S, model.section(r, theta), atol=1e-9)
         assert _wrap(model.xi(theta, 0.0, r=r)) == pytest.approx(0.0, abs=1e-5)
+
+
+def test_straight_field_line_angle_refuses_folded_coordinates():
+    theta = np.linspace(0.0, 2 * np.pi, 201)
+    jacobian = np.cos(theta) + 0.5  # changes sign twice
+    with pytest.raises(ValueError, match="fold"):
+        straight_field_line_angle(theta, jacobian, np.ones_like(theta))
+
+
+def test_the_largest_allowed_triangularity_keeps_every_surface_unfolded():
+    model = _model(triangularity=mi.MAX_TRIANGULARITY, elongation=1.7)
+    theta = np.linspace(0.0, 2 * np.pi, 721)
+    for r in (0.1, 0.5, 0.9, 1.0):
+        assert (model.jacobian(r, theta) > 0).all()
+
+
+@pytest.mark.parametrize("kw", [
+    {"r_s": 0.64, "width": 0.7},
+    {"r_s": 0.05, "width": 0.099},
+    {"m": 1, "n": 1, "r_s": 0.5, "width": 0.999},
+])
+def test_every_drawn_surface_stays_inside_the_plasma(kw):
+    d = vaft.diagram.magnetic_island(projection="poloidal", **kw)
+    S = mi.POLOIDAL_SCALE
+    for role in ("passing", "island", "separatrix", "surface", "rational"):
+        for curve in d.scene.role(role):
+            r = np.hypot(*(np.asarray(curve.points) / S).T)
+            assert r.max() <= 1.0 + 1e-9 and r.min() >= 0.0, role

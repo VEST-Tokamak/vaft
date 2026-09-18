@@ -22,6 +22,11 @@ from typing import Optional, Union
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
 _BODY_SLOT = "%%VAFT-BODY%%"
+#: Everything between the TikZ source and the committed SVG that is not in the
+#: source itself. It is folded into :attr:`Diagram.source_sha256`, so changing
+#: the renderer marks every committed asset stale; bump it when the dvisvgm
+#: flags or :func:`normalize_svg` change.
+RENDER_RECIPE = "latex -> dvisvgm --no-fonts --bbox=papersize --optimize; normalize_svg v2"
 _TOOLS = ("latex", "dvisvgm")
 _MARKER_RADIUS = 0.06  # cm, filled O-point dot
 _CROSS_HALF = 0.09  # cm, half arm of the X-point cross
@@ -62,7 +67,7 @@ def _tikz_item(item) -> str:
 
 def template() -> str:
     """The authored LaTeX template every scene is set into."""
-    return resources.files("vaft.diagram").joinpath("templates/standalone.tex").read_text()
+    return resources.files("vaft.diagram").joinpath("templates/standalone.tex").read_text(encoding="utf-8")
 
 
 def tikz_document(scene: Scene) -> str:
@@ -94,7 +99,7 @@ def _run(cmd, cwd: Path, what: str) -> None:
     proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if proc.returncode != 0:
         log = cwd / "diagram.log"
-        detail = log.read_text(errors="replace")[-3000:] if log.exists() else proc.stdout[-3000:]
+        detail = log.read_text(encoding="utf-8", errors="replace")[-3000:] if log.exists() else proc.stdout[-3000:]
         raise RuntimeError(f"{what} failed (exit {proc.returncode}):\n{detail}\n{proc.stderr[-2000:]}")
 
 
@@ -181,13 +186,13 @@ def render_svg(document: str) -> str:
     tools = _require_toolchain()
     with tempfile.TemporaryDirectory(prefix="vaft-diagram-") as tmp:
         cwd = Path(tmp)
-        (cwd / "diagram.tex").write_text(document)
+        (cwd / "diagram.tex").write_text(document, encoding="utf-8")
         _run([tools["latex"], "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "latex")
         # papersize: the box TikZ and standalone computed. --exact-bbox and
         # --bbox=min over-extend the 3-D view by ~90 pt of empty margin.
         _run([tools["dvisvgm"], "--no-fonts", "--bbox=papersize", "--optimize",
               "--output=diagram.svg", "diagram.dvi"], cwd, "dvisvgm")
-        return normalize_svg((cwd / "diagram.svg").read_text())
+        return normalize_svg((cwd / "diagram.svg").read_text(encoding="utf-8"))
 
 
 def render_pdf(document: str, target: Path) -> None:
@@ -198,7 +203,8 @@ def render_pdf(document: str, target: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="vaft-diagram-") as tmp:
         cwd = Path(tmp)
         # pdflatex cannot use the dvisvgm driver line; drop it for this export.
-        (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", ""))
+        (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", ""),
+                                            encoding="utf-8")
         _run([pdflatex, "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "pdflatex")
         shutil.copyfile(cwd / "diagram.pdf", target)
 
@@ -223,8 +229,8 @@ class Diagram:
 
     @property
     def source_sha256(self) -> str:
-        """Hash of :attr:`tikz`: what the committed-asset check compares."""
-        return hashlib.sha256(self.tikz.encode()).hexdigest()
+        """Hash of :attr:`tikz` and :data:`RENDER_RECIPE`: what the committed-asset check compares."""
+        return hashlib.sha256(f"{RENDER_RECIPE}\n{self.tikz}".encode("utf-8")).hexdigest()
 
     @property
     def svg(self) -> str:
@@ -241,9 +247,9 @@ class Diagram:
         path = Path(path)
         suffix = path.suffix.lower()
         if suffix == ".svg":
-            path.write_text(self.svg)
+            path.write_text(self.svg, encoding="utf-8", newline="\n")
         elif suffix == ".tex":
-            path.write_text(self.tikz)
+            path.write_text(self.tikz, encoding="utf-8", newline="\n")
         elif suffix == ".pdf":
             render_pdf(self.tikz, path)
         else:

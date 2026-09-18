@@ -22,3 +22,8 @@ vaft/data/wheel_samples/** text=auto eol=lf
 # GACODE fixed-format text fixtures are compared field-by-field against a
 # real NEO run, so a CRLF checkout must not change them.
 test/data/gacode/** text=auto eol=lf
+
+# Committed diagram SVGs are pinned by docs/assets/diagrams/manifest.json
+# (vaft.diagram.build --check hashes the bytes), so a CRLF checkout would
+# read as a hand edit on Windows CI.
+docs/assets/diagrams/** text=auto eol=lf

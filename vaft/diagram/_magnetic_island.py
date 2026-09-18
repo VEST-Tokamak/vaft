@@ -67,6 +67,9 @@ ISLAND_LEVELS = (0.2, 0.45, 0.72)
 PASSING_LEVEL = 2.2
 
 _N_THETA = 241
+#: |delta| at the LCFS; the Miller map with delta(r) = delta r folds (its
+#: Jacobian changes sign) from |delta| of about 0.93
+MAX_TRIANGULARITY = 0.9
 #: grid on which theta*(r, theta) is tabulated and interpolated
 _SFL_R = np.linspace(0.0025, 1.0, 400)
 _SFL_THETA = np.linspace(0.0, 2.0 * np.pi, 1025)
@@ -93,12 +96,12 @@ class IslandModel:
     # --- straight-field-line angle ------------------------------------------
 
     def jacobian(self, r, theta):
-        """Jacobian of ``(r, theta, phi)``, ``R |d(R, Z)/d(r, theta)|``."""
+        """Signed Jacobian of ``(r, theta, phi)``, ``R d(R, Z)/d(r, theta)``."""
         h = 1e-6
         d_r = (self.section(r + h, theta) - self.section(r - h, theta)) / (2 * h)
         d_t = (self.section(r, theta + h) - self.section(r, theta - h)) / (2 * h)
         R = self.major_radius + self.section(r, theta)[..., 0]
-        return R * np.abs(d_r[..., 0] * d_t[..., 1] - d_r[..., 1] * d_t[..., 0])
+        return R * (d_r[..., 0] * d_t[..., 1] - d_r[..., 1] * d_t[..., 0])
 
     @cached_property
     def _sfl_table(self) -> np.ndarray:
@@ -267,8 +270,11 @@ def _validate(m, n, width, phase, projection, r_s, aspect_ratio, elongation,
         raise ValueError(f"aspect_ratio must exceed 1, not {aspect_ratio!r}")
     if not float(elongation) > 0.0:
         raise ValueError(f"elongation must be positive, not {elongation!r}")
-    if not -1.0 < float(triangularity) < 1.0:
-        raise ValueError(f"triangularity is sin of the Miller angle shift and must lie in (-1, 1), not {triangularity!r}")
+    if not abs(float(triangularity)) <= MAX_TRIANGULARITY:
+        raise ValueError(
+            f"triangularity must lie in [-{MAX_TRIANGULARITY}, {MAX_TRIANGULARITY}]; beyond about 0.93 the "
+            f"delta(r) = delta r surfaces fold over and stop being nested, not {triangularity!r}"
+        )
     return IslandModel(int(m), int(n), width, float(phase), r_s, float(aspect_ratio), float(elongation),
                        float(triangularity))
 
@@ -348,6 +354,8 @@ def _poloidal_geometry(model: IslandModel, *, show_rational_surface=True, show_s
     passing = model.level_offset(PASSING_LEVEL * model.separatrix_level, xi)
     for sign in (1.0, -1.0):
         r = model.r_s + sign * passing
+        if r.min() <= 0.02 or r.max() >= 0.98:
+            continue  # a wide island leaves no room for this surface inside the plasma
         items.append(Polyline.of(sec(r, model.theta_at(xi, 0.0, 0, r=r)), "passing", role="passing", closed=True))
 
     if show_rational_surface:
@@ -699,7 +707,7 @@ def magnetic_island(
     elongation : float
         Vertical elongation $\kappa$, the same on every flux surface.
     triangularity : float
-        Triangularity $\delta$ at the LCFS, in $(-1, 1)$. Surface $r$ has
+        Triangularity $\delta$ at the LCFS, in $[-0.9, 0.9]$. Surface $r$ has
         $\delta(r) = \delta\,r$ (Miller shaping), so the D shape relaxes to a
         circle towards the axis. ``width`` is a physical distance only on the
         outboard midplane.
