@@ -732,3 +732,46 @@ fit actually reaches (#891's calibration step, including absolute floors for
 near-zero channels), and only then repeat this column. Until a statistical σ
 converges, the stopping criterion stays where it is and the legacy findings
 above are what can be used.
+
+### The drift is a rigid upward shift, and FITDELZ does not remove it
+
+Fitting the routine boundary to the fixed-point boundary with one rigid (dR, dZ)
+translation shows what the distance consists of. On seven of the eight slices
+that move, a pure vertical shift removes ≥ 95 % of the squared LCFS distance.
+The shift is always upward: +15, +15, +55, +21, +9, +158 and +20 mm, plus
++1.7 mm on 39915 @ 327. Radial position, size and shape then agree to about
+1 mm. Under legacy σ the vertical position of a routine reconstruction is
+therefore set by where the iteration stops.
+
+EFIT's rigid vertical-shift fit (`FITDELZ`, in `&INWANT`; it switches on once
+the iteration error falls below `ERRDELZ`, default 0.06) is the tool meant for
+this. VAFT never writes it. `--fitdelz`, `--errdelz`, `--stabdz` and
+`--exclude-probes` add it for a study.
+
+The runs are `NXITER = 1`, `ERRMIN` 1e-2 → 1e-4, on the packaged 129 table;
+`test/data/efit_fitdelz_experiment.json` records every slice.
+
+| run | converge at 1e-4 | upward drift 1e-2 → 1e-4 | magnetic fit |
+|---|---|---|---|
+| legacy | 8/9 | the baseline: +9 to +158 mm on seven slices | probes 16–72 %, loops 9–53 % |
+| legacy + `FITDELZ` | 9/9 | the same on the six large slices (+15, +15, +54, +19, +158, +18 mm); 41524 @ 334 +8.6 → −1.6 mm | unchanged |
+| `standard_deviation`, C4-04 excluded | 0/9 | – | 39915: probes 5–8 %, loops 5–10 % |
+| … + `FITDELZ` | 0/9 | – | `delz` stays 0: the error never reaches `ERRDELZ` |
+| … + `FITDELZ`, `ERRDELZ = 10` (on from iteration 3) | 0/9 | – | `delz` runs away to metres (+3.7 m, −6.9 m) |
+
+- **Under legacy σ, `FITDELZ` changes almost nothing.** It gains one converged
+  slice (39915 @ 327) and removes the drift on 41524 @ 334. The magnetics carry
+  no weight, so the fitted shift has nothing to fit.
+- **Under the current statistical σ it cannot help.**
+  - With C4-04 out, the probes are fitted far better than under legacy
+    weighting (5–8 % on 39915).
+  - But the iteration oscillates vertically: the axis moves by ±10–30 cm per
+    step, and χ² reaches 10⁴–10⁵ on 41524 and 41672 before `bound` fails.
+  - Forced on, the rigid shift is as ill-determined as the rest of the fit, and
+    diverges.
+
+The drift is not something a numerical switch can suppress. It is the vertical
+direction being unconstrained by an objective that either ignores the
+magnetics (legacy) or weights them against a σ the model cannot reach
+(statistical). The next step is the σ calibration (#891), with C4-04 out; the
+drift and `FITDELZ` are then worth repeating on top of it.

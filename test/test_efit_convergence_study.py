@@ -267,26 +267,30 @@ KFILE = """ &IN1
 """
 
 
-def test_in1_overrides_land_inside_in1_only_and_are_recorded(module, tmp_path):
+def test_overrides_land_inside_the_named_block_only_and_are_recorded(module, tmp_path):
     path = tmp_path / "k041672.00331"
     path.write_text(KFILE)
 
-    written = module.patch_in1(path, {"FITDELZ": True, "ERRDELZ": 0.06, "STABDZ": 1e-4})
+    written = module.patch_namelist(path, "INWANT", {"FITDELZ": True, "ERRDELZ": 0.06, "STABDZ": 1e-4})
 
     assert written == [" FITDELZ = .TRUE.", " ERRDELZ = 0.06", " STABDZ = 0.0001"]
     lines = path.read_text().splitlines()
-    in1_end = lines.index(" /")
-    assert lines[in1_end - 3:in1_end] == written
-    # &INWANT is untouched.
-    assert lines[in1_end + 1:] == [" &INWANT", " FITDZ = 1", " /"]
+    # &IN1 is untouched, and the keys close &INWANT.
+    assert lines[:4] == [" &IN1", " ISHOT = 41672", " ERRMIN = 0.01", " /"]
+    assert lines[4:] == [" &INWANT", " FITDZ = 1", *written, " /"]
 
 
-def test_in1_overrides_refuse_a_key_the_writer_already_set(module, tmp_path):
+def test_fitdelz_goes_where_efit_reads_it(module):
+    # data_input.F90:222-228 -- written into &IN1, EFIT refuses the k-file.
+    assert module.FITDELZ_GROUP == "INWANT"
+
+
+def test_overrides_refuse_a_key_the_writer_already_set(module, tmp_path):
     path = tmp_path / "k041672.00331"
     path.write_text(KFILE)
 
     with pytest.raises(ValueError, match="ERRMIN"):
-        module.patch_in1(path, {"ERRMIN": 1e-4})
+        module.patch_namelist(path, "IN1", {"ERRMIN": 1e-4})
     assert path.read_text() == KFILE
 
 
@@ -416,3 +420,35 @@ def test_no_slice_converges_under_the_statistical_sigma_as_configured():
         (41524, "solver_error"),
         (41672, "solver_error"),
     }
+
+
+FITDELZ = Path(__file__).resolve().parent / "data" / "efit_fitdelz_experiment.json"
+
+
+def test_fitdelz_does_not_remove_the_upward_drift_under_legacy_sigma():
+    # README: the drift between ERRMIN 1e-2 and 1e-4 is a rigid upward shift,
+    # and EFIT's own rigid-shift fit leaves the large ones where they were.
+    import json
+
+    runs = json.loads(FITDELZ.read_text(encoding="utf-8"))["runs"]
+    for label in ("legacy", "legacy_fitdelz"):
+        drifts = {(s["shot"], s["time_ms"]): s["drift"] for s in runs[label]["slices"] if s["drift"]}
+        assert drifts[(41672, 321)]["rigid_dz_mm"] > 150.0
+        assert drifts[(41524, 327)]["rigid_dz_mm"] > 50.0
+        # A rigid shift is almost all of it.
+        assert drifts[(41672, 321)]["after_shift_mm"] < 0.2 * drifts[(41672, 321)]["lcfs_rms_mm"]
+    assert runs["legacy_fitdelz"]["namelist_overrides"] == {"FITDELZ": True}
+
+
+def test_no_statistical_sigma_run_converges_with_or_without_fitdelz():
+    import json
+
+    runs = json.loads(FITDELZ.read_text(encoding="utf-8"))["runs"]
+    for label in ("sd_without_c4_04", "sd_without_c4_04_fitdelz", "sd_without_c4_04_fitdelz_forced"):
+        block = runs[label]
+        assert block["uncertainty_mode"] == "standard_deviation"
+        assert block["excluded_probes"] == ["MagneticFieldProbe_C4-04"]
+        assert not any(s["errmin_1e-4"]["converged"] for s in block["slices"])
+    # Left to ERRDELZ = 0.06 the shift never switches on; forced on, it runs away.
+    assert all((s["errmin_1e-4"]["delz_m"] or 0.0) == 0.0 for s in runs["sd_without_c4_04_fitdelz"]["slices"])
+    assert max(abs(s["errmin_1e-4"]["delz_m"] or 0.0) for s in runs["sd_without_c4_04_fitdelz_forced"]["slices"]) > 1.0

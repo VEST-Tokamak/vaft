@@ -570,8 +570,14 @@ def _read_slice(workdir: Path, shot: int, time_ms: int) -> dict[str, Any]:
     return out
 
 
-def patch_in1(path: Path, settings: Mapping[str, Any]) -> list[str]:
-    """Add ``settings`` to the k-file's ``&IN1`` block, in place; returns the lines written.
+#: EFIT reads its rigid vertical-shift fit from ``&INWANT``
+#: (``data_input.F90:222-228``), not ``&IN1``: written into ``&IN1`` the k-file
+#: is refused with "Invalid line in namelist in1" and the slice produces nothing.
+FITDELZ_GROUP = "INWANT"
+
+
+def patch_namelist(path: Path, group: str, settings: Mapping[str, Any]) -> list[str]:
+    """Add ``settings`` to the k-file's ``&<group>`` block, in place; returns the lines written.
 
     VAFT's configuration has no field for EFIT's rigid vertical-shift fit, so a
     study that switches it on writes it here, after the writer and before
@@ -579,16 +585,17 @@ def patch_in1(path: Path, settings: Mapping[str, Any]) -> list[str]:
     refused rather than overridden twice.
     """
     lines = Path(path).read_text().splitlines()
+    tag = "&" + group.upper()
     try:
-        start = next(i for i, line in enumerate(lines) if line.strip().upper() == "&IN1")
+        start = next(i for i, line in enumerate(lines) if line.strip().upper() == tag)
         end = next(i for i in range(start + 1, len(lines)) if lines[i].strip() == "/")
     except StopIteration:
-        raise ValueError(f"{path}: no &IN1 block") from None
+        raise ValueError(f"{path}: no {tag} block") from None
     present = {line.split("=")[0].strip().upper() for line in lines[start:end] if "=" in line}
     written = []
     for key, value in settings.items():
         if key.upper() in present:
-            raise ValueError(f"{path}: &IN1 already sets {key.upper()}")
+            raise ValueError(f"{path}: {tag} already sets {key.upper()}")
         if isinstance(value, bool):
             text = ".TRUE." if value else ".FALSE."
         else:
@@ -693,7 +700,7 @@ def _scientific(case: Mapping[str, Any], uncertainty_mode: str = "legacy_weight"
 
 def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any], workdir: Path,
              efit: str, uncertainty_mode: str = "legacy_weight",
-             in1_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
+             namelist_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """One configuration over the chosen slices of one shot, serially."""
     import shutil
 
@@ -709,7 +716,10 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
         numerics=scientific.numerics, constraints=scientific.constraints,
     )
     inputs = prepare_efit_inputs(copy.deepcopy(built), config)
-    patched = [patch_in1(path, in1_overrides) for path in inputs.kfiles] if in1_overrides else []
+    patched = (
+        [patch_namelist(path, FITDELZ_GROUP, namelist_overrides) for path in inputs.kfiles]
+        if namelist_overrides else []
+    )
     started = _clock.perf_counter()
     result = run_efit(inputs, config)
     seconds = _clock.perf_counter() - started
@@ -732,7 +742,7 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
             "collapsed": bool(entry.get("collapsed")),
             "solver_errors": entry.get("solver_errors", []),
             "delz": final_delz(text, time_ms),
-            "in1_overrides": patched[0] if patched else [],
+            "namelist_overrides": patched[0] if patched else [],
             # The driver calls EFIT once per slice, so this is the slice's own
             # serial wall time; were several slices passed, it is their mean.
             "seconds": seconds / max(1, len(times)),
@@ -768,7 +778,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--inner-iterations", default=None,
                         help="comma-separated subset of NXITER values to run")
     parser.add_argument("--fitdelz", action="store_true",
-                        help="switch on EFIT's rigid vertical-shift fit (FITDELZ), written into &IN1")
+                        help="switch on EFIT's rigid vertical-shift fit (FITDELZ), written into &INWANT")
     parser.add_argument("--errdelz", type=float, default=None, help="with --fitdelz: EFIT's ERRDELZ")
     parser.add_argument("--stabdz", type=float, default=None, help="with --fitdelz: EFIT's STABDZ")
     parser.add_argument("--exclude-probes", default=None,
@@ -782,13 +792,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
-    in1_overrides: dict[str, Any] = {}
+    namelist_overrides: dict[str, Any] = {}
     if args.fitdelz:
-        in1_overrides["FITDELZ"] = True
+        namelist_overrides["FITDELZ"] = True
         if args.errdelz is not None:
-            in1_overrides["ERRDELZ"] = float(args.errdelz)
+            namelist_overrides["ERRDELZ"] = float(args.errdelz)
         if args.stabdz is not None:
-            in1_overrides["STABDZ"] = float(args.stabdz)
+            namelist_overrides["STABDZ"] = float(args.stabdz)
     elif args.errdelz is not None or args.stabdz is not None:
         parser.error("--errdelz/--stabdz need --fitdelz")
     exclude_probes = tuple(n for n in (args.exclude_probes or "").split(",") if n)
@@ -857,7 +867,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run = run_case(built, shot=shot, times=chosen, case=case,
                                workdir=output / f"shot_{shot}" / f"t{round(time * 1000):05d}" / case["name"],
                                efit=str(efit), uncertainty_mode=args.uncertainty_mode,
-                               in1_overrides=in1_overrides)
+                               namelist_overrides=namelist_overrides)
                 record = run["records"][0]
                 records.append(record)
                 print(f"{shot}@{record['time_ms']} {case['name']}: {record['exit_path'] or record['outcome']} "
@@ -873,7 +883,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "tables": {f"{grid}/{table}": v for (grid, table), v in tables.items()},
         "slices": {str(k): list(v) for k, v in SLICES.items()},
         "uncertainty_mode": args.uncertainty_mode,
-        "in1_overrides": {k: v for k, v in in1_overrides.items()},
+        "namelist_overrides": {k: v for k, v in namelist_overrides.items()},
         "excluded_probes": list(exclude_probes),
         "plan": plan,
         "analysis": analysis,
