@@ -169,6 +169,17 @@ That build runs on macOS/Apple Silicon and on native Windows. The adapter runs N
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
+NICE (`vaft.code.nice`, issue #666) is **experimental**: the adapter prepares and collects a
+standalone `nice_recon` run, but it does not yet reconstruct VEST equilibria, and nothing in the
+routine pipeline uses it. Upstream has no install step, so `$NICEHOME` is the built source tree;
+VAFT looks for `build/nice_recon`, then `run/nice_recon`, then `nice_recon` beneath it, or takes
+`NiceConfig.executable`. The validated build is pinned revision `7ad1ea8f` with AppleClang, Eigen 3
+and SuiteSparse; see `vaft/code/nice/README.md` for the flags it needs.
+
+```bash
+export NICEHOME=/path/to/nice     # experimental; source tree with build/nice_recon
+```
+
 GACODE differs from every other code here in three ways, and each one breaks an assumption stated
 above. It **builds in place**, so `$GACODEHOME` is the source checkout rather than a separate prefix.
 Each suite member carries its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not

@@ -1,5 +1,10 @@
 # Issue #666: corrected adapter, reconstruction unresolved
 
+Only the written summaries are in the repository. The JSON run records and
+plots this page cites (`collected.json`, `focus.json`, `<shot>.json`,
+`families.json`, `efit_*.json`, about 20 MB with the superseded and
+intermediate studies) are kept outside it; ask on #666 for a copy.
+
 Follow-up: [331 ms initialization/response/solver isolation](isolation_331ms/README.md)
 records the 2026-09-09 diagnostic controls. In particular, mode 1's reported
 magnetic cost is a VacTH-derived boundary objective, not the original

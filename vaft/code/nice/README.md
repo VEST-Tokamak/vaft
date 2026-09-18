@@ -1,5 +1,9 @@
 # NICE adapter
 
+> **Experimental.** No VEST reference slice reconstructs yet: 0 of 34 in the
+> issue #666 study (see `validation/nice_issue_666/README.md`). Nothing in the
+> routine pipeline calls this adapter, and no production default depends on it.
+
 This adapter prepares the standalone NICE `nice_recon` text-file interface
 directly from canonical ODS data. It does not translate an EFIT k-file or reuse
 TokaMaker geometry.
@@ -102,17 +106,25 @@ a successful equilibrium unless NICE writes its native equilibrium and
 convergence tables and does not report an invalid plasma.
 
 Reproduce the corrected study using existing local clones and fresh output
-directories (no network fetch or upstream source edits):
+directories (no network fetch or upstream source edits). `$NICEHOME` is the
+built NICE source tree at the pinned revision; `--executable` names the
+binary explicitly:
 
 ```sh
-PYTHONPATH=. python -m vaft.code.nice.validate_reference \
-  --nice-home /Users/yun/git/nice \
-  --executable /tmp/nice-build-clang2/nice_recon \
-  --efit-executable /Users/yun/git/efit/vaft-install/bin/efit \
-  --efit-table-dir /Users/yun/git/vaft/vaft/data/efit \
-  --native-dir /tmp/nice-666-new-run \
-  --report-dir validation/nice_issue_666_new_run
+python -m vaft.code.nice.validate_reference \
+  --nice-home "$NICEHOME" \
+  --executable "$NICEHOME/build/nice_recon" \
+  --efit-executable "$EFITHOME/bin/efit" \
+  --efit-table-dir vaft/data/efit \
+  --native-dir /path/to/fresh/native-run \
+  --report-dir /path/to/fresh/report
 ```
+
+The committed study predates develop's EFIT changes: the per-channel
+decisions API (#296), EFIT-conformant sigma (#891), the regenerated Green
+table (#701) and the 26-group coil set (#708). The conditioner now builds
+the same channel set through the decisions API, but a re-run's EFIT side
+will not reproduce the September numbers.
 
 `--focus-only` runs 331 ms and its family study. `--collect-only` regenerates
 `collected.json` from existing native artifacts after parser changes, preserving

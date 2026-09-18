@@ -1,7 +1,12 @@
-"""NICE free-boundary magnetic-reconstruction adapter.
+"""NICE free-boundary magnetic-reconstruction adapter (experimental, #666).
 
 Preparation and collection are pure Python and do not require NICE.  Only
 ``run_nice`` resolves and executes the standalone ``nice_recon`` program.
+
+Experimental: no VEST reference slice reconstructs yet (0 of 34 in the
+issue #666 study), and ``NiceResult.scientifically_usable`` means numerical
+stage success only.  Nothing in the routine pipeline calls this adapter and
+no production default depends on it.
 """
 
 from .config import (
