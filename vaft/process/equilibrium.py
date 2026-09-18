@@ -5081,8 +5081,8 @@ def romero_flux_balance(
     ValueError
         Arrays of different lengths, fewer than three samples, a time axis
         that does not strictly increase, a non-finite input, a zero plasma
-        current, or fluxes whose sign says they are not in Romero's convention
-        [-].
+        current or one that changes sign, or fluxes whose sign says they are
+        not in Romero's convention [-].
 
     Processing steps
     ----------------
@@ -5158,6 +5158,13 @@ def romero_flux_balance(
         if values.shape != t.shape:
             raise ValueError(f"{name} has shape {values.shape}; time has {t.shape}")
     ip, psi_b, psi_c = series["I_p"], series["psi_boundary"], series["psi_equilibrium"]
+    if np.any(ip > 0.0) and np.any(ip < 0.0):
+        # Checked before L_i, whose sign test would otherwise blame the flux
+        # convention for what is a current reversal.
+        raise ValueError(
+            "I_p changes sign within the window; L_i is undefined through the "
+            "reversal -- split the window at the zero crossing"
+        )
     try:
         r_p, i_ni = np.broadcast_to(np.asarray(R_p, dtype=float), t.shape), np.broadcast_to(
             np.asarray(I_ni, dtype=float), t.shape

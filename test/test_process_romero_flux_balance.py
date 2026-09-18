@@ -102,11 +102,14 @@ def test_an_inverted_flux_convention_is_refused():
         (lambda a: {**a, "time": np.r_[a["time"][:2], a["time"][1:-1]]}, "increasing"),
         (lambda a: {**a, "I_p": a["I_p"][:-1]}, "shape"),
         (lambda a: {**a, "I_p": np.where(np.arange(T.size) == 7, 0.0, a["I_p"])}, "non-zero"),
+        (lambda a: {**a, "I_p": np.where(np.arange(T.size) > 2000, -a["I_p"], a["I_p"])},
+         "changes sign"),
         (lambda a: {**a, "R_p": np.ones(3)}, "match time"),
         (lambda a: {k: v[:2] if isinstance(v, np.ndarray) and v.shape == T.shape else v
                     for k, v in a.items()}, "three"),
     ],
-    ids=["reversed", "duplicate_time", "short_series", "zero_current", "bad_R_p", "two_samples"],
+    ids=["reversed", "duplicate_time", "short_series", "zero_current", "current_reversal",
+         "bad_R_p", "two_samples"],
 )
 def test_a_malformed_history_is_refused(mutate, match):
     base = {"time": T, "I_p": i_p(T), "psi_boundary": psi_b(T),
