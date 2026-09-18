@@ -497,10 +497,21 @@ def test_a_step_does_not_inherit_the_enclosing_steps_binding(tmp_path, slurm, mo
         "SLURM_MEM_PER_CPU": "1000", "SLURM_CPUS_PER_TASK": "8", "SRUN_CPUS_PER_TASK": "8",
     }.items():
         monkeypatch.setenv(name, value)
-    SlurmBackend().run(_python(_workdir(tmp_path), "pass", resources=ResourceRequest(memory_mb=512)))
+    monkeypatch.setenv("SLURM_DISTRIBUTION", "cyclic")
+    work = _workdir(tmp_path)
+    inherited = ("SLURM_CPU_BIND", "SLURM_CPU_BIND_LIST", "SLURM_CPUS_PER_TASK", "SRUN_CPUS_PER_TASK", "SLURM_DISTRIBUTION")
+
+    SlurmBackend().run(_python(work, "pass", resources=ResourceRequest(memory_mb=512)))
     environment = json.loads((slurm.directory / "srun_env.json").read_text())
-    assert not [key for key in environment if key.startswith(("SLURM_CPU_BIND", "SLURM_MEM_PER", "SLURM_CPUS_PER", "SRUN_"))]
+    assert not set(inherited + ("SLURM_MEM_PER_CPU",)) & set(environment)
     assert environment["SLURM_JOB_ID"] == "4242"
+
+    # Without --mem the job's memory default is kept; an explicit overlay wins.
+    SlurmBackend().run(_python(work, "pass", env={"SLURM_CPU_BIND": "none"}))
+    environment = json.loads((slurm.directory / "srun_env.json").read_text())
+    assert environment["SLURM_MEM_PER_CPU"] == "1000"
+    assert environment["SLURM_CPU_BIND"] == "none"
+    assert "SLURM_CPU_BIND_LIST" not in environment
 
 
 def test_a_step_timeout_interrupts_srun_and_is_returned(tmp_path, slurm, monkeypatch):

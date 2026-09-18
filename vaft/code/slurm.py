@@ -150,12 +150,24 @@ def _submission_environment() -> dict[str, str]:
 #: default conflicts with ``--mem``.
 _STEP_INHERITED = (
     "SLURM_CPU_BIND", "SLURM_MEM_BIND", "SLURM_DISTRIBUTION", "SLURM_CPUS_PER_TASK",
-    "SLURM_MEM_PER_CPU", "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_GPU", "SRUN_CPUS_PER_TASK",
+    "SLURM_CPUS_PER_GPU", "SLURM_GPUS_PER_TASK", "SLURM_TRES_PER_TASK", "SRUN_CPUS_PER_TASK",
 )
+#: Dropped only when the step asks for ``--mem``, which they would contradict;
+#: otherwise the step keeps the job's per-CPU/per-node memory default.
+_STEP_MEMORY = ("SLURM_MEM_PER_CPU", "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_GPU")
 
 
-def _step_environment(environment: dict[str, str]) -> dict[str, str]:
-    return {key: value for key, value in environment.items() if not key.startswith(_STEP_INHERITED)}
+def _step_environment(request: ExecutionRequest) -> dict[str, str]:
+    """The environment for ``srun``: inherited step defaults dropped, then the
+    request's own overlay and thread defaults applied as for a local launch.
+
+    Only the *inherited* environment is filtered, so a caller who sets, say,
+    ``SLURM_CPU_BIND`` in ``request.env`` (or passes ``--cpu-bind`` through
+    ``extra_args``) still gets it.
+    """
+    dropped = _STEP_INHERITED + (_STEP_MEMORY if request.resources.memory_mb is not None else ())
+    inherited = {key: value for key, value in os.environ.items() if not key.startswith(dropped)}
+    return execution_environment(request, base=inherited)
 
 
 def _cpus(request: ExecutionRequest) -> int:
@@ -326,7 +338,7 @@ class SlurmBackend:
             argv.append("--overlap")
         argv += [*self.extra_args, "--", *(str(part) for part in request.command)]
 
-        environment = _step_environment(execution_environment(request))
+        environment = _step_environment(request)
         log_path = Path(request.log_path) if request.log_path is not None else None
         started = time.monotonic()
         if log_path is None:

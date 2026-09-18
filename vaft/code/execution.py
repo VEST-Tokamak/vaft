@@ -119,9 +119,15 @@ def _text(stream: Any) -> str:
     return stream or ""
 
 
-def execution_environment(request: ExecutionRequest) -> dict[str, str]:
-    """The full environment a local launch of ``request`` receives."""
-    environment = os.environ.copy()
+def execution_environment(
+    request: ExecutionRequest, base: Optional[Mapping[str, str]] = None
+) -> dict[str, str]:
+    """The full environment a local launch of ``request`` receives.
+
+    ``base`` replaces the inherited ``os.environ`` (a backend that must filter
+    what it inherits passes the filtered copy).
+    """
+    environment = dict(os.environ if base is None else base)
     environment.update({str(key): str(value) for key, value in request.env.items()})
     threads = request.resources.threads_per_task
     if threads is not None:

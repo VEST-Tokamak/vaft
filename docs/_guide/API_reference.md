@@ -575,7 +575,10 @@ result = run_efit(inputs, config)          # same EFITResult as a local run
   is interrupted so that it cancels the step. If `srun` still does not exit, it is killed and its
   step is cancelled by its unique name. The local deadline starts at launch, so time spent waiting
   for step resources counts against it. The backend adds `--overlap` when the caller is itself
-  running in a step.
+  running in a step. It also leaves out the step defaults the caller inherited from an enclosing
+  step or job: CPU and memory binding, distribution, per-task CPUs and GPUs, and, when `--mem` is
+  requested, the per-CPU memory setting. Values that you set in the request's `env`, or pass
+  through `extra_args` (for example `--cpu-bind=none`), are kept.
 - **Batch** (everywhere else). The backend writes a job script with mode 0700 under
   `<workdir>/.vaft-slurm/`, submits it with `sbatch --parsable --no-requeue`, and polls `squeue` until
   the job is no longer live. The script records the program's exit status itself, so the backend
