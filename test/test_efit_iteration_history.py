@@ -292,10 +292,12 @@ def test_summary_writes_the_sidecar_and_only_a_pointer_into_the_ods(tmp_path):
     assert result.iteration_history_file == tmp_path / SIDECAR_NAME
     assert str(result.iteration_history_file) in result.artifact_hashes
     assert result.iteration_history.at_time(0.319).iterations_n == 3
-    root = "equilibrium.code.parameters.iteration_history"
-    assert result.ods[f"{root}.path"] == str(result.iteration_history_file)
-    assert result.ods[f"{root}.level"] == "summary"
-    assert result.ods[f"{root}.schema_version"] == 1
+    # One flat JSON-string leaf: a nested code.parameters path would not
+    # survive the Access Layer (#561).
+    pointer = json.loads(result.ods["equilibrium.code.parameters.iteration_history"])
+    assert pointer["path"] == str(result.iteration_history_file)
+    assert pointer["level"] == "summary" and pointer["schema_version"] == 1
+    assert pointer["sha256"] == result.artifact_hashes[str(result.iteration_history_file)]
     # Iteration is a numerical axis: the physical one is untouched.
     assert list(result.ods["equilibrium.time"]) == [0.319]
     assert read_iteration_history(result.iteration_history_file).to_dict() == (

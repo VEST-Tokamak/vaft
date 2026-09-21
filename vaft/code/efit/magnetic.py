@@ -1408,12 +1408,19 @@ def collect_efit_outputs(
             kfiles=tuple(Path(path) for path in executed_kfiles) or kfiles,
         )
         if ods is not None:
-            root = "equilibrium.code.parameters.iteration_history"
-            ods[f"{root}.path"] = str(iteration_history_file)
-            ods[f"{root}.sha256"] = _file_sha256(iteration_history_file)
-            ods[f"{root}.schema"] = iteration_history.schema
-            ods[f"{root}.schema_version"] = int(iteration_history.schema_version)
-            ods[f"{root}.level"] = iteration_history.level
+            # One flat leaf holding a JSON string: `code.parameters` is a
+            # STR_0D, and a nested sub-path is discarded by the Access Layer
+            # together with every flat leaf beside it (#561).
+            ods["equilibrium.code.parameters.iteration_history"] = json.dumps(
+                {
+                    "path": str(iteration_history_file),
+                    "sha256": _file_sha256(iteration_history_file),
+                    "schema": iteration_history.schema,
+                    "schema_version": int(iteration_history.schema_version),
+                    "level": iteration_history.level,
+                },
+                sort_keys=True,
+            )
 
     artifact_hashes = {
         str(path): _file_sha256(path)

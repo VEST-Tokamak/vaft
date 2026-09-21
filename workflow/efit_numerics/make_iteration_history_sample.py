@@ -5,7 +5,7 @@
 
 ``notebooks/convergence_study_of_efit.ipynb`` inspects a saved history rather
 than running EFIT, so it needs one to ship. This writes two, from the same
-k-files, differing only in ``NXITER``:
+k-files, differing in ``NXITER`` and in the ``MXITER`` cap that moves with it:
 
 - ``39915_nxiter1.json`` -- the routine configuration (EFIT's default
   ``NXITER=1``, ``MXITER=100``);
@@ -103,11 +103,14 @@ def main(argv: list[str] | None = None) -> int:
         product = Path(scratch) / "product.json"
         product.write_bytes(gzip.decompress(PRODUCT.read_bytes()))
         ods = load_omas_json(str(product), consistency_check=False)
+    # Point the k-file writer at the packaged table, as ab_efit_table does.
+    # This edits the input cache the k-files are written from; the product
+    # itself is never written back.
     table = str(Path(data_path("efit")).resolve()) + "/"
+    parameters = ods["equilibrium.code.parameters"]
     for index in range(len(ods["equilibrium.time"])):
-        root = f"equilibrium.code.parameters.time_slice.{index}.IN1"
-        ods[f"{root}.TABLE_DIR"] = table
-        ods[f"{root}.INPUT_DIR"] = table
+        parameters[f"time_slice.{index}.IN1.TABLE_DIR"] = table
+        parameters[f"time_slice.{index}.IN1.INPUT_DIR"] = table
 
     args.output.mkdir(parents=True, exist_ok=True)
     for name, inner in CASES.items():
