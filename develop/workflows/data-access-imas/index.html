@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1b6b7ba</code>. What is described
+  <code>3797052</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -376,6 +376,11 @@ above is what the production pipeline uses, and it is unambiguous — prefer it 
       <td><code class="language-plaintext highlighter-rouge">soft_x_rays(ods, shot, daq_label, **kwargs)</code></td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">pulse_schedule</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pulse_schedule.py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pulse_schedule(ods, shot, data_root=None)</code></td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">dataset_description</code></td>
       <td><code class="language-plaintext highlighter-rouge">dataset_description.py</code></td>
       <td><code class="language-plaintext highlighter-rouge">dataset_description(ods, source, options=None)</code></td>
@@ -410,6 +415,10 @@ above is what the production pipeline uses, and it is unambiguous — prefer it 
 <code class="language-plaintext highlighter-rouge">(ods, shot, tstart, tend, dt)</code>: they resample DAQ traces onto a uniform window you choose.</li>
   <li><strong>File-backed diagnostics</strong> (<code class="language-plaintext highlighter-rouge">thomson_scattering</code>, <code class="language-plaintext highlighter-rouge">charge_exchange</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays</code>) take a shot plus a
 file/root override: their timebase comes from the exported file, not from you.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">pulse_schedule</code></strong> reads the per-shot ShotLog record FileDB keeps under <code class="language-plaintext highlighter-rouge">legacy/shotlog/{shot}/</code>
+(<code class="language-plaintext highlighter-rouge">python -m vaft.cli shotlog extract</code>) and writes the operators’ planned triggers as
+<code class="language-plaintext highlighter-rouge">pulse_schedule.event(:)</code> on the DAQ clock. They are what was <em>set</em>, not measured; each event’s
+provenance names the workbook, sheet and cell it came from.</li>
   <li><strong>Reference-ODS diagnostics</strong> (<code class="language-plaintext highlighter-rouge">pf_passive</code>, <code class="language-plaintext highlighter-rouge">em_coupling</code>) take a <code class="language-plaintext highlighter-rouge">source</code> path to a reference ODS.</li>
 </ul>
 
@@ -1287,7 +1296,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 04:49:00 +0000"
+        "time": "2026-09-21 05:36:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

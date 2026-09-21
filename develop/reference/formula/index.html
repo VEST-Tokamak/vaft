@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1b6b7ba</code>. What is described
+  <code>3797052</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -300,7 +300,7 @@ numerical notes, references), and these pages are generated from those docstring
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>87</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>89</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr>
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -433,7 +433,7 @@ which documents the conventions and cites every entry.</p>
 
 <h2 id="equilibrium">Equilibrium</h2>
 
-<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">87 functions</a>.</p>
+<p>Plasma equilibrium, current, energy, and geometry calculations. — <a href="/vaft/develop/reference/formula/equilibrium/">89 functions</a>.</p>
 
 <ul class="formula-index">
   <li><a href="/vaft/develop/reference/formula/equilibrium/#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a> <em>(empirical)</em> &mdash; D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -532,6 +532,8 @@ which documents the conventions and cites every entry.</p>
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#magnetic_energy_from_li_B_pa_V_p"><code>magnetic_energy_from_li_B_pa_V_p</code></a> <em>(convention)</em> &mdash; Poloidal magnetic energy from the internal inductance, $W_M = l_i B_{pa}^2 V_p/(2\mu_0)$.
 </li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#miller_surface"><code>miller_surface</code></a> <em>(convention)</em> &mdash; Major radius and height of a Miller-parametrised flux surface.
+</li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#nbi_heating_power_from_I_nbi_V_nbi"><code>nbi_heating_power_from_I_nbi_V_nbi</code></a> &mdash; Neutral-beam injected power $P_{nbi} = I_{nbi}V_{nbi}$.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#normalize_psi"><code>normalize_psi</code></a> &mdash; Deprecated: use <code class="language-plaintext highlighter-rouge">psi_normalised</code>.
@@ -621,6 +623,8 @@ which documents the conventions and cites every entry.</p>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_lower_from_RZ_boundary"><code>triangularity_lower_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Lower boundary triangularity $\delta_l$ from the contour’s lowest point.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#triangularity_upper_from_RZ_boundary"><code>triangularity_upper_from_RZ_boundary</code></a> <em>(convention)</em> &mdash; Upper boundary triangularity $\delta_u$ from the contour’s highest point.
+</li>
+  <li><a href="/vaft/develop/reference/formula/equilibrium/#vacuum_toroidal_field"><code>vacuum_toroidal_field</code></a> <em>(convention)</em> &mdash; Vacuum toroidal field of a set of toroidal-field coils.
 </li>
   <li><a href="/vaft/develop/reference/formula/equilibrium/#verify_kadomtsev_constraint"><code>verify_kadomtsev_constraint</code></a> &mdash; Reconstruct the Kadomtsev constraint value from dimensionless indices.
 </li>
@@ -1309,7 +1313,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 04:49:00 +0000"
+        "time": "2026-09-21 05:36:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
