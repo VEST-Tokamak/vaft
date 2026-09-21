@@ -276,3 +276,23 @@ def test_visual_baselines_still_point_at_canonical_pages():
     stale = sorted(url[len("/vaft"):] for url in referenced
                    if url[len("/vaft"):] not in canonical)
     assert not stale, f"visual specs assert on URLs that are no longer canonical: {stale}"
+
+
+@pytest.mark.parametrize(
+    "page",
+    sorted((DOCS / "_guide").glob("Formula_reference_*.md"))
+    + sorted((DOCS / "_guide").glob("Process_reference_*.md")),
+    ids=lambda page: page.name,
+)
+def test_reference_category_pages_use_the_shared_template(page):
+    """A category page is front matter plus the shared include, nothing else.
+
+    The body used to be one Liquid template copied into every page; a new
+    category copied from an old page would bring the unstyled layout back.
+    """
+    kind = "formula" if page.name.startswith("Formula_") else "process"
+    category = page.stem.split("_reference_", 1)[1]
+    body = page.read_text(encoding="utf-8").split("\n---\n", 1)[1]
+    assert body.strip() == (
+        f'{{% include reference/category.html kind="{kind}" category="{category}" %}}'
+    )
