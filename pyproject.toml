@@ -63,7 +63,9 @@ dependencies = [
   "tqdm>=4.67.3",
   # omas imports it too (and declares nothing).
   "uncertainties>=3.2.2,<4",
-  # vaft.database catches urllib3.exceptions.MaxRetryError, which 2.x keeps.
+  # vaft.database.utils imports it for MaxRetryError. Measured: against an
+  # unreachable HSDS, h5pyd raises OSError on both 1.26.13 and 2.8.0, so the
+  # upgrade changes nothing there (the handler itself is a separate defect).
   "urllib3>=1.26.13,<3",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
