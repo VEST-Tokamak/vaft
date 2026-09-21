@@ -1,7 +1,8 @@
 """Every shipped and workflow source file parses on the oldest Python we promise.
 
-CI runs on 3.12 only, so nothing else notices a 3.12-only construct in a file
-that ``pyproject.toml`` says works on 3.10 (cold review efit-workflows F1).
+Routine CI runs on the canonical interpreter (3.14) only, so nothing else
+notices a newer-only construct in a file that ``pyproject.toml`` says works on
+3.10 (cold review efit-workflows F1).
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ import ast
 import io
 import sys
 import tokenize
+import warnings
 from pathlib import Path
 
 import pytest
@@ -86,3 +88,21 @@ def test_every_source_parses_with_the_floor_grammar():
         except SyntaxError as exc:
             failures.append(f"{path.relative_to(REPOSITORY)}:{exc.lineno}: {exc.msg}")
     assert not failures, "not valid Python 3.10: " + "; ".join(failures)
+
+
+def test_no_source_compiles_with_a_syntax_warning():
+    """An invalid escape such as ``"\\p"`` is a SyntaxWarning today and is
+    scheduled to become a SyntaxError; a docstring holding LaTeX needs ``r\"\"\"``.
+    Found on the Python 3.14 bring-up (#1009)."""
+    offenders = []
+    # Tests too: a regex in pytest.raises(match="...") is where "\\s" hides.
+    for path in [*_sources(), *sorted((REPOSITORY / "test").rglob("*.py"))]:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            compile(path.read_text(encoding="utf-8"), str(path), "exec")
+        offenders += [
+            f"{path.relative_to(REPOSITORY)}:{w.lineno}: {w.message}"
+            for w in caught
+            if issubclass(w.category, SyntaxWarning)
+        ]
+    assert not offenders, "; ".join(offenders)

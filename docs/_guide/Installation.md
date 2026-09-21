@@ -7,7 +7,7 @@ layout: post
 permalink: /workflows/start-here/
 guide:
   architecture: Entry point from installation to an offline ODS and optional public data.
-  prerequisites: Python 3.10–3.13, Git, and a fresh virtual environment.
+  prerequisites: Python 3.10–3.14, Git, and a fresh virtual environment.
   expected: A local plasma-current plot, followed optionally by read-only shot 39915 metadata.
   status: Verified offline and against public HSDS.
 related:
@@ -22,7 +22,7 @@ database credentials or an external fusion code. Public VEST data access is the 
 
 ## 1. Install VAFT from source
 
-VAFT supports Python 3.10–3.13. Use a virtual environment and install the repository source:
+VAFT supports Python 3.10–3.14. Use a virtual environment and install the repository source:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git

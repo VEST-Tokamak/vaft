@@ -226,23 +226,23 @@ def test_platform_wrappers_are_thin():
 
 
 def test_python_version_bounds_are_parsed():
-    assert checker.parse_version_bounds(">=3.10,<3.14") == ((3, 10), (3, 14))
+    assert checker.parse_version_bounds(">=3.10,<3.15") == ((3, 10), (3, 15))
     assert checker.parse_version_bounds("") == (None, None)
 
 
 def test_requires_python_is_read_from_the_checkout():
-    assert checker.read_requires_python() == ">=3.10,<3.14"
+    assert checker.read_requires_python() == ">=3.10,<3.15"
 
 
-@pytest.mark.parametrize("version", [(3, 9), (3, 14)])
+@pytest.mark.parametrize("version", [(3, 9), (3, 15)])
 def test_unsupported_python_fails_with_remediation(version):
-    result = checker.check_python_version(version=version, specifier=">=3.10,<3.14")
+    result = checker.check_python_version(version=version, specifier=">=3.10,<3.15")
     assert result.failed
     assert result.remediation
 
 
 def test_supported_python_passes():
-    result = checker.check_python_version(version=(3, 12), specifier=">=3.10,<3.14")
+    result = checker.check_python_version(version=(3, 14), specifier=">=3.10,<3.15")
     assert result.status == checker.PASS
 
 

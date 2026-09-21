@@ -14,7 +14,7 @@ channels:
   - conda-forge
 dependencies:
   # Course reference interpreter. Must satisfy `requires-python` in pyproject.toml.
-  - python=3.12
+  - python=3.14
   - pip
   - git
   - jupyterlab
