@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "purpose": "CHEASE fixed-boundary refinement of the analytic Solov'ev equilibrium that notebooks/analytic_island_model_and_synthetic_response_model.ipynb compares against (#886)",
+  "generated": "2026-09-21T07:14:44+00:00",
+  "generator": "workflow/island_sxr/generate_chease_fixture.py",
+  "solovev_example": {
+    "topology": "limited",
+    "toroidal_field": 0.13,
+    "a_parameter": 0.5,
+    "resolution": 129
+  },
+  "chease_config": {
+    "nw": 129,
+    "create_plot": false
+  },
+  "chease_executable_sha256": "e79681fb08e6174c673f36b6afde13d25500d792ba99091392917ba3adc0cb86",
+  "chease_source_revision": "0b2a7d2",
+  "vaft_commit": "7196030f",
+  "geqdsk_sha256": "921637e024c2ec384fa7ac924af6a6e61c341038ddcd60a99d3aa61829e8fc2f"
+}
