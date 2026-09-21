@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2623d68</code>. What is described
+  <code>c88eb94</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2874,14 +2874,14 @@ neither the IMAS $l_{i,3}$ nor the large-aspect-ratio $l_i = \langle B_p^2
 
 <h3 id="miller_surface"><code class="language-plaintext highlighter-rouge">miller_surface</code></h3>
 
-<p class="formula-signature"><code>miller_surface(r, theta, R0, kappa, delta, shift=0.0)</code></p>
+<p class="formula-signature"><code>miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0)</code></p>
 
 <p><strong>Convention-sensitive.</strong> </p>
 
 <p>Major radius and height of a Miller-parametrised flux surface.</p>
 
 \[R = R_0 + \Delta + r\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right),
-\qquad Z = \kappa\, r \sin\theta\]
+\qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)\]
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -2897,6 +2897,10 @@ neither the IMAS $l_{i,3}$ nor the large-aspect-ratio $l_i = \langle B_p^2
   <tr><td><code>delta</code></td><td>float or np.ndarray</td><td>-</td><td><p>Triangularity of the surface, in $(-1, 1)$.</p>
 </td></tr>
   <tr><td><code>shift</code></td><td>float or np.ndarray</td><td>m</td><td><p>Shafranov shift of the surface centre along $R$.</p>
+</td></tr>
+  <tr><td><code>squareness</code></td><td>float or np.ndarray</td><td>-</td><td><p>Squareness $\zeta$, in $(-1/2, 1/2)$.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td>float or np.ndarray</td><td>m</td><td><p>Height of the surface centre.</p>
 </td></tr>
   </tbody>
 </table>
@@ -2914,7 +2918,8 @@ neither the IMAS $l_{i,3}$ nor the large-aspect-ratio $l_i = \langle B_p^2
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    <code class="language-plaintext highlighter-rouge">kappa</code> is not positive or <code class="language-plaintext highlighter-rouge">delta</code> lies outside $(-1, 1)$.</p>
+    <code class="language-plaintext highlighter-rouge">r</code> is negative or not finite, <code class="language-plaintext highlighter-rouge">kappa</code> is not positive, <code class="language-plaintext highlighter-rouge">delta</code>
+    lies outside $(-1, 1)$, or <code class="language-plaintext highlighter-rouge">squareness</code> outside $(-1/2, 1/2)$.</p>
 
 <p><strong>Convention.</strong></p>
 
@@ -2922,7 +2927,9 @@ neither the IMAS $l_{i,3}$ nor the large-aspect-ratio $l_i = \langle B_p^2
 the surface’s own triangularity: a family of nested surfaces passes its
 radial profile (VAFT’s schematics use $\delta(r) = \delta_a r/a$).
 <code class="language-plaintext highlighter-rouge">theta</code> is the parametrisation angle, not a straight-field-line angle
-(see <code class="language-plaintext highlighter-rouge">straight_field_line_angle</code>).</p>
+(see <code class="language-plaintext highlighter-rouge">straight_field_line_angle</code>). <code class="language-plaintext highlighter-rouge">squareness = 0</code> and <code class="language-plaintext highlighter-rouge">Z0 = 0</code>
+reproduce the five-parameter surface exactly; the process layer’s
+<code class="language-plaintext highlighter-rouge">evaluate_miller</code> evaluates this same function.</p>
 
 <p><strong>Physical interpretation.</strong></p>
 
@@ -5320,7 +5327,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 06:48:01 +0000"
+        "time": "2026-09-21 06:55:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

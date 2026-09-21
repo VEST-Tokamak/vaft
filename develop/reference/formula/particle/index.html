@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2623d68</code>. What is described
+  <code>c88eb94</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/particle.py"><code class="language-plaintext highlighter-rouge">vaft/formula/particle.py</code></a>:
-6 public functions.  The category overview and notation come from the module
+7 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
 
@@ -308,6 +308,8 @@ against which the drift relations can be checked.</p>
   <li><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a> &mdash; E-cross-B drift velocity of the guiding centre.
 </li>
   <li><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a> &mdash; Grad-B drift velocity of the guiding centre.
+</li>
+  <li><a href="#gyration_offset"><code>gyration_offset</code></a> &mdash; Position of a gyrating particle relative to its guiding centre.
 </li>
   <li><a href="#gyrofrequency"><code>gyrofrequency</code></a> &mdash; Signed gyrofrequency of a charged particle.
 </li>
@@ -586,6 +588,69 @@ gyration.</p>
 </li>
 </ol>
 
+<h3 id="gyration_offset"><code class="language-plaintext highlighter-rouge">gyration_offset</code></h3>
+
+<p class="formula-signature"><code>gyration_offset(q, m, B, v)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Position of a gyrating particle relative to its guiding centre.</p>
+
+\[\boldsymbol{\rho} = \frac{m}{qB^{2}}\,\mathbf{B}\times\mathbf{v}_\perp\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>v</code></td><td>array_like</td><td>m/s</td><td><p>Velocity in the guiding-centre frame; only its part perpendicular to <code class="language-plaintext highlighter-rouge">B</code> enters.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m</td><td><p>Vector from the guiding centre to the particle.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, <code class="language-plaintext highlighter-rouge">m</code> is not positive, or
+    <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Guiding centre = position minus this vector. Its magnitude is
+<code class="language-plaintext highlighter-rouge">larmor_radius</code> and its sense follows the charge: for $\mathbf{B} =
+\hat z$ and $\mathbf{v} = \hat x$, an ion sits a Larmor radius along
+$+\hat y$ from its guiding centre, an electron along $-\hat y$.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The Lorentz force $q\mathbf{v}\times\mathbf{B}$ points from the particle
+to the centre of its orbit; this is minus that direction times the
+Larmor radius.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>Uniform field over the orbit; <code class="language-plaintext highlighter-rouge">v</code> measured in the frame moving with any
+drift.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
+</li>
+</ol>
+
 <h3 id="gyrofrequency"><code class="language-plaintext highlighter-rouge">gyrofrequency</code></h3>
 
 <p class="formula-signature"><code>gyrofrequency(q, m, B)</code></p>
@@ -808,7 +873,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#boris_orbit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">boris_orbit</a></li><li class="page-toc-item page-toc-level-3"><a href="#curvature_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">curvature_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#exb_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exb_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_b_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_b_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyrofrequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyrofrequency</a></li><li class="page-toc-item page-toc-level-3"><a href="#larmor_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">larmor_radius</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#boris_orbit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">boris_orbit</a></li><li class="page-toc-item page-toc-level-3"><a href="#curvature_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">curvature_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#exb_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exb_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_b_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_b_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyration_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyration_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyrofrequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyrofrequency</a></li><li class="page-toc-item page-toc-level-3"><a href="#larmor_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">larmor_radius</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -926,7 +991,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 06:48:01 +0000"
+        "time": "2026-09-21 06:55:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
