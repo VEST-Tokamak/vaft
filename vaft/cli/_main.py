@@ -10,6 +10,7 @@ from typing import Iterable
 
 _COMMANDS = {
     "filedb": (".filedb", "resolve and audit local FileDB layouts"),
+    "shotlog": (".shotlog", "archive the VEST ShotLog and extract per-shot records"),
     "raw-redump": (".raw_redump", "serial, restartable VEST raw-DAQ exports"),
     "raw-upgrade": (".raw_upgrade", "in-place timebase upgrade for legacy raw dumps"),
     "compare-ods": (".compare_ods", "compare two local ODS products"),

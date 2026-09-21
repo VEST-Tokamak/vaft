@@ -22,6 +22,11 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
   camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
   camera_visible_fluctuation/index.json   what is reserved and why
+  shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical (#995)
+  shotlog/input/supplementary/            real logs outside the monthly naming (ERC, KSTAR_Conference, ...)
+  shotlog/input/other/                    copies, autosaves, forms, in-progress copies: kept, not read
+  shotlog/output/                         session documents + batch manifest
+  shotlog/{shot}/metadata/shotlog.json    per-shot record the pulse_schedule mapping reads
 
 {root}/unmapped/                          local only; no mapping reads these
   camera_visible_arranged/{shot}/         bmp_arranger output, derived
@@ -57,6 +62,33 @@ need no namespace of their own. The high-frame-rate camera set owns the *same*
 `camera_visible` IDS as routine camera, so it has its own source: two stages
 cannot own one IDS in one source without the second replacing the first, and an
 occurrence split is closed off because lazy HSDS access reads occurrence 0 only.
+
+## The ShotLog
+
+The operators' monthly ShotLog workbooks are not a diagnostic export, so they
+do not go through the inventory and consolidation scripts. `python -m vaft.cli
+shotlog` archives and reads them instead (issue #995):
+
+```bash
+python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR" \
+    --extra "/path/to/a stray ShotLog_YYYY_MM.xlsx"
+python -m vaft.cli shotlog extract --filedb "$VAFT_FILEDB_DIR"
+./ingest_external_diagnostics.py --root "$VAFT_FILEDB_DIR" --diagnostic shotlog
+```
+
+The ShotLog is kept because it is the one record meant to cover every
+discharge, so `archive` keeps *every* file in the folder, byte for byte and
+sha256-verified, under the path its role gives it; only Excel lock files and
+AppleDouble sidecars are left out, and `input/manifest.json` lists them. It
+copies, never moves, and keeps the earlier bytes of a file that changed under
+`input/superseded/`. `extract` reads the monthly records and the
+supplementary logs, gives every logged shot a record (a sheet no template
+matches keeps its raw cells, marked `unclassified`), and writes
+`output/coverage.json`: the first logged shot and every gap after it, with the
+records on either side of each gap. `extract` writes one record per shot; `ingest` maps the
+records into `pulse_schedule` products. Shots before the 2023 card template
+have a record but no structured trigger, and are recorded as `unavailable`
+rather than failed.
 
 ## Classification
 
@@ -120,9 +152,18 @@ Only `legacy/` goes to the server:
 
 ```bash
 rsync -a --partial --exclude='._*' --exclude='Thumbs.db' \
-  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation} \
+  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation,shotlog} \
   vestuser1:/srv/vest.filedb/legacy/
 ```
+
+From a Mac, add `--iconv=utf-8-mac,utf-8`. macOS hands back Korean file
+names decomposed (NFD) -- on the exFAT archive too -- and Linux treats NFD and
+NFC as different names, so without it `legacy/shotlog/input/other/복사본 …` and
+the session documents of sheets named `…밤-HI` land under names the manifest
+does not use, and the next sync re-sends them as new files. Needs rsync 3
+(Homebrew); the system `openrsync` has no `--iconv`. The ShotLog products are
+built locally and synced as `omas/shotlog/` too, since the server's
+production checkout does not yet carry the mapping.
 
 ## What the archive holds, and what it costs
 

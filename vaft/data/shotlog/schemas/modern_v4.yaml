@@ -1,0 +1,24 @@
+# VEST ShotLog schema `modern_v4` (ported from VEST_ShotLog docs/schemas, #995).
+schema_id: modern_v4
+version: 2.0.0
+status: supported
+detection:
+  required_headers:
+  - Magnetic coil & Power system
+  - Diagnostics trigger
+  - H & CD trigger
+  minimum_score: 1.0
+  # Wins ties: every modern card also satisfies integrated_v3's headers.
+  priority: 10
+fields:
+- path: shots[].planned_configuration.magnetic.tf
+  type: value_record
+  required: false
+  meaning_ko: TF 설정값. 원본 헤더에 단위가 없으므로 자동 단위 변환하지 않는다.
+  aliases:
+  - TF
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+extractor: modern_card

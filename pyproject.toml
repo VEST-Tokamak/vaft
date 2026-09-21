@@ -163,6 +163,8 @@ vaft = [
   # Read by machine_mapping.langmuir_probes() on every call; without it a wheel
   # install leaves position.r unset where a source checkout fills it.
   "data/legacy/langmuir_probe_positions.csv",
+  # ShotLog era schemas read by vaft.database.shotlog (#995).
+  "data/shotlog/schemas/*.yaml",
   "data/samples/*/manifest.yaml",
   "data/samples/39915/omas.json.gz",
   "data/samples/39915/imas.nc",

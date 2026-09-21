@@ -265,6 +265,7 @@ _ENTRYPOINT_MODULES = frozenset(
         "mhd_linear",
         "pf_active",
         "pf_passive",
+        "pulse_schedule",
         "soft_x_rays",
         "spectrometer_uv",
         "summary",
