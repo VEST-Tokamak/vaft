@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>048a7f6</code>. What is described
+  <code>1b6b7ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/equilibrium.py"><code class="language-plaintext highlighter-rouge">vaft/process/equilibrium.py</code></a>:
-55 public functions.  The category overview and notation come from the module
+59 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("equilibrium.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -339,6 +339,8 @@ outward normal is only outward then.</p>
 </li>
   <li><a href="#check_equilibrium_requirements"><code>check_equilibrium_requirements</code></a> &mdash; Whether an equilibrium carries what a named algorithm needs to run.
 </li>
+  <li><a href="#compare_contours"><code>compare_contours</code></a> &mdash; How far apart two closed contours are, point to curve.
+</li>
   <li><a href="#computed_diamagnetism_from_phi"><code>computed_diamagnetism_from_phi</code></a> &mdash; EFIT-style diamagnetism from an already-computed diamagnetic flux.
 </li>
   <li><a href="#connection_length_map"><code>connection_length_map</code></a> &mdash; Connection length of the field line through each of many starting points.
@@ -366,6 +368,8 @@ outward normal is only outward then.</p>
   <li><a href="#extract_flux_surface_contours"><code>extract_flux_surface_contours</code></a> &mdash; Iso-flux contours at requested normalized levels, by marching squares.
 </li>
   <li><a href="#find_rational_surfaces"><code>find_rational_surfaces</code></a> &mdash; Where a toroidal mode resonates: the surfaces with q = m / n.
+</li>
+  <li><a href="#find_stationary_points"><code>find_stationary_points</code></a> &mdash; Locate the O-points and saddles of psi to sub-grid accuracy.
 </li>
   <li><a href="#fit_miller_sequence"><code>fit_miller_sequence</code></a> &mdash; Fit Miller parameters across a sequence of flux surfaces, with radial derivatives.
 </li>
@@ -424,6 +428,10 @@ outward normal is only outward then.</p>
   <li><a href="#solovev_to_equilibrium"><code>solovev_to_equilibrium</code></a> &mdash; Export an analytic Solov’ev model as a gridded equilibrium record.
 </li>
   <li><a href="#solve_solovev_constraints"><code>solve_solovev_constraints</code></a> &mdash; Solve for the Solov’ev coefficients that satisfy a set of geometric constraints.
+</li>
+  <li><a href="#straight_field_line_angle_on_grid"><code>straight_field_line_angle_on_grid</code></a> &mdash; The PEST straight-field-line angle on every node of a flux map.
+</li>
+  <li><a href="#straight_field_line_map"><code>straight_field_line_map</code></a> &mdash; The PEST straight-field-line poloidal angle of a flux map, built once.
 </li>
   <li><a href="#straight_field_line_tables"><code>straight_field_line_tables</code></a> &mdash; Per-surface tables taking the geometric poloidal angle to the code’s own.
 </li>
@@ -862,6 +870,72 @@ present and shaped correctly, not that their values are physical.</p>
 
 <ol class="formula-references">
   <li>Issue #337 for the split between a precondition and a scientific verdict, and #253 for the validation layer that owns the latter.
+</li>
+</ol>
+
+<h3 id="compare_contours"><code class="language-plaintext highlighter-rouge">compare_contours</code></h3>
+
+<p class="formula-signature"><code>compare_contours(reference_r, reference_z, other_r, other_z)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>How far apart two closed contours are, point to curve.</p>
+
+<p>Every vertex of each contour is measured to the nearest point on the other
+contour’s polyline – to a segment, not to a vertex – and the averages
+weight each vertex by the arc length it stands for, half of each adjoining
+segment.  So the result does not depend on where either contour starts,
+which way it runs, or how densely or unevenly it is sampled, beyond the
+sampling’s own resolution of the curve.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>reference_r</code></td><td>array_like</td><td>m</td><td><p>Major radius of the reference contour.</p>
+</td></tr>
+  <tr><td><code>reference_z</code></td><td>array_like</td><td>m</td><td><p>Height of the reference contour.</p>
+</td></tr>
+  <tr><td><code>other_r</code></td><td>array_like</td><td>m</td><td><p>Major radius of the contour compared against it.</p>
+</td></tr>
+  <tr><td><code>other_z</code></td><td>array_like</td><td>m</td><td><p>Height of the contour compared against it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>dict of str to float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">rms</code> and <code class="language-plaintext highlighter-rouge">mean</code> of the separation, arc-length weighted over both contours; <code class="language-plaintext highlighter-rouge">max</code>, the symmetric Hausdorff distance; <code class="language-plaintext highlighter-rouge">max_reference</code> and <code class="language-plaintext highlighter-rouge">max_other</code>, the largest separation from each side; all in metres. <code class="language-plaintext highlighter-rouge">length_reference</code> and <code class="language-plaintext highlighter-rouge">length_other</code>, each contour’s poloidal length, in metres.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Either contour has fewer than three points.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Both contours are treated as closed: the last point joins the first whether
+or not it repeats it.  The measure is symmetric – both contours’ vertices
+contribute – and orientation-independent.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A separation is not a correspondence: two contours can be close everywhere
+and still differ in where along the curve a feature sits.  Time grows as the
+product of the two point counts; memory is bounded by working through the
+vertices in blocks.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Point-to-segment distance and the symmetric Hausdorff distance are standard computational geometry.
 </li>
 </ol>
 
@@ -1813,7 +1887,14 @@ machinery here is checked.</p>
 <code class="language-plaintext highlighter-rouge">sigma = sigma_RphiZ * sigma_Bp</code> is determined by <em>cocos</em>. The default
 is <code class="language-plaintext highlighter-rouge">vaft.data.cocos.VAFT_INTERNAL_COCOS</code> (11), which has <code class="language-plaintext highlighter-rouge">sigma = +1</code>;
 passing <code class="language-plaintext highlighter-rouge">cocos=None</code> retains the historical fallback <code class="language-plaintext highlighter-rouge">sigma = -1</code>
-(the COCOS 2/3/6/7 orientation family).
+(the COCOS 2/3/6/7 orientation family).</p>
+
+<p><code class="language-plaintext highlighter-rouge">j_phi</code> is the component along the convention’s own toroidal unit
+vector, <code class="language-plaintext highlighter-rouge">-sigma_Bp (R dp/dpsi + F dF/dpsi / (mu0 R))</code> per Sauter Eq. 12,
+which is what Ampere’s law gives on the returned field; the historical
+fallback takes the right-handed member of its family (COCOS 3/7,
+<code class="language-plaintext highlighter-rouge">sigma_Bp = -1</code>). Before #966 the sign was dropped, so a COCOS 11
+model reported the current opposite to its own field.
 <code class="language-plaintext highlighter-rouge">solovev_to_equilibrium</code> is where this is reconciled with a declared
 convention, scaling the flux by 2*pi for full-weber conventions and
 transforming signs appropriately. Pressure and the squared poloidal
@@ -1982,6 +2063,73 @@ once per sign change, which would double-count it.</p>
 
 <ol class="formula-references">
   <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.rational_surface_table</code> derived the same surfaces from GPEC output; this takes them from the equilibrium, so they can be known before a run – at the accuracy the equilibrium’s own grid supports, which the Limitations quantify.
+</li>
+</ol>
+
+<h3 id="find_stationary_points"><code class="language-plaintext highlighter-rouge">find_stationary_points</code></h3>
+
+<p class="formula-signature"><code>find_stationary_points(equilibrium, *, kind=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Locate the O-points and saddles of psi to sub-grid accuracy.</p>
+
+<p>Every point where grad(psi) vanishes inside the grid is found by root finding
+on a bicubic spline of psi, seeded from the local minima of |grad psi| on the
+grid, and classified by the sign of its Hessian determinant.  This is the
+search <code class="language-plaintext highlighter-rouge">derive_boundary_representation</code> runs before it decides the
+topology, exposed on its own for a consumer that needs the magnetic axis or
+the saddles without the rest of the boundary analysis.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData, ODS, GEQDSK or path</td><td>-</td><td><p>Adapted through <code class="language-plaintext highlighter-rouge">as_equilibrium</code>; needs a psi map on an R-Z grid of at least four points each way.</p>
+</td></tr>
+  <tr><td><code>kind</code></td><td>{"o", "x"}, optional</td><td>-</td><td><p>Keep only extrema (<code class="language-plaintext highlighter-rouge">"o"</code>) or only saddles (<code class="language-plaintext highlighter-rouge">"x"</code>); both when not given.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>tuple of StationaryPoint</td><td>-</td><td><p>Position, psi, normalized psi, kind, Hessian determinant and flattest curvature of each point.  O-points come first, nearest the axis flux first; then saddles, nearest the boundary flux first; points without a normalized flux last within their kind.  Empty when the record has no usable psi map.  Positions in metres; psi in the record’s flux unit; the determinant in that unit squared per m^4 and the curvature in that unit per m^2, so both scale with the record’s flux normalization.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <em>kind</em> is neither <code class="language-plaintext highlighter-rouge">None</code>, <code class="language-plaintext highlighter-rouge">"o"</code> nor <code class="language-plaintext highlighter-rouge">"x"</code>.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Classification uses the sign of the Hessian determinant, which no COCOS
+transform changes: a sign flip of psi negates both second derivatives and
+leaves the determinant alone.  An O-point may therefore be a maximum or a
+minimum of psi.  <code class="language-plaintext highlighter-rouge">psi_n</code> is <code class="language-plaintext highlighter-rouge">(psi - psi_axis) / (psi_boundary - psi_axis)</code>
+in the record’s own convention, and NaN when the record lacks those two
+values.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A saddle is only a candidate X-point: numerical saddles far from the plasma
+are common on reconstructed maps.  Whether one bounds the plasma is decided
+by <code class="language-plaintext highlighter-rouge">derive_boundary_representation</code>.  Searches start only from
+interior grid nodes and keep only roots strictly inside the grid, so a point
+in the outermost cell may be missed; two closer than half a cell are
+reported once.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>The Hessian classification of stationary points of psi is the standard O-point and X-point test.
 </li>
 </ol>
 
@@ -4131,6 +4279,15 @@ to <em>convention</em> via <code class="language-plaintext highlighter-rouge">co
 2*pi normalisation and the orientation sign across all COCOS conventions.
 Pressure and the magnetic axis are invariant under convention transforms.</p>
 
+<p>The 2<em>pi factor multiplies psi, its axis and boundary values and <code class="language-plaintext highlighter-rouge">psi_1d</code>,
+and divides the two d/dpsi sources <code class="language-plaintext highlighter-rouge">pprime</code> and <code class="language-plaintext highlighter-rouge">ffprime</code>.  Nothing else
+is rescaled, deliberately: <code class="language-plaintext highlighter-rouge">ip</code> is integrated from the analytic <code class="language-plaintext highlighter-rouge">j_phi</code>,
+a current density that no flux-storage choice changes, and <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">bt0</code>
+and <code class="language-plaintext highlighter-rouge">pressure</code> are physical fields too.  Any orientation sign they carry
+under another *convention</em> is applied by <code class="language-plaintext highlighter-rouge">convert_cocos</code>.  That says
+nothing about whether the sign of <code class="language-plaintext highlighter-rouge">evaluate_solovev</code>’s <code class="language-plaintext highlighter-rouge">j_phi</code> is
+consistent with its poloidal field; that is a separate question (#966).</p>
+
 <p><strong>Applicability.</strong></p>
 
 <p>Machine-independent.</p>
@@ -4240,6 +4397,172 @@ and the result satisfies none exactly; the residual norm reports how far off.</p
 
 <ol class="formula-references">
   <li>Solov’ev (1968); see <code class="language-plaintext highlighter-rouge">evaluate_solovev</code> for the basis being solved.
+</li>
+</ol>
+
+<h3 id="straight_field_line_angle_on_grid"><code class="language-plaintext highlighter-rouge">straight_field_line_angle_on_grid</code></h3>
+
+<p class="formula-signature"><code>straight_field_line_angle_on_grid(psi, r, z, psi_axis, psi_boundary, magnetic_axis, *, n_theta=256, n_surfaces=96, sqrt_psi_norm_min=0.02)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The PEST straight-field-line angle on every node of a flux map.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi</code></td><td>array_like</td><td>Wb or Wb/rad</td><td><p>Poloidal flux on the grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td>float</td><td>Wb or Wb/rad</td><td><p>Flux on the magnetic axis, in the unit of <em>psi</em>.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td>float</td><td>Wb or Wb/rad</td><td><p>Flux on the boundary surface, in the unit of <em>psi</em>.</p>
+</td></tr>
+  <tr><td><code>magnetic_axis</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the magnetic axis.</p>
+</td></tr>
+  <tr><td><code>n_theta</code></td><td>int, optional</td><td>-</td><td><p>Geometric-angle samples per surface, as in <code class="language-plaintext highlighter-rouge">straight_field_line_map</code>.</p>
+</td></tr>
+  <tr><td><code>n_surfaces</code></td><td>int, optional</td><td>-</td><td><p>Tabulated surfaces, as in <code class="language-plaintext highlighter-rouge">straight_field_line_map</code>.</p>
+</td></tr>
+  <tr><td><code>sqrt_psi_norm_min</code></td><td>float, optional</td><td>-</td><td><p>Innermost tabulated surface, as <code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>numpy.ndarray</td><td>rad</td><td><p><code class="language-plaintext highlighter-rouge">theta*</code> shaped <code class="language-plaintext highlighter-rouge">(len(r), len(z))</code>, in <code class="language-plaintext highlighter-rouge">[0, 2 pi)</code> inside the boundary and NaN outside it.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Convention.</strong></p>
+
+<p>The angle of <code class="language-plaintext highlighter-rouge">straight_field_line_map</code>: PEST, zero on the outboard
+midplane, increasing in the sense of <code class="language-plaintext highlighter-rouge">atan2(Z - Z_axis, R - R_axis)</code>.
+The array is indexed major radius first, like the flux map.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Node values only; a caller that needs the angle between nodes should keep
+the map from <code class="language-plaintext highlighter-rouge">straight_field_line_map</code> and evaluate it there, since
+interpolating a wrapped angle across its <code class="language-plaintext highlighter-rouge">2 pi</code> seam is wrong.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), through <code class="language-plaintext highlighter-rouge">straight_field_line_map</code>.
+</li>
+</ol>
+
+<h3 id="straight_field_line_map"><code class="language-plaintext highlighter-rouge">straight_field_line_map</code></h3>
+
+<p class="formula-signature"><code>straight_field_line_map(psi, r, z, psi_axis, psi_boundary, magnetic_axis, *, n_theta=256, n_surfaces=96, sqrt_psi_norm_min=0.02)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The PEST straight-field-line poloidal angle of a flux map, built once.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi</code></td><td>array_like</td><td>Wb or Wb/rad</td><td><p>Poloidal flux on the grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, in any storage family: only ratios and the geometry enter.</p>
+</td></tr>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td>float</td><td>Wb or Wb/rad</td><td><p>Flux on the magnetic axis, in the unit of <em>psi</em>.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td>float</td><td>Wb or Wb/rad</td><td><p>Flux on the boundary surface, in the unit of <em>psi</em>.</p>
+</td></tr>
+  <tr><td><code>magnetic_axis</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the magnetic axis, the origin of the geometric angle.</p>
+</td></tr>
+  <tr><td><code>n_theta</code></td><td>int, optional</td><td>-</td><td><p>Geometric-angle samples per surface, uniform on one period.</p>
+</td></tr>
+  <tr><td><code>n_surfaces</code></td><td>int, optional</td><td>-</td><td><p>Tabulated surfaces, uniform in <code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code>.</p>
+</td></tr>
+  <tr><td><code>sqrt_psi_norm_min</code></td><td>float, optional</td><td>-</td><td><p>Innermost tabulated surface, as <code class="language-plaintext highlighter-rouge">sqrt(psi_norm)</code>; points closer to the axis take its angle offset.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>StraightFieldLineMap</td><td>-</td><td><p>An object evaluating <code class="language-plaintext highlighter-rouge">theta_star</code>, <code class="language-plaintext highlighter-rouge">psi_norm</code>, <code class="language-plaintext highlighter-rouge">grad_psi</code> and the boundary test at arbitrary points, and solving any single surface exactly with <code class="language-plaintext highlighter-rouge">surface(psi_norm)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The flux map is not shaped <code class="language-plaintext highlighter-rouge">(len(r), len(z))</code>, the axis and boundary
+    flux coincide, the boundary surface leaves the grid, or a surface is
+    not star-shaped about the axis.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Fit a bicubic spline to the flux.</li>
+  <li>Move the axis to the spline’s O-point. Along each geometric-angle ray
+from it, find where the normalized flux reaches one, rejecting a ray on
+which it is not monotonic.</li>
+  <li>On every tabulated surface, solve the ray radius by Newton iteration on
+the spline and form <code class="language-plaintext highlighter-rouge">rho / (R d psi_norm / d rho)</code>, which is
+<code class="language-plaintext highlighter-rouge">dl / (R |grad psi|)</code> per unit geometric angle.</li>
+  <li>Integrate the rate spectrally into <code class="language-plaintext highlighter-rouge">theta* - theta</code>, zero at the
+outboard midplane.</li>
+  <li>Spline that periodic offset over <code class="language-plaintext highlighter-rouge">(sqrt(psi_norm), theta)</code>.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The PEST angle</strong>, in which field lines are straight:
+<code class="language-plaintext highlighter-rouge">theta* = 2 pi int dl/(R |grad psi|) / oint dl/(R |grad psi|)</code> along a
+flux surface, so <code class="language-plaintext highlighter-rouge">d phi / d theta* = q</code> on every surface. The poloidal
+current function and the flux normalisation are constant on a surface and
+cancel, which is why neither <code class="language-plaintext highlighter-rouge">F</code> nor the COCOS storage family is needed.</p>
+
+<p><strong>Origin and direction are geometric, not COCOS.</strong> <code class="language-plaintext highlighter-rouge">theta* = 0</code> on the
+outboard midplane ray (<code class="language-plaintext highlighter-rouge">Z = Z_axis</code>, <code class="language-plaintext highlighter-rouge">R &gt; R_axis</code>) and it increases in
+the same sense as <code class="language-plaintext highlighter-rouge">atan2(Z - Z_axis, R - R_axis)</code>: outboard, top,
+inboard, bottom. Whether that is the direction of the poloidal field
+depends on the equilibrium’s current direction, which a caller forming a
+helical phase must take from the field, not from this angle.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The supplied axis is moved to the flux spline’s own O-point when that is
+within two cells of it, so the angle’s origin is the axis of the map as
+gridded, not the solver’s; <code class="language-plaintext highlighter-rouge">StraightFieldLineMap.magnetic_axis</code> records
+where it went. Needs surfaces that every ray from the axis crosses once, which holds for
+the nested surfaces of a tokamak inside its boundary but not beyond an
+X-point, so the boundary surface itself must be closed on the grid. Inside
+the innermost tabulated surface the angle offset is frozen at that
+surface’s value; the angle is undefined on the axis itself. Accuracy is
+set by the flux spline, not by the table, because every surface is solved
+on the spline rather than on grid contours.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the PEST coordinate system this angle belongs to.
+</li>
+  <li>Sauter and Medvedev, Comput. Phys. Commun. 184, 293 (2013), for the straight-field-line relation <code class="language-plaintext highlighter-rouge">d phi / d theta* = q</code>.
 </li>
 </ol>
 
@@ -4798,7 +5121,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#connection_length_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_geometry</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#integrate_romero_closure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">integrate_romero_closure</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_vacuum_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_vacuum_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#miller_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">miller_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_cell_weights" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_cell_weights</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#romero_flux_balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">romero_flux_balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_example</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#as_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">as_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_average_boundary_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_average_boundary_poloidal_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_diamagnetism" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_diamagnetism</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_q_profile_from_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_q_profile_from_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#calculate_reconstructed_diamagnetic_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calculate_reconstructed_diamagnetic_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#check_equilibrium_requirements" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">check_equilibrium_requirements</a></li><li class="page-toc-item page-toc-level-3"><a href="#compare_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compare_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#computed_diamagnetism_from_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">computed_diamagnetism_from_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#connection_length_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#contour_shape_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">contour_shape_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#convert_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">convert_cocos</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_boundary_representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_boundary_representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_global_descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_global_descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#derive_radial_coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">derive_radial_coordinates</a></li><li class="page-toc-item page-toc-level-3"><a href="#efit_virial_volume_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">efit_virial_volume_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#ejiri_mirror_geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ejiri_mirror_geometry</a></li><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_field_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_field_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_miller" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_miller</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_solovev" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_solovev</a></li><li class="page-toc-item page-toc-level-3"><a href="#extract_flux_surface_contours" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">extract_flux_surface_contours</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_rational_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_rational_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_stationary_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_stationary_points</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_sequence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_sequence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_miller_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_miller_surface</a></li><li class="page-toc-item page-toc-level-3"><a href="#flux_surface_quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">flux_surface_quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#fractional_cell_weights_from_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_cell_weights_from_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_shafranov_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_shafranov_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#integrate_romero_closure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">integrate_romero_closure</a></li><li class="page-toc-item page-toc-level-3"><a href="#lab_to_straight_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lab_to_straight_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_equilibrium_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_equilibrium_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#make_vacuum_field_interpolator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">make_vacuum_field_interpolator</a></li><li class="page-toc-item page-toc-level-3"><a href="#miller_surfaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">miller_surfaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#parallel_current_from_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">parallel_current_from_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_cell_weights" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_cell_weights</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal_field_at_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poloidal_field_at_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#prepare_boundary_for_shafranov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">prepare_boundary_for_shafranov</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_radial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_radial</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rho" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rho</a></li><li class="page-toc-item page-toc-level-3"><a href="#psi_to_rz" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">psi_to_rz</a></li><li class="page-toc-item page-toc-level-3"><a href="#r_at_z_extremum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">r_at_z_extremum</a></li><li class="page-toc-item page-toc-level-3"><a href="#radial_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">radial_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_at" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_at</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistive_layer_parameters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resistive_layer_parameters</a></li><li class="page-toc-item page-toc-level-3"><a href="#rho_to_psi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rho_to_psi</a></li><li class="page-toc-item page-toc-level-3"><a href="#romero_flux_balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">romero_flux_balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#scale_boundary_conformal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">scale_boundary_conformal</a></li><li class="page-toc-item page-toc-level-3"><a href="#shafranov_integrals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shafranov_integrals</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_example</a></li><li class="page-toc-item page-toc-level-3"><a href="#solovev_to_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solovev_to_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#solve_solovev_constraints" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">solve_solovev_constraints</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_angle_on_grid" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_angle_on_grid</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_map</a></li><li class="page-toc-item page-toc-level-3"><a href="#straight_field_line_tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">straight_field_line_tables</a></li><li class="page-toc-item page-toc-level-3"><a href="#trace_field_line" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trace_field_line</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_conformal_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_conformal_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_thin_annulus" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_thin_annulus</a></li><li class="page-toc-item page-toc-level-3"><a href="#volume_average" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">volume_average</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -4916,7 +5239,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 03:20:47 +0000"
+        "time": "2026-09-21 04:49:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

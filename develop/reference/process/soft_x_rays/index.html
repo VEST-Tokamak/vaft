@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>048a7f6</code>. What is described
+  <code>1b6b7ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/soft_x_rays.py"><code class="language-plaintext highlighter-rouge">vaft/process/soft_x_rays.py</code></a>:
-9 public functions.  The category overview and notation come from the module
+10 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("soft_x_rays.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -295,6 +295,12 @@ data the caller supplied.</p>
 <p>Generic spectral analysis (PSD, spectral index, spectrogram) is <em>not</em> here –
 use <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code> on any prepared channel.</p>
 
+<p>The forward direction is here too: <code class="language-plaintext highlighter-rouge">synthetic_island_soft_x_rays</code> turns a
+prescribed magnetic island on an equilibrium into chord signals (issue #886),
+through <code class="language-plaintext highlighter-rouge">vaft.process.magnetic_island</code> and
+<code class="language-plaintext highlighter-rouge">vaft.process.line_of_sight</code>. It is machine-independent; VEST chords come
+from <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.soft_x_rays.sxr_sightlines</code>.</p>
+
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
@@ -315,6 +321,8 @@ use <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation<
   <li><a href="#sxr_subtract_vacuum_reference"><code>sxr_subtract_vacuum_reference</code></a> &mdash; Subtract a low-passed vacuum shot to remove poloidal-field pickup.
 </li>
   <li><a href="#sxr_te_pairs_from_ods"><code>sxr_te_pairs_from_ods</code></a> &mdash; Pair the two filters’ channels of one array by the chord they view.
+</li>
+  <li><a href="#synthetic_island_soft_x_rays"><code>synthetic_island_soft_x_rays</code></a> &mdash; Line-integrated soft-X-ray signals of a rotating island on an equilibrium.
 </li>
 </ul>
 
@@ -956,6 +964,99 @@ the result rather than reported.</p>
 </li>
 </ol>
 
+<h3 id="synthetic_island_soft_x_rays"><code class="language-plaintext highlighter-rouge">synthetic_island_soft_x_rays</code></h3>
+
+<p class="formula-signature"><code>synthetic_island_soft_x_rays(equilibrium, island, sightlines, *, time=0.0, emissivity_profile=None, model='flatten', domain=None, amplitude=1.0, smoothing=0.1, hard_mask=False, keep_fields=True)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>Line-integrated soft-X-ray signals of a rotating island on an equilibrium.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData or source</td><td>-</td><td><p>The axisymmetric equilibrium, the only source of plasma geometry; anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
+</td></tr>
+  <tr><td><code>island</code></td><td>MagneticIslandSpec</td><td>-</td><td><p>Mode numbers, outboard-midplane full width, phase and rotation.</p>
+</td></tr>
+  <tr><td><code>sightlines</code></td><td>Sightlines</td><td>-</td><td><p>The chords, each in the poloidal plane at its own toroidal angle.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td>float or array_like, optional</td><td>s</td><td><p>Times at which to evaluate the island phase.</p>
+</td></tr>
+  <tr><td><code>emissivity_profile</code></td><td>callable or tuple of array_like, optional</td><td>emissivity unit</td><td><p>Axisymmetric background <code class="language-plaintext highlighter-rouge">epsilon_0(psi_N)</code>.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"flatten"</code> or <code class="language-plaintext highlighter-rouge">"island"</code>, as in <code class="language-plaintext highlighter-rouge">vaft.process.magnetic_island.island_emissivity</code>.</p>
+</td></tr>
+  <tr><td><code>domain</code></td><td>tuple of array_like, optional</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of a closed polygon, normally the limiter, that clips every chord.</p>
+</td></tr>
+  <tr><td><code>amplitude</code></td><td>float, optional</td><td>- or emissivity unit</td><td><p>Island amplitude <code class="language-plaintext highlighter-rouge">A</code>.</p>
+</td></tr>
+  <tr><td><code>smoothing</code></td><td>float, optional</td><td>-</td><td><p>Width of the island mask edge in helical-flux units.</p>
+</td></tr>
+  <tr><td><code>hard_mask</code></td><td>bool, optional</td><td>-</td><td><p>Use a binary island mask.</p>
+</td></tr>
+  <tr><td><code>keep_fields</code></td><td>bool, optional</td><td>-</td><td><p>Keep the emissivity fields on the result; <code class="language-plaintext highlighter-rouge">False</code> keeps only the brightness, for a long time series where the <code class="language-plaintext highlighter-rouge">(time, plane, R, Z)</code> arrays would dominate memory.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>SyntheticSXRResult</td><td>emissivity unit times m</td><td><p>Time, the chord planes’ toroidal angles, the emissivity and its island part on the equilibrium grid per time and plane, and the chord brightness per time and channel.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The island cannot be placed on the equilibrium, or the emissivity model
+    or profile is invalid.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Build the island topology once, which fixes the resonant surface, the
+straight-field-line angle and the displacement.</li>
+  <li>Group the chords by toroidal angle and build one path-length operator
+per plane, clipped to the domain.</li>
+  <li>For every time and plane, rephase the island, form the emissivity, and
+integrate it along that plane’s chords.</li>
+</ol>
+
+<p><strong>Input semantics.</strong></p>
+
+<p>A prescribed island on a reconstructed or analytic equilibrium, and chord
+geometry from the machine mapping; no measured signal enters.</p>
+
+<p><strong>Output semantics.</strong></p>
+
+<p>Synthetic chord brightness in the emissivity’s unit times metres, before
+any detector, filter or etendue response, comparable to measured signals
+only up to a per-channel calibration.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>A forward model only: no inversion, no noise, pencil-beam chords. Each
+chord is assumed to lie in one poloidal plane. The island rotates rigidly
+at a fixed width.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Le, T. X. K. et al., Plasma Phys. Control. Fusion 68, 065003 (2026), a rotating-island SXR forward model of the same scope.
+</li>
+  <li>Dreval, M. B. et al., Plasma Phys. Control. Fusion 63, 065006 (2021) and 65, 035001 (2023), for SXR forward modelling of MHD modes.
+</li>
+  <li>Jang, J. Y. et al., Rev. Sci. Instrum. 93, 093506 (2022), the VEST SXR arrays.
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -1067,7 +1168,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#hilbert_instantaneous_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">hilbert_instantaneous_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_te_ratio_calibration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_te_ratio_calibration</a></li><li class="page-toc-item page-toc-level-3"><a href="#rank_toroidal_mode_numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rank_toroidal_mode_numbers</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_band_signals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_band_signals</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_baseline_correction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_baseline_correction</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_cwt_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_cwt_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_electron_temperature" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_electron_temperature</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_subtract_vacuum_reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_subtract_vacuum_reference</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_te_pairs_from_ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_te_pairs_from_ods</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#hilbert_instantaneous_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">hilbert_instantaneous_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_te_ratio_calibration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_te_ratio_calibration</a></li><li class="page-toc-item page-toc-level-3"><a href="#rank_toroidal_mode_numbers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rank_toroidal_mode_numbers</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_band_signals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_band_signals</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_baseline_correction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_baseline_correction</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_cwt_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_cwt_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_electron_temperature" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_electron_temperature</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_subtract_vacuum_reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_subtract_vacuum_reference</a></li><li class="page-toc-item page-toc-level-3"><a href="#sxr_te_pairs_from_ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sxr_te_pairs_from_ods</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic_island_soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">synthetic_island_soft_x_rays</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1185,7 +1286,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 03:20:47 +0000"
+        "time": "2026-09-21 04:49:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

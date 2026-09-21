@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>048a7f6</code>. What is described
+  <code>1b6b7ba</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -955,8 +955,8 @@ adapter call can later run through a scheduler without its scientific API changi
       <td><code class="language-plaintext highlighter-rouge">ntasks</code>, <code class="language-plaintext highlighter-rouge">threads_per_task</code>, <code class="language-plaintext highlighter-rouge">memory_mb</code>; the local backend applies only the thread count</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ExecutionBackend</code>, <code class="language-plaintext highlighter-rouge">LocalBackend</code>, <code class="language-plaintext highlighter-rouge">resolve_backend</code></td>
-      <td>the protocol, the local implementation, and the config lookup</td>
+      <td><code class="language-plaintext highlighter-rouge">ExecutionBackend</code>, <code class="language-plaintext highlighter-rouge">LocalBackend</code>, <code class="language-plaintext highlighter-rouge">SlurmBackend</code>, <code class="language-plaintext highlighter-rouge">resolve_backend</code></td>
+      <td>the protocol, the local and Slurm implementations, and the config lookup (falls back to <code class="language-plaintext highlighter-rouge">$VAFT_EXECUTION_BACKEND</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code></td>
@@ -968,10 +968,83 @@ adapter call can later run through a scheduler without its scientific API changi
 <p>A timeout is returned (<code class="language-plaintext highlighter-rouge">timed_out=True</code>), not raised; each adapter maps it to the timeout result it
 already documented. A program the operating system refuses to start raises <code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code>;
 a missing working directory stays a <code class="language-plaintext highlighter-rouge">FileNotFoundError</code>.
-TES, GACODE (NEO and TGLF), the GPEC suite and NUBEAM use the backend today, and <code class="language-plaintext highlighter-rouge">CodeConfig</code>
-carries the <code class="language-plaintext highlighter-rouge">backend</code> field for every adapter built on it; CHEASE, FLARE and EFIT follow in issue #671.
-GACODE declares its <code class="language-plaintext highlighter-rouge">n_mpi</code> as <code class="language-plaintext highlighter-rouge">ResourceRequest.ntasks</code> for scheduler backends, while the launcher
-still starts the ranks itself.</p>
+Every adapter that runs a subprocess goes through the backend, and each has a <code class="language-plaintext highlighter-rouge">backend</code> field:
+EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM and FLARE. <code class="language-plaintext highlighter-rouge">CodeConfig</code>
+carries the field too. EFIT and EFUND declare one thread per task (<code class="language-plaintext highlighter-rouge">threads_per_task=1</code>), which sets
+<code class="language-plaintext highlighter-rouge">OMP_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">MKL_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">OPENBLAS_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">VECLIB_MAXIMUM_THREADS</code> and
+<code class="language-plaintext highlighter-rouge">NUMEXPR_NUM_THREADS</code> to 1 unless the environment already sets them. GACODE
+declares <code class="language-plaintext highlighter-rouge">n_mpi</code> and FLARE declares <code class="language-plaintext highlighter-rouge">processes</code> as <code class="language-plaintext highlighter-rouge">ntasks</code> for scheduler backends, while their
+launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.</p>
+
+<h3 id="running-under-slurm">Running under Slurm</h3>
+
+<p><code class="language-plaintext highlighter-rouge">SlurmBackend</code> (#1017) runs the same adapter call as a cluster job. Only the <code class="language-plaintext highlighter-rouge">backend=</code> argument
+changes:</p>
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">EFITConfig</span><span class="p">,</span> <span class="n">SlurmBackend</span><span class="p">,</span> <span class="n">run_efit</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="nc">EFITConfig</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">1800</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="nc">SlurmBackend</span><span class="p">(</span><span class="n">partition</span><span class="o">=</span><span class="sh">"</span><span class="s">short</span><span class="sh">"</span><span class="p">,</span> <span class="n">account</span><span class="o">=</span><span class="sh">"</span><span class="s">vest</span><span class="sh">"</span><span class="p">))</span>
+<span class="n">result</span> <span class="o">=</span> <span class="nf">run_efit</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>          <span class="c1"># same EFITResult as a local run
+</span></code></pre></div></div>
+
+<p><strong>Modes.</strong> The backend picks one of two automatically. Pass <code class="language-plaintext highlighter-rouge">mode="step"</code> or <code class="language-plaintext highlighter-rouge">mode="batch"</code> to force it.</p>
+
+<ul>
+  <li><strong>Step</strong> (inside an allocation, i.e. <code class="language-plaintext highlighter-rouge">SLURM_JOB_ID</code> is set). The command runs as a job step with
+<code class="language-plaintext highlighter-rouge">srun</code>. The timeout is enforced twice: as <code class="language-plaintext highlighter-rouge">srun --time</code>, and as a local deadline after which <code class="language-plaintext highlighter-rouge">srun</code>
+is interrupted so that it cancels the step. If <code class="language-plaintext highlighter-rouge">srun</code> still does not exit, it is killed and its
+step is cancelled by its unique name. The local deadline starts at launch, so time spent waiting
+for step resources counts against it. The backend adds <code class="language-plaintext highlighter-rouge">--overlap</code> when the caller is itself
+running in a step. It also leaves out the step defaults the caller inherited from an enclosing
+step or job: CPU and memory binding, distribution, per-task CPUs and GPUs, and, when <code class="language-plaintext highlighter-rouge">--mem</code> is
+requested, the per-CPU memory setting. Values that you set in the request’s <code class="language-plaintext highlighter-rouge">env</code>, or pass
+through <code class="language-plaintext highlighter-rouge">extra_args</code> (for example <code class="language-plaintext highlighter-rouge">--cpu-bind=none</code>), are kept.</li>
+  <li><strong>Batch</strong> (everywhere else). The backend writes a job script with mode 0700 under
+<code class="language-plaintext highlighter-rouge">&lt;workdir&gt;/.vaft-slurm/</code>, submits it with <code class="language-plaintext highlighter-rouge">sbatch --parsable --no-requeue</code>, and polls <code class="language-plaintext highlighter-rouge">squeue</code> until
+the job is no longer live. The script records the program’s exit status itself, so the backend
+does not need <code class="language-plaintext highlighter-rouge">sacct</code>. When <code class="language-plaintext highlighter-rouge">sacct</code> is available, the backend uses it to refine the job state.</li>
+</ul>
+
+<p><strong>Resources.</strong> Both modes request <code class="language-plaintext highlighter-rouge">--nodes=1 --ntasks=1 --cpus-per-task=&lt;ntasks x threads&gt;</code>.
+<code class="language-plaintext highlighter-rouge">ResourceRequest.ntasks</code> counts the ranks that a self-launching program (GACODE, FLARE) starts
+itself, and those ranks have to fit inside that single task. Each MPI launcher integrates with
+Slurm differently, so test each such code on a real cluster before relying on it.</p>
+
+<p><strong>Timeouts.</strong></p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">timeout</code> becomes the walltime (<code class="language-plaintext highlighter-rouge">--time</code>), rounded up to whole minutes.</li>
+  <li><code class="language-plaintext highlighter-rouge">timeout=None</code> sends no <code class="language-plaintext highlighter-rouge">--time</code>, so the partition’s default walltime applies.</li>
+  <li>A job that Slurm ends as <code class="language-plaintext highlighter-rouge">TIMEOUT</code> returns <code class="language-plaintext highlighter-rouge">timed_out=True</code>. Without <code class="language-plaintext highlighter-rouge">sacct</code>, the backend infers
+this on the node: from <code class="language-plaintext highlighter-rouge">SLURM_JOB_END_TIME</code> where Slurm sets it, otherwise from the runtime
+compared with the requested walltime, less one minute for the prolog.</li>
+  <li><code class="language-plaintext highlighter-rouge">max_wait</code> caps the total time the backend blocks, including time in the queue. After that the
+job is cancelled, and the reason is written to <code class="language-plaintext highlighter-rouge">stderr</code> or appended to the log.</li>
+</ul>
+
+<p><strong>Other outcomes.</strong></p>
+
+<ul>
+  <li>If <code class="language-plaintext highlighter-rouge">sbatch</code> or <code class="language-plaintext highlighter-rouge">srun</code> is missing, or Slurm rejects the submission, the backend raises
+<code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code>.</li>
+  <li>A job that ends without the program finishing (cancelled, node failure, preemption, out of memory)
+gets a non-zero <code class="language-plaintext highlighter-rouge">returncode</code>, and its Slurm state is appended to <code class="language-plaintext highlighter-rouge">stderr</code> or to the log.</li>
+  <li>An executable that exists on the login node but not on the compute node shows up as exit status 127.</li>
+  <li><code class="language-plaintext highlighter-rouge">KeyboardInterrupt</code> while waiting cancels the job.</li>
+</ul>
+
+<p><strong>Environment.</strong> The job script exports only the environment entries that differ from the
+submitting process; <code class="language-plaintext highlighter-rouge">--export=ALL</code> carries everything else. The backend never exports <code class="language-plaintext highlighter-rouge">SLURM_*</code>,
+<code class="language-plaintext highlighter-rouge">SBATCH_*</code> or <code class="language-plaintext highlighter-rouge">SRUN_*</code> variables, and never exports names that are not valid shell identifiers.</p>
+
+<p><strong>Shared filesystem.</strong> The working directory and the executables must be on a filesystem that the
+compute nodes share. The backend does not check this.</p>
+
+<p><strong>Switching everything at once.</strong> Setting <code class="language-plaintext highlighter-rouge">VAFT_EXECUTION_BACKEND=slurm</code> moves every adapter that
+names no backend onto Slurm. Placement comes from <code class="language-plaintext highlighter-rouge">VAFT_SLURM_PARTITION</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_ACCOUNT</code>,
+<code class="language-plaintext highlighter-rouge">VAFT_SLURM_QOS</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MODE</code> and <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MAX_WAIT</code>. This setting also queues short runs
+such as EFUND or a single EFIT slice, so prefer an explicit <code class="language-plaintext highlighter-rouge">backend=</code> for those.</p>
 
 <h1 id="vaftdata"><code class="language-plaintext highlighter-rouge">vaft.data</code></h1>
 
@@ -1320,7 +1393,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-under-slurm" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running under Slurm</a></li></ul></li></ul>
     </nav>
 </aside>
 
@@ -1438,7 +1511,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 03:20:47 +0000"
+        "time": "2026-09-21 04:49:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

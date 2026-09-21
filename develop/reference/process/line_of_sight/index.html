@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: atomic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: line_of_sight · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/green/" />
+            <link rel="prev" href="/vaft/develop/reference/process/camera_fluctuation/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/statistics/" />
+            <link rel="next" href="/vaft/develop/reference/process/magnetic_island/" />
         
     </head>
     <body>
@@ -232,7 +232,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: atomic</a>
+                            <a href="." >Process reference: line_of_sight</a>
                         
                     </h1>
                 </div>
@@ -258,76 +258,88 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_atomic">Formula reference: atomic</h1>
+                        <h1 id="/reference/process/Process_reference_line_of_sight">Process reference: line_of_sight</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.atomic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.line_of_sight, read from the standardized docstrings (issues 252 and 886).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
 
 <p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/formula/atomic.py</code></a>:
-6 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/line_of_sight.py"><code class="language-plaintext highlighter-rouge">vaft/process/line_of_sight.py</code></a>:
+3 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("line_of_sight.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The equilibrium construction follows MIT-licensed work, Copyright (c) 2021
-Francesco Sciortino. See the third-party notices in the project README.</p>
+<p>A line-integrated diagnostic measures <code class="language-plaintext highlighter-rouge">B_i = int epsilon dl</code> along sightline
+<code class="language-plaintext highlighter-rouge">i</code>. On a grid of cells that is a matrix product <code class="language-plaintext highlighter-rouge">B = G epsilon</code> with
+<code class="language-plaintext highlighter-rouge">G_ij</code> the length of sightline <code class="language-plaintext highlighter-rouge">i</code> inside cell <code class="language-plaintext highlighter-rouge">j</code>. This module builds
+<code class="language-plaintext highlighter-rouge">G</code> from exact segment-cell intersections, so it is a geometric statement
+about the chords and the grid, not a resampled image of a mask, and it
+converges as the grid is refined.</p>
 
-<p>This module is the numerical layer of VAFT’s atomic package.  It accepts SI
-electron densities, evaluates native ADF11 tables in log10 space, and returns
-charge-state fractions or cooling coefficients without depending on OMAS.</p>
+<p>The operator knows nothing about which diagnostic the chords belong to or
+what the field is: soft X-ray emissivity, radiated power or density all
+integrate the same way. Machine geometry is loaded elsewhere, for VEST by
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.soft_x_rays.sxr_sightlines</code>.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>G_ij</td><td>length of chord i inside cell j</td><td>m</td></tr>
+  <tr><td>epsilon_j</td><td>field value on cell j</td><td>any, per metre</td></tr>
+  <tr><td>B_i</td><td>line integral along chord i</td><td>any</td></tr>
+  </tbody>
+</table>
+
+<p><strong>A grid node is a cell centre.</strong> Cell edges sit halfway between nodes and
+half a spacing beyond the outermost ones, so the cells tile the rectangle the
+grid spans plus half a cell all round, and a field sampled on the nodes of an
+equilibrium map is integrated as piecewise constant on those cells. Cells are
+flattened in C order over <code class="language-plaintext highlighter-rouge">(R, Z)</code>, the order <code class="language-plaintext highlighter-rouge">field.reshape(-1)</code> gives
+for a field indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>.</p>
+
+<p><strong>A chord is a straight segment in one poloidal plane.</strong> Its end points are
+<code class="language-plaintext highlighter-rouge">(R, Z)</code> at one toroidal angle; a sightline that crosses toroidal angle is
+not representable here.</p>
 
 <h2 id="functions">Functions</h2>
 
 <ul class="formula-index">
-  <li><a href="#fractional_abundances"><code>fractional_abundances</code></a> &mdash; Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
+  <li><a href="#build_line_integral_operator"><code>build_line_integral_operator</code></a> &mdash; The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.
 </li>
-  <li><a href="#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a> &mdash; Impurity-to-electron density ratio that produces a given effective charge.
+  <li><a href="#clip_segment_to_polygon"><code>clip_segment_to_polygon</code></a> &mdash; The parameter intervals of a segment that lie inside a closed polygon.
 </li>
-  <li><a href="#interpolate_adf11"><code>interpolate_adf11</code></a> &mdash; Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
-</li>
-  <li><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a> &mdash; Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.
-</li>
-  <li><a href="#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a> &mdash; Mean charge of one element over its charge states.
-</li>
-  <li><a href="#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a> &mdash; Effective charge of a mixture of ion species.
+  <li><a href="#project_emissivity"><code>project_emissivity</code></a> &mdash; Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.
 </li>
 </ul>
 
-<h3 id="fractional_abundances"><code class="language-plaintext highlighter-rouge">fractional_abundances</code></h3>
+<h3 id="build_line_integral_operator"><code class="language-plaintext highlighter-rouge">build_line_integral_operator</code></h3>
 
-<p class="formula-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></p>
+<p class="formula-signature"><code>build_line_integral_operator(r, z, sightlines, *, domain=None)</code></p>
 
-<p><strong>Convention-sensitive.</strong> </p>
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-<p>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.</p>
-
-\[\frac{f_{z+1}}{f_z} = \frac{S_z(n_e, T_e)}{\alpha_{z+1}(n_e, T_e)}, \qquad
-  \tilde f_0 = 1, \quad \tilde f_z = \prod_{j=0}^{z-1}\frac{S_j}{\alpha_{j+1}}, \quad
-  f_z = \frac{\tilde f_z}{\sum_k\tilde f_k}\]
-
-<p>with $S_z$ the SCD effective ionisation and $\alpha_{z+1}$ the ACD effective
-recombination coefficients.</p>
+<p>The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
+  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis, the cell centres, strictly increasing.</p>
 </td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
+  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height grid axis, the cell centres, strictly increasing.</p>
 </td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective recombination table.</p>
+  <tr><td><code>sightlines</code></td><td>Sightlines</td><td>-</td><td><p>The chords, one row of the operator each.</p>
 </td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like</td><td>n/a</td><td><p>Effective ionisation table.</p>
+  <tr><td><code>domain</code></td><td>tuple of array_like, optional</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> vertices of a closed polygon, normally the limiter; each chord counts only where it is inside it.</p>
 </td></tr>
   </tbody>
 </table>
@@ -335,7 +347,7 @@ recombination coefficients.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Fractional abundances, summing to one over the last axis. That axis has <code class="language-plaintext highlighter-rouge">n_rate_blocks + 1</code> charge states, neutral to fully stripped.</p>
+  <tr><td></td><td>scipy.sparse.csr_matrix</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">G</code> shaped <code class="language-plaintext highlighter-rouge">(len(sightlines), len(r) * len(z))</code>; <code class="language-plaintext highlighter-rouge">G @ field.reshape(-1)</code> is the line integral of a field indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code></p>
 </td></tr>
   </tbody>
 </table>
@@ -343,51 +355,64 @@ recombination coefficients.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Mismatched charge-state counts, wrong table class, or non-finite rates.</p>
+    A grid axis is not strictly increasing or has fewer than two values,
+    or the domain polygon is degenerate.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Clip each chord to the domain polygon, if one is given.</li>
+  <li>For each inside interval, collect the parameters at which it crosses a
+cell edge in either direction.</li>
+  <li>Assign each piece between consecutive crossings to the cell containing
+its midpoint, with the piece’s length as the entry.</li>
+</ol>
 
 <p><strong>Convention.</strong></p>
 
-<p>Effective (collisional-radiative, density-dependent) coefficients in the
-ADAS sense, evaluated in cm^-3 internally; the density cancels in the
-ratio, so the result is dimensionless.</p>
+<p>Nodes are cell centres, with edges halfway between them and half a spacing
+beyond the outermost node, and cells are flattened in C order over
+<code class="language-plaintext highlighter-rouge">(R, Z)</code>. A chord running exactly along an interior edge is assigned to
+the cell above it, and along an outer edge to the outermost cell. Each entry is the exact length of the chord inside that cell,
+so a row sums to the chord’s length inside the gridded rectangle and the
+domain. Chords are straight in the <code class="language-plaintext highlighter-rouge">(R, Z)</code> plane; their toroidal angle
+does not enter the operator.</p>
 
-<p><strong>Assumptions.</strong></p>
+<p><strong>Applicability.</strong></p>
 
-<p>Steady state, no transport: the local balance of ionisation and
-recombination alone sets the charge-state distribution.</p>
+<p>Machine-independent.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Transport in a real edge or start-up plasma shifts the distribution toward
-lower charge states than coronal equilibrium predicts (the effect Aurora
-models with an impurity transport solve).</p>
+<p>A pencil beam: no finite aperture, no viewing cone, no etendue weighting
+and no reflection. Deterministic but not cached; build it once per grid
+and chord set and reuse it.</p>
 
-<p><strong>References.</strong></p>
+<p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), Sec. on ADF11 (ionisation balance).
-</li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001, Sec. 2 (equilibrium construction; MIT-licensed, see the module docstring).
+  <li>Siddon, R. L., Med. Phys. 12, 252 (1985).
 </li>
 </ol>
 
-<h3 id="impurity_fraction_from_effective_charge"><code class="language-plaintext highlighter-rouge">impurity_fraction_from_effective_charge</code></h3>
+<h3 id="clip_segment_to_polygon"><code class="language-plaintext highlighter-rouge">clip_segment_to_polygon</code></h3>
 
-<p class="formula-signature"><code>impurity_fraction_from_effective_charge(z_eff, z_impurity)</code></p>
+<p class="formula-signature"><code>clip_segment_to_polygon(p1, p2, polygon_r, polygon_z)</code></p>
 
-<p>Impurity-to-electron density ratio that produces a given effective charge.</p>
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
 
-\[\frac{n_I}{n_e} = \frac{Z_{\mathrm{eff}} - 1}{Z_I\,(Z_I - 1)}\]
-
-<p>the inverse of <code class="language-plaintext highlighter-rouge">z_eff_from_n_s_Z_s</code> for one fully ionised impurity of
-charge $Z_I$ in a hydrogenic main ion.</p>
+<p>The parameter intervals of a segment that lie inside a closed polygon.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>z_eff</code></td><td>float or array-like</td><td>-</td><td><p>Effective charge, within $[1, Z_I]$.</p>
+  <tr><td><code>p1</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment start.</p>
 </td></tr>
-  <tr><td><code>z_impurity</code></td><td>float</td><td>-</td><td><p>Impurity charge $Z_I$, greater than one.</p>
+  <tr><td><code>p2</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment end.</p>
+</td></tr>
+  <tr><td><code>polygon_r</code></td><td>array_like</td><td>m</td><td><p>Polygon vertex major radii, closed or open.</p>
+</td></tr>
+  <tr><td><code>polygon_z</code></td><td>array_like</td><td>m</td><td><p>Polygon vertex heights.</p>
 </td></tr>
   </tbody>
 </table>
@@ -395,7 +420,7 @@ charge $Z_I$ in a hydrogenic main ion.</p>
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>$n_I/n_e$, of the shape of <code class="language-plaintext highlighter-rouge">z_eff</code>; the main-ion fraction is $n_H/n_e = 1 - Z_I\,n_I/n_e$.</p>
+  <tr><td></td><td>list of tuple of float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(t_start, t_end)</code> intervals of the segment parameter <code class="language-plaintext highlighter-rouge">p = p1 + t (p2 - p1)</code>, <code class="language-plaintext highlighter-rouge">0 &lt;= t &lt;= 1</code>, lying inside the polygon, in increasing order.</p>
 </td></tr>
   </tbody>
 </table>
@@ -403,57 +428,44 @@ charge $Z_I$ in a hydrogenic main ion.</p>
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    <code class="language-plaintext highlighter-rouge">z_impurity</code> not greater than one, or <code class="language-plaintext highlighter-rouge">z_eff</code> non-finite or
-    outside $[1, Z_I]$, where no non-negative density pair exists.</p>
+    The polygon has fewer than three distinct vertices.</p>
 
-<p><strong>Assumptions.</strong></p>
+<p><strong>Convention.</strong></p>
 
-<p>Quasi-neutrality $n_e = n_H + Z_I n_I$ and exactly two ion species: a
-hydrogenic main ion ($Z = 1$, any isotope) and one impurity in a single
-charge state.  Those two conditions and the definition
-$Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I$ fix both fractions.</p>
+<p>Inside is decided by even-odd parity at each sub-interval’s midpoint, so a
+non-convex polygon, such as a limiter with a divertor recess, yields
+several intervals. A segment grazing a vertex or running along an edge
+splits there with zero-length pieces dropped.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>One impurity only: a measured $Z_{\mathrm{eff}}$ does not determine a
-mixture, so the answer is the fraction of the named impurity that would
-alone account for it.  At $Z_{\mathrm{eff}} = 2$ that is $1/30$ for
-carbon but $1/5402$ for fully stripped tungsten.</p>
+<p>The polygon is a single loop; holes are not supported.</p>
 
-<p><strong>See Also.</strong></p>
-
-<p>z_eff_from_n_s_Z_s</p>
-
-<p><strong>References.</strong></p>
+<p><strong>Provenance.</strong></p>
 
 <ol class="formula-references">
-  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 2 (collisions, resistivity and the effective charge).
+  <li>The even-odd rule for point-in-polygon, as <code class="language-plaintext highlighter-rouge">matplotlib.path.Path</code> applies it.
 </li>
 </ol>
 
-<h3 id="interpolate_adf11"><code class="language-plaintext highlighter-rouge">interpolate_adf11</code></h3>
+<h3 id="project_emissivity"><code class="language-plaintext highlighter-rouge">project_emissivity</code></h3>
 
-<p class="formula-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></p>
+<p class="formula-signature"><code>project_emissivity(emissivity, operator)</code></p>
 
-<p><strong>Convention-sensitive.</strong> </p>
+<p><strong>Machine-independent.</strong> </p>
 
-<p>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.</p>
-
-\[C_z(n_e, T_e) = 10^{\,\mathcal{I}_2[\log_{10}C_z]}\]
-
-<p>where $\mathcal{I}<em>2$ is bilinear interpolation on the table’s rectangular
-grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$.</p>
+<p>Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.</p>
 
 <table class="formula-table">
   <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td><code>table</code></td><td>ADF11Data</td><td>n/a</td><td><p>Parsed ADF11 table (<code class="language-plaintext highlighter-rouge">acd</code>, <code class="language-plaintext highlighter-rouge">scd</code>, <code class="language-plaintext highlighter-rouge">plt</code>, …).</p>
+  <tr><td><code>emissivity</code></td><td>array_like</td><td>any, per metre</td><td><p>Field indexed <code class="language-plaintext highlighter-rouge">(..., R, Z)</code>; leading axes, such as time, are kept</p>
 </td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>multiply_density</code></td><td>bool, optional</td><td>bool</td><td><p>Multiply by $n_e$ in cm^-3 to turn coefficients into rates; default <code class="language-plaintext highlighter-rouge">False</code>.</p>
+  <tr><td><code>operator</code></td><td>scipy.sparse matrix or ndarray</td><td>m</td><td><p>From <code class="language-plaintext highlighter-rouge">build_line_integral_operator</code> for the same grid.</p>
 </td></tr>
   </tbody>
 </table>
@@ -461,7 +473,7 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <table class="formula-table">
   <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Coefficients in the table’s own unit, or rates with <code class="language-plaintext highlighter-rouge">multiply_density</code>. Shape <code class="language-plaintext highlighter-rouge">broadcast(ne_m3, te_eV).shape + (n_blocks,)</code>; cm^3/s for ACD/SCD and W cm^3 for PLT, s^-1 when multiplied by density.</p>
+  <tr><td></td><td>numpy.ndarray</td><td>any</td><td><p>Line integrals shaped <code class="language-plaintext highlighter-rouge">(..., n_chords)</code>.</p>
 </td></tr>
   </tbody>
 </table>
@@ -469,237 +481,29 @@ grid of $\log</em>{10}n_e\,[\mathrm{cm^{-3}}]$ and $\log_{10}T_e\,[\mathrm{eV}]$
 <p><strong>Raises.</strong></p>
 
 <p>ValueError
-    Empty, non-finite or non-positive profiles.</p>
+    The field’s last two axes do not hold as many cells as the operator
+    has columns.</p>
 
-<p><strong>Convention.</strong></p>
+<p><strong>Applicability.</strong></p>
 
-<p>ADF11 stores densities in cm^-3 and rate coefficients in cm^3 s^-1; the SI
-input is converted to cm^-3 internally and the output is <em>not</em> converted
-back, so callers multiply by $10^{-6}$ for m^3 s^-1 (as
-<code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> does for W m^3).</p>
-
-<p><strong>Validity.</strong></p>
-
-<p>Inside the tabulated grid (typically $10^{8}$-$10^{15}$ cm^-3 and
-1 eV-10 keV for iso-nuclear ADF11 files).</p>
+<p>Machine-independent.</p>
 
 <p><strong>Limitations.</strong></p>
 
-<p>Linear extrapolation in log space is retained outside the grid to match the
-established ADF11 calculation path; extrapolated coefficients are not
-physical and are not flagged.</p>
-
-<p><strong>Numerical notes.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">scipy.interpolate.RegularGridInterpolator</code> with <code class="language-plaintext highlighter-rouge">bounds_error=False</code>,
-<code class="language-plaintext highlighter-rouge">fill_value=None</code>, one interpolator per charge-state block.</p>
-
-<p><strong>References.</strong></p>
-
-<ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), https://www.adas.ac.uk/manual.php, ADF11 format.
-</li>
-  <li>F. Sciortino et al., Plasma Phys. Control. Fusion 63 (2021) 112001 (Aurora; the calculation path this follows).
-</li>
-</ol>
-
-<h3 id="line_cooling_coefficient"><code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code></h3>
-
-<p class="formula-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></p>
-
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Equilibrium line-radiation cooling coefficient $L_{line}(n_e, T_e)$ of a species.</p>
-
-\[L_{\mathrm{line}}(n_e, T_e) = 10^{-6}\sum_{q=0}^{Z-1} f_q(n_e, T_e)\,
-  P^{\mathrm{PLT}}_q(n_e, T_e)\]
-
-<p>the PLT coefficients weighted by the coronal abundances of
-<code class="language-plaintext highlighter-rouge">fractional_abundances</code>; the fully stripped state has no line
-radiation and is omitted.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>species</code></td><td>str</td><td>str</td><td><p>Atomic symbol with configured default ADF11 files, e.g. <code class="language-plaintext highlighter-rouge">"C"</code>.</p>
-</td></tr>
-  <tr><td><code>ne_m3</code></td><td>array-like</td><td>m^-3</td><td><p>Electron density, finite and positive.</p>
-</td></tr>
-  <tr><td><code>te_eV</code></td><td>array-like</td><td>eV</td><td><p>Electron temperature, finite and positive.</p>
-</td></tr>
-  <tr><td><code>acd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Recombination table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>scd</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Ionisation table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>plt</code></td><td>ADF11Data or path-like or None, optional</td><td>n/a</td><td><p>Line-power table; <code class="language-plaintext highlighter-rouge">None</code> resolves the configured file.</p>
-</td></tr>
-  <tr><td><code>cache_dir</code></td><td>str or path-like or None, optional</td><td>n/a</td><td><p>OPEN-ADAS cache directory; downloads on a miss.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>W m^3</td><td><p>Cooling coefficient with the broadcast input shape. Multiply by $n_e n_Z$ for a power density.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>KeyError
-    Unconfigured species.
-ADASDataError
-    Lookup, download or parsing failure.
-ValueError
-    Invalid inputs or mismatched charge-state dimensions.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>ADF11 PLT is stored in W cm^3; the factor $10^{-6}$ converts to W m^3.
-Coronal equilibrium, no transport, no recombination/bremsstrahlung
-continuum (that is the separate PRB class).</p>
-
-<p><strong>References.</strong></p>
-
-<ol class="formula-references">
-  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11 PLT class.
-</li>
-  <li>D. E. Post et al., At. Data Nucl. Data Tables 20 (1977) 397 (coronal cooling curves).
-</li>
-</ol>
-
-<h3 id="mean_charge_from_charge_state_densities"><code class="language-plaintext highlighter-rouge">mean_charge_from_charge_state_densities</code></h3>
-
-<p class="formula-signature"><code>mean_charge_from_charge_state_densities(n_z, axis=-1)</code></p>
-
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Mean charge of one element over its charge states.</p>
-
-\[\langle Z\rangle = \sum_j j\,f_j = \frac{\sum_j j\,n_j}{\sum_j n_j},
-  \qquad f_j = \frac{n_j}{\sum_k n_k}\]
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n_z</code></td><td>array-like</td><td>m^-3</td><td><p>Density of each charge state along <code class="language-plaintext highlighter-rouge">axis</code>, ordered neutral first, so that index $j$ is charge $j$; finite and non-negative.</p>
-</td></tr>
-  <tr><td><code>axis</code></td><td>int, optional</td><td>-</td><td><p>Axis that runs over the charge states.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Mean charge, with <code class="language-plaintext highlighter-rouge">axis</code> removed.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>ValueError
-    A non-finite or negative density, or a slice whose densities sum to
-    zero, which has no charge distribution to average.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Index is charge, neutral first</strong>, the layout
-<code class="language-plaintext highlighter-rouge">fractional_abundances</code> returns – so its output can be passed
-straight in, and densities need not be normalised first because the
-fractions $f_j$ are formed here.  Spectroscopic notation counts from one
-(C I is neutral carbon); pass charge, not ionisation stage, or every value
-comes out one high.</p>
-
-<p><strong>See Also.</strong></p>
-
-<p>fractional_abundances
-z_eff_from_n_s_Z_s</p>
-
-<p><strong>References.</strong></p>
-
-<ol class="formula-references">
-  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25 (impurity charge states).
-</li>
-</ol>
-
-<h3 id="z_eff_from_n_s_Z_s"><code class="language-plaintext highlighter-rouge">z_eff_from_n_s_Z_s</code></h3>
-
-<p class="formula-signature"><code>z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None)</code></p>
-
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Effective charge of a mixture of ion species.</p>
-
-\[Z_{\mathrm{eff}} = \frac{\sum_s n_s Z_s^2}{n_e}, \qquad
-  n_e = \sum_s n_s Z_s\ \text{when not given}\]
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n_s</code></td><td>array-like</td><td>m^-3</td><td><p>Density of each ion species or charge state, finite and non-negative; the last axis runs over species.</p>
-</td></tr>
-  <tr><td><code>Z_s</code></td><td>array-like</td><td>-</td><td><p>Charge of each, broadcastable against <code class="language-plaintext highlighter-rouge">n_s</code>, finite and non-negative</p>
-</td></tr>
-  <tr><td><code>n_e</code></td><td>float or array-like, optional</td><td>m^-3</td><td><p>Electron density, finite and positive; default the quasi-neutral $\sum_s n_s Z_s$.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Effective charge, with the species axis removed.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Raises.</strong></p>
-
-<p>ValueError
-    A non-finite or negative density or charge, a non-positive electron
-    density, or a quasi-neutral electron density of zero.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Pass the electron density only when it is measured independently.</strong>  The
-default makes the plasma quasi-neutral by construction, and then a pure
-hydrogenic plasma is exactly 1 and every impurity raises it.  A measured
-$n_e$ that disagrees with $\sum_s n_s Z_s$ is taken as given and not
-reconciled, so a density error lands directly in $Z_{\mathrm{eff}}$.</p>
-
-<p>A charge-resolved impurity is several species here, one per charge state:
-$Z_{\mathrm{eff}}$ weights $Z^2$, so collapsing an element of density $n_I$
-onto its mean charge first underestimates it by exactly
-$n_I\,\mathrm{Var}(Z)/n_e$ – the quasi-neutral $n_e$ is unchanged, since
-it weights $Z$ only linearly.</p>
-
-<p><strong>See Also.</strong></p>
-
-<p>mean_charge_from_charge_state_densities
-vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</p>
-
-<p><strong>References.</strong></p>
-
-<ol class="formula-references">
-  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
-</li>
-</ol>
+<p>Exactly linear: whatever the field’s unit, the result is that unit times
+metres. No detector response, filter transmission or etendue is applied.</p>
 
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
 </code></pre></div></div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
 validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -712,7 +516,7 @@ The same text is available offline as <code class="language-plaintext highlighte
       <ul>
         
           
-          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
       </ul>
     </div>
@@ -778,13 +582,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/green/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: green">
+                        <a href="/vaft/develop/reference/process/camera_fluctuation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: camera_fluctuation">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/statistics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: statistics">
+                        <a href="/vaft/develop/reference/process/magnetic_island/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: magnetic_island">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -800,7 +604,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fractional_abundances" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fractional_abundances</a></li><li class="page-toc-item page-toc-level-3"><a href="#impurity_fraction_from_effective_charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">impurity_fraction_from_effective_charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#interpolate_adf11" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">interpolate_adf11</a></li><li class="page-toc-item page-toc-level-3"><a href="#line_cooling_coefficient" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">line_cooling_coefficient</a></li><li class="page-toc-item page-toc-level-3"><a href="#mean_charge_from_charge_state_densities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mean_charge_from_charge_state_densities</a></li><li class="page-toc-item page-toc-level-3"><a href="#z_eff_from_n_s_Z_s" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">z_eff_from_n_s_Z_s</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#build_line_integral_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">build_line_integral_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#clip_segment_to_polygon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">clip_segment_to_polygon</a></li><li class="page-toc-item page-toc-level-3"><a href="#project_emissivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_emissivity</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -816,11 +620,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: statistics",
+            "title": "Process reference: magnetic_island",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_statistics.md",
-            "ref": "_guide/Formula_reference_statistics.md",
+            "path": "_guide/Process_reference_magnetic_island.md",
+            "ref": "_guide/Process_reference_magnetic_island.md",
             "articles": []
         },
         
@@ -912,8 +716,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_atomic.md",
-        "mtime": "2026-09-02 10:14:00 +0000",
+        "path": "_guide/Process_reference_line_of_sight.md",
+        "mtime": "2026-09-14 12:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
