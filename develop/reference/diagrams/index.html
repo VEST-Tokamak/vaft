@@ -29,7 +29,7 @@
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/transformer/" />
+            <link rel="next" href="/vaft/develop/reference/formula/particle/" />
         
     </head>
     <body>
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aaeff1d</code>. What is described
+  <code>adcc74c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -456,6 +456,111 @@ which has no closed form, is a schematic, and the figure says so.</p>
 onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
 analysis).</p>
 
+<h2 id="single-particle-motion">Single-particle motion</h2>
+
+<p>Gyration and guiding-centre drifts, drawn in the island family’s style and 3-D camera. Every orbit
+is <strong>integrated from the Lorentz force</strong> by <code class="language-plaintext highlighter-rouge">vaft.formula.boris_orbit</code>, and every drift arrow is the
+drift formula of <code class="language-plaintext highlighter-rouge">vaft.formula.particle</code>. The tests require the integrated guiding centre to move at
+the formula’s velocity, so the figure cannot show a drift that the orbit does not make.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">exb_drift</span><span class="p">(</span><span class="n">mass_ratio</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">curvature_drift</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">magnetization_current</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">toroidal_drift</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">2.2</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/exb_drift.svg" alt="E x B drift" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/curvature_drift.svg" alt="curvature drift" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/magnetization_current.svg" alt="magnetization current" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/toroidal_drift.svg" alt="toroidal drift" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Shows</th>
+      <th>Arrows from</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>E×B drift</td>
+      <td>An ion and an electron at equal energy in crossed uniform fields. The orbits differ in size, but the drift is the same, so no current flows</td>
+      <td><code class="language-plaintext highlighter-rouge">exb_drift_velocity</code></td>
+    </tr>
+    <tr>
+      <td>Curvature and ∇B drift</td>
+      <td>An ion spirals along a field line of $B_0R_0/R\,\hat\phi$ and drifts along $+z$</td>
+      <td><code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code> + <code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code></td>
+    </tr>
+    <tr>
+      <td>Magnetization current</td>
+      <td>Gyro-currents cancel inside a region. At its edge the diamagnetic $\mathbf{J}_M = \nabla\times\mathbf{M}$ survives</td>
+      <td>the binned current of the integrated orbits</td>
+    </tr>
+    <tr>
+      <td>Toroidal drift</td>
+      <td>∇B and curvature drifts separate charge. The resulting vertical $\mathbf{E}$ drives an outward $\mathbf{E}\times\mathbf{B}$, so a purely toroidal field cannot confine</td>
+      <td>the drift formulas at the drawn cross-section</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every view shows the relevant equations in a box. They are read from the <code class="language-plaintext highlighter-rouge">$$…$$</code> definition in each
+formula’s docstring, so the figure shows exactly what the formula documents and implements. There is
+no second copy of any equation.</p>
+
+<p>Each has further projections of the same computed orbits, chosen with <code class="language-plaintext highlighter-rouge">projection=</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Projections (default first)</th>
+      <th>What the extra views add</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">exb_drift</code></td>
+      <td><code class="language-plaintext highlighter-rouge">perpendicular</code>, <code class="language-plaintext highlighter-rouge">3d</code></td>
+      <td>Helices along $\mathbf{B}$ drifting sideways. The parallel velocity does not change the perpendicular motion, so both views show the same orbits</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">curvature_drift</code></td>
+      <td><code class="language-plaintext highlighter-rouge">3d</code>, <code class="language-plaintext highlighter-rouge">poloidal</code>, <code class="language-plaintext highlighter-rouge">top</code></td>
+      <td><code class="language-plaintext highlighter-rouge">poloidal</code> looks along the field line, where the gyration circle climbs at the drift velocity. <code class="language-plaintext highlighter-rouge">top</code> shows the curved line and the inward $\nabla B$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetization_current</code></td>
+      <td><code class="language-plaintext highlighter-rouge">perpendicular</code>, <code class="language-plaintext highlighter-rouge">3d</code></td>
+      <td>Helical columns along $\mathbf{B}$ with the edge current looping around them</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">toroidal_drift</code></td>
+      <td><code class="language-plaintext highlighter-rouge">3d</code>, <code class="language-plaintext highlighter-rouge">poloidal</code>, <code class="language-plaintext highlighter-rouge">top</code></td>
+      <td><code class="language-plaintext highlighter-rouge">poloidal</code> is the textbook $(R, z)$ cross-section. <code class="language-plaintext highlighter-rouge">top</code> shows the circular field lines, with the vertical drifts pointing out of the page</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
+default) so that both orbits are visible; the figures state this.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -572,7 +677,7 @@ window.MathJax = {
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/transformer/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: transformer">
+                        <a href="/vaft/develop/reference/formula/particle/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: particle">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -588,7 +693,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -604,11 +709,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: transformer",
+            "title": "Formula reference: particle",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_transformer.md",
-            "ref": "_guide/Formula_reference_transformer.md",
+            "path": "_guide/Formula_reference_particle.md",
+            "ref": "_guide/Formula_reference_particle.md",
             "articles": []
         },
         
@@ -706,7 +811,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 02:51:46 +0000"
+        "time": "2026-09-21 03:03:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

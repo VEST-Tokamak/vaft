@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aaeff1d</code>. What is described
+  <code>adcc74c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -337,6 +337,10 @@ numerical notes, references), and these pages are generated from those docstring
   <tr>
     <td><a href="/vaft/develop/reference/formula/transformer/">transformer</a></td>
     <td><code>vaft.formula.transformer</code></td><td>8</td><td>The plasma as a transformer secondary: Romero&#39;s exact current and inductance balance.</td>
+  </tr>
+  <tr>
+    <td><a href="/vaft/develop/reference/formula/particle/">particle</a></td>
+    <td><code>vaft.formula.particle</code></td><td>6</td><td>Single-particle motion in magnetic and electric fields.</td>
   </tr>
   </tbody>
 </table>
@@ -1027,6 +1031,25 @@ which documents the conventions and cites every entry.</p>
 </li>
 </ul>
 
+<h2 id="particle">Particle</h2>
+
+<p>Single-particle motion in magnetic and electric fields. — <a href="/vaft/develop/reference/formula/particle/">6 functions</a>.</p>
+
+<ul class="formula-index">
+  <li><a href="/vaft/develop/reference/formula/particle/#boris_orbit"><code>boris_orbit</code></a> <em>(convention)</em> &mdash; Charged-particle orbit from the Lorentz force, by the Boris scheme.
+</li>
+  <li><a href="/vaft/develop/reference/formula/particle/#curvature_drift_velocity"><code>curvature_drift_velocity</code></a> <em>(convention)</em> &mdash; Curvature drift velocity of the guiding centre.
+</li>
+  <li><a href="/vaft/develop/reference/formula/particle/#exb_drift_velocity"><code>exb_drift_velocity</code></a> <em>(convention)</em> &mdash; E-cross-B drift velocity of the guiding centre.
+</li>
+  <li><a href="/vaft/develop/reference/formula/particle/#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a> <em>(convention)</em> &mdash; Grad-B drift velocity of the guiding centre.
+</li>
+  <li><a href="/vaft/develop/reference/formula/particle/#gyrofrequency"><code>gyrofrequency</code></a> <em>(convention)</em> &mdash; Signed gyrofrequency of a charged particle.
+</li>
+  <li><a href="/vaft/develop/reference/formula/particle/#larmor_radius"><code>larmor_radius</code></a> <em>(convention)</em> &mdash; Larmor (gyro) radius of a charged particle.
+</li>
+</ul>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -1168,7 +1191,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#startup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Startup</a></li><li class="page-toc-item page-toc-level-2"><a href="#transformer" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transformer</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-that-change-the-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions that change the number</a></li><li class="page-toc-item page-toc-level-2"><a href="#constants" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Constants</a></li><li class="page-toc-item page-toc-level-2"><a href="#utils" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Utils</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#virial" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Virial</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#green" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Green</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic</a></li><li class="page-toc-item page-toc-level-2"><a href="#statistics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Statistics</a></li><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#startup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Startup</a></li><li class="page-toc-item page-toc-level-2"><a href="#transformer" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transformer</a></li><li class="page-toc-item page-toc-level-2"><a href="#particle" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Particle</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -1286,7 +1309,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 02:51:46 +0000"
+        "time": "2026-09-21 03:03:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

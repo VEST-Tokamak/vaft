@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aaeff1d</code>. What is described
+  <code>adcc74c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
-21 public functions.  The category overview and notation come from the module
+26 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -357,9 +357,13 @@ which unit it is showing.</p>
 </li>
   <li><a href="#critical_island_width"><code>critical_island_width</code></a> &mdash; The island width at which a surface’s islands reach its neighbour’s.
 </li>
+  <li><a href="#dominant_mode"><code>dominant_mode</code></a> &mdash; The leading direction of a coupling matrix, weighted by surface area.
+</li>
   <li><a href="#edge_overlap_metric"><code>edge_overlap_metric</code></a> &mdash; How much of an external field lands on the dominant coupling mode.
 </li>
   <li><a href="#energy_norm_matrix"><code>energy_norm_matrix</code></a> &mdash; The inverse square root of an energy matrix, from its eigendecomposition.
+</li>
+  <li><a href="#finite_width_delta"><code>finite_width_delta</code></a> &mdash; The jump in a field’s radial derivative across a finite-width layer.
 </li>
   <li><a href="#group_coincident_islands"><code>group_coincident_islands</code></a> &mdash; Collapse islands that sit on the same surface into one.
 </li>
@@ -368,6 +372,10 @@ which unit it is showing.</p>
   <li><a href="#island_overlap_width"><code>island_overlap_width</code></a> &mdash; How far in from the boundary the islands overlap without a break.
 </li>
   <li><a href="#island_pairs"><code>island_pairs</code></a> &mdash; Every adjacent pair of islands, with the gap between their separatrices.
+</li>
+  <li><a href="#jump_width"><code>jump_width</code></a> &mdash; The resistive-layer width a Lundquist number implies.
+</li>
+  <li><a href="#lundquist_number"><code>lundquist_number</code></a> &mdash; The Lundquist number, the resistive over the Alfven time.
 </li>
   <li><a href="#nearest_surface_spacing"><code>nearest_surface_spacing</code></a> &mdash; Distance from each rational surface to its nearest neighbour.
 </li>
@@ -388,6 +396,8 @@ which unit it is showing.</p>
   <li><a href="#resonant_windows"><code>resonant_windows</code></a> &mdash; The core, edge and total radial windows a reduction is taken over.
 </li>
   <li><a href="#rms_resonant_field"><code>rms_resonant_field</code></a> &mdash; Root-mean-square resonant field over a radial window.
+</li>
+  <li><a href="#shielded_field"><code>shielded_field</code></a> &mdash; The field a finite-width layer’s shielding current produces.
 </li>
 </ul>
 
@@ -769,6 +779,67 @@ parameter from a half width over a half distance, and the halves cancel.</p>
 </li>
 </ol>
 
+<h3 id="dominant_mode"><code class="language-plaintext highlighter-rouge">dominant_mode</code></h3>
+
+<p class="formula-signature"><code>dominant_mode(coupling, *, response_area=None, control_area=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The leading direction of a coupling matrix, weighted by surface area.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>coupling</code></td><td>array_like</td><td>n/a</td><td><p>Response-by-control coupling, complex.</p>
+</td></tr>
+  <tr><td><code>response_area</code></td><td>array_like, optional</td><td>m^2</td><td><p>Area per response row. Unweighted when omitted.</p>
+</td></tr>
+  <tr><td><code>control_area</code></td><td>array_like, optional</td><td>m^2</td><td><p>Area per control column. Unweighted when omitted.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>DominantMode</td><td>n/a</td><td><p>The leading singular value, and the control and response vectors in the unweighted basis.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The matrix is not 2-D, an area does not match its dimension, or an
+    area is not finite and positive.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Check the areas <strong>before</strong> taking their square root.</li>
+  <li>Weight rows and columns, decompose, map the leading pair back.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>Rows are weighted by <code class="language-plaintext highlighter-rouge">sqrt(area)</code> and columns divided by it, so the
+decomposition is of <code class="language-plaintext highlighter-rouge">W_r M W_c**-1</code> and the vectors are mapped back
+through the weights. The returned control vector is the right singular
+vector itself – <code class="language-plaintext highlighter-rouge">vh[0].conj()</code> – and a projection onto it is
+<code class="language-plaintext highlighter-rouge">np.vdot(control_vector, x)</code>, which conjugates it; that is not the
+<code class="language-plaintext highlighter-rouge">vh.conj() @ x</code> defect <code class="language-plaintext highlighter-rouge">edge_overlap_metric</code> once had.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">resistive_gpec_metrics.py::dominant_mode</code>. Its guard, <code class="language-plaintext highlighter-rouge">np.any(np.sqrt(area) &lt;= 0)</code>, is defeated by a negative area: <code class="language-plaintext highlighter-rouge">sqrt</code> of one is <code class="language-plaintext highlighter-rouge">nan</code>, <code class="language-plaintext highlighter-rouge">nan &lt;= 0</code> is <code class="language-plaintext highlighter-rouge">False</code>, and the error surfaced later as <code class="language-plaintext highlighter-rouge">SVD did not converge</code> rather than naming the area.
+</li>
+</ol>
+
 <h3 id="edge_overlap_metric"><code class="language-plaintext highlighter-rouge">edge_overlap_metric</code></h3>
 
 <p class="formula-signature"><code>edge_overlap_metric(coupling, external_field, *, b_t0, norm=None)</code></p>
@@ -922,6 +993,82 @@ a coupling matrix with a file’s own arrays.</p>
 
 <ol class="formula-references">
   <li>Conventions register C-11: three different <code class="language-plaintext highlighter-rouge">W^{-1/2}</code> constructions, with different negative-eigenvalue policies, fed the same metric.
+</li>
+</ol>
+
+<h3 id="finite_width_delta"><code class="language-plaintext highlighter-rouge">finite_width_delta</code></h3>
+
+<p class="formula-signature"><code>finite_width_delta(psi_norm, field, rational_psi_norm, widths)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The jump in a field’s radial derivative across a finite-width layer.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>Radial grid, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>field</code></td><td>array_like</td><td>T</td><td><p>The resonant harmonic on that grid, complex.</p>
+</td></tr>
+  <tr><td><code>rational_psi_norm</code></td><td>array_like</td><td>-</td><td><p>Where each layer is centred.</p>
+</td></tr>
+  <tr><td><code>widths</code></td><td>array_like</td><td>-</td><td><p>Each layer’s full width.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">d field / d psi</code> at <code class="language-plaintext highlighter-rouge">psi_s + w/2</code> minus at <code class="language-plaintext highlighter-rouge">psi_s - w/2</code>, one complex value per surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The grid and the field disagree in length, the grid is not strictly
+    increasing or has fewer than three points, a value is not finite, a
+    width is not positive, a layer’s window reaches past the grid, or a
+    layer holds fewer than two grid points either side of its centre.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Differentiate the field on its grid.</li>
+  <li>Interpolate the derivative to each layer’s two edges.</li>
+  <li>Subtract inner from outer.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>A difference of derivatives, not an integral</strong>, and <strong>not normalized</strong>.
+The legacy docstring called this an integration across the layer; it
+evaluates the derivative at the two layer edges and subtracts. And it is
+the raw jump, in the field’s own units – not GPEC’s unitless <code class="language-plaintext highlighter-rouge">Delta</code>,
+which is this jump scaled by <code class="language-plaintext highlighter-rouge">area / (2 pi chi1)</code> and evaluated at
+GPEC’s <code class="language-plaintext highlighter-rouge">sing_spot</code> rather than at a physical layer edge
+(<code class="language-plaintext highlighter-rouge">resonant_delta</code>).</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The derivative is a central difference on the stored grid, so an edge
+within one node of the centre samples the layer’s own structure rather
+than the solution beside it – on a kink of slope jump 3, a width of 0.02
+on a 0.05 grid returns 0.6. Such a layer is refused rather than
+answered; at high Lundquist number the paper width law falls below the
+spacing of a uniform grid, and the caller has to refine it there first.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">resistive_gpec_metrics.py::finite_width_delta</code>.
 </li>
 </ol>
 
@@ -1219,6 +1366,110 @@ fixed absolute tolerance does not.</p>
 
 <ol class="formula-references">
   <li><code class="language-plaintext highlighter-rouge">gpec_multimode_metrics.compute_pair_chirikov</code>.
+</li>
+</ol>
+
+<h3 id="jump_width"><code class="language-plaintext highlighter-rouge">jump_width</code></h3>
+
+<p class="formula-signature"><code>jump_width(lundquist, model)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The resistive-layer width a Lundquist number implies.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>lundquist</code></td><td>array_like</td><td>-</td><td><p>Lundquist number per rational surface.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td>JumpWidthModel</td><td>n/a</td><td><p>The width law. <strong>Required</strong>: the coefficients are one paper’s fit, not a property of the physics, so there is no default to fall back on.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p>Full layer width per surface, in normalized poloidal flux.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    A Lundquist number is not finite and positive.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Check the Lundquist numbers are finite and positive.</li>
+  <li>Apply the model’s law.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">w = floor + scale * S**(-1/3)</code>. The <code class="language-plaintext highlighter-rouge">S**(-1/3)</code> scaling is the
+resistive-inertial layer’s; the floor keeps the width finite as <code class="language-plaintext highlighter-rouge">S</code>
+grows, where the pure scaling would shrink the layer below the grid.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">resistive_gpec_metrics.py::jump_width_from_lundquist</code>, which carried the paper’s coefficients as keyword defaults – so a caller who never chose a model got one anyway.
+</li>
+</ol>
+
+<h3 id="lundquist_number"><code class="language-plaintext highlighter-rouge">lundquist_number</code></h3>
+
+<p class="formula-signature"><code>lundquist_number(tau_resistive, tau_alfven)</code></p>
+
+<p><strong>Machine-independent.</strong> </p>
+
+<p>The Lundquist number, the resistive over the Alfven time.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>tau_resistive</code></td><td>array_like</td><td>s</td><td><p>Resistive diffusion time per rational surface.</p>
+</td></tr>
+  <tr><td><code>tau_alfven</code></td><td>array_like</td><td>s</td><td><p>Alfven time per rational surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">S = tau_r / tau_a</code> per surface.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The two disagree in shape, or a time is not finite and positive.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Check both times are finite, positive and the same shape.</li>
+  <li>Divide.</li>
+</ol>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">library/resistive_gpec_metrics.py::lundquist_number</code> (branch <code class="language-plaintext highlighter-rouge">codex/transp</code>).
 </li>
 </ol>
 
@@ -1878,6 +2129,63 @@ inside the reduction, which put a unit conversion where nothing said so.</p>
 </li>
 </ol>
 
+<h3 id="shielded_field"><code class="language-plaintext highlighter-rouge">shielded_field</code></h3>
+
+<p class="formula-signature"><code>shielded_field(delta, self_inductance)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>The field a finite-width layer’s shielding current produces.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>delta</code></td><td>array_like</td><td>T</td><td><p>The derivative jump per surface, from <code class="language-plaintext highlighter-rouge">finite_width_delta</code>, complex.</p>
+</td></tr>
+  <tr><td><code>self_inductance</code></td><td>array_like</td><td>n/a</td><td><p>The surfaces’ self-inductance matrix, square and matching <code class="language-plaintext highlighter-rouge">delta</code>. <strong>Required</strong>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ndarray</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">L @ delta</code>, complex.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The matrix is not square, does not match <code class="language-plaintext highlighter-rouge">delta</code>, or holds a
+    non-finite value.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Check the matrix matches the surfaces.</li>
+  <li>Multiply.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The legacy returned <code class="language-plaintext highlighter-rouge">delta</code> itself when no inductance was supplied –
+a derivative jump relabelled as a shielded field, with nothing in the
+result to say the multiplication had not happened. There is no such
+fallback here: without the inductance there is no shielded field.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li><code class="language-plaintext highlighter-rouge">resistive_gpec_metrics.py::shielded_field_from_delta</code>.
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -1989,7 +2297,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#dominant_mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dominant_mode</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#finite_width_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">finite_width_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#jump_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">jump_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#lundquist_number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lundquist_number</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#shielded_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shielded_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -2107,7 +2415,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 02:51:46 +0000"
+        "time": "2026-09-21 03:03:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

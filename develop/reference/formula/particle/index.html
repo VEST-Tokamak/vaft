@@ -1,0 +1,961 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: particle · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/diagrams/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/transformer/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: particle</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>adcc74c</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_particle">Formula reference: particle</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.particle, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+
+<p>This page is generated from the docstrings of
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/particle.py"><code class="language-plaintext highlighter-rouge">vaft/formula/particle.py</code></a>:
+6 public functions.  The category overview and notation come from the module
+docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
+Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>This module provides the gyration and guiding-centre drift relations of a
+charged particle, and a Boris integrator of the full Lorentz-force orbit
+against which the drift relations can be checked.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>q</td><td>particle charge, signed</td><td>C</td></tr>
+  <tr><td>m</td><td>particle mass</td><td>kg</td></tr>
+  <tr><td>B</td><td>magnetic field (vector or magnitude)</td><td>T</td></tr>
+  <tr><td>E</td><td>electric field</td><td>V/m</td></tr>
+  <tr><td>v_perp</td><td>speed perpendicular to B</td><td>m/s</td></tr>
+  <tr><td>v_par</td><td>speed parallel to B</td><td>m/s</td></tr>
+  <tr><td>omega_c</td><td>signed gyrofrequency qB/m</td><td>rad/s</td></tr>
+  <tr><td>rho</td><td>Larmor radius</td><td>m</td></tr>
+  <tr><td>R_c</td><td>radius-of-curvature vector of the field line</td><td>m</td></tr>
+  </tbody>
+</table>
+
+<h2 id="functions">Functions</h2>
+
+<ul class="formula-index">
+  <li><a href="#boris_orbit"><code>boris_orbit</code></a> &mdash; Charged-particle orbit from the Lorentz force, by the Boris scheme.
+</li>
+  <li><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a> &mdash; Curvature drift velocity of the guiding centre.
+</li>
+  <li><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a> &mdash; E-cross-B drift velocity of the guiding centre.
+</li>
+  <li><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a> &mdash; Grad-B drift velocity of the guiding centre.
+</li>
+  <li><a href="#gyrofrequency"><code>gyrofrequency</code></a> &mdash; Signed gyrofrequency of a charged particle.
+</li>
+  <li><a href="#larmor_radius"><code>larmor_radius</code></a> &mdash; Larmor (gyro) radius of a charged particle.
+</li>
+</ul>
+
+<h3 id="boris_orbit"><code class="language-plaintext highlighter-rouge">boris_orbit</code></h3>
+
+<p class="formula-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Charged-particle orbit from the Lorentz force, by the Boris scheme.</p>
+
+\[m\,\frac{\mathrm{d}\mathbf{v}}{\mathrm{d}t} = q\,(\mathbf{E} + \mathbf{v}\times\mathbf{B}),
+\qquad \frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>x0</code></td><td>array_like</td><td>m</td><td><p>Initial position.</p>
+</td></tr>
+  <tr><td><code>v0</code></td><td>array_like</td><td>m/s</td><td><p>Initial velocity.</p>
+</td></tr>
+  <tr><td><code>E_field</code></td><td>callable</td><td>V/m</td><td><p><code class="language-plaintext highlighter-rouge">E_field(x)</code> returning the electric field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>B_field</code></td><td>callable</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">B_field(x)</code> returning the magnetic field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>dt</code></td><td>float</td><td>s</td><td><p>Time step.</p>
+</td></tr>
+  <tr><td><code>n_steps</code></td><td>int</td><td>-</td><td><p>Number of steps.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>positions</code></td><td>np.ndarray</td><td>m</td><td><p>Positions, shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>, the first being <code class="language-plaintext highlighter-rouge">x0</code>.</p>
+</td></tr>
+  <tr><td><code>velocities</code></td><td>np.ndarray</td><td>m/s</td><td><p><code class="language-plaintext highlighter-rouge">velocities[i + 1]</code> is the velocity over the step from <code class="language-plaintext highlighter-rouge">positions[i]</code> to <code class="language-plaintext highlighter-rouge">positions[i + 1]</code>; <code class="language-plaintext highlighter-rouge">velocities[0]</code> is <code class="language-plaintext highlighter-rouge">v0</code>. Shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">m</code>, <code class="language-plaintext highlighter-rouge">dt</code> or <code class="language-plaintext highlighter-rouge">n_steps</code> is not positive, or a vector is not a
+    3-vector.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Non-relativistic leapfrog: velocities live at the half steps between
+positions (half electric kick, magnetic rotation, half kick, then the
+position advance). <code class="language-plaintext highlighter-rouge">v0</code> is taken as the velocity half a step before
+<code class="language-plaintext highlighter-rouge">x0</code>. Right-handed Cartesian components.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The full orbit the drift formulas average: integrated in a uniform or
+slowly varying field, its guiding centre moves at <code class="language-plaintext highlighter-rouge">exb_drift_velocity</code>,
+<code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code> and <code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code>.</p>
+
+<p><strong>Numerical notes.</strong></p>
+
+<p>The magnetic rotation is exact in angle up to the $\tan(\omega_c\Delta t
+/2)$ phase error, so with $E = 0$ the kinetic energy is conserved to
+round-off for any step; the scheme is volume-preserving and has no
+secular energy drift. Keep $|\omega_c|\Delta t \lesssim 0.1$ for an
+accurate gyrophase. Fixed step, so the output is deterministic.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>J. P. Boris, Proc. 4th Conf. Numer. Sim. Plasmas, NRL (1970), 3.
+</li>
+  <li>C. K. Birdsall and A. B. Langdon, <em>Plasma Physics via Computer Simulation</em>, McGraw-Hill (1985), Sec. 4-4.
+</li>
+  <li>H. Qin et al., Phys. Plasmas 20, 084503 (2013).
+</li>
+</ol>
+
+<h3 id="curvature_drift_velocity"><code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code></h3>
+
+<p class="formula-signature"><code>curvature_drift_velocity(q, m, v_par, B, R_c)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Curvature drift velocity of the guiding centre.</p>
+
+\[\mathbf{v}_R = \frac{m v_\parallel^{2}}{qB^{2}}\,
+\frac{\mathbf{R}_c\times\mathbf{B}}{R_c^{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>v_par</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed along the magnetic field.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>R_c</code></td><td>array_like</td><td>m</td><td><p>Radius-of-curvature vector, from the centre of curvature to the field line.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> or <code class="language-plaintext highlighter-rouge">R_c</code>
+    vanishes.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>$\mathbf{R}_c$ points <em>outward</em>, from the centre of curvature to the
+line, as in Chen. Charge-signed like the grad-B drift. In a vacuum field
+$\nabla\times\mathbf{B} = 0$ the two drifts add in the same direction.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The centrifugal force of streaming along a curved line, $m v_\parallel^2
+/ R_c$, acts like any other perpendicular force $\mathbf{F}$ and drives
+$\mathbf{F}\times\mathbf{B}/(qB^2)$.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>$\rho \ll R_c$.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.3.2.
+</li>
+</ol>
+
+<h3 id="exb_drift_velocity"><code class="language-plaintext highlighter-rouge">exb_drift_velocity</code></h3>
+
+<p class="formula-signature"><code>exb_drift_velocity(E, B)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>E-cross-B drift velocity of the guiding centre.</p>
+
+\[\mathbf{v}_E = \frac{\mathbf{E}\times\mathbf{B}}{B^{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>E</code></td><td>array_like</td><td>V/m</td><td><p>Electric field, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity, same shape as the broadcast inputs.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    An input is not a 3-vector, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Right-handed Cartesian components. The drift is independent of charge
+and mass, so ions and electrons move together and no current flows.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>Over each gyration the particle gains energy on one side of its orbit
+and loses it on the other, so its radius changes around the orbit and
+the guiding centre steps sideways – perpendicular to both fields.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>$E_\perp \ll cB$ (non-relativistic drift); uniform fields over a Larmor
+radius and slow in time compared with the gyroperiod.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.2.
+</li>
+</ol>
+
+<h3 id="grad_b_drift_velocity"><code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code></h3>
+
+<p class="formula-signature"><code>grad_b_drift_velocity(q, m, v_perp, B, grad_B)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Grad-B drift velocity of the guiding centre.</p>
+
+\[\mathbf{v}_{\nabla B} = \frac{m v_\perp^{2}}{2qB}\,
+\frac{\mathbf{B}\times\nabla B}{B^{2}}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>v_perp</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>grad_B</code></td><td>array_like</td><td>T/m</td><td><table>
+  <tbody>
+    <tr>
+      <td>Gradient of the field magnitude $</td>
+      <td>\mathbf{B}</td>
+      <td>$.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Charge-signed: ions and electrons drift in opposite directions, which is
+what makes this drift carry current.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The orbit is tighter where the field is stronger, so the guiding centre
+walks perpendicular to both $\mathbf{B}$ and its gradient.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p>$\rho \ll B/|\nabla B|$; the drift is the first-order average over a
+gyration.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.3.1.
+</li>
+</ol>
+
+<h3 id="gyrofrequency"><code class="language-plaintext highlighter-rouge">gyrofrequency</code></h3>
+
+<p class="formula-signature"><code>gyrofrequency(q, m, B)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Signed gyrofrequency of a charged particle.</p>
+
+\[\omega_c = \frac{qB}{m}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>C</td><td><p>Particle charge, signed.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic-field magnitude.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>rad/s</td><td><p>Gyrofrequency, positive for positive charge.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">m</code> is not positive.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Signed: $\omega_c &gt; 0$ for an ion, $&lt; 0$ for an electron. An ion gyrates
+in the left-handed sense about $\mathbf{B}$ (clockwise seen with
+$\mathbf{B}$ pointing at the viewer), an electron in the right-handed
+sense; the sign carries that. Use <code class="language-plaintext highlighter-rouge">abs</code> for the frequency alone.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The rate at which the Lorentz force turns the perpendicular velocity:
+the fastest time scale of magnetised motion, and the reason drifts are
+slow by comparison.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.2.
+</li>
+</ol>
+
+<h3 id="larmor_radius"><code class="language-plaintext highlighter-rouge">larmor_radius</code></h3>
+
+<p class="formula-signature"><code>larmor_radius(q, m, v_perp, B)</code></p>
+
+<p><strong>Convention-sensitive.</strong> </p>
+
+<p>Larmor (gyro) radius of a charged particle.</p>
+
+\[\rho = \frac{m\,v_\perp}{|q|\,B}\]
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>C</td><td><p>Particle charge; only its magnitude enters.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>kg</td><td><p>Particle mass.</p>
+</td></tr>
+  <tr><td><code>v_perp</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic-field magnitude.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>float or np.ndarray</td><td>m</td><td><p>Radius of the gyro-orbit.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    <code class="language-plaintext highlighter-rouge">q</code> or <code class="language-plaintext highlighter-rouge">B</code> is zero.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Always positive: the gyration sense is in <code class="language-plaintext highlighter-rouge">gyrofrequency</code>. $v_\perp$ is
+the speed in the guiding-centre frame, i.e. after removing any drift.</p>
+
+<p><strong>Physical interpretation.</strong></p>
+
+<p>The scale below which a particle does not follow field lines; drift
+approximations need it small against the field’s gradient length.</p>
+
+<p><strong>References.</strong></p>
+
+<ol class="formula-references">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
+</li>
+</ol>
+
+<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+
+<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
+</code></pre></div></div>
+
+<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
+validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
+The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
+<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/diagrams/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Scientific diagrams">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/transformer/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: transformer">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#boris_orbit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">boris_orbit</a></li><li class="page-toc-item page-toc-level-3"><a href="#curvature_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">curvature_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#exb_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exb_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_b_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_b_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyrofrequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyrofrequency</a></li><li class="page-toc-item page-toc-level-3"><a href="#larmor_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">larmor_radius</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: transformer",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_transformer.md",
+            "ref": "_guide/Formula_reference_transformer.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_particle.md",
+        "mtime": "2026-09-17 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-21 03:03:08 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+
+</body>
+</html>
