@@ -62,6 +62,8 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `parametric_equilibrium_descriptors.ipynb`: Convention-aware global descriptors and GEQDSK/ODS parity.
 - `local_miller_equilibrium_fitting.ipynb`: Local Miller fitting, reconstruction errors, and separatrix limits.
 - `analytic_solovev_equilibrium.ipynb`: Constant-source analytic Solov'ev construction and gridded-field verification.
+- `equilibrium_refinement_using_chease.ipynb`: CHEASE fixed-boundary refinement of an EFIT g-file, qualified: the boundary and profiles CHEASE is given, what the solve holds and changes, and solver-mesh convergence. Needs a CHEASE executable for the solves; input preparation runs without one.
+- `fixed_boundary_parametric_scan_using_chease.ipynb`: Local sensitivity of that equilibrium to pressure, current peaking and shape, as requested, materialized and achieved, with failed cases kept. Needs a CHEASE executable for the scans.
 - `edge_and_boundary_representation.ipynb`: Limiter/diverted topology, X-points, gaps, and separatrix balance.
 - `linear_ideal_stability_analysis_with_dcon.ipynb`: Ideal MHD stability (delta-W by toroidal mode) with DCON, run on the packaged VEST equilibrium into a temporary directory, mapped into `mhd_linear` and drawn through the plot catalog. Needs `$GPECHOME`; without it each section reports what it would show and skips.
 - `linear_resistive_stability_analysis_with_rdcon.ipynb`: Resistive stability with RDCON -- the classical tearing index Delta-prime per rational surface, mapped into `ntms.deltaw`, with DCON alongside for the ideal context. Needs the same `$GPECHOME`.

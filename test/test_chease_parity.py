@@ -486,3 +486,21 @@ def test_the_solver_mesh_defaults_and_overrides_reach_the_namelist():
 
     with pytest.raises(ValueError, match="at least 2"):
         ch.CHEASEConfig(ns=1)
+
+
+def test_a_run_carries_what_it_handed_chease(tmp_path):
+    """A scan sees only CHEASEResults, so the result must say what went in (#887).
+
+    A stub that exits 0 without writing an EQDSK is a failed run, and a run
+    CHEASE returns from keeps its materialized input even when it failed --
+    that is when it is most needed. (A timeout raises before any result.)
+    """
+    from vaft.data.resources import data_path
+
+    exe = write_launchable_stub(tmp_path / "bin" / "chease")
+    cfg = ch.CHEASEConfig(workdir=tmp_path / "run", executable=str(exe), create_plot=False)
+    inputs = ch.prepare_chease_inputs(data_path("efit/g039915.00319"), cfg)
+    result = ch.run_chease(inputs, cfg)
+    assert not result.ok
+    assert result.materialized is inputs.materialized
+    assert result.materialized.boundary.shape[1] == 2

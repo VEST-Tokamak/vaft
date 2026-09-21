@@ -23,6 +23,10 @@ notebooks:
     title: Equilibrium refinement using CHEASE
     path: notebooks/equilibrium_refinement_using_chease.ipynb
     maturity: runnable
+  chease-scan:
+    title: Fixed-boundary sensitivity scans with CHEASE
+    path: notebooks/fixed_boundary_parametric_scan_using_chease.ipynb
+    maturity: runnable
   confinement-scaling:
     title: Confinement-time scaling
     path: notebooks/confinement_time_scaling.ipynb
