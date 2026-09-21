@@ -87,6 +87,8 @@ CONVENTION_SENSITIVE = frozenset({
     "shear_from_r_q",
     "surface_poloidal_flux_from_psi_boundary",
     "straight_field_line_angle",
+    "miller_surface",
+    "vacuum_toroidal_field",
     "loop_voltage_from_total_flux",
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",

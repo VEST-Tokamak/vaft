@@ -20,6 +20,7 @@ from typing import Dict, List
 
 import numpy as np
 
+from vaft.formula.equilibrium import vacuum_toroidal_field
 from vaft.formula.particle import (
     boris_orbit,
     curvature_drift_velocity,
@@ -233,10 +234,17 @@ def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", lab
 
 
 def _toroidal_field(R0: float, B0: float):
+    """The vacuum toroidal field as a vector field, from ``vacuum_toroidal_field``."""
     def B_field(x):
         R = math.hypot(x[0], x[1])
-        return B0 * R0 / R * np.array([-x[1] / R, x[0] / R, 0.0])
+        return float(vacuum_toroidal_field(B0, R0, R)) * np.array([-x[1] / R, x[0] / R, 0.0])
     return B_field
+
+
+def _toroidal_field_gradient(R0: float, B0: float, R: float) -> float:
+    """d|B|/dR of ``vacuum_toroidal_field`` at ``R``, by central difference."""
+    h = 1e-6 * R
+    return float(vacuum_toroidal_field(B0, R0, R + h) - vacuum_toroidal_field(B0, R0, R - h)) / (2 * h)
 
 
 def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
@@ -259,7 +267,7 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     v_par, v_perp = 1.0, 2.0
     B_field = _toroidal_field(R0, B0)
     b0 = B_field(np.array([R0, 0.0, 0.0]))
-    v_d = (grad_b_drift_velocity(q, m, v_perp, b0, [-B0 / R0, 0.0, 0.0])
+    v_d = (grad_b_drift_velocity(q, m, v_perp, b0, [_toroidal_field_gradient(R0, B0, R0), 0.0, 0.0])
            + curvature_drift_velocity(q, m, v_par, b0, [R0, 0.0, 0.0]))
     # start one Larmor radius from the guiding centre on the field line, x = gc + (m/qB^2) B x u
     gc_start = np.array([R0, 0.0, 0.0])
@@ -457,10 +465,10 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels:
     Rhat = np.array([math.cos(phi_right), math.sin(phi_right), 0.0])
     zhat = np.array([0.0, 0.0, 1.0])
     point = R0 * Rhat
-    b = B0 * np.array([-math.sin(phi_right), math.cos(phi_right), 0.0])
+    b = float(vacuum_toroidal_field(B0, R0, R0)) * np.array([-math.sin(phi_right), math.cos(phi_right), 0.0])
     drifts = {}
     for name, q, m in (("ion", 1.0, 4.0), ("electron", -1.0, 1.0)):
-        drifts[name] = (grad_b_drift_velocity(q, m, 1.0, b, -B0 / R0 * Rhat)
+        drifts[name] = (grad_b_drift_velocity(q, m, 1.0, b, _toroidal_field_gradient(R0, B0, R0) * Rhat)
                         + curvature_drift_velocity(q, m, 1.0, b, R0 * Rhat))
     # the ions pile up where they drift to: E points from their layer to the electrons'
     E_dir = -np.sign(drifts["ion"][2]) * zhat
