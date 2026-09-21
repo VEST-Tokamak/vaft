@@ -21,13 +21,16 @@ import pytest
 
 from vaft.data.cocos import cocos_spec
 from vaft.process.cocos import (
-    CONTOUR_Q_SEPARATION,
-    FLUX_EXPONENT_TOLERANCE,
+    CONTOUR_Q_LOG_TOLERANCE,
     cocos_field_scales,
     identify_convention,
     identify_flux_exponent,
     identify_flux_exponent_from_q,
 )
+
+#: The legacy's relative criterion, reproduced here so the tests can show both
+#: what it would have accepted and that it is now unreachable.
+LEGACY_SEPARATION = 3.0
 
 TWO_PI = 2.0 * math.pi
 
@@ -104,24 +107,30 @@ def test_the_two_discriminators_agree_on_the_packaged_equilibrium(equilibrium):
     assert identify_flux_exponent(equilibrium)[0] == 0
 
 
-def test_the_losing_hypothesis_lands_at_two_pi_minus_one(equilibrium):
+def test_the_losing_hypothesis_lands_at_log_two_pi(equilibrium):
     """What makes the test decisive rather than a threshold on a continuum: the
-    wrong hypothesis is the right one times 2*pi, so its relative error is
-    2*pi - 1 = 5.283 whatever the equilibrium."""
+    wrong hypothesis is the right one times 2*pi, so in a log-ratio it sits
+    ln(2*pi) = 1.8379 away whatever the equilibrium -- and, unlike a plain
+    relative error, by the same amount in either direction."""
     result = identify_flux_exponent_from_q(equilibrium)
-    assert result.residual_per_radian < 1e-3
-    assert result.residual_weber == pytest.approx(TWO_PI - 1.0, rel=1e-3)
+    assert result.log_ratio_per_radian < 1e-3
+    assert result.log_ratio_weber == pytest.approx(math.log(TWO_PI), rel=1e-3)
     assert result.separation > 1e3
     assert result.surface_count >= 10
 
 
 def test_a_weber_equilibrium_is_identified_as_weber(equilibrium):
     """The same file with psi multiplied by 2*pi is the other family, and the
-    two residuals swap places."""
-    result = identify_flux_exponent_from_q(_rescale(equilibrium, TWO_PI))
-    assert result.exponent == 1
-    assert result.residual_weber < 1e-3
-    assert result.residual_per_radian == pytest.approx(1.0 - 1.0 / TWO_PI, rel=1e-3)
+    two log-ratios swap places exactly -- which a relative error would not do:
+    it gave 5.283 one way round and 0.841 the other for the same 2*pi."""
+    per_radian = identify_flux_exponent_from_q(equilibrium)
+    weber = identify_flux_exponent_from_q(_rescale(equilibrium, TWO_PI))
+    assert weber.exponent == 1
+    assert weber.log_ratio_weber < 1e-3
+    assert weber.log_ratio_per_radian == pytest.approx(math.log(TWO_PI), rel=1e-3)
+    assert weber.log_ratio_per_radian == pytest.approx(
+        per_radian.log_ratio_weber, rel=1e-3
+    )
 
 
 # --------------------------------------------------------------------------
@@ -152,29 +161,73 @@ def test_identify_convention_narrows_to_one_family_without_a_boundary(equilibriu
 # --------------------------------------------------------------------------
 
 
+def _legacy_relative_errors(result):
+    """The legacy's two relative errors, recovered from the measured log-ratios.
+
+    It compared ``|q_model - q_stored| / q_stored`` rather than a log-ratio, so
+    asserting what it would have done means recomputing in its own measure --
+    applying its threefold rule to a log-ratio is a different criterion and
+    answers differently.  The two hypotheses differ by exactly ``2*pi``, which
+    is what pins down the sign ``|ln|`` dropped.
+    """
+    for sign in (1.0, -1.0):
+        ratio = math.exp(sign * result.log_ratio_per_radian)
+        if math.isclose(
+            abs(math.log(TWO_PI * ratio)), result.log_ratio_weber, rel_tol=1e-9
+        ):
+            return abs(ratio - 1.0), abs(TWO_PI * ratio - 1.0)
+    raise AssertionError("the two log-ratios are not ln(2*pi) apart")
+
+
 @pytest.mark.parametrize("factor", [0.5, 1.0 / 3.0])
 def test_a_mis_scaled_psi_is_an_abstention_not_a_confident_answer(equilibrium, factor):
     """The legacy accepted a winner purely for beating the loser threefold, with
-    no bar on its own residual.  On psi scaled by one half the residuals are
-    about 1.00 and 11.6 -- a separation of 11.6, so the legacy returns "weber per
-    radian, decisive" for a hypothesis its own measurement misses by 100%.
+    no bar on its own agreement.  On psi scaled by one half its two relative
+    errors are 1.00 and 11.57 -- a separation of 11.6 -- so it returns "weber
+    per radian, decisive" for a hypothesis its own measurement misses by a
+    factor of two.
     """
     result = identify_flux_exponent_from_q(_rescale(equilibrium, factor))
-    winner = min(result.residual_per_radian, result.residual_weber)
+    winner = min(result.log_ratio_per_radian, result.log_ratio_weber)
 
-    # The legacy criterion, reproduced, would have accepted this.
-    assert result.separation > CONTOUR_Q_SEPARATION
-    # The absolute bar is what rejects it.
-    assert winner > FLUX_EXPONENT_TOLERANCE
+    # The legacy criterion, in the legacy's own measure, would have accepted it.
+    legacy_winner, legacy_loser = sorted(_legacy_relative_errors(result))
+    assert legacy_loser / legacy_winner > LEGACY_SEPARATION
+    assert legacy_winner > 0.5, "and its own residual was never checked"
+    # The bar on the winner's own agreement is what rejects it.
+    assert winner > CONTOUR_Q_LOG_TOLERANCE
     assert result.exponent is None
-    assert "off by" in result.reason
+    assert "off by a factor" in result.reason
 
 
-def test_a_psi_between_the_two_families_is_rejected_by_both_criteria(equilibrium):
-    """psi scaled by 3 puts the measurement between the hypotheses, where even
-    the legacy relative criterion abstains."""
+def test_the_legacy_separation_rule_can_no_longer_fail(equilibrium):
+    """Why there is one criterion and not two: the hypotheses sit exactly
+    ln(2*pi) apart, so a winner inside the band leaves a ratio of at least
+    ln(2*pi)/0.1398 - 1 = 12.  The separation is reported, never applied."""
+    result = identify_flux_exponent_from_q(equilibrium)
+    assert result.exponent is not None
+    assert min(result.log_ratio_per_radian, result.log_ratio_weber) <= CONTOUR_Q_LOG_TOLERANCE
+    assert result.separation > 12.0
+
+
+@pytest.mark.parametrize("factor", [1.16, 1.0 / 1.16])
+def test_the_acceptance_band_is_symmetric_in_the_ratio(equilibrium, factor):
+    """A relative error is not: it accepted a model q 1.16 times too small and
+    rejected one 1.16 times too large, for the same factor of disagreement."""
+    scaled = dataclasses.replace(equilibrium, q=equilibrium.q * factor)
+    result = identify_flux_exponent_from_q(scaled)
+    winner = min(result.log_ratio_per_radian, result.log_ratio_weber)
+    assert winner == pytest.approx(math.log(1.16), rel=0.05)
+    assert result.exponent is None
+
+
+def test_a_psi_between_the_two_families_is_rejected(equilibrium):
+    """psi scaled by 3 puts the measurement between the hypotheses; the winner
+    is off by a factor of 2.09 and is refused.  This is the one the legacy also
+    refused, in its own measure."""
     result = identify_flux_exponent_from_q(_rescale(equilibrium, 3.0))
-    assert result.separation < CONTOUR_Q_SEPARATION
+    legacy_winner, legacy_loser = sorted(_legacy_relative_errors(result))
+    assert legacy_loser / legacy_winner < LEGACY_SEPARATION
     assert result.exponent is None
 
 
@@ -210,6 +263,26 @@ def test_a_q_profile_of_zeros_leaves_no_usable_surface(equilibrium):
     )
     assert result.exponent is None
     assert "usable closed contours" in result.reason
+
+
+def test_a_profile_with_no_finite_values_says_which_one(equilibrium):
+    """Distinguished from "no usable contours": an all-NaN q and a plasma the
+    contours miss are different defects and used to give the same message."""
+    for name in ("q", "f"):
+        blank = np.full_like(getattr(equilibrium, name), np.nan)
+        result = identify_flux_exponent_from_q(
+            dataclasses.replace(equilibrium, **{name: blank})
+        )
+        assert result.exponent is None
+        assert "has no finite values" in result.reason
+
+
+def test_an_axis_outside_the_grid_says_so(equilibrium):
+    result = identify_flux_exponent_from_q(
+        dataclasses.replace(equilibrium, magnetic_axis=(99.0, 99.0))
+    )
+    assert result.exponent is None
+    assert "encloses the magnetic axis" in result.reason
 
 
 def test_a_degenerate_flux_window_abstains(equilibrium):

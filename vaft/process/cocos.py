@@ -43,7 +43,7 @@ from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 
 __all__ = [
-    "CONTOUR_Q_LEVELS", "CONTOUR_Q_MIN_SURFACES", "CONTOUR_Q_SEPARATION",
+    "CONTOUR_Q_LEVELS", "CONTOUR_Q_LOG_TOLERANCE", "CONTOUR_Q_MIN_SURFACES",
     "ContourQNormalization", "FLUX_EXPONENT_TOLERANCE", "cocos_consistency_signs",
     "cocos_field_scales", "identify_convention", "identify_flux_exponent",
     "identify_flux_exponent_from_q", "validate_cocos",
@@ -420,10 +420,12 @@ CONTOUR_Q_LEVELS: tuple[float, ...] = tuple(np.linspace(0.10, 0.80, 15))
 #: statistic taken across them is a median, which needs three to mean anything.
 CONTOUR_Q_MIN_SURFACES = 3
 
-#: How many times the losing hypothesis' residual must exceed the winner's.
-#: The legacy criterion, kept for parity.  It is not what decides: see
-#: :func:`identify_flux_exponent_from_q`.
-CONTOUR_Q_SEPARATION = 3.0
+#: The acceptance bar on the winning hypothesis, as ``|ln(q_model/q_stored)|``.
+#: ``ln(1 + FLUX_EXPONENT_TOLERANCE)`` so it is the same 15% band the Ampere
+#: rung uses, made symmetric: a model ``q`` 1.16 times too large and one 1.16
+#: times too small are equally far out, where a plain relative error accepted
+#: the second and rejected the first.
+CONTOUR_Q_LOG_TOLERANCE = float(np.log1p(FLUX_EXPONENT_TOLERANCE))
 
 
 @dataclass(frozen=True)
@@ -432,12 +434,15 @@ class ContourQNormalization:
 
     exponent: int | None
     """``0`` for a weber-per-radian psi, ``1`` for weber, ``None`` on abstention."""
-    residual_per_radian: float | None
-    """Median relative error of the reconstructed ``q`` under the Wb/rad hypothesis."""
-    residual_weber: float | None
-    """The same under the weber hypothesis; it is ``2*pi`` times the other."""
+    log_ratio_per_radian: float | None
+    """Median ``|ln(q_model/q_stored)|`` under the Wb/rad hypothesis [-]."""
+    log_ratio_weber: float | None
+    """The same under the weber hypothesis.  The two differ by exactly
+    ``ln(2*pi) = 1.8379``, whichever way round they fall, so a correct
+    equilibrium puts one near zero and the other near 1.8379 [-]."""
     separation: float | None
-    """Losing residual over winning residual."""
+    """Losing log-ratio over winning log-ratio.  Reported, not applied: see
+    :func:`identify_flux_exponent_from_q`."""
     surface_count: int
     """How many surfaces contributed."""
     reason: str = ""
@@ -522,21 +527,22 @@ def identify_flux_exponent_from_q(
        weber-per-radian form and integrate ``dl / (R |grad psi|)`` by the
        midpoint rule.
     3. Form the two candidate safety factors, ``|F|/(2*pi)`` times that integral
-       and ``2*pi`` times the first, and take each one's relative error against
-       the stored ``|q|`` interpolated to the level.
-    4. Take the median of each error across the surfaces and accept the smaller
-       one -- but only when it is itself within
-       :data:`FLUX_EXPONENT_TOLERANCE` and beats the other by at least
-       :data:`CONTOUR_Q_SEPARATION`.
+       and ``2*pi`` times the first, and take each one's
+       ``|ln(q_model / q_stored)|`` against the stored ``|q|`` interpolated to
+       the level.
+    4. Take the median of each across the surfaces and accept the smaller one,
+       but only when it is itself within :data:`CONTOUR_Q_LOG_TOLERANCE`.
 
     Defaults
     --------
-    :data:`CONTOUR_Q_LEVELS`, :data:`CONTOUR_Q_MIN_SURFACES` and
-    :data:`CONTOUR_Q_SEPARATION` are legacy compatibility values, carried over
-    from ``geqdsk_cocos.flux_normalization_diagnostic`` so the two agree surface
-    for surface.  :data:`FLUX_EXPONENT_TOLERANCE` is a numerical convenience,
-    shared with :func:`identify_flux_exponent` because it means the same thing
-    there: how far the winning hypothesis may sit from the measurement.
+    :data:`CONTOUR_Q_LEVELS` and :data:`CONTOUR_Q_MIN_SURFACES` are legacy
+    compatibility values, carried over from
+    ``geqdsk_cocos.flux_normalization_diagnostic`` so the two agree surface for
+    surface.  :data:`CONTOUR_Q_LOG_TOLERANCE` is a numerical convenience: the
+    Ampere rung's 15% band made symmetric in the ratio, so a model ``q`` 1.16
+    times too large and one 1.16 times too small are equally far out.  A plain
+    relative error is not symmetric and accepted the second while rejecting the
+    first.
 
     Convention
     ----------
@@ -557,21 +563,24 @@ def identify_flux_exponent_from_q(
     profile that disagrees with its own psi map -- a rescaled psi, a ``q`` taken
     from a different solve -- makes both hypotheses wrong, and this reports that
     rather than a family.  Marching squares resolves a contour only to the grid
-    cell, so the residual floor is set by the grid: it was 1e-5 to 2e-4 on
-    129-by-129 and 513-by-513 reconstructions, against a losing residual of
-    ``2*pi - 1``.
+    cell, so the log-ratio has a floor set by the grid: it was 1e-5 to 4e-4 on
+    129-by-129 and 513-by-513 reconstructions, against a losing log-ratio of
+    ``ln(2*pi) = 1.8379``.
 
     Provenance
     ----------
     .. [legacy] hsyun_GPEC ``library/geqdsk_cocos.py::flux_normalization_diagnostic``
        on branch ``codex/gpec-flare-cocos-handshake``, which is the method and
-       the three constants.  Its acceptance rule was *relative only* -- the
-       winner had to beat the loser threefold, with no bar on the winner's own
-       residual -- and that accepts a decisive-looking wrong answer: measured on
-       a real g-file with psi scaled by one half, the residuals are 1.000 and
-       11.57, a separation of 11.6, so the legacy returns "weber per radian,
-       decisive" for a hypothesis its own measurement misses by 100%.  The
-       absolute bar in step 4 is what rejects it (D-04).
+       the levels.  Its acceptance rule was *relative only* -- the winner had to
+       beat the loser threefold, with no bar on the winner's own agreement --
+       and that accepts a decisive-looking wrong answer: measured on a real
+       g-file with psi scaled by one half, the winning hypothesis is off by a
+       factor of 2.00 and the separation is still 3.65, so the legacy returns
+       "weber per radian, decisive" for a hypothesis its own measurement misses
+       by a factor of two.  The bar in step 4 is what rejects it (D-04), and it
+       makes the threefold rule unreachable: the two hypotheses sit exactly
+       ``ln(2*pi)`` apart, so a winner inside the band leaves a ratio of at
+       least twelve.  The separation is reported, not applied.
     .. [sauter] Sauter and Medvedev (2013) for ``e_Bp`` and the storage families.
     """
     eq = equilibrium
@@ -581,6 +590,9 @@ def identify_flux_exponent_from_q(
         return ContourQNormalization(
             None, None, None, None, 0, f"missing {', '.join(missing)}"
         )
+    for name in ("psi_axis", "psi_boundary"):
+        if not np.isfinite(float(getattr(eq, name))):
+            return ContourQNormalization(None, None, None, None, 0, f"{name} is not finite")
 
     r = np.asarray(eq.r, dtype=float).reshape(-1)
     z = np.asarray(eq.z, dtype=float).reshape(-1)
@@ -599,6 +611,13 @@ def identify_flux_exponent_from_q(
     f_profile = np.abs(np.asarray(eq.f, dtype=float).reshape(-1))
     if psi_1d.size != q_profile.size or psi_1d.size != f_profile.size or psi_1d.size < 2:
         return ContourQNormalization(None, None, None, None, 0, "q, F and psi_1d disagree in length")
+    # Say which profile is unusable rather than reporting no usable contours:
+    # an all-NaN q and a plasma the contours miss are different defects.
+    for name, profile in (("q", q_profile), ("F", f_profile), ("psi_1d", psi_1d)):
+        if not np.any(np.isfinite(profile)):
+            return ContourQNormalization(
+                None, None, None, None, 0, f"the {name} profile has no finite values"
+            )
     grid = (psi_1d - psi_axis) / (psi_boundary - psi_axis)
     order = np.argsort(grid)
     grid, q_profile, f_profile = grid[order], q_profile[order], f_profile[order]
@@ -624,14 +643,19 @@ def identify_flux_exponent_from_q(
     tolerance = 1e-9 * max(float(np.ptp(r)), float(np.ptp(z)))
     errors_per_radian: list[float] = []
     errors_weber: list[float] = []
+    traced_any = False
+    enclosing_any = False
     for level in wanted:
+        segments = list(traced.get(float(level), ()))
+        traced_any = traced_any or bool(segments)
         closed = [
             (r_c, z_c)
-            for r_c, z_c in traced.get(float(level), ())
+            for r_c, z_c in segments
             if r_c.size >= MIN_FLUX_SURFACE_POINTS
             and np.hypot(r_c[0] - r_c[-1], z_c[0] - z_c[-1]) <= tolerance
             and _encloses(axis[0], axis[1], r_c, z_c)
         ]
+        enclosing_any = enclosing_any or bool(closed)
         if not closed:
             continue
         r_c, z_c = max(closed, key=lambda contour: contour[0].size)
@@ -655,40 +679,47 @@ def identify_flux_exponent_from_q(
         # spatial coordinate; there is no sample rate here to reduce.
         q_stored = float(np.interp(level, grid, q_profile))
         f_value = float(np.interp(level, grid, f_profile))
-        if not (q_stored > 0.0) or not np.isfinite(integral):
+        if not (q_stored > 0.0) or not (f_value > 0.0) or not (integral > 0.0):
             continue
         q_per_radian = f_value * integral / (2.0 * np.pi)
-        errors_per_radian.append(abs(q_per_radian - q_stored) / q_stored)
-        errors_weber.append(abs(2.0 * np.pi * q_per_radian - q_stored) / q_stored)
+        # A log-ratio, so a model q too large by a factor and one too small by
+        # the same factor are equally far out.  The two hypotheses are exactly
+        # ln(2*pi) apart in this measure, whichever way round they fall.
+        errors_per_radian.append(abs(np.log(q_per_radian / q_stored)))
+        errors_weber.append(abs(np.log(2.0 * np.pi * q_per_radian / q_stored)))
 
     count = len(errors_per_radian)
     if count < CONTOUR_Q_MIN_SURFACES:
-        return ContourQNormalization(
-            None, None, None, None, count,
-            f"{count} usable closed contours, fewer than {CONTOUR_Q_MIN_SURFACES}",
-        )
+        if not traced_any:
+            reason = "no level traced a contour on this grid"
+        elif not enclosing_any:
+            reason = (
+                f"no traced contour encloses the magnetic axis at "
+                f"({axis[0]:.4g}, {axis[1]:.4g}); it is not inside this psi map"
+            )
+        else:
+            reason = f"{count} usable closed contours, fewer than {CONTOUR_Q_MIN_SURFACES}"
+        return ContourQNormalization(None, None, None, None, count, reason)
 
-    residual_per_radian = float(np.median(errors_per_radian))
-    residual_weber = float(np.median(errors_weber))
-    winner, loser = sorted((residual_per_radian, residual_weber))
+    log_per_radian = float(np.median(errors_per_radian))
+    log_weber = float(np.median(errors_weber))
+    winner, loser = sorted((log_per_radian, log_weber))
     separation = float(loser / winner) if winner > 0.0 else float("inf")
-    exponent = 0 if residual_per_radian < residual_weber else 1
+    exponent = 0 if log_per_radian < log_weber else 1
 
-    # The absolute bar first: the legacy had only the relative one, and a
-    # measurement that misses both hypotheses can still separate them threefold.
-    if winner > FLUX_EXPONENT_TOLERANCE:
+    # One criterion, not two.  The legacy's "the winner beats the loser
+    # threefold" cannot fail once this passes: the two hypotheses sit exactly
+    # ln(2*pi) = 1.8379 apart, so a winner inside 0.1398 leaves the loser at
+    # least 1.698, a ratio of at least 12.  What the legacy lacked, and what
+    # does the work here, is any bar on the winner's own agreement.
+    if not (winner <= CONTOUR_Q_LOG_TOLERANCE):
         return ContourQNormalization(
-            None, residual_per_radian, residual_weber, separation, count,
-            f"the better hypothesis is still off by {winner:.3g}, over the "
-            f"{FLUX_EXPONENT_TOLERANCE} bar; q and psi disagree",
-        )
-    if separation < CONTOUR_Q_SEPARATION:
-        return ContourQNormalization(
-            None, residual_per_radian, residual_weber, separation, count,
-            f"the two hypotheses are only {separation:.3g} apart",
+            None, log_per_radian, log_weber, separation, count,
+            f"the better hypothesis is off by a factor {np.exp(winner):.4g}, "
+            f"outside the {np.exp(CONTOUR_Q_LOG_TOLERANCE):.3g} band; q and psi disagree",
         )
     return ContourQNormalization(
-        exponent, residual_per_radian, residual_weber, separation, count, ""
+        exponent, log_per_radian, log_weber, separation, count, ""
     )
 
 
