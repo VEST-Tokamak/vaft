@@ -95,7 +95,8 @@ def test_no_source_compiles_with_a_syntax_warning():
     scheduled to become a SyntaxError; a docstring holding LaTeX needs ``r\"\"\"``.
     Found on the Python 3.14 bring-up (#1009)."""
     offenders = []
-    for path in _sources():
+    # Tests too: a regex in pytest.raises(match="...") is where "\\s" hides.
+    for path in [*_sources(), *sorted((REPOSITORY / "test").rglob("*.py"))]:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             compile(path.read_text(encoding="utf-8"), str(path), "exec")
