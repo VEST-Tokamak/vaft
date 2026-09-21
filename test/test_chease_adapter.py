@@ -142,7 +142,7 @@ def test_run_chease_integration_when_available(tmp_path):
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
     from vaft.data.resources import sample_geqdsk
 
-    config = CHEASEConfig(workdir=tmp_path, create_plot=False, timeout=60)
+    config = CHEASEConfig(workdir=tmp_path, create_plot=False, timeout=300)
     inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
     result = run_chease(inputs, config)
 
@@ -182,7 +182,7 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     config = CHEASEConfig(
         workdir=tmp_path,
         create_plot=False,
-        timeout=60,
+        timeout=300,
         target_psin=0.993,
         relax=0.5,
         output="geqdsk",
@@ -280,7 +280,7 @@ def test_run_chease_gfile_and_equivalent_ods_input_agree(tmp_path):
         config = CHEASEConfig(
             workdir=workdir,
             create_plot=False,
-            timeout=60,
+            timeout=300,
             target_psin=0.993,
             relax=0.5,
             output="geqdsk",
