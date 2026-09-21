@@ -40,6 +40,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    # single-particle motion
+    **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
+                                              "toroidal_drift")},
+    **{f"{name}_{projection}.svg": (name, {"projection": projection}) for name, projection in (
+        ("exb_drift", "3d"), ("curvature_drift", "poloidal"), ("curvature_drift", "top"),
+        ("magnetization_current", "3d"), ("toroidal_drift", "poloidal"), ("toroidal_drift", "top"))},
 }
 
 

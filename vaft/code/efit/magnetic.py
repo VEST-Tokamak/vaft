@@ -24,7 +24,9 @@ import numpy as np
 
 from ... import compat
 from ...compat import is_executable
-from .._executables import missing_home_message
+from .._executables import ExecutableNotLaunchable, missing_home_message
+from .._launch import with_stack_limit
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
 from .slice_name import (
     decode_time_suffix,
     split_slice_file_name,
@@ -45,6 +47,7 @@ from .config import (
 )
 
 if TYPE_CHECKING:
+    from ..execution import ExecutionBackend
     from .linearization import EFITLinearization
 
 
@@ -84,6 +87,8 @@ class EFITConfig:
     direction_constraint: Path | str | None = None
     restart_from: Path | str | None = None
     write_restart: bool = False
+    # How the run is launched; None -> LocalBackend (vaft.code.execution).
+    backend: Optional["ExecutionBackend"] = None
 
     def __post_init__(self) -> None:
         for name in ("npprime", "nffprime"):
@@ -493,24 +498,7 @@ def _efit_command(config: EFITConfig, executable: str | Path | None = None) -> l
         raise ValueError("EFITConfig.executable is required to run EFIT")
     executable = str(resolved)
     args = [str(arg) for arg in config.args]
-    if config.stack_size_kb is None:
-        return [executable, *args]
-    if compat.IS_WINDOWS:
-        # A native Windows image takes its stack reserve from the PE header,
-        # fixed by the linker, so no wrapper can raise it after the fact --
-        # install/install_efit_windows.ps1 passes -Wl,--stack instead, and
-        # -StackReserveMB is where this setting goes there. Wrapping anyway
-        # would also make every run depend on an MSYS2 bash that the installers
-        # deliberately keep off PATH.
-        return [executable, *args]
-    return [
-        "bash",
-        "-lc",
-        f"ulimit -s {int(config.stack_size_kb)}; exec \"$@\"",
-        "efit-runner",
-        executable,
-        *args,
-    ]
+    return with_stack_limit([executable, *args], config.stack_size_kb, runner_name="efit-runner")
 
 
 def prepare_efit_inputs(ods: Any, config: EFITConfig) -> EFITInputs:
@@ -760,7 +748,6 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     stdin_text = _efit_stdin(workdir, execution_kfiles)
     env = os.environ.copy()
     env.update(dict(config.env))
-    env.setdefault("OMP_NUM_THREADS", "1")
     if restart_control_sha256 is not None:
         env["EFIT_RESTART_CONTROL_SHA256"] = restart_control_sha256
     diagnostics_dir = None
@@ -794,26 +781,43 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     }
     _add_shim_directory(env, executable)
     try:
-        completed = subprocess.run(
-            command,
-            cwd=str(workdir),
-            env=env,
-            input=stdin_text,
-            text=True,
-            capture_output=True,
-            # A foreign program's bytes; see the note in vaft.code.chease.
-            encoding="utf-8",
-            errors="replace",
-            timeout=config.timeout,
-            check=False,
+        completed = resolve_backend(config).run(
+            ExecutionRequest(
+                command=tuple(command),
+                workdir=Path(workdir),
+                # The full environment, since the shim above edits PATH in it.
+                env=env,
+                stdin=stdin_text,
+                timeout=config.timeout,
+                resources=ResourceRequest(threads_per_task=1),
+                label="efit",
+            )
         )
-    except subprocess.TimeoutExpired as error:
-        stdout = error.stdout or ""
-        stderr = error.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode(errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode(errors="replace")
+    except (ExecutableNotLaunchable, OSError) as launch_error:
+        # The OS's own message, as before the backend existed.
+        error = (launch_error.__cause__ or launch_error) if isinstance(launch_error, ExecutableNotLaunchable) else launch_error
+        result = collect_efit_outputs(
+            workdir,
+            config,
+            runtime_status="runtime_error",
+            runtime_reason=str(error),
+            executable=executable,
+            expected_kfiles=inputs.kfiles,
+            diagnostics_dir=diagnostics_dir,
+            requested_diagnostics=config.export_linearization,
+            restart_file=None,
+            executed_kfiles=execution_kfiles,
+            direction_identity=direction_identity,
+            restart_control_sha256=restart_control_sha256,
+            pre_run_output_fingerprints=pre_run_output_fingerprints,
+        )
+        result.status = "failed"
+        result.reason = str(error)
+        result.stderr = str(error)
+        return result
+    if completed.timed_out:
+        stdout = completed.stdout
+        stderr = completed.stderr
         (workdir / "run_efit.out").write_text(stdout, encoding="utf-8")
         (workdir / "run_efit.err").write_text(stderr, encoding="utf-8")
         result = collect_efit_outputs(
@@ -835,26 +839,6 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
         result.reason = f"EFIT timed out after {config.timeout} seconds"
         result.stdout = stdout
         result.stderr = stderr
-        return result
-    except OSError as error:
-        result = collect_efit_outputs(
-            workdir,
-            config,
-            runtime_status="runtime_error",
-            runtime_reason=str(error),
-            executable=executable,
-            expected_kfiles=inputs.kfiles,
-            diagnostics_dir=diagnostics_dir,
-            requested_diagnostics=config.export_linearization,
-            restart_file=None,
-            executed_kfiles=execution_kfiles,
-            direction_identity=direction_identity,
-            restart_control_sha256=restart_control_sha256,
-            pre_run_output_fingerprints=pre_run_output_fingerprints,
-        )
-        result.status = "failed"
-        result.reason = str(error)
-        result.stderr = str(error)
         return result
     (workdir / "run_efit.out").write_text(completed.stdout, encoding="utf-8")
     (workdir / "run_efit.err").write_text(completed.stderr, encoding="utf-8")

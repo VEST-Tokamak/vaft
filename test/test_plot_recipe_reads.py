@@ -38,7 +38,7 @@ NEUTRAL = frozenset({
     "equilibrium_geometry_topview", "machine_geometry_topview",
     "electron_temperature_field", "electron_density_field",
     "camera_visible_animation_frames", "camera_visible_spectrogram",
-    "limiter_current_time", "mirnov_spatial_phase",
+    "limiter_current_time", "mirnov_spatial_phase", "diagnostics_spectrum_coherence",
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
     "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
@@ -49,6 +49,9 @@ NEUTRAL = frozenset({
     "equilibrium_overview_convergence", "equilibrium_overview_constraints",
     "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
     "chease_overview_refinement_summary", "chease_overview_profile_validity",
+    # issue #952: the constraint weights and the pressure-weight scan read
+    # through vaft.omas.efit_quality, which reads through vaft.ods_access.
+    "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode",
@@ -61,10 +64,20 @@ OMAS_BOUND = frozenset({
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
+    # issue #952: the kinetic profile fits call the vaft.process.profile mappers
+    # and fitters, which subscript the ODS.
+    "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.
-IGNORED_READS: dict[str, dict[str, str]] = {}
+_MAPPER_PROBES = {
+    "fluxSurfaces": "the mapper first asks whether it was handed a legacy fluxSurfaces mapping",
+    "NW": "the mapper then asks whether it was handed a GEQDSK before reading the ODS equilibrium",
+}
+IGNORED_READS: dict[str, dict[str, str]] = {
+    "thomson_scattering_profile_fit": _MAPPER_PROBES,
+    "charge_exchange_profile_fit": _MAPPER_PROBES,
+}
 
 #: Neutral views whose synthetic input cannot be written to IMAS and read back.
 SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {}

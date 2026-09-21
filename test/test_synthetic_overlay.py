@@ -2,8 +2,10 @@
 
 The full diagnostic waveform stays the primary signal; an equilibrium's
 prediction of it is drawn as markers at the slices that hold one, in the same
-unit, in the same panel, named by its role.  No packaged shot stores a finite
-``reconstructed`` constraint value, so the fixture fills some in.
+unit, in the same panel, named by its role.  The packaged shots now carry
+EFIT's own reconstructions (m-file replay, #952); the fixtures clear them and
+write a known pattern instead, so every assertion here is about the overlay
+and not about the fit.
 """
 
 import contextlib
@@ -29,15 +31,29 @@ def _load(rel):
         return vaft.omas.load(str(vaft.data.data_path(rel)))
 
 
+def _without_reconstructions(ods):
+    """Clear every stored ``constraints...reconstructed`` value (set it to NaN)."""
+    for path in list(ods.flat()):
+        path = str(path)
+        if ".constraints." in path and path.endswith(".reconstructed"):
+            ods[path] = float("nan")
+    return ods
+
+
+@pytest.fixture(scope="module")
+def packaged():
+    return _load("samples/39915/omas.json.gz")
+
+
 @pytest.fixture(scope="module")
 def bare():
-    return _load("samples/39915/omas.json.gz")
+    return _without_reconstructions(_load("samples/39915/omas.json.gz"))
 
 
 @pytest.fixture(scope="module")
 def reconstructed():
     """39915 with a reconstruction written for two loops and Ip on slices 2-5."""
-    ods = _load("samples/39915/omas.json.gz")
+    ods = _without_reconstructions(_load("samples/39915/omas.json.gz"))
     for t in range(2, 6):
         for j in range(2):
             base = f"equilibrium.time_slice.{t}.constraints.flux_loop.{j}"
@@ -96,6 +112,14 @@ def test_a_shot_without_a_reconstruction_draws_nothing_extra_and_does_not_fail(b
     figure, axes = vaft.omas.plot_flux_loop_time_flux(bare, selection=[0, 1], synthetic="equilibrium")
     assert [line.get_label() for line in axes.lines] == ["[0] (59.2 cm, 68.5 cm)", "[1] (79.2 cm, 46.0 cm)"]
     plt.close(figure)
+
+
+def test_the_packaged_sample_overlays_efit_on_every_slice(packaged):
+    model = build_model(
+        "flux_loop_time_flux", normalize_entries(packaged), selection=[4], synthetic="equilibrium"
+    )
+    synthetic = _by_role(model)["reconstruction"]
+    assert len(synthetic) == 1 and synthetic[0].x.size == 9
 
 
 def test_the_default_is_no_overlay(reconstructed):

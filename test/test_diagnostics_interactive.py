@@ -68,7 +68,7 @@ def test_a_member_the_input_loses_leaves_the_available_set(sample):
 
 def test_the_controls_are_folded_from_the_members_not_listed_by_hand(record):
     names = [c.name for c in controls_for(record)]
-    assert names == ["members", "selection", "x", "orientation", "validity", "theme"]
+    assert names == ["members", "selection", "x", "synthetic", "orientation", "validity", "theme"]
     by_name = {c.name: c for c in controls_for(record)}
     # Presets only: individual channel indices mean nothing across panels.
     assert "channels" not in names
@@ -171,7 +171,7 @@ def test_a_preset_reaches_every_panel(sample):
 
 def test_the_omas_entry_point_is_the_interactive_overview(sample):
     result = vaft.omas.plot_diagnostics_time_interactive(sample, backend="none")
-    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity", "theme"]
+    assert [c.name for c in result.controls] == ["members", "selection", "x", "synthetic", "orientation", "validity", "theme"]
     assert result.state["validity"] == "mask"
     with pytest.raises(ValueError, match="backend must be one of"):
         vaft.omas.plot_diagnostics_time_interactive(sample, backend="tk")
@@ -182,7 +182,7 @@ def test_the_imas_twins_offer_what_omas_offers(sample):
     imas = pytest.importorskip("imas")
     entry = imas.DBEntry(str(vaft.data.data_path("samples/39915/imas.nc")), "r", dd_version="3.41.0")
     result = vaft.imas.plot_diagnostics_time_interactive(entry, backend="none")
-    assert [c.name for c in result.controls] == ["members", "selection", "x", "orientation", "validity", "theme"]
+    assert [c.name for c in result.controls] == ["members", "selection", "x", "synthetic", "orientation", "validity", "theme"]
     assert result.axes.shape == (5,)
     plt.close(result.figure)
     explorer = vaft.imas.plot_equilibrium_interactive(entry, backend="none")
@@ -232,7 +232,7 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
     # markers and the reconstruction overlay would silently disappear.
     explorer = db.plot_equilibrium_interactive(39915, backend="none")
     assert {"equilibrium", "magnetics", "dataset_description"} <= set(seen["paths"])
-    assert [t.get_text() for t in explorer.history_axes[0].get_legend().get_texts()] == ["measured", "slices"]
+    assert [t.get_text() for t in explorer.history_axes[0].get_legend().get_texts()] == ["measured", "reconstruction", "slices"]
     plt.close(explorer.figure)
 
 

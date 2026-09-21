@@ -25,6 +25,8 @@ from vaft.formula.startup import (
     plasma_self_field_from_I_p_a,
     startup_geometry_from_limiter_radii,
     townsend_breakdown_field,
+    townsend_breakdown_field_for_gas,
+    townsend_coefficients_for_gas,
     townsend_ionization_coefficient,
     vertical_field_from_I_p_R0_a_beta_p_li,
 )
@@ -406,6 +408,94 @@ def test_the_generic_inversion_rejects_a_non_physical_input(kwargs):
     call.update(kwargs)
     with pytest.raises(ValueError):
         townsend_breakdown_field(**call)
+
+
+
+# --------------------------------------------------------------------------
+# Gas catalogue
+# --------------------------------------------------------------------------
+
+#: The published per-centimetre, per-torr pairs, restated so the catalogue is
+#: pinned against the literature rather than against itself.
+PUBLISHED_CM_TORR = {"H2": (5.1, 125.0), "He": (3.0, 34.0), "Ar": (12.0, 180.0)}
+
+
+def test_hydrogen_in_the_catalogue_is_lloyd_bit_for_bit():
+    for p_pa, length in [(1e-2, 200.0), (0.13, 100.0), (0.7, 40.0)]:
+        assert townsend_breakdown_field_for_gas(p_pa, length, "H2") == (
+            lloyd_breakdown_field(p_pa, length)
+        )
+    grid = np.array([1e-2, 0.13, 0.7])
+    np.testing.assert_array_equal(
+        townsend_breakdown_field_for_gas(grid, 100.0, "H2"),
+        lloyd_breakdown_field(grid, 100.0),
+    )
+
+
+@pytest.mark.parametrize("gas", sorted(PUBLISHED_CM_TORR))
+def test_the_catalogue_converts_the_published_pair_to_si(gas):
+    a_cm_torr, b_cm_torr = PUBLISHED_CM_TORR[gas]
+    a_pa, b_pa = townsend_coefficients_for_gas(gas)
+    assert a_pa == pytest.approx(100.0 * a_cm_torr / PA_PER_TORR, rel=1e-14, abs=0.0)
+    assert b_pa == pytest.approx(100.0 * b_cm_torr / PA_PER_TORR, rel=1e-14, abs=0.0)
+
+
+@pytest.mark.parametrize("gas", sorted(PUBLISHED_CM_TORR))
+def test_each_gas_threshold_is_where_one_avalanche_length_fits(gas):
+    # The two public entry points must describe the same gas: the threshold
+    # of one, fed to the ionisation coefficient with the other's pair, closes
+    # exactly one avalanche over L.
+    p_pa, length = 0.1, 100.0
+    field = townsend_breakdown_field_for_gas(p_pa, length, gas)
+    a_pa, b_pa = townsend_coefficients_for_gas(gas)
+    assert townsend_ionization_coefficient(field, p_pa, a_pa, b_pa) == (
+        pytest.approx(1.0 / length, rel=1e-12, abs=0.0)
+    )
+
+
+def test_no_gas_is_easiest_everywhere():
+    # The ordering the docstring states: argon below hydrogen at a thin fill,
+    # above it by 30 mPa; helium has no threshold at 3 mPa and the lowest one
+    # from 7 mPa up.
+    def fields(p_pa):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            return {g: townsend_breakdown_field_for_gas(p_pa, 100.0, g) for g in PUBLISHED_CM_TORR}
+
+    thin, thick = fields(3e-3), fields(3e-2)
+    assert thin["Ar"] < thin["H2"]
+    assert thick["Ar"] > thick["H2"]
+    assert np.isnan(thin["He"])
+    for p_pa in (7e-3, 3e-2, 0.3):
+        at = fields(p_pa)
+        assert at["He"] < min(at["H2"], at["Ar"])
+
+
+def test_the_noble_gas_thresholds_the_docstring_quotes_leave_raizers_range():
+    # The E/p figures stated in townsend_coefficients_for_gas: over 100 m, the
+    # argon threshold's own E/p falls under Raizer's 100-600 V/(cm Torr) by
+    # 7 mPa, and helium is inside its 20-150 at 7 mPa but not at 30 mPa.
+    def e_over_p(p_pa, gas):
+        field = townsend_breakdown_field_for_gas(p_pa, 100.0, gas)
+        return (field / 100.0) / (p_pa / PA_PER_TORR)
+
+    assert e_over_p(7e-3, "Ar") == pytest.approx(98.0, abs=0.5)
+    assert e_over_p(3e-2, "Ar") == pytest.approx(55.0, abs=0.5)
+    assert 20.0 < e_over_p(7e-3, "He") < 150.0
+    assert e_over_p(3e-2, "He") < 20.0
+
+@pytest.mark.parametrize("gas", ["D2", "h2", "hydrogen", "N2", None])
+def test_an_uncatalogued_gas_is_refused_by_name(gas):
+    with pytest.raises(ValueError, match="known gases"):
+        townsend_coefficients_for_gas(gas)
+    with pytest.raises(ValueError, match="known gases"):
+        townsend_breakdown_field_for_gas(0.1, 100.0, gas)
+
+
+def test_a_catalogued_gas_blanks_below_its_domain_and_blames_the_caller():
+    with pytest.warns(RuntimeWarning, match="avalanche cannot close") as record:
+        assert np.isnan(townsend_breakdown_field_for_gas(1e-3, 1.0, "He"))
+    assert record[0].filename == __file__
 
 
 def test_limiter_aperture_geometry_is_the_midplane_chord():

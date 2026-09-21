@@ -78,6 +78,9 @@ CONVENTION_SENSITIVE = frozenset({
     "rhoN_from_phi",
     "rho_tor_from_phi",
     "toroidal_flux_from_q_psi",
+    # li_3 vs li_1, and the radius li_3 was normalised by (#782)
+    "internal_inductance_from_li_3_R0",
+    "li_3_from_internal_inductance_R0",
     "q_from_phi",
     "q_from_rhoN",
     "rhoN_from_qpsiN",
@@ -104,6 +107,13 @@ CONVENTION_SENSITIVE = frozenset({
     "island_separatrix_half_width",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
+    # single-particle motion: charge signs, vector orientation, half-step velocities
+    "gyrofrequency",
+    "larmor_radius",
+    "exb_drift_velocity",
+    "grad_b_drift_velocity",
+    "curvature_drift_velocity",
+    "boris_orbit",
     # nu* and rho* families
     "collisionality_from_n_T_B_R",
     "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
@@ -135,6 +145,7 @@ CONVENTION_SENSITIVE = frozenset({
     "equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R",
     "current_weighted_flux_from_psi_j_dS",
     "internal_inductance_from_psi_C_psi_B_I_p",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
     # atomic: ADF11 table units
     "interpolate_adf11",
     "fractional_abundances",
@@ -160,6 +171,8 @@ CONVENTION_SENSITIVE = frozenset({
     "atomic_inventory_from_molecular_gas",
     "townsend_ionization_coefficient",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
@@ -174,6 +187,9 @@ CONVENTION_SENSITIVE = frozenset({
     # rather than vessel averages.
     "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
     "ionization_fraction_from_n_e_n_D0",
+    # #782: Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
+    "boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j",
+    "internal_inductive_voltage_terms_from_L_i_I_p",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
@@ -201,6 +217,9 @@ EMPIRICAL = frozenset({
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
 })
 
 SPECS = catalog.list_formulas()

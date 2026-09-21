@@ -10,13 +10,15 @@ from pathlib import Path
 import shutil
 import subprocess
 from typing import Any, Mapping, Optional, Sequence
+import warnings
 
 import numpy as np
 
 from vaft.formula.statistics import rms
 
 from ..compat import is_executable, resolve_executable
-from ._executables import executable_from_home, missing_home_message
+from ._executables import ExecutableNotLaunchable, executable_from_home, missing_home_message
+from .execution import ExecutionBackend, ExecutionRequest, ExecutionResult, resolve_backend
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
 
 MU0 = 4.0e-7 * np.pi
@@ -26,21 +28,40 @@ CHEASE_HOME_EXECUTABLE = Path("bin/chease")
 CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 
 
+#: What each supported ``CHEASEConfig.output`` asks CHEASE for, as its
+#: ``NIDEAL`` mapping selector.
+#:
+#: The adapter's contract is GEQDSK in, GEQDSK out (#516): VAFT reads a
+#: g-file, writes CHEASE's native ``EXPEQ`` from it (``NEQDSK=0`` -- the
+#: boundary, ``p'`` and ``FF'``, not the g-file itself), and reads the COCOS-2
+#: EQDSK CHEASE writes back.  ``NIDEAL=6`` is that EQDSK mapping in upstream
+#: CHEASE and upstream's own default (``preset.f90``).  Other mappings --
+#: ``NIDEAL=9`` for the GENE/ORB5 ``ogyropsi.h5`` output, the MARS or PEST
+#: families -- produce files this adapter does not read, so they are not
+#: offered here; each needs its own named output and reader when it is wanted.
+CHEASE_OUTPUT_NIDEAL: Mapping[str, int] = {"geqdsk": 6}
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
-    """Runtime and numerical configuration for CHEASE refinement."""
+    """Runtime and numerical configuration for CHEASE refinement.
+
+    ``output`` names what the refinement produces; the only supported value is
+    ``"geqdsk"`` (see :data:`CHEASE_OUTPUT_NIDEAL`).  ``nideal`` is a
+    deprecated raw override of CHEASE's ``NIDEAL`` selector, kept for CHEASE
+    forks whose numbering differs from upstream -- the VEST ``jsk95`` revision
+    runs with 11, which upstream rejects -- and it warns when set.
+    """
 
     executable: Optional[str] = None
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
-    # in `cotrol` on anything outside it, before any equilibrium work. 6 is
-    # upstream's own default (`preset.f90:104`) and the value every VAFT caller
-    # that actually runs CHEASE already passed by hand. The VEST `jsk95`
-    # workflow uses 11, which only its own CHEASE revision accepts; pass
-    # `nideal=11` explicitly for it.
-    nideal: int = 6
+    output: str = "geqdsk"
+    # Deprecated: a raw NIDEAL for a non-upstream CHEASE build. Upstream
+    # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
+    # equilibrium work, which is how the old default of 11 failed (#717).
+    nideal: Optional[int] = None
     nw: int = 513
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
 
@@ -65,6 +86,31 @@ class CHEASEConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
+    backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+
+    def __post_init__(self) -> None:
+        if self.output not in CHEASE_OUTPUT_NIDEAL:
+            raise ValueError(
+                f"CHEASEConfig.output={self.output!r} is not supported; the "
+                f"adapter reads {sorted(CHEASE_OUTPUT_NIDEAL)}. Other CHEASE "
+                "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
+                "refinement contract (#516)"
+            )
+        if self.nideal is not None:
+            warnings.warn(
+                f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
+                f"output={self.output!r} selects "
+                f"({CHEASE_OUTPUT_NIDEAL[self.output]}). The raw override is "
+                "deprecated and exists only for CHEASE forks with their own "
+                "numbering; drop it for upstream CHEASE (#516)",
+                FutureWarning,
+                stacklevel=3,
+            )
+
+    @property
+    def resolved_nideal(self) -> int:
+        """The ``NIDEAL`` written to the namelist."""
+        return int(self.nideal) if self.nideal is not None else CHEASE_OUTPUT_NIDEAL[self.output]
 
 
 @dataclass
@@ -499,20 +545,31 @@ def _edge_zero_profiles(
     ``constraint_psi_norm`` is nudged outward exactly as the donor does when a
     reversed point falls between it and 0.3. That branch is inert for any
     edge constraint, since 0.95 > 0.3; it fires only for a near-axis one.
+
+    Deliberate deviation from the donor: the walk starts AT the separatrix
+    sample. eqdsk.py's loop (``for i in range(lenp): ii = lenp-i-1``) begins
+    one sample inside, because its ``ffpt[ii] = ffpt[ii+1]`` has no outside
+    value to read there, and so never examines ``psi_N = 1``. A reversal on
+    that one sample then survived, and since ``_write_expeq`` writes
+    ``-|p'|`` it became a drive of the bulk sign at the edge -- on a hollow
+    edge, the largest |p'| of the whole profile, sitting next to zeroed
+    neighbours (legacy VFIT g039516.031400: 98 kPa/Wb at psi_N = 1). EFIT
+    g-files that pin p'(1) = 0 are unaffected. At the separatrix there is no
+    just-outside value, so FF' keeps its own value, and the band inside is
+    held at it exactly as before.
     """
     pp = np.array(pprime, dtype=float, copy=True)
     ff = np.array(ffprim, dtype=float, copy=True)
     bulk_sign = np.sign(np.median(pp))
     if bulk_sign == 0.0:
         bulk_sign = 1.0
-    lenp = len(pp) - 1
-    for i in range(lenp):
-        ii = lenp - i - 1
+    for ii in range(len(pp) - 1, -1, -1):
         if pp[ii] * bulk_sign < 0.0:  # reversed relative to the bulk => non-physical
             if constraint_psi_norm < psin[ii] < 0.3:
                 constraint_psi_norm = float(psin[ii] + 0.1)
             pp[ii] = 0.0
-            ff[ii] = ff[ii + 1]
+            if ii + 1 < len(ff):
+                ff[ii] = ff[ii + 1]
     return pp, ff, constraint_psi_norm
 
 
@@ -536,8 +593,20 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     if rcen == 0.0 or amin <= 0.0:
         raise ValueError("Invalid CHEASE boundary geometry: zero major/minor radius")
 
+    from vaft.data.eqdsk import vacuum_b0_magnitude
+
     aspct = amin / rcen
-    b0exp = float(geqdsk["RCENTR"]) * abs(float(geqdsk["BCENTR"])) / rcen
+    # |B0| comes from FPOL, not BCENTR: a g-file spells the same vacuum field
+    # both ways at nine significant digits, the two spellings do not round to
+    # the same double, and `to_omas()` canonicalizes on the FPOL one (issue
+    # #325). Reading BCENTR here made a g-file and the ODS built from that same
+    # g-file produce EXPEQ/namelist pairs differing by 3.3e-9 in B0EXP. On the
+    # VEST shots where BCENTR drifts away from FPOL outright -- by up to 101%
+    # within a single shot, which is what #325 is about -- the same
+    # inconsistency was not a rounding gap but two different equilibria, and
+    # the one CHEASE was being handed was normalized to a vacuum field the
+    # equilibrium had not been solved with.
+    b0exp = float(geqdsk["RCENTR"]) * vacuum_b0_magnitude(geqdsk) / rcen
     if b0exp == 0.0:
         raise ValueError("Invalid CHEASE normalization: B0EXP is zero")
 
@@ -618,7 +687,7 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
 
 
 def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[str]:
-    mesh = _chease_mesh_params(config.nideal)
+    mesh = _chease_mesh_params(config.resolved_nideal)
     width = 0.05
     lines = [
         "*************************\n",
@@ -629,6 +698,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "! --- CHEASE input file option\n",
         "NOPT=0,\n",
         "NSURF=6,\n",
+        # EXPEQ is written by _write_expeq, not handed over as a g-file.
         "NEQDSK=0\n",
         "TENSBND=    -0.1,\n",
         "NSYM=0,\n",
@@ -677,7 +747,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         f"NCSCAL={int(config.ncscal)},\n",
         f"CSSPEC={float(params.get('CSSPEC', 0.0)):.6f},\n",
         f"NEGP={mesh['negp']}, NER={mesh['ner']},\n",
-        f"NIDEAL={int(config.nideal)},\n",
+        f"NIDEAL={config.resolved_nideal},\n",
         f"NMESHA=1, NPOIDA=2, SOLPDA=.20,APLACE= {1.0 - 0.5 * width:4.3f}, 1.000,\n",
         f"                               AWIDTH= {0.9 * width:4.3f}, 0.003,\n",
         f"NMESHC=1, NPOIDC=3, SOLPDC=.20,CPLACE=0.000, {1.0 - 0.5 * width:4.3f}, 1.00,\n",
@@ -1072,37 +1142,38 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     if inputs.namelist is None or not inputs.namelist.exists():
         raise FileNotFoundError(f"Missing chease_namelist file in {inputs.workdir}")
 
-    env = os.environ.copy()
-    env.update(dict(config.env))
+    command = (str(executable), *config.args)
     try:
-        completed = subprocess.run(
-            [str(executable), *config.args],
-            cwd=str(inputs.workdir),
-            env=env,
-            text=True,
-            capture_output=True,
-            # CHEASE writes its own diagnostics, so the bytes on these pipes are
-            # a foreign program's, not this repository's. Decoding them at the
-            # host locale turns a *completed* solve into a UnicodeDecodeError on
-            # any non-UTF-8 console -- cp949, for one -- after the refined
-            # equilibrium is already on disk. The log below is written as UTF-8,
-            # so reading as UTF-8 is also what makes the round trip symmetric,
-            # and `replace` keeps one bad character from discarding the run.
-            encoding="utf-8",
-            errors="replace",
-            timeout=config.timeout,
-            check=False,
+        # CHEASE writes its own diagnostics, so the bytes on its pipes are a
+        # foreign program's, not this repository's. The backend decodes them as
+        # UTF-8 with replacement: decoding at the host locale would turn a
+        # *completed* solve into a UnicodeDecodeError on any non-UTF-8 console
+        # -- cp949, for one -- after the refined equilibrium is already on disk,
+        # and chease.log below is written as UTF-8 for the same round trip.
+        completed = resolve_backend(config).run(
+            ExecutionRequest(
+                command=command,
+                workdir=Path(inputs.workdir),
+                env=dict(config.env),
+                timeout=config.timeout,
+                label="chease",
+            )
         )
-    except OSError as error:
+    except ExecutableNotLaunchable as error:
         # The file resolved and passed the executability probe and the operating
         # system still refused to start it. A configuration problem raises above;
         # this is a runtime one, so it is reported the way a non-zero exit is,
         # rather than as a traceback out of a notebook cell.
-        completed = subprocess.CompletedProcess(
-            [str(executable), *config.args],
+        completed = ExecutionResult(
             returncode=1,
             stdout="",
-            stderr=f"CHEASE could not be launched ({executable}): {error}",
+            stderr=f"CHEASE could not be launched ({executable}): {error.__cause__ or error}",
+            launcher=command,
+        )
+    if completed.timed_out:
+        # Callers have always seen the stdlib's exception here.
+        raise subprocess.TimeoutExpired(
+            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
         )
     log_path = inputs.workdir / "chease.log"
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
@@ -1254,6 +1325,7 @@ def refine_equilibrium(source: Any, config: CHEASEConfig | None = None) -> CHEAS
 
 
 __all__ = [
+    "CHEASE_OUTPUT_NIDEAL",
     "CHEASEConfig",
     "CHEASEInputs",
     "CHEASEResult",

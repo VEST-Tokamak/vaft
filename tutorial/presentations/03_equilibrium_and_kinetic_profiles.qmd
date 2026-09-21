@@ -14,8 +14,8 @@ bibliography: assets/bibliography/vaft.bib
 A discharge you can place in time --- when it broke down, what the coils did,
 and a vacuum field you have checked against the magnetics.
 
-This session asks what the plasma settled *into*, and whether the stored answer
-is really an answer.
+This session asks what the plasma settled *into*, how anyone knows, and how
+well the stored answer explains what was measured.
 
 ::: {.notes}
 [2 min]
@@ -25,20 +25,38 @@ Name the prerequisite. Session 02 ended with a field and a breakdown time;
 session 03 begins after the current has ramped and the plasma has found a shape.
 
 The session's posture is unusual and worth flagging early: it does not take the
-reconstruction on trust. It measures how well the stored equilibrium satisfies
-its own governing equation.
+reconstruction on trust. It asks what the reconstruction was given, how much
+each input was trusted, and whether the stored equilibrium satisfies its own
+governing equation.
 
 TRANSITION:
-And that equation is the one thing everything else rests on.
+The whole session is one chain, and it is worth putting on the screen.
+:::
+
+## The chain
+
+diagnostics $\rightarrow$ constraints $+$ uncertainties $\rightarrow$
+equilibrium reconstruction $\rightarrow$ flux coordinates $\rightarrow$
+kinetic profiles $\rightarrow$ derived plasma state $\rightarrow$ comparison
+
+::: {.notes}
+[1 min]
+
+NARRATE:
+Point at each arrow. Every arrow is a place where a model or an assumption
+enters, and the session stops at each one to say which. The notebook's steps
+follow the arrows in order.
 :::
 
 # The equation
 
 ## The equation everything rests on
 
-$$\Delta^{*}\psi = -\mu_{0}R^{2}p'(\psi) - FF'(\psi)$$
+$$\nabla p = \mathbf{J}\times\mathbf{B}
+\;\;\Longrightarrow\;\;
+\Delta^{*}\psi = -\mu_{0}R^{2}p'(\psi) - FF'(\psi)$$
 
-Flux surfaces are its contours; $p'$ and $FF'$ carry pressure and current.
+Axisymmetric, static, isotropic pressure, nested surfaces.
 
 ::: {.notes}
 [5 min]
@@ -51,42 +69,86 @@ $\psi$: the surfaces are its contours, the field is its gradient.
 Two free functions, $p'$ and $FF'$. That is what makes reconstruction possible
 and also what makes it under-determined.
 
+Say the four assumptions out loud, and where each fails: strong rotation,
+pressure anisotropy, 3-D fields, islands and stochastic regions. Those are
+session 05; this session assumes the standard form throughout.
+
 WARN:
 Background the course never defines and this session then uses. Supply it here:
 
 - **last closed flux surface** — the outermost surface whose field lines close
-  on themselves; outside it they strike a wall. Session 01 called it "the
-  boundary of the confined plasma" without ever naming it. On a *diverted*
-  plasma that surface passes through an X-point and is called a **separatrix**;
-  VEST discharges are limited on the centre stack, so the boundary is set by the
-  limiter instead. Session 03's notebook uses the word "separatrix" for it
-  loosely, as the field does.
+  on themselves; outside it they strike a wall. On a *diverted* plasma that
+  surface passes through an X-point and is called a **separatrix**; VEST
+  discharges are mostly limited on the centre stack, so the boundary is set by
+  the limiter instead. The notebook's Solov'ev examples show all three
+  topologies side by side.
 - **$q$** and **$q_{95}$** — $q$ is the field-line pitch, toroidal turns per
   poloidal turn; $q_{95}$ is its value at 95% of the normalised poloidal flux.
   The convention exists because $q$ diverges at an X-point, so an edge value
   quoted *at* the boundary is unusable on a diverted plasma; it is quoted the
   same way on limited ones so the number stays comparable between machines.
-- **$\beta$** — plasma pressure over magnetic pressure, the efficiency of the
-  confinement. Toroidal, poloidal and normalised betas are different numbers;
-  VAFT displays $\beta_t$ as a percent and the others plain.
+- **$\beta$** — plasma pressure over magnetic pressure. Toroidal, poloidal and
+  normalised betas are different numbers.
 - **$\ell_i$** — internal inductance, how peaked the current profile is.
 
-The session's overview promises to "vary shape, beta and internal inductance".
-Two of those three have never been defined anywhere in the course.
-
 TRANSITION:
-Two codes answer two different questions about this equation.
+Before a real discharge, the vocabulary: what an equilibrium is made of.
 :::
 
-## Two codes, two questions
+# Representing an equilibrium
 
-- **EFIT reconstructs** --- free boundary, from magnetics.
-  *What was the plasma doing?*
-- **CHEASE forward-models** --- fixed boundary, from profiles.
-  *What do these inputs imply?*
+## A hierarchy, not a boundary
+
+- **2-D** --- $\psi(R,Z)$, fields, LCFS, axis, X-points, wall
+- **1-D** --- $q$, $p$, $F$, $p'$, $FF'$
+- **global** --- $I_p$, $a$, $\kappa$, $\delta$, $q_{95}$, $\beta_N$, $\ell_i$
+- **coordinates** --- $\psi_N$, $\rho_{\mathrm{tor},N}$, $R$, $r$
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+The four levels, and which one the solver actually solves for: the 1-D source
+functions. The 2-D map follows from them; the global numbers summarise them.
+
+WARN:
+The packaged 39915 slices store a `rho_tor_norm` that is exactly
+$\sqrt{\psi_N}$ --- a proxy. The notebook checks it before and after
+derivation. Make the point that a coordinate's *name* in a file is not proof of
+what it is.
+:::
+
+## A shape is not a solution
+
+**Miller** --- five numbers per surface, any nesting.
+
+**Solov'ev** --- constant $p'$, $FF'$: every surface follows.
+
+Limited, single null, double null: a property of the flux map.
 
 ::: {.notes}
 [4 min]
+
+NARRATE:
+Miller is how a gyrokinetic or stability code describes a local surface
+*given* an equilibrium. It carries no force balance. Solov'ev is an exact
+solution of the Grad--Shafranov equation, rich enough (Cerfon--Freidberg) to
+impose a boundary and an X-point.
+
+Topology is decided from the saddles of $\psi$: a saddle whose flux matches the
+boundary's makes the plasma diverted. Real VEST maps have many saddles, far
+outside the plasma; none of them is on the boundary.
+:::
+
+## Two axes of numerical problems
+
+|                | fixed boundary | free boundary        |
+|----------------|----------------|----------------------|
+| forward        | CHEASE         | TES, TokaMaker       |
+| reconstruction | ---            | EFIT                 |
+
+::: {.notes}
+[3 min]
 
 NARRATE:
 The distinction students most often blur. EFIT is given measurements and finds
@@ -98,13 +160,65 @@ Free versus fixed boundary is the concrete difference: EFIT's grid extends past
 the plasma to the coils because the boundary is part of the answer. CHEASE works
 only inside a boundary you hand it.
 
-WARN:
-That difference matters when the session measures the residual of both. Outside
-the separatrix $\psi$ folds back near the coils, so a residual computed over the
-whole grid says something confident and wrong. Mask on the plasma.
-
 TRANSITION:
-And a stored equilibrium carries less than you might expect.
+So what was EFIT actually given?
+:::
+
+# What the experiment constrains
+
+## Measured, weighted, reconstructed
+
+$$r_i = \frac{y_i - y_i^{\mathrm{model}}}{\sigma_i}$$
+
+Only as meaningful as $\sigma_i$.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The inputs: plasma current, PF currents, poloidal probes, flux loops,
+diamagnetic flux --- measured; vessel currents --- modelled; the limiter ---
+geometry.
+
+Then the honest part, which the notebook prints rather than asserts. On these
+samples EFIT reports an $I_p$ $\chi^2$ of about 200 although the reconstructed
+$I_p$ equals the measured one to float precision: all of it is the vessel term
+of a Rogowski that encloses the vessel, and VEST's inner Rogowski does not
+(#918). VAFT recomputes the plasma-only residual, which is essentially zero.
+What remains is dominated by the probes and is tiny, because EFIT's $\sigma$ is its
+weight times $10^4$: about 1000 T for a probe, while the diagnostic recorded
+1%. The ratio is of order $10^6$. The weights, not the diagnostics, set the
+fit. And the diamagnetic loop was submitted as $|\Delta\Phi|$ at weight
+$10^{-4}$, so it did not constrain the pressure.
+
+WARN:
+Do not let this turn into "EFIT is wrong". The flux map can be fine. What
+cannot be used is the stored $\chi^2$ as evidence of fit quality.
+:::
+
+## The coordinate is borrowed
+
+$(R_i, Z_i) \rightarrow \psi_{N,i} \rightarrow \rho_{\mathrm{tor},N,i}$
+
+The measurement does not move; its radius does.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Thomson and charge-exchange channels mapped through a magnetic and a kinetic
+EFIT of the same instant land at different $\rho$. Then the fits: judged by
+$\chi^2_\nu$ with $\nu$ and $k$ stated, not by eye.
+
+Three moments worth pausing on in the notebook: five Thomson points leave two
+degrees of freedom; a Gaussian process on five points collapses to a constant;
+the charge-exchange chord crosses the magnetic axis and its two sides disagree,
+which is a question about the equilibrium's axis as much as about the ions.
+
+WARN:
+$Z_{\mathrm{eff}}$ is composition information, not another profile point, and
+VAFT has no visible-bremsstrahlung $Z_{\mathrm{eff}}$ workflow yet. On VEST it
+is an assumption you state.
 :::
 
 # What is stored, and what is not
@@ -160,38 +274,46 @@ comparable between codes once the index is known.
 The practical consequence for this course: EFIT g-files are usually COCOS 1–8,
 which store $\psi$ per radian; the Data Dictionary and VAFT's Green's functions
 use full weber. A factor of $2\pi$ between them is the single most common
-equilibrium bug.
+equilibrium bug --- the notebook's flux-loop table carries exactly that $2\pi$.
 
 WARN:
 Do not tell students to "just multiply by $2\pi$". The conversion carries both
 the $2\pi$ and an orientation sign, and applying only the first leaves the field
-inverted for half the indices.
+inverted for half the indices. The packaged CHEASE g-file declares the wrong
+COCOS in its header; the residual step shows what a file-level inconsistency
+looks like.
 :::
 
 ## Session workflow
 
-flux map $\rightarrow$ derived 0-D parameters $\rightarrow$ coordinates
+representation $\rightarrow$ analytic shapes $\rightarrow$ constraints
 
-$\rightarrow$ camera overlay $\rightarrow$ Grad--Shafranov residual
-$\rightarrow$ CHEASE refinement
+$\rightarrow$ one discharge $\rightarrow$ coordinates $\rightarrow$ kinetic state
+
+$\rightarrow$ Grad--Shafranov residual $\rightarrow$ times and shots
 
 ::: {.notes}
 [1 min]
 
 NARRATE:
 Point at each step. Note that "coordinates" is a real step, not bookkeeping: a
-profile without its radial coordinate is not a physics claim.
+profile without its radial coordinate is not a physics claim. And note that the
+constraints come *before* the reconstruction is analysed: you should know what
+EFIT was told before you read what it said.
 :::
 
-## Practice goal: vary the equilibrium
+## Practice goal: a discharge of your choice
 
-Change the shape, the pressure, the current peaking --- and watch which derived
-quantities move.
+Measured, reconstructed, assumed, derived --- and how well the reconstruction
+explains the measurements.
 
 ::: {.notes}
 [1 min]
 
 NARRATE:
-The exercise is forward modelling, which is only possible because CHEASE takes
-inputs rather than measurements. Connect it back to the two-codes slide.
+The exercise is a short report on any VEST discharge, in ten steps. The five
+labels are the grading rubric: every number in the report should carry one.
+The CHEASE scan is the forward-model extension, which is only possible because
+CHEASE takes inputs rather than measurements. Connect it back to the two-axes
+slide.
 :::

@@ -56,22 +56,27 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        "utils": 11,   # +gp_fit, the scipy Gaussian process (#426)
+        # +gp_fit, the scipy Gaussian process (#426); +a/L, the normalised
+        # gradient scale length the tutorial's kinetic state reports: 12.
+        "utils": 12,
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
         # #365 added the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
         # #760 renamed the first-principles bremsstrahlung form to state its
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
-        "equilibrium": 82,
+        # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
+        # #782 added the dimensional internal inductance and its li_3
+        # conversions: 84 + 3 = 87.
+        "equilibrium": 87,
         "virial": 33,
         "stability": 26,
         "green": 16,
-        "atomic": 5,   # +mean charge and Z_eff (#783 3.10)
+        "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
-        "transformer": 7,
+        "transformer": 8,   # +Romero first-order closure (#781 child C)
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
@@ -82,8 +87,11 @@ def test_the_catalog_counts_the_known_public_surface():
         # #783 3.2/3.6-3.8 closed the lumped plasma circuit -- resistivity,
         # ring resistance, circular inductance, dIp/dt and the L/R time:
         # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
-        # fill: 23 + 5 = 28.
-        "startup": 28,
+        # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
+        # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
+        # internal inductive-voltage splits: 30 + 2 = 32.
+        "startup": 32,
+        "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

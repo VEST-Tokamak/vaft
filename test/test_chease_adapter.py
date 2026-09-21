@@ -175,16 +175,17 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     source_path = data_path("efit/g039915.00319")
     # The settings run_chease_refinement.py uses and this repository's real
     # shot-39915 validation confirmed converge. Since #717 these are also
-    # CHEASEConfig's defaults -- `nideal` was the last one that differed --
-    # but they stay spelled out here so the test says what it exercises rather
-    # than inheriting it silently.
+    # CHEASEConfig's defaults -- `nideal` was the last one that differed, and
+    # since #516 the adapter selects it from `output` -- but they stay spelled
+    # out here so the test says what it exercises rather than inheriting it
+    # silently.
     config = CHEASEConfig(
         workdir=tmp_path,
         create_plot=False,
         timeout=60,
         target_psin=0.993,
         relax=0.5,
-        nideal=6,
+        output="geqdsk",
         nw=513,
         preserve_boundary_limiter=True,
     )
@@ -204,6 +205,51 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     refined_zlim = np.asarray(result.refined_ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
     assert np.array_equal(source_rlim, refined_rlim)
     assert np.array_equal(source_zlim, refined_zlim)
+
+
+def test_chease_input_is_byte_identical_from_a_gfile_and_from_its_own_ods(tmp_path):
+    """A g-file and the ODS built from it must hand CHEASE the same bytes.
+
+    CHEASE reads only EXPEQ and chease_namelist, so two routes that write the
+    same two files necessarily reach the same equilibrium -- and two routes
+    that do not, do not. This is the CI-runnable half of
+    `test_run_chease_gfile_and_equivalent_ods_input_agree`, which needs a real
+    CHEASE and therefore never runs on CI.
+
+    The gap it guards is a hair wide and entirely real. A g-file spells its
+    vacuum toroidal field twice, at nine significant digits each -- `BCENTR`,
+    and `FPOL[-1]/RCENTR` -- and for g039915.00319 the two spellings do not
+    round to the same double (1.498058780E-01 vs 1.498058775E-01). `to_omas()`
+    canonicalizes on the FPOL one (issue #325), so while `_write_expeq` read
+    `BCENTR` the ODS route's B0EXP came out 3.3e-9 relative away from the
+    g-file route's, dragging CURRT and both EXPEQ profile blocks with it and
+    leaving the refined equilibria disagreeing far more loosely than the
+    integration test's tolerance allowed.
+    """
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source_path = data_path("efit/g039915.00319")
+    source_ods = read_geqdsk(source_path).to_omas()
+
+    def _prepare(source, name):
+        config = CHEASEConfig(
+            workdir=tmp_path / name,
+            create_plot=False,
+            target_psin=0.993,
+            relax=0.5,
+            output="geqdsk",
+            nw=513,
+            preserve_boundary_limiter=True,
+        )
+        return prepare_chease_inputs(source, config)
+
+    from_gfile = _prepare(source_path, "from_gfile")
+    from_ods = _prepare(source_ods, "from_ods")
+
+    assert from_ods.expeq.read_bytes() == from_gfile.expeq.read_bytes()
+    assert from_ods.namelist.read_bytes() == from_gfile.namelist.read_bytes()
 
 
 @pytest.mark.skipif(
@@ -237,7 +283,7 @@ def test_run_chease_gfile_and_equivalent_ods_input_agree(tmp_path):
             timeout=60,
             target_psin=0.993,
             relax=0.5,
-            nideal=6,
+            output="geqdsk",
             nw=513,
             preserve_boundary_limiter=True,
         )
@@ -252,9 +298,35 @@ def test_run_chease_gfile_and_equivalent_ods_input_agree(tmp_path):
 
     refined_gfile = read_geqdsk(result_gfile.refined_geqdsk)
     refined_ods_geqdsk = read_geqdsk(result_ods.refined_geqdsk)
-    for key in ("RMAXIS", "ZMAXIS", "SIMAG", "SIBRY", "CURRENT", "BCENTR"):
+    # Each quantity is compared against its own physical scale, not against
+    # itself. Two of these are residuals that sit near zero by construction --
+    # CHEASE normalizes the refined psi so SIBRY lands within ~1e-7 Wb/rad of
+    # zero, four orders below the psi span it is resolved on, and this
+    # equilibrium is up-down symmetric so ZMAXIS is ~1e-11 m against a
+    # metre-scale machine. A bare relative tolerance on a number that small
+    # measures the cancellation left over in its last few bits, not whether
+    # the two routes agree, so the tolerance carries an absolute floor tied to
+    # the span the quantity is actually resolved on. Every route into CHEASE
+    # now writes byte-identical EXPEQ/namelist files (see
+    # test_chease_input_is_byte_identical_from_a_gfile_and_from_its_own_ods),
+    # so this is a floor the comparison is not expected to need, not slack
+    # being spent.
+    psi_span = abs(float(refined_gfile["SIBRY"]) - float(refined_gfile["SIMAG"]))
+    scales = {
+        "RMAXIS": float(refined_gfile["RDIM"]),
+        "ZMAXIS": float(refined_gfile["ZDIM"]),
+        "SIMAG": psi_span,
+        "SIBRY": psi_span,
+        "CURRENT": abs(float(refined_gfile["CURRENT"])),
+        "BCENTR": abs(float(refined_gfile["BCENTR"])),
+    }
+    for key, scale in scales.items():
         np.testing.assert_allclose(
-            float(refined_gfile[key]), float(refined_ods_geqdsk[key]), err_msg=key
+            float(refined_gfile[key]),
+            float(refined_ods_geqdsk[key]),
+            rtol=1e-7,
+            atol=1e-9 * scale,
+            err_msg=key,
         )
 
     # Each path preserves its own input's limiter/wall, unchanged.
@@ -407,3 +479,27 @@ def test_solver_output_is_read_as_utf8_rather_than_at_the_host_locale(monkeypatc
     assert seen["errors"] == "replace"
     assert "CHEASE diagnostics" in result.stdout
     assert (tmp_path / "chease.log").read_text(encoding="utf-8").startswith("CHEASE diagnostics")
+
+
+def test_chease_launches_through_the_backend_and_keeps_its_timeout(tmp_path):
+    """#671: a backend timeout is still the stdlib's exception to the caller."""
+    import subprocess
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
+    from vaft.code.execution import ExecutionResult
+    from vaft.data.resources import sample_geqdsk
+
+    executable = write_launchable_stub(tmp_path / "chease")
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+    config = CHEASEConfig(
+        workdir=tmp_path, create_plot=False, executable=str(executable),
+        timeout=4.0, env={"CHEASE_FLAG": "1"}, backend=backend,
+    )
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_chease(inputs, config)
+    (request,) = backend.requests
+    assert request.command == (str(executable),)
+    assert request.env == {"CHEASE_FLAG": "1"}
+    assert request.timeout == 4.0

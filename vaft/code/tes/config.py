@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
+
+if TYPE_CHECKING:
+    from ..execution import ExecutionBackend
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,9 @@ class TESConfig:
     # --- coils ---
     # Include the passive structure (pf_passive eddy loops) as external coils.
     eddy: bool = False
+
+    # --- execution ---
+    backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
 
 
 @dataclass

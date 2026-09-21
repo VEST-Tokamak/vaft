@@ -9,6 +9,7 @@ from typing import Optional
 
 from vaft.compat import is_executable, resolve_executable
 from vaft.code._executables import executable_from_home, missing_home_message
+from vaft.code.execution import ExecutionRequest, ExecutionResult, resolve_backend
 
 from .config import (
     NUBEAM_GENERATOR_EXECUTABLE,
@@ -150,28 +151,30 @@ def _run(
     env: dict[str, str],
     log_stem: str,
     config: NUBEAMConfig,
-) -> subprocess.CompletedProcess:
-    merged = os.environ.copy()
-    merged.update(env)
-    merged.update(dict(config.env))
-    completed = subprocess.run(
-        [str(executable), *config.args],
-        cwd=str(workdir),
-        env=merged,
-        text=True,
-        capture_output=True,
-        # NUBEAM writes its own diagnostics, so these bytes are a foreign
-        # program's. Decoding them at the host locale ends a completed run --
-        # twenty minutes of Monte Carlo -- with a UnicodeDecodeError raised
-        # inside subprocess.run, before the logs below are ever written. The
-        # rest of this module already reads and writes UTF-8 explicitly.
-        encoding="utf-8",
-        errors="replace",
-        timeout=config.timeout,
-        check=False,
+) -> ExecutionResult:
+    # NUBEAM writes its own diagnostics, so these bytes are a foreign program's.
+    # Decoding them at the host locale would end a completed run -- twenty
+    # minutes of Monte Carlo -- with a UnicodeDecodeError before the logs below
+    # are written; the backend decodes UTF-8 with replacement.
+    command = (str(executable), *config.args)
+    completed = resolve_backend(config).run(
+        ExecutionRequest(
+            command=command,
+            workdir=Path(workdir),
+            env={**env, **dict(config.env)},
+            timeout=config.timeout,
+            label=log_stem,
+        )
     )
+    # Written before a timeout is raised too, so a killed run leaves what it
+    # printed rather than an earlier run's log under the same name.
     (workdir / f"{log_stem}.log").write_text(completed.stdout or "", encoding="utf-8")
     (workdir / f"{log_stem}.err").write_text(completed.stderr or "", encoding="utf-8")
+    if completed.timed_out:
+        # Callers have always seen the stdlib's exception here.
+        raise subprocess.TimeoutExpired(
+            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
+        )
     return completed
 
 

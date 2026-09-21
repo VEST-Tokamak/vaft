@@ -89,6 +89,27 @@ def _write_raw_dump(path: Path, shot: int, n_samples: int) -> None:
         json.dump({"shot": shot, "fields": fields}, handle)
 
 
+def _gate_excluded(ods, times, kind):
+    """Channels the diagnostics-stage quality gate marks unusable at the first time.
+
+    EFIT zeroes their weight through ``apply_validity_exclusions`` (#189), so
+    a channel present in the IDS but condemned there is excluded exactly like
+    a missing one.  Read from the projected validity, as that function does,
+    rather than restated: the gate's verdicts move (a known fault in
+    vest.yaml, #988; the array review, #1003), and this test is about missing
+    channels, not about which synthetic waveforms the gate accepts.
+    """
+    from vaft.validation.magnetics import unusable_channels_at
+
+    return {
+        index
+        for (_kind, index), unusable in unusable_channels_at(
+            ods, times, min_validity=0, kinds=(kind,)
+        ).items()
+        if unusable[0]
+    }
+
+
 @pytest.fixture(scope="module")
 def full_constraints_input_ods(tmp_path_factory):
     """What the constraint builder is actually given: diagnostics + eddy.
@@ -133,10 +154,13 @@ def full_constraints_input_ods(tmp_path_factory):
         diagnostics=diag_path, eddy=eddy_path, eddy_manifest=tmp / "eddy-manifest.json"
     )
 
-    # The trailing toroidal-Mirnov phase-reference probes are intentionally
-    # outside EFIT's dprobe/mhdin geometry.  Their empty data must not enter
-    # constraint construction; EFIT uses only the MD probes below.
-    assert len(ods["magnetics.b_field_pol_probe"]) > _efit_bpol_probe_count()
+    # Any trailing toroidal-Mirnov probes are intentionally outside EFIT's
+    # dprobe/mhdin geometry and must not enter constraint construction. 43016
+    # has none of its own: 207/209/241 end at 35520 and field 171 is published
+    # once, as equilibrium probe 36 (#825). The clamp test appends one.
+    assert len(ods["magnetics.b_field_pol_probe"]) == _efit_bpol_probe_count() + len(
+        toroidal_mirnov_reference_channels(SHOT)
+    )
     assert "pf_passive.time" in ods
     return ods
 
@@ -192,6 +216,12 @@ def test_constraints_and_kfile_survive_missing_channels(
 
     times = np.array([0.30, 0.301])
     ods["equilibrium.time"] = times
+    gated_probes = _gate_excluded(ods, times, "b_field_pol_probe") - set(missing_probes)
+    gated_flux = _gate_excluded(ods, times, "flux_loop") - set(missing_flux)
+    # C4-04 is a known fault on every shot (#988, issue #977); the gate must
+    # carry it, and enough channels must survive for the test to mean anything.
+    assert 45 in gated_probes or 45 in missing_probes
+    assert n_probes - len(gated_probes) - len(missing_probes) >= n_probes // 2
 
     # (1) generate_constraints_ods must not crash, and must preserve the
     # full, contiguous channel count regardless of which are missing.
@@ -220,18 +250,22 @@ def test_constraints_and_kfile_survive_missing_channels(
 
     # Valid channels keep their identity: nonzero weight, unchanged index,
     # and a finite (not accidentally zeroed) measured value.
+    for i in gated_probes:
+        assert EQ[f"time_slice.0.constraints.bpol_probe.{i}.weight"] == 0.0
+    for i in gated_flux:
+        assert EQ[f"time_slice.0.constraints.flux_loop.{i}.weight"] == 0.0
     for i in range(n_probes):
-        if i in missing_probes:
+        if i in missing_probes or i in gated_probes:
             continue
         entry = EQ[f"time_slice.0.constraints.bpol_probe.{i}"]
-        assert entry["weight"] != 0.0
+        assert entry["weight"] != 0.0, (i, entry["source"])
         assert np.isfinite(entry["measured"])
         assert entry["source"] == ods[f"magnetics.b_field_pol_probe.{i}.identifier"]
     for i in range(n_flux):
-        if i in missing_flux:
+        if i in missing_flux or i in gated_flux:
             continue
         entry = EQ[f"time_slice.0.constraints.flux_loop.{i}"]
-        assert entry["weight"] != 0.0
+        assert entry["weight"] != 0.0, (i, entry["source"])
         assert np.isfinite(entry["measured"])
 
     # (2) OMAS must accept the result through a full consistency-checked
@@ -270,10 +304,10 @@ def test_constraints_and_kfile_survive_missing_channels(
 
     for i in range(n_probes):
         assert np.isfinite(expmp2[i])
-        assert fwtmp2[i] == (0 if i in missing_probes else 1)
+        assert fwtmp2[i] == (0 if i in missing_probes or i in gated_probes else 1)
     for i in range(n_flux):
         assert np.isfinite(coils[i])
-        assert fwtsi[i] == (0 if i in missing_flux else 1)
+        assert fwtsi[i] == (0 if i in missing_flux or i in gated_flux else 1)
 
 
 def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraints_input_ods, tmp_path):
@@ -287,11 +321,12 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
 
     How many trail the 64 is a fact about the shot, not a constant. #857 gates
     each reference channel at its `last_operational_shot`: fields 207, 209 and
-    241 end at 35520, and field 171 carries no bound while #825 is open. So
-    43016 has one trailing channel where the un-gated inventory has four. The
-    count is derived from that table, and the test refuses to pass once no
-    trailing channel is left, because then there is nothing for the clamp to
-    remove and this would no longer be testing it.
+    241 end at 35520, and field 171 is published once, as equilibrium probe
+    36, never as a trailing twin (#825). So 43016 has no trailing channel of
+    its own; the count is still derived from that table rather than assumed.
+    A trailing entry is appended here -- the shape a pre-35521 shot's phase
+    references or a post-44156 shot's fluctuation array takes -- because the
+    clamp is what this tests, and without one there is nothing to remove.
     """
     from vaft.data.resources import data_path
 
@@ -300,10 +335,14 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     trailing = len(toroidal_mirnov_reference_channels(SHOT))
     n_probes = len(ods["magnetics.b_field_pol_probe"])
     assert n_probes == efit_probes + trailing
-    assert n_probes > efit_probes, (
-        f"shot {SHOT} has no probe beyond EFIT's {efit_probes}; "
-        "the clamp is no longer exercised -- pick a shot that still has one"
-    )
+    if n_probes == efit_probes:
+        extra = copy.deepcopy(ods["magnetics.b_field_pol_probe.0"])
+        extra["identifier"] = "OutMirnov_130_Bz:phase_reference"
+        extra["name"] = "OutMirnov_130_Bz"
+        extra["field.data"] = 1.5 * np.asarray(extra["field.data"])
+        ods[f"magnetics.b_field_pol_probe.{n_probes}"] = extra
+        n_probes += 1
+    assert n_probes > efit_probes
 
     # A missing channel inside the real 64-probe range must still show up
     # as a zero-weight placeholder within the clamped array.
@@ -311,6 +350,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
 
     times = np.array([0.30, 0.301])
     ods["equilibrium.time"] = times
+    gated = _gate_excluded(ods, times, "b_field_pol_probe") | {10}
     efit_table_dir = str(data_path("efit"))
     generate_constraints_ods(
         ods, SHOT, str(tmp_path), efit_table_dir, times,
@@ -336,4 +376,37 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     assert len(fwtmp2) == efit_probes
     assert all(np.isfinite(value) for value in expmp2)
     assert fwtmp2[10] == 0
-    assert all(value == 1 for i, value in enumerate(fwtmp2) if i != 10)
+    assert all(value == (0 if i in gated else 1) for i, value in enumerate(fwtmp2)), [
+        i for i, value in enumerate(fwtmp2) if value != (0 if i in gated else 1)
+    ]
+
+
+def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input_ods, tmp_path):
+    """A shot whose diamagnetic loop carried nothing has no diamagnetic_flux
+    node (#993). It is fitted without that row: no measured value is
+    invented, and the k-file switches the row off."""
+    ods = copy.deepcopy(full_constraints_input_ods)
+    assert "magnetics.diamagnetic_flux.0.data" in ods
+    del ods["magnetics.diamagnetic_flux"]
+    times = np.array([0.30, 0.301])
+    ods["equilibrium.time"] = times
+
+    generate_constraints_ods(
+        ods, SHOT, str(tmp_path), "", times,
+        DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
+        broken=[], fit=0, FFCUR=2, PPCUR=2,
+    )
+
+    EQ = ods["equilibrium"]
+    for t_idx in (0, 1):
+        assert "measured" not in EQ[f"time_slice.{t_idx}.constraints.diamagnetic_flux"]
+        assert EQ[f"time_slice.{t_idx}.constraints.diamagnetic_flux.weight"] == 0.0
+    assert "magnetics.diamagnetic_flux" not in ods
+
+    kfile_dir = tmp_path / "kfile"
+    config = _build_kfile_config(nbcoil=len(EQ["time_slice.0.constraints.pf_current"]))
+    with pytest.warns(RuntimeWarning, match="no diamagnetic flux measurement"):
+        generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
+    text = sorted((kfile_dir / "kfile").glob("*"))[0].read_text(encoding="utf-8")
+    assert "FWTDLC= 0" in text
+    assert "DFLUX= 0.0" in text

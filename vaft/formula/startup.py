@@ -519,6 +519,201 @@ def lloyd_breakdown_field(p_Pa, connection_length_m):
     return _maybe_scalar(field, p_Pa, connection_length_m)
 
 
+#: Townsend coefficients by gas, per metre and per torr: the published
+#: per-centimetre pair times 100, kept in torr for the reason the module
+#: docstring gives.  Hydrogen is
+#: Lloyd's pair so the gas-keyed threshold for ``"H2"`` *is* Lloyd's threshold,
+#: not a second opinion about it.  Deuterium is deliberately absent: its
+#: measured coefficients differ from hydrogen's (Rose 1956), and no single
+#: pair was found that a source states for tokamak-relevant $E/p$.
+_TOWNSEND_GASES = {
+    "H2": (_LLOYD_A_PER_M_TORR, _LLOYD_B_V_PER_M_TORR),
+    "He": (300.0, 3400.0),
+    "Ar": (1200.0, 18000.0),
+}
+
+
+def _townsend_gas(gas):
+    """Look a gas up by its exact key, or say which keys exist."""
+    try:
+        return _TOWNSEND_GASES[gas]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"no Townsend coefficients for gas {gas!r}; known gases are "
+            f"{sorted(_TOWNSEND_GASES)}.  Pass A and B to "
+            "townsend_breakdown_field for any other gas."
+        ) from None
+
+
+def townsend_coefficients_for_gas(gas):
+    r"""Townsend similarity coefficients of a catalogued fill gas, in SI.
+
+    $$A_{SI} = \frac{100\,A_{\mathrm{cm\,Torr}}}{P_T},\qquad
+      B_{SI} = \frac{100\,B_{\mathrm{cm\,Torr}}}{P_T}$$
+
+    with $P_T$ = :data:`vaft.formula.constants.PA_PER_TORR` pascal per torr,
+    ready to pass to :func:`townsend_ionization_coefficient`.
+
+    ========  ==========================  ==============  ========================
+    ``gas``   $A$, $B$ [cm^-1 Torr^-1,   fitted $E/p$    source
+              V cm^-1 Torr^-1]            [V/(cm Torr)]
+    ========  ==========================  ==============  ========================
+    ``"H2"``  5.1, 125                    tokamak fits    Lloyd et al. 1991
+    ``"He"``  3, 34                       20-150          Raizer, Table 4.1
+    ``"Ar"``  12, 180                     100-600         Raizer, Table 4.1
+    ========  ==========================  ==============  ========================
+
+    Parameters
+    ----------
+    gas : str
+        Exact catalogue key: ``"H2"``, ``"He"`` or ``"Ar"`` [-].
+
+    Returns
+    -------
+    A : float
+        Townsend similarity coefficient [m^-1 Pa^-1].
+    B : float
+        Townsend similarity coefficient [V m^-1 Pa^-1].
+
+    Raises
+    ------
+    ValueError
+        A gas that is not in the catalogue, including ``"D2"``.
+
+    Convention
+    ----------
+    Keys are chemical formulas matched exactly, so ``"h2"`` and
+    ``"hydrogen"`` are refused rather than guessed at.  The table stores the
+    published per-torr pair and converts on the way out, for the reason the
+    module docstring gives: a rounded SI pair costs half a percent where a
+    spherical tokamak's prefill sits.
+
+    Validity
+    --------
+    Empirical fit.  Each pair is a single-exponential fit over a limited
+    $E/p$ range, and the literature for one gas scatters by up to a factor of
+    two in $B$ depending on that range -- Massarczyk et al. collect 34 to 60
+    V/(cm Torr) for helium and 133 to 320 for argon.  Refitting argon's own
+    data over a different $pd$ range gives $A = 3.6$, $B = 52$ (Norman et
+    al.).  A pair is a representative value, not a measurement of VEST's gas.
+
+    **A tokamak threshold mostly sits below those ranges.**  Over 100 m of
+    connection length the threshold's own $E/p$ is 98 V/(cm Torr) for argon
+    at 7 mPa and 55 at 30 mPa, under Raizer's 100-600; helium stays inside
+    its 20-150 only from about 7 to 25 mPa.  Raizer's hydrogen pair, 5 and
+    130 over 150-600, is not the one catalogued: Lloyd's 5.1 and 125 were
+    fitted to tokamak breakdown itself, which is the regime this is for.
+    Evaluate $E_{BD}/p$ and compare before trusting a noble-gas threshold.
+
+    Limitations
+    -----------
+    Deuterium is not catalogued: its measured coefficients are not
+    hydrogen's (Rose 1956), and Lloyd applies his hydrogen pair to both
+    isotopes by approximation.  Use :func:`lloyd_breakdown_field` for that
+    approximation deliberately, or pass a measured pair to
+    :func:`townsend_breakdown_field`.
+
+    References
+    ----------
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.1.5,
+           Table 4.1.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+    .. [3] A. M. Howatson, *An Introduction to Gas Discharges*, Pergamon, as cited by [5].
+    .. [4] R. Massarczyk et al., arXiv:1612.07170 (2016), Table I.
+    .. [5] R. Norman et al., arXiv:2107.07521 (2021), Table 1.
+    .. [6] D. J. Rose, Phys. Rev. 104 (1956) 273.
+
+    See Also
+    --------
+    townsend_ionization_coefficient
+    townsend_breakdown_field_for_gas
+    """
+    A_per_m_torr, B_per_m_torr = _townsend_gas(gas)
+    return A_per_m_torr / PA_PER_TORR, B_per_m_torr / PA_PER_TORR
+
+
+def townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas):
+    r"""Breakdown threshold field of a catalogued fill gas, pressure in pascal.
+
+    $$E_{BD} = \frac{B\,p}{\ln\!\left(A\,p\,L\right)}$$
+
+    :func:`townsend_breakdown_field` with the $A$, $B$ pair of
+    :func:`townsend_coefficients_for_gas`.  For ``gas="H2"`` this is
+    :func:`lloyd_breakdown_field`, bit for bit.
+
+    Parameters
+    ----------
+    p_Pa : float or np.ndarray
+        Neutral fill pressure, finite and positive [Pa].
+    connection_length_m : float or np.ndarray
+        Connection length of an open field line, finite and positive [m].
+    gas : str
+        Exact catalogue key: ``"H2"``, ``"He"`` or ``"Ar"`` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Threshold field, ``nan`` where $A\,p\,L \le 1$ [V/m].
+
+    Raises
+    ------
+    ValueError
+        A gas that is not in the catalogue; a non-finite, zero or negative
+        pressure; an infinite, zero or negative connection length.  A ``nan``
+        connection length passes through as a missing value.
+
+    Convention
+    ----------
+    Pressure in **pascal**, converted to torr and evaluated against the
+    per-torr pair, exactly as :func:`lloyd_breakdown_field` does, so the
+    hydrogen entry reproduces it to the last bit rather than to rounding.
+
+    Physical interpretation
+    -----------------------
+    No gas is easiest everywhere: the ordering depends on where the fill
+    sits on its Paschen curve.  Over 100 m of connection length argon's
+    larger $A$ puts its threshold below hydrogen's at 3 mPa, and its larger
+    $B$ puts it above hydrogen's by 30 mPa; helium's small $A$ gives it no
+    threshold at all at 3 mPa and the lowest one of the three from 7 mPa
+    up.
+
+    Validity
+    --------
+    Empirical fit.  Inherits the catalogue's scatter and fitted $E/p$
+    ranges: see :func:`townsend_coefficients_for_gas`.  The returned field
+    itself gives the operating $E/p$, and at a tokamak fill it is usually
+    below the range the noble-gas pairs were fitted over.  Pure gases only; a mixture is not a weighted average of
+    these pairs.
+
+    Limitations
+    -----------
+    Deuterium is not catalogued.  Says nothing about pre-ionisation or
+    burn-through, as for :func:`townsend_breakdown_field`.
+
+    Numerical notes
+    ---------------
+    $A\,p\,L \le 1$ warns and returns ``nan`` elementwise, from the same
+    private kernel as the other two spellings, so the warning blames the
+    caller's line.
+
+    References
+    ----------
+    .. [1] Yu. P. Raizer, *Gas Discharge Physics*, Springer (1991), Sec. 4.1.5,
+           Table 4.1.
+    .. [2] B. Lloyd et al., Nucl. Fusion 31 (1991) 2031, Sec. 2.
+
+    See Also
+    --------
+    townsend_coefficients_for_gas
+    townsend_breakdown_field
+    lloyd_breakdown_field
+    """
+    A_per_m_torr, B_per_m_torr = _townsend_gas(gas)
+    p_torr = _require_positive("p_Pa", p_Pa) / PA_PER_TORR
+    field = _breakdown_field(p_torr, connection_length_m, A_per_m_torr, B_per_m_torr)
+    return _maybe_scalar(field, p_Pa, connection_length_m)
+
+
 def breakdown_margin(E_parallel, E_breakdown):
     r"""Available drive relative to the Lloyd breakdown threshold.
 
@@ -1175,8 +1370,8 @@ def plasma_external_inductance_hirshman_from_R_eps_kappa(R_m, epsilon, kappa):
     ----------
     **External only.**  The plasma's own internal inductance is the separate
     $\mu_0 R\,l_i/2$ that :func:`plasma_inductance_hirshman_from_R_eps_kappa_li`
-    adds; splitting them is what lets the internal term carry whichever $l_i$
-    normalisation the caller's equilibrium reports.
+    adds; that term needs the IMAS ``li_3`` normalisation, see
+    :func:`vaft.formula.equilibrium.internal_inductance_from_li_3_R0`.
 
     This is the fit the low-aspect-ratio start-up literature reaches for when
     the circular $\ln(8R/a) - 2$ form runs out.  It is often met under
@@ -1234,7 +1429,7 @@ def plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li):
     kappa : float or np.ndarray
         Elongation, finite and positive [-].
     li : float or np.ndarray
-        Normalised internal inductance [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition [-].
 
     Returns
     -------
@@ -1249,10 +1444,17 @@ def plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li):
 
     Convention
     ----------
-    $l_i$ is whichever normalisation the caller's equilibrium reports, and it
-    enters as the dimensional $\mu_0 R\,l_i/2$.  That is the Romero/ITER
-    convention $l_i = 2L_i/(\mu_0 R)$ read backwards, so a caller holding a
-    dimensional $L_i$ should divide rather than pass it here.
+    **``li`` must be $l_{i3}$**, the IMAS ``global_quantities.li_3``.  It
+    enters as the dimensional $\mu_0 R\,l_i/2$, which is the internal
+    inductance $L_i = 2W_{p,\mathrm{int}}/I_p^2$ only for
+    $l_{i3} = 2L_i/(\mu_0 R)$, and only when $R$ is the radius the
+    equilibrium normalised by.  $l_{i1}$ normalises by the edge poloidal field
+    instead: $l_{i1}/l_{i3} = L_{pol}^2 R/(2V)$ whatever the current profile,
+    which for a large-aspect-ratio ellipse is 1.085 at $\kappa = 1.6$ and 1.19
+    at $\kappa = 2$, so passing $l_{i1}$ overstates $L_i$ by that much.  A caller
+    holding a dimensional $L_i$ should convert with
+    :func:`vaft.formula.equilibrium.li_3_from_internal_inductance_R0` rather
+    than pass it here.
 
     Limitations
     -----------
@@ -1300,7 +1502,8 @@ def d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(
     kappa : float or np.ndarray
         Elongation, finite and positive [-].
     li : float or np.ndarray
-        Normalised internal inductance, held fixed by the derivative [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition, held
+        fixed by the derivative [-].
     minor_radius : str, optional
         What is held while $R$ varies: ``'fixed'`` (default) keeps $a$,
         ``'inboard'`` keeps the inboard limiter so $a = R - R_{\min}$, and
@@ -1577,7 +1780,7 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     a_m : float or np.ndarray
         Minor radius, finite and positive and smaller than ``R0_m`` [m].
     li : float or np.ndarray
-        Normalised internal inductance [-].
+        Normalised internal inductance in the IMAS ``li_3`` definition [-].
     kappa : float or np.ndarray, optional
         Elongation; default 1, a circular cross-section [-].
 
@@ -1599,7 +1802,10 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     on: holding $a$ fixed, $\partial L_p/\partial R$ substituted into
     $B_{VE} = (\mu_0 I_p/4\pi R)[\mu_0^{-1}\partial L_p/\partial R + \beta_p - 1/2]$
     returns that function exactly.  $l_i$ enters as the dimensional
-    $\mu_0 R_0 l_i/2$, the Romero/ITER convention read backwards.
+    $\mu_0 R_0 l_i/2$, which is the internal inductance only for ``li_3``
+    normalised by $R_0$; see
+    :func:`plasma_inductance_hirshman_from_R_eps_kappa_li` for what passing
+    ``li_1`` costs.
 
     Validity
     --------
@@ -1707,6 +1913,15 @@ def plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
     into a ramp-down.  $I_p\dot L_p$ is kept because a plasma that grows or
     moves changes its inductance, and during start-up that term is not small.
 
+    **With $L_p = L_e + L_i$, pass** ``dL_p_dt_H_s`` **$= \dot L_e +
+    \tfrac12\dot L_i$, not $\dot L_e + \dot L_i$.**  The external inductance
+    is a flux linkage and takes the full rate; the internal one is defined by
+    the energy $\tfrac12 L_i I_p^2$ and takes half (Romero, eq. 23), so the
+    naive sum overstates the profile term by $\tfrac12 I_p\dot L_i$.
+    :func:`internal_inductive_voltage_terms_from_L_i_I_p` and
+    :func:`boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j` keep the two
+    apart.
+
     The power this balances is not the Ohmic power.
     $V_{\mathrm{loop}} I_p = R_p I_p^2 + \mathrm{d}(\tfrac12 L_p I_p^2)/
     \mathrm{d}t + \tfrac12 I_p^2 \dot L_p$: part of the transformer's work goes
@@ -1726,10 +1941,13 @@ def plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(
            Sec. 3.7.
     .. [2] O. Mitarai, R. Yoshino and K. Ushigusa, Nucl. Fusion 42 (2002) 1257,
            Eq. (2.1).
+    .. [3] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (23) and (31).
 
     See Also
     --------
     lr_time_from_L_R
+    internal_inductive_voltage_terms_from_L_i_I_p
     plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
     plasma_inductance_circular_from_R0_a_li
     """
@@ -1791,6 +2009,240 @@ def lr_time_from_L_R(L_H, R_ohm):
     inductance = _require_positive("L_H", L_H)
     resistance = _require_positive("R_ohm", R_ohm)
     return _maybe_scalar(inductance / resistance, L_H, R_ohm)
+
+
+def _require_finite(name, value):
+    """Reject a non-finite signed input by name."""
+    array = np.asarray(value, dtype=float)
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be finite; got {value!r}")
+    return array
+
+
+def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
+    L_e_H,
+    I_p_A,
+    dI_p_dt_A_s,
+    dL_e_dt_H_s=0.0,
+    M_pj_H=None,
+    I_j_A=None,
+    dI_j_dt_A_s=None,
+    dM_pj_dt_H_s=None,
+):
+    r"""Boundary loop voltage split into the four ways the boundary flux can change.
+
+    $$V_B = -\frac{\mathrm{d}\psi_B}{\mathrm{d}t},\qquad
+      \psi_B = L_e I_p + \sum_j M_{pj} I_j$$
+
+    $$V_B = \underbrace{-L_e \dot I_p}_{\text{ramp}}
+            \underbrace{- I_p \dot L_e}_{\text{shape}}
+            \underbrace{- \textstyle\sum_j M_{pj} \dot I_j}_{\text{drive}}
+            \underbrace{- \textstyle\sum_j I_j \dot M_{pj}}_{\text{geometry}}$$
+
+    Parameters
+    ----------
+    L_e_H : float or np.ndarray
+        Plasma external inductance, finite and positive [H].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    dI_p_dt_A_s : float or np.ndarray
+        Rate of change of the plasma current, finite [A/s].
+    dL_e_dt_H_s : float or np.ndarray, optional
+        Rate of change of the external inductance; default 0, fixed boundary
+        [H/s].
+    M_pj_H : array_like, optional
+        Plasma-coil mutual inductances, coils along the last axis, finite [H].
+    I_j_A : array_like, optional
+        Coil circuit currents, broadcastable against ``M_pj_H`` -- a fixed
+        ``(n_coils,)`` mutual with ``(n_times, n_coils)`` currents is the
+        usual call -- finite [A].
+    dI_j_dt_A_s : array_like, optional
+        Rates of change of the coil currents, broadcastable likewise, finite
+        [A/s].
+    dM_pj_dt_H_s : array_like, optional
+        Rates of change of the mutual inductances, broadcastable likewise;
+        default 0, fixed geometry [H/s].
+
+    Returns
+    -------
+    V_ramp : float or np.ndarray
+        $-L_e \dot I_p$, the plasma current changing at fixed boundary [V].
+    V_shape : float or np.ndarray
+        $-I_p \dot L_e$, the boundary moving or reshaping [V].
+    V_drive : float or np.ndarray
+        $-\sum_j M_{pj}\dot I_j$, the external circuits driving [V].
+    V_geometry : float or np.ndarray
+        $-\sum_j I_j \dot M_{pj}$, the plasma moving relative to the coils [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a non-positive external inductance, coil arrays
+        that do not broadcast, or only some of ``M_pj_H``, ``I_j_A`` and
+        ``dI_j_dt_A_s`` given.
+
+    Convention
+    ----------
+    **Romero's signs: $\psi$ is the full flux through the toroidal circle, in
+    weber, not per radian, and $V_B = -\dot\psi_B$.**  $I_p$, the $I_j$ and
+    the $M_{pj}$ are all referred to one toroidal direction, so a coil wound
+    against the plasma current has a negative $M_{pj}$.  In this convention a
+    positive $V_B$ sustains a positive $I_p$, the same sense as the
+    ``V_loop_V`` of
+    :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p`.  VAFT's
+    two flux-to-voltage kernels disagree on both points (#354), so a $V_B$
+    from a flux map must be brought to this convention before it is compared
+    with the sum of these terms.
+
+    $V_B$ is the sum of the four; they are returned apart because #782 asks
+    for the ramp, the shape change and the drive to be inspectable rather than
+    folded into one inductive voltage.  The drive and geometry terms are zero
+    when no coils are given.  $M_{pj}$ multiplies the *circuit* current, so a
+    multi-turn coil's turns belong in $M_{pj}$.
+
+    Physical interpretation
+    -----------------------
+    Only the external inductance appears: $\psi_B$ is the flux *at* the
+    boundary, and the internal inductance enters the balance on the other
+    side, $V_B = R_p I_p + V_{\mathrm{ind}}$ with $V_{\mathrm{ind}}$ from
+    :func:`internal_inductive_voltage_terms_from_L_i_I_p`.
+
+    Limitations
+    -----------
+    Needs $L_e$, $M_{pj}$ and their rates from somewhere else: the Hirshman
+    fit for $L_e$ ignores triangularity, and nothing here computes $M_{pj}$
+    from a boundary.  Vessel eddy currents are coils in this sum, with their
+    own $M_{pj}$ and $I_j$; leaving them out is the usual reason a VEST
+    start-up balance does not close.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (12) and (28).
+
+    See Also
+    --------
+    internal_inductive_voltage_terms_from_L_i_I_p
+    plasma_external_inductance_hirshman_from_R_eps_kappa
+    """
+    external = _require_positive("L_e_H", L_e_H)
+    current = _require_finite("I_p_A", I_p_A)
+    ramp_rate = _require_finite("dI_p_dt_A_s", dI_p_dt_A_s)
+    shape_rate = _require_finite("dL_e_dt_H_s", dL_e_dt_H_s)
+    v_ramp = -external * ramp_rate
+    v_shape = -current * shape_rate
+
+    coils = (M_pj_H, I_j_A, dI_j_dt_A_s)
+    given = [item is not None for item in coils]
+    if any(given) and not all(given):
+        raise ValueError(
+            "M_pj_H, I_j_A and dI_j_dt_A_s must be given together, or none of them"
+        )
+    if all(given):
+        mutual = _require_finite("M_pj_H", M_pj_H)
+        coil_current = _require_finite("I_j_A", I_j_A)
+        coil_rate = _require_finite("dI_j_dt_A_s", dI_j_dt_A_s)
+        mutual_rate = (
+            np.zeros_like(mutual)
+            if dM_pj_dt_H_s is None
+            else _require_finite("dM_pj_dt_H_s", dM_pj_dt_H_s)
+        )
+        try:
+            mutual, coil_current, coil_rate, mutual_rate = np.broadcast_arrays(
+                mutual, coil_current, coil_rate, mutual_rate
+            )
+        except ValueError:
+            raise ValueError(
+                "coil arrays do not broadcast against each other; got shapes "
+                f"{[np.shape(a) for a in (M_pj_H, I_j_A, dI_j_dt_A_s, dM_pj_dt_H_s)]}"
+            ) from None
+        v_drive = -np.sum(mutual * coil_rate, axis=-1)
+        v_geometry = -np.sum(coil_current * mutual_rate, axis=-1)
+    elif dM_pj_dt_H_s is not None:
+        raise ValueError("dM_pj_dt_H_s was given without the coils it belongs to")
+    else:
+        v_drive = v_geometry = np.zeros(())
+
+    terms = np.broadcast_arrays(v_ramp, v_shape, v_drive, v_geometry)
+    if terms[0].ndim == 0:
+        return tuple(float(term) for term in terms)
+    return tuple(np.array(term) for term in terms)
+
+
+def internal_inductive_voltage_terms_from_L_i_I_p(L_i_H, I_p_A, dI_p_dt_A_s, dL_i_dt_H_s=0.0):
+    r"""Inductive voltage of the internal inductance, split into ramp and profile terms.
+
+    $$V_{\mathrm{ind}} = \frac{1}{I_p}\frac{\mathrm{d}}{\mathrm{d}t}
+      \left(\tfrac12 L_i I_p^2\right)
+      = \underbrace{L_i \dot I_p}_{\text{ramp}}
+      + \underbrace{\tfrac12 I_p \dot L_i}_{\text{profile}}$$
+
+    Parameters
+    ----------
+    L_i_H : float or np.ndarray
+        Dimensional internal inductance, finite and non-negative [H].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    dI_p_dt_A_s : float or np.ndarray
+        Rate of change of the plasma current, finite [A/s].
+    dL_i_dt_H_s : float or np.ndarray, optional
+        Rate of change of the internal inductance; default 0, a frozen current
+        profile [H/s].
+
+    Returns
+    -------
+    V_ramp : float or np.ndarray
+        $L_i \dot I_p$ [V].
+    V_profile : float or np.ndarray
+        $\tfrac12 I_p \dot L_i$, the current profile redistributing [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a negative internal inductance.
+
+    Convention
+    ----------
+    **The profile term carries one half, not one.**  $L_i I_p$ is not a flux
+    linked by a single loop, so the internal term is fixed by the energy
+    $W_{p,\mathrm{int}} = \tfrac12 L_i I_p^2$ and $I_p V_{\mathrm{ind}} =
+    \dot W_{p,\mathrm{int}}$ exactly; the external inductance is a flux
+    linkage, and there the full $I_p\dot L_e$ is right.  So a lumped circuit
+    with $L_p = L_e + L_i$ closes Romero's balance only with
+    $\dot L_p = \dot L_e + \tfrac12\dot L_i$.
+
+    Signed in the sense of $I_p$, as for
+    :func:`boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j`: Romero's
+    balance is $V_B = R_p I_p + V_{\mathrm{ind}}$, with any non-inductive
+    current drive inside the resistive term.
+
+    Physical interpretation
+    -----------------------
+    A peaking current profile raises $L_i$ and costs flux even at constant
+    $I_p$; a broadening one returns it.  That profile term is what separates
+    a start-up with an evolving $l_i$ from one with a frozen profile.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (22)-(24).
+
+    See Also
+    --------
+    boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j
+    vaft.formula.equilibrium.internal_inductance_from_W_int_Ip
+    """
+    internal = np.asarray(L_i_H, dtype=float)
+    if not np.all(np.isfinite(internal)) or np.any(internal < 0.0):
+        raise ValueError(f"L_i_H must be finite and non-negative; got {L_i_H!r}")
+    current = _require_finite("I_p_A", I_p_A)
+    ramp_rate = _require_finite("dI_p_dt_A_s", dI_p_dt_A_s)
+    profile_rate = _require_finite("dL_i_dt_H_s", dL_i_dt_H_s)
+    inputs = (L_i_H, I_p_A, dI_p_dt_A_s, dL_i_dt_H_s)
+    return (
+        _maybe_scalar(internal * ramp_rate, *inputs),
+        _maybe_scalar(0.5 * current * profile_rate, *inputs),
+    )
 
 
 # ------------------------------------------------------------------

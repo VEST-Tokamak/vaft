@@ -410,8 +410,8 @@ records, not one it infers — with more than one checkout on a machine, that is
 the difference between reproducible provenance and a guess.
 
 The rest of this section is ordered by platform: find your own heading and
-read only that one. Notes that hold whatever you are on — CHEASE's `nideal`
-default, the two suite tests it un-skips, and the separate entry points for
+read only that one. Notes that hold whatever you are on — CHEASE's `NIDEAL`
+selection, the two suite tests it un-skips, and the separate entry points for
 NUBEAM and GACODE — are collected under [Per-code notes](#per-code-notes)
 afterwards.
 
@@ -638,14 +638,19 @@ code a directory of its own rather than a shared one such as `~/.local`.
 
 ## Per-code notes
 
-### CHEASE and the `nideal` default
+### CHEASE and its `NIDEAL` selection
 
-`CHEASEConfig.nideal` defaults to `6`, which upstream CHEASE accepts and which
-is its own documented default for writing the EQDSK that VAFT reads back.
+VAFT's CHEASE adapter has one contract: GEQDSK in, GEQDSK out. It writes
+CHEASE's native `EXPEQ` from the g-file (`NEQDSK=0`) and reads back the COCOS-2
+EQDSK, which upstream CHEASE writes for `NIDEAL=6`, its own documented default.
+`CHEASEConfig(output="geqdsk")`, the default, selects that; you do not set
+`NIDEAL` yourself. Other mappings, such as `NIDEAL=9` for GENE/ORB5, produce
+files the adapter does not read and are not part of it (#516).
 
-It used to default to `11`, the value the VEST `jsk95` workflow runs against
-the CHEASE build that group uses. Upstream validates the range in `cotrol.f90`
-(0 to 10) and quits before doing any equilibrium work on anything outside it:
+The adapter used to expose `nideal` and default it to `11`, the value the VEST
+`jsk95` workflow runs against the CHEASE build that group uses. Upstream
+validates the range in `cotrol.f90` (0 to 10) and quits before doing any
+equilibrium work on anything outside it:
 
 ```
 WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
@@ -653,8 +658,9 @@ WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
 ```
 
 so a CHEASE built from the public repository refused the default configuration
-on every platform. That is fixed (#717); pass `CHEASEConfig(nideal=11)`
-explicitly if you are running against the jsk95 CHEASE revision.
+on every platform (#717). `CHEASEConfig(nideal=11)` still works against the
+jsk95 revision, as a deprecated raw override that warns; the pipeline passes it
+only when `chease.nideal` is set in its config.
 
 ### Two suite tests start running once CHEASE is installed
 
@@ -968,7 +974,9 @@ to check an uninstalled CMake build.
 `install/` carries a build recipe for five codes: CHEASE, DCON/GPEC, EFIT/EFUND,
 NUBEAM and GACODE. `vaft.code` also talks to three others, and none of them gets
 a script here. That is a deliberate stop, not an omission, so this section says
-what VAFT actually does for each and what you would have to supply yourself.
+what VAFT actually does for each and what you would have to supply yourself. The
+last entry, the `vaft-nn` model registry, is not a code at all but is configured
+the same way.
 
 ### TES
 
@@ -1010,6 +1018,36 @@ Every import is deferred, so `vaft.code.tokamaker` imports cleanly on a machine
 without it and reports the absence when you actually call something. There is no
 `check_tokamaker.py`: `import OpenFUSIONToolkit` already answers the only
 question such a checker would ask.
+
+### vaft-nn (VAFT's published models)
+
+**A private registry, not a build.** Trained models are produced by
+`vaft.process.ml` and published to
+[`VEST-Tokamak/vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn). That
+repository holds metadata only. `models/<name>/releases.yaml` lists the versions,
+their lifecycle status (candidate, validated, production, deprecated), the
+SHA-256 of each version's manifest, and stage aliases such as `production`. The
+weights are GitHub Release assets. Clone it and point `VAFT_NN_HOME` at the
+checkout:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn
+gh auth login                                   # once
+python install/check_vaft_nn.py                 # registry, cache, gh access
+```
+
+Nothing is compiled, so there is no installer. `vaft.process.ml.fetch_model` downloads a
+release into the cache (`$VAFT_NN_CACHE`, else the platform cache directory)
+with `gh release download`. That reuses the GitHub CLI's login, so no token is
+ever passed to or stored by VAFT, following the HSDS credential rule above. A
+downloaded file is kept only if its SHA-256 equals the one the registry's
+reviewed manifest pins, and a stage alias is resolved to an exact version before
+anything loads. `check_vaft_nn.py` reports on each layer:
+- the checkout and its revision;
+- every model's release index and pinned manifests;
+- which versions are complete in the cache;
+- whether `gh` is installed and logged in, as yes or no only.
 
 ## Uninstalling
 

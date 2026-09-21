@@ -73,6 +73,10 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/samples/39915/source/*" not in package_data
     assert "data/samples/41524/imas.nc" not in package_data
     assert "data/samples/41672/imas.nc" not in package_data
+    assert "data/samples/48224/omas.json.gz" not in package_data
+    assert "data/samples/45531/omas.json.gz" not in package_data
+    assert "data/samples/40600/omas.json.gz" not in package_data
+    assert not any(entry.startswith("data/kineticEfit") for entry in package_data)
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
     setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")

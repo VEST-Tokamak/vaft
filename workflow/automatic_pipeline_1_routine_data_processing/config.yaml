@@ -129,7 +129,6 @@ chease:
   timeout: 600
   target_psin: 0.993
   relax: 0.5
-  nideal: 6
   nw: 513
   auto_cocos: true
   output_cocos: input

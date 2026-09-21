@@ -439,4 +439,100 @@ def internal_inductance_from_psi_C_psi_B_I_p(psi_C_Wb, psi_B_Wb, I_p_A):
     return _maybe_scalar(inductance, psi_C_Wb, psi_B_Wb, I_p_A)
 
 
+def romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(
+    I_p_A, L_i_H, V_CB_V, V_B_V, V_R_V, k, tau_s
+):
+    r"""State rates of Romero's first-order current-diffusion closure.
+
+    $$L_i\,\dot I_p = 2(V_B - V_R) + V,\qquad
+      I_p\,\dot L_i = 2(V_R - V_B) - 2V,\qquad
+      \dot V \simeq -\frac{V}{\tau} + \frac{k}{\tau}(V_R - V_B)$$
+
+    with $V = V_C - V_B$: the two exact identities of
+    :func:`plasma_current_rate_from_L_i_V_B_V_C_V_R` and
+    :func:`internal_inductance_rate_from_I_p_V_R_V_C` rewritten in $V$, and a
+    first-order relaxation of $V$ that closes them.
+
+    Parameters
+    ----------
+    I_p_A : float or np.ndarray
+        Plasma current, finite and non-zero [A].
+    L_i_H : float or np.ndarray
+        Dimensional internal inductance, finite and positive [H].
+    V_CB_V : float or np.ndarray
+        $V = V_C - V_B$, the equilibrium-surface voltage relative to the
+        boundary, finite [V].
+    V_B_V : float or np.ndarray
+        Boundary loop voltage, finite [V].
+    V_R_V : float or np.ndarray
+        Resistive voltage, finite [V].
+    k : float or np.ndarray
+        Closure gain, finite [-].
+    tau_s : float or np.ndarray
+        Closure time constant, finite and positive [s].
+
+    Returns
+    -------
+    dI_p_dt : float or np.ndarray
+        Rate of change of the plasma current [A/s].
+    dL_i_dt : float or np.ndarray
+        Rate of change of the internal inductance [H/s].
+    dV_CB_dt : float or np.ndarray
+        Rate of change of $V_C - V_B$ [V/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a zero current, a non-positive internal inductance
+        or a non-positive time constant.
+
+    Convention
+    ----------
+    Romero's signs, as in the module docstring.  The first two rates are
+    exact; only $\dot V$ is modelled.  The fixed point is $V = 0$ and
+    $V_R = V_B$ -- a flat loop-voltage profile -- for any $k \ne 1$ and
+    $\tau$: there $L_i$ and $I_p$ are both steady.
+
+    Validity
+    --------
+    Empirical fit.  Eq. (41) is a first-order approximation of current
+    diffusion, and $k$ and $\tau$ are identified per device and regime by
+    fitting the model to measured histories (Romero's JET fits); nothing here
+    supplies them.  With $k = 0$ the relative voltage simply decays as
+    $e^{-t/\tau}$.
+
+    Limitations
+    -----------
+    One radial mode: a current profile that relaxes on two time scales, or a
+    sawtoothing core, is outside it.  $V_R$ is an input, so an $R_p$ that
+    depends on the evolving profile must be updated by the caller.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (41)-(45).
+
+    See Also
+    --------
+    plasma_current_rate_from_L_i_V_B_V_C_V_R
+    internal_inductance_rate_from_I_p_V_R_V_C
+    """
+    current = _nonzero("I_p_A", I_p_A)
+    inductance = _finite("L_i_H", L_i_H)
+    if np.any(inductance <= 0.0):
+        raise ValueError(f"L_i_H must be positive; got {L_i_H!r}")
+    tau = _finite("tau_s", tau_s)
+    if np.any(tau <= 0.0):
+        raise ValueError(f"tau_s must be positive; got {tau_s!r}")
+    relative = _finite("V_CB_V", V_CB_V)
+    drive = _finite("V_B_V", V_B_V) - _finite("V_R_V", V_R_V)
+    gain = _finite("k", k)
+    inputs = (I_p_A, L_i_H, V_CB_V, V_B_V, V_R_V, k, tau_s)
+    return (
+        _maybe_scalar((2.0 * drive + relative) / inductance, *inputs),
+        _maybe_scalar((-2.0 * drive - 2.0 * relative) / current, *inputs),
+        _maybe_scalar(-relative / tau - gain * drive / tau, *inputs),
+    )
+
+
 __all__ = public_names(globals())

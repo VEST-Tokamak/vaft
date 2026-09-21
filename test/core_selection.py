@@ -91,6 +91,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
     "test_spectrogram_methods.py",
+    # The launch contract every external-code adapter goes through. Stub
+    # programs only (`external_code_stubs`); no physics code is ever run.
+    "test_code_execution.py",
+    "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
     "contracts/test_contract_legacy_rejections.py",
@@ -115,8 +119,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_docstrings.py",
     # ML backbone (#669). The framework-free lifecycle -- group split, fingerprint,
     # hash-pinned artifact, registry resolution -- on the NumPy backend, and the
-    # PyTorch backend, which skips where torch is not installed.
+    # scikit-learn (ONNX) and PyTorch backends, which skip where not installed;
+    # and the checker of the vaft-nn registry they resolve published models from.
+    "test_check_vaft_nn.py",
     "test_process_ml_contract.py",
+    "test_process_ml_sklearn.py",
     "test_process_ml_torch.py",
     # Documentation drift. File reads and getattr only: what the READMEs claim
     # VAFT is, the site's navigation contract, and whether a documented snippet

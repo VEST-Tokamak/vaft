@@ -11,11 +11,18 @@ the ones that workflow already produced: edge-zeroing, FFT boundary smoothing,
 Two things the donor did are deliberately *not* reproduced, because they were
 conventions rather than physics:
 
-  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The default is
-    6; the writer still emits 11 when asked for it.
+  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The adapter
+    now selects NIDEAL from its GEQDSK output contract (6, #516); the writer
+    still emits 11 through the deprecated raw override.
   * sampling q at ``sqrt(0.95)``, which constrains the surface at
     ``psi_norm = 0.9747`` rather than the conventional q95 surface at 0.95.
     ``q_constraint_psi_norm`` now means what it says.
+
+One thing is deliberately *fixed* rather than reproduced, because it was an
+off-by-one rather than a convention:
+
+  * edge-zeroing now examines the separatrix sample. The donor's loop started
+    one sample inside and let a p' reversal at psi_N = 1 through as ``-|p'|``.
 """
 
 import os
@@ -94,13 +101,26 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
     Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
     before doing any equilibrium work on anything outside it, so the previous
     default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
-    a CHEASE built from the public repository. See #717.
+    a CHEASE built from the public repository. See #717. Since #516 a caller
+    names the output, not the number.
     """
-    cfg = ch.CHEASEConfig()
-    assert cfg.nideal == 6
-    assert 0 <= cfg.nideal <= 10
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # the default path must not warn
+        cfg = ch.CHEASEConfig()
+    assert cfg.output == "geqdsk"
+    assert cfg.nideal is None
+    assert cfg.resolved_nideal == ch.CHEASE_OUTPUT_NIDEAL["geqdsk"] == 6
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "NIDEAL=6," in text
+    assert "NEQDSK=0" in text  # EXPEQ input, written by the adapter itself
+
+
+def test_an_output_the_adapter_cannot_read_is_refused():
+    """NIDEAL=9 and friends write files nothing here reads (#516)."""
+    with pytest.raises(ValueError, match="not supported"):
+        ch.CHEASEConfig(output="gyrokinetic")
 
 
 def test_namelist_epslon_default_and_jsk95_nideal_on_request():
@@ -109,10 +129,13 @@ def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
     revision that group uses. It stopped being the default in #717 because
     upstream rejects it, but asking for it must still emit it -- that is the
-    parity claim this file exists to defend.
+    parity claim this file exists to defend. Asking is deprecated (#516), so
+    it warns.
     """
-    cfg = ch.CHEASEConfig(nideal=11)
+    with pytest.warns(FutureWarning, match="deprecated"):
+        cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
+    assert cfg.resolved_nideal == 11
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text
@@ -215,15 +238,58 @@ def test_edge_zero_zeros_positive_edge_and_flattens_ffprim():
     pprime = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.5, 0.7, 0.9])
     ffprim = np.arange(11, dtype=float)
     pp, ff, surface = ch._edge_zero_profiles(psin, pprime, ffprim, 0.95)
-    # Positive edge points (indices 8,9) zeroed; index 10 (edge) untouched by loop.
-    assert pp[8] == 0.0 and pp[9] == 0.0
+    # Every positive point is zeroed, the separatrix sample (index 10) included:
+    # the donor's loop starts one sample in and would have left 0.9 there,
+    # which _write_expeq writes as -|0.9| (scaled), a bulk-sign drive at the edge.
+    assert pp[8] == 0.0 and pp[9] == 0.0 and pp[10] == 0.0
     assert pp[7] == -1.0
-    # FF' flattened inward across the zeroed band (held at just-outside value).
+    # FF' flattened inward across the zeroed band, held at the separatrix
+    # value, which itself has nothing outside it to take.
+    assert ff[10] == pytest.approx(10.0)
     assert ff[9] == pytest.approx(10.0)  # ff[9] <- ff[10]
     assert ff[8] == pytest.approx(10.0)  # ff[8] <- ff[9] (already updated)
     # 0.95 > 0.3, so the donor's inward-nudge branch never fires for an edge
     # constraint; it exists for a near-axis one.
     assert surface == pytest.approx(0.95)
+
+
+def test_a_reversal_on_the_separatrix_sample_alone_reaches_expeq_as_zero(tmp_path):
+    """The donor's loop never looked at psi_N = 1; this adapter does.
+
+    A hollow-edge legacy g-file (VFIT g039516.031400) is reversed from
+    psi_N ~ 0.6 outward with its largest |p'| on the last sample. The donor
+    zeroed every reversed sample but that one, and ``-|p'|`` then wrote it as
+    the strongest bulk-sign drive of the profile, at the separatrix.
+    """
+    n = ch.NCHEASE
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+
+    def expeq_profiles(geq, path):
+        ch._write_expeq(geq, path, cfg)
+        lines = path.read_text().splitlines()
+        start = 4 + int(lines[3]) + 2  # header, boundary, NCHEASE, "1 0"
+        pp = np.array([float(v) for v in lines[start + n:start + 2 * n]])
+        ff = np.array([float(v) for v in lines[start + 2 * n:start + 3 * n]])
+        return pp, ff
+
+    geq = _fake_geqdsk()
+    pp0, ff0 = expeq_profiles(geq, tmp_path / "EXPEQ.base")
+    geq["PPRIME"] = geq["PPRIME"].copy()
+    geq["PPRIME"][-1] = 0.5  # opposite to the negative bulk, on the last sample only
+    pp, ff = expeq_profiles(geq, tmp_path / "EXPEQ")
+
+    # The raw reversal only reaches the resampled profile inside the last raw
+    # interval; everything inside it is written exactly as without it.
+    inner = np.linspace(0.0, 1.0, n) < 1.0 - 1.0 / (len(geq["PPRIME"]) - 1)
+    assert np.array_equal(pp[inner], pp0[inner])
+    assert pp[-1] == 0.0
+    # FF' on the separatrix has no outside value to take and keeps its own,
+    # and the zeroed band inside it is held at that value.
+    zeroed = ~inner & (pp == 0.0)
+    assert zeroed.sum() > 1
+    assert ff[-1] == ff0[-1]
+    assert np.all(ff[zeroed] == ff0[-1])
+    assert not np.all(ff0[zeroed] == ff0[-1])  # i.e. the hold did something
 
 
 # ---------------------------------------------------------------------------

@@ -191,8 +191,9 @@ print(result.ok)
 ```
 
 `GPECSuiteConfig` also exposes the DCON edge controls `dcon_sas_flag` (default `False`),
-`dcon_qhigh` (`20.2`) and `dcon_psiedge` (`1.0`), plus a per-module `timeout` (1200 s) and an `env`
-mapping merged into the subprocess environment.
+`dcon_qhigh` (`20.2`) and `dcon_psiedge` (`1.0`), plus a per-module `timeout` (1200 s), an `env`
+mapping merged into the subprocess environment, and a `backend` that launches each module (default:
+a local child process; see [execution backends]({{ site.baseurl }}/guide/API_reference/#execution-backends)).
 
 `run_mode` selects what happens when the executables are not installed:
 

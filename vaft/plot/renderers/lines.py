@@ -637,6 +637,131 @@ def equilibrium_time_qa(
     domain="equilibrium",
     subject="equilibrium",
     view="time",
+    quantity="minor_radius",
+    model=LineSeries,
+    description="Boundary minor radius history.",
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.minor_radius",
+    ),
+    optional_paths=(),
+)
+def equilibrium_time_minor_radius(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Boundary minor radius history."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
+    quantity="elongation",
+    model=LineSeries,
+    description="Boundary elongation history.",
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.elongation",
+    ),
+    optional_paths=(),
+)
+def equilibrium_time_elongation(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Boundary elongation history."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
+    quantity="triangularity",
+    model=LineSeries,
+    description="Boundary triangularity history, the mean of upper and lower.",
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.triangularity",
+    ),
+    optional_paths=(),
+)
+def equilibrium_time_triangularity(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Boundary triangularity history, the mean of upper and lower."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
+    quantity="triangularity_upper",
+    model=LineSeries,
+    description="Upper boundary triangularity history.",
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.triangularity_upper",
+    ),
+    optional_paths=(),
+)
+def equilibrium_time_triangularity_upper(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Upper boundary triangularity history."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
+    quantity="triangularity_lower",
+    model=LineSeries,
+    description="Lower boundary triangularity history.",
+    ids=("equilibrium",),
+    required_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.triangularity_lower",
+    ),
+    optional_paths=(),
+)
+def equilibrium_time_triangularity_lower(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Lower boundary triangularity history."""
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
     quantity="major_radius",
     model=LineSeries,
     description="Geometric-axis major radius history.",
@@ -1110,6 +1235,11 @@ __all__ = [
     "equilibrium_time_plasma_current",
     "equilibrium_time_q0",
     "equilibrium_time_q95",
+    "equilibrium_time_minor_radius",
+    "equilibrium_time_elongation",
+    "equilibrium_time_triangularity",
+    "equilibrium_time_triangularity_upper",
+    "equilibrium_time_triangularity_lower",
     "equilibrium_time_qa",
     "equilibrium_time_w_mag",
     "equilibrium_time_w_mhd",
