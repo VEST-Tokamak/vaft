@@ -59,6 +59,13 @@ def test_the_template_ships_with_the_package():
     assert text.count("\n%%VAFT-BODY%%\n") == 1
 
 
+def test_no_template_style_is_defined_twice():
+    # a second definition silently replaces the first: a new family's "region"
+    # once shrank every stability chart's region labels
+    names = re.findall(r"^\s*([\w ]+)/\.style=", _render.template(), re.M)
+    assert sorted({n for n in names if names.count(n) > 1}) == []
+
+
 def test_the_committed_reference_diagrams_are_fresh():
     assert build.check(ASSETS) == []
 
@@ -109,7 +116,7 @@ def test_check_catches_a_stale_or_missing_asset(tmp_path, monkeypatch):
     # a change to the render recipe makes every asset stale
     monkeypatch.setattr(_render, "RENDER_RECIPE", _render.RENDER_RECIPE + " changed")
     problems = build.check(tmp_path)
-    assert sum("stale" in p for p in problems) == 2
+    assert sum("stale" in p for p in problems) == len(build.CANONICAL) - 1  # all but the missing one
 
 
 def test_the_committed_assets_are_checked_out_with_lf_everywhere():

@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 
 from ..models import Spectrogram
 from ..registry import renderer
-from ..presentation import presented
+from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -55,6 +55,13 @@ def render_spectrogram(
         axes.set_title(model.title)
     if model.max_frequency is not None:
         axes.set_ylim(0.0, model.max_frequency)
+    if model.ridge_time is not None:
+        # The tracked ridge (issue #1005); NaN windows leave gaps, not a line to zero.
+        axes.plot(
+            model.ridge_time, model.ridge_frequency, color=resolve_color("palette:2"),
+            linewidth=1.4, label=model.ridge_label or "tracked ridge",
+        )
+        axes.legend(loc="upper right", fontsize="small")
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

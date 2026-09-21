@@ -52,10 +52,18 @@ def test_only_the_evidenced_channels_carry_a_bound():
     assert 171 not in TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT
 
 
-def test_the_channel_still_in_the_archives_is_still_mapped():
-    """44740 and 45531 carry field 171; dropping it would lose real data."""
-    fields = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(44740)}
-    assert fields == {171}
+def test_the_channel_still_in_the_archives_is_published_once_as_an_equilibrium_probe():
+    """44740 and 45531 carry field 171, and it is mapped -- as probe 36, not twice.
+
+    The equilibrium wiring reads field 171 for every shot, so it is never also
+    a phase reference (issues #724, #825): one acquisition, one ODS entry.
+    """
+    from vaft.machine_mapping.magnetics import magnetics_wiring_for_shot
+
+    for shot in (44740, 45531):
+        assert toroidal_mirnov_reference_channels(shot) == ()
+        wiring = magnetics_wiring_for_shot(shot).channels
+        assert int(wiring[36]["field_code"]) == 171
 
 
 @pytest.mark.parametrize(
@@ -84,7 +92,8 @@ def test_the_gap_resolves_no_mode_number_at_all():
 @pytest.mark.parametrize(
     "shot,angles,step",
     [
-        (30000, (75.0, 135.0, 195.0, 315.0), 6),
+        # 1:30, 5:30, 7:30 -- field 171's disputed 9:30 is not published (#825).
+        (30000, (135.0, 195.0, 315.0), 6),
         (45531, (135.0, 225.0, 315.0), 4),
     ],
 )
@@ -107,17 +116,22 @@ def test_the_reported_angles_are_imas_phi_not_clock_angles():
 # ---------------------------------------------------------------------------
 
 
-def test_the_inventory_is_ungated():
-    """shot=0 means "the machine description", the reading the whole module uses."""
-    assert len(toroidal_mirnov_reference_channels(0)) == len(TOROIDAL_MIRNOV_REFERENCE_CHANNELS)
+def test_the_inventory_is_ungated_by_shot_but_not_duplicated():
+    """shot=0 means "the machine description", the reading the whole module uses.
+
+    The table records four entries, the disputed field 171 among them; the
+    published inventory is the three whose fields no equilibrium probe reads.
+    """
     assert len(TOROIDAL_MIRNOV_REFERENCE_CHANNELS) == 4
+    published = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(0)}
+    assert published == {207, 209, 241}
 
 
 def test_a_shot_past_the_boundary_has_no_reference_channels():
     before = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(REFERENCE_LAST_SHOT)}
     after = {int(c["field_code"]) for c in toroidal_mirnov_reference_channels(REFERENCE_LAST_SHOT + 1)}
-    assert before == {207, 209, 241, 171}
-    assert after == {171}
+    assert before == {207, 209, 241}
+    assert after == set()
 
 
 def test_the_returned_channels_are_copies():

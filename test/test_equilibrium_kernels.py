@@ -455,8 +455,13 @@ def test_q_from_phi_is_exact_for_full_weber_psi_and_says_so():
     assert q_from_phi(psi_wb, phi)[1:-1] == pytest.approx(q0, rel=1e-12)
     assert q_from_phi(psi_wb / (2 * np.pi), phi)[1:-1] == pytest.approx(2 * np.pi * q0, rel=1e-12)
 
+    # A per-radian flux is taken when the caller says so (#354).
+    assert q_from_phi(psi_wb / (2 * np.pi), phi, psi_per_radian=True)[1:-1] == pytest.approx(
+        q0, rel=1e-12
+    )
+
     doc = q_from_phi.__doc__
-    assert "monotonic, full weber [Wb]." in doc
+    assert "monotonic; full weber unless" in doc
     assert "[Wb/rad]" not in doc
     # C = 2 Phi_b / (psi_b - psi_a) is likewise exact with full-weber psi.
     rhoN = np.sqrt(phi / phi[-1])

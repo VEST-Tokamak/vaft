@@ -176,6 +176,8 @@ def test_install_directory_is_flat_and_complete():
         "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
+        # Not a code checker: vaft-nn is a model registry, not a build (#669).
+        "check_vaft_nn.py",
     )
     for name in expected:
         assert (INSTALL / name).is_file(), f"install/{name} is missing"

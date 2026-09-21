@@ -31,6 +31,9 @@ from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "equilibrium_overview_constraint_weights",
+    "equilibrium_overview_pressure_weight_scan",
+    "equilibrium_time_shape",
     "startup_proxies_time",
     "passive_structure_overview_wall_reduction",
     "passive_structure_overview_wall_time",
@@ -478,6 +481,22 @@ def summary_time_energy(
     domain="equilibrium",
     subject="equilibrium",
     view="time",
+    quantity="shape",
+    description="Major and minor radius, elongation and upper/lower triangularity histories.",
+    ids=("equilibrium",),
+    required_paths=("equilibrium.time_slice.{i}.boundary.elongation",),
+)
+def equilibrium_time_shape(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Boundary shape histories, one panel per descriptor."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
     quantity="beta",
     description="Poloidal, toroidal and normalized beta panels.",
     ids=("equilibrium",),
@@ -809,6 +828,7 @@ _CONSTRAINT_OPTIONAL = (
     "equilibrium.time_slice.{i}.constraints.ip.measured",
     "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
     "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    "equilibrium.time_slice.{i}.constraints.pressure.{j}.measured",
 )
 
 
@@ -849,6 +869,57 @@ def equilibrium_overview_constraint_coverage(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Constraint channel coverage across the reconstructed time slices."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="overview",
+    quantity="constraint_weights",
+    description=(
+        "Per constraint family: the stored uncertainty beside the one EFIT fitted "
+        "against (k / weight), the weight, and the normalized residual (issue #952)."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.weight",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+    ),
+    optional_paths=_CONSTRAINT_SUBMITTED + _CONSTRAINT_OPTIONAL,
+)
+def equilibrium_overview_constraint_weights(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """EFIT constraint uncertainties, weights and normalized residuals by family."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="overview",
+    quantity="pressure_weight_scan",
+    description=(
+        "Reconstructions of one instant with the kinetic-pressure constraint weighted "
+        "differently, entries labelled by the factor: p and q against psi_N, and beta_p, "
+        "l_i and chi-square against the factor (issue #952)."
+    ),
+    ids=_CONSTRAINT_IDS,
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.constraints.pressure.{j}.measured",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.global_quantities.beta_pol",
+    ),
+)
+def equilibrium_overview_pressure_weight_scan(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """A pressure-constraint weight scan, entries overlaid."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

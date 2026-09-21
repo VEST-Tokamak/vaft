@@ -212,7 +212,18 @@ def test_an_override_names_the_position_it_rewires():
 def test_the_z_plus_006_probe_is_recorded_broken_where_the_scan_found_it(shot, faulted):
     faults = known_magnetics_faults(shot)
     assert (("b_field_pol_probe", 35) in faults) is faulted
-    assert set(faults) <= {("b_field_pol_probe", 35)}
+    assert set(faults) <= {("b_field_pol_probe", 35), ("b_field_pol_probe", 45)}
+
+
+@pytest.mark.parametrize("shot", [29350, 36480, 36481, 36822, 36905, 36906, 39437, 39915, 41524, 41672, 48000])
+def test_c4_04_is_recorded_broken_on_every_shot(shot):
+    """Anticorrelated with the vacuum model on every reference shot and 70% of
+    a statistical-sigma chi-square (#977, #924). Revisions replace ``probes``
+    rather than extend it, so an era with its own faults must repeat the entry;
+    the parametrization crosses both such eras and the base."""
+    faults = known_magnetics_faults(shot)
+    assert "C4-04" in faults[("b_field_pol_probe", 45)]
+    assert "#977" in faults[("b_field_pol_probe", 45)]
 
 
 def test_39204_is_processed_with_the_layout_of_its_neighbours():

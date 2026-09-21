@@ -9,6 +9,18 @@ Notation
 G      : Green's function                              [-]
 K      : complete elliptic integral of first kind      [-]
 E      : complete elliptic integral of second kind     [-]
+
+Conventions
+-----------
+**Every flux these functions return is full weber**, ``psi = mu0 G`` per
+ampere -- the physical flux through the toroidal circle, which grows toward
+a positive current -- not the per-radian g-file family.  Hand such a flux to
+:func:`vaft.formula.equilibrium.vertical_magnetic_field_from_psi` and the
+other field helpers with ``cocos=13`` ($k = -1/2\pi$, the factor
+``psi_per_radian=False`` gives
+:func:`vaft.formula.equilibrium.poloidal_field_factor`).  Their default is
+$2\pi$ too large, and ``cocos=11`` has the right size but the opposite
+sign: IMAS flux grows *away* from a positive current (#354).
 """
 
 import warnings

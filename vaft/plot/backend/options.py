@@ -119,6 +119,12 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("region", "range", description="(row_start, row_stop, column_start, column_stop) pixel box"),
         OptionSpec("centre_frequency", "float", description="MHD band centre in Hz; the magnetics' dominant mode"),
         OptionSpec("half_width", "float", description="half the filtered bandwidth in Hz"),
+        # Fluctuation diagnostics (issue #1005): the two channels a coherence
+        # compares, and the spectral ridge a spectrogram overlays.
+        OptionSpec("x_signal", description="reference channel of a coherence: index, 'diagnostic:index|name', IDS path or name"),
+        OptionSpec("y_signal", description="channel compared against x_signal, in the same forms"),
+        OptionSpec("track", description="overlay the tracked spectral ridge: True, or (f0, f1) search band in Hz"),
+        OptionSpec("max_jump", "float", description="largest ridge frequency step between windows, in Hz"),
         OptionSpec("overlap", "float", description="fractional overlap between short-time windows"),
         # Read by a builder, so offered by the schema: before they were listed
         # validate_options refused them and no adapter could pass them on
@@ -147,6 +153,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rho_range", "range"),
         OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
         OptionSpec("models"), OptionSpec("order"),
+        # Kinetic profile fits (issue #952): the equilibrium the channels are
+        # mapped through (an ODS, a GEQDSK, a path, or {name: equilibrium} to
+        # compare mappings) and the model fitted through them.
+        OptionSpec("equilibrium", description="equilibrium (or {name: equilibrium}) the channels are mapped through"),
+        OptionSpec("fitting_function", "str", description="profile model: polynomial, exponential, gp, linear, ..."),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
         OptionSpec("phi0", "float"), OptionSpec("pose_path"), OptionSpec("quantity"), OptionSpec("r0", "float"),
         OptionSpec("reference_slopes"), OptionSpec("sample_rate", "float"), OptionSpec("series_label", "str"),

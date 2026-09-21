@@ -42,6 +42,8 @@ EFIT's acceptance checks", not "reached the requested iteration tolerance".
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -115,6 +117,21 @@ def _clean(value: float) -> float:
     return float("nan") if any(np.isclose(value, s) for s in SENTINELS) else value
 
 
+#: A three-digit exponent drops its ``E`` under Fortran's ``Ew.d`` edit
+#: descriptor: 1.14e-313 is written ``0.114019191-312``.
+_EXPONENT_WITHOUT_E = re.compile(r"^([-+]?\d*\.\d*)([-+]\d{3})$")
+
+
+def _fortran_real(chunk: str) -> float:
+    try:
+        return float(chunk)
+    except ValueError:
+        match = _EXPONENT_WITHOUT_E.match(chunk)
+        if match is None:
+            raise
+        return float(f"{match.group(1)}e{match.group(2)}")
+
+
 def _record(line: str) -> list[float]:
     body = line[RECORD_SKIP:]
     values = []
@@ -123,7 +140,7 @@ def _record(line: str) -> list[float]:
         if not chunk:
             continue
         try:
-            values.append(float(chunk))
+            values.append(_fortran_real(chunk))
         except ValueError as exc:
             raise AEQDSKError(f"cannot read {chunk!r} as a Fortran real") from exc
     return values

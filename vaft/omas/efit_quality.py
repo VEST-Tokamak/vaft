@@ -75,10 +75,12 @@ from vaft.formula.statistics import sigma_unit_factor as _sigma_unit_factor
 from vaft.ods_access import path_count as _count, path_value
 
 __all__ = [
+    "CONSTRAINT_FAMILIES",
     "CONSTRAINT_STATES",
     "FIT_ROLES",
     "ConstraintTable",
     "FAMILIES",
+    "KINETIC_FAMILIES",
     "classify_fit_role",
     "constraint_state",
     "constraint_table",
@@ -108,12 +110,25 @@ CONSTRAINT_STATES = ("enabled", "disabled", "missing")
 #: fit quality, so it never enters a goodness-of-fit aggregate.
 FIT_ROLES = ("fitted", "prescribed")
 
-#: The constraint families, their display titles, units and scale factors.
+#: The magnetic constraint families, their display titles, units and scale
+#: factors.  ``vaft.validation`` grades exactly these as the magnetic fit.
 FAMILIES = (
     ("bpol_probe", "Poloidal probes", "mT", 1e3, True),
     ("flux_loop", "Flux loops", "mWb", 1e3, True),
     ("pf_current", "PF currents", "kA", 1e-3, True),
 )
+
+#: The kinetic constraint families a kinetic EFIT adds (issue #952): the
+#: pressure points of ``KPRFIT``, stored under ``constraints.pressure`` with
+#: their ``position.psi``/``rho_tor_norm``.  They enter the goodness of fit
+#: like any family when present, and are simply absent from a magnetics-only
+#: reconstruction.
+KINETIC_FAMILIES = (
+    ("pressure", "Kinetic pressure", "Pa", 1.0, True),
+)
+
+#: Every constraint family the fit-quality metrics and plots read.
+CONSTRAINT_FAMILIES = FAMILIES + KINETIC_FAMILIES
 
 #: Normalized-residual thresholds used for the outlier census.
 OUTLIER_LEVELS = (2.0, 3.0)
@@ -453,7 +468,7 @@ def fit_quality_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     families: dict[str, Any] = {}
     total_chi = 0.0
     fitted_channels = 0
-    for family, title, unit, scale, is_array in FAMILIES:
+    for family, title, unit, scale, is_array in CONSTRAINT_FAMILIES:
         table = constraint_table(
             ods, time_slice=time_slice, family=family, is_array=is_array
         )
@@ -699,6 +714,9 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     final_error = terror
     final_error_source = "aeqdsk.terror"
     if not np.isfinite(final_error):
+        # EFIT's `cerror`, an iteration increment, under the IMAS name of a
+        # Grad-Shafranov deviation (see `vaft.data.meqdsk`, #924); it is the
+        # same quantity as `terror`, so the fallback compares like with like.
         final_error = _scalar(
             _get(ods, f"{root}.convergence.grad_shafranov_deviation_value")
         )

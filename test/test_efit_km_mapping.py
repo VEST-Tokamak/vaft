@@ -14,7 +14,7 @@ from vaft.data.resources import data_path
 from vaft.database._summary import extract_efit_magnetic_reliability
 
 
-def _write_current_efit_mfile(path: Path) -> None:
+def _write_current_efit_mfile(path: Path, diamagnetic=(0.007, 0.0005, 8.0)) -> None:
     with netcdf_file(path, "w") as dataset:
         dataset.history = b"synthetic current-EFIT write_m.F90 fixture"
         dataset.createDimension("dim_time", 1)
@@ -41,8 +41,8 @@ def _write_current_efit_mfile(path: Path) -> None:
         for name, data in (
             ("plasma", [70_000.0]), ("cpasma", [69_500.0]),
             ("sigpasma", [500.0]), ("fwtpasma", [4.0]), ("chipasma", [0.25]),
-            ("diamag", [0.007]), ("cdflux", [0.0065]),
-            ("sigdia", [0.0005]), ("fwtdia", [8.0]), ("chidflux", [0.5]),
+            ("diamag", [diamagnetic[0]]), ("cdflux", [0.0065]),
+            ("sigdia", [diamagnetic[1]]), ("fwtdia", [diamagnetic[2]]), ("chidflux", [0.5]),
         ):
             variable(name, data, ("dim_time",))
         variable("cerror", [[0.1, 0.001]], ("dim_time", "kxiter"))
@@ -154,3 +154,31 @@ def test_mfile_kfile_input_names_are_not_accepted_as_output_aliases(tmp_path):
     assert "equilibrium.time_slice.0.constraints.ip.weight" not in ods
     assert "equilibrium.time_slice.0.constraints.diamagnetic_flux.weight" not in ods
     assert ods["equilibrium.code.parameters.time_slice.0.meqdsk.variables.fwtcur.data"] == 9.0
+
+
+def test_a_diamagnetic_row_switched_off_for_lack_of_data_is_not_a_measured_zero(tmp_path):
+    """A shot without a usable diamagnetic loop writes DFLUX=0, SIGDLC=0,
+    FWTDLC=0 (#993) and EFIT copies the zero back. It must not come back as a
+    measured diamagnetic flux of exactly 0 Wb; EFIT's reconstruction and the
+    zero weight still do."""
+    path = tmp_path / "m039915.00319.nc"
+    _write_current_efit_mfile(path, diamagnetic=(0.0, 0.0, 0.0))
+
+    ods = read_meqdsk(path).to_omas()
+
+    base = "equilibrium.time_slice.0.constraints.diamagnetic_flux"
+    assert f"{base}.measured" not in ods
+    assert f"{base}.measured_error_upper" not in ods
+    assert f"{base}.chi_squared" not in ods
+    assert ods[f"{base}.weight"] == 0.0
+    assert ods[f"{base}.reconstructed"] == np.float32(0.0065)
+
+
+def test_a_measured_diamagnetic_row_with_zero_weight_keeps_its_measurement(tmp_path):
+    """Switched off by choice, not for lack of data: the measurement stays."""
+    path = tmp_path / "m039915.00319.nc"
+    _write_current_efit_mfile(path, diamagnetic=(0.007, 0.0005, 0.0))
+
+    ods = read_meqdsk(path).to_omas()
+
+    assert ods["equilibrium.time_slice.0.constraints.diamagnetic_flux.measured"] == np.float32(0.007)

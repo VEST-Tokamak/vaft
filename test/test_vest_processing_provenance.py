@@ -87,7 +87,10 @@ def test_the_probe_wiring_and_recorded_faults_are_in_provenance():
     assert record["wiring"]["layout"] == "pre-39438"
     assert {entry["index"] for entry in record["wiring"]["probe_overrides"]} == {35, 47}
     assert record["wiring"]["revision"]["revision_bounds"] == {"from_shot": None, "to_shot": 39437}
-    assert [(f["kind"], f["index"]) for f in record["known_faults"]] == [("b_field_pol_probe", 35)]
+    assert [(f["kind"], f["index"]) for f in record["known_faults"]] == [
+        ("b_field_pol_probe", 35),
+        ("b_field_pol_probe", 45),
+    ]
 
     modern = vest_processing_provenance(39438)["equilibrium_magnetics"]
     assert modern["wiring"] == {
@@ -95,7 +98,8 @@ def test_the_probe_wiring_and_recorded_faults_are_in_provenance():
         "probe_overrides": [],
         "revision": {"context": "VEST equilibrium_magnetics wiring", "revision_index": None, "revision_bounds": None},
     }
-    assert modern["known_faults"] == []
+    # C4-04 is recorded on every shot (#977).
+    assert [(f["kind"], f["index"]) for f in modern["known_faults"]] == [("b_field_pol_probe", 45)]
     assert vest_processing_provenance(39204)["equilibrium_magnetics"]["geometry_supported"] is True
 
 

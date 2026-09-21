@@ -180,6 +180,26 @@ def update_equilibrium_boundary(ods, time_slice=None):
 
         return float(r0), float(z0)
 
+    def _no_plasma(ts):
+        """Whether the slice is a vacuum/terminated one: zero current or no flux excursion."""
+        psi_axis = _safe_float(ts["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in ts else np.nan
+        psi_boundary = _safe_float(ts["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in ts else np.nan
+        ip = _safe_float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        degenerate_flux = np.isfinite(psi_axis) and np.isfinite(psi_boundary) and psi_axis == psi_boundary
+        return bool(degenerate_flux or (np.isfinite(ip) and ip == 0.0))
+
+    def _write_no_axis(ts):
+        """A no-plasma slice has no geometric axis: store NaN, not the fallback.
+
+        The fallback would write the grid centre or a stale axis as if it were
+        one, and every shape history would plot it (#952).  NaN rather than
+        leaving the leaf absent keeps colon reads across slices rectangular
+        (``ods['equilibrium.time_slice.:.boundary.geometric_axis.r']``) and
+        makes ``float(...)`` of the leaf a NaN instead of a LookupError.
+        """
+        ts['boundary.geometric_axis.r'] = np.nan
+        ts['boundary.geometric_axis.z'] = np.nan
+
     if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
         logger.warning("No equilibrium.time_slice found while updating boundary.")
         return
@@ -199,6 +219,9 @@ def update_equilibrium_boundary(ods, time_slice=None):
         ts = ods['equilibrium']['time_slice'][idx]
         if 'boundary.outline.r' not in ts or 'boundary.outline.z' not in ts:
             logger.warning("boundary.outline not found for time slice %s", idx)
+            if _no_plasma(ts):
+                _write_no_axis(ts)
+                continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
             ts['boundary.geometric_axis.z'] = z0
@@ -211,6 +234,9 @@ def update_equilibrium_boundary(ods, time_slice=None):
         z_outline = z_outline[finite]
         if r_outline.size < 3:
             logger.warning("boundary.outline has fewer than 3 valid points for time slice %s", idx)
+            if _no_plasma(ts):
+                _write_no_axis(ts)
+                continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
             ts['boundary.geometric_axis.z'] = z0
@@ -1491,7 +1517,9 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+            profile_RZ, psiN_RZ = psi_to_rz(
+                psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             return profile_RZ, psiN_RZ
 
         # Step 2: Process electron profiles
@@ -1504,12 +1532,19 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                 # Process n_e
                 n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
                 n_e_RZ, psiN_RZ = convert_to_2d(n_e_1d_rho)
-                n_e_vol, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)
+                from vaft.omas.process_wrapper import _slice_plasma_weights
+
+                plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ)
+                n_e_vol, _ = volume_average(
+                    n_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
                 
                 # Process T_e
                 T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
                 T_e_RZ, _ = convert_to_2d(T_e_1d_rho)
-                T_e_vol, _ = volume_average(T_e_RZ, psiN_RZ, R_grid, Z_grid)
+                T_e_vol, _ = volume_average(
+                    T_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
             except Exception as e:
                 print(f"Warning: Error processing electron profiles for core_profiles[{cp_idx}]: {e}")
         else:
@@ -1572,8 +1607,12 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                     n_i_RZ, _ = convert_to_2d(n_i_1d_rho)
                     T_i_RZ, _ = convert_to_2d(T_i_1d_rho)
                     
-                    n_i_vol, _ = volume_average(n_i_RZ, psiN_RZ, R_grid, Z_grid)
-                    T_i_vol, _ = volume_average(T_i_RZ, psiN_RZ, R_grid, Z_grid)
+                    n_i_vol, _ = volume_average(
+                        n_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                    )
+                    T_i_vol, _ = volume_average(
+                        T_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                    )
                     
                     ion_vol_dict[ion_idx]['n_i'].append(n_i_vol)
                     ion_vol_dict[ion_idx]['T_i'].append(T_i_vol)

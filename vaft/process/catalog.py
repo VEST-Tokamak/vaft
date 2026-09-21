@@ -254,14 +254,19 @@ def _require_docstrings() -> None:
 
 
 def _source_files() -> list[Path]:
-    """Every module file the snapshot describes, ``__init__`` excepted.
+    """Every module file the snapshot describes, the package ``__init__`` excepted.
+
+    Recursive, because ``ml`` is a subpackage whose category docstring is its
+    own ``__init__`` and whose functions live in its submodules.
 
     One entry per file rather than per category, because ``equilibrium``
     re-exports ``_equilibrium_parametric``: a checksum keyed by category
     would pass while an edit to the private module went unnoticed.
     """
     return sorted(
-        path for path in _PACKAGE.glob("*.py") if path.name != "__init__.py"
+        path
+        for path in _PACKAGE.rglob("*.py")
+        if path != _PACKAGE / "__init__.py" and "__pycache__" not in path.parts
     )
 
 
@@ -488,7 +493,7 @@ def documentation_snapshot(
         "generator": _GENERATOR,
         "source": [
             {
-                "path": f"vaft/process/{path.name}",
+                "path": f"vaft/process/{path.relative_to(_PACKAGE).as_posix()}",
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
             for path in _source_files()
