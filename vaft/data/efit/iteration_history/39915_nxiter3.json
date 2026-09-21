@@ -1,0 +1,1304 @@
+{
+ "level": "summary",
+ "numbering": {
+  "cumulative": "EFIT's nitera: the counter printed as it= and the index of the m-file's cerror/cchisq/czmaxi arrays. It is incremented inside the inner (NXITER) loop, so it is cumulative across outer and inner iterations, and it restarts at 1 on every slice.",
+  "nxiter": 3,
+  "nxiter_source": "run configuration",
+  "outer_inner": "not recorded: EFIT prints only the cumulative counter, and its inner loop can leave before NXITER steps once the increment falls below ERROR, so the outer/inner boundaries are not in its output"
+ },
+ "provenance": {
+  "args": [
+   "129"
+  ],
+  "executable_sha256": "b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d",
+  "initialization": {
+   "current_threshold": 15000.0,
+   "ellipse_rzero": 0.32,
+   "elongation": 1.6,
+   "icinit": null,
+   "minor_radius": 0.3,
+   "rzero": 0.4,
+   "zzero": 0.0
+  },
+  "log": "run_efit.out",
+  "numerics": {
+   "chi_squared_target": null,
+   "convergence_mode": null,
+   "error_minimum": null,
+   "error_tolerance": 1e-05,
+   "inner_iterations": 3,
+   "max_iterations": 171,
+   "measurement_error_floor": 0.0005,
+   "relaxation": 1.0
+  },
+  "requested_executable": null,
+  "runtime_status": "completed",
+  "scientific_sha256": "323e8ddf22b344078c7dd73d2a7e28a5748ff4de9ac6d4a97c8de4980b5f7014",
+  "shot": 39915,
+  "table": {
+   "dir": "vaft/data/efit",
+   "era": "vest-pre-43017-pf1906",
+   "identity": "e28142c72453c49c161839ea1d9be7f9e08f0aab8f8ece1d6da70c2fd4f80772",
+   "label": "vest-pre-43017-pf1906-129129-all-circuits",
+   "manifest": "vaft/data/efit/efund_table_manifest.json",
+   "mhdin_sha256": "9e09ac3ce7832d322b934e85fcb912ef8908a340c7fdf966e7e9b0aaab90ff9c",
+   "provenance": "manifest"
+  },
+  "uncertainty_mode": "legacy_weight",
+  "vaft_revision": "80c8eafdf1d0ff64d2ccb842003318ec46c00304",
+  "vaft_version": "0.7.1"
+ },
+ "schema": "vaft.efit.iteration_history",
+ "schema_version": 1,
+ "slices": [
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 7.956688693327996e-19,
+     "chi2": 3.5453343372182644e-08,
+     "cumulative": 1,
+     "dz": 7.957e-19,
+     "error": 17.314212799072266,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.4601227073911206e-18,
+     "chi2": 4.694801702953555e-08,
+     "cumulative": 2,
+     "dz": 2.664e-18,
+     "error": 0.512787938117981,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 6.161737998427856e-18,
+     "chi2": 5.092688226682185e-08,
+     "cumulative": 3,
+     "dz": 2.702e-18,
+     "error": 0.15661722421646118,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.8318679641617287e-18,
+     "chi2": 5.612569609070306e-08,
+     "cumulative": 4,
+     "dz": -7.994e-18,
+     "error": 0.3627922534942627,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -2.6090240019899994e-18,
+     "chi2": 6.151113751684534e-08,
+     "cumulative": 5,
+     "dz": -7.772e-19,
+     "error": 0.23264667391777039,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.7208456352294334e-18,
+     "chi2": 6.654086348589772e-08,
+     "cumulative": 6,
+     "dz": 8.882e-19,
+     "error": 0.16997714340686798,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 9.668264876438712e-18,
+     "chi2": 7.090221743055736e-08,
+     "cumulative": 7,
+     "dz": 1.139e-17,
+     "error": 0.11411843448877335,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.493249946945012e-17,
+     "chi2": 7.451452432860606e-08,
+     "cumulative": 8,
+     "dz": 5.264e-18,
+     "error": 0.07422629743814468,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.6921685407067512e-17,
+     "chi2": 7.723362216438545e-08,
+     "cumulative": 9,
+     "dz": 1.989e-18,
+     "error": 0.0485818013548851,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.7635337171183798e-17,
+     "chi2": 7.922382394554006e-08,
+     "cumulative": 10,
+     "dz": 1.071e-17,
+     "error": 0.032396480441093445,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.1012192834090676e-17,
+     "chi2": 8.06802304964549e-08,
+     "cumulative": 11,
+     "dz": 3.377e-18,
+     "error": 0.021265603601932526,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.256650676263179e-17,
+     "chi2": 8.171456755690087e-08,
+     "cumulative": 12,
+     "dz": 1.554e-18,
+     "error": 0.01304545346647501,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.752553738529734e-17,
+     "chi2": 8.24502777163616e-08,
+     "cumulative": 13,
+     "dz": 4.959e-18,
+     "error": 0.008424147963523865,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.0338173814126295e-17,
+     "chi2": 8.295879894149039e-08,
+     "cumulative": 14,
+     "dz": 2.813e-18,
+     "error": 0.005375978536903858,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.2271742509635783e-17,
+     "chi2": 8.331093681590573e-08,
+     "cumulative": 15,
+     "dz": 1.934e-18,
+     "error": 0.003457616316154599,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00316",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.316,
+   "time_ms": 316,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 2.303929616531697e-21,
+     "chi2": 2.6449759715774235e-08,
+     "cumulative": 1,
+     "dz": -4.227e-17,
+     "error": 17.160375595092773,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 7.032135026043185e-19,
+     "chi2": 3.556631256174114e-08,
+     "cumulative": 2,
+     "dz": 7.009e-19,
+     "error": 0.5054412484169006,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.1194387430912834e-18,
+     "chi2": 3.889715571858687e-08,
+     "cumulative": 3,
+     "dz": 4.162e-19,
+     "error": 0.15678778290748596,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 7.114751708042615e-18,
+     "chi2": 4.341367088045445e-08,
+     "cumulative": 4,
+     "dz": 5.995e-18,
+     "error": 0.3637266457080841,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 8.94661927515765e-18,
+     "chi2": 4.8120984530442e-08,
+     "cumulative": 5,
+     "dz": 1.832e-18,
+     "error": 0.23237334191799164,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 8.636645979923162e-18,
+     "chi2": 5.267460068125729e-08,
+     "cumulative": 6,
+     "dz": -3.1e-19,
+     "error": 0.16945083439350128,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.5118795932144167e-17,
+     "chi2": 5.654381496356109e-08,
+     "cumulative": 7,
+     "dz": 1.648e-17,
+     "error": 0.11470949649810791,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.8084088873892025e-17,
+     "chi2": 5.980465545007974e-08,
+     "cumulative": 8,
+     "dz": 2.965e-18,
+     "error": 0.07516388595104218,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.8245850990993913e-17,
+     "chi2": 6.236273009108118e-08,
+     "cumulative": 9,
+     "dz": 1.618e-19,
+     "error": 0.047992389649152756,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.6102895714648223e-17,
+     "chi2": 6.418855491574504e-08,
+     "cumulative": 10,
+     "dz": -1.214e-17,
+     "error": 0.031093567609786987,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.2045920240699422e-17,
+     "chi2": 6.550354214596155e-08,
+     "cumulative": 11,
+     "dz": -4.057e-18,
+     "error": 0.020510107278823853,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.0065950021548158e-17,
+     "chi2": 6.643772110237478e-08,
+     "cumulative": 12,
+     "dz": -1.98e-18,
+     "error": 0.013973761349916458,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.4997334547606516e-17,
+     "chi2": 6.70860700324738e-08,
+     "cumulative": 13,
+     "dz": 4.931e-18,
+     "error": 0.008871704339981079,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.4997226550905742e-17,
+     "chi2": 6.754961390242897e-08,
+     "cumulative": 14,
+     "dz": -1.084e-22,
+     "error": 0.005250500049442053,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.3711254777637157e-17,
+     "chi2": 6.785496253769452e-08,
+     "cumulative": 15,
+     "dz": -1.286e-18,
+     "error": 0.0031236079521477222,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00317",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.317,
+   "time_ms": 317,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -4.303279684818344e-18,
+     "chi2": 2.1074695766287732e-08,
+     "cumulative": 1,
+     "dz": -1.801e-17,
+     "error": 17.007362365722656,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.645905612830971e-17,
+     "chi2": 2.8177844058063783e-08,
+     "cumulative": 2,
+     "dz": -1.216e-17,
+     "error": 0.4978322684764862,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.7088358506001101e-13,
+     "chi2": 3.097201783930359e-08,
+     "cumulative": 3,
+     "dz": -1.709e-13,
+     "error": 0.15714415907859802,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.5681900222830338e-17,
+     "chi2": 3.4818324223806485e-08,
+     "cumulative": 4,
+     "dz": 1.709e-13,
+     "error": 0.3651573061943054,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.734262690053501e-17,
+     "chi2": 3.889657307354355e-08,
+     "cumulative": 5,
+     "dz": -1.661e-18,
+     "error": 0.23194476962089539,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -2.2375656439055066e-17,
+     "chi2": 4.290401633966212e-08,
+     "cumulative": 6,
+     "dz": -5.033e-18,
+     "error": 0.16855935752391815,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.295519324146784e-17,
+     "chi2": 4.6389164509719194e-08,
+     "cumulative": 7,
+     "dz": -1.058e-17,
+     "error": 0.11342785507440567,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.051392468035209e-17,
+     "chi2": 4.9269722524059034e-08,
+     "cumulative": 8,
+     "dz": -7.559e-18,
+     "error": 0.07468231767416,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.6675555740870355e-17,
+     "chi2": 5.1569312375931986e-08,
+     "cumulative": 9,
+     "dz": -6.162e-18,
+     "error": 0.04794207215309143,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -5.882338886820104e-17,
+     "chi2": 5.3323638837809995e-08,
+     "cumulative": 10,
+     "dz": -1.215e-17,
+     "error": 0.0315924771130085,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.453171330633723e-17,
+     "chi2": 5.4538524807412614e-08,
+     "cumulative": 11,
+     "dz": -5.708e-18,
+     "error": 0.019736018031835556,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.848688283156435e-17,
+     "chi2": 5.536764291491636e-08,
+     "cumulative": 12,
+     "dz": -3.955e-18,
+     "error": 0.01262669824063778,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.441613566068438e-17,
+     "chi2": 5.5942784626950015e-08,
+     "cumulative": 13,
+     "dz": 4.071e-18,
+     "error": 0.008307638578116894,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.764499984462935e-17,
+     "chi2": 5.633811639427222e-08,
+     "cumulative": 14,
+     "dz": -3.229e-18,
+     "error": 0.005264908540993929,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -7.123924016070194e-17,
+     "chi2": 5.6603632003771054e-08,
+     "cumulative": 15,
+     "dz": -3.594e-18,
+     "error": 0.003393842140212655,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00318",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.318,
+   "time_ms": 318,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 2.1567492047040143e-19,
+     "chi2": 1.5339523429247492e-08,
+     "cumulative": 1,
+     "dz": 7.145e-17,
+     "error": 16.424274444580078,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 7.771561040027198e-19,
+     "chi2": 2.0914860954235337e-08,
+     "cumulative": 2,
+     "dz": 5.615e-19,
+     "error": 0.48768866062164307,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.2305694657710475e-18,
+     "chi2": 2.3140037441748973e-08,
+     "cumulative": 3,
+     "dz": 4.534e-19,
+     "error": 0.158561572432518,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.0947465752635055e-18,
+     "chi2": 2.6346214099248755e-08,
+     "cumulative": 4,
+     "dz": 1.864e-18,
+     "error": 0.36821794509887695,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.3029133923807225e-18,
+     "chi2": 2.9894337671976245e-08,
+     "cumulative": 5,
+     "dz": 2.082e-19,
+     "error": 0.22944803535938263,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.4555691112062407e-18,
+     "chi2": 3.333538245442469e-08,
+     "cumulative": 6,
+     "dz": 1.527e-19,
+     "error": 0.1689513921737671,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 6.018406259467035e-18,
+     "chi2": 3.6495901412081366e-08,
+     "cumulative": 7,
+     "dz": 2.563e-18,
+     "error": 0.11262235045433044,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 6.568747388099796e-18,
+     "chi2": 3.904300527324267e-08,
+     "cumulative": 8,
+     "dz": 5.503e-19,
+     "error": 0.0746522918343544,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 7.049916100490625e-18,
+     "chi2": 4.104802187043788e-08,
+     "cumulative": 9,
+     "dz": 4.812e-19,
+     "error": 0.04832794889807701,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 9.099166732584596e-18,
+     "chi2": 4.260730435134974e-08,
+     "cumulative": 10,
+     "dz": 2.049e-18,
+     "error": 0.03213619813323021,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 9.473866579879113e-18,
+     "chi2": 4.375512929755132e-08,
+     "cumulative": 11,
+     "dz": 3.747e-19,
+     "error": 0.019288601353764534,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.0126123242121102e-17,
+     "chi2": 4.457896096710101e-08,
+     "cumulative": 12,
+     "dz": 6.523e-19,
+     "error": 0.012391867116093636,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.7200464632711927e-18,
+     "chi2": 4.5148453864385374e-08,
+     "cumulative": 13,
+     "dz": -7.406e-18,
+     "error": 0.007586768362671137,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.2722028556642706e-18,
+     "chi2": 4.552515164846227e-08,
+     "cumulative": 14,
+     "dz": -1.448e-18,
+     "error": 0.004741055890917778,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.212029635091325e-18,
+     "chi2": 4.5765105483042134e-08,
+     "cumulative": 15,
+     "dz": -6.017e-20,
+     "error": 0.00306703825481236,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00319",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.319,
+   "time_ms": 319,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -3.0411328307736565e-18,
+     "chi2": 1.1117807119376266e-08,
+     "cumulative": 1,
+     "dz": -4.253e-18,
+     "error": 15.588106155395508,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.1685096910663298e-17,
+     "chi2": 1.5162900268705926e-08,
+     "cumulative": 2,
+     "dz": -8.644e-18,
+     "error": 0.47577187418937683,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.9937827854221408e-17,
+     "chi2": 1.6785845602385052e-08,
+     "cumulative": 3,
+     "dz": -8.253e-18,
+     "error": 0.1610407829284668,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.4756750720806693e-17,
+     "chi2": 1.9316566124416568e-08,
+     "cumulative": 4,
+     "dz": 5.181e-18,
+     "error": 0.36991631984710693,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.718297813063652e-17,
+     "chi2": 2.2181755099381917e-08,
+     "cumulative": 5,
+     "dz": -2.426e-18,
+     "error": 0.2267274409532547,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -2.081435025353437e-17,
+     "chi2": 2.5082748322802217e-08,
+     "cumulative": 6,
+     "dz": -3.631e-18,
+     "error": 0.16677677631378174,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.468980660316151e-17,
+     "chi2": 2.7715476136336292e-08,
+     "cumulative": 7,
+     "dz": -1.388e-17,
+     "error": 0.11385122686624527,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.2359668764725516e-17,
+     "chi2": 2.9979673854541034e-08,
+     "cumulative": 8,
+     "dz": -7.67e-18,
+     "error": 0.07350298017263412,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.6707971691761775e-17,
+     "chi2": 3.176311480501681e-08,
+     "cumulative": 9,
+     "dz": -4.348e-18,
+     "error": 0.04790184274315834,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -5.547407236399177e-17,
+     "chi2": 3.306561779936601e-08,
+     "cumulative": 10,
+     "dz": -8.766e-18,
+     "error": 0.03178543969988823,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.057882229973822e-17,
+     "chi2": 3.402984560807454e-08,
+     "cumulative": 11,
+     "dz": -5.105e-18,
+     "error": 0.020452914759516716,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.501049867977272e-17,
+     "chi2": 3.472240805990623e-08,
+     "cumulative": 12,
+     "dz": -4.432e-18,
+     "error": 0.012335918843746185,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.677535958801284e-17,
+     "chi2": 3.5217102123397126e-08,
+     "cumulative": 13,
+     "dz": -1.765e-18,
+     "error": 0.007833440788090229,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.982381422452212e-17,
+     "chi2": 3.5555817845533966e-08,
+     "cumulative": 14,
+     "dz": -3.048e-18,
+     "error": 0.004747023340314627,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -7.280060140336421e-17,
+     "chi2": 3.578123752845386e-08,
+     "cumulative": 15,
+     "dz": -2.977e-18,
+     "error": 0.0027961349114775658,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00320",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.32,
+   "time_ms": 320,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 4.34835533719987e-18,
+     "chi2": 4.790455587766473e-09,
+     "cumulative": 1,
+     "dz": 7.715e-17,
+     "error": 19.082674026489258,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.718189392846403e-17,
+     "chi2": 4.980096779405585e-09,
+     "cumulative": 2,
+     "dz": 1.283e-17,
+     "error": 0.4938526153564453,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.932137954609953e-17,
+     "chi2": 5.8221263365965115e-09,
+     "cumulative": 3,
+     "dz": 1.214e-17,
+     "error": 0.15612448751926422,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.4519635493925877e-17,
+     "chi2": 7.154076886450866e-09,
+     "cumulative": 4,
+     "dz": -1.48e-17,
+     "error": 0.3670297861099243,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.6560809137472185e-17,
+     "chi2": 8.760463465762314e-09,
+     "cumulative": 5,
+     "dz": 2.041e-18,
+     "error": 0.2378143072128296,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.1745355929597093e-17,
+     "chi2": 1.0449324960859485e-08,
+     "cumulative": 6,
+     "dz": 5.185e-18,
+     "error": 0.16969382762908936,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.6150359242122553e-17,
+     "chi2": 1.1973928515374155e-08,
+     "cumulative": 7,
+     "dz": 4.405e-18,
+     "error": 0.11394582688808441,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.1910238340593366e-17,
+     "chi2": 1.3284279454239822e-08,
+     "cumulative": 8,
+     "dz": 5.76e-18,
+     "error": 0.07275280356407166,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.832177800186954e-17,
+     "chi2": 1.4348851884449232e-08,
+     "cumulative": 9,
+     "dz": 6.412e-18,
+     "error": 0.046734437346458435,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.773370420241456e-17,
+     "chi2": 1.513605596414891e-08,
+     "cumulative": 10,
+     "dz": -5.881e-19,
+     "error": 0.029265042394399643,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.128354728655682e-17,
+     "chi2": 1.5690931221001847e-08,
+     "cumulative": 11,
+     "dz": 3.55e-18,
+     "error": 0.01980515755712986,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.563591173657516e-17,
+     "chi2": 1.6077507325462648e-08,
+     "cumulative": 12,
+     "dz": 4.352e-18,
+     "error": 0.011609161272644997,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.540118196623205e-17,
+     "chi2": 1.6343991049438955e-08,
+     "cumulative": 13,
+     "dz": -2.347e-19,
+     "error": 0.007056549657136202,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 4.9514755122925196e-17,
+     "chi2": 1.6528815649508033e-08,
+     "cumulative": 14,
+     "dz": 4.114e-18,
+     "error": 0.004192364867776632,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 5.401636254308501e-17,
+     "chi2": 1.6647517142587276e-08,
+     "cumulative": 15,
+     "dz": 4.502e-18,
+     "error": 0.0025757376570254564,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00323",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.323,
+   "time_ms": 323,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -2.0955460119195423e-18,
+     "chi2": 2.297567025522085e-09,
+     "cumulative": 1,
+     "dz": -5.611e-17,
+     "error": 24.12008285522461,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -8.030631493249744e-18,
+     "chi2": 1.5993676383274646e-09,
+     "cumulative": 2,
+     "dz": -5.935e-18,
+     "error": 0.5283454656600952,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.2840423380938562e-17,
+     "chi2": 2.2063137983252545e-09,
+     "cumulative": 3,
+     "dz": -4.81e-18,
+     "error": 0.16128486394882202,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -7.699841304545299e-18,
+     "chi2": 3.268294301861374e-09,
+     "cumulative": 4,
+     "dz": 5.141e-18,
+     "error": 0.3583835959434509,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.8278717073238314e-18,
+     "chi2": 4.561581334883158e-09,
+     "cumulative": 5,
+     "dz": 8.72e-19,
+     "error": 0.2447415143251419,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -6.487865800153259e-18,
+     "chi2": 5.866733321369111e-09,
+     "cumulative": 6,
+     "dz": 3.4e-19,
+     "error": 0.17175725102424622,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.5011158125305706e-17,
+     "chi2": 6.988034595423187e-09,
+     "cumulative": 7,
+     "dz": -8.523e-18,
+     "error": 0.11158905178308487,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.7851443827115402e-17,
+     "chi2": 7.970532678314157e-09,
+     "cumulative": 8,
+     "dz": -2.84e-18,
+     "error": 0.07109343260526657,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.8975598426140523e-17,
+     "chi2": 8.73595240591385e-09,
+     "cumulative": 9,
+     "dz": -1.124e-18,
+     "error": 0.043668922036886215,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -7.209510872038729e-18,
+     "chi2": 9.285855639973306e-09,
+     "cumulative": 10,
+     "dz": 1.177e-17,
+     "error": 0.02887590415775776,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.8086536871659465e-18,
+     "chi2": 9.684748114580088e-09,
+     "cumulative": 11,
+     "dz": 2.401e-18,
+     "error": 0.017416775226593018,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.047706286527876e-18,
+     "chi2": 9.951047985623518e-09,
+     "cumulative": 12,
+     "dz": 7.609e-19,
+     "error": 0.01111429464071989,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.2670668088416388e-19,
+     "chi2": 1.0117809701171154e-08,
+     "cumulative": 13,
+     "dz": 4.274e-18,
+     "error": 0.007513315882533789,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.2466698415626778e-18,
+     "chi2": 1.0263082828032566e-08,
+     "cumulative": 14,
+     "dz": 1.02e-18,
+     "error": 0.00482180155813694,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 1.8110513353895664e-18,
+     "chi2": 1.0347914525254964e-08,
+     "cumulative": 15,
+     "dz": 5.644e-19,
+     "error": 0.0030989679507911205,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00325",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.325,
+   "time_ms": 325,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 5.180860147396432e-19,
+     "chi2": 2.104570961947161e-09,
+     "cumulative": 1,
+     "dz": -1.293e-18,
+     "error": 27.379610061645508,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 2.086276030405232e-18,
+     "chi2": 9.23547072151365e-10,
+     "cumulative": 2,
+     "dz": 1.568e-18,
+     "error": 0.5514493584632874,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": 3.400058012914542e-18,
+     "chi2": 1.4080469012967e-09,
+     "cumulative": 3,
+     "dz": 1.314e-18,
+     "error": 0.16700977087020874,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -2.035372791346597e-18,
+     "chi2": 2.318234049170087e-09,
+     "cumulative": 4,
+     "dz": -5.435e-18,
+     "error": 0.3523619771003723,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.559652519764849e-18,
+     "chi2": 3.4380323032934257e-09,
+     "cumulative": 5,
+     "dz": -1.524e-18,
+     "error": 0.24419401586055756,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.232725281383409e-18,
+     "chi2": 4.5226049572022475e-09,
+     "cumulative": 6,
+     "dz": -6.731e-19,
+     "error": 0.17137449979782104,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -9.728329041519697e-18,
+     "chi2": 5.5060573878051855e-09,
+     "cumulative": 7,
+     "dz": -5.496e-18,
+     "error": 0.1082235649228096,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.1652733899331081e-17,
+     "chi2": 6.316941192352488e-09,
+     "cumulative": 8,
+     "dz": -1.924e-18,
+     "error": 0.06866856664419174,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -1.2325752397901457e-17,
+     "chi2": 6.927082463192846e-09,
+     "cumulative": 9,
+     "dz": -6.73e-19,
+     "error": 0.04537730664014816,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.0332237135682287e-17,
+     "chi2": 7.3813644085873875e-09,
+     "cumulative": 10,
+     "dz": -1.801e-17,
+     "error": 0.028475848957896233,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.5143166165102795e-17,
+     "chi2": 7.737984475397752e-09,
+     "cumulative": 11,
+     "dz": -4.811e-18,
+     "error": 0.018219849094748497,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -3.737060658891506e-17,
+     "chi2": 7.985677008548464e-09,
+     "cumulative": 12,
+     "dz": -2.227e-18,
+     "error": 0.011061804369091988,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.202660270437092e-17,
+     "chi2": 8.148837160604216e-09,
+     "cumulative": 13,
+     "dz": -4.656e-18,
+     "error": 0.006672337651252747,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.437650503411484e-17,
+     "chi2": 8.273485008203352e-09,
+     "cumulative": 14,
+     "dz": -2.35e-18,
+     "error": 0.004684062674641609,
+     "inner": null,
+     "outer": null
+    },
+    {
+     "axis_z": -4.5725032308120524e-17,
+     "chi2": 8.34783353553803e-09,
+     "cumulative": 15,
+     "dz": -1.349e-18,
+     "error": 0.0031419021543115377,
+     "inner": null,
+     "outer": null
+    }
+   ],
+   "mfile": "m039915.00326",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.326,
+   "time_ms": 326,
+   "warnings": []
+  },
+  {
+   "accepted": null,
+   "collapsed": null,
+   "exit_path": null,
+   "failures": [],
+   "iconvr": null,
+   "iterations": [],
+   "mfile": "m039915.00331",
+   "notes": [
+    "the log printed no Picard step for this slice; the m-file's arrays ({'cerror': 1, 'cchisq': 1, 'czmaxi': 1}) were not read as iterations"
+   ],
+   "solver_errors": [],
+   "sources": [],
+   "time": 0.331,
+   "time_ms": null,
+   "warnings": []
+  }
+ ]
+}

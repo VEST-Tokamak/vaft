@@ -13,6 +13,8 @@ Submodules:
 * ``legacy``   -- legacy VEST/OMFIT signal-processing helpers
 * ``kfile``    -- constraints-ODS and k-file generation
 * ``magnetic`` -- the core magnetic EFIT adapter (``EFITConfig``, ``run_efit``, ...)
+* ``termination`` -- what EFIT's log says about how each slice ended (``parse_slices``)
+* ``iteration_history`` -- each slice's Picard trajectory (``EFITIterationHistory``, #1038)
 * ``kinetic``  -- kinetic-pressure constraint mode (``KineticEFITConfig``, ``run_kinetic_efit``, ...)
 
 Kinetic pressure is an EFIT constraint mode, not a separate code adapter, so
@@ -29,6 +31,17 @@ from .config import (
     efit_parameter_grid,
 )
 from .termination import EFIT_LOG_PATTERNS, parse_slices
+from .iteration_history import (
+    ITERATION_HISTORY_LEVELS,
+    EFITIteration,
+    EFITIterationHistory,
+    EFITSliceIterationHistory,
+    compare_iteration_histories,
+    iteration_history_from_workdir,
+    parse_iteration_history,
+    plot_iteration_convergence,
+    read_iteration_history,
+)
 from .status import (
     EFIT_FAILURE_CODES,
     EFITSliceStatus,
@@ -164,6 +177,15 @@ __all__ = [
     "table_identity",
     "EFIT_LOG_PATTERNS",
     "parse_slices",
+    "ITERATION_HISTORY_LEVELS",
+    "EFITIteration",
+    "EFITIterationHistory",
+    "EFITSliceIterationHistory",
+    "compare_iteration_histories",
+    "iteration_history_from_workdir",
+    "parse_iteration_history",
+    "plot_iteration_convergence",
+    "read_iteration_history",
     "resolve_toolchain",
     "executable_identity",
     "EQE",
