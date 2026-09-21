@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>adcc74c</code>. What is described
+  <code>048a7f6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -922,6 +922,57 @@ refined equilibrium out. <code class="language-plaintext highlighter-rouge">scan
 parameter and collects every result. Snakemake rules should start with
 <code class="language-plaintext highlighter-rouge">vaft.code.init_snakemake_logger(snakemake)</code> so that stdout and stderr land in the rule’s log file.</p>
 
+<h2 id="execution-backends">Execution backends</h2>
+
+<p>A <code class="language-plaintext highlighter-rouge">run_*</code> builds the command line; an execution backend launches it. A configuration that has moved
+onto the shared layer accepts <code class="language-plaintext highlighter-rouge">backend=</code> (default <code class="language-plaintext highlighter-rouge">None</code>, meaning a local child process), so the same
+adapter call can later run through a scheduler without its scientific API changing.</p>
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">LocalBackend</span><span class="p">,</span> <span class="n">TESConfig</span><span class="p">,</span> <span class="n">run_tes</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="nf">run_tes</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nc">TESConfig</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="nc">LocalBackend</span><span class="p">()))</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ExecutionRequest</code></td>
+      <td>command, working directory, environment overlay, stdin, timeout, optional merged log file, resources</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ExecutionResult</code></td>
+      <td>return code (<code class="language-plaintext highlighter-rouge">None</code> on timeout), captured output, <code class="language-plaintext highlighter-rouge">timed_out</code>, elapsed time, <code class="language-plaintext highlighter-rouge">launcher</code> (the argv actually run), <code class="language-plaintext highlighter-rouge">log_path</code>, <code class="language-plaintext highlighter-rouge">job_id</code> (scheduler backends)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ResourceRequest</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ntasks</code>, <code class="language-plaintext highlighter-rouge">threads_per_task</code>, <code class="language-plaintext highlighter-rouge">memory_mb</code>; the local backend applies only the thread count</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ExecutionBackend</code>, <code class="language-plaintext highlighter-rouge">LocalBackend</code>, <code class="language-plaintext highlighter-rouge">resolve_backend</code></td>
+      <td>the protocol, the local implementation, and the config lookup</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code></td>
+      <td>raised when the operating system refuses to start the program</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A timeout is returned (<code class="language-plaintext highlighter-rouge">timed_out=True</code>), not raised; each adapter maps it to the timeout result it
+already documented. A program the operating system refuses to start raises <code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code>;
+a missing working directory stays a <code class="language-plaintext highlighter-rouge">FileNotFoundError</code>.
+TES, GACODE (NEO and TGLF), the GPEC suite and NUBEAM use the backend today, and <code class="language-plaintext highlighter-rouge">CodeConfig</code>
+carries the <code class="language-plaintext highlighter-rouge">backend</code> field for every adapter built on it; CHEASE, FLARE and EFIT follow in issue #671.
+GACODE declares its <code class="language-plaintext highlighter-rouge">n_mpi</code> as <code class="language-plaintext highlighter-rouge">ResourceRequest.ntasks</code> for scheduler backends, while the launcher
+still starts the ranks itself.</p>
+
 <h1 id="vaftdata"><code class="language-plaintext highlighter-rouge">vaft.data</code></h1>
 
 <p>Portable file formats and the packaged sample files.</p>
@@ -1269,7 +1320,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a></li></ul>
     </nav>
 </aside>
 
@@ -1387,7 +1438,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 03:03:08 +0000"
+        "time": "2026-09-21 03:20:47 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

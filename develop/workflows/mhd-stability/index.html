@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>adcc74c</code>. What is described
+  <code>048a7f6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -484,8 +484,9 @@ the products.</p>
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">GPECSuiteConfig</code> also exposes the DCON edge controls <code class="language-plaintext highlighter-rouge">dcon_sas_flag</code> (default <code class="language-plaintext highlighter-rouge">False</code>),
-<code class="language-plaintext highlighter-rouge">dcon_qhigh</code> (<code class="language-plaintext highlighter-rouge">20.2</code>) and <code class="language-plaintext highlighter-rouge">dcon_psiedge</code> (<code class="language-plaintext highlighter-rouge">1.0</code>), plus a per-module <code class="language-plaintext highlighter-rouge">timeout</code> (1200 s) and an <code class="language-plaintext highlighter-rouge">env</code>
-mapping merged into the subprocess environment.</p>
+<code class="language-plaintext highlighter-rouge">dcon_qhigh</code> (<code class="language-plaintext highlighter-rouge">20.2</code>) and <code class="language-plaintext highlighter-rouge">dcon_psiedge</code> (<code class="language-plaintext highlighter-rouge">1.0</code>), plus a per-module <code class="language-plaintext highlighter-rouge">timeout</code> (1200 s), an <code class="language-plaintext highlighter-rouge">env</code>
+mapping merged into the subprocess environment, and a <code class="language-plaintext highlighter-rouge">backend</code> that launches each module (default:
+a local child process; see <a href="/vaft/develop/guide/API_reference/#execution-backends">execution backends</a>).</p>
 
 <p><code class="language-plaintext highlighter-rouge">run_mode</code> selects what happens when the executables are not installed:</p>
 
@@ -1024,7 +1025,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 03:03:08 +0000"
+        "time": "2026-09-21 03:20:47 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
