@@ -43,6 +43,82 @@ CHEASE_OUTPUT_NIDEAL: Mapping[str, int] = {"geqdsk": 6}
 
 
 @dataclass(frozen=True)
+class BoundaryContourPolicy:
+    """How to choose among several flux contours at the same ``target_psin``.
+
+    A limited equilibrium has one contour at ``target_psin`` and no choice to
+    make.  A diverted one does: near the separatrix ``find_contours`` returns
+    the core surface *and* the open divertor legs, and the leg can be returned
+    first.  Handing a leg to CHEASE as the plasma boundary produces a
+    degenerate geometry -- a tiny area, sometimes a negative minor radius --
+    which CHEASE reports as a solver failure far from its cause.
+
+    So the candidates are scored rather than indexed.  The base score is the
+    enclosed polygon area; :attr:`axis_bonus` and :attr:`closed_bonus` are
+    added to a contour that encloses the magnetic axis and to one whose ends
+    meet, and :attr:`positive_r_fraction` sets how much of a contour must sit
+    at ``R > 0`` to be a plasma boundary at all.  The bonuses dominate the
+    area term for any tokamak-sized equilibrium, so they act as an ordering:
+    encloses-the-axis beats closed beats large.
+
+    Attributes
+    ----------
+    axis_bonus : float
+        Added when the contour encloses ``(RMAXIS, ZMAXIS)`` [-].
+    closed_bonus : float
+        Added when the contour's first and last points meet, within 5 % of its
+        own span [-].
+    positive_r_fraction : float
+        The fraction of a contour's points that must have ``R > 0`` [-].
+    positive_r_rule : str
+        What failing that fraction does.  ``"reject"`` drops the contour, so a
+        set in which every candidate fails falls back to the g-file's stored
+        ``RBBBS``/``ZBBBS`` boundary.  ``"penalize"`` subtracts
+        :attr:`positive_r_penalty` instead, so the least-bad candidate is
+        still returned -- which is what the workflow this policy generalises
+        did [1]_.
+    positive_r_penalty : float
+        Subtracted under ``"penalize"`` [-].
+
+    Provenance
+    ----------
+    .. [1] ``hsyun_GPEC library/chease_runner.py:832-901``
+       ``_install_robust_pyeqdsk_contour``, written for MAST-U diverted EPQ
+       equilibria.  The scoring is machine-independent; MAST-U is only the
+       case that exposed the defect.
+    """
+
+    axis_bonus: float = 100.0
+    closed_bonus: float = 10.0
+    positive_r_fraction: float = 0.95
+    positive_r_rule: str = "reject"
+    positive_r_penalty: float = 100.0
+
+    def __post_init__(self) -> None:
+        if self.positive_r_rule not in ("reject", "penalize"):
+            raise ValueError(
+                "BoundaryContourPolicy.positive_r_rule must be 'reject' or "
+                f"'penalize', got {self.positive_r_rule!r}"
+            )
+        if not 0.0 <= float(self.positive_r_fraction) <= 1.0:
+            raise ValueError(
+                "BoundaryContourPolicy.positive_r_fraction is a fraction of a "
+                f"contour's points, so it lies in [0, 1]; got {self.positive_r_fraction!r}"
+            )
+
+
+#: The policy used when a caller names none: the axis/closed bonuses with
+#: ``R > 0`` as a rejection rule.  This is the behaviour the adapter already
+#: had, kept as the default so no existing case changes.
+DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
+
+#: The legacy MAST-U variant: ``R > 0`` is a penalty, so a set in which every
+#: candidate fails still yields the least-bad contour instead of falling back
+#: to the stored boundary.
+PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
+
+
+@dataclass(frozen=True)
 class CHEASEConfig:
     """Runtime and numerical configuration for CHEASE refinement.
 
@@ -90,6 +166,10 @@ class CHEASEConfig:
     edge_zero: bool = True  # zero positive edge pprime, flatten FF' inward
     boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
     boundary_fft_num: int = 128  # smooth_bnd nf
+    #: How the ``target_psin`` contour is chosen when the equilibrium offers
+    #: more than one -- see :class:`BoundaryContourPolicy`.  Diverted
+    #: equilibria are the case that needs it.
+    boundary_contour_policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY
     auto_cocos: bool = True
     # "input": the refined g-file comes back in the source's orientation -- its
     # sign pattern, and its COCOS index (per-radian twin, as a g-file stores
@@ -523,12 +603,55 @@ def _contains_axis(rz: np.ndarray, axis: tuple[float, float]) -> bool:
         return False
 
 
-def _target_boundary(geqdsk: Any, target_psin: float) -> np.ndarray:
+def score_boundary_contour(
+    rz: np.ndarray,
+    axis: tuple[float, float],
+    policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY,
+) -> Optional[tuple[float, float]]:
+    """Score one candidate boundary contour, or ``None`` if *policy* rejects it.
+
+    Returns ``(score, area)``: the score orders the candidates and the area
+    breaks a tie between two that score alike.  See
+    :class:`BoundaryContourPolicy` for what the score is made of.
+    """
+    rz = np.asarray(rz, dtype=float)
+    if rz.shape[0] < 4 or not np.all(np.isfinite(rz)):
+        return None
+    positive_r = float(np.mean(rz[:, 0] > 0.0))
+    penalty = 0.0
+    if positive_r < float(policy.positive_r_fraction):
+        if policy.positive_r_rule == "reject":
+            return None
+        penalty = float(policy.positive_r_penalty)
+    span = max(np.ptp(rz[:, 0]), np.ptp(rz[:, 1]), 1.0e-12)
+    closed = np.linalg.norm(rz[0] - rz[-1]) <= max(1.0e-3, 0.05 * span)
+    area = _polygon_area(rz)
+    score = area - penalty
+    if _contains_axis(rz, axis):
+        score += float(policy.axis_bonus)
+    if closed:
+        score += float(policy.closed_bonus)
+    return score, area
+
+
+def _stored_boundary(geqdsk: Any) -> Optional[np.ndarray]:
+    r = np.asarray(geqdsk["RBBBS"], dtype=float)
+    z = np.asarray(geqdsk["ZBBBS"], dtype=float)
+    if r.size and z.size:
+        count = min(r.size, z.size)
+        return np.column_stack([r[:count], z[:count]])
+    return None
+
+
+def _target_boundary(
+    geqdsk: Any,
+    target_psin: float,
+    policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY,
+) -> np.ndarray:
     if target_psin <= 0.0 or target_psin >= 1.0:
-        r = np.asarray(geqdsk["RBBBS"], dtype=float)
-        z = np.asarray(geqdsk["ZBBBS"], dtype=float)
-        if r.size and z.size:
-            return np.column_stack([r[: min(r.size, z.size)], z[: min(r.size, z.size)]])
+        stored = _stored_boundary(geqdsk)
+        if stored is not None:
+            return stored
 
     try:
         from skimage import measure
@@ -555,19 +678,15 @@ def _target_boundary(geqdsk: Any, target_psin: float) -> np.ndarray:
                 np.interp(row, np.arange(z_grid.size), z_grid),
             ]
         )
-        if not np.all(np.isfinite(rz)) or np.mean(rz[:, 0] > 0.0) < 0.95:
+        scored = score_boundary_contour(rz, axis, policy)
+        if scored is None:
             continue
-        span = max(np.ptp(rz[:, 0]), np.ptp(rz[:, 1]), 1.0e-12)
-        closed = np.linalg.norm(rz[0] - rz[-1]) <= max(1.0e-3, 0.05 * span)
-        area = _polygon_area(rz)
-        score = area + (100.0 if _contains_axis(rz, axis) else 0.0) + (10.0 if closed else 0.0)
-        candidates.append((score, area, rz))
+        candidates.append((scored[0], scored[1], rz))
 
     if not candidates:
-        r = np.asarray(geqdsk["RBBBS"], dtype=float)
-        z = np.asarray(geqdsk["ZBBBS"], dtype=float)
-        if r.size and z.size:
-            return np.column_stack([r[: min(r.size, z.size)], z[: min(r.size, z.size)]])
+        stored = _stored_boundary(geqdsk)
+        if stored is not None:
+            return stored
         raise ValueError(f"No usable target boundary contour found at psin={target_psin}")
 
     candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
@@ -740,7 +859,9 @@ def _expeq_payload(geqdsk: Any, config: CHEASEConfig) -> dict[str, Any]:
         if key not in geqdsk:
             raise ValueError(f"GEQDSK is missing required CHEASE input field {key!r}")
 
-    raw_rz = np.asarray(_target_boundary(geqdsk, config.target_psin), dtype=float)
+    raw_rz = np.asarray(
+        _target_boundary(geqdsk, config.target_psin, config.boundary_contour_policy), dtype=float
+    )
     rz = _resolve_boundary(raw_rz, config)
     rcen = float((np.nanmax(rz[:, 0]) + np.nanmin(rz[:, 0])) * 0.5)
     zcen = float(rz[int(np.nanargmax(rz[:, 0])), 1])
