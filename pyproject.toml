@@ -49,8 +49,10 @@ dependencies = [
   "numpy>=2.0.0,<3",
   # Exact: VAFT reads and writes through omas internals (DD tables up to
   # 3.41.0, code.parameters serialisation, path materialisation), so an omas
-  # release is adopted deliberately, never by resolution.
-  "omas==0.94.2",
+  # release is adopted deliberately, never by resolution. 0.95.2 (2026-03) was
+  # adopted after a full-suite A/B against 0.94.2 on Python 3.14 gave the
+  # identical pass/fail list; its default IMAS DD version is still 3.41.0.
+  "omas==0.95.2",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
