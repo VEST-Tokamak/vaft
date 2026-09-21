@@ -496,10 +496,9 @@ def test_edge_conditioning_is_reported_where_it_changed_the_profile(tmp_path):
     assert m.psi_norm[changed].min() > 0.97  # the edge, and only the edge
     assert np.all(m.pprime[changed] == 0.0)
     assert np.all(m.pprime[~m.edge_modified] == m.pprime_resampled[~m.edge_modified])
-    # The donor loop starts one sample in from the separatrix, so the last
-    # sample is never examined and a reversal there survives into EXPEQ as
-    # -|p'|. Recorded, not endorsed: the record has to show it.
-    assert not m.edge_modified[-1] and m.pprime[-1] > 0.0
+    # The separatrix sample itself is examined too (#996), so a reversal there
+    # is zeroed instead of reaching EXPEQ as -|p'|, and the record shows it.
+    assert m.edge_modified[-1] and m.pprime[-1] == 0.0
 
 
 def test_the_record_undoes_the_psi_flip_on_the_written_profiles():
