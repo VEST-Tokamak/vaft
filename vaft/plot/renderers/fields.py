@@ -16,6 +16,7 @@ from ..style import finalize, resolve_axes
 from .geometry import draw_geometry_layer
 
 __all__ = [
+    "field_line_topology_field_connection_length",
     "mhd_linear_field_spectrum",
     "passive_structure_field_wall_reduction",
     "electron_density_field",
@@ -305,4 +306,33 @@ def mhd_linear_field_spectrum(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Perturbed normal flux amplitude over the (psi_N, m) grid."""
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+@_field_renderer(
+    domain="plasma_initiation", quantity="connection_length",
+    subject="field_line_topology",
+    description="Total connection length of every traced field line in one "
+                "poloidal plane, on the rectangular grid they were launched "
+                "from. The title names the toroidal angle the plane was "
+                "traced at, because the IDS entry carries no toroidal "
+                "coordinate and the map means nothing without it.",
+    ids=("plasma_initiation",),
+    required_paths=(
+        "plasma_initiation.b_field_lines.{i}.grid.dim1",
+        "plasma_initiation.b_field_lines.{i}.grid.dim2",
+        "plasma_initiation.b_field_lines.{i}.starting_positions.r",
+        "plasma_initiation.b_field_lines.{i}.starting_positions.z",
+        "plasma_initiation.b_field_lines.{i}.lengths",
+    ),
+    optional_paths=(
+        "plasma_initiation.b_field_lines.{i}.open_fraction",
+        "plasma_initiation.b_field_lines.{i}.time",
+        "plasma_initiation.code.parameters",
+    ),
+)
+def field_line_topology_field_connection_length(
+    model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Connection length over one traced poloidal plane."""
     return render_field_2d(model, ax=ax, show=show, **style)

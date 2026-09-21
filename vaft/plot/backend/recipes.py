@@ -11617,6 +11617,166 @@ RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
 )
 
 
+
+# ---------------------------------------------------------------------------
+# Field-line tracing (issue #1099)
+# ---------------------------------------------------------------------------
+
+_B_FIELD_LINES = "plasma_initiation.b_field_lines"
+
+_FIELD_LINE_READS = (
+    f"{_B_FIELD_LINES}.{{i}}.grid.dim1",
+    f"{_B_FIELD_LINES}.{{i}}.grid.dim2",
+    f"{_B_FIELD_LINES}.{{i}}.starting_positions.r",
+    f"{_B_FIELD_LINES}.{{i}}.starting_positions.z",
+    f"{_B_FIELD_LINES}.{{i}}.lengths",
+    f"{_B_FIELD_LINES}.{{i}}.open_fraction",
+    f"{_B_FIELD_LINES}.{{i}}.time",
+    "plasma_initiation.code.parameters",
+)
+
+
+def _field_line_plane(ods: Any, options: Mapping[str, Any]) -> int:
+    """Which ``b_field_lines`` entry to draw, from ``time=`` or the first one.
+
+    The array of structures is indexed by time, so ``time=`` picks an entry
+    rather than a sample.  A time outside the recorded ones raises: snapping
+    to the nearest end would draw a different plane under the caller's own
+    label, which is the defect vaft#1035 fixed in the spectrum figures.
+    """
+    count = _count(ods, _B_FIELD_LINES)
+    if not count:
+        raise ValueError(
+            "this ODS holds no plasma_initiation.b_field_lines entry; nothing "
+            "has been traced into it."
+        )
+    times = np.array([
+        float(np.asarray(_get(ods, f"{_B_FIELD_LINES}.{index}.time", np.nan)).ravel()[0])
+        for index in range(count)
+    ])
+    requested = options.get("time")
+    if requested is None:
+        return 0
+    requested = float(requested)
+    known = times[np.isfinite(times)]
+    if not known.size:
+        raise ValueError(
+            "time= cannot select a traced plane: no entry records its time"
+        )
+    if requested < known.min() or requested > known.max():
+        raise ValueError(
+            f"time={requested:g} s lies outside the traced planes "
+            f"({known.min():g} to {known.max():g} s); this ODS holds "
+            f"{known.size} of them"
+        )
+    return int(np.nanargmin(np.abs(times - requested)))
+
+
+def _plane_angle(ods: Any, index: int) -> float:
+    """The toroidal angle the mapper recorded for entry ``index`` [deg].
+
+    ``b_field_lines`` has no toroidal coordinate, so the writer puts the
+    angle in ``code.parameters``.  A missing one comes back as NaN and is
+    left out of the title rather than guessed: a connection-length map at an
+    unnamed angle is still a map, but an angle invented for it is a claim.
+    """
+    parameters = _get(ods, "plasma_initiation.code.parameters", None)
+    if not parameters:
+        return float("nan")
+    pattern = (r'<field_line_plane[^>]*\bindex="%d"[^>]*\bphi_deg="([^"]+)"' % index)
+    found = re.search(pattern, str(parameters))
+    if found is None:
+        return float("nan")
+    try:
+        return float(found.group(1))
+    except ValueError:  # pragma: no cover - the writer formats a repr
+        return float("nan")
+
+
+def _build_field_line_topology_field_connection_length(ods: Any, **options: Any) -> Field2D:
+    """Connection length over the rectangular plane the lines were launched from.
+
+    The image is built by matching each line's own starting position onto the
+    declared grid, never by reshaping the flat list and hoping the order was
+    the one this builder expects.  That order is exactly what goes wrong: a
+    FLARE mesh runs its first axis fastest while its header prints the axes
+    the other way round, and on the square grids these maps usually have, the
+    wrong choice transposes the picture and still fits.
+    """
+    index = _field_line_plane(ods, options)
+    entry = f"{_B_FIELD_LINES}.{index}"
+    grid_r = np.asarray(_get(ods, f"{entry}.grid.dim1"), dtype=float).ravel()
+    grid_z = np.asarray(_get(ods, f"{entry}.grid.dim2"), dtype=float).ravel()
+    r = np.asarray(_get(ods, f"{entry}.starting_positions.r"), dtype=float).ravel()
+    z = np.asarray(_get(ods, f"{entry}.starting_positions.z"), dtype=float).ravel()
+    lengths = np.asarray(_get(ods, f"{entry}.lengths"), dtype=float).ravel()
+    if not (r.size == z.size == lengths.size):
+        raise ValueError(
+            f"{entry}: {r.size} starting r, {z.size} starting z and "
+            f"{lengths.size} lengths; each line needs all three"
+        )
+
+    rows = _grid_index(z, grid_z, entry, "dim2")
+    columns = _grid_index(r, grid_r, entry, "dim1")
+    # Counted on the nodes rather than on the values that land there: a line
+    # the tracer could not follow has a NaN length and still occupies its
+    # node, so asking which cells came out finite would call a real result a
+    # collision. `vaft.process.equilibrium.connection_length_map` writes NaN
+    # for every seed outside the wall, so that is the common case, not a
+    # corner one.
+    occupied = rows * grid_r.size + columns
+    if np.unique(occupied).size != lengths.size:
+        duplicated = lengths.size - int(np.unique(occupied).size)
+        raise ValueError(
+            f"{entry}: {duplicated} of {lengths.size} lines share a grid node "
+            "with another; the starting positions and the declared grid do "
+            "not describe the same plane"
+        )
+    values = np.full((grid_z.size, grid_r.size), np.nan)
+    values[rows, columns] = lengths
+
+    time = float(np.asarray(_get(ods, f"{entry}.time", np.nan)).ravel()[0])
+    angle = _plane_angle(ods, index)
+    title = "Connection length"
+    if np.isfinite(angle):
+        title += f" — φ = {angle:g}°"
+    if np.isfinite(time):
+        title += f", t = {time:g} s"
+    open_fraction = _get(ods, f"{entry}.open_fraction", None)
+    if open_fraction is not None:
+        title += f"; {float(open_fraction) * 100:.0f}% of lines reach the wall"
+    return Field2D(
+        r=grid_r,
+        z=grid_z,
+        values=values,
+        value_label=r"$L_c$ [m]",
+        title=title,
+    )
+
+
+def _grid_index(positions: np.ndarray, axis: np.ndarray, entry: str, name: str) -> np.ndarray:
+    """Where each position sits on ``axis``, refusing any that is not on it."""
+    order = np.argsort(axis, kind="stable")
+    sorted_axis = axis[order]
+    candidate = np.clip(np.searchsorted(sorted_axis, positions), 0, sorted_axis.size - 1)
+    if not np.array_equal(sorted_axis[candidate], positions):
+        off = int(np.count_nonzero(sorted_axis[candidate] != positions))
+        raise ValueError(
+            f"{entry}: {off} starting position(s) do not lie on grid.{name}; "
+            "the grid this entry declares is not the plane its lines were "
+            "launched from"
+        )
+    return order[candidate]
+
+
+RECIPES["field_line_topology_field_connection_length"] = CallableRecipe(
+    builder=_build_field_line_topology_field_connection_length,
+    description="Total connection length over one traced poloidal plane.",
+    reads=_FIELD_LINE_READS,
+    backend=NEUTRAL,
+    time_axis=OWN_TIME,
+)
+
 RECIPES["mhd_linear_field_spectrum"] = CallableRecipe(
     builder=_build_mhd_linear_field_spectrum,
     description="Perturbed normal flux amplitude over the mapped (psi_n, m) grid.",
