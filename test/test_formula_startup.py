@@ -471,6 +471,19 @@ def test_no_gas_is_easiest_everywhere():
         assert at["He"] < min(at["H2"], at["Ar"])
 
 
+def test_the_noble_gas_thresholds_the_docstring_quotes_leave_raizers_range():
+    # The E/p figures stated in townsend_coefficients_for_gas: over 100 m, the
+    # argon threshold's own E/p falls under Raizer's 100-600 V/(cm Torr) by
+    # 7 mPa, and helium is inside its 20-150 at 7 mPa but not at 30 mPa.
+    def e_over_p(p_pa, gas):
+        field = townsend_breakdown_field_for_gas(p_pa, 100.0, gas)
+        return (field / 100.0) / (p_pa / PA_PER_TORR)
+
+    assert e_over_p(7e-3, "Ar") == pytest.approx(98.0, abs=0.5)
+    assert e_over_p(3e-2, "Ar") == pytest.approx(55.0, abs=0.5)
+    assert 20.0 < e_over_p(7e-3, "He") < 150.0
+    assert e_over_p(3e-2, "He") < 20.0
+
 @pytest.mark.parametrize("gas", ["D2", "h2", "hydrogen", "N2", None])
 def test_an_uncatalogued_gas_is_refused_by_name(gas):
     with pytest.raises(ValueError, match="known gases"):

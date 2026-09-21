@@ -479,7 +479,9 @@ def q_from_flux_surface_averages(
 
 
 def q_from_phi(psi: np.ndarray,
-               phi: np.ndarray) -> np.ndarray:
+               phi: np.ndarray,
+               *,
+               psi_per_radian: bool = False) -> np.ndarray:
     r"""Safety factor $q$ as the flux derivative $d\Phi/d\psi$.
 
     $$q = \frac{d\Phi}{d\psi}$$
@@ -487,9 +489,13 @@ def q_from_phi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux profile, monotonic, full weber [Wb].
+        Poloidal flux profile, monotonic; full weber unless
+        ``psi_per_radian`` [Wb].
     phi : np.ndarray
         Toroidal flux enclosed by the same surfaces [Wb].
+    psi_per_radian : bool, optional
+        True when ``psi`` is per radian (COCOS 1-8, a g-file flux); it is then
+        multiplied by $2\pi$ first [-].
 
     Returns
     -------
@@ -499,11 +505,11 @@ def q_from_phi(psi: np.ndarray,
     Convention
     ----------
     Sauter and Medvedev define $q = \sigma_{\rho\theta\varphi}\sigma_{B_p}
-    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies neither sign nor
-    $2\pi$: it is exact, up to the orientation sign, for ``psi`` in full weber
-    (the IMAS Data Dictionary flux, COCOS 11-18, $e_{B_p}=1$), and returns
-    $2\pi q$ when ``psi`` is per radian (COCOS 1-8, $e_{B_p}=0$, the g-file
-    flux) -- multiply such a ``psi`` by $2\pi$ first.  This is the inverse of
+    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies no orientation sign.
+    It is exact, up to that sign, for ``psi`` in full weber (the IMAS Data
+    Dictionary flux, COCOS 11-18, $e_{B_p}=1$), the default; for a per-radian
+    ``psi`` (COCOS 1-8, $e_{B_p}=0$, the g-file flux) pass
+    ``psi_per_radian=True``, without which the result is $2\pi q$.  This is the inverse of
     :func:`toroidal_flux_from_q_psi`, which integrates on the same full-weber
     grid.  :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which
     family an ODS stores.  Tracked in #354.
@@ -520,6 +526,7 @@ def q_from_phi(psi: np.ndarray,
            Eq. (17) and Table I.
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.4.
     """
+    psi = np.asarray(psi, dtype=float) * (2.0 * np.pi if psi_per_radian else 1.0)
     return gradient(psi, phi)
 
 
@@ -1461,6 +1468,123 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
            Ch. 3, Equilibrium (internal inductance).
     """
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
+
+
+def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
+    r"""Dimensional internal inductance from the poloidal-field energy inside the plasma.
+
+    $$L_i = \frac{2W_{p,\mathrm{int}}}{I_p^2},\qquad
+      W_{p,\mathrm{int}} = \int_{V_p}\frac{B_p^2}{2\mu_0}\,dV$$
+
+    Parameters
+    ----------
+    W_int : float
+        Poloidal magnetic energy inside the last closed flux surface [J].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Raises
+    ------
+    ValueError
+        Zero or non-finite plasma current.
+
+    Convention
+    ----------
+    **Dimensional, in henry**, and only the field *inside* the plasma counts:
+    the energy outside contains plasma-coil cross terms, which is why the
+    external inductance is defined from the boundary flux and not from
+    $2W_{\mathrm{outside}}/I_p^2$.  Its dimensionless counterpart is the IMAS
+    ``li_3`` (:func:`li_3_from_internal_inductance_R0`); the same energy
+    written as $\int B_p^2\,dV = 2\mu_0 W_{p,\mathrm{int}}$ gives
+    :func:`li_3_from_Bp2_volume_integral` directly.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, Sec. II, eq. (22).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (internal inductance).
+    """
+    current = float(Ip)
+    if not np.isfinite(current) or current == 0.0:
+        raise ValueError(f"Ip must be finite and non-zero; got {Ip!r}")
+    return 2.0 * float(W_int) / current**2
+
+
+def internal_inductance_from_li_3_R0(li_3: float, R0: float) -> float:
+    r"""Dimensional internal inductance from the IMAS ``li_3``.
+
+    $$L_i = \frac{\mu_0 R_0}{2}\,l_{i3}$$
+
+    Parameters
+    ----------
+    li_3 : float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+    R0 : float
+        Major radius ``li_3`` was normalised by [m].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Convention
+    ----------
+    **Exact only for** ``li_3``, and only with the $R_0$ the equilibrium
+    normalised by: $l_{i3} = 2\int B_p^2\,dV/(\mu_0^2 I_p^2 R_0)$ is
+    $2L_i/(\mu_0 R_0)$ by definition.  ``li_1`` normalises by the edge
+    poloidal field instead, $l_{i1}/l_{i3} = L_{pol}^2 R_0/(2V)$, so it is not
+    a valid input here -- about 8.5 % too large at $\kappa = 1.6$.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    .. [2] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (71), which normalises by the magnetic-axis radius.
+    """
+    return 0.5 * MU0 * float(R0) * float(li_3)
+
+
+def li_3_from_internal_inductance_R0(L_i: float, R0: float) -> float:
+    r"""IMAS ``li_3`` from a dimensional internal inductance.
+
+    $$l_{i3} = \frac{2L_i}{\mu_0 R_0}$$
+
+    Parameters
+    ----------
+    L_i : float
+        Internal inductance [H].
+    R0 : float
+        Major radius to normalise by; positive [m].
+
+    Returns
+    -------
+    float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive ``R0``.
+
+    Convention
+    ----------
+    The inverse of :func:`internal_inductance_from_li_3_R0`; the result is
+    ``li_3`` and not ``li_1``, and it depends on which $R_0$ is passed.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    """
+    radius = float(R0)
+    if not np.isfinite(radius) or radius <= 0.0:
+        raise ValueError(f"R0 must be finite and positive; got {R0!r}")
+    return 2.0 * float(L_i) / (MU0 * radius)
 
 
 def beta_poloidal_from_circumference(p_average: float,
@@ -2726,7 +2850,9 @@ def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
 # ------------------------------------------------------------------
 # Flux Consumption
 # ------------------------------------------------------------------
-def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
+def surface_poloidal_flux_from_psi_boundary(
+    psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
 
     $$\Phi_{\mathrm{surface}} = 2\pi\,\psi_b$$
@@ -2734,7 +2860,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     Parameters
     ----------
     psi_boundary : np.ndarray or float
-        Poloidal flux at the plasma boundary [Wb/rad].
+        Poloidal flux at the plasma boundary; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is already full weber (the IMAS flux,
+        COCOS 11-18), which is then returned unchanged [-].
 
     Returns
     -------
@@ -2745,8 +2875,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     ----------
     Converts a per-radian boundary flux (COCOS 1-8, EFIT g-file, VFIT) to the full
     flux that flux-consumption bookkeeping uses.  An IMAS full-weber
-    ``global_quantities.psi_boundary`` (COCOS 11-18) must not be passed: the
-    result would be $2\pi$ too large.  Tracked in #354.
+    ``global_quantities.psi_boundary`` (COCOS 11-18) needs
+    ``psi_per_radian=False``; without it the result is $2\pi$ too large.
+    The default stays per radian so existing callers do not move (#354);
+    :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which family
+    an ODS stores.
 
     Physical interpretation
     -----------------------
@@ -2759,9 +2892,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     .. [2] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Table I.
     """
-    return psi_boundary * 2 * np.pi
+    return psi_boundary * (2 * np.pi if psi_per_radian else 1.0)
 
-def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarray) -> float:
+def loop_voltage_from_total_flux(
+    time_slice: np.ndarray, psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Surface loop voltage from the time series of boundary flux.
 
     $$V_{\mathrm{loop}} = \frac{d\Phi_{\mathrm{surface}}}{dt} = 2\pi\,\frac{d\psi_b}{dt}$$
@@ -2771,7 +2906,11 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     time_slice : np.ndarray
         Time of each sample, monotonic [s].
     psi_boundary : np.ndarray
-        Boundary poloidal flux at each time [Wb/rad].
+        Boundary poloidal flux at each time; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is full weber (the IMAS flux, COCOS
+        11-18) [-].
 
     Returns
     -------
@@ -2780,14 +2919,18 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
 
     Convention
     ----------
-    Assumes ``psi_boundary`` per radian, as :func:`surface_poloidal_flux_from_psi_boundary`
-    does; a full-weber IMAS flux gives a voltage $2\pi$ too large.  The sign is
+    ``psi_boundary`` is per radian by default, as for
+    :func:`surface_poloidal_flux_from_psi_boundary`; pass
+    ``psi_per_radian=False`` for a full-weber IMAS flux, which the default
+    would make $2\pi$ too large.  The sign is
     that of $d\psi_b/dt$ in the supplied COCOS, so a discharge with positive
     current and the usual $\sigma_{B_p}$ shows negative $V_{loop}$ during ramp-up.
-    Tracked in `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_, which is
-    the disagreement with :func:`toroidal_electric_field` over both sign and flux
-    normalisation.  The start-up chain in :mod:`vaft.formula.startup` sidesteps it
-    by taking a field magnitude; that choice is not a resolution of #354.
+    That sign is the opposite of Lenz's $V = -\dot\psi$, which
+    :func:`toroidal_electric_field` and :mod:`vaft.formula.transformer` use:
+    on the same full-weber flux, ``loop_voltage_from_total_flux(t, psi,
+    psi_per_radian=False)`` is $-2\pi R\,E_\varphi$ at the boundary, and $-V_B$
+    when the flux is already in Romero's sign.  The start-up chain in :mod:`vaft.formula.startup`
+    sidesteps the sign by taking a field magnitude.
 
     Physical interpretation
     -----------------------
@@ -2808,7 +2951,7 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     toroidal_electric_field
     vaft.formula.startup.breakdown_margin
     """
-    return gradient(time_slice, psi_boundary) * 2 * np.pi
+    return gradient(time_slice, psi_boundary) * (2 * np.pi if psi_per_radian else 1.0)
 
 def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
     r"""Inductive voltage from the rate of change of magnetic energy.

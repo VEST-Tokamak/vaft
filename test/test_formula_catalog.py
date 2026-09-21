@@ -66,7 +66,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
         # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
-        "equilibrium": 84,
+        # #782 added the dimensional internal inductance and its li_3
+        # conversions: 84 + 3 = 87.
+        "equilibrium": 87,
         "virial": 33,
         "stability": 26,
         "green": 16,
@@ -74,7 +76,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
-        "transformer": 7,
+        "transformer": 8,   # +Romero first-order closure (#781 child C)
         "neoclassical": 12,
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
@@ -86,8 +88,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # ring resistance, circular inductance, dIp/dt and the L/R time:
         # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
         # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
-        # the gas-keyed threshold: 28 + 2 = 30.
-        "startup": 30,
+        # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
+        # internal inductive-voltage splits: 30 + 2 = 32.
+        "startup": 32,
         "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
