@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e657912</code>. What is described
+  <code>aaeff1d</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/fluctuation.py"><code class="language-plaintext highlighter-rouge">vaft/process/fluctuation.py</code></a>:
-6 public functions.  The category overview and notation come from the module
+8 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("fluctuation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -292,6 +292,8 @@ mapping modules must not grow their own spectral implementations.</p>
   <tr><td>S(f)</td><td>one-sided power spectral density</td><td>signal^2/Hz</td></tr>
   <tr><td>alpha</td><td>power-law spectral index, S ~ f^alpha</td><td>-</td></tr>
   <tr><td>f_break</td><td>frequency separating two power-law regimes</td><td>Hz</td></tr>
+  <tr><td>S_xy(f)</td><td>one-sided cross-spectral density of x and y</td><td>x*y/Hz</td></tr>
+  <tr><td>gamma^2</td><td>magnitude-squared coherence |S_xy|^2/(S_xx S_yy)</td><td>-</td></tr>
   </tbody>
 </table>
 
@@ -330,9 +332,13 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
 </li>
   <li><a href="#compute_spectrogram"><code>compute_spectrogram</code></a> &mdash; Short-time Fourier magnitude map of a fluctuation signal.
 </li>
+  <li><a href="#cross_spectrum"><code>cross_spectrum</code></a> &mdash; Cross-spectral density, coherence and relative phase of two fluctuation records.
+</li>
   <li><a href="#find_spectral_break"><code>find_spectral_break</code></a> &mdash; Fit a two-regime power law, below and above a break frequency.
 </li>
   <li><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a> &mdash; Fit a power law to a spectrum over an explicitly chosen band.
+</li>
+  <li><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a> &mdash; Follow the dominant spectral ridge of a time-frequency map, window by window.
 </li>
 </ul>
 
@@ -606,6 +612,114 @@ get deterministic behaviour at the edges.</p>
 </li>
 </ol>
 
+<h3 id="cross_spectrum"><code class="language-plaintext highlighter-rouge">cross_spectrum</code></h3>
+
+<p class="formula-signature"><code>cross_spectrum(time_x, x, time_y, y, *, sample_rate=None, nperseg=None, noverlap=None, window='hann', detrend='constant', common_time=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Cross-spectral density, coherence and relative phase of two fluctuation records.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>time_x</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>x</code></td><td>array_like</td><td>any</td><td><p>First record, the phase reference.</p>
+</td></tr>
+  <tr><td><code>time_y</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">y</code>.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td>array_like</td><td>any</td><td><p>Second record.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Rate of a uniform common grid laid over the overlap; both records are resampled onto it.</p>
+</td></tr>
+  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Welch segment length on the common grid.</p>
+</td></tr>
+  <tr><td><code>noverlap</code></td><td>int, optional</td><td>-</td><td><p>Segment overlap on the common grid.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Any window name SciPy accepts.</p>
+</td></tr>
+  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying estimator.</p>
+</td></tr>
+  <tr><td><code>common_time</code></td><td>array_like, optional</td><td>s</td><td><p>An explicit uniform grid to compare on, overriding <code class="language-plaintext highlighter-rouge">sample_rate</code>.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>CrossSpectrum</td><td>-</td><td><p>Frequency axis in hertz, the complex cross-spectral density in the product of the two signals’ units per hertz, the dimensionless coherence and its 95 % significance level, the phase in radians, and the grid used.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    Either axis is not uniform, or the two records do not overlap in time.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Validate both time axes as uniform and increasing.</li>
+  <li>Choose the common grid: the shared axis when the two are identical;
+otherwise <code class="language-plaintext highlighter-rouge">common_time</code>, else a uniform grid at <code class="language-plaintext highlighter-rouge">sample_rate</code> over the
+overlap, else the slower record’s own samples inside the overlap.</li>
+  <li>Put each record that is not already on that grid onto it with
+<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.resample_to_time</code>, which low-passes
+first when that is a rate reduction.</li>
+  <li>Estimate the two auto-spectra and the cross-spectrum by Welch’s method
+with one set of segments, and form coherence and phase from them.</li>
+  <li>Count the segments and set the 95 % significance level of the coherence.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p>A numerical convenience, SciPy’s own: without <code class="language-plaintext highlighter-rouge">nperseg</code> the segment is 256
+samples, or the whole record when that is shorter, and the overlap half a
+segment, stated here so the segment count can be reproduced.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>The phase is that of <code class="language-plaintext highlighter-rouge">y</code> relative to <code class="language-plaintext highlighter-rouge">x</code></strong>: <code class="language-plaintext highlighter-rouge">phase = arg(S_xy)</code> with
+<code class="language-plaintext highlighter-rouge">S_xy = conj(X) Y</code>, SciPy’s convention, so <code class="language-plaintext highlighter-rouge">y</code> lagging <code class="language-plaintext highlighter-rouge">x</code> by <code class="language-plaintext highlighter-rouge">dt</code>
+reads <code class="language-plaintext highlighter-rouge">-2 pi f dt</code> at frequency <code class="language-plaintext highlighter-rouge">f</code>.  Swapping the arguments flips the
+sign.  The phase is wrapped to <code class="language-plaintext highlighter-rouge">(-pi, pi]</code>.</p>
+
+<p>Coherence is the <em>magnitude-squared</em> coherence <code class="language-plaintext highlighter-rouge">|S_xy|^2 / (S_xx S_yy)</code>.
+Its 95 % level for <code class="language-plaintext highlighter-rouge">n</code> averaged segments is <code class="language-plaintext highlighter-rouge">1 - 0.05**(1/(n-1))</code>, the
+level two independent Gaussian records exceed with probability 0.05 at any
+one frequency.</p>
+
+<p><strong>Different timebases are never compared silently.</strong> The comparison is
+restricted to the overlap of the two records, and the grid, its rate, the
+overlap and which record was resampled are all returned with the result.
+Whenever the slower record keeps its own samples, only the faster one is
+changed, and it is anti-aliased before it is decimated.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The significance formula assumes independent segments; with the default half
+overlap of a Hann window neighbouring segments are correlated, so the true
+95 % level is somewhat higher than the one reported. A single segment has no
+significance level and reports NaN. Coherence between two diagnostics with
+different transfer functions is unaffected by either transfer function, but
+the phase is not: a pickup coil’s derivative adds <code class="language-plaintext highlighter-rouge">+pi/2</code> to its phase.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Welch’s method for auto- and cross-spectra as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.welch</code> and <code class="language-plaintext highlighter-rouge">scipy.signal.csd</code>.
+</li>
+  <li>J. S. Bendat and A. G. Piersol, <em>Random Data: Analysis and Measurement Procedures</em>, 4th ed. (Wiley, 2010), section 9.2.3: the coherence significance level for averaged segments.
+</li>
+</ol>
+
 <h3 id="find_spectral_break"><code class="language-plaintext highlighter-rouge">find_spectral_break</code></h3>
 
 <p class="formula-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></p>
@@ -749,6 +863,92 @@ decades is dominated by the sparse high-frequency end.</p>
 </li>
 </ol>
 
+<h3 id="track_dominant_frequency"><code class="language-plaintext highlighter-rouge">track_dominant_frequency</code></h3>
+
+<p class="formula-signature"><code>track_dominant_frequency(spectrogram, *, search_range, max_jump=None, floor_ratio=0.05)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Follow the dominant spectral ridge of a time-frequency map, window by window.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>spectrogram</code></td><td>Any</td><td>-</td><td><p>An object with <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code> – <code class="language-plaintext highlighter-rouge">FluctuationSpectrogram</code> or a magnetics spectrogram result – or the triple <code class="language-plaintext highlighter-rouge">(time, frequency, magnitude)</code>.</p>
+</td></tr>
+  <tr><td><code>search_range</code></td><td>sequence of float</td><td>Hz</td><td><p>Lowest and highest frequency the ridge may be found at.</p>
+</td></tr>
+  <tr><td><code>max_jump</code></td><td>float, optional</td><td>Hz</td><td><p>Largest frequency change allowed between neighbouring windows; <code class="language-plaintext highlighter-rouge">None</code> takes each window’s own maximum independently.</p>
+</td></tr>
+  <tr><td><code>floor_ratio</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the map’s in-range peak a window’s ridge must exceed.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>FrequencyTrack</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(time, frequency, power)</code>: the window times in seconds, the ridge frequency in hertz and its magnitude in the map’s own unit, each NaN in a window where no ridge clears the floor.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The magnitude does not match its axes, <code class="language-plaintext highlighter-rouge">search_range</code> is not
+    increasing, or an argument is negative.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Keep the frequency bins inside <code class="language-plaintext highlighter-rouge">search_range</code>.</li>
+  <li>Set the floor at <code class="language-plaintext highlighter-rouge">floor_ratio</code> times the largest in-range magnitude of the
+whole map; a window whose in-range maximum does not exceed it has no ridge.</li>
+  <li>Split the remaining windows into runs of consecutive windows.</li>
+  <li>Within each run, choose one bin per window: the window’s own maximum when
+<code class="language-plaintext highlighter-rouge">max_jump</code> is <code class="language-plaintext highlighter-rouge">None</code>, otherwise the path of largest summed magnitude
+whose step between neighbouring windows never exceeds <code class="language-plaintext highlighter-rouge">max_jump</code>.</li>
+  <li>Report NaN for a window whose chosen bin does not exceed the floor.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">floor_ratio = 0.05</code> is a numerical convenience: well above the tail of a
+Hann window’s sidelobes relative to a clear mode, well below any mode worth
+tracking. Set it to zero to report every window that has any content at all.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p><strong>A silent window is NaN, never its loudest noise bin.</strong> The floor is relative
+to the map, not absolute, so it means the same thing for a voltage, a
+brightness or a camera intensity. A gap breaks continuity: the run after it
+is found afresh rather than held to where the last run ended.</p>
+
+<p>The continuity path maximises summed magnitude over the whole run rather than
+starting from the loudest pixel, so a brief loud burst far from the ridge
+cannot capture it.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>The ridge is resolved to one frequency bin; nothing interpolates between bins.
+One ridge only: two comparable modes are not separated, and with no
+<code class="language-plaintext highlighter-rouge">max_jump</code> the track may alternate between them. The floor is relative, so a
+map that is noise throughout still reports its noise as a ridge.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>Ridge extraction as a maximum-energy continuous path through the time-frequency plane, R. Carmona, W. L. Hwang and B. Torresani, “Characterization of signals by the ridges of their wavelet transforms”, <em>IEEE Trans. Signal Process.</em> <strong>45</strong> (1997) 2586, solved here by dynamic programming over discrete bins.
+</li>
+  <li>The single-argmax reference-frequency tracker of the legacy FAST-camera analysis, which <code class="language-plaintext highlighter-rouge">vaft.process.camera_fluctuation.track_reference_frequency</code> now calls with <code class="language-plaintext highlighter-rouge">floor_ratio=0</code>.
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -860,7 +1060,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_fluctuation_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_fluctuation_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_band_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_band_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_psd" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_psd</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_spectral_break" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_spectral_break</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_power_law_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_power_law_spectrum</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_fluctuation_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_fluctuation_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_band_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_band_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_psd" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_psd</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#cross_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cross_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_spectral_break" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_spectral_break</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_power_law_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_power_law_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#track_dominant_frequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">track_dominant_frequency</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -978,7 +1178,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-18 19:20:17 +0000"
+        "time": "2026-09-21 02:51:46 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
