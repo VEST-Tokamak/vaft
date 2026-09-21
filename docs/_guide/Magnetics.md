@@ -448,17 +448,28 @@ fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
 `candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
 
+The fit needs probes at one poloidal position spread over several toroidal angles, and the packaged
+39915 sample has none: it falls in the 35521–44155 gap between the phase-reference channels and the
+outboard fluctuation array, and its equilibrium arrays each sit at a single angle.  Shot 45531, a
+packaged fluctuation sample in a repository checkout, carries the outboard array: six probes on the
+midplane at 135°, 225° and 315°.
+
 ```python
+array = vaft.omas.sample_ods(shot=45531)   # repository checkout; the wheel ships only 39915
+
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
-    ods,
-    time=0.310,
-    frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
+    array,
+    time=0.300,
+    frequencies=None,                 # None -> dominant peaks are picked automatically
     num_modes=2,
-    candidate_n=range(0, 5),
-    window_size=500,
+    candidate_n=range(-2, 3),
+    window_size=512,
     preprocess=True,
 )
 ```
+
+At 300 ms this finds a 7.8 kHz band with $n = 1$ and a 23.4 kHz band labelled *n = 2 (mod 4)*: three
+angles 90° apart cannot tell $n$ from $n \pm 4$, and the legend says so rather than choosing.
 
 The fit needs probes that carry a toroidal angle as well as a waveform. Restricting `channels=` to a
 set that has no `position.phi` is refused, and the message lists the channels this input does offer —
