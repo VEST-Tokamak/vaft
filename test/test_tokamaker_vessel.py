@@ -5,7 +5,7 @@ import pytest
 from omas import ODS
 
 from vaft.code.tokamaker import TokaMakerConfig, geometry_signature, vessel_segments_from_ods
-from vaft.code.tokamaker.vessel import _trace_strip
+from vaft.code.tokamaker.vessel import _thicken_thin_strip, _trace_strip
 
 
 def _add_loop(ods, index, name, rc, zc, w, h, resistivity=None):
@@ -22,7 +22,7 @@ def _build_ods():
 
     WA: vertical column contiguous through Z=0 (like the outer cylinder).
     WB: mirrored top/bottom lid pair (like the W2 lids).
-    W11: 0.1 mm sliver (excluded by default).
+    W11: 0.1 mm tungsten sliver, like the inboard limiter tiles.
     """
     wa = [("WA", dict(rc=0.803, zc=float(zc), w=0.006, h=0.05, resistivity=7.8e-7))
           for zc in np.arange(-0.175, 0.176, 0.05)]      # 8 contiguous 50 mm loops
@@ -36,7 +36,9 @@ def _build_ods():
     for pair in zip(wa, wb):
         entries.extend(pair)
     entries.extend(wa[len(wb):])
-    entries.append(("W11", dict(rc=0.1, zc=0.0, w=0.002, h=0.05, resistivity=5.6e-8)))
+    # resistivity deliberately NOT tungsten's 5.6e-8, so a test can tell the
+    # material default from a value read back off the ODS
+    entries.append(("W11", dict(rc=0.1, zc=0.0, w=0.0001, h=0.05, resistivity=9.9e-8)))
 
     ods = ODS(consistency_check=False)
     for index, (name, params) in enumerate(entries):
@@ -49,17 +51,65 @@ def test_segments_group_by_name_and_split_mirrored_pairs():
 
     assert "WA" in regions                       # contiguous through Z=0 -> single
     assert {"WB_U", "WB_L"} <= set(regions)      # mirrored -> split
-    assert "W11" not in regions                  # excluded by default
+    assert "W11" in regions                      # meshed, not excluded (#965)
     assert regions["WA"]["segment"] == "WA"
     assert regions["WB_U"]["n_loops"] >= 3
     contour = np.asarray(regions["WA"]["contour"])
     assert contour[:, 1].min() < 0 < contour[:, 1].max()
 
 
-def test_w11_can_be_included_explicitly():
-    config = TokaMakerConfig(include_vessel=True, exclude_vessel_segments=())
-    regions = vessel_segments_from_ods(_build_ods(), config)
-    assert "W11" in regions
+def test_a_thin_strip_is_widened_with_its_sheet_resistance_kept():
+    """#965: W11's 0.1 mm tiles are meshed, not dropped.
+
+    The 0.15 mm/side de-conflict shrink alone would erase a 0.1 mm strip, so it
+    is widened about its centreline to `vessel_min_thickness` and eta grows by
+    the same factor: eta / t -- the sheet resistance, and with it the hoop
+    resistance 2*pi*R*eta/A of every loop -- is what the tiles had.
+    """
+    config = TokaMakerConfig(include_vessel=True)
+    w11 = vessel_segments_from_ods(_build_ods(), config)["W11"]
+    contour = np.asarray(w11["contour"])
+    thickness = contour[:, 0].max() - contour[:, 0].min()
+
+    assert thickness == pytest.approx(config.vessel_min_thickness)   # after the shrink
+    assert 0.5 * (contour[:, 0].max() + contour[:, 0].min()) == pytest.approx(0.1)
+    assert w11["thickness_factor"] == pytest.approx(config.vessel_min_thickness / 1e-4)
+    assert w11["eta"] / thickness == pytest.approx(5.6e-8 / 1e-4)
+    # A strip that is thick enough is left exactly as it was.
+    assert vessel_segments_from_ods(_build_ods(), config)["WA"]["thickness_factor"] == 1.0
+
+
+def test_w11_defaults_to_tungsten_not_the_stainless_eta_or_the_ods_value():
+    config = TokaMakerConfig(include_vessel=True, eta_vessel=3.0e-7)
+    w11 = vessel_segments_from_ods(_build_ods(), config)["W11"]
+    assert w11["eta"] == pytest.approx(5.6e-8 * w11["thickness_factor"])
+    assert w11["eta_ods_median"] == pytest.approx(9.9e-8)   # recorded, not used
+
+
+def test_a_thin_strip_of_mixed_thickness_is_refused():
+    """One eta factor cannot keep the sheet resistance of loops of different thickness."""
+    thin = [{"r_lo": 0.1, "r_hi": 0.1001, "z_lo": z, "z_hi": z + 0.005} for z in (0.0, 0.005, 0.01)]
+    thick = [{"r_lo": 0.095, "r_hi": 0.105, "z_lo": 0.015, "z_hi": 0.02}]
+    with pytest.raises(ValueError, match="one eta factor"):
+        _thicken_thin_strip(thin + thick, 2.0e-3, 3.0e-4)
+    # the uniform part alone is widened, by exactly the thickness ratio
+    widened, factor = _thicken_thin_strip(thin, 2.0e-3, 3.0e-4)
+    assert factor == pytest.approx(20.0)
+    assert all(r["r_hi"] - r["r_lo"] == pytest.approx(2.3e-3) for r in widened)
+
+
+def test_a_strip_widening_would_turn_sideways_is_refused():
+    """A 1 mm-tall sliver widened to 2.3 mm would be de-conflicted as a horizontal band."""
+    ods = _build_ods()
+    index = len(ods["pf_passive.loop"])
+    _add_loop(ods, index, "WS", rc=0.5, zc=0.9, w=0.0001, h=0.001, resistivity=7.8e-7)
+    with pytest.raises(ValueError, match="changes its orientation"):
+        vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))
+
+
+def test_a_segment_can_still_be_excluded_explicitly():
+    config = TokaMakerConfig(include_vessel=True, exclude_vessel_segments=("W11",))
+    assert "W11" not in vessel_segments_from_ods(_build_ods(), config)
 
 
 def test_eta_precedence_region_over_segment_over_default():

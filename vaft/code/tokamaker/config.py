@@ -107,11 +107,19 @@ class TokaMakerConfig:
     dx_conductor_min: float = 0.004           # per-region floor [m] (thin-strip mesh cost guard)
     # SUS316LN; exactly reproduces the packaged pf_passive W2-W10 loop resistances
     # via R = 2*pi*R*eta/A. W1 carries a black-box per-loop calibration (issue #191)
-    # and gets this uniform default unless overridden.
+    # and gets this uniform default unless overridden. Segments of another
+    # material (W11, tungsten) default to that material's nominal resistivity
+    # from vaft.machine_mapping.wall_resistance instead.
     eta_vessel: float = 7.8e-7                # [Ohm·m]
     vessel_eta: Optional[Mapping[str, float]] = None   # per segment/region override [Ohm·m]
     vessel_noncontinuous: tuple[str, ...] = ()         # regions with zero net toroidal current
-    exclude_vessel_segments: tuple[str, ...] = ("W11",)  # 0.1 mm tungsten tiles: not structure
+    exclude_vessel_segments: tuple[str, ...] = ()      # segment names to leave out of the mesh
+    # Strips thinner than this [m] (W11's 0.1 mm tiles) cannot be meshed -- the
+    # vessel_gap/2 shrink alone would erase them -- so they are widened about
+    # their centreline to this thickness and their eta is multiplied by the same
+    # factor. That keeps the sheet resistance eta/t, hence every loop's hoop
+    # resistance 2*pi*R*eta/A, unchanged (issue #965).
+    vessel_min_thickness: float = 2.0e-3
     # Minimum clearance enforced between conductor regions [m]. The filament
     # segments physically abut (and slightly overlap at corner joints); meshing
     # needs disjoint region polygons with no T-junctions, so every region is

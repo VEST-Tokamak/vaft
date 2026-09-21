@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-39915-until-efit-v2
+reference_id: vest-39915-until-efit-v4
 shot: 39915
 machine: VEST
 imas_dd_version: 3.41.0
@@ -35,8 +35,10 @@ pipeline:
     successful_time_slices: 9
     optional_outputs:
       mfile:
-        status: unavailable
-        reason: EFIT executable was not linked with NetCDF support
+        status: regenerated
+        reason: The original run's executable had no NetCDF support. The archived
+          k-files were replayed on 2026-09-18 with a NetCDF-enabled build; its m-files
+          supply the constraint leaves only (see generation.efit_constraints).
   stage_status:
     diagnostics: partial
     eddy: success
@@ -49,8 +51,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 11099886
-    sha256: 257452d5e7cc94d7682b7a069d60180e3a94bc5580e41cb90ca13384159d24e5
+    size: 11030848
+    sha256: afed7ccb9e95f6e5f94957b9960da0afac9a0f1174e6d6f144c0f5815f35f83a
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -58,18 +60,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11518332
-    sha256: d403f3c88e1e8fc4a19b9173e1862cc749119b7ad51a37b2d52ad7758566d171
+    size: 11420182
+    sha256: 4c54a687c94366c602ae3b94d27d22d8f603285defada3955d4c1c874bcd8518
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: d8d7638da6f78baf2be94a4653fb97139a37b98f2792292f9e81abb611f86149
+  canonical_sha256: 5a5f7a6403d76f256b8b78208f601adc709f2b802fc5d8df3cf0686bbe84175d
   canonical_policy: repository-only
   normalizations:
   - equilibrium_psi_weber
   equilibrium_time_slices: 0
-  materialized_leaves: 19338
+  materialized_leaves: 19327
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -146,6 +148,96 @@ generation:
     corrections_reproduced_by_mapper:
     - '#288 b_field_pol_probe poloidal_angle = 3*pi/2'
     - spectrometer_uv CII_4267 / 426.7e-9
+  efit_constraints:
+    issue: https://github.com/VEST-Tokamak/vaft/issues/952
+    generated: '2026-09-18'
+    previous_reference_id: vest-39915-until-efit-v2
+    previous_canonical_sha256: d8d7638da6f78baf2be94a4653fb97139a37b98f2792292f9e81abb611f86149
+    changed_leaves:
+    - equilibrium.time_slice.*.constraints.bpol_probe.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.flux_loop.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.pf_current.*.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.ip.{reconstructed,chi_squared}
+    - equilibrium.time_slice.*.constraints.diamagnetic_flux.{reconstructed,chi_squared}
+    changed_leaf_count: 1674
+    unchanged: Every other leaf of the canonical source, including measured, measured_error_upper
+      and weight, is byte-identical to the previous canonical source; the equilibrium
+      itself was not replaced.
+    method: Replay of the archived k-files listed in source/efit-artifact-manifest.json
+      (sha256-verified, all cases, original order), with TABLE_DIR/INPUT_DIR repointed
+      to the pre-#695 Green table the original run used (vaft/data/efit at 4d22d448^,
+      16 PF groups). The m-files are read with vaft.data.meqdsk.read_meqdsk.
+    executable:
+      path: $EFITHOME/bin/efit
+      sha256: b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d
+      source_revision: 4d10ed5-dirty
+      netcdf: true
+    reproduction:
+      check: 'Replayed g-files vs the packaged equilibrium, per slice: psi(R,Z), q,
+        pressure and boundary outline'
+      max_psi_relative_difference: 0.0
+      max_q_abs_difference: 0.0
+      max_pressure_abs_difference: 0.0
+      max_boundary_abs_difference: 0.0
+      note: The replayed g-files differ from the archived ones only in the EFIT build
+        date in the header line; the original executable (sha256 recorded under pipeline.efit)
+        replays them byte-identically.
+    mfile_sha256:
+      '0.316': d2f03d0bc95bcf699d14e158d24e0d6f49f1ea200c8deb47cdb7b85b700ef7f3
+      '0.317': d5966ded437be5d077242346f3a123d20a075e1df69da650c4203d2cd9b0672e
+      '0.318': 2070d8f8082eb4ce5f1ee24614184033906cc98b60c8869ade3acfb00a33c722
+      '0.319': c5e05005b1130d3d81fa9055239e3e580437156126e2a980a55b1a04033502a5
+      '0.320': 5d91e66f01fcdc8fc3edd783967b90238cf314ff625d4b4426ce4878d29f36bf
+      '0.323': aa1edb981f70477efdf6f7e319d97710bbd90b075abe95852d3b0abe1f9e1485
+      '0.325': cbeb7662742b0e32ed8a50d49edb3e1b7696db14a7317ac1ce2b02fdac7e6cb4
+      '0.326': b763f6d8e8d404b6cb93b6003477e34ed021c151b653a6bd5f4da32fccdbe19b
+      '0.331': a8ab6cb6e7822e2ca718a321cb806099def2074b49d1d72e0881a1dfe8d92e82
+    conventions:
+      flux_loop: 'reconstructed is stored in Wb like measured: the m-file''s csilop
+        (Wb/rad) times 2*pi. chi_squared is EFIT''s saisil, unitless.'
+      bpol_probe: reconstructed = cmpr2 (T), chi_squared = saimpi.
+      pf_current: The run's 16 EFIT coil groups (PF1-1..PF1-8, PF5U/L, PF6U/L, PF9U/L,
+        PF10U/L) are matched to the entries of the same source name; the ten entries
+        with no group in that table (PF2-4, PF7, PF8, all carrying zero current) keep
+        reconstructed/chi_squared NaN.
+      ip: chi_squared is EFIT's chipasma as reported. It includes the prescribed vessel
+        current that EFIT adds after the fit (#918), so it is nonzero even where reconstructed
+        equals measured, and it is the whole of EFIT's total chi-square on these runs.
+      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive) while
+        measured stores the signed, negative flux. reconstructed is EFIT's cdflux
+        in its own sign and chi_squared is EFIT's chidflux against the submitted |DFLUX|;
+        the fit weight was 1e-4, so the diamagnetic flux did not constrain the fit.
+      not_written: 'chi_squared_reduced and freedom_degrees_n: the m-file carries
+        no degrees of freedom, and read_meqdsk''s fallback divides by 1. EFIT''s total
+        is under equilibrium.code.parameters (aeqdsk.chisq) in the canonical source.'
+    measured_error_upper_and_weight: Unchanged, and not the uncertainty EFIT fitted
+      against. Under uncertainty_mode legacy_weight the k-file writes BIT = weight/VBIT*1e4
+      with VBIT left at EFIT's default 10, so EFIT's sigma is weight*1e4 on the fitted
+      channels (probes 1000 T, flux loops 100 Wb/rad, Ip 10 kA; PF currents take SERROR's
+      0.1% floor); the m-file's sig* arrays are EFIT's values.
+  magnetics_deduplication:
+    issues:
+    - https://github.com/VEST-Tokamak/vaft/issues/724
+    - https://github.com/VEST-Tokamak/vaft/issues/825
+    generated: '2026-09-18'
+    previous_reference_id: vest-39915-until-efit-v3
+    previous_canonical_sha256: c22e21071fe29b9757be7403c5f55be56ccec6bce83467a3435dd8bb0ad33a46
+    removed: magnetics.b_field_pol_probe.64 (identifier MagneticFieldProbe_C2-05_Bz:phase_reference,
+      13 leaves)
+    reason: 'DAQ field 171 was published twice: as equilibrium probe 36 (MagneticFieldProbe_C2-05_Bz,
+      outboard family, clock 5:30, phi 195 deg) and as a phase-reference twin at clock
+      9:30 (phi 75 deg) carrying byte-identical voltage. The mapper now publishes
+      a phase-reference channel only when the shot''s equilibrium wiring does not
+      already read its field (toroidal_mirnov_reference_channels). The 9:30 assignment
+      stays recorded, as disputed, in vest.yaml toroidal_mirnov_reference.'
+    method: 'The diagnostics stage was rebuilt from source/ with the current mapper
+      (build_diagnostics_ods, settings from source/pipeline-config.yaml) and its magnetics
+      leaves compared with the canonical source: the only difference was the 13 leaves
+      of probe 64, every other magnetics leaf identical. Those 13 leaves were removed
+      from the canonical source in place; a leaf-by-leaf comparison of the rewritten
+      canonical against the previous one shows no other leaf added, removed or changed.
+      Equilibrium (constraints.bpol_probe has 64 entries) and EFIT inputs are untouched;
+      field 171 remains probe 36.'
 semantic_comparison:
   paths:
   - wall.*
@@ -164,7 +256,7 @@ semantic_comparison:
   - ec_launchers.time
 acceptance:
   magnetics:
-    b_field_pol_probe_count: 65
+    b_field_pol_probe_count: 64
     flux_loop_count: 11
   pf_active:
     coil_count: 10

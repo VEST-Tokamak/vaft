@@ -907,3 +907,63 @@ def test_the_diagnostics_product_carries_no_ids_it_does_not_own(tmp_path):
     assert top_level <= set(STAGE_REPLICATION["diagnostics"].ids), sorted(
         top_level - set(STAGE_REPLICATION["diagnostics"].ids)
     )
+
+
+def _built_static(tmp_path, shot):
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    return static_path
+
+
+def test_a_langmuir_era_gap_leaves_the_rest_of_the_product(tmp_path):
+    """42138-42144 and 42641 have no known mid-assembly bias or tip geometry
+    (#152). Refusing to guess is right; losing magnetics, PF and every other
+    diagnostic of the shot over it is not (#989)."""
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    ramp = np.linspace(1.0, 2.0, 200).tolist()
+    _write_raw_dump(raw, shot, {12: ramp, 99: ramp, 100: ramp})
+
+    ods, manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=_built_static(tmp_path, shot),
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    langmuir = manifest["channel_status"]["langmuir_probes"]
+    assert langmuir["status"] == "unavailable"
+    assert "unresolved era gap" in langmuir["reason"]
+    assert "optional" not in langmuir  # a real gap in the record: the stage is partial
+    assert manifest["status"] == "partial"
+    assert manifest["channel_status"]["barometry"]["status"] == "success"
+    assert "langmuir_probes" not in ods
+    assert "barometry" in ods
+
+
+def test_a_langmuir_configuration_bug_still_fails_the_stage(tmp_path, monkeypatch):
+    """Only the documented gap is a component's absence; an overlap or a
+    missing key is a broken configuration and must stop the run."""
+    from vaft.machine_mapping.langmuir_probes import LangmuirProbeConfigError
+    from vaft.omas import vest_upstream
+
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+
+    def broken(*args, **kwargs):
+        raise LangmuirProbeConfigError("Overlapping langmuir_probes.mid shot_era_overrides apply to shot 42140")
+
+    monkeypatch.setattr(vest_upstream, "langmuir_probes", broken)
+    with pytest.raises(LangmuirProbeConfigError, match="Overlapping"):
+        build_diagnostics_ods(
+            shot=shot,
+            raw_source=raw,
+            static_ods=_built_static(tmp_path, shot),
+            tstart=0.0,
+            tend=0.005,
+            dt=4e-5,
+        )

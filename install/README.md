@@ -974,7 +974,9 @@ to check an uninstalled CMake build.
 `install/` carries a build recipe for five codes: CHEASE, DCON/GPEC, EFIT/EFUND,
 NUBEAM and GACODE. `vaft.code` also talks to three others, and none of them gets
 a script here. That is a deliberate stop, not an omission, so this section says
-what VAFT actually does for each and what you would have to supply yourself.
+what VAFT actually does for each and what you would have to supply yourself. The
+last entry, the `vaft-nn` model registry, is not a code at all but is configured
+the same way.
 
 ### TES
 
@@ -1016,6 +1018,36 @@ Every import is deferred, so `vaft.code.tokamaker` imports cleanly on a machine
 without it and reports the absence when you actually call something. There is no
 `check_tokamaker.py`: `import OpenFUSIONToolkit` already answers the only
 question such a checker would ask.
+
+### vaft-nn (VAFT's published models)
+
+**A private registry, not a build.** Trained models are produced by
+`vaft.process.ml` and published to
+[`VEST-Tokamak/vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn). That
+repository holds metadata only. `models/<name>/releases.yaml` lists the versions,
+their lifecycle status (candidate, validated, production, deprecated), the
+SHA-256 of each version's manifest, and stage aliases such as `production`. The
+weights are GitHub Release assets. Clone it and point `VAFT_NN_HOME` at the
+checkout:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn
+gh auth login                                   # once
+python install/check_vaft_nn.py                 # registry, cache, gh access
+```
+
+Nothing is compiled, so there is no installer. `vaft.process.ml.fetch_model` downloads a
+release into the cache (`$VAFT_NN_CACHE`, else the platform cache directory)
+with `gh release download`. That reuses the GitHub CLI's login, so no token is
+ever passed to or stored by VAFT, following the HSDS credential rule above. A
+downloaded file is kept only if its SHA-256 equals the one the registry's
+reviewed manifest pins, and a stage alias is resolved to an exact version before
+anything loads. `check_vaft_nn.py` reports on each layer:
+- the checkout and its revision;
+- every model's release index and pinned manifests;
+- which versions are complete in the cache;
+- whether `gh` is installed and logged in, as yes or no only.
 
 ## Uninstalling
 

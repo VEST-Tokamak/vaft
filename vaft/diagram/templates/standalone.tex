@@ -10,6 +10,8 @@
 \definecolor{islanddark}{RGB}{22,55,116}
 \definecolor{qblue}{RGB}{96,164,232}
 \definecolor{meshgray}{RGB}{150,150,150}
+\definecolor{chartblue}{RGB}{16,24,140}
+\definecolor{driftred}{RGB}{214,48,39}
 \tikzset{
   >=Latex,
   every picture/.style={line cap=round,line join=round,font=\large},
@@ -39,6 +41,39 @@
   hole/.style={fill=white,draw=none},
   cut/.style={black!70,dash dot,line width=0.7pt},
   inset frame/.style={draw=black!25,rounded corners=2pt},
+  chart axis/.style={->,line width=1.4pt},
+  boundary/.style={chartblue,line width=1.9pt},
+  approx/.style={gray!70!black,dashed,line width=0.9pt},
+  region/.style={font=\LARGE,align=center},
+  xlabel/.style={font=\LARGE},
+  ylabel/.style={font=\LARGE,rotate=90},
+  tick/.style={line width=0.7pt},
+  ticklabel/.style={font=\normalsize},
+  star/.style={fill=black,draw=none},
+  orbit ion/.style={islandblue,line width=0.9pt},
+  orbit electron/.style={islanddark,line width=0.9pt},
+  orbit tip/.style={->,islandblue,line width=0.9pt},
+  drift/.style={->,driftred,line width=1.6pt},
+  drift ion/.style={->,islandblue,line width=1.6pt},
+  drift electron/.style={->,driftred,line width=1.6pt},
+  exb/.style={->,black!80,line width=1.8pt},
+  vector/.style={->,black,line width=1.1pt},
+  field vector/.style={->,islanddark,line width=1.6pt},
+  field arrow/.style={->,black!70,line width=1.2pt},
+  field line/.style={islanddark,line width=1.6pt},
+  field line arrow/.style={->,islanddark,line width=1.6pt},
+  guiding centre/.style={driftred,dashed,line width=1.0pt},
+  frame axis/.style={black!60,line width=0.8pt},
+  frame axis arrow/.style={->,black!60,line width=0.8pt},
+  region box/.style={black,line width=1.0pt},
+  current/.style={->,driftred,line width=1.8pt},
+  torus rim/.style={black,line width=1.2pt},
+  section fill/.style={draw=black,line width=1.4pt,fill=qblue!18},
+  charge/.style={draw,circle,inner sep=0.8pt,font=\normalsize},
+  charge small/.style={font=\large},
+  legend symbol/.style={font=\LARGE},
+  small label/.style={font=\normalsize},
+  formula box/.style={draw=black!25,rounded corners=2pt,fill=white,align=center,inner sep=5pt,font=\normalsize},
 }
 \begin{document}
 \begin{tikzpicture}

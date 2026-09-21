@@ -625,20 +625,31 @@ def _edge_zero_profiles(
     ``constraint_psi_norm`` is nudged outward exactly as the donor does when a
     reversed point falls between it and 0.3. That branch is inert for any
     edge constraint, since 0.95 > 0.3; it fires only for a near-axis one.
+
+    Deliberate deviation from the donor: the walk starts AT the separatrix
+    sample. eqdsk.py's loop (``for i in range(lenp): ii = lenp-i-1``) begins
+    one sample inside, because its ``ffpt[ii] = ffpt[ii+1]`` has no outside
+    value to read there, and so never examines ``psi_N = 1``. A reversal on
+    that one sample then survived, and since ``_write_expeq`` writes
+    ``-|p'|`` it became a drive of the bulk sign at the edge -- on a hollow
+    edge, the largest |p'| of the whole profile, sitting next to zeroed
+    neighbours (legacy VFIT g039516.031400: 98 kPa/Wb at psi_N = 1). EFIT
+    g-files that pin p'(1) = 0 are unaffected. At the separatrix there is no
+    just-outside value, so FF' keeps its own value, and the band inside is
+    held at it exactly as before.
     """
     pp = np.array(pprime, dtype=float, copy=True)
     ff = np.array(ffprim, dtype=float, copy=True)
     bulk_sign = np.sign(np.median(pp))
     if bulk_sign == 0.0:
         bulk_sign = 1.0
-    lenp = len(pp) - 1
-    for i in range(lenp):
-        ii = lenp - i - 1
+    for ii in range(len(pp) - 1, -1, -1):
         if pp[ii] * bulk_sign < 0.0:  # reversed relative to the bulk => non-physical
             if constraint_psi_norm < psin[ii] < 0.3:
                 constraint_psi_norm = float(psin[ii] + 0.1)
             pp[ii] = 0.0
-            ff[ii] = ff[ii + 1]
+            if ii + 1 < len(ff):
+                ff[ii] = ff[ii + 1]
     return pp, ff, constraint_psi_norm
 
 
@@ -684,8 +695,20 @@ def _expeq_payload(geqdsk: Any, config: CHEASEConfig) -> dict[str, Any]:
     if rcen == 0.0 or amin <= 0.0:
         raise ValueError("Invalid CHEASE boundary geometry: zero major/minor radius")
 
+    from vaft.data.eqdsk import vacuum_b0_magnitude
+
     aspct = amin / rcen
-    b0exp = float(geqdsk["RCENTR"]) * abs(float(geqdsk["BCENTR"])) / rcen
+    # |B0| comes from FPOL, not BCENTR: a g-file spells the same vacuum field
+    # both ways at nine significant digits, the two spellings do not round to
+    # the same double, and `to_omas()` canonicalizes on the FPOL one (issue
+    # #325). Reading BCENTR here made a g-file and the ODS built from that same
+    # g-file produce EXPEQ/namelist pairs differing by 3.3e-9 in B0EXP. On the
+    # VEST shots where BCENTR drifts away from FPOL outright -- by up to 101%
+    # within a single shot, which is what #325 is about -- the same
+    # inconsistency was not a rounding gap but two different equilibria, and
+    # the one CHEASE was being handed was normalized to a vacuum field the
+    # equilibrium had not been solved with.
+    b0exp = float(geqdsk["RCENTR"]) * vacuum_b0_magnitude(geqdsk) / rcen
     if b0exp == 0.0:
         raise ValueError("Invalid CHEASE normalization: B0EXP is zero")
 

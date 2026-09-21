@@ -27,7 +27,7 @@ SEGMENT_SLOWEST_MS = {
     "W1": 1.983, "W2": 1.206, "W3": 0.304, "W4": 0.181, "W5": 0.277, "W6": 1.560,
     "W7": 2.873, "W8": 2.901, "W9": 2.051, "W10": 1.638, "W11": 0.148,
 }
-TOKAMAKER_TAU_WALL_MS = 6.88   # vaft #232, its own mesh with W11 excluded
+TOKAMAKER_TAU_WALL_MS = 6.88   # vaft #232, its own mesh; 6.881 ms without W11, 6.882 ms with it (#965)
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +113,7 @@ def test_39915_basis_is_deterministic_and_digest_is_pinned(packaged):
 
 def test_39915_slowest_tau_is_within_ten_percent_of_tokamaker(packaged):
     """TokaMaker's eig_wall is an independent global reference on its own
-    mesh (W11 excluded); agreement to ~10% is what shared physics predicts,
+    mesh (W11 meshed since #965, which moves it by 1 us); agreement to ~10% is what shared physics predicts,
     identity is not expected."""
     _ods, basis, _R, M_mat = packaged
     assert global_time_constants(basis, M_mat)[0] * 1e3 == pytest.approx(TOKAMAKER_TAU_WALL_MS, rel=0.10)

@@ -49,6 +49,10 @@ from vaft.formula.stability import (
     island_separatrix_half_width,
 )
 
+from ._projection import CAMERA_AZIMUTH, CAMERA_ELEVATION, THREE_D_SCALE  # noqa: F401  (re-exported)
+from ._projection import camera as _camera
+from ._projection import project as _project
+from ._projection import split as _split
 from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
@@ -57,10 +61,6 @@ PROJECTIONS = ("poloidal", "top", "3d")
 #: centimetres per minor radius in each projection
 POLOIDAL_SCALE = 4.0
 TOP_SCALE = 1.3
-THREE_D_SCALE = 1.0
-#: orthographic camera of the 3-D view [rad]
-CAMERA_AZIMUTH = math.radians(-62.0)
-CAMERA_ELEVATION = math.radians(26.0)
 #: island flux contours, as fractions of the way from the O-point to the separatrix
 ISLAND_LEVELS = (0.2, 0.45, 0.72)
 #: the passing surface drawn on each side, as a multiple of the separatrix level
@@ -530,19 +530,6 @@ def _top(model: IslandModel, *, labels=True, show_rational_surface=True, show_o_
 # ---------------------------------------------------------------------------
 
 
-def _camera():
-    az, el = CAMERA_AZIMUTH, CAMERA_ELEVATION
-    view = np.array([math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)])
-    u = np.array([-math.sin(az), math.cos(az), 0.0])
-    v = np.cross(view, u)
-    return view, u, v
-
-
-def _project(points: np.ndarray) -> np.ndarray:
-    _, u, v = _camera()
-    return THREE_D_SCALE * np.stack([points @ u, points @ v], axis=-1)
-
-
 def _visible(model: IslandModel, r: float, theta, phi) -> np.ndarray:
     """Whether surface points ``(r, theta, phi)`` face the camera and are not occluded.
 
@@ -565,21 +552,6 @@ def _visible(model: IslandModel, r: float, theta, phi) -> np.ndarray:
     ray = points[:, None, :] + t[None, :, None] * view[None, None, :]
     occluded = model.contains(r, np.hypot(ray[..., 0], ray[..., 1]), ray[..., 2]).any(axis=1)
     return facing & ~occluded
-
-
-def _split(xy: np.ndarray, visible: np.ndarray, style: str, hidden_style: str, role: str) -> List:
-    """Break a polyline into runs drawn in the visible or hidden style."""
-    items: List = []
-    start = 0
-    for i in range(1, len(xy) + 1):
-        if i == len(xy) or visible[i] != visible[start]:
-            end = min(i + 1, len(xy))
-            if end - start >= 2:
-                vis = bool(visible[start])
-                items.append(Polyline.of(xy[start:end], style if vis else hidden_style,
-                                         role=role if vis else f"{role}_hidden"))
-            start = i
-    return items
 
 
 def _three_d(model: IslandModel, *, labels=True, show_rational_surface=True, show_separatrix=True,

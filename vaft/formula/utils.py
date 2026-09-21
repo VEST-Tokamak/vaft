@@ -30,6 +30,7 @@ __all__ = [
     "gradient",
     "make_fit_function",
     "normalize_profile",
+    "normalized_gradient_scale_length",
     "trapz_integral",
 ]
 
@@ -66,6 +67,65 @@ def gradient(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     ``y`` is differentiated.
     """
     return np.gradient(y, x)
+
+
+def normalized_gradient_scale_length(x: np.ndarray, y: np.ndarray, a: float) -> np.ndarray:
+    r"""Normalised inverse gradient scale length $a/L_y$ of a sampled profile.
+
+    $$\frac{a}{L_y} = -\frac{a}{y}\,\frac{dy}{dx}$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Radial coordinate, 1-D and monotonic, e.g. minor radius $r$ [m].
+    y : np.ndarray
+        Profile sampled on ``x`` along its last axis, e.g. $T_e$ or $n_e$;
+        shape ``(..., len(x))`` [any].
+    a : float
+        Normalising length, in the unit of ``x``; for a gyrokinetic input the
+        minor radius [m].
+
+    Returns
+    -------
+    np.ndarray
+        $a/L_y$ at every sample, of the shape of ``y``; ``nan`` where ``y``
+        is zero or non-finite, with a ``RuntimeWarning`` [-].
+
+    Convention
+    ----------
+    Positive for a profile that falls with ``x`` -- the usual peaked core
+    profile -- so a larger number is a steeper drive.  ``x`` and ``a`` must
+    share a unit and ``x`` must be the radius $a$ normalises: on $\rho_N$ or
+    $\sqrt{\psi_N}$ pass ``a = 1`` and the result is $-d\ln y/d\rho$, which
+    differs from $a/L_y$ by the Jacobian $d\rho/dr$.  The same holds for
+    $a/L_{T_e}$, $a/L_{n_e}$ and $a/L_{p}$: only the profile changes.
+
+    Numerical notes
+    ---------------
+    The derivative is ``numpy.gradient(y, x, axis=-1)``, identical to
+    :func:`gradient` for a 1-D profile: second-order central differences in
+    the interior, first-order one-sided at the two ends.  Differentiation
+    amplifies noise, and dividing by ``y`` amplifies it again where the
+    profile is small -- the edge -- so smooth or fit the profile first.
+
+    References
+    ----------
+    .. [1] G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14
+           (2007) 055909 (the $a/L_T$, $a/L_n$ drive inputs of TGLF).
+
+    See Also
+    --------
+    gradient
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    derivative = np.gradient(y, x, axis=-1)
+    return _guarded_ratio(
+        -float(a) * derivative,
+        y,
+        what="normalized_gradient_scale_length",
+        because="the profile value y",
+    )
 
 
 def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:

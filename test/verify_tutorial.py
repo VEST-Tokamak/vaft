@@ -49,8 +49,8 @@ SESSIONS = {
         "qmd": "presentations/03_equilibrium_and_kinetic_profiles.qmd",
     },
     4: {
-        "notebook": "04_fluctuations_and_transient_events.ipynb",
-        "qmd": "presentations/04_fluctuations_and_transient_events.qmd",
+        "notebook": "04_fluctuation_diagnostics_for_plasma_perturbations_and_transient_events.ipynb",
+        "qmd": "presentations/04_fluctuation_diagnostics_for_plasma_perturbations_and_transient_events.qmd",
     },
     5: {
         "notebook": "05_mhd_stability_and_3d_perturbations.ipynb",

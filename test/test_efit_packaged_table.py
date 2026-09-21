@@ -160,7 +160,7 @@ def test_the_shipped_acceptance_envelope_is_the_machine_s_own(static_ods):
     assert bundled["dbpli_diff"] == IGNORE_CRITERION
     # And the floor is the resolved-cell one, well under VEST's own minor radius.
     assert bundled["aminor_min"] < 10.0
-    assert bundled["aminor_max"] == pytest.approx(32.8, abs=0.1)
+    assert bundled["aminor_max"] == pytest.approx(32.8)   # (0.761 - 0.105) / 2 since #965
 
 
 def test_the_shipped_namelist_no_longer_matches_the_recorded_efund_input(manifest):

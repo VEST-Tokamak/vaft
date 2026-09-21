@@ -22,6 +22,7 @@ from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axe
 
 __all__ = [
     "impa_profile_field",
+    "charge_exchange_profile_fit",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
     "electron_density_profile",
@@ -38,6 +39,7 @@ __all__ = [
     "mhd_linear_profile_displacement",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
+    "thomson_scattering_profile_fit",
     "thomson_scattering_profile_electron_temperature",
 ]
 
@@ -405,6 +407,59 @@ def thomson_scattering_profile_electron_density(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Thomson-scattering electron density versus position."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="thomson_scattering", quantity="fit",
+    subject="thomson_scattering",
+    description=(
+        "Thomson T_e or n_e (field=te|ne) at one time: channels with error bars, refused "
+        "channels hollow, and the fit through them on psi_N, rho_N or R, mapped through "
+        "the ODS's own or a given equilibrium (issue #952)."
+    ),
+    ids=("thomson_scattering", "equilibrium"),
+    required_paths=(
+        "thomson_scattering.time",
+        "thomson_scattering.channel.{i}.t_e.data",
+        "thomson_scattering.channel.{i}.n_e.data",
+        "thomson_scattering.channel.{i}.position.r",
+    ),
+    optional_paths=(
+        "thomson_scattering.channel.{i}.t_e.data_error_upper",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def thomson_scattering_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Thomson points and their fit on a flux coordinate."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="charge_exchange", quantity="fit",
+    subject="charge_exchange",
+    description=(
+        "Charge-exchange T_i or V_phi (field=ti|vphi) at one time: channels with error "
+        "bars, refused channels hollow, and the fit through them on psi_N, rho_N or R "
+        "(issue #952)."
+    ),
+    ids=("charge_exchange", "equilibrium"),
+    required_paths=(
+        "charge_exchange.time",
+        "charge_exchange.channel.{i}.ion.{j}.t_i.data",
+        "charge_exchange.channel.{i}.position.r.data",
+    ),
+    optional_paths=(
+        "charge_exchange.channel.{i}.ion.{j}.velocity_tor.data",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def charge_exchange_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Charge-exchange points and their fit on a flux coordinate."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
