@@ -366,6 +366,24 @@ def require_same_start(baseline: str | None, fingerprint: str | None, label: str
     return fingerprint if baseline is None else baseline
 
 
+def load_checkpoint(path: Path, plan: Sequence[Mapping[str, Any]], baseline: str | None):
+    """A finished slice's records, if its checkpoint matches this plan and start; else None.
+
+    A reboot mid-scan must not cost the slices already run, and a checkpoint
+    written under another plan or from another initial state must not be
+    mixed into this one.
+    """
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    if saved.get("rungs") != [rung["name"] for rung in plan]:
+        return None
+    fingerprint = saved.get("initialization_fingerprint")
+    if baseline is not None and fingerprint != baseline:
+        return None
+    return saved
+
+
 def _strip(record: Mapping[str, Any]) -> dict[str, Any]:
     keep = dict(record)
     keep.pop("geqdsk", None)
@@ -421,6 +439,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     for shot in shots:
         for time in study.SLICES[shot]:
             tag = f"t{round(time * 1000):05d}"
+            checkpoint = output / f"shot_{shot}" / tag / "records.json"
+            saved = load_checkpoint(checkpoint, plan, baseline_fingerprint)
+            if saved is not None:
+                baseline_fingerprint = saved["initialization_fingerprint"]
+                records.extend(saved["records"])
+                for name, changes in saved.get("floors_applied", {}).items():
+                    floors_applied.setdefault(name, []).extend(changes)
+                print(f"{shot}@{round(time * 1000)}: resumed from {checkpoint}", flush=True)
+                continue
+            slice_floors: dict[str, list[dict[str, Any]]] = {}
             built, chosen = study.prepare_constraints(
                 shot, Path(data_path(products[shot])), [time],
                 workdir=output / f"shot_{shot}" / tag / "constraints", tables=tables,
@@ -433,7 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ods = copy.deepcopy(built)
                 changed = apply_sigma_floor(ods, rung["floor"])
                 if changed:
-                    floors_applied.setdefault(rung["name"], []).extend(
+                    slice_floors.setdefault(rung["name"], []).extend(
                         {**c, "shot": shot, "time_ms": round(time * 1000)} for c in changed
                     )
                 scales = uncertainty_scales_for(rung) if rung["uncertainty_mode"] == "standard_deviation" else None
@@ -480,6 +508,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "dz_mm": shift["dz_mm"],
                         "axis_dz_mm": 1e3 * (float(own["ZMAXIS"]) - float(ref["ZMAXIS"])),
                     }
+            # This slice is finished: keep it, stripped, so a reboot costs only the slice in flight.
+            finished = [_strip(r) for r in records[-2 * len(plan):]]
+            records[-2 * len(plan):] = finished
+            for name, changes in slice_floors.items():
+                floors_applied.setdefault(name, []).extend(changes)
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint.write_text(json.dumps({
+                "rungs": [rung["name"] for rung in plan],
+                "initialization_fingerprint": baseline_fingerprint,
+                "floors_applied": slice_floors,
+                "records": finished,
+            }, default=study._json_default) + "\n", encoding="utf-8")
 
     rows = summarize(records, plan)
     verdict = operating_range(rows)
@@ -496,7 +536,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "floors_applied": floors_applied,
         "summary": rows,
         "operating_range": verdict,
-        "records": [_strip(r) for r in records],
+        "records": records,
     }
     destination = args.table.expanduser()
     destination.parent.mkdir(parents=True, exist_ok=True)

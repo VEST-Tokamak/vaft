@@ -197,3 +197,22 @@ def test_each_profile_basis_is_judged_against_its_own_narrowest_rung(module):
     # 0.060 is over 1.5x (1,1)'s 0.030 but within 1.5x (2,1)'s 0.050.
     assert "p1f1_x8" not in verdict["range"]
     assert "p2f1_x8" in verdict["range"]
+
+
+def test_a_checkpoint_is_reused_only_for_the_same_plan_and_start(module, tmp_path):
+    import json
+
+    plan = module.rungs()[:2]
+    path = tmp_path / "records.json"
+    path.write_text(json.dumps({
+        "rungs": [rung["name"] for rung in plan],
+        "initialization_fingerprint": "abc",
+        "records": [{"rung": plan[0]["name"]}],
+    }))
+
+    assert module.load_checkpoint(path, plan, None)["records"] == [{"rung": plan[0]["name"]}]
+    assert module.load_checkpoint(path, plan, "abc") is not None
+    # Another initial state, or another plan, is not this scan.
+    assert module.load_checkpoint(path, plan, "xyz") is None
+    assert module.load_checkpoint(path, module.rungs()[:3], None) is None
+    assert module.load_checkpoint(tmp_path / "missing.json", plan, None) is None
