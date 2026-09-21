@@ -179,6 +179,23 @@ def strip_roles(text: str) -> str:
     return _CITATION.sub(r"[\1]", _ROLE.sub(r"``\1``", text))
 
 
+def source_location(fn, root) -> tuple[str, int]:
+    """``(path relative to root, first line)`` of the function's definition.
+
+    The generated reference pages link each entry to this line at the commit
+    the snapshot was built from.  ``root`` is the directory that contains the
+    ``vaft`` package, so the path reads ``vaft/process/numerical.py``.  The
+    function is unwrapped first: a decorated function's own ``def`` is the
+    line worth linking, not the decorator factory's.
+    """
+    from pathlib import Path
+
+    target = inspect.unwrap(fn)
+    path = Path(inspect.getsourcefile(target)).resolve()
+    _, line = inspect.getsourcelines(target)
+    return path.relative_to(Path(root).resolve()).as_posix(), line
+
+
 def _split_sections(
     lines: list[str], vocabulary: tuple[str, ...]
 ) -> tuple[list[str], list[tuple[str, list[str]]], list[str]]:

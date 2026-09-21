@@ -37,10 +37,12 @@ from ._docstring import (
     ModuleDoc,
     ParamDoc,
     ParsedDocstring,
+    RaiseDoc,
     Reference,
     ReturnDoc,
     parse_docstring,
     parse_module_docstring,
+    source_location,
     strip_roles,
 )
 
@@ -60,7 +62,7 @@ __all__ = [
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 
@@ -91,6 +93,9 @@ class FormulaSpec:
     aliases: tuple[str, ...] = ()
     shadowed_by: str | None = None
     errors: tuple[str, ...] = ()
+    raises: tuple[RaiseDoc, ...] = ()
+    source_path: str = ""
+    source_line: int = 0
 
     @property
     def qualname(self) -> str:
@@ -183,7 +188,7 @@ class FormulaSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "References")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "References")
             ],
             "references": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -191,6 +196,11 @@ class FormulaSpec:
             "empirical": self.empirical,
             "convention_sensitive": self.convention_sensitive,
             "deprecated": self.deprecated,
+            "raises": [
+                {"type": item.type, "description": strip_roles(item.description)}
+                for item in self.raises
+            ],
+            "source": {"path": self.source_path, "line": self.source_line},
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
         }
@@ -279,6 +289,7 @@ def _signature(fn) -> str:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
+    path, line = source_location(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
         category=category,
@@ -296,6 +307,9 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
         errors=parsed.errors,
+        raises=parsed.raises,
+        source_path=path,
+        source_line=line,
     )
 
 

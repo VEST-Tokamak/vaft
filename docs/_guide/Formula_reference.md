@@ -33,7 +33,7 @@ The discovery layer is loaded on first use only; `import vaft.formula.stability`
 
 ## Categories
 
-<table class="formula-table">
+<table class="ref-table">
   <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Contents</th></tr></thead>
   <tbody>
   {% for category in site.data.formula_catalog.categories %}<tr>
@@ -67,30 +67,32 @@ Every function whose result depends on a sign, normalisation, COCOS or unit choi
 
 {{ constants.overview | markdownify }}
 
-<table class="formula-table">
+<table class="ref-table">
   <thead><tr><th>Name</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
   {% for row in constants.notation %}<tr><td><code>{{ row.symbol | escape }}</code></td><td>{{ row.description | escape }}</td><td>{{ row.unit | escape }}</td></tr>
   {% endfor %}</tbody>
 </table>
 
-{% for category in site.data.formula_catalog.categories %}{% if category.count > 0 %}
-## {{ category.name | capitalize }}
+## All formulas
 
-{{ category.title }} &mdash; [{{ category.count }} functions]({{ site.baseurl }}/reference/formula/{{ category.name }}/).
-
-{% assign entries = site.data.formula_catalog.formulas | where: "category", category.name %}
-<ul class="formula-index">
-{% for f in entries %}  <li><a href="{{ site.baseurl }}/reference/formula/{{ category.name }}/#{{ f.name }}"><code>{{ f.name }}</code></a>{% if f.empirical %} <em>(empirical)</em>{% endif %}{% if f.convention_sensitive %} <em>(convention)</em>{% endif %} &mdash; {{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}</li>
-{% endfor %}</ul>
-{% endif %}{% endfor %}
+<div class="ref-index" data-ref-index>
+<input class="ref-filter" type="search" placeholder="Filter {{ site.data.formula_catalog.formulas.size }} formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter>
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
+  <tbody>
+  {% for f in site.data.formula_catalog.formulas %}<tr data-ref-row="{{ f.name }} {{ f.category }}"><td><a href="{{ site.baseurl }}/reference/formula/{{ f.category }}/#{{ f.name }}"><code>{{ f.name }}</code></a></td><td><a href="{{ site.baseurl }}/reference/formula/{{ f.category }}/">{{ f.category }}</a></td><td>{{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}{% if f.empirical %} <span class="ref-flag ref-flag-empirical">Empirical</span>{% endif %}{% if f.convention_sensitive %} <span class="ref-flag ref-flag-convention">Convention</span>{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+<p class="ref-filter-empty" hidden>No formula matches.</p>
+</div>
 
 ## Refreshing this snapshot
 
 From a checkout of the `develop` branch, run:
 
 ```bash
-python -m vaft.formula.catalog --output /path/to/vaft-gh/_data/formula_catalog.yml
+python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml
 ```
 
 The snapshot records the SHA-256 of every `vaft/formula/*.py` source file; documentation
