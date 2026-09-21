@@ -42,7 +42,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from vaft.formula.equilibrium import straight_field_line_angle
+from vaft.formula.equilibrium import miller_surface, straight_field_line_angle
 from vaft.formula.stability import (
     helical_phase,
     island_pendulum_hamiltonian,
@@ -208,8 +208,9 @@ class IslandModel:
         both shaping parameters are at their defaults.
         """
         r, theta = np.broadcast_arrays(np.asarray(r, dtype=float), np.asarray(theta, dtype=float))
-        shift = np.arcsin(self.triangularity * r) * np.sin(theta)
-        return np.stack([r * np.cos(theta + shift), self.elongation * r * np.sin(theta)], axis=-1)
+        # the formula's R with the axis at the origin is R - R0 itself
+        dR, Z = miller_surface(r, theta, 0.0, self.elongation, self.triangularity * r)
+        return np.stack([dR, Z], axis=-1)
 
     def cartesian(self, r, theta, phi) -> np.ndarray:
         """``(X, Y, Z)`` of torus points, shape ``(..., 3)``."""

@@ -134,6 +134,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_readme_consistency.py",
+    # Diagram physics: every drawn O-point, drift and field is the formula's.
+    # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
+    "test_diagram_infrastructure.py",
+    "test_diagram_magnetic_island.py",
+    "test_diagram_particle_motion.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
