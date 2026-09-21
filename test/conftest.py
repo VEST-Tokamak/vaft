@@ -43,3 +43,18 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if Path(str(item.fspath)).resolve() in core:
             item.add_marker(pytest.mark.core)
+
+
+@pytest.fixture(autouse=True)
+def _local_execution_backend(monkeypatch):
+    """Keep every test on the local backend whatever the developer's shell says.
+
+    ``VAFT_EXECUTION_BACKEND=slurm`` routes every adapter call without an
+    explicit ``backend=`` through Slurm (#1017); a suite run from such a shell
+    would otherwise submit its stub programs as cluster jobs.
+    """
+    for name in (
+        "VAFT_EXECUTION_BACKEND", "VAFT_SLURM_PARTITION", "VAFT_SLURM_ACCOUNT",
+        "VAFT_SLURM_QOS", "VAFT_SLURM_MODE", "VAFT_SLURM_MAX_WAIT",
+    ):
+        monkeypatch.delenv(name, raising=False)

@@ -119,9 +119,15 @@ def _text(stream: Any) -> str:
     return stream or ""
 
 
-def execution_environment(request: ExecutionRequest) -> dict[str, str]:
-    """The full environment a local launch of ``request`` receives."""
-    environment = os.environ.copy()
+def execution_environment(
+    request: ExecutionRequest, base: Optional[Mapping[str, str]] = None
+) -> dict[str, str]:
+    """The full environment a local launch of ``request`` receives.
+
+    ``base`` replaces the inherited ``os.environ`` (a backend that must filter
+    what it inherits passes the filtered copy).
+    """
+    environment = dict(os.environ if base is None else base)
     environment.update({str(key): str(value) for key, value in request.env.items()})
     threads = request.resources.threads_per_task
     if threads is not None:
@@ -193,11 +199,32 @@ class LocalBackend:
         )
 
 
+#: Environment variable that picks the backend for configs that name none.
+BACKEND_ENV = "VAFT_EXECUTION_BACKEND"
+
+
+def default_backend() -> ExecutionBackend:
+    """The backend ``$VAFT_EXECUTION_BACKEND`` selects: ``local`` (default) or ``slurm``.
+
+    ``slurm`` builds :meth:`vaft.code.slurm.SlurmBackend.from_environment`, so
+    a whole session or pipeline can move onto a cluster without touching any
+    adapter configuration.
+    """
+    name = os.environ.get(BACKEND_ENV, "").strip().lower()
+    if name in ("", "local"):
+        return LocalBackend()
+    if name == "slurm":
+        from .slurm import SlurmBackend
+
+        return SlurmBackend.from_environment()
+    raise ValueError(f"{BACKEND_ENV} must be 'local' or 'slurm', got {name!r}")
+
+
 def resolve_backend(config: Any = None) -> ExecutionBackend:
-    """The backend ``config`` names, or a :class:`LocalBackend`."""
+    """The backend ``config`` names, else :func:`default_backend`."""
     backend = getattr(config, "backend", None)
     if backend is None:
-        return LocalBackend()
+        return default_backend()
     # A class has a ``run`` attribute too; only an instance can run a request.
     if isinstance(backend, type) or not isinstance(backend, ExecutionBackend):
         raise TypeError(
@@ -207,12 +234,14 @@ def resolve_backend(config: Any = None) -> ExecutionBackend:
 
 
 __all__ = [
+    "BACKEND_ENV",
     "THREAD_ENV_VARIABLES",
     "ExecutionBackend",
     "ExecutionRequest",
     "ExecutionResult",
     "LocalBackend",
     "ResourceRequest",
+    "default_backend",
     "execution_environment",
     "resolve_backend",
 ]
