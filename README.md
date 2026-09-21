@@ -230,7 +230,7 @@ This installs the latest published release. Install from source instead when
 you need unreleased changes from `develop`.
 
 
-**Supported Python**: 3.10 -- 3.13
+**Supported Python**: 3.10 -- 3.14
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
 

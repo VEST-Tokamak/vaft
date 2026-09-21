@@ -14,7 +14,7 @@ Install
 
 To use this tool you have to firstly install git. To install git you can follow the
 [Installation]({{ site.baseurl }}/guide/Installation/) guide. (You can skip this stage if you
-already use git.) Supported Python versions are 3.10 -- 3.13.
+already use git.) Supported Python versions are 3.10 -- 3.14.
 
 Install from source (recommended):
 

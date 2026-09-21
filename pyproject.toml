@@ -10,7 +10,7 @@ authors = [
 description = "Versatile Analysis Framework for Tokamak"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 dynamic = ["version"]
 keywords = ["tokamak", "imas", "omas", "fusion", "vest"]
 classifiers = [
@@ -22,6 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Physics",
 ]
 
@@ -44,7 +45,9 @@ dependencies = [
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
   "pyjwt",
-  "PyYAML==6.0.2",
+  # Was an exact pin from a requirements freeze, with no recorded reason; 6.0.2
+  # has no cp314 wheel, so Python 3.14 had to build it from source (#1012).
+  "PyYAML>=6.0.2,<7",
   "requests-unixsocket==0.4.1",
   "scikit-image",
   "scipy>=1.13.0,<2",
