@@ -3,7 +3,7 @@
  "numbering": {
   "cumulative": "EFIT's nitera: the counter printed as it= and the index of the m-file's cerror/cchisq/czmaxi arrays. It is incremented inside the inner (NXITER) loop, so it is cumulative across outer and inner iterations, and it restarts at 1 on every slice.",
   "nxiter": 1,
-  "nxiter_source": "EFIT default: the k-file wrote no NXITER",
+  "nxiter_source": "k-files",
   "outer_inner": "derived: with NXITER=1 every outer iteration is exactly one inner step, so outer = cumulative and inner = 1"
  },
  "provenance": {
@@ -45,7 +45,7 @@
    "provenance": "manifest"
   },
   "uncertainty_mode": "legacy_weight",
-  "vaft_revision": "80c8eafdf1d0ff64d2ccb842003318ec46c00304",
+  "vaft_revision": "e4b824aabbfbd717f9ae4a9a1dba611b05535b8e",
   "vaft_version": "0.7.1"
  },
  "schema": "vaft.efit.iteration_history",
@@ -878,7 +878,7 @@
    "iterations": [],
    "mfile": "m039915.00331",
    "notes": [
-    "the log printed no Picard step for this slice; the m-file's arrays ({'cerror': 1, 'cchisq': 1, 'czmaxi': 1}) were not read as iterations"
+    "EFIT ran no Picard step on this slice: its m-file arrays ({'cerror': 1, 'cchisq': 1, 'czmaxi': 1}) hold a single zero and were not read as iterations"
    ],
    "solver_errors": [],
    "sources": [],

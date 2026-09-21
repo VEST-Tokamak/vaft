@@ -743,6 +743,10 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     :class:`EFITResult`.
     """
     workdir = _efit_workdir(config, inputs.workdir)
+    # A history left by an earlier run in this workdir would read as this
+    # run's -- even beside a run that is skipped. It is only ever vaft's own
+    # product, so it goes first.
+    (workdir / ITERATION_HISTORY_SIDECAR).unlink(missing_ok=True)
     executable = _resolve_efit_executable(config)
     if executable is None:
         return _skipped_efit_result(
@@ -808,9 +812,6 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
         if _efit_case_key(path) in attempted_case_keys
         if (fingerprint := _file_stat_fingerprint(path)) is not None
     }
-    # A history left by an earlier run in this workdir would read as this
-    # run's; it is only ever vaft's own product, so it goes before EFIT runs.
-    (workdir / ITERATION_HISTORY_SIDECAR).unlink(missing_ok=True)
     _add_shim_directory(env, executable)
     try:
         completed = resolve_backend(config).run(
@@ -1396,6 +1397,13 @@ def collect_efit_outputs(
             config,
             runtime_status=runtime_status,
             meqdsk=[parsed_m_by_case[case] for case in sorted(parsed_m_by_case, key=_efit_case_time)],
+            # The k-files this run fed EFIT, not every k-file the workdir holds.
+            keqdsk=[
+                parsed_k_by_case[case]
+                for case in sorted(parsed_k_by_case, key=_efit_case_time)
+                if not executed_kfiles
+                or case in {_efit_case_key(Path(path)) for path in executed_kfiles}
+            ],
             configuration=result_configuration,
             kfiles=tuple(Path(path) for path in executed_kfiles) or kfiles,
         )
@@ -1461,6 +1469,7 @@ def _write_iteration_history(
     *,
     runtime_status: str,
     meqdsk: Sequence[Any],
+    keqdsk: Sequence[Any],
     configuration: Mapping[str, Any],
     kfiles: Sequence[Path],
 ) -> tuple[EFITIterationHistory, Path]:
@@ -1478,6 +1487,7 @@ def _write_iteration_history(
     history = parse_iteration_history(
         text,
         mfiles=meqdsk,
+        kfiles=keqdsk,
         configuration=configuration,
         provenance={
             "log": str(log) if text else None,

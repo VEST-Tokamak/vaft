@@ -108,14 +108,16 @@ def test_mfile_values_replace_the_printed_ones_and_czmaxi_is_centimetres(tmp_pat
         tmp_path / "m039915.00319", 319.0,
         cerror=[16.424274, 0.48768866, 0.0085861],
         cchisq=[1.5339523e-08, 2.0914861e-08, 2.3140037e-08],
-        czmaxi_cm=[0.0, 0.0, 0.123],
+        czmaxi_cm=[0.0, 0.0, 0.5],
     )
     history = parse_iteration_history(LOG, mfiles=[mfile])
     item = history.at_time(0.319)
 
     assert item.sources == ("log", "mfile") and item.mfile == str(mfile)
     np.testing.assert_allclose(item.error, [16.424274, 0.48768866, 0.0085861], rtol=1e-6)
-    np.testing.assert_allclose(item.axis_z[-1], 1.23e-3, rtol=1e-6)
+    # 0.5 cm, not the log's 1.23e-3 m: the m-file's value, converted.
+    np.testing.assert_allclose(item.axis_z[-1], 5.0e-3, rtol=1e-6)
+    np.testing.assert_allclose(item.chi2, [1.5339523e-08, 2.0914861e-08, 2.3140037e-08], rtol=1e-6)
     # The log still supplies what the m-file does not carry.
     np.testing.assert_allclose(item.dz, [7.145e-17, 5.615e-19, 4.534e-19])
     assert item.exit_path == "iconvr=2"
@@ -138,6 +140,85 @@ def test_a_slice_with_no_printed_step_is_not_given_the_mfile_placeholder(tmp_pat
 
     assert item.iterations_n == 0 and item.exit_path is None
     assert "no Picard step" in item.notes[0]
+
+
+def test_the_placeholder_is_not_an_iteration_without_a_log_either(tmp_path):
+    mfile = _mfile(tmp_path / "m039915.00331", 331.0, [0.0], [0.0], [0.0])
+    item = parse_iteration_history("", mfiles=[mfile]).at_time(0.331)
+
+    assert item.iterations_n == 0 and "single zero" in item.notes[0]
+
+
+TWO_BLOCKS = """\
+ r=  0 t=   316 it=  1 chi2=1.00E+00 zm= 0.00E+00 err=1.000E+00 dz= 0.000E+00
+ r=  0 t=   316 it=  2 chi2=2.00E+00 zm= 0.00E+00 err=5.000E-01 dz= 0.000E+00
+ r=  0 t=   317 it=  1 chi2=3.00E+00 zm= 0.00E+00 err=3.000E+00 dz= 0.000E+00
+ r=  0 t=   317 it=  2 chi2=4.00E+00 zm= 0.00E+00 err=6.000E-01 dz= 0.000E+00
+"""
+
+
+@pytest.mark.parametrize("placeholder_first", [True, False])
+def test_sub_millisecond_slices_pair_on_the_printed_floor(tmp_path, placeholder_first):
+    # Three slices, two of which printed steps; EFIT prints floor(ms), so
+    # 316.1 and 316.7 both print as 316. Rounding would hand 316.7 the 317
+    # block, and pairing by position would hand the placeholder the 316 one.
+    real, empty = (316.7, 316.1) if placeholder_first else (316.1, 316.7)
+    mfiles = [
+        _mfile(tmp_path / "m_a", real, [1.0, 0.25], [1.0, 2.0], [0.0, 0.0]),
+        _mfile(tmp_path / "m_b", empty, [0.0], [0.0], [0.0]),
+        _mfile(tmp_path / "m_c", 317.0, [3.0, 0.75], [3.0, 4.0], [0.0, 0.0]),
+    ]
+    history = parse_iteration_history(TWO_BLOCKS, mfiles=mfiles)
+
+    assert history.times.tolist() == pytest.approx(sorted([real / 1e3, empty / 1e3, 0.317]))
+    np.testing.assert_allclose(history.at_time(real / 1e3, 1e-5).error, [1.0, 0.25])
+    assert history.at_time(real / 1e3, 1e-5).time_ms == 316
+    assert history.at_time(empty / 1e3, 1e-5).iterations_n == 0
+    later = history.at_time(0.317, 1e-5)
+    assert later.time_ms == 317 and later.sources == ("log", "mfile")
+    np.testing.assert_allclose(later.error, [3.0, 0.75])
+
+
+def test_slices_sharing_a_millisecond_pair_on_their_step_count(tmp_path):
+    log = TWO_BLOCKS.replace("t=   317", "t=   316") + (
+        " r=  0 t=   316 it=  3 chi2=5.00E+00 zm= 0.00E+00 err=1.000E-01 dz= 0.000E+00\n"
+    )
+    mfiles = [
+        _mfile(tmp_path / "m_a", 316.2, [1.0, 0.5], [1.0, 2.0], [0.0, 0.0]),
+        _mfile(tmp_path / "m_b", 316.6, [3.0, 0.6, 0.1], [3.0, 4.0, 5.0], [0.0, 0.0, 0.0]),
+    ]
+    history = parse_iteration_history(log, mfiles=mfiles)
+    assert [item.iterations_n for item in history] == [2, 3]
+    assert all(item.sources == ("log", "mfile") and not item.notes for item in history)
+
+
+def test_a_log_cut_short_does_not_lose_a_written_slice(tmp_path):
+    mfile = _mfile(tmp_path / "m039915.00322", 322.0, [2.0, 0.5], [3.0, 2.0], [0.0, 0.0])
+    item = parse_iteration_history(LOG, mfiles=[mfile]).at_time(0.322)
+
+    assert item.sources == ("mfile",) and item.iterations_n == 2
+    assert "the m-file's alone" in item.notes[0]
+
+
+def test_nxiter_is_read_from_the_kfiles_efit_read(tmp_path):
+    def kfile(name, body):
+        path = tmp_path / name
+        path.write_text(f"&IN1\n {body}\n/\n", encoding="utf-8")
+        return path
+
+    # A negative NXITER is its magnitude to EFIT; the k-file beats a
+    # configuration that says nothing.
+    history = parse_iteration_history(
+        LOG, kfiles=[kfile("k1", "NXITER=-3, PLASMA=1.0")], configuration=_configuration()
+    )
+    assert history.numbering["nxiter"] == 3 and history.numbering["nxiter_source"] == "k-files"
+    assert history.slices[0].iterations[0].outer is None
+
+    unset = parse_iteration_history(LOG, kfiles=[kfile("k2", "PLASMA=1.0")])
+    assert unset.numbering["nxiter"] == 1
+
+    mixed = parse_iteration_history(LOG, kfiles=[kfile("k3", "NXITER=1"), kfile("k4", "NXITER=2")])
+    assert mixed.numbering["nxiter"] is None and "disagree" in mixed.numbering["nxiter_source"]
 
 
 def test_without_a_log_the_mfile_is_the_trajectory(tmp_path):
@@ -252,6 +333,14 @@ def test_run_efit_reads_this_runs_log_and_drops_a_stale_sidecar(tmp_path):
     stale.write_text("{}", encoding="utf-8")
     quiet = run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), EFITConfig(**base))
     assert quiet.iteration_history is None and not stale.exists()
+
+    # Even a run that is skipped must not leave an older run's history behind.
+    stale.write_text("{}", encoding="utf-8")
+    skipped = run_efit(
+        EFITInputs(tmp_path, kfiles=(kfile,)),
+        EFITConfig(**{**base, "executable": str(tmp_path / "absent")}, iteration_history="summary"),
+    )
+    assert skipped.status != "completed" and not stale.exists()
 
 
 def test_a_run_that_never_launched_does_not_read_an_old_log(tmp_path):

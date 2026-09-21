@@ -92,12 +92,15 @@ _DONE = re.compile(r"Done processing")
 def iterations_from_log(text: str) -> list[dict[str, Any]]:
     """Per-slice iteration count, last chi2 and last increment from EFIT's terminal log.
 
-    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in EFIT's
-    processing order, which is the k-files' ascending time. The counter
-    restarting at 1 delimits the slices, and a ``bound`` error naming a time
-    no slice has yet opens one -- a slice that collapsed before its first
-    Picard step is a block with ``iterations_n == 0``, not an error charged
-    to the slice before it, which would shift every block after it by one.
+    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in time
+    order. The counter restarting at 1 delimits the slices, and a ``bound``
+    error naming a time no slice has yet opens one -- a slice that collapsed
+    before its first Picard step is a block with ``iterations_n == 0``, not an
+    error charged to the slice before it.
+
+    A slice that printed neither a step nor an error (one below the current
+    cut, say) has no block at all, so pairing these blocks with the k-files
+    by position still assumes every k-file printed something.
     """
     return [
         {

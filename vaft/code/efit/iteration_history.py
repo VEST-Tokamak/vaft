@@ -30,9 +30,10 @@ exist for a slice and agree on the number of steps, the m-file's values are
 used and the log contributes the rest (``dz``, the exit path, the failures).
 ``czmaxi`` is in centimetres (``update_parameters.F90``); the history is in
 metres, as the log's ``zm`` is. Where the counts disagree, the log is kept and
-the slice carries a note. The log is the universe of slices whenever it
-printed any step at all: a slice EFIT ran no Picard step on still writes an
-m-file, with one zero in each array, and that zero is not an iteration.
+the slice carries a note. Log and m-file are paired on the millisecond EFIT
+prints (the floor, ``data_input.F90``) and, where several slices share one, on
+the step count. A slice EFIT ran no Picard step on still writes an m-file,
+with one zero in each array; that zero is not an iteration.
 
 Picard iteration is a numerical axis, not a physical one, so none of this is
 written into ``equilibrium.time_slice``; a run records only a pointer to the
@@ -351,13 +352,41 @@ def _mfile_trajectory(mfile: Any) -> tuple[float | None, dict[str, np.ndarray], 
     return parsed.time_seconds(), arrays, (str(source) if source is not None else None)
 
 
-def _nxiter_from(configuration: Mapping[str, Any] | None) -> tuple[int | None, str]:
+def _nxiter_from(
+    configuration: Mapping[str, Any] | None, kfiles: Sequence[Any]
+) -> tuple[int | None, str]:
+    """``NXITER`` as EFIT read it, and where that answer came from.
+
+    The k-files are what EFIT read, so they win: a run can be handed k-files
+    written elsewhere. EFIT takes a negative ``NXITER`` as its magnitude
+    (``data_input.F90``). Only with neither k-files nor a configuration is
+    it unknown; only with k-files that set none, or a configuration that
+    wrote none, is it EFIT's default.
+    """
+    from vaft.data.keqdsk import KEQDSK, read_keqdsk
+
+    if kfiles:
+        values = set()
+        for item in kfiles:
+            try:
+                parsed = item if isinstance(item, KEQDSK) else read_keqdsk(item)
+                value = parsed["in1"].get("nxiter")
+            except KeyError:
+                value = None
+            except Exception:
+                # Not a k-file EFIT could have read; it says nothing.
+                continue
+            values.add(_EFIT_DEFAULT_NXITER if value is None else abs(int(value)))
+        if len(values) == 1:
+            return values.pop(), "k-files"
+        if values:
+            return None, f"unknown: the k-files disagree ({sorted(values)})"
     if not configuration:
-        return None, "unknown: no run configuration was supplied"
+        return None, "unknown: neither k-files nor a run configuration was supplied"
     numerics = (configuration.get("scientific") or {}).get("numerics") or {}
     value = numerics.get("inner_iterations")
     if value is None:
-        return _EFIT_DEFAULT_NXITER, "EFIT default: the k-file wrote no NXITER"
+        return _EFIT_DEFAULT_NXITER, "EFIT default: the configuration writes no NXITER"
     return int(value), "run configuration"
 
 
@@ -401,18 +430,29 @@ def _provenance_from(configuration: Mapping[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _log_matches(record: Mapping[str, Any], time: float) -> bool:
-    # EFIT prints the slice time as whole milliseconds; which rounding it
-    # uses is not ours to assume, so either names the slice.
-    printed = record["time_ms"]
-    milliseconds = time * 1000.0
-    return printed in (int(math.floor(milliseconds + 1e-6)), int(round(milliseconds)))
+def _printed_ms(time: float) -> int:
+    """The millisecond EFIT prints for a slice at ``time`` seconds.
+
+    ``data_input.F90`` truncates (``itime=time``), except that a remainder of
+    0.99 ms or more moves both ``itime`` and the stored time up to the next
+    whole millisecond -- so the m-file's time and the log agree on the floor.
+    The small offset absorbs the single-precision time in the m-file.
+    """
+    return int(math.floor(time * 1000.0 + 1.0e-3))
+
+
+def _is_placeholder(arrays: Mapping[str, np.ndarray]) -> bool:
+    """One zero in every array: what EFIT writes for a slice with no Picard step."""
+    return bool(arrays) and all(
+        values.size == 1 and float(values[0]) == 0.0 for values in arrays.values()
+    )
 
 
 def parse_iteration_history(
     text: str,
     *,
     mfiles: Sequence[Any] = (),
+    kfiles: Sequence[Any] = (),
     configuration: Mapping[str, Any] | None = None,
     nxiter: int | None = None,
     provenance: Mapping[str, Any] | None = None,
@@ -421,11 +461,12 @@ def parse_iteration_history(
 
     ``text`` is EFIT's terminal log (``run_efit.out``); ``mfiles`` are the
     run's m-files, as paths or parsed :class:`vaft.data.meqdsk.MEQDSK`.
-    ``configuration`` is the run's resolved configuration
-    (:func:`vaft.code.efit.resolved_efit_configuration`, or ``resolved`` in
-    ``efit_configuration.json``); it supplies ``NXITER`` and the numerical
-    provenance. ``nxiter`` overrides the configuration's; ``provenance`` is
-    merged over what the configuration supplies.
+    ``kfiles`` (paths or parsed :class:`vaft.data.keqdsk.KEQDSK`) say which
+    ``NXITER`` EFIT actually read. ``configuration`` is the run's resolved
+    configuration (:func:`vaft.code.efit.resolved_efit_configuration`, or
+    ``resolved`` in ``efit_configuration.json``); it supplies the numerical
+    provenance, and ``NXITER`` when no k-file is given. ``nxiter`` overrides
+    both; ``provenance`` is merged over what the configuration supplies.
     """
     records = _parse_slice_records(text or "")
     log_has_steps = any(record["iterations"] for record in records)
@@ -433,7 +474,7 @@ def parse_iteration_history(
     if nxiter is not None:
         resolved_nxiter, nxiter_source = int(nxiter), "caller"
     else:
-        resolved_nxiter, nxiter_source = _nxiter_from(configuration)
+        resolved_nxiter, nxiter_source = _nxiter_from(configuration, kfiles)
     derive_outer = resolved_nxiter == 1
 
     def steps_from_log(record: Mapping[str, Any]) -> list[EFITIteration]:
@@ -467,19 +508,41 @@ def parse_iteration_history(
         (_mfile_trajectory(item) for item in mfiles),
         key=lambda item: (item[0] is None, item[0] if item[0] is not None else 0.0),
     )
-    for time, arrays, source in trajectories:
+    # Several slices can share a printed millisecond, so the pairing is not
+    # "first block of that millisecond". An m-file that repeats a block's
+    # step count is that block's slice; only then do the rest take a free
+    # block of their millisecond. A placeholder belongs to a slice that
+    # printed nothing, so it never takes a block that did.
+    assignment: dict[int, dict[str, Any]] = {}
+    claimed: set[int] = set()
+
+    def free_blocks(time: float) -> list[dict[str, Any]]:
+        return [
+            candidate
+            for candidate in entries
+            if candidate["record"] is not None
+            and id(candidate) not in claimed
+            and candidate["record"]["time_ms"] == _printed_ms(time)
+        ]
+
+    for exact in (True, False):
+        for index, (time, arrays, _source) in enumerate(trajectories):
+            if index in assignment or time is None or _is_placeholder(arrays):
+                continue
+            count = arrays["cerror"].size if "cerror" in arrays else None
+            match = next(
+                (c for c in free_blocks(time) if not exact or len(c["steps"]) == count),
+                None,
+            )
+            if match is not None:
+                assignment[index] = match
+                claimed.add(id(match))
+
+    for index, (time, arrays, source) in enumerate(trajectories):
         if time is None:
             continue
-        entry = next(
-            (
-                candidate
-                for candidate in entries
-                if candidate["mfile"] is None
-                and candidate["record"] is not None
-                and _log_matches(candidate["record"], time)
-            ),
-            None,
-        )
+        count = arrays["cerror"].size if "cerror" in arrays else None
+        entry = assignment.get(index)
         counts = {name: values.size for name, values in arrays.items()}
         if entry is None:
             entry = {
@@ -487,37 +550,33 @@ def parse_iteration_history(
                 "mfile": source, "notes": [],
             }
             entries.append(entry)
-            if log_has_steps:
-                # The log printed steps for other slices but none for this
-                # one: EFIT ran no Picard step here, and the one-entry array
-                # it still writes is not an iteration.
+            if _is_placeholder(arrays):
+                # EFIT ran no Picard step here; the one-entry arrays it still
+                # writes are not an iteration.
                 entry["notes"].append(
-                    "the log printed no Picard step for this slice; the m-file's "
-                    f"arrays ({counts}) were not read as iterations"
+                    "EFIT ran no Picard step on this slice: its m-file arrays "
+                    f"({counts}) hold a single zero and were not read as iterations"
                 )
                 continue
+            if log_has_steps:
+                # A log cut short (a timeout) can miss a slice whose m-file
+                # was written; the m-file is then the only record of it.
+                entry["notes"].append(
+                    "the log printed no block for this slice; its trajectory "
+                    "is the m-file's alone"
+                )
         else:
             entry["time"] = time
             entry["mfile"] = source
         if "cerror" not in arrays:
             entry["notes"].append("the m-file has no cerror; its arrays were not used")
             continue
-        count = arrays["cerror"].size
         if entry["steps"] and len(entry["steps"]) != count:
             entry["notes"].append(
                 f"the m-file has {count} iterations and the log {len(entry['steps'])}; "
                 "the log's values were kept"
             )
             continue
-        if not entry["steps"] and count == 1 and all(
-            float(values[0]) == 0.0 for values in arrays.values() if values.size
-        ):
-            entry["notes"].append(
-                "the m-file's arrays hold a single zero: EFIT wrote them for a "
-                "slice it ran no Picard step on"
-            )
-            continue
-
         def column(name: str, scale: float = 1.0) -> np.ndarray:
             values = arrays.get(name)
             if values is None or values.size != count:
@@ -599,8 +658,10 @@ def iteration_history_from_workdir(
         extra["vaft_revision"] = payload.get("vaft_revision")
         extra["table"] = payload.get("table")
     mfiles = _find_outputs(base, "m", shot)
+    kfiles = _find_outputs(base, "k", shot)
     return parse_iteration_history(
-        text, mfiles=mfiles, configuration=configuration, nxiter=nxiter, provenance=extra
+        text, mfiles=mfiles, kfiles=kfiles, configuration=configuration,
+        nxiter=nxiter, provenance=extra,
     )
 
 
