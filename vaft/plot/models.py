@@ -706,8 +706,25 @@ class Spectrogram(ViewModel):
     title: str = ""
     max_frequency: float | None = None
     cmap: str = "hot_r"
+    #: A tracked spectral ridge drawn over the map (issue #1005): one frequency
+    #: per ``ridge_time``, NaN where no ridge was found.  ``None`` draws none.
+    ridge_time: np.ndarray | None = None
+    ridge_frequency: np.ndarray | None = None
+    ridge_label: str = ""
 
     def __post_init__(self) -> None:
+        if (self.ridge_time is None) != (self.ridge_frequency is None):
+            raise ValueError("Spectrogram.ridge_time and ridge_frequency are given together or not at all")
+        if self.ridge_time is not None:
+            ridge_time = np.asarray(self.ridge_time, dtype=float).reshape(-1)
+            ridge_frequency = np.asarray(self.ridge_frequency, dtype=float).reshape(-1)
+            if ridge_time.shape != ridge_frequency.shape:
+                raise ValueError(
+                    "Spectrogram.ridge_time and ridge_frequency must have equal length; "
+                    f"got {ridge_time.size} and {ridge_frequency.size}"
+                )
+            object.__setattr__(self, "ridge_time", ridge_time)
+            object.__setattr__(self, "ridge_frequency", ridge_frequency)
         time = as_model_array(self.time, where="Spectrogram.time")
         frequency = as_model_array(self.frequency, where="Spectrogram.frequency")
         magnitude = as_model_array(self.magnitude, where="Spectrogram.magnitude")

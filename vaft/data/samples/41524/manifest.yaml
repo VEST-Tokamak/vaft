@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-41524-pipeline-full-imas-v4
+reference_id: vest-41524-pipeline-full-imas-v5
 shot: 41524
 machine: VEST
 imas_dd_version: 3.41.0
@@ -17,8 +17,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 36154356
-    sha256: b3a51a0e391b1373c6d2253c4057fe655c9bf2882aaa03b09be0072365fc86dc
+    size: 36076111
+    sha256: 1ca7152401d1ddf2008b8f34e837e9de893aa9495b3200dfcafa0b1c6864f656
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -26,14 +26,14 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 27747256
-    sha256: c8917664b404478927ec3759084afe4082fc510a32de8360c7f63f64ed07fa0b
+    size: 27658240
+    sha256: 84e4a239ef573060a0ecf2f335ffe0b90ee8ca4634852b11a1d8b312f90e3cb9
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41524/manifest.yaml --canonical-source vaft/data/samples/41524/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 62678a186ea287226c53fabb46a07c1f361274beac5b4a5f2aecc5394b3c7d82
-  materialized_leaves: 18390
+  canonical_sha256: 09f0c01a9c4d238e1161fc318c32bf47f631ab52c9a3de25194bb7c0cb0659b0
+  materialized_leaves: 18379
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
   - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
@@ -164,6 +164,35 @@ generation:
       with VBIT left at EFIT's default 10, so EFIT's sigma is weight*1e4 on the fitted
       channels (probes 1000 T, flux loops 100 Wb/rad, Ip 10 kA; PF currents take SERROR's
       0.1% floor); the m-file's sig* arrays are EFIT's values.
+  magnetics_deduplication:
+    issues:
+    - https://github.com/VEST-Tokamak/vaft/issues/724
+    - https://github.com/VEST-Tokamak/vaft/issues/825
+    generated: '2026-09-18'
+    previous_reference_id: vest-41524-pipeline-full-imas-v4
+    previous_canonical_sha256: 62678a186ea287226c53fabb46a07c1f361274beac5b4a5f2aecc5394b3c7d82
+    removed: magnetics.b_field_pol_probe.64 (identifier MagneticFieldProbe_C2-05_Bz:phase_reference,
+      13 leaves)
+    reason: 'DAQ field 171 was published twice: as equilibrium probe 36 (MagneticFieldProbe_C2-05_Bz,
+      outboard family, clock 5:30, phi 195 deg) and as a phase-reference twin at clock
+      9:30 (phi 75 deg) carrying byte-identical voltage. The mapper now publishes
+      a phase-reference channel only when the shot''s equilibrium wiring does not
+      already read its field (toroidal_mirnov_reference_channels). The 9:30 assignment
+      stays recorded, as disputed, in vest.yaml toroidal_mirnov_reference.'
+    method: 'The diagnostics stage was rebuilt from source/ with the current mapper
+      (build_diagnostics_ods, settings from source/pipeline-config.yaml) and its magnetics
+      leaves compared with the canonical source: the only difference was the 13 leaves
+      of probe 64, every other magnetics leaf identical. Those 13 leaves were removed
+      from the canonical source in place; a leaf-by-leaf comparison of the rewritten
+      canonical against the previous one shows no other leaf added, removed or changed.
+      Equilibrium (constraints.bpol_probe has 64 entries) and EFIT inputs are untouched;
+      field 171 remains probe 36.'
+    also_changed: em_coupling.code.parameters and em_coupling.ids_properties.comment
+      gained the wall geometry (wall_geometry=1512) because generate_pipeline_imas_sample.py
+      re-maps em_coupling through the current vaft.machine_mapping.em_coupling (#956
+      added that record). The coupling matrices and every other leaf of both compact
+      artifacts are unchanged; compared leaf by leaf against the previous omas.json.gz
+      and imas.nc.
 pipeline:
   configuration: source/pipeline-config.yaml
   configuration_sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a

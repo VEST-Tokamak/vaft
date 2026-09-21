@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-39915-until-efit-v3
+reference_id: vest-39915-until-efit-v4
 shot: 39915
 machine: VEST
 imas_dd_version: 3.41.0
@@ -51,8 +51,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 11112679
-    sha256: 625e8c0ddb6ae1b9125961721e629f000411af4bdddc975e5cb879042c8f3add
+    size: 11030848
+    sha256: afed7ccb9e95f6e5f94957b9960da0afac9a0f1174e6d6f144c0f5815f35f83a
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -60,18 +60,18 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11524973
-    sha256: b1c813ebb05e1550bd423d800cce401b007ea76ab031c34856b32ea3c9cf2d87
+    size: 11420182
+    sha256: 4c54a687c94366c602ae3b94d27d22d8f603285defada3955d4c1c874bcd8518
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: c22e21071fe29b9757be7403c5f55be56ccec6bce83467a3435dd8bb0ad33a46
+  canonical_sha256: 5a5f7a6403d76f256b8b78208f601adc709f2b802fc5d8df3cf0686bbe84175d
   canonical_policy: repository-only
   normalizations:
   - equilibrium_psi_weber
   equilibrium_time_slices: 0
-  materialized_leaves: 19338
+  materialized_leaves: 19327
   metadata_corrections:
   - issue: https://github.com/VEST-Tokamak/vaft/issues/169
     path: magnetics.b_field_pol_probe.*.poloidal_angle
@@ -215,6 +215,29 @@ generation:
       with VBIT left at EFIT's default 10, so EFIT's sigma is weight*1e4 on the fitted
       channels (probes 1000 T, flux loops 100 Wb/rad, Ip 10 kA; PF currents take SERROR's
       0.1% floor); the m-file's sig* arrays are EFIT's values.
+  magnetics_deduplication:
+    issues:
+    - https://github.com/VEST-Tokamak/vaft/issues/724
+    - https://github.com/VEST-Tokamak/vaft/issues/825
+    generated: '2026-09-18'
+    previous_reference_id: vest-39915-until-efit-v3
+    previous_canonical_sha256: c22e21071fe29b9757be7403c5f55be56ccec6bce83467a3435dd8bb0ad33a46
+    removed: magnetics.b_field_pol_probe.64 (identifier MagneticFieldProbe_C2-05_Bz:phase_reference,
+      13 leaves)
+    reason: 'DAQ field 171 was published twice: as equilibrium probe 36 (MagneticFieldProbe_C2-05_Bz,
+      outboard family, clock 5:30, phi 195 deg) and as a phase-reference twin at clock
+      9:30 (phi 75 deg) carrying byte-identical voltage. The mapper now publishes
+      a phase-reference channel only when the shot''s equilibrium wiring does not
+      already read its field (toroidal_mirnov_reference_channels). The 9:30 assignment
+      stays recorded, as disputed, in vest.yaml toroidal_mirnov_reference.'
+    method: 'The diagnostics stage was rebuilt from source/ with the current mapper
+      (build_diagnostics_ods, settings from source/pipeline-config.yaml) and its magnetics
+      leaves compared with the canonical source: the only difference was the 13 leaves
+      of probe 64, every other magnetics leaf identical. Those 13 leaves were removed
+      from the canonical source in place; a leaf-by-leaf comparison of the rewritten
+      canonical against the previous one shows no other leaf added, removed or changed.
+      Equilibrium (constraints.bpol_probe has 64 entries) and EFIT inputs are untouched;
+      field 171 remains probe 36.'
 semantic_comparison:
   paths:
   - wall.*
@@ -233,7 +256,7 @@ semantic_comparison:
   - ec_launchers.time
 acceptance:
   magnetics:
-    b_field_pol_probe_count: 65
+    b_field_pol_probe_count: 64
     flux_loop_count: 11
   pf_active:
     coil_count: 10

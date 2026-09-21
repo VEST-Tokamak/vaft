@@ -38,7 +38,7 @@ NEUTRAL = frozenset({
     "equilibrium_geometry_topview", "machine_geometry_topview",
     "electron_temperature_field", "electron_density_field",
     "camera_visible_animation_frames", "camera_visible_spectrogram",
-    "limiter_current_time", "mirnov_spatial_phase",
+    "limiter_current_time", "mirnov_spatial_phase", "diagnostics_spectrum_coherence",
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
     "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",

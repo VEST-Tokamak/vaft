@@ -18,12 +18,13 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from ..models import PowerSpectrum, ReferenceSlope
+from ..models import Panels, PowerSpectrum, ReferenceSlope
 from ..registry import renderer
 from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "diagnostics_spectrum_coherence",
     "interferometer_spectrum",
     "mirnov_spectrum",
     "render_power_spectrum",
@@ -189,3 +190,38 @@ def interferometer_spectrum(
 ) -> tuple[Figure, Axes]:
     """Power spectral density of one interferometer channel's line density."""
     return render_power_spectrum(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="magnetics",
+    subject="diagnostics",
+    view="spectrum",
+    quantity="coherence",
+    model=Panels,
+    description=(
+        "Coherence (with its 95 % significance line) and relative phase of two "
+        "fluctuation channels -- Mirnov, soft X-ray or interferometer -- compared "
+        "on one time grid over their overlap (issue #1005)."
+    ),
+    ids=("magnetics", "soft_x_rays", "interferometer"),
+    optional_paths=(
+        "magnetics.b_field_pol_probe.{i}.voltage.data",
+        "magnetics.b_field_pol_probe.{i}.voltage.time",
+        "magnetics.time",
+        "soft_x_rays.channel.{i}.brightness.data",
+        "soft_x_rays.channel.{i}.brightness.time",
+        "soft_x_rays.channel.{i}.power.data",
+        "soft_x_rays.channel.{i}.power.time",
+        "soft_x_rays.time",
+        "interferometer.channel.{i}.n_e_line.data",
+        "interferometer.channel.{i}.n_e_line.time",
+        "interferometer.time",
+    ),
+)
+def diagnostics_spectrum_coherence(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, Any]:
+    """Coherence and relative phase of two fluctuation channels."""
+    from .panels import render_panels
+
+    return render_panels(model, ax=ax, show=show, **style)

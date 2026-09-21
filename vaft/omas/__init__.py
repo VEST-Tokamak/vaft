@@ -8,6 +8,11 @@ from .formula_wrapper import *
 from .update import *
 from .sample import *
 from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
+from .fluctuation import (
+    VerticalPositionHistory,
+    fluctuation_bandwidths,
+    vertical_position_history,
+)
 
 #: Plotting adapters live in ``.plotting`` and are resolved lazily so that
 #: importing ``vaft.omas`` does not pull in Matplotlib.

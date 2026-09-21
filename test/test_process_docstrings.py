@@ -180,6 +180,12 @@ PIPELINE = frozenset({
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
 
+    # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
+    # crossings then rate; trend, window, noise, threshold
+    "cross_spectrum",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
     # camera_fluctuation (#161)
     "mhd_band_power",
     "normalize_by_local_emission",
@@ -449,6 +455,12 @@ CONVENTION_SENSITIVE = frozenset({
     # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
     "resolve_model",
     "train_model",
+    # fluctuation / transients (#1005): the phase is y relative to x, the ridge
+    # floor is relative to the map, and the current is measured on its magnitude.
+    "cross_spectrum",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
