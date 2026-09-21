@@ -239,7 +239,7 @@ def test_chease_input_is_byte_identical_from_a_gfile_and_from_its_own_ods(tmp_pa
             create_plot=False,
             target_psin=0.993,
             relax=0.5,
-            nideal=6,
+            output="geqdsk",
             nw=513,
             preserve_boundary_limiter=True,
         )
