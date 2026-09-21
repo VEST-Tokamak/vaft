@@ -332,3 +332,48 @@ def test_early_time_file_names_match_configured_slice(tmp_path):
     assert len(result.slice_statuses) == 1
     assert result.slice_statuses[0].time == 0.05
     assert result.slice_statuses[0].usable
+
+
+def _backend_case(tmp_path):
+    executable = write_launchable_stub(tmp_path / "efit")
+    kdir = tmp_path / "kfile"
+    kdir.mkdir()
+    kfile = kdir / "k039915.00319"
+    kfile.write_text("input", encoding="utf-8")
+    return executable, kfile
+
+
+def test_efit_hands_stdin_and_one_thread_to_the_backend(tmp_path):
+    """#671: the k-file list goes on stdin, and EFIT runs single-threaded."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    executable, kfile = _backend_case(tmp_path)
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="", stderr=""))
+    config = EFITConfig(
+        executable=str(executable), workdir=tmp_path, shot=39915,
+        stack_size_kb=None, env={"EFIT_FLAG": "1"}, backend=backend,
+    )
+    run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), config)
+
+    (request,) = backend.requests
+    assert request.command == (str(executable),)
+    assert request.stdin.startswith("2\n1\n")
+    assert "k039915.00319" in request.stdin
+    assert request.env["EFIT_FLAG"] == "1"
+    assert request.resources.threads_per_task == 1
+
+
+def test_an_efit_the_os_refuses_is_a_runtime_error_with_the_os_message(tmp_path, monkeypatch):
+    executable, kfile = _backend_case(tmp_path)
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    config = EFITConfig(executable=str(executable), workdir=tmp_path, shot=39915, stack_size_kb=None)
+    result = run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), config)
+
+    assert result.status == "failed"
+    assert result.reason == "[Errno 8] Exec format error"
+    assert "runtime_error" in result.slice_statuses[0].failure_codes

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
 from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
+from ..execution import ExecutionRequest, resolve_backend
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs
 
@@ -63,42 +63,27 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     if config.restart:
         cmd.append(f"-r{config.restart}")
 
-    env = os.environ.copy()
-    env.update(dict(config.env))
-
-    try:
-        completed = subprocess.run(
-            cmd,
-            cwd=str(inputs.workdir),
-            env=env,
-            text=True,
-            capture_output=True,
-            # A foreign program's bytes; see the note in vaft.code.chease.
-            encoding="utf-8",
-            errors="replace",
+    execution = resolve_backend(config).run(
+        ExecutionRequest(
+            command=tuple(cmd),
+            workdir=Path(inputs.workdir),
+            env=dict(config.env),
             timeout=config.timeout,
-            check=False,
+            label="rtes",
         )
-    except subprocess.TimeoutExpired as exc:
+    )
+    if execution.timed_out:
         result = collect_tes_outputs(inputs.workdir, config)
         result.returncode = 124
-        stdout_str = (
-            exc.stdout.decode("utf-8", "replace")
-            if isinstance(exc.stdout, bytes)
-            else (exc.stdout or "")
-        )
-        stderr_str = (
-            exc.stderr.decode("utf-8", "replace")
-            if isinstance(exc.stderr, bytes)
-            else (exc.stderr or "")
-        )
         timeout_msg = f"rtes timed out after {config.timeout} seconds"
-        result.stdout = stdout_str
-        result.stderr = f"{stderr_str}\n{timeout_msg}" if stderr_str else timeout_msg
+        result.stdout = execution.stdout
+        result.stderr = (
+            f"{execution.stderr}\n{timeout_msg}" if execution.stderr else timeout_msg
+        )
         return result
 
     result = collect_tes_outputs(inputs.workdir, config)
-    result.returncode = completed.returncode
-    result.stdout = completed.stdout
-    result.stderr = completed.stderr
+    result.returncode = execution.returncode
+    result.stdout = execution.stdout
+    result.stderr = execution.stderr
     return result

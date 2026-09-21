@@ -1769,6 +1769,15 @@ def solovev_to_equilibrium(
     2*pi normalisation and the orientation sign across all COCOS conventions.
     Pressure and the magnetic axis are invariant under convention transforms.
 
+    The 2*pi factor multiplies psi, its axis and boundary values and ``psi_1d``,
+    and divides the two d/dpsi sources ``pprime`` and ``ffprime``.  Nothing else
+    is rescaled, deliberately: ``ip`` is integrated from the analytic ``j_phi``,
+    a current density that no flux-storage choice changes, and ``f``, ``bt0``
+    and ``pressure`` are physical fields too.  Any orientation sign they carry
+    under another *convention* is applied by :func:`convert_cocos`.  That says
+    nothing about whether the sign of :func:`evaluate_solovev`'s ``j_phi`` is
+    consistent with its poloidal field; that is a separate question (#966).
+
     Applicability
     -------------
     Machine-independent.
@@ -1822,7 +1831,7 @@ def solovev_to_equilibrium(
         ip=ip, bt0=float(model.f_boundary/model.rref), r0=model.rref,
         time=None, convention=conv_11,
         metadata={"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
-                  "topology_assumptions": "axisymmetric limited or upper/lower-null"},
+                  "topology_assumptions": "axisymmetric, up-down symmetric (limited or double-null)"},
     )
     if convention == 11:
         return eq_11
@@ -2342,6 +2351,83 @@ def _stationary_points(eq: EquilibriumData) -> tuple[StationaryPoint, ...]:
     return tuple(points)
 
 
+def find_stationary_points(equilibrium: Any, *, kind: str | None = None) -> tuple[StationaryPoint, ...]:
+    """Locate the O-points and saddles of psi to sub-grid accuracy.
+
+    Every point where grad(psi) vanishes inside the grid is found by root finding
+    on a bicubic spline of psi, seeded from the local minima of |grad psi| on the
+    grid, and classified by the sign of its Hessian determinant.  This is the
+    search :func:`derive_boundary_representation` runs before it decides the
+    topology, exposed on its own for a consumer that needs the magnetic axis or
+    the saddles without the rest of the boundary analysis.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a psi map on an R-Z grid of
+        at least four points each way [-].
+    kind : {"o", "x"}, optional
+        Keep only extrema (``"o"``) or only saddles (``"x"``); both when not
+        given [-].
+
+    Returns
+    -------
+    tuple of StationaryPoint
+        Position, psi, normalized psi, kind, Hessian determinant and flattest
+        curvature of each point.  O-points come first, nearest the axis flux
+        first; then saddles, nearest the boundary flux first; points without a
+        normalized flux last within their kind.  Empty when the record has no
+        usable psi map.  Positions in metres; psi in the record's flux unit;
+        the determinant in that unit squared per m^4 and the curvature in that
+        unit per m^2, so both scale with the record's flux normalization [-].
+
+    Raises
+    ------
+    ValueError
+        *kind* is neither ``None``, ``"o"`` nor ``"x"``.
+
+    Convention
+    ----------
+    Classification uses the sign of the Hessian determinant, which no COCOS
+    transform changes: a sign flip of psi negates both second derivatives and
+    leaves the determinant alone.  An O-point may therefore be a maximum or a
+    minimum of psi.  ``psi_n`` is ``(psi - psi_axis) / (psi_boundary - psi_axis)``
+    in the record's own convention, and NaN when the record lacks those two
+    values.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A saddle is only a candidate X-point: numerical saddles far from the plasma
+    are common on reconstructed maps.  Whether one bounds the plasma is decided
+    by :func:`derive_boundary_representation`.  Searches start only from
+    interior grid nodes and keep only roots strictly inside the grid, so a point
+    in the outermost cell may be missed; two closer than half a cell are
+    reported once.
+
+    Provenance
+    ----------
+    .. [1] The Hessian classification of stationary points of psi is the standard
+       O-point and X-point test.
+    """
+    if kind not in (None, "o", "x"):
+        raise ValueError(f"kind must be None, 'o' or 'x'; got {kind!r}")
+    points = _stationary_points(as_equilibrium(equilibrium))
+    if kind is not None:
+        points = tuple(point for point in points if point.kind == kind)
+
+    def order(point: StationaryPoint) -> tuple[int, int, float]:
+        target = 0.0 if point.kind == "o" else 1.0
+        known = bool(np.isfinite(point.psi_n))
+        return (0 if point.kind == "o" else 1, 0 if known else 1,
+                abs(point.psi_n - target) if known else 0.0)
+
+    return tuple(sorted(points, key=order))
+
+
 def _confined_contour(eq: EquilibriumData, level: float) -> tuple[Contour | None, str | None]:
     """The closed flux surface at ``psi_n = level`` that encloses the axis.
 
@@ -2754,7 +2840,7 @@ def derive_boundary_representation(
 __all__ = [
     "as_equilibrium", "convert_cocos", "derive_boundary_representation",
     "derive_global_descriptors", "derive_radial_coordinates", "evaluate_miller",
-    "evaluate_solovev", "fit_miller_sequence", "fit_miller_surface",
+    "evaluate_solovev", "find_stationary_points", "fit_miller_sequence", "fit_miller_surface",
     "solovev_to_equilibrium", "solve_solovev_constraints",
     "check_equilibrium_requirements", "validate_equilibrium",
     "miller_surfaces", "solovev_example",

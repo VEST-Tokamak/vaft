@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence
+
+if TYPE_CHECKING:
+    from .execution import ExecutionBackend
 
 
 @dataclass(frozen=True)
@@ -16,6 +19,8 @@ class CodeConfig:
     args: Sequence[str] = ()
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
+    # None runs locally; see vaft.code.execution.
+    backend: Optional["ExecutionBackend"] = None
 
 
 @dataclass
