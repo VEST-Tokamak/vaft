@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "purpose": "CHEASE fixed-boundary refinement of the analytic Solov'ev equilibrium that notebooks/analytic_island_model_and_synthetic_response_model.ipynb compares against (#886)",
-  "generated": "2026-09-21T07:14:44+00:00",
+  "generated": "2026-09-21T07:41:16+00:00",
   "generator": "workflow/island_sxr/generate_chease_fixture.py",
   "solovev_example": {
     "topology": "limited",
@@ -13,8 +13,9 @@
     "nw": 129,
     "create_plot": false
   },
+  "chease_namelist": "*************************\n***    CHEASE NAMELIST FILE\n***    namelist created by vaft.code.chease\n*************************\n&EQDATA\n! --- CHEASE input file option\nNOPT=0,\nNSURF=6,\nNEQDSK=0\nTENSBND=    -0.1,\nNSYM=0,\nNTCASE=0,\nRELAX = 0.5,\nNPLOT=0,\nNSMOOTH=1,\nNDIAGOP=1,\nNPROPT=2,\nTREEITM=\"euitm\", \"euitm\",\nXI=       0,\nNFUNRHO=0,\nTENSPROF=    -0.1,\nNPPFUN = 4, NPP=2,\nNFUNC=4, NIPR=2,\nCFNRESS=1.00,\nNRSCAL=0, NTMF0=0,\nNMESHPOL=0,SOLPDPOL=0.25,\nNMESHD=0, NPOIDD=2, SOLPDD=.60,DPLACE=-1.80,-1.80,\n                               DWIDTH=.18,.08,.05,\nNMESHE=0, NPOIDE=4, SOLPDE=.50,EPLACE=-1.70,-1.70,\n                               EWIDTH=.18,.08,.18,\nPSISCL= 1.0,\nNDIFPS=0,\nNDIFT=0,\nNINMAP=50,  NINSCA=50,\nNBSEXPQ=0,\nETAEI= 0.1, RPEOP= 0.5,  RZION=1.5,\nNBAL=0, NBLOPT=0,\nNPPR=30,\nNTURN=20, NBLC0=16,\nNBSOPT=0,\nNBSTRP=1, BSFRAC=0, NBSFUN=1,\nEPSLON=1.0E-10, GAMMA=1.6666666667,\nCFBAL=10.00,\nCOCOS_IN = 2,\nCOCOS_OUT = 2,\nNRBOX=129,\nNZBOX=129,\nNEQDXTPO=2,\nNVEXP=1, REXT=10.0, R0W=1., RZ0W=0.,\nMSMAX=1,\nNTNOVA=12,\nNITMRUN=1, 99, NITMSHOT=10, 10,\nNITMOPT=0,\nNCSCAL=1,\nCSSPEC=0.974679,\nNEGP=0, NER=2,\nNIDEAL=6,\nNMESHA=1, NPOIDA=2, SOLPDA=.20,APLACE= 0.975, 1.000,\n                               AWIDTH= 0.045, 0.003,\nNMESHC=1, NPOIDC=3, SOLPDC=.20,CPLACE=0.000, 0.975, 1.00,\n                               CWIDTH=0.005, 0.045, 0.003,\nNS=150, NT=150,\nNPSI=200, NCHI=100,\nASPCT= 0.585215555724,\nR0EXP= 0.400371990712, B0EXP=0.129879215346,\nSIGNB0XP=       1,\nSIGNIPXP=       1,\nCURRT=2.41660973353, QSPEC=3.43654912457,\n/\n",
   "chease_executable_sha256": "e79681fb08e6174c673f36b6afde13d25500d792ba99091392917ba3adc0cb86",
   "chease_source_revision": "0b2a7d2",
-  "vaft_commit": "7196030f",
+  "vaft_commit": "v0.7.1-172-ga5c528eb20-dirty",
   "geqdsk_sha256": "921637e024c2ec384fa7ac924af6a6e61c341038ddcd60a99d3aa61829e8fc2f"
 }

@@ -112,9 +112,14 @@ def main(argv=None) -> int:
         "generator": "workflow/island_sxr/generate_chease_fixture.py",
         "solovev_example": SOLOVEV_PARAMETERS,
         "chease_config": {key: value for key, value in CHEASE_SETTINGS.items()},
+        # The overrides above sit on CHEASEConfig defaults that change between
+        # VAFT versions (the solver mesh, for one), so the namelist CHEASE was
+        # actually given is kept verbatim.
+        "chease_namelist": (workdir / "chease_namelist").read_text()
+        if (workdir / "chease_namelist").is_file() else None,
         "chease_executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "chease_source_revision": _git("rev-parse", "--short", "HEAD", cwd=executable.parent) or None,
-        "vaft_commit": _git("rev-parse", "--short", "HEAD", cwd=REPOSITORY) or None,
+        "vaft_commit": _git("describe", "--always", "--dirty", "--abbrev=10", cwd=REPOSITORY) or None,
         "geqdsk_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
     }
     (args.output / PROVENANCE_NAME).write_text(json.dumps(provenance, indent=2) + "\n")

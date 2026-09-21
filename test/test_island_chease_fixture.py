@@ -48,8 +48,13 @@ def test_the_fixture_refines_the_recorded_solovev_input(pair):
     solovev, refined = pair
     assert refined.convention.cocos == 2 and solovev.convention.cocos == 11
     np.testing.assert_allclose(refined.magnetic_axis, solovev.magnetic_axis, atol=5e-3)
-    assert refined.ip == pytest.approx(solovev.ip, rel=0.05)
-    assert np.sign(refined.ip) == np.sign(solovev.ip)
+    assert abs(refined.ip) == pytest.approx(abs(solovev.ip), rel=0.05)
+    # Only the product of the current and field directions is frame-free, and
+    # it is what the island's helicity depends on. The directions themselves
+    # disagree: the refined file carries its input's (COCOS 11) sign pattern
+    # but declares COCOS 2, whose toroidal angle runs the other way, so read as
+    # declared its current and field both point clockwise from above.
+    assert np.sign(refined.ip * refined.bt0) == np.sign(solovev.ip * solovev.bt0)
     # Same fixed boundary: the refined LCFS sits on the Solov'ev one.
     from vaft.process.equilibrium import contour_shape_parameters
 
@@ -59,21 +64,29 @@ def test_the_fixture_refines_the_recorded_solovev_input(pair):
     assert b["area"] == pytest.approx(a["area"], rel=0.02)
 
 
-@pytest.mark.parametrize("m", [2, 3])
-def test_one_island_spec_means_the_same_thing_on_both(pair, m):
+# The 3/1 surface sits 15 mm inside the outboard boundary, so its island is
+# kept narrower than that to leave both separatrix branches in the plasma.
+@pytest.mark.parametrize("m, width", [(2, 0.03), (3, 0.02)])
+def test_one_island_spec_means_the_same_thing_on_both(pair, m, width):
     """Same m/n, same outboard width, same helicity across COCOS 11 and 2; the
     resonant surface is each equilibrium's own."""
-    spec = MagneticIslandSpec(m, 1, 0.03)
+    spec = MagneticIslandSpec(m, 1, width)
     tops = [magnetic_island_topology(eq, spec) for eq in pair]
-    for top in tops:
+    for top, eq in zip(tops, pair):
         assert top.q_s == pytest.approx(m, abs=1e-9)
-        sfl = top.sfl_map
-        r_s = float(sfl.outboard_radius(top.psi_n_s))
-        z_axis = sfl.magnetic_axis[1]
-        r = np.linspace(r_s - 0.03, r_s + 0.03, 60001)
-        x = sfl.outboard_radius(sfl.psi_norm(r, np.full_like(r, z_axis))) - r_s
-        inside = r[8 * (x / spec.width) ** 2 - 1.0 <= 1.0]
-        assert inside.max() - inside.min() == pytest.approx(spec.width, abs=2e-6)
+        # Measured on the grid's own helical flux, not re-derived from the
+        # outboard table that defines the displacement: the separatrix
+        # crossings on the axis row through the outboard O-point.
+        row = int(np.argmin(np.abs(eq.z - top.sfl_map.magnetic_axis[1])))
+        o_r = float(top.o_points[np.argmax(top.o_points[:, 0]), 0])
+        omega = top.helical_flux[:, row]
+        near = np.isfinite(omega) & (np.abs(eq.r - o_r) < 2 * spec.width)
+        r, excess = eq.r[near], omega[near] - 1.0
+        crossings = [r[i] - excess[i] * (r[i + 1] - r[i]) / (excess[i + 1] - excess[i])
+                     for i in range(r.size - 1) if excess[i] * excess[i + 1] < 0]
+        assert len(crossings) == 2
+        cell = float(np.max(np.diff(eq.r)))
+        assert crossings[1] - crossings[0] == pytest.approx(spec.width, abs=0.25 * cell)
     solovev_top, refined_top = tops
     assert solovev_top.helicity == refined_top.helicity == -1
     assert 1e-4 < abs(solovev_top.psi_n_s - refined_top.psi_n_s) < 0.05
