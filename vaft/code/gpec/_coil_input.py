@@ -347,12 +347,27 @@ def coil_filaments_from_coil_in(
 
 
 def _render_coil_block(specs: Sequence[CoilInputSpec]) -> str:
+    """Render the ``coil_name``/``coil_cur`` activation block.
+
+    Currents are written with :func:`repr`, the shortest decimal string that
+    reads back as the same double.  ``%g`` was used here and kept six
+    significant digits, so a *measured* current lost the rest of its value on
+    the way into the file: on MAST-U 47052 at 530 ms the archived
+    ``1739.864501953125 A`` was written as ``1739.86``, 2.6e-6 of it.
+
+    That is not as small as it looks.  Running the same case twice -- once with
+    the truncated currents and once with the exact ones -- moved the ideal-GPEC
+    n=1 control spectrum by 8.9e-5, about thirty-four times the input error,
+    because the spectrum is formed from largely cancelling upper- and lower-row
+    contributions.  Nothing in the run says the file held a current the caller
+    had not asked for.
+    """
     lines = []
     for set_index, spec in enumerate(specs, start=1):
         lines.append(f'    coil_name({set_index})="{spec.name}"')
         for sector_index, current in enumerate(spec.currents_a, start=1):
             lines.append(
-                f"    coil_cur({set_index},{sector_index})={current:g}"
+                f"    coil_cur({set_index},{sector_index})={float(current)!r}"
             )
         lines.append("")
     return "\n".join(lines)

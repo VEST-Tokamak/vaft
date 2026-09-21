@@ -418,3 +418,34 @@ def test_missing_backing_file_is_an_error_not_a_silent_reemit(tmp_path, syntheti
     ghost = replace(synthetic_machine["rmpu"], dat_path=tmp_path / "gone.dat")
     with pytest.raises(FileNotFoundError):
         stage_coil_data([ghost], tmp_path / "coil", machine="synth")
+
+
+def test_a_written_current_reads_back_as_the_double_it_was_given(tmp_path):
+    """A measured current survives the round trip into ``coil.in``.
+
+    ``%g`` kept six significant digits here, so a current read off a machine's
+    power supply arrived in the file rounded: 1739.864501953125 A was written
+    as 1739.86, 2.6e-6 of it.  Nothing downstream could see that the file said
+    something the caller had not.
+    """
+    config = load_vest_3d_coil_config(coil_sets=["MID"])
+    measured = (
+        1739.864501953125,
+        -1734.0517578125,
+        1723.30859375,
+        0.0,
+        -1738.7099609375,
+        1.0e-7,
+    )
+    out = write_coil_in(
+        package_vest_dir() / "coil.in",
+        tmp_path / "coil.in",
+        data_dir=tmp_path,
+        specs=[CoilInputSpec("MID", measured)],
+        machine="vest",
+        coil_config=config.coil_sets,
+        **VEST_GPEC_COIL_DIRECTIONS,
+    )
+    _, _, currents = _parse_coil_control(out.read_text(encoding="utf-8"))
+    assert tuple(currents[1]) == measured
+    assert gpec.read_coil_in(out)[0].currents_a == measured
