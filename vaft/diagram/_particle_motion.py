@@ -26,6 +26,7 @@ from vaft.formula.particle import (
     curvature_drift_velocity,
     exb_drift_velocity,
     grad_b_drift_velocity,
+    gyration_offset,
     gyrofrequency,
     larmor_radius,
 )
@@ -149,7 +150,7 @@ def _diagram(name: str, scene: Scene, figure: "ParticleFigure", labels: bool) ->
 def _guiding_centre(q, m, x, v, B):
     """Guiding centre of a particle at ``x`` moving at ``v`` (drift frame) in uniform ``B``."""
     B = np.asarray(B, dtype=float)
-    return np.asarray(x, dtype=float) - m / (q * (B @ B)) * np.cross(B, v)
+    return np.asarray(x, dtype=float) - gyration_offset(q, m, B, v)
 
 
 def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", labels: bool = True) -> Diagram:
@@ -272,7 +273,7 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     # start one Larmor radius from the guiding centre on the field line, x = gc + (m/qB^2) B x u
     gc_start = np.array([R0, 0.0, 0.0])
     u = np.array([v_perp, 0.0, 0.0])
-    x0 = gc_start + m / (q * B0 ** 2) * np.cross(b0, u)
+    x0 = gc_start + gyration_offset(q, m, b0, u)
     v0 = np.array([0.0, v_par, 0.0]) + u + v_d
     arc = 0.5 * math.pi
     duration = arc * R0 / v_par

@@ -112,6 +112,7 @@ CONVENTION_SENSITIVE = frozenset({
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",
+    "gyration_offset",
     "exb_drift_velocity",
     "grad_b_drift_velocity",
     "curvature_drift_velocity",

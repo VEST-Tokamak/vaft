@@ -68,7 +68,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
-        "equilibrium": 89,
+        "equilibrium": 89,  # +miller_surface, vacuum_toroidal_field (#1145)
         "virial": 33,
         "stability": 26,
         "green": 16,
@@ -91,7 +91,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
-        "particle": 6,
+        "particle": 7,  # +gyration_offset (#1145 review)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
