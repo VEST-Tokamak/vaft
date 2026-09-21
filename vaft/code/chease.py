@@ -91,6 +91,9 @@ class CHEASEConfig:
     boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
     boundary_fft_num: int = 128  # smooth_bnd nf
     auto_cocos: bool = True
+    # "input": the refined g-file comes back in the source's convention -- its
+    # sign pattern, its flux storage family (weber or per radian) and its COCOS
+    # index in the CASE header, or no index when the source's is not pinned.
     output_cocos: str = "input"
     preserve_boundary_limiter: bool = True
     create_plot: bool = True
@@ -431,6 +434,60 @@ def _force_geqdsk_signs(
         "q": int(q_factor),
     }
     return item, before, after, transform
+
+
+def _source_convention(geqdsk: Any) -> tuple[int | None, bool | None]:
+    """The COCOS index and flux storage family of the equilibrium given to CHEASE.
+
+    The index is the source's declaration when its own signs do not contradict
+    it, or the single index its signs identify; ``None`` when neither pins one.
+    The family can be known without the index (a weber-per-radian file whose
+    toroidal direction the signs cannot tell).
+    """
+    try:
+        from vaft.process.equilibrium import as_equilibrium
+
+        convention = as_equilibrium(geqdsk).convention
+    except Exception:
+        return None, None
+    index = convention.cocos if convention.cocos is not None and not convention.contradicted else None
+    if index is None and len(convention.identified) == 1:
+        index = convention.identified[0]
+    if index is not None:
+        from vaft.data.cocos import cocos_spec
+
+        return int(index), cocos_spec(int(index)).psi_per_radian
+    return None, convention.psi_per_radian
+
+
+def _declare_source_convention(refined: Any, source: Any) -> tuple[Any, dict[str, Any]]:
+    """Finish ``output_cocos="input"``: the source's flux scale and COCOS label.
+
+    :func:`_force_geqdsk_signs` gives CHEASE's COCOS-2 output the source's sign
+    pattern, but leaves psi per radian and CHEASE's ``COCOS=02`` CASE token in
+    place. COCOS 1 and 2 -- and 11 and 12 -- have identical signs and differ
+    only in the toroidal direction, so a re-signed file still declaring 2 reads
+    back with its current and field reversed and nothing in its signs says so.
+    This rescales psi (and the d/dpsi profiles) to the source's storage family
+    and rewrites the CASE token to the source's index, or removes it when the
+    source's index is not pinned: no declaration beats a wrong one.
+    """
+    import re
+
+    item = _copy_geqdsk(refined)
+    index, per_radian = _source_convention(source)
+    scale = 2.0 * np.pi if per_radian is False else 1.0
+    if scale != 1.0:
+        for key in ("SIMAG", "SIBRY"):
+            item[key] = float(item[key]) * scale
+        item["PSIRZ"] = np.asarray(item["PSIRZ"], dtype=float) * scale
+        for key in ("PPRIME", "FFPRIM"):
+            item[key] = np.asarray(item[key], dtype=float) / scale
+    stamp = re.search(r"(\d{8})", str(item.mapping.get("CASE", "")))
+    label = f"FROM CHEASE, COCOS={index:02d}" if index is not None else "FROM CHEASE"
+    item["CASE"] = f"{label}, SI UNITS {stamp.group(1) if stamp else ''}".strip()[:48]
+    return item, {"declared_cocos": index, "psi_per_radian": per_radian, "psi_scale": scale,
+                  "case": item["CASE"]}
 
 
 def _profile(values: Any, size: int = NCHEASE) -> np.ndarray:
@@ -1374,6 +1431,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         refined = read_geqdsk(refined_target)
         if str(config.output_cocos).lower().replace("-", "_") in {"input", "preserve_input", "source"}:
             refined, before, after, transform = _force_geqdsk_signs(refined, **_desired_signs_from_info(_geqdsk_sign_info(inputs.geqdsk)))
+            refined, declared = _declare_source_convention(refined, inputs.geqdsk)
             _write_json(
                 refined_target.with_suffix(refined_target.suffix + ".cocos_export.json"),
                 {
@@ -1381,6 +1439,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
                     "before_export_signs": before.as_dict(),
                     "after_export_signs": after.as_dict(),
                     "transform": transform,
+                    "source_convention": declared,
                 },
             )
         if config.preserve_boundary_limiter:
