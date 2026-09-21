@@ -760,6 +760,36 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
     assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
 
 
+@pytest.mark.parametrize("convention", [11, 1, 2, 13, 17])
+def test_solovev_plasma_current_agrees_with_amperes_law(convention):
+    """#966: the exported ``ip`` is the current the exported field encloses,
+    along the convention's own toroidal direction, and carries the sign Sauter
+    Eq. 23 ties to the flux and pressure gradients."""
+    from vaft.data.cocos import cocos_spec
+    from vaft.formula.constants import MU0
+    from vaft.process.equilibrium import equilibrium_field_on_grid, solovev_to_equilibrium
+    from scipy.interpolate import RectBivariateSpline
+
+    eq = solovev_to_equilibrium(_classic_solovev(), np.linspace(0.55, 1.4, 129),
+                                np.linspace(-0.55, 0.55, 129), convention=convention)
+    spec = cocos_spec(convention)
+    b_r, b_z, _ = equilibrium_field_on_grid(eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, cocos=convention)
+    fr, fz = RectBivariateSpline(eq.r, eq.z, b_r), RectBivariateSpline(eq.r, eq.z, b_z)
+    r = np.append(eq.lcfs.r, eq.lcfs.r[0])
+    z = np.append(eq.lcfs.z, eq.lcfs.z[0])
+    rm, zm = 0.5 * (r[1:] + r[:-1]), 0.5 * (z[1:] + z[:-1])
+    circulation = float(np.sum(fr.ev(rm, zm) * np.diff(r) + fz.ev(rm, zm) * np.diff(z)))
+    orientation = np.sign(np.sum(r[:-1] * z[1:] - r[1:] * z[:-1]))
+    # A counter-clockwise (R, Z) loop has normal -e_phi when (R, phi, Z) is
+    # right-handed and +e_phi when it is not.
+    enclosed = -spec.sigma_rpz * orientation * circulation / MU0
+    assert eq.ip == pytest.approx(enclosed, rel=5e-3)
+    sigma_ip = int(np.sign(eq.ip))
+    dpsi = np.sign(eq.psi_boundary - eq.psi_axis)
+    assert dpsi == spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=1)
+    assert np.sign(eq.pprime[0]) == spec.expected_sign("pprime", sigma_ip=sigma_ip, sigma_b0=1)
+
+
 # ---------------------------------------------------------------------------
 # compare_contours (#885)
 # ---------------------------------------------------------------------------

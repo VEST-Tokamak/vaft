@@ -104,10 +104,10 @@ def test_the_field_equals_the_closed_form_pointwise(solovev):
     analytic = solovev["analytic"][covered]
     derived = solovev["derived"][covered]
     scale = np.max(np.abs(analytic))
-    # VAFT carries the COCOS orientation (-sigma_Bp) where the Solov'ev closed
-    # form is the textbook j = -Delta*psi/(mu0 R); the two differ by that sign,
-    # which #290's flipped-orientation test is what pins.
-    assert np.max(np.abs(np.abs(derived) - np.abs(analytic))) / scale < 1e-8
+    # Both carry the COCOS orientation, -sigma_Bp (Sauter Eq. 12): the closed
+    # form dropped it until #966 and this compared magnitudes only, which is
+    # how the sign stayed wrong.
+    assert np.max(np.abs(derived - analytic)) / scale < 1e-8
     assert np.all(np.sign(derived) == np.sign(derived[0]))
 
 

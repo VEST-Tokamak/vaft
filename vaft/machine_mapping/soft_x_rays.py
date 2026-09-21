@@ -429,6 +429,41 @@ def load_sxr_geometry_table(geometry_table: str | Path | None = None) -> dict[tu
     return geometry
 
 
+def sxr_sightlines(
+    arrays: Sequence[str] | None = None,
+    geometry_table: str | Path | None = None,
+):
+    """The VEST SXR chords as :class:`vaft.process.line_of_sight.Sightlines`.
+
+    One chord per ``(array, channel)`` row of the geometry table -- the Be and
+    Al filter blocks of the 22577 arrays share a chord and appear once -- in
+    table order, labelled ``"<array>:<channel>"``.  ``phi`` is the IMAS toroidal
+    angle :func:`load_sxr_geometry_table` returns; the 22577 value is
+    provisional until #746 settles the port, and it sets the helical phase a
+    synthetic island presents to those arrays.  The end points lie on the
+    legacy grid box, not the wall, so a line integral should clip them to the
+    limiter polygon.
+    """
+    from vaft.process.line_of_sight import Sightlines
+
+    table = load_sxr_geometry_table(geometry_table)
+    if not table:
+        raise FileNotFoundError("no SXR geometry table could be resolved")
+    wanted = None if arrays is None else {str(name) for name in arrays}
+    rows = [(key, value) for key, value in table.items() if wanted is None or key[0] in wanted]
+    if not rows:
+        raise ValueError(f"no SXR chords for arrays {sorted(wanted or ())}; "
+                         f"known: {sorted({key[0] for key in table})}")
+    return Sightlines(
+        r1=[value["first_r"] for _, value in rows],
+        z1=[value["first_z"] for _, value in rows],
+        r2=[value["second_r"] for _, value in rows],
+        z2=[value["second_z"] for _, value in rows],
+        phi=[value["phi"] for _, value in rows],
+        labels=tuple(f"{key[0]}:{key[1]}" for key, _ in rows),
+    )
+
+
 def load_digitizer_csv(
     filepath: str | Path,
     *,
@@ -1019,6 +1054,7 @@ __all__ = [
     "soft_x_rays",
     "soft_x_rays_from_digitizer_csv",
     "soft_x_rays_from_raw_database",
+    "sxr_sightlines",
     "vfit_soft_x_rays_dynamic",
     "vfit_soft_x_rays_static",
 ]
