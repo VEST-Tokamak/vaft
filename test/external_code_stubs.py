@@ -56,3 +56,24 @@ def write_unlaunchable_file(path: str | Path) -> Path:
     if not IS_WINDOWS:
         target.chmod(0o644)
     return target
+
+
+class RecordingBackend:
+    """An execution backend that records requests instead of launching anything.
+
+    Each ``run`` appends the :class:`~vaft.code.execution.ExecutionRequest` to
+    ``requests`` and returns ``result`` (a fresh copy per call), so an adapter's
+    command construction and result mapping are testable with no program at all.
+    """
+
+    def __init__(self, result=None):
+        from vaft.code.execution import ExecutionResult
+
+        self.result = result if result is not None else ExecutionResult(returncode=0)
+        self.requests = []
+
+    def run(self, request):
+        import dataclasses
+
+        self.requests.append(request)
+        return dataclasses.replace(self.result, launcher=tuple(request.command))

@@ -897,3 +897,46 @@ def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
     (record,) = gpec.run_gpec_suite_case(case, config).records
     assert record.status == "stable"
     assert "reused existing solver outputs" in record.reason
+
+
+def test_gpec_modules_launch_through_the_configured_backend(monkeypatch, tmp_path, case):
+    """#671: the suite builds the launch; the backend decides how to run it."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=0))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", backend=backend),
+    )
+
+    (record,) = result.records
+    assert record.returncode == 0
+    (request,) = [r for r in backend.requests if Path(r.command[0]).name == dcon.name]
+    assert request.env[gpec.GPEC_HOME_ENV] == str(tmp_path / "gpec")
+    assert request.log_path.name == "dcon.log"
+    assert request.timeout == 1200.0
+
+
+def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch, tmp_path, case):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(
+            modules=("dcon",), modes=(1,), run_mode="auto", timeout=7.0, backend=backend
+        ),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "timeout after 7.0 seconds" in record.reason
