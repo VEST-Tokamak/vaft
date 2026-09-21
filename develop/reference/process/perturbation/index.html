@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c88eb94</code>. What is described
+  <code>f7adca7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/perturbation.py"><code class="language-plaintext highlighter-rouge">vaft/process/perturbation.py</code></a>:
-26 public functions.  The category overview and notation come from the module
+27 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("perturbation.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -398,6 +398,8 @@ which unit it is showing.</p>
   <li><a href="#rms_resonant_field"><code>rms_resonant_field</code></a> &mdash; Root-mean-square resonant field over a radial window.
 </li>
   <li><a href="#shielded_field"><code>shielded_field</code></a> &mdash; The field a finite-width layer’s shielding current produces.
+</li>
+  <li><a href="#toroidal_phase_audit"><code>toroidal_phase_audit</code></a> &mdash; Test a stored toroidal harmonic against the same field resampled in real space.
 </li>
 </ul>
 
@@ -2186,6 +2188,122 @@ fallback here: without the inductance there is no shielded field.</p>
 </li>
 </ol>
 
+<h3 id="toroidal_phase_audit"><code class="language-plaintext highlighter-rouge">toroidal_phase_audit</code></h3>
+
+<p class="formula-signature"><code>toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Test a stored toroidal harmonic against the same field resampled in real space.</p>
+
+<p>A complex harmonic <code class="language-plaintext highlighter-rouge">C</code> on its own does not say which reconstruction it
+belongs to: <code class="language-plaintext highlighter-rouge">Re(C e^{-i n phi})</code> and <code class="language-plaintext highlighter-rouge">Re(C e^{+i n phi})</code> are different
+fields, and a file that stores <code class="language-plaintext highlighter-rouge">C</code> without saying which one it means is
+ambiguous by exactly a complex conjugation.  Nothing in the harmonic
+resolves that; only an independent evaluation of the same physical field
+over <code class="language-plaintext highlighter-rouge">phi</code> does.  This measures both hypotheses against such an
+evaluation and reports how far apart they are.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>stored</code></td><td>array_like of complex</td><td>any</td><td><p>The harmonic as the file holds it, shape <code class="language-plaintext highlighter-rouge">(P, K)</code> for <code class="language-plaintext highlighter-rouge">P</code> positions and <code class="language-plaintext highlighter-rouge">K</code> vector components.</p>
+</td></tr>
+  <tr><td><code>sampled</code></td><td>array_like of float</td><td>any</td><td><p>The same physical field evaluated independently at those <code class="language-plaintext highlighter-rouge">P</code> positions and <code class="language-plaintext highlighter-rouge">M</code> toroidal angles, shape <code class="language-plaintext highlighter-rouge">(P, M, K)</code>, in the units of <em>stored</em>.</p>
+</td></tr>
+  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>The <code class="language-plaintext highlighter-rouge">M</code> toroidal angles <em>sampled</em> was evaluated at, equally spaced and covering one full period without repeating its endpoint.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>The toroidal mode number the harmonic belongs to.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ToroidalPhaseAudit</td><td>-</td><td><p>Both hypotheses’ relative norms, in total and per component, which one wins and by how much, and the absolute norms the relative ones are taken against.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Raises.</strong></p>
+
+<p>ValueError
+    The three arrays disagree in shape, any of them holds a non-finite
+    value, <code class="language-plaintext highlighter-rouge">phi_rad</code> is not one equally spaced period, it carries too few
+    samples to resolve <code class="language-plaintext highlighter-rouge">n_tor</code>, <code class="language-plaintext highlighter-rouge">n_tor</code> is not a non-zero integer, or
+    <em>stored</em> is identically zero so no relative norm exists.</p>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Project the sampled field onto the mode:
+<code class="language-plaintext highlighter-rouge">C_measured = 2 * mean_phi(B(phi) e^{+i n phi})</code>.</li>
+  <li>Take <code class="language-plaintext highlighter-rouge">||C_measured - C_stored||</code> and
+<code class="language-plaintext highlighter-rouge">||C_measured - conj(C_stored)||</code>, each over the positions and divided
+by <code class="language-plaintext highlighter-rouge">||C_stored||</code> on the same axis, once per component and once for the
+whole array.</li>
+  <li>The smaller total wins; the separation ratio is the larger over the
+smaller.</li>
+</ol>
+
+<p><strong>Convention.</strong></p>
+
+<p>The extracted coefficient is <code class="language-plaintext highlighter-rouge">2 * mean_phi(B e^{+i n phi})</code>, which is the
+coefficient of the reconstruction <code class="language-plaintext highlighter-rouge">B(phi) = Re(C e^{-i n phi})</code> in a
+counter-clockwise machine angle – the convention GPEC writes and FLARE
+reads.  It is the conjugate of the kernel
+<code class="language-plaintext highlighter-rouge">vaft.process.coils_non_axisymmetric.toroidal_mode_decomposition</code>
+uses, and twice it, because that one returns the plain sample mean.  So a
+<code class="language-plaintext highlighter-rouge">"conjugate"</code> verdict here means the stored file belongs to the
+<code class="language-plaintext highlighter-rouge">e^{+i n phi}</code> reconstruction instead, and a consumer of the file has to
+conjugate before use.</p>
+
+<p><strong>Assumptions.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">phi_rad</code> is an equally spaced full period, which is what makes the plain
+sample mean the Fourier projection; a non-uniform grid is refused rather
+than silently mis-weighted.</p>
+
+<p><strong>The sampled field is assumed to carry only this harmonic.</strong>  <code class="language-plaintext highlighter-rouge">M &gt; 2|n|</code>
+is checked and refused below it, but that is Nyquist for <code class="language-plaintext highlighter-rouge">n</code> alone: a
+field also carrying <code class="language-plaintext highlighter-rouge">n'</code> aliases it into the measurement whenever
+<code class="language-plaintext highlighter-rouge">n' = -n (mod M)</code>, and needs an <code class="language-plaintext highlighter-rouge">M</code> that resolves <code class="language-plaintext highlighter-rouge">n'</code> too.  A caller
+sampling a field of unknown content chooses <code class="language-plaintext highlighter-rouge">M</code> from that content, not
+from <code class="language-plaintext highlighter-rouge">n</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Any stored complex toroidal harmonic with an
+independent way to evaluate the same field: a coil field against
+Biot-Savart, a measured field against a model.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Says which hypothesis is <em>closer</em>, never that either is right.  When the
+sampled field has little content at this <code class="language-plaintext highlighter-rouge">n</code> – the coil currents do not
+excite it – <code class="language-plaintext highlighter-rouge">measured_norm</code> falls far below <code class="language-plaintext highlighter-rouge">stored_norm</code>, both
+relative norms come out near one and the separation near one with them, and
+that is the honest answer rather than a convention.  The threshold at which
+a separation counts as settled is a verdict and lives in
+<code class="language-plaintext highlighter-rouge">vaft.validation</code>, not here.</p>
+
+<p>An alias from another harmonic is the one failure this cannot report.  It
+does not resemble “no content”: the aliased projection is a clean complex
+number, so the separation comes out large and the answer can be confidently
+the wrong one.  Measured: a field of <code class="language-plaintext highlighter-rouge">Re(C e^{-3i phi}) + Re(C1 e^{-i
+phi})</code> with <code class="language-plaintext highlighter-rouge">C1 = C - conj(C)</code>, sampled at four angles and projected onto
+<code class="language-plaintext highlighter-rouge">n = 3</code>, returns exactly <code class="language-plaintext highlighter-rouge">conj(C)</code> – a relative norm of 6e-16 for the
+wrong hypothesis.  The <code class="language-plaintext highlighter-rouge">M &gt; 2|n|</code> refusal stops that particular case; only
+knowing the field’s content stops the general one.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_phase.py::audit_gpec_coil_brzphi_phase</code> on branch <code class="language-plaintext highlighter-rouge">codex/gpec-flare-cocos-handshake</code>, which is this measurement; decision D-06 makes it mandatory for a GPEC-to-FLARE handshake.  The legacy computed it only for a GPEC coil field and only against its own Biot-Savart; the arithmetic is the same and is machine- and code-independent, so it is separated from both here.
+</li>
+</ol>
+
 <h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
 
 <p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
@@ -2297,7 +2415,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#dominant_mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dominant_mode</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#finite_width_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">finite_width_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#jump_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">jump_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#lundquist_number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lundquist_number</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#shielded_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shielded_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#align_surfaces_by_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">align_surfaces_by_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#amplification_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">amplification_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#chirikov" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">chirikov</a></li><li class="page-toc-item page-toc-level-3"><a href="#composite_drive_at_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">composite_drive_at_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#critical_island_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">critical_island_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#dominant_mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dominant_mode</a></li><li class="page-toc-item page-toc-level-3"><a href="#edge_overlap_metric" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">edge_overlap_metric</a></li><li class="page-toc-item page-toc-level-3"><a href="#energy_norm_matrix" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">energy_norm_matrix</a></li><li class="page-toc-item page-toc-level-3"><a href="#finite_width_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">finite_width_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#group_coincident_islands" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">group_coincident_islands</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase_sweep" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase_sweep</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_overlap_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_overlap_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pairs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pairs</a></li><li class="page-toc-item page-toc-level-3"><a href="#jump_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">jump_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#lundquist_number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">lundquist_number</a></li><li class="page-toc-item page-toc-level-3"><a href="#nearest_surface_spacing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">nearest_surface_spacing</a></li><li class="page-toc-item page-toc-level-3"><a href="#penetration_ratio" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">penetration_ratio</a></li><li class="page-toc-item page-toc-level-3"><a href="#q_composite_table" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">q_composite_table</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_delta_e" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_delta_e</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_resonant" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_resonant</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_geometric_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_geometric_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_metrics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_metrics</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_windows" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_windows</a></li><li class="page-toc-item page-toc-level-3"><a href="#rms_resonant_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rms_resonant_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#shielded_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">shielded_field</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_phase_audit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_phase_audit</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -2415,7 +2533,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 06:55:10 +0000"
+        "time": "2026-09-21 07:17:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

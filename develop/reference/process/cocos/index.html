@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c88eb94</code>. What is described
+  <code>f7adca7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -273,7 +273,7 @@
 
 <p>This page is generated from the docstrings of
 <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/cocos.py"><code class="language-plaintext highlighter-rouge">vaft/process/cocos.py</code></a>:
-5 public functions.  The category overview and notation come from the module
+6 public functions.  The category overview and notation come from the module
 docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("cocos.&lt;name&gt;")</code> prints.
 Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
 
@@ -320,6 +320,8 @@ ever added, not because they are being tested today.</p>
   <li><a href="#identify_convention"><code>identify_convention</code></a> &mdash; Candidate COCOS indices for an equilibrium, from its observable signs.
 </li>
   <li><a href="#identify_flux_exponent"><code>identify_flux_exponent</code></a> &mdash; Decide whether psi is stored in weber or weber per radian, from Ampere’s law.
+</li>
+  <li><a href="#identify_flux_exponent_from_q"><code>identify_flux_exponent_from_q</code></a> &mdash; Decide weber versus weber per radian by rebuilding <code class="language-plaintext highlighter-rouge">q</code> on closed contours.
 </li>
   <li><a href="#validate_cocos"><code>validate_cocos</code></a> &mdash; Check an equilibrium against the Sauter Eq. 23 relations for one COCOS index.
 </li>
@@ -505,8 +507,9 @@ index supplies the missing fact instead of guessing.</p>
 other way.</li>
   <li>Get the sign family from <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which reads it off the
 signs of <code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">bt0</code>, <code class="language-plaintext highlighter-rouge">q</code> and the psi gradient.</li>
-  <li>Narrow to 1-8 or 11-18 using <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>, keeping the
-full set when that abstains.</li>
+  <li>Narrow to 1-8 or 11-18 using <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>, falling back
+to <code class="language-plaintext highlighter-rouge">identify_flux_exponent_from_q</code> when that one had no inputs to
+measure, and keeping the full set when neither answers.</li>
 </ol>
 
 <p><strong>Convention.</strong></p>
@@ -526,10 +529,14 @@ enters.</p>
 
 <p>The axis-to-edge reorder exists because <code class="language-plaintext highlighter-rouge">identify_cocos</code> reads the psi
 gradient at the first node, so a boundary-first profile would invert the
-poloidal-flux sign silently.  When the flux exponent abstains the result spans
-both storage families, and a caller that then converts must not assume the
-candidates share one.  Any exception from the underlying identification is
-reported as no candidates rather than raised.</p>
+poloidal-flux sign silently.  When both flux-exponent rungs abstain the
+result spans both storage families, and a caller that then converts must not
+assume the candidates share one.  The contour-q rung is deliberately <strong>not</strong>
+consulted when the Ampere rung ran and rejected both families: that is a
+file whose <code class="language-plaintext highlighter-rouge">ip</code> and psi map disagree, and reporting a confident index for
+it would hide the disagreement rather than resolve it.  Any exception from
+the underlying identification is reported as no candidates rather than
+raised.</p>
 
 <p><strong>Provenance.</strong></p>
 
@@ -537,6 +544,8 @@ reported as no candidates rather than raised.</p>
   <li>Sauter and Medvedev (2013) for the index numbering and the sign relations the identification rests on.
 </li>
   <li><code class="language-plaintext highlighter-rouge">omas.identify_cocos</code> supplies the sign family; its flux-exponent argument is deliberately not used, see <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>.
+</li>
+  <li>The contour-q fallback is hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/geqdsk_cocos.py::flux_normalization_diagnostic</code>, ported in <code class="language-plaintext highlighter-rouge">identify_flux_exponent_from_q</code>.
 </li>
 </ol>
 
@@ -613,6 +622,107 @@ that disagrees with the psi map, not evidence of a convention.  Needs a
   <li>Sauter and Medvedev (2013) for <code class="language-plaintext highlighter-rouge">e_Bp</code> and the storage families.
 </li>
   <li>Replaces the <code class="language-plaintext highlighter-rouge">a</code> argument of <code class="language-plaintext highlighter-rouge">omas.identify_cocos</code>, which is not usable here: it evaluates <code class="language-plaintext highlighter-rouge">pi*B0*(a[i]-a[0])**2/(psi[i]-psi[0])</code> at the node adjacent to the axis, where the minor radius goes as <code class="language-plaintext highlighter-rouge">sqrt(psi)</code>, so a linear reconstruction underestimates it and the estimate depends on its square.  On the packaged VEST sample that picks the wrong family on a margin of 0.22 against 1.67, where this loop integral separates 1.004 from 6.31.
+</li>
+</ol>
+
+<h3 id="identify_flux_exponent_from_q"><code class="language-plaintext highlighter-rouge">identify_flux_exponent_from_q</code></h3>
+
+<p class="formula-signature"><code>identify_flux_exponent_from_q(equilibrium, *, levels=None)</code></p>
+
+<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+
+<p>Decide weber versus weber per radian by rebuilding <code class="language-plaintext highlighter-rouge">q</code> on closed contours.</p>
+
+<p>The second, independent answer to the question
+<code class="language-plaintext highlighter-rouge">identify_flux_exponent</code> asks.  The safety factor of a closed surface
+is <code class="language-plaintext highlighter-rouge">q = |F|/(2*pi) * contour_integral(dl / (R |grad psi|))</code> when psi is in
+weber per radian, and <code class="language-plaintext highlighter-rouge">2*pi</code> times that when psi is in weber, so comparing
+both reconstructions against the <code class="language-plaintext highlighter-rouge">q</code> profile the file already carries
+separates the two families.</p>
+
+<p>It needs <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">F</code>; it needs neither <code class="language-plaintext highlighter-rouge">ip</code> nor a boundary outline,
+which is exactly what <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code> cannot do without.  On
+the three real equilibria this was measured on the two agree; where they
+differ is that this one still answers when the current record is zero or the
+boundary outline is missing.</p>
+
+<table class="formula-table">
+  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td><code>equilibrium</code></td><td>EquilibriumData</td><td>-</td><td><p>Must carry <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">z</code>, <code class="language-plaintext highlighter-rouge">psi</code>, <code class="language-plaintext highlighter-rouge">psi_axis</code>, <code class="language-plaintext highlighter-rouge">psi_boundary</code>, <code class="language-plaintext highlighter-rouge">psi_1d</code>, <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">f</code>; anything missing is an abstention, not an error.</p>
+</td></tr>
+  <tr><td><code>levels</code></td><td>array_like, optional</td><td>-</td><td><p>Normalized flux levels to trace, defaulting to <code class="language-plaintext highlighter-rouge">CONTOUR_Q_LEVELS</code></p>
+</td></tr>
+  </tbody>
+</table>
+
+<table class="formula-table">
+  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody>
+  <tr><td></td><td>ContourQNormalization</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">exponent</code> 0 for weber per radian and 1 for weber, or <code class="language-plaintext highlighter-rouge">None</code> with a <code class="language-plaintext highlighter-rouge">reason</code> when the measurement does not support either.</p>
+</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Processing steps.</strong></p>
+
+<ol>
+  <li>Trace each requested level with
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.extract_flux_surface_contours</code> and keep
+the longest closed contour that encloses the magnetic axis; a level whose
+contours are all open or all off-axis contributes nothing.</li>
+  <li>On each kept contour evaluate <code class="language-plaintext highlighter-rouge">|grad psi| = R * B_p</code> with
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.poloidal_field_at_boundary</code> in its
+weber-per-radian form and integrate <code class="language-plaintext highlighter-rouge">dl / (R |grad psi|)</code> by the
+midpoint rule.</li>
+  <li>Form the two candidate safety factors, <code class="language-plaintext highlighter-rouge">|F|/(2*pi)</code> times that integral
+and <code class="language-plaintext highlighter-rouge">2*pi</code> times the first, and take each one’s
+<code class="language-plaintext highlighter-rouge">|ln(q_model / q_stored)|</code> against the stored <code class="language-plaintext highlighter-rouge">|q|</code> interpolated to
+the level.</li>
+  <li>Take the median of each across the surfaces and accept the smaller one,
+but only when it is itself within <code class="language-plaintext highlighter-rouge">CONTOUR_Q_LOG_TOLERANCE</code>.</li>
+</ol>
+
+<p><strong>Defaults.</strong></p>
+
+<p><code class="language-plaintext highlighter-rouge">CONTOUR_Q_LEVELS</code> and <code class="language-plaintext highlighter-rouge">CONTOUR_Q_MIN_SURFACES</code> are legacy
+compatibility values, carried over from
+<code class="language-plaintext highlighter-rouge">geqdsk_cocos.flux_normalization_diagnostic</code> so the two agree surface for
+surface.  <code class="language-plaintext highlighter-rouge">CONTOUR_Q_LOG_TOLERANCE</code> is a numerical convenience: the
+Ampere rung’s 15% band made symmetric in the ratio, so a model <code class="language-plaintext highlighter-rouge">q</code> 1.16
+times too large and one 1.16 times too small are equally far out.  A plain
+relative error is not symmetric and accepted the second while rejecting the
+first.</p>
+
+<p><strong>Convention.</strong></p>
+
+<p>Decides Sauter’s flux exponent <code class="language-plaintext highlighter-rouge">e_Bp</code> – whether the <code class="language-plaintext highlighter-rouge">2*pi</code> is carried
+inside psi – and nothing else.  It does not rescale psi, does not identify
+a sign orientation, and does not distinguish the eight indices within a
+family.  <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">F</code> are compared by magnitude, because codes routinely
+emit <code class="language-plaintext highlighter-rouge">abs(q)</code> and the sign question belongs to <code class="language-plaintext highlighter-rouge">validate_cocos</code>.</p>
+
+<p><strong>Applicability.</strong></p>
+
+<p>Machine-independent.  Needs a 2-D psi map with closed interior surfaces, so
+a profiles-only equilibrium cannot be classified.</p>
+
+<p><strong>Limitations.</strong></p>
+
+<p>Abstains rather than picking the nearer of two wrong answers.  A <code class="language-plaintext highlighter-rouge">q</code>
+profile that disagrees with its own psi map – a rescaled psi, a <code class="language-plaintext highlighter-rouge">q</code> taken
+from a different solve – makes both hypotheses wrong, and this reports that
+rather than a family.  Marching squares resolves a contour only to the grid
+cell, so the log-ratio has a floor set by the grid: it was 1e-5 to 4e-4 on
+129-by-129 and 513-by-513 reconstructions, against a losing log-ratio of
+<code class="language-plaintext highlighter-rouge">ln(2*pi) = 1.8379</code>.</p>
+
+<p><strong>Provenance.</strong></p>
+
+<ol class="formula-references">
+  <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/geqdsk_cocos.py::flux_normalization_diagnostic</code> on branch <code class="language-plaintext highlighter-rouge">codex/gpec-flare-cocos-handshake</code>, which is the method and the levels.  Its acceptance rule was <em>relative only</em> – the winner had to beat the loser threefold, with no bar on the winner’s own agreement – and that accepts a decisive-looking wrong answer: measured on a real g-file with psi scaled by one half, the winning hypothesis is off by a factor of 2.00 and the separation is still 3.65, so the legacy returns “weber per radian, decisive” for a hypothesis its own measurement misses by a factor of two.  The bar in step 4 is what rejects it (D-04), and it makes the threefold rule unreachable: the two hypotheses sit exactly <code class="language-plaintext highlighter-rouge">ln(2*pi)</code> apart, so a winner inside the band leaves a ratio of at least twelve.  The separation is reported, not applied.
+</li>
+  <li>Sauter and Medvedev (2013) for <code class="language-plaintext highlighter-rouge">e_Bp</code> and the storage families.
 </li>
 </ol>
 
@@ -799,7 +909,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#cocos_field_scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_field_scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cocos_consistency_signs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_consistency_signs</a></li><li class="page-toc-item page-toc-level-3"><a href="#cocos_field_scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cocos_field_scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_convention</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent</a></li><li class="page-toc-item page-toc-level-3"><a href="#identify_flux_exponent_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">identify_flux_exponent_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#validate_cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">validate_cocos</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
     </nav>
 </aside>
 
@@ -917,7 +1027,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-21 06:55:10 +0000"
+        "time": "2026-09-21 07:17:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
