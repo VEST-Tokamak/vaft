@@ -27,8 +27,8 @@ classifiers = [
 ]
 
 dependencies = [
-  # Every direct dependency is here because VAFT (or omas, which declares no
-  # dependencies of its own) imports it. Pin policy (#1012):
+  # Every direct dependency is here because VAFT imports it (or omas needs it
+  # outside what its sdist declares -- xmltodict below). Pin policy (#1012):
   #   exact pins only where a version is required for reproducibility or
   #   compatibility, with the reason next to them; otherwise a floor that is the
   #   oldest version known to work and a ceiling at the next major release.
@@ -61,7 +61,6 @@ dependencies = [
   "snakemake",
   "statsmodels>=0.14.6,<0.16",
   "tqdm>=4.67.3",
-  # omas imports it too (and declares nothing).
   "uncertainties>=3.2.2,<4",
   # vaft.database.utils imports it for MaxRetryError. Measured: against an
   # unreachable HSDS, h5pyd raises OSError on both 1.26.13 and 2.8.0, so the

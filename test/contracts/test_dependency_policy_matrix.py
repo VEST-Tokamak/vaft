@@ -42,15 +42,24 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
 
         omas: VAFT depends on its internals. h5pyd: the HSDS client, whose
         upgrade is #969. A new ``==`` has to be argued for here and in the
-        comment beside it in pyproject.toml.
+        comment beside it in pyproject.toml. A direct URL or a three-part ``~=``
+        pins just as hard, so they count too; an environment marker's ``==`` does
+        not.
         """
         pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
         data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-        pinned = {
-            dep.split("==")[0].strip().lower()
-            for dep in data["project"]["dependencies"]
-            if "==" in dep.split(";")[0]  # an environment marker's == is not a pin
-        }
+        from packaging.requirements import Requirement
+
+        pinned = set()
+        for dep in data["project"]["dependencies"]:
+            requirement = Requirement(dep)
+            exact = requirement.url is not None or any(
+                spec.operator in ("==", "===")
+                or (spec.operator == "~=" and spec.version.count(".") >= 2)
+                for spec in requirement.specifier
+            )
+            if exact:
+                pinned.add(requirement.name.lower())
         self.assertEqual(pinned, {"omas", "h5pyd"})
 
 
