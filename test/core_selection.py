@@ -91,6 +91,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
     "test_spectrogram_methods.py",
+    # The launch contract every external-code adapter goes through. Stub
+    # programs only (`external_code_stubs`); no physics code is ever run.
+    "test_code_execution.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
     "contracts/test_contract_legacy_rejections.py",

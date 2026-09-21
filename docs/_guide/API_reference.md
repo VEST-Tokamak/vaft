@@ -523,6 +523,32 @@ refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sw
 parameter and collects every result. Snakemake rules should start with
 `vaft.code.init_snakemake_logger(snakemake)` so that stdout and stderr land in the rule's log file.
 
+## Execution backends
+
+A `run_*` builds the command line; an execution backend launches it. A configuration that has moved
+onto the shared layer accepts `backend=` (default `None`, meaning a local child process), so the same
+adapter call can later run through a scheduler without its scientific API changing.
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import LocalBackend, TESConfig, run_tes
+
+result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
+```
+
+| Name | Role |
+| --- | --- |
+| `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
+| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
+| `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
+| `ExecutionBackend`, `LocalBackend`, `resolve_backend` | the protocol, the local implementation, and the config lookup |
+| `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
+
+A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
+already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;
+a missing working directory stays a `FileNotFoundError`.
+TES uses the backend today; the other subprocess adapters follow in issue #671.
+
 # `vaft.data`
 
 Portable file formats and the packaged sample files.
