@@ -10440,10 +10440,9 @@ RECIPES["equilibrium_overview_pressure_weight_scan"] = CallableRecipe(
         "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.pressure",
         "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.global_quantities.beta_pol",
         "equilibrium.time_slice.{i}.global_quantities.li_3", "dataset_description.data_entry.pulse",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.degrees_of_freedom",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_input_data",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_fit_variables",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_hard_constraints",
+        # the auxquantities counts live inside code.parameters, whose content
+        # the DD does not define; the DD leaf is the parameters string itself
+        "equilibrium.code.parameters",
     ),
     backend=NEUTRAL,
     multi_entry=True,
@@ -11546,11 +11545,15 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         # is traced outward once and back along the inward branch, and the two
         # branches meet only at the X-points; starting anywhere else leaves a
         # radial chord across the island where the trace turns around.
-        order = np.roll(np.arange(theta_rad.size), -int(np.argmin(excursion)))
+        # An m-fold pattern has m X-points whose sampled minima can tie; the
+        # first within rounding is taken, so a phase shift of 2*pi (phi by
+        # 360/n) cannot move the start to another X-point on another platform.
+        start = int(np.flatnonzero(
+            excursion <= excursion.min() + 1e-9 * np.ptp(excursion)
+        )[0])
+        order = np.roll(np.arange(theta_rad.size), -start)
         order = np.append(order, order[0])
-        excursion = np.append(
-            np.roll(excursion, -int(np.argmin(excursion))), excursion.min()
-        )
+        excursion = np.append(np.roll(excursion, -start), excursion[start])
         outer_r, outer_z = _surface_at(mesh, psi_r + excursion, columns=order)
         inner_r, inner_z = _surface_at(mesh, psi_r - excursion, columns=order)
         if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():

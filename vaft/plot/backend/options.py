@@ -165,6 +165,12 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("show_wall", "bool"), OptionSpec("sigma", "float"), OptionSpec("time_resolution", "float"),
         OptionSpec("title", "str"), OptionSpec("use_wall_boundary", "bool"), OptionSpec("window"),
         OptionSpec("window_size", "float"), OptionSpec("x_limits", "range"), OptionSpec("z0", "float"),
+        # Island and coil-spectrum views (issue #886).
+        OptionSpec("unit", "str", description="display unit of a coil current or perturbed field; 'auto' picks one"),
+        OptionSpec("modes", description="toroidal mode numbers of a coil-current spectrum; None draws all"),
+        OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
+        OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
+        OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
     )
 
 

@@ -600,9 +600,9 @@ def test_one_probe_count_rule_serves_every_consumer():
         _efit_bpol_probe_count(ods["magnetics"]),
     }
     assert len(answers) == 1, answers
-    # The sample carries more channels than EFIT's geometry represents; the
-    # trailing toroidal-Mirnov references are diagnostics, not constraints.
-    assert answers.pop() < len(ods["magnetics.b_field_pol_probe"])
+    # Since #825 the sample publishes no duplicate toroidal-Mirnov reference,
+    # so every channel it carries is one EFIT's geometry represents.
+    assert answers.pop() == len(ods["magnetics.b_field_pol_probe"])
 
 
 def test_the_probe_count_accepts_either_shape():

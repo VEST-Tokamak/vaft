@@ -193,7 +193,7 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
         payload = record_path.read_bytes()
         record = json.loads(payload)
         provenance = {
-            "record": str(record_path.relative_to(root)),
+            "record": record_path.relative_to(root).as_posix(),
             "record_sha256": hashlib.sha256(payload).hexdigest(),
             "workbook": record.get("source", {}),
         }
