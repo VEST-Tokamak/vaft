@@ -547,7 +547,10 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
 already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;
 a missing working directory stays a `FileNotFoundError`.
-TES uses the backend today; the other subprocess adapters follow in issue #671.
+TES, GACODE (NEO and TGLF), the GPEC suite and NUBEAM use the backend today, and `CodeConfig`
+carries the `backend` field for every adapter built on it; CHEASE, FLARE and EFIT follow in issue #671.
+GACODE declares its `n_mpi` as `ResourceRequest.ntasks` for scheduler backends, while the launcher
+still starts the ranks itself.
 
 # `vaft.data`
 

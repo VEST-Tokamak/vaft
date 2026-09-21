@@ -596,3 +596,45 @@ def test_a_state_left_by_an_earlier_run_does_not_pass_for_a_new_one(tmp_path):
         inputs.plasma_state.write_bytes(b"STATE FROM AN EARLIER RUN")
         with pytest.raises(nubeam.NUBEAMExecutionError, match="did not create"):
             nubeam.generate_plasma_state(inputs, config)
+
+
+def test_nubeam_stages_launch_through_the_configured_backend(tmp_path):
+    """#671: `_run` builds the launch and still writes its own .log/.err."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nubeam.runner import _run
+
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="normal exit.", stderr="warn"))
+    config = nubeam.NUBEAMConfig(args=("--flag",), env={"X": "config"}, backend=backend)
+    completed = _run(
+        tmp_path / "nubeam_comp_exec",
+        workdir=tmp_path,
+        env={"NUBEAM_ACTION": "init_hold", "X": "stage"},
+        log_stem="init",
+        config=config,
+    )
+
+    (request,) = backend.requests
+    assert request.command[1:] == ("--flag",)
+    # config.env is applied last, as it always was.
+    assert request.env == {"NUBEAM_ACTION": "init_hold", "X": "config"}
+    assert completed.returncode == 0
+    assert (tmp_path / "init.log").read_text(encoding="utf-8") == "normal exit."
+    assert (tmp_path / "init.err").read_text(encoding="utf-8") == "warn"
+
+
+def test_nubeam_timeout_is_still_the_stdlib_exception(tmp_path):
+    import subprocess
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nubeam.runner import _run
+
+    (tmp_path / "step.log").write_text("an earlier run", encoding="utf-8")
+    backend = RecordingBackend(
+        ExecutionResult(returncode=None, stdout="partial", timed_out=True)
+    )
+    config = nubeam.NUBEAMConfig(timeout=5.0, backend=backend)
+    with pytest.raises(subprocess.TimeoutExpired):
+        _run(tmp_path / "exe", workdir=tmp_path, env={}, log_stem="step", config=config)
+    assert (tmp_path / "step.log").read_text(encoding="utf-8") == "partial"
