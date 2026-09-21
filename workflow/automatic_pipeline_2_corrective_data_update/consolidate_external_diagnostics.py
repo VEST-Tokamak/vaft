@@ -12,7 +12,7 @@ a target path for every artifact, and executes the moves. Two destinations:
 
 ``{root}/unmapped/{diagnostic}/{shot}/``
     Real data that no mapping can read yet: arranged frames, vendor ``.mcf``
-    containers, the 2013-era CCD export, hard X-ray CSVs. Deliberately outside
+    containers, the 2013-era CCD export. Deliberately outside
     the ``FileDBDomain`` grammar so it cannot be handed to a mapper as a data
     root by accident.
 

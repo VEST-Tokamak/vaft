@@ -2444,13 +2444,15 @@ diagnostic_registry:
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
     # Written by the same acquisition program as soft_x_rays, with an extra
-    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
-    # energy-flux product derived from it. Archived under
-    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
-    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
+    # `hxr_{variant}` segment: `raw` is the digitizer trace (kept for 40140 and
+    # 40142 only), `Eflux` the neural-network unfolded energy flux derived from
+    # it. Archived under `legacy/hard_x_rays/{shot}/`. Partial: only Eflux maps,
+    # as relative intensity with nominal energies and no line of sight.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv", "{shot}/digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    mapping_status: partial
+    mapping: {module: vaft.machine_mapping.hard_x_rays, entrypoint: hard_x_rays}
     quantities: {static: [channel, line_of_sight, energy_band], measured: [radiance], derived: []}
   soft_x_rays:
     name: Soft X-ray detector
