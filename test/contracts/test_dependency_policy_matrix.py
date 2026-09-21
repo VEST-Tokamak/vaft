@@ -14,7 +14,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         deps = set(data["project"]["dependencies"])
 
         expected_specs = {
-            "h5py==3.16.0",
+            "h5py>=3.16,<4",
             "h5pyd==0.20.0",
             "numpy>=2.0.0,<3",
             "scipy>=1.13.0,<2",
@@ -36,6 +36,22 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         dependencies = set(data["project"]["dependencies"])
         self.assertIn("numpy>=2.0.0,<3", dependencies)
         self.assertIn("h5pyd==0.20.0", dependencies)
+
+    def test_exact_pins_are_the_reviewed_ones(self):
+        """#1012: an exact pin must have a recorded reason, not come from a freeze.
+
+        omas: VAFT depends on its internals. h5pyd: the HSDS client, whose
+        upgrade is #969. A new ``==`` has to be argued for here and in the
+        comment beside it in pyproject.toml.
+        """
+        pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        pinned = {
+            dep.split("==")[0].strip().lower()
+            for dep in data["project"]["dependencies"]
+            if "==" in dep.split(";")[0]  # an environment marker's == is not a pin
+        }
+        self.assertEqual(pinned, {"omas", "h5pyd"})
 
 
 if __name__ == "__main__":

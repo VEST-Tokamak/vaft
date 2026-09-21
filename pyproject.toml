@@ -27,12 +27,19 @@ classifiers = [
 ]
 
 dependencies = [
-  "cryptography>=42.0.0",
-  "fortranformat",
+  # Every direct dependency is here because VAFT (or omas, which declares no
+  # dependencies of its own) imports it. Pin policy (#1012):
+  #   exact pins only where a version is required for reproducibility or
+  #   compatibility, with the reason next to them; otherwise a floor that is the
+  #   oldest version known to work and a ceiling at the next major release.
+  #   Older interpreters may resolve older releases (see #1009).
+  "cryptography>=42.0.0",               # vaft.database.raw (credential file)
   "f90nml>=1.4.4",
-  "h5py==3.16.0",
+  # The floor is issue #50: older h5py builds break against NumPy 2.
+  "h5py>=3.16,<4",
+  # Exact: the HSDS client. Its upgrade (0.24.x/1.0.0, which drops Python 3.10)
+  # changes the credential and transport path and is tracked in #969.
   "h5pyd==0.20.0",
-  "imageio>=2.34.0",
   "ipykernel>=6.29.4",
   "ipython",
   "ipywidgets",
@@ -40,24 +47,24 @@ dependencies = [
   "plotly>=5.24,<7",
   "mysql-connector-python>=8.4.0",
   "numpy>=2.0.0,<3",
+  # Exact: VAFT reads and writes through omas internals (DD tables up to
+  # 3.41.0, code.parameters serialisation, path materialisation), so an omas
+  # release is adopted deliberately, never by resolution.
   "omas==0.94.2",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
-  "pyjwt",
-  # Was an exact pin from a requirements freeze, with no recorded reason; 6.0.2
-  # has no cp314 wheel, so Python 3.14 had to build it from source (#1012).
   "PyYAML>=6.0.2,<7",
-  "requests-unixsocket==0.4.1",
   "scikit-image",
   "scipy>=1.13.0,<2",
   "seaborn",
-  "setuptools>=64.0.0,<81.0.0",
   "snakemake",
-  "statsmodels==0.14.6",
+  "statsmodels>=0.14.6,<0.16",
   "tqdm>=4.67.3",
-  "uncertainties==3.2.2",
-  "urllib3==1.26.13",
+  # omas imports it too (and declares nothing).
+  "uncertainties>=3.2.2,<4",
+  # vaft.database catches urllib3.exceptions.MaxRetryError, which 2.x keeps.
+  "urllib3>=1.26.13,<3",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
   # omas needs it to serialize equilibrium.code.parameters (the EFIT
