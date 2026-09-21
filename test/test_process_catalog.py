@@ -289,3 +289,13 @@ def test_cli_can_restrict_to_one_category(tmp_path):
     catalog.main(["--output", str(output), "--category", "numerical"])
     data = yaml.safe_load(output.read_text(encoding="utf-8"))
     assert {row["category"] for row in data["functions"]} == {"numerical"}
+
+
+def test_source_location_never_raises(tmp_path):
+    """``describe`` builds every spec of a category through it; no source must not break that."""
+    from vaft._docstring import source_location
+
+    namespace: dict = {}
+    exec("def made_up():\n    pass\n", namespace)  # no source file behind it
+    assert source_location(namespace["made_up"], tmp_path) == ("", 0)
+    assert source_location(catalog.describe, tmp_path) == ("", 0)  # outside the root

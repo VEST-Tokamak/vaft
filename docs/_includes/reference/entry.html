@@ -15,11 +15,11 @@ exactly once (a second markdownify pass escapes display math, see #371).
 {%- assign f = include.f -%}
 {%- assign convention = f.sections | where: "title", "Convention" | first -%}
 {%- if include.kind == "formula" -%}{%- assign cites = f.references -%}{%- assign cites_title = "References" -%}{%- else -%}{%- assign cites = f.provenance -%}{%- assign cites_title = "Provenance" -%}{%- endif -%}
-<section class="ref-entry" id="{{ f.name }}" data-ref-name="{{ f.name }}{% for alias in f.aliases %} {{ alias }}{% endfor %}" markdown="block">
+<section class="ref-entry" id="{{ f.name }}" markdown="block">
 <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></h3>
 <span class="ref-flags">{% if include.kind == "process" %}{% if f.machine_scope == "independent" %}<span class="ref-flag">Machine-independent</span>{% elsif f.machine_scope == "vest" %}<span class="ref-flag ref-flag-vest">VEST-specific</span>{% endif %}{% endif %}{% if f.empirical %}<span class="ref-flag ref-flag-empirical">Empirical fit</span>{% endif %}{% if f.convention_sensitive %}<span class="ref-flag ref-flag-convention">Convention-sensitive</span>{% endif %}{% if f.deprecated %}<span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</span>
-{% if f.source.path %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ include.ref }}/{{ f.source.path }}#L{{ f.source.line }}" title="{{ f.source.path }}, line {{ f.source.line }}">source</a>{% endif %}
+{% if f.source.line > 0 %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ include.ref }}/{{ f.source.path }}#L{{ f.source.line }}" title="{{ f.source.path }}, line {{ f.source.line }}">source</a>{% endif %}
 </header>
 <pre class="ref-signature"><code>{{ f.name }}{{ f.signature | escape }}</code></pre>
 {% if f.aliases.size > 0 or f.shadowed_by %}<p class="ref-note">{% if f.aliases.size > 0 %}Also exported as {% for alias in f.aliases %}<code>{{ alias }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}.{% endif %}{% if f.shadowed_by %} <code>vaft.formula.{{ f.name }}</code> resolves to the <code>{{ f.shadowed_by }}</code> copy; reach this one as <code>vaft.formula.{{ f.category }}.{{ f.name }}</code>.{% endif %}</p>{% endif %}

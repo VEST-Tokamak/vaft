@@ -19,7 +19,6 @@ needs its own permalink and the validator requires one per category.
 {%- endif -%}
 {%- assign category = catalog.categories | where: "name", include.category | first -%}
 {%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
-{%- assign module_path = category.module | replace: ".", "/" -%}
 
 <p class="ref-intro">Generated from the docstrings of <code>{{ category.module }}</code>:
 <strong>{{ entries.size }}</strong> public functions. Each entry is what
@@ -45,7 +44,7 @@ needs its own permalink and the validator requires one per category.
 <input class="ref-filter" type="search" placeholder="Filter {{ entries.size }} functions by name or summary" aria-label="Filter functions" data-ref-filter>
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  {% for f in entries %}<tr data-ref-row="{{ f.name }}"><td><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></td><td>{{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}{% if f.empirical %} <span class="ref-flag ref-flag-empirical">Empirical</span>{% endif %}{% if f.convention_sensitive %} <span class="ref-flag ref-flag-convention">Convention</span>{% endif %}{% if f.deprecated %} <span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</td></tr>
+  {% for f in entries %}<tr data-ref-row="{{ f.name }}{% for alias in f.aliases %} {{ alias }}{% endfor %}"><td><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></td><td>{{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}{% if f.empirical %} <span class="ref-flag ref-flag-empirical">Empirical</span>{% endif %}{% if f.convention_sensitive %} <span class="ref-flag ref-flag-convention">Convention</span>{% endif %}{% if f.deprecated %} <span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</td></tr>
   {% endfor %}</tbody>
 </table></div>
 <p class="ref-filter-empty" hidden>No function matches.</p>

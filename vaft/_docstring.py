@@ -187,13 +187,21 @@ def source_location(fn, root) -> tuple[str, int]:
     ``vaft`` package, so the path reads ``vaft/process/numerical.py``.  The
     function is unwrapped first: a decorated function's own ``def`` is the
     line worth linking, not the decorator factory's.
+
+    Returns ``("", 0)`` when the source cannot be located -- an install
+    without ``.py`` files, or a wrapper defined outside ``root`` -- because
+    ``describe`` builds every spec of a category through here and must keep
+    working there; the snapshot validation rejects the empty location.
     """
     from pathlib import Path
 
-    target = inspect.unwrap(fn)
-    path = Path(inspect.getsourcefile(target)).resolve()
-    _, line = inspect.getsourcelines(target)
-    return path.relative_to(Path(root).resolve()).as_posix(), line
+    try:
+        target = inspect.unwrap(fn)
+        path = Path(inspect.getsourcefile(target)).resolve()
+        _, line = inspect.getsourcelines(target)
+        return path.relative_to(Path(root).resolve()).as_posix(), line
+    except (OSError, TypeError, ValueError):
+        return "", 0
 
 
 def _split_sections(

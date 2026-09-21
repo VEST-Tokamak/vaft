@@ -36,7 +36,7 @@ The discovery layer is loaded on first use only; `import vaft.formula.stability`
 <table class="ref-table">
   <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Contents</th></tr></thead>
   <tbody>
-  {% for category in site.data.formula_catalog.categories %}<tr>
+  {% for category in site.data.formula_catalog.categories %}<tr{% if category.count > 0 %} id="{{ category.name }}"{% endif %}>
     <td>{% if category.count > 0 %}<a href="{{ site.baseurl }}/reference/formula/{{ category.name }}/">{{ category.name }}</a>{% else %}{{ category.name }}{% endif %}</td>
     <td><code>{{ category.module }}</code></td><td>{{ category.count }}</td><td>{{ category.title | escape }}</td>
   </tr>
