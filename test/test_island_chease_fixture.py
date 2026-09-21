@@ -22,6 +22,8 @@ from vaft.data.eqdsk import read_geqdsk
 from vaft.process.equilibrium import as_equilibrium, solovev_example
 from vaft.process.magnetic_island import MagneticIslandSpec, magnetic_island_topology
 
+from test_chease_output_convention import _physical_directions
+
 FIXTURE = Path(__file__).resolve().parent / "data" / "island_sxr"
 PROVENANCE = json.loads((FIXTURE / "solovev_vest_chease.json").read_text())
 
@@ -46,15 +48,14 @@ def test_the_fixture_is_the_file_its_provenance_describes():
 
 def test_the_fixture_refines_the_recorded_solovev_input(pair):
     solovev, refined = pair
-    assert refined.convention.cocos == 2 and solovev.convention.cocos == 11
+    # CHEASE's output comes back in its source's orientation, as the per-radian
+    # twin of COCOS 11 (#1157); before that it declared COCOS 2 and read back
+    # with the current and both field components reversed.
+    assert refined.convention.cocos == 1 and solovev.convention.cocos == 11
+    assert not refined.convention.contradicted
     np.testing.assert_allclose(refined.magnetic_axis, solovev.magnetic_axis, atol=5e-3)
-    assert abs(refined.ip) == pytest.approx(abs(solovev.ip), rel=0.05)
-    # Only the product of the current and field directions is frame-free, and
-    # it is what the island's helicity depends on. The directions themselves
-    # disagree: the refined file carries its input's (COCOS 11) sign pattern
-    # but declares COCOS 2, whose toroidal angle runs the other way, so read as
-    # declared its current and field both point clockwise from above.
-    assert np.sign(refined.ip * refined.bt0) == np.sign(solovev.ip * solovev.bt0)
+    assert refined.ip == pytest.approx(solovev.ip, rel=0.05)
+    assert _physical_directions(refined) == _physical_directions(solovev)
     # Same fixed boundary: the refined LCFS sits on the Solov'ev one.
     from vaft.process.equilibrium import contour_shape_parameters
 
@@ -68,7 +69,7 @@ def test_the_fixture_refines_the_recorded_solovev_input(pair):
 # kept narrower than that to leave both separatrix branches in the plasma.
 @pytest.mark.parametrize("m, width", [(2, 0.03), (3, 0.02)])
 def test_one_island_spec_means_the_same_thing_on_both(pair, m, width):
-    """Same m/n, same outboard width, same helicity across COCOS 11 and 2; the
+    """Same m/n, same outboard width, same helicity across COCOS 11 and 1; the
     resonant surface is each equilibrium's own."""
     spec = MagneticIslandSpec(m, 1, width)
     tops = [magnetic_island_topology(eq, spec) for eq in pair]
