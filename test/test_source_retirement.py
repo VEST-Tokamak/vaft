@@ -193,7 +193,7 @@ def test_a_partial_shot_list_never_yields_a_delete_command(holdings):
     assert report.shots[0].deletable
     assert report.unexamined == (2, 3)
     assert not report.deletable
-    with pytest.raises(RetirementError, match="never\s+examined"):
+    with pytest.raises(RetirementError, match=r"never\s+examined"):
         delete_retired_source(report, apply=True)
 
 

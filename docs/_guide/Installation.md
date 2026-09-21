@@ -7,7 +7,7 @@ layout: post
 permalink: /workflows/start-here/
 guide:
   architecture: Entry point from installation to an offline ODS and optional public data.
-  prerequisites: Python 3.10–3.13, Git, and a fresh virtual environment.
+  prerequisites: Python 3.10–3.14, Git, and a fresh virtual environment.
   expected: A local plasma-current plot, followed optionally by read-only shot 39915 metadata.
   status: Verified offline and against public HSDS.
 related:
@@ -22,7 +22,7 @@ database credentials or an external fusion code. Public VEST data access is the 
 
 ## 1. Install VAFT from source
 
-VAFT supports Python 3.10–3.13. Use a virtual environment and install the repository source:
+VAFT supports Python 3.10–3.14. Use a virtual environment and install the repository source:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines five extras; none is needed for the first result on this page:
+The project defines six extras; none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -47,6 +47,7 @@ The project defines five extras; none is needed for the first result on this pag
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
+| `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash
