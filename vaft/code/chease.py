@@ -222,6 +222,9 @@ class CHEASEResult:
     comparison: Mapping[str, float] = field(default_factory=dict)
     stdout: str = ""
     stderr: str = ""
+    #: What this run handed CHEASE, when it came through :func:`run_chease`;
+    #: see :class:`CHEASEMaterializedInput`.
+    materialized: Optional["CHEASEMaterializedInput"] = None
 
     @property
     def ok(self) -> bool:
@@ -1389,6 +1392,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         write_geqdsk(refined, refined_target)
 
     result = collect_chease_outputs(inputs.workdir, config, source=inputs.source)
+    result.materialized = inputs.materialized
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
