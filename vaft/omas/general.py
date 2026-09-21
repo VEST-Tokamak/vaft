@@ -745,15 +745,17 @@ def equilibrium_psi_to_weber(ods, *, source=None):
     Returns ``True`` when a conversion was applied and ``False`` when the ODS
     already declares a weber convention or holds no equilibrium.  A declared
     COCOS 1-8 is trusted as provenance and converted without probing the
-    data.  An undeclared ODS is probed slice by slice, and ``ValueError`` is
-    raised when the slices disagree about their storage family or when no
-    slice can settle it -- guessing would silently corrupt the flux by 2*pi,
-    which is what this function exists to end (issue #478).
+    data.  An undeclared ODS is probed by
+    :func:`vaft.data.eqdsk.flux_exponent_tier`, which runs one probe over every
+    slice before trying the next, and ``ValueError`` is raised when the slices
+    that tier decided disagree about their storage family or when no tier
+    settles it -- guessing would silently corrupt the flux by 2*pi, which is
+    what this function exists to end (issue #478).
     """
     import numpy as np
 
     from vaft.data.cocos import VAFT_INTERNAL_COCOS
-    from vaft.data.eqdsk import TWO_PI, slice_flux_exponent
+    from vaft.data.eqdsk import TWO_PI, _slice_reader, flux_exponent_tier
 
     if "equilibrium" not in ods or "equilibrium.time_slice" not in ods:
         return False
@@ -763,19 +765,22 @@ def equilibrium_psi_to_weber(ods, *, source=None):
             return False
         exponents = {0}
     else:
-        exponents = set()
-        undecided = []
-        for index in range(len(ods["equilibrium.time_slice"])):
-            exponent = slice_flux_exponent(ods[f"equilibrium.time_slice.{index}"])
-            if exponent is None:
-                undecided.append(index)
-            else:
-                exponents.add(exponent)
+        # One tier for the whole file: a slice that only the weakest probe can
+        # read must not be weighed against slices the strongest one decided.
+        # Mixing tiers turns "this file is self-consistent" into "these two
+        # probes disagree", which is a different question.
+        readers = [
+            _slice_reader(ods[f"equilibrium.time_slice.{index}"])
+            for index in range(len(ods["equilibrium.time_slice"]))
+        ]
+        _tier, decided = flux_exponent_tier(readers)
+        exponents = set(decided.values())
         if not exponents:
             raise ValueError(
                 "No equilibrium time slice carries enough data (profiles_1d.phi, "
-                "or a boundary outline with psi and ip) to settle whether psi is "
-                "stored in Wb or Wb/rad; declare the COCOS index instead"
+                "or a boundary outline with psi and ip, or a q profile its own "
+                "psi map reproduces) to settle whether psi is stored in Wb or "
+                "Wb/rad; declare the COCOS index instead"
             )
         if len(exponents) > 1:
             raise ValueError(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Literal, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, Callable, Iterable, Literal, Mapping, MutableMapping, Optional, Sequence
 import re
 import warnings
 
@@ -634,7 +634,28 @@ def _vacuum_b0(data: Mapping[str, Any]) -> float:
     return derived
 
 
-def _slope_flux_exponent(ts: Any) -> Literal[0, 1] | None:
+#: How a flux-exponent probe reads its inputs: ``read(path)`` returns the value
+#: at a slice-relative path, or ``None``.  Nothing else about the data model is
+#: assumed, which is what lets :mod:`vaft.plot.backend.convention` run the same
+#: ladder over its own accessor instead of a second copy of it (issue #478).
+SliceReader = Callable[[str], Any]
+
+
+def _slice_reader(ts: Any) -> SliceReader:
+    """A :data:`SliceReader` over one time slice of an ODS."""
+    return lambda path: _path_get(ts, path)
+
+
+def _read_array(read: SliceReader, path: str) -> Optional[np.ndarray]:
+    """One array through a :data:`SliceReader`, or ``None`` when absent or empty."""
+    value = read(path)
+    if value is None:
+        return None
+    array = np.asarray(value, dtype=float)
+    return array if array.size else None
+
+
+def _slope_exponent(read: SliceReader) -> Literal[0, 1] | None:
     """``e_Bp`` from the ``dphi/dpsi``-vs-``q`` slope, or ``None`` if it cannot answer.
 
     ``profiles_1d.phi`` is written in Wb by both producers, and ``q`` is
@@ -649,9 +670,12 @@ def _slope_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     let :func:`_ampere_flux_exponent` answer from the field instead, the same
     bargain :func:`vaft.process.cocos.identify_flux_exponent` makes.
     """
-    phi = np.asarray(_path_get(ts, "profiles_1d.phi", []), dtype=float).reshape(-1)
-    q = np.asarray(_path_get(ts, "profiles_1d.q", []), dtype=float).reshape(-1)
-    psi = np.asarray(_path_get(ts, "profiles_1d.psi", []), dtype=float).reshape(-1)
+    phi = _read_array(read, "profiles_1d.phi")
+    q = _read_array(read, "profiles_1d.q")
+    psi = _read_array(read, "profiles_1d.psi")
+    if phi is None or q is None or psi is None:
+        return None
+    phi, q, psi = phi.reshape(-1), q.reshape(-1), psi.reshape(-1)
     if phi.size < 3 or phi.size != q.size or phi.size != psi.size:
         return None
     if not np.all(np.isfinite(phi)):
@@ -676,8 +700,8 @@ def _slope_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     return None
 
 
-def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
-    """``e_Bp`` from Ampere's law round the LCFS, or ``None`` if it cannot answer.
+def _ampere_detail(read: SliceReader) -> tuple[Literal[0, 1] | None, float | None]:
+    """``e_Bp`` from Ampere's law round the LCFS, with the loop ratio it measured.
 
     This is :func:`vaft.process.cocos.identify_flux_exponent`, which needs only
     the psi map, the boundary outline and ``Ip`` -- no ``phi``. It is the rung
@@ -695,9 +719,12 @@ def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     3. A non-zero, finite plasma current (``global_quantities.ip``).
 
     If any of these fields are missing, empty, open, or unresolvable, this probe
-    abstains (returns ``None``). In a ``phi``-less legacy artifact, this removes
-    the only remaining evidence, causing the caller to fall back to the IMAS Data
-    Dictionary default convention (see :func:`ods_psi_to_wb_per_radian_factor`).
+    abstains with ``(None, None)``: it had nothing to measure, and probe 3 takes
+    over. When it does measure and the loop ratio matches neither family it
+    returns ``(None, ratio)`` instead, which is the stronger statement that this
+    slice's ``ip`` and psi map disagree.  :func:`flux_exponent_tier` stops there
+    rather than dropping to probe 3, which reads neither of the two quantities
+    in conflict.
 
     ``EquilibriumData`` is built here field by field rather than through
     :func:`vaft.process.equilibrium.as_equilibrium`, which calls this module back
@@ -707,23 +734,19 @@ def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
         from vaft.data.equilibrium import Contour, EquilibriumData
         from vaft.process.cocos import identify_flux_exponent
     except Exception:
-        return None
+        return None, None
 
     def _grid(path: str) -> Optional[np.ndarray]:
-        value = _path_get(ts, path)
-        if value is None:
-            return None
-        array = np.asarray(value, dtype=float)
-        return array if array.size else None
+        return _read_array(read, path)
 
     r = _grid("profiles_2d.0.grid.dim1")
     z = _grid("profiles_2d.0.grid.dim2")
     psi = _grid("profiles_2d.0.psi")
     boundary_r = _grid("boundary.outline.r")
     boundary_z = _grid("boundary.outline.z")
-    ip = _path_get(ts, "global_quantities.ip")
+    ip = read("global_quantities.ip")
     if r is None or z is None or psi is None or boundary_r is None or boundary_z is None:
-        return None
+        return None, None
     r, z = r.reshape(-1), z.reshape(-1)
     boundary_r, boundary_z = boundary_r.reshape(-1), boundary_z.reshape(-1)
     if psi.shape == (z.size, r.size) and psi.shape != (r.size, z.size):
@@ -731,18 +754,99 @@ def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
     try:
         ip = float(np.asarray(ip, dtype=float).reshape(-1)[0])
     except (IndexError, TypeError, ValueError):
-        return None
+        return None, None
     if not np.isfinite(ip) or ip == 0.0:
-        return None
+        return None, None
     try:
         equilibrium = EquilibriumData(
             r=r, z=z, psi=psi, ip=ip,
             lcfs=Contour(boundary_r, boundary_z, True),
         )
-        exponent, _ratio = identify_flux_exponent(equilibrium)
+        return identify_flux_exponent(equilibrium)
+    except Exception:
+        return None, None
+
+
+# The three probes above read through a :data:`SliceReader`.  These are the
+# same probes over an ODS time slice, which is how everything outside the
+# ladder -- and every test of one probe in isolation -- reaches them.
+
+
+def _slope_flux_exponent(ts: Any) -> Literal[0, 1] | None:
+    """:func:`_slope_exponent` off one ODS time slice."""
+    return _slope_exponent(_slice_reader(ts))
+
+
+def _ampere_flux_exponent_detail(ts: Any) -> tuple[Literal[0, 1] | None, float | None]:
+    """:func:`_ampere_detail` off one ODS time slice."""
+    return _ampere_detail(_slice_reader(ts))
+
+
+def _ampere_flux_exponent(ts: Any) -> Literal[0, 1] | None:
+    """Just the exponent from :func:`_ampere_flux_exponent_detail`."""
+    return _ampere_flux_exponent_detail(ts)[0]
+
+
+def _contour_q_flux_exponent(ts: Any) -> Literal[0, 1] | None:
+    """:func:`_contour_q_exponent` off one ODS time slice."""
+    return _contour_q_exponent(_slice_reader(ts))
+
+
+def _contour_q_exponent(read: SliceReader) -> Literal[0, 1] | None:
+    """``e_Bp`` from ``q`` rebuilt on closed contours, or ``None`` if it cannot answer.
+
+    This is :func:`vaft.process.cocos.identify_flux_exponent_from_q`, the third
+    and last rung. It needs ``profiles_1d.q`` and ``profiles_1d.f`` and the psi
+    map, and -- unlike the two rungs above it -- neither ``profiles_1d.phi`` nor
+    ``global_quantities.ip`` nor a boundary outline. That is the whole reason it
+    is here: without it, a legacy Wb/rad artifact with no ``phi`` and no usable
+    current or outline falls through to the Data Dictionary default, which for
+    that artifact is silently wrong by ``2*pi``.
+
+    It abstains the same way the others do, and on a stricter rule: the winning
+    hypothesis must match the stored ``q`` to within
+    :data:`vaft.process.cocos.FLUX_EXPONENT_TOLERANCE`, not merely beat the
+    other one. A ``q`` profile that does not belong to this psi map therefore
+    produces an abstention rather than whichever family happens to be nearer.
+    """
+    try:
+        from vaft.data.equilibrium import EquilibriumData
+        from vaft.process.cocos import identify_flux_exponent_from_q
     except Exception:
         return None
-    return exponent
+
+    r = _read_array(read, "profiles_2d.0.grid.dim1")
+    z = _read_array(read, "profiles_2d.0.grid.dim2")
+    psi = _read_array(read, "profiles_2d.0.psi")
+    psi_1d = _read_array(read, "profiles_1d.psi")
+    q = _read_array(read, "profiles_1d.q")
+    f = _read_array(read, "profiles_1d.f")
+    if r is None or z is None or psi is None or psi_1d is None or q is None or f is None:
+        return None
+    r, z = r.reshape(-1), z.reshape(-1)
+    if psi.shape == (z.size, r.size) and psi.shape != (r.size, z.size):
+        psi = psi.T
+    psi_axis = read("global_quantities.psi_axis")
+    psi_boundary = read("global_quantities.psi_boundary")
+    if psi_axis is None or psi_boundary is None:
+        psi_axis, psi_boundary = psi_1d.reshape(-1)[0], psi_1d.reshape(-1)[-1]
+    axis_r = read("global_quantities.magnetic_axis.r")
+    axis_z = read("global_quantities.magnetic_axis.z")
+    try:
+        axis = (float(axis_r), float(axis_z)) if axis_r is not None and axis_z is not None else None
+        equilibrium = EquilibriumData(
+            r=r, z=z, psi=psi,
+            psi_axis=float(psi_axis), psi_boundary=float(psi_boundary),
+            psi_1d=psi_1d.reshape(-1), q=q.reshape(-1), f=f.reshape(-1),
+            magnetic_axis=axis,
+        )
+    except (TypeError, ValueError):
+        return None
+    try:
+        return identify_flux_exponent_from_q(equilibrium).exponent
+    except Exception:
+        return None
+
 
 
 def _flux_exponent_candidates(ods: Any, time_index: int) -> Iterable[Any]:
@@ -790,10 +894,19 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     3. Probe 2 (:func:`_ampere_flux_exponent`):
        The loop integral of ``B_pol`` round the LCFS against ``mu0*|Ip|``,
        which needs no ``phi``.
+    4. Probe 3 (:func:`_contour_q_flux_exponent`):
+       ``q`` rebuilt from ``|F|`` and ``|grad psi|`` on interior closed
+       contours, which needs no ``phi``, no ``Ip`` and no boundary outline.
 
-    Both probes are decisive because their two outcomes are 2*pi apart, and
-    both abstain rather than guess -- a ratio near neither outcome says the
+    Every probe is decisive because its two outcomes are 2*pi apart, and every
+    one abstains rather than guess -- a ratio near neither outcome says the
     input is inconsistent, not which family it belongs to.
+
+    **Precedence runs by probe before it runs by slice.**  Each probe is tried
+    on every candidate slice before the next probe is tried on any of them, so a
+    weak probe on the requested slice cannot overrule a strong one on the rest
+    of the file; :func:`flux_exponent_tier` owns that ordering and explains what
+    slice-first ordering costs.
 
     No-Phi Legacy ODS Edge Case & Fallback Mechanics
     -------------------------------------------------
@@ -803,13 +916,16 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     probe 2 (Ampere's law).
 
     This shortened path carries an inherent trade-off:
-    - **Reduced evidence**: Only one physical check is available instead of two
+    - **Reduced evidence**: Only two physical checks are available instead of three
       independent probes.
     - **LCFS sensitivity**: Probe 2 requires a valid 2D poloidal flux grid, a
       finite non-zero plasma current ``Ip``, and a well-formed closed boundary
       outline contour (``boundary.outline.r`` and ``boundary.outline.z``).
       If the boundary outline is missing, open, or degraded (such as in degenerate
       EFIT reconstructions where ``psi_axis == psi_boundary``), probe 2 also abstains.
+      Probe 3 then answers from ``q`` alone, because it reads the flux map in its
+      interior rather than at its boundary; it abstains in turn when the slice
+      carries no ``q``, or a ``q`` its own psi map does not reproduce.
 
     Terminal Default vs. Detection
     ------------------------------
@@ -821,8 +937,10 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
        This terminal fallback is a **default, not a detection**. While correct
        for well-formed DD-conformant files lacking diagnostic profiles or LCFS
        contours, it is silently incorrect for a legacy Wb/rad artifact that also
-       failed the Ampere probe, resulting in an uncorrected factor of ``1/(2*pi)``
-       (an inadvertent 2*pi scaling error).
+       failed every probe, resulting in an uncorrected factor of ``1/(2*pi)``
+       (an inadvertent 2*pi scaling error). Probe 3 exists to shrink the set of
+       artifacts that reach it: a slice with a psi map and a ``q`` profile is now
+       decided from data even with no ``phi``, no ``Ip`` and no outline.
 
     Returns
     -------
@@ -833,10 +951,9 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     declared = _declared_flux_exponent(ods)
     if declared is not None:
         return 1.0 if declared == 0 else 1.0 / TWO_PI
-    for ts in _flux_exponent_candidates(ods, time_index):
-        exponent = slice_flux_exponent(ts)
-        if exponent is not None:
-            return 1.0 if exponent == 0 else 1.0 / TWO_PI
+    exponent = ods_flux_exponent(ods, time_index)
+    if exponent is not None:
+        return 1.0 if exponent == 0 else 1.0 / TWO_PI
     return 1.0 / TWO_PI
 
 
@@ -863,18 +980,118 @@ def slice_flux_exponent(time_slice: Any) -> Literal[0, 1] | None:
     """The flux exponent one equilibrium time slice's own data supports.
 
     Evaluates probes in strict precedence order:
-    1. :func:`_slope_flux_exponent` -- exact ``dphi/dpsi`` slope against ``q``;
-    2. :func:`_ampere_flux_exponent` -- Ampere's law contour integral around the LCFS.
+    1. :func:`_slope_exponent` -- exact ``dphi/dpsi`` slope against ``q``;
+    2. :func:`_ampere_detail` -- Ampere's law contour integral around the LCFS;
+    3. :func:`_contour_q_exponent` -- ``q`` rebuilt on interior contours,
+       which needs neither ``phi`` nor ``ip`` nor a boundary outline, and which
+       is reached only when probe 2 had nothing to measure. A probe 2 that ran
+       and rejected both families has found ``ip`` and the psi map contradicting
+       each other, and probe 3, which reads neither, must not overrule that.
 
-    Returns ``0`` for Wb/rad storage, ``1`` for Wb storage, or ``None`` when
-    neither probe can decide from this slice alone (e.g., when ``profiles_1d.phi``
-    is absent and the boundary outline is incomplete or unphysical).
+    Returns ``0`` for Wb/rad storage, ``1`` for Wb storage, or ``None`` when no
+    probe can decide from this slice alone -- which now means the slice carries
+    no ``phi``, no usable LCFS *and* no ``q`` profile consistent with its own psi
+    map, or else that its ``ip`` and psi map disagree.
     """
-    for probe in (_slope_flux_exponent, _ampere_flux_exponent):
-        exponent = probe(time_slice)
+    read = _slice_reader(time_slice)
+    exponent = _slope_exponent(read)
+    if exponent is not None:
+        return exponent
+    exponent, ratio = _ampere_detail(read)
+    if exponent is not None:
+        return exponent
+    if ratio is not None:
+        # Probe 2 ran and its loop integral matched neither family: this slice's
+        # ``ip`` and psi map contradict each other. Probe 3 measures neither of
+        # those, so letting it answer here would hide the contradiction instead
+        # of resolving it.
+        return None
+    return _contour_q_exponent(read)
+
+
+
+#: The probe tiers, strongest evidence first.  ``slope`` compares ``dphi/dpsi``
+#: against ``q`` and is exact where it applies; ``ampere`` measures a loop
+#: integral against ``mu0*|Ip|``; ``contour_q`` rebuilds ``q`` from ``|F|`` and
+#: the psi map and needs neither ``phi`` nor ``Ip`` nor a boundary outline.
+FLUX_EXPONENT_TIERS: tuple[str, ...] = ("slope", "ampere", "contour_q")
+
+
+def flux_exponent_tier(
+    readers: Sequence[SliceReader],
+) -> tuple[str | None, dict[int, Literal[0, 1]]]:
+    """The strongest probe tier that decides anything, and what each slice said.
+
+    **Precedence runs by evidence first and by slice second.**  Probing slice by
+    slice and taking the first answer lets a weak probe on the requested slice
+    overrule a strong one on every other slice: a slice stripped of ``phi`` and
+    of its outline is decided by ``contour_q`` alone, and if that slice's ``q``
+    disagrees with the rest of the file the whole ODS follows it.  Measured on a
+    packaged sample with slice 0's ``q`` scaled by ``2*pi``: slice-first gives
+    ``1/(2*pi)`` at time index 0 and ``1`` at index 1 for one file, and
+    :func:`vaft.omas.general.equilibrium_psi_to_weber` then refuses it as
+    self-contradictory.  Tier-first gives ``1`` at both, because Ampere's law
+    answers on the other eighteen slices and ``contour_q`` is never reached.
+
+    Parameters
+    ----------
+    readers : sequence of SliceReader
+        One reader per time slice, in the order they should be consulted [-].
+
+    Returns
+    -------
+    tuple of (str or None, dict)
+        The tier that decided -- a member of :data:`FLUX_EXPONENT_TIERS` -- and
+        a mapping from position in *readers* to ``0`` (weber per radian) or
+        ``1`` (weber) for every slice that tier could decide.  ``(None, {})``
+        when nothing decided [-].
+
+    Notes
+    -----
+    An Ampere probe that *ran* and matched neither family has found ``ip`` and
+    the psi map contradicting each other.  When that happens on some slice and
+    no slice's Ampere probe decides, the ladder stops rather than dropping to
+    ``contour_q``, which reads neither of the two quantities in conflict and so
+    cannot resolve the conflict it would be papering over.
+    """
+    readers = list(readers)
+
+    decided: dict[int, Literal[0, 1]] = {}
+    for index, read in enumerate(readers):
+        exponent = _slope_exponent(read)
         if exponent is not None:
-            return exponent
-    return None
+            decided[index] = exponent
+    if decided:
+        return "slope", decided
+
+    contradicted = False
+    for index, read in enumerate(readers):
+        exponent, ratio = _ampere_detail(read)
+        if exponent is not None:
+            decided[index] = exponent
+        elif ratio is not None:
+            contradicted = True
+    if decided:
+        return "ampere", decided
+    if contradicted:
+        return None, {}
+
+    for index, read in enumerate(readers):
+        exponent = _contour_q_exponent(read)
+        if exponent is not None:
+            decided[index] = exponent
+    return ("contour_q", decided) if decided else (None, {})
+
+
+def ods_flux_exponent(ods: Any, time_index: int = 0) -> Literal[0, 1] | None:
+    """``e_Bp`` for a whole ODS, by tier across every slice, or ``None``.
+
+    The requested slice is consulted first within each tier, so a file whose
+    slices agree answers the same way whichever index is asked for.
+    """
+    readers = [_slice_reader(ts) for ts in _flux_exponent_candidates(ods, time_index)]
+    _tier, decided = flux_exponent_tier(readers)
+    return decided[min(decided)] if decided else None
 
 
 def from_omas(

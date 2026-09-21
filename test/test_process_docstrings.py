@@ -258,6 +258,7 @@ CONVENTION_SENSITIVE = frozenset({
     "build_line_integral_operator",
     "clip_segment_to_polygon",
     "cocos_field_scales",
+    "identify_flux_exponent_from_q",
     "resonant_delta",
     "resonant_geometric_factor",
     "align_surfaces_by_q",
