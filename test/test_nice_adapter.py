@@ -640,3 +640,122 @@ def test_window_report_renders_through_vaft_plot(tmp_path):
     shifted = copy.deepcopy(equilibrium)
     shifted["equilibrium.time"] = np.asarray([0.333])
     assert not compare_equilibria(equilibrium, shifted, 0.331)["exact_time_match"]
+
+
+# --------------------------------------------------------------------------
+# Execution backend (#671 follow-up): NICE launches through vaft.code.execution
+# --------------------------------------------------------------------------
+
+
+def _backend_case(tmp_path, backend, **overrides):
+    from external_code_stubs import write_launchable_stub
+
+    exe = write_launchable_stub(tmp_path / "bin" / "nice_recon")
+    config = NiceConfig(
+        time=0.35,
+        workdir=tmp_path / "case",
+        parameter_file=vest_reference_parameter_file(),
+        executable=str(exe),
+        backend=backend,
+        **overrides,
+    )
+    return exe, config, prepare_nice_inputs(_ods(), config)
+
+
+def test_run_nice_hands_its_launch_to_the_configured_backend(tmp_path):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nice import run_nice
+
+    backend = RecordingBackend(ExecutionResult(returncode=3, stdout="out\n", stderr="err\n"))
+    exe, config, inputs = _backend_case(
+        tmp_path, backend, arguments=("--verbose",), env={"NICE_FLAG": "1"}, timeout=90.0
+    )
+    result = run_nice(inputs, config)
+
+    (request,) = backend.requests
+    assert request.command == (str(exe), "--verbose")
+    assert request.workdir == Path(inputs.workdir)
+    assert request.env == {"NICE_FLAG": "1"}
+    assert request.timeout == 90.0
+    # The two streams still land in their own files, and on the result.
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == "out\n"
+    assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8") == "err\n"
+    assert (result.returncode, result.stdout, result.stderr) == (3, "out\n", "err\n")
+    assert result.termination_reason == "NICE exited with status 3"
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (3, False)
+
+
+def test_a_backend_timeout_is_still_status_124_with_the_partial_logs(tmp_path):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nice import run_nice
+
+    backend = RecordingBackend(
+        ExecutionResult(returncode=None, stdout="iteration 1\n", stderr="", timed_out=True)
+    )
+    _, config, inputs = _backend_case(tmp_path, backend, timeout=5.0)
+    result = run_nice(inputs, config)
+
+    assert result.returncode == 124
+    assert not result.process_succeeded
+    assert result.termination_reason == "NICE timed out"
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == "iteration 1\n"
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (124, True)
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, PermissionError])
+def test_a_launch_the_os_refuses_as_missing_or_forbidden_keeps_its_type(tmp_path, error):
+    from vaft.code._executables import ExecutableNotLaunchable
+    from vaft.code.nice import run_nice
+
+    class Refusing:
+        def run(self, request):
+            try:
+                raise error(f"{request.command[0]} refused")
+            except OSError as cause:
+                raise ExecutableNotLaunchable(f"cannot launch {request.command[0]}") from cause
+
+    _, config, inputs = _backend_case(tmp_path, Refusing())
+    with pytest.raises(error):
+        run_nice(inputs, config)
+    # The logs were truncated before the launch, not left from an earlier run.
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == ""
+
+
+def test_any_other_refusal_is_the_shared_launch_error(tmp_path, monkeypatch):
+    import subprocess
+
+    from vaft.code._executables import ExecutableNotLaunchable
+    from vaft.code.nice import run_nice
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    _, config, inputs = _backend_case(tmp_path, None)
+    monkeypatch.setattr(subprocess, "run", refuse)
+    with pytest.raises(ExecutableNotLaunchable, match="Exec format error"):
+        run_nice(inputs, config)
+
+
+def test_a_local_launch_writes_each_stream_to_its_own_log(tmp_path):
+    """End to end through the real LocalBackend, with Python standing in for NICE."""
+    import sys
+
+    from vaft.code.nice import run_nice
+
+    config = NiceConfig(
+        time=0.35,
+        workdir=tmp_path / "case",
+        parameter_file=vest_reference_parameter_file(),
+        executable=sys.executable,
+        arguments=("-c", "import sys; print('to stdout'); print('to stderr', file=sys.stderr)"),
+    )
+    inputs = prepare_nice_inputs(_ods(), config)
+    result = run_nice(inputs, config)
+
+    assert result.returncode == 0
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8").strip() == "to stdout"
+    assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8").strip() == "to stderr"
