@@ -28,8 +28,19 @@ Contract
   channels at that slice, ``f`` 0 or 2 %, written into a copy of the
   constraints before the k-file -- a near-zero reading otherwise gets a
   near-zero sigma.  The multiplier then applies to the floored sigma.
-- One legacy-weight run is the **reference branch** for displacement and
-  continuity, nothing more.
+- The diamagnetic flux is held inactive (its sigma scaled by 1e8): under
+  ``standard_deviation`` it becomes a strong constraint and crashes the fit
+  once the magnetics are widened (#1027); it gets its own axis (#386).
+- Profile basis (1,1) and (2,1): the routine (2,2) basis does not settle once
+  the magnetics carry weight -- two of its directions trade off indefinitely
+  (#1027) -- while these converge numerically.  Two bases, so the range's
+  dependence on the basis is visible; each basis is judged on its own.
+- EFIT's chi-square target ``SAICON`` is ``N + 3 sqrt(2N)`` per slice, N the
+  fitted probes, loops, Ip and PF currents: the legacy 80 is below the
+  expected chi-square of a statistical sigma, so a converged fit could never
+  take the ``iconvr = 2`` exit (#1027).  The legacy reference keeps 80.
+- One legacy-weight run per basis is the **reference branch** for
+  displacement and continuity, nothing more.
 
 Initialization
 --------------
@@ -70,6 +81,12 @@ FAMILIES = ("bpol_probe", "flux_loop")
 #: Which families each ladder moves together.
 LADDERS = (("bpol_probe",), ("flux_loop",), ("bpol_probe", "flux_loop"))
 ERROR_MINIMA = (1.0e-2, 1.0e-4)
+#: (KPPCUR, KFFCUR): profile bases the magnetics can determine (#1027).
+BASES = ((1, 1), (2, 1))
+#: Scale that makes the diamagnetic flux inactive under standard_deviation (#1027, #386).
+DIAMAGNETIC_INACTIVE_SCALE = 1.0e-8
+#: Constraint families counted in N for the chi-square target.
+FITTED_FAMILIES = ("bpol_probe", "flux_loop", "ip", "pf_current")
 MAX_ITERATIONS = 514  # (515 - 1) // NXITER, NXITER = 1 (#171)
 
 #: The operating-range rule (#891).  Part of the result, stated with it.
@@ -95,43 +112,49 @@ def _module(path: Path, name: str):
 # --------------------------------------------------------------------------
 
 
-def rung_name(multipliers: Mapping[str, float], floor: float) -> str:
-    return f"probe_x{multipliers['bpol_probe']:g}_loop_x{multipliers['flux_loop']:g}_floor{100 * floor:g}pct"
+def rung_name(multipliers: Mapping[str, float], floor: float, basis: Sequence[int] = (1, 1)) -> str:
+    return (f"p{basis[0]}f{basis[1]}_probe_x{multipliers['bpol_probe']:g}_loop_x{multipliers['flux_loop']:g}"
+            f"_floor{100 * floor:g}pct")
 
 
 def rungs(
     multipliers: Sequence[float] = MULTIPLIERS,
     floors: Sequence[float] = FLOORS,
     ladders: Sequence[Sequence[str]] = LADDERS,
+    bases: Sequence[Sequence[int]] = BASES,
 ) -> list[dict[str, Any]]:
-    """Every distinct rung: the baseline first, then each ladder in order, per floor.
+    """Every distinct rung, per basis: the baseline first, then each ladder in order, per floor.
 
     The point where a ladder sits at x1 is the same rung whichever ladder it
     belongs to, so it appears once, tagged with every ladder it serves.
     """
     out: dict[tuple, dict[str, Any]] = {}
-    for floor in floors:
-        for ladder in ladders:
-            for m in multipliers:
-                values = {family: (float(m) if family in ladder else 1.0) for family in FAMILIES}
-                key = (values["bpol_probe"], values["flux_loop"], float(floor))
-                rung = out.setdefault(key, {
-                    "name": rung_name(values, floor),
-                    "uncertainty_mode": "standard_deviation",
-                    "multipliers": values,
-                    "floor": float(floor),
-                    "ladders": [],
-                })
-                label = "+".join(ladder)
-                if label not in rung["ladders"]:
-                    rung["ladders"].append(label)
+    points = [
+        (tuple(basis), float(floor), ladder, float(m))
+        for basis in bases for floor in floors for ladder in ladders for m in multipliers
+    ]
+    for basis, floor, ladder, m in points:
+        values = {family: (m if family in ladder else 1.0) for family in FAMILIES}
+        key = (basis, values["bpol_probe"], values["flux_loop"], floor)
+        rung = out.setdefault(key, {
+            "name": rung_name(values, floor, basis),
+            "uncertainty_mode": "standard_deviation",
+            "basis": [int(basis[0]), int(basis[1])],
+            "multipliers": values,
+            "floor": floor,
+            "ladders": [],
+        })
+        label = "+".join(ladder)
+        if label not in rung["ladders"]:
+            rung["ladders"].append(label)
     return list(out.values())
 
 
-def legacy_reference() -> dict[str, Any]:
+def legacy_reference(basis: Sequence[int] = (1, 1)) -> dict[str, Any]:
     return {
-        "name": "legacy_reference",
+        "name": f"p{basis[0]}f{basis[1]}_legacy_reference",
         "uncertainty_mode": "legacy_weight",
+        "basis": [int(basis[0]), int(basis[1])],
         "multipliers": {family: 1.0 for family in FAMILIES},
         "floor": 0.0,
         "ladders": [],
@@ -139,8 +162,41 @@ def legacy_reference() -> dict[str, Any]:
 
 
 def uncertainty_scales_for(rung: Mapping[str, Any]) -> dict[str, float]:
-    """``uncertainty_scales`` divides the sigma, so a multiplier m is a scale 1/m."""
-    return {family: 1.0 / float(rung["multipliers"][family]) for family in FAMILIES}
+    """``uncertainty_scales`` divides the sigma, so a multiplier m is a scale 1/m.
+
+    The diamagnetic flux is made inactive on every standard_deviation rung.
+    """
+    scales = {family: 1.0 / float(rung["multipliers"][family]) for family in FAMILIES}
+    scales["diamagnetic_flux"] = DIAMAGNETIC_INACTIVE_SCALE
+    return scales
+
+
+def fitted_constraint_count(ods, slice_index: int = 0, families: Iterable[str] = FITTED_FAMILIES) -> int:
+    """Constraints with a positive weight at one slice, over ``families``.
+
+    ``ip`` and other scalar families are a single node; arrays count members.
+    """
+    root = f"equilibrium.time_slice.{slice_index}.constraints"
+    count = 0
+    for family in families:
+        path = f"{root}.{family}"
+        if path not in ods:
+            continue
+        node = ods[path]
+        members = [f"{path}.{j}" for j in range(len(node))] if f"{path}.weight" not in ods else [path]
+        for member in members:
+            try:
+                if float(ods[f"{member}.weight"]) > 0.0:
+                    count += 1
+            except Exception:
+                continue
+    return count
+
+
+def chi_squared_target(fitted: int) -> float:
+    """``N + 3 sqrt(2N)``: three standard deviations above a statistical chi-square's mean."""
+    n = float(fitted)
+    return n + 3.0 * np.sqrt(2.0 * n) if n > 0 else float("nan")
 
 
 def apply_sigma_floor(ods, fraction: float, families: Iterable[str] = FAMILIES) -> list[dict[str, Any]]:
@@ -212,6 +268,7 @@ def summarize(records: Sequence[Mapping[str, Any]], rung_list: Sequence[Mapping[
         rows.append({
             "rung": rung["name"],
             "uncertainty_mode": rung["uncertainty_mode"],
+            "basis": list(rung.get("basis", [])),
             "multipliers": dict(rung["multipliers"]),
             "floor": rung["floor"],
             "ladders": list(rung["ladders"]),
@@ -243,14 +300,31 @@ def operating_range(rows: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
     the stated bound.
     """
     scan = [row for row in rows if row["uncertainty_mode"] == "standard_deviation"]
+    low, high = criteria["reduced_chi2_range"]
+    verdicts: dict[str, list[str]] = {}
+    narrowest_by_basis: dict[str, str | None] = {}
+    # Each profile basis is its own calibration: the residual a wide sigma is
+    # compared with is the narrowest converging rung *of the same basis*.
+    for basis in sorted({tuple(row.get("basis") or ()) for row in scan}):
+        members = [row for row in scan if tuple(row.get("basis") or ()) == basis]
+        verdicts.update(_basis_verdicts(members, criteria, low, high, narrowest_by_basis, basis))
+    return {
+        "criteria": {k: (list(v) if isinstance(v, tuple) else v) for k, v in criteria.items()},
+        "narrowest_converging": narrowest_by_basis,
+        "range": [name for name, failures in verdicts.items() if not failures],
+        "failures": verdicts,
+    }
+
+
+def _basis_verdicts(scan, criteria, low, high, narrowest_by_basis, basis) -> dict[str, list[str]]:
     converging = [row for row in scan if row["slices"] and row["converged_tight"] == row["slices"]]
     narrowest = min(
         converging,
         key=lambda row: (row["multipliers"]["bpol_probe"] * row["multipliers"]["flux_loop"], row["floor"]),
         default=None,
     )
+    narrowest_by_basis["p{}f{}".format(*basis) if basis else "unspecified"] = narrowest["rung"] if narrowest else None
     reference_residual = narrowest["probe_residual"] if narrowest else float("nan")
-    low, high = criteria["reduced_chi2_range"]
     verdicts: dict[str, list[str]] = {}
     for row in scan:
         failures = []
@@ -272,12 +346,7 @@ def operating_range(rows: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
         if not (np.isfinite(drift) and drift <= criteria["max_median_drift_mm"]):
             failures.append(f"median |drift| {drift:.3g} mm over {criteria['max_median_drift_mm']} mm")
         verdicts[row["rung"]] = failures
-    return {
-        "criteria": {k: (list(v) if isinstance(v, tuple) else v) for k, v in criteria.items()},
-        "narrowest_converging": narrowest["rung"] if narrowest else None,
-        "range": [name for name, failures in verdicts.items() if not failures],
-        "failures": verdicts,
-    }
+    return verdicts
 
 
 # --------------------------------------------------------------------------
@@ -330,10 +399,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("no efit executable: set EFITHOME", file=sys.stderr)
         return 2
 
-    plan = [legacy_reference()] + rungs()
+    references = [legacy_reference(basis) for basis in BASES]
+    plan = references + rungs()
     if args.rungs:
         wanted = set(args.rungs.split(","))
-        plan = [plan[0]] + [rung for rung in plan[1:] if rung["name"] in wanted]
+        plan = references + [rung for rung in plan[len(references):] if rung["name"] in wanted]
     tables = str(Path(data_path("efit")).resolve()) + "/"
     reference = json.loads(REFERENCE_SET.read_text(encoding="utf-8"))
     products = {
@@ -357,6 +427,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 tstep=args.tstep, average_window=args.average_window, seed_study=seed_study,
             )
             geqdsk: dict[tuple[str, float], Any] = {}
+            fitted = fitted_constraint_count(built)
+            target = chi_squared_target(fitted)
             for rung in plan:
                 ods = copy.deepcopy(built)
                 changed = apply_sigma_floor(ods, rung["floor"])
@@ -369,6 +441,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     case = {
                         "grid": study.ROUTINE_GRID, "table": study.PACKAGED, "inner_iterations": 1,
                         "error_minimum": error_minimum, "max_iterations": MAX_ITERATIONS,
+                        "kppcur": rung["basis"][0], "kffcur": rung["basis"][1],
+                        # The legacy reference keeps EFIT's own target (80).
+                        "chi_squared_target": target if rung["uncertainty_mode"] == "standard_deviation" else None,
                         "name": f"{rung['name']}_err{error_minimum:.0e}",
                     }
                     run = study.run_case(
@@ -383,13 +458,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                     record["converged"] = study.converged(record)
                     geqdsk[(rung["name"], error_minimum)] = record.get("geqdsk") if record["converged"] else None
-                    record.update({"rung": rung["name"], "shot": shot, "error_minimum": error_minimum})
+                    record.update({"rung": rung["name"], "shot": shot, "error_minimum": error_minimum,
+                                   "basis": rung["basis"], "fitted_constraints": fitted,
+                                   "chi_squared_target": case["chi_squared_target"]})
                     records.append(record)
                     print(f"{shot}@{record['time_ms']} {case['name']}: {record['exit_path'] or record['outcome']} "
                           f"{record['iterations_n']} it", flush=True)
             # Drift (loose -> tight, same rung) and distance to the legacy reference branch.
-            ref = geqdsk.get(("legacy_reference", 1.0e-4)) or geqdsk.get(("legacy_reference", 1.0e-2))
             for record in records[-2 * len(plan):]:
+                ref_name = "p{}f{}_legacy_reference".format(*record["basis"])
+                ref = geqdsk.get((ref_name, 1.0e-4)) or geqdsk.get((ref_name, 1.0e-2))
                 loose = geqdsk.get((record["rung"], 1.0e-2))
                 tight = geqdsk.get((record["rung"], 1.0e-4))
                 if record["error_minimum"] == 1.0e-4 and loose is not None and tight is not None:

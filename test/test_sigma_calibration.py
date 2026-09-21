@@ -36,10 +36,12 @@ def module():
 def test_the_ladder_is_each_family_alone_and_both_together_per_floor(module):
     plan = module.rungs()
 
-    assert len(plan) == 16 * len(module.FLOORS)
+    assert len(plan) == 16 * len(module.FLOORS) * len(module.BASES)
     assert len({rung["name"] for rung in plan}) == len(plan)
     baseline = plan[0]
     assert baseline["multipliers"] == {"bpol_probe": 1.0, "flux_loop": 1.0} and baseline["floor"] == 0.0
+    assert baseline["basis"] == list(module.BASES[0])
+    assert {tuple(rung["basis"]) for rung in plan} == set(module.BASES)
     # The x1 point serves every ladder, once.
     assert sorted(baseline["ladders"]) == sorted("+".join(ladder) for ladder in module.LADDERS)
     for rung in plan:
@@ -50,8 +52,29 @@ def test_the_ladder_is_each_family_alone_and_both_together_per_floor(module):
 def test_a_multiplier_widens_the_sigma_through_uncertainty_scales(module):
     rung = {"multipliers": {"bpol_probe": 8.0, "flux_loop": 1.0}}
 
-    # uncertainty_scales divides the submitted sigma.
-    assert module.uncertainty_scales_for(rung) == {"bpol_probe": 0.125, "flux_loop": 1.0}
+    # uncertainty_scales divides the submitted sigma; the diamagnetic flux is
+    # made inactive on every standard_deviation rung (#1027).
+    assert module.uncertainty_scales_for(rung) == {
+        "bpol_probe": 0.125, "flux_loop": 1.0, "diamagnetic_flux": module.DIAMAGNETIC_INACTIVE_SCALE,
+    }
+
+
+def test_the_chi_square_target_follows_the_number_of_fitted_constraints(module):
+    """SAICON 80 is below a statistical sigma's expected chi-square (#1027)."""
+    ods = ODS(consistency_check=False)
+    root = "equilibrium.time_slice.0.constraints"
+    for j, w in enumerate((1.0, 1.0, 0.0, 1.0)):
+        ods[f"{root}.bpol_probe.{j}.weight"] = w
+    for j in range(2):
+        ods[f"{root}.flux_loop.{j}.weight"] = 1.0
+    ods[f"{root}.ip.weight"] = 1.0
+    ods[f"{root}.diamagnetic_flux.weight"] = 1.0  # not counted: held inactive
+
+    n = module.fitted_constraint_count(ods)
+
+    assert n == 3 + 2 + 1
+    assert module.chi_squared_target(75) == pytest.approx(75 + 3 * np.sqrt(150))
+    assert module.chi_squared_target(75) > 80.0 > 75
 
 
 def _constraints(*slices):
@@ -121,7 +144,7 @@ def test_the_operating_range_is_every_rung_that_meets_all_four_criteria(module):
 
     verdict = module.operating_range(rows)
 
-    assert verdict["narrowest_converging"] == "narrowest_converging"
+    assert verdict["narrowest_converging"] == {"unspecified": "narrowest_converging"}
     assert verdict["range"] == ["narrowest_converging", "passes"]
     failures = verdict["failures"]
     assert any("converges on 4/9" in f for f in failures["narrow_but_diverging"])
@@ -135,7 +158,7 @@ def test_no_range_is_reported_when_nothing_converges_everywhere(module):
     verdict = module.operating_range([_row("baseline", converged=0, probe_chi2=240.0)])
 
     assert verdict["range"] == []
-    assert verdict["narrowest_converging"] is None
+    assert verdict["narrowest_converging"] == {"unspecified": None}
     assert any("no rung converges everywhere" in f for f in verdict["failures"]["baseline"])
 
 
@@ -157,3 +180,20 @@ def test_the_summary_counts_convergence_on_the_tight_stop_only(module):
     assert row["converged_tight"] == 1 and row["converged_loose"] == 2
     assert row["median_abs_drift_mm"] == pytest.approx(5.0)
     assert row["probe_reduced_chi2"] == pytest.approx(2.0)
+
+
+def test_each_profile_basis_is_judged_against_its_own_narrowest_rung(module):
+    """A wide sigma on (2,1) must not be compared with (1,1)'s residual."""
+    rows = [
+        {**_row("p1f1_x2", probe_m=2, residual=0.030), "basis": [1, 1]},
+        {**_row("p1f1_x8", probe_m=8, residual=0.060), "basis": [1, 1]},
+        {**_row("p2f1_x4", probe_m=4, residual=0.050), "basis": [2, 1]},
+        {**_row("p2f1_x8", probe_m=8, residual=0.060), "basis": [2, 1]},
+    ]
+
+    verdict = module.operating_range(rows)
+
+    assert verdict["narrowest_converging"] == {"p1f1": "p1f1_x2", "p2f1": "p2f1_x4"}
+    # 0.060 is over 1.5x (1,1)'s 0.030 but within 1.5x (2,1)'s 0.050.
+    assert "p1f1_x8" not in verdict["range"]
+    assert "p2f1_x8" in verdict["range"]

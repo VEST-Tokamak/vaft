@@ -801,12 +801,22 @@ def _scientific(
         scales = {**constraints.uncertainty_scales, **{k: float(v) for k, v in uncertainty_scales.items()}}
         constraints = replace(constraints, uncertainty_scales=scales)
     scientific = replace(scientific, constraints=constraints)
+    # A case may pin the profile basis and the chi-square target too (#891,
+    # #1027); a case that does not leaves the routine values.
+    if "kppcur" in case or "kffcur" in case:
+        scientific = replace(scientific, profile=replace(
+            scientific.profile,
+            kppcur=int(case.get("kppcur", scientific.profile.kppcur)),
+            kffcur=int(case.get("kffcur", scientific.profile.kffcur)),
+        ))
     numerics = replace(
         scientific.numerics,
         inner_iterations=int(case["inner_iterations"]),
         error_minimum=float(case["error_minimum"]),
         max_iterations=int(case["max_iterations"]),
     )
+    if case.get("chi_squared_target") is not None:
+        numerics = replace(numerics, chi_squared_target=float(case["chi_squared_target"]))
     return replace(scientific, numerics=numerics)
 
 
