@@ -10125,10 +10125,8 @@ RECIPES["equilibrium_overview_pressure_weight_scan"] = CallableRecipe(
         "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.pressure",
         "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.global_quantities.beta_pol",
         "equilibrium.time_slice.{i}.global_quantities.li_3", "dataset_description.data_entry.pulse",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.degrees_of_freedom",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_input_data",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_fit_variables",
-        "equilibrium.code.parameters.time_slice.{i}.auxquantities.num_hard_constraints",
+        # The auxquantities counts live inside the code.parameters tree, which
+        # _EFIT_QUALITY_READS declares as its DD leaf `equilibrium.code.parameters`.
     ),
     backend=NEUTRAL,
     multi_entry=True,

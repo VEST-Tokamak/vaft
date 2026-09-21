@@ -377,7 +377,7 @@ See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstruct
 # Mirnov and fluctuation diagnostics
 
 The Mirnov analysis works on `magnetics.b_field_pol_probe.<i>.voltage` — the **raw, un-integrated**
-coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 70 of its 76 probes
+coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 63 of its 64 probes
 have `voltage.data`, so the plots below run offline from `vaft.omas.sample_ods()`.
 
 ```python
@@ -446,19 +446,33 @@ the channels *this* input can actually use.
 Probes separated in toroidal angle give the mode number $n$ from the wrapped phase of each
 fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
-`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
+`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`.
+
+Shot 39915 has no toroidal array, so the call refuses there, with its reason: the fit counts
+*distinct acquisitions*, and a probe whose samples copy another's is the same channel, not a second
+toroidal position (#724, #825). The repository-only sample 45531 carries the outboard fluctuation
+array, three toroidal angles per poloidal row; its midplane trio is:
 
 ```python
+array_ods = vaft.omas.sample_ods(45531)   # repository-only: loads from a Git checkout
+probe_names = [str(array_ods[f"magnetics.b_field_pol_probe.{i}.name"])
+               for i in range(len(array_ods["magnetics.b_field_pol_probe"]))]
+midplane = [probe_names.index(f"OutMirnov_{clock}_L1-03") for clock in (45, 135, 225)]
+
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
-    ods,
-    time=0.310,
-    frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
+    array_ods,
+    time=0.302,                       # inside the 294-308 ms plasma
+    channels=midplane,
+    frequencies=None,                 # None -> dominant peaks are picked automatically
     num_modes=2,
     candidate_n=range(0, 5),
-    window_size=500,
+    window_size=2000,
     preprocess=True,
 )
 ```
+
+Three angles at 90 degree spacing resolve $n$ only modulo 4; Tutorial 04 works through what that
+leaves undetermined.
 
 The fit needs probes that carry a toroidal angle as well as a waveform. Restricting `channels=` to a
 set that has no `position.phi` is refused, and the message lists the channels this input does offer —

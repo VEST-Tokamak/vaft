@@ -54,7 +54,7 @@ def test_no_adapter_is_defined_twice():
     for module in (omas_plotting, imas_plotting):
         names = [
             node.name
-            for node in ast.parse(Path(module.__file__).read_text()).body
+            for node in ast.parse(Path(module.__file__).read_text(encoding="utf-8")).body
             if isinstance(node, ast.FunctionDef) and node.name.startswith("plot_")
         ]
         repeated = sorted({name for name in names if names.count(name) > 1})

@@ -173,7 +173,7 @@ def test_a_recovered_value_lands_in_measured_with_its_own_error(monkeypatch, tim
 
 
 def test_the_builder_reads_no_validity_and_runs_no_detector():
-    tree = ast.parse(Path(kfile.__file__).read_text())
+    tree = ast.parse(Path(kfile.__file__).read_text(encoding="utf-8"))
     function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "generate_constraints_ods")
     names = {n.id for n in ast.walk(function) if isinstance(n, ast.Name)} | {
         n.attr for n in ast.walk(function) if isinstance(n, ast.Attribute)

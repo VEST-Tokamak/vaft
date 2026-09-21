@@ -15,6 +15,12 @@ vaft/data/samples/** text=auto eol=lf
 # only, so the LFS `*.ddd` rules above are not overridden by `text=auto`.
 vaft/data/efit/**/*.dat text=auto eol=lf
 vaft/data/wheel_samples/** text=auto eol=lf
+# The 48224 kinetic sample pins these by sha256 (its manifest's equilibria
+# point at ../../kineticEfit/g048224.00300.chease), and the 45531 manifest pins
+# its SXR digitizer CSVs the same way. A CRLF checkout of the text g-files
+# failed test_load_sample on Windows CI; keep them byte-exact.
+vaft/data/kineticEfit/** -text
+vaft/data/legacy/digitizer_*_45531.csv -text
 
 # POSIX shell scripts must keep LF even in a Windows checkout.
 *.sh text eol=lf

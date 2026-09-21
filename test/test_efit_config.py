@@ -592,17 +592,41 @@ def test_one_probe_count_rule_serves_every_consumer():
     from vaft.validation.efit_channels import efit_probe_count
     from vaft.omas.sample import sample_ods
 
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import (
+        toroidal_mirnov_reference_channels,
+        vest_equilibrium_magnetics_channel_definitions,
+    )
+
+    def answers(source):
+        return {
+            equilibrium_probe_count(source),
+            efit_probe_count(source),
+            projected(source),
+            _efit_bpol_probe_count(source["magnetics"]),
+        }
+
+    defined = sum(
+        entry["kind"] == "b_field_pol_probe"
+        for entry in vest_equilibrium_magnetics_channel_definitions()
+    )
     ods = sample_ods()
-    answers = {
-        equilibrium_probe_count(ods),
-        efit_probe_count(ods),
-        projected(ods),
-        _efit_bpol_probe_count(ods["magnetics"]),
-    }
-    assert len(answers) == 1, answers
-    # The sample carries more channels than EFIT's geometry represents; the
-    # trailing toroidal-Mirnov references are diagnostics, not constraints.
-    assert answers.pop() < len(ods["magnetics.b_field_pol_probe"])
+    present = len(ods["magnetics.b_field_pol_probe"])
+    # The sample carries EFIT's probes plus whatever trailing toroidal-Mirnov
+    # references its shot has -- none for 39915 since field 171 is published
+    # once (#825) -- so the rule's answer is the defined count either way.
+    assert present == defined + len(toroidal_mirnov_reference_channels(39915))
+    assert answers(ods) == {defined}
+
+    # The clamp itself, which the sample no longer exercises: a trailing
+    # reference beyond EFIT's geometry is not a constraint, and fewer probes
+    # than defined are counted as present.
+    for n_probes, expected in ((defined + 1, defined), (defined - 3, defined - 3)):
+        synthetic = ODS(consistency_check=False)
+        for index in range(n_probes):
+            synthetic[f"magnetics.b_field_pol_probe.{index}.identifier"] = f"probe{index}"
+        assert answers(synthetic) == {expected}, n_probes
 
 
 def test_the_probe_count_accepts_either_shape():

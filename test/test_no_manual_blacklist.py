@@ -26,7 +26,7 @@ def test_the_routine_config_and_snakefile_carry_no_channel_list():
 
 
 def test_the_constraint_script_forms_decisions_from_the_assessment_alone():
-    source = (PIPELINE / "generate_constraints_ods.py").read_text()
+    source = (PIPELINE / "generate_constraints_ods.py").read_text(encoding="utf-8")
     assert "manual_rejections" not in source
     assert "--broken" not in source
 
