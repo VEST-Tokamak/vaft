@@ -223,11 +223,9 @@ def scan_chease(
     sub-directory named after its variation, so the inputs and the CHEASE log
     of a case that failed are still there to look at.
 
-    ``config`` supplies the numerical settings.  Note that ``CHEASEConfig``'s
-    own default was once ``nideal=11``, which upstream CHEASE rejects outright
-    rather than failing to converge; the production settings are
-    ``nideal=6, nw=513, target_psin=0.993,
-    relax=0.5``.
+    ``config`` supplies the numerical settings; the production settings are
+    ``nw=513, target_psin=0.993, relax=0.5``, and CHEASE's ``NIDEAL`` comes
+    from the adapter's GEQDSK output contract (#516).
 
     A scan that varies the shape solves every case -- its control included --
     with ``target_psin=1``, whatever ``config`` says.  Below 1 the adapter

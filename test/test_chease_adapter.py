@@ -175,16 +175,17 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
     source_path = data_path("efit/g039915.00319")
     # The settings run_chease_refinement.py uses and this repository's real
     # shot-39915 validation confirmed converge. Since #717 these are also
-    # CHEASEConfig's defaults -- `nideal` was the last one that differed --
-    # but they stay spelled out here so the test says what it exercises rather
-    # than inheriting it silently.
+    # CHEASEConfig's defaults -- `nideal` was the last one that differed, and
+    # since #516 the adapter selects it from `output` -- but they stay spelled
+    # out here so the test says what it exercises rather than inheriting it
+    # silently.
     config = CHEASEConfig(
         workdir=tmp_path,
         create_plot=False,
         timeout=60,
         target_psin=0.993,
         relax=0.5,
-        nideal=6,
+        output="geqdsk",
         nw=513,
         preserve_boundary_limiter=True,
     )
@@ -238,7 +239,7 @@ def test_chease_input_is_byte_identical_from_a_gfile_and_from_its_own_ods(tmp_pa
             create_plot=False,
             target_psin=0.993,
             relax=0.5,
-            nideal=6,
+            output="geqdsk",
             nw=513,
             preserve_boundary_limiter=True,
         )
@@ -282,7 +283,7 @@ def test_run_chease_gfile_and_equivalent_ods_input_agree(tmp_path):
             timeout=60,
             target_psin=0.993,
             relax=0.5,
-            nideal=6,
+            output="geqdsk",
             nw=513,
             preserve_boundary_limiter=True,
         )

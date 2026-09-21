@@ -1077,7 +1077,11 @@ rule run_chease:
         timeout=CHEASE_CONFIG.get("timeout", ""),
         target_psin=CHEASE_CONFIG.get("target_psin", 0.993),
         relax=CHEASE_CONFIG.get("relax", 0.5),
-        nideal=CHEASE_CONFIG.get("nideal", 6),
+        # Deprecated raw NIDEAL for a non-upstream CHEASE build (#516); the
+        # adapter selects it from its GEQDSK output contract otherwise.
+        nideal_arg=(
+            f"--nideal {int(CHEASE_CONFIG['nideal'])}" if CHEASE_CONFIG.get("nideal") is not None else ""
+        ),
         nw=CHEASE_CONFIG.get("nw", 513),
         auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
         output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
@@ -1101,7 +1105,7 @@ rule run_chease:
             --timeout "{params.timeout}" \
             --target-psin {params.target_psin} \
             --relax {params.relax} \
-            --nideal {params.nideal} \
+            {params.nideal_arg} \
             --nw {params.nw} \
             --auto-cocos {params.auto_cocos} \
             --output-cocos "{params.output_cocos}" \

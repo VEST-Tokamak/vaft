@@ -410,8 +410,8 @@ records, not one it infers — with more than one checkout on a machine, that is
 the difference between reproducible provenance and a guess.
 
 The rest of this section is ordered by platform: find your own heading and
-read only that one. Notes that hold whatever you are on — CHEASE's `nideal`
-default, the two suite tests it un-skips, and the separate entry points for
+read only that one. Notes that hold whatever you are on — CHEASE's `NIDEAL`
+selection, the two suite tests it un-skips, and the separate entry points for
 NUBEAM and GACODE — are collected under [Per-code notes](#per-code-notes)
 afterwards.
 
@@ -638,14 +638,19 @@ code a directory of its own rather than a shared one such as `~/.local`.
 
 ## Per-code notes
 
-### CHEASE and the `nideal` default
+### CHEASE and its `NIDEAL` selection
 
-`CHEASEConfig.nideal` defaults to `6`, which upstream CHEASE accepts and which
-is its own documented default for writing the EQDSK that VAFT reads back.
+VAFT's CHEASE adapter has one contract: GEQDSK in, GEQDSK out. It writes
+CHEASE's native `EXPEQ` from the g-file (`NEQDSK=0`) and reads back the COCOS-2
+EQDSK, which upstream CHEASE writes for `NIDEAL=6`, its own documented default.
+`CHEASEConfig(output="geqdsk")`, the default, selects that; you do not set
+`NIDEAL` yourself. Other mappings, such as `NIDEAL=9` for GENE/ORB5, produce
+files the adapter does not read and are not part of it (#516).
 
-It used to default to `11`, the value the VEST `jsk95` workflow runs against
-the CHEASE build that group uses. Upstream validates the range in `cotrol.f90`
-(0 to 10) and quits before doing any equilibrium work on anything outside it:
+The adapter used to expose `nideal` and default it to `11`, the value the VEST
+`jsk95` workflow runs against the CHEASE build that group uses. Upstream
+validates the range in `cotrol.f90` (0 to 10) and quits before doing any
+equilibrium work on anything outside it:
 
 ```
 WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
@@ -653,8 +658,9 @@ WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
 ```
 
 so a CHEASE built from the public repository refused the default configuration
-on every platform. That is fixed (#717); pass `CHEASEConfig(nideal=11)`
-explicitly if you are running against the jsk95 CHEASE revision.
+on every platform (#717). `CHEASEConfig(nideal=11)` still works against the
+jsk95 revision, as a deprecated raw override that warns; the pipeline passes it
+only when `chease.nideal` is set in its config.
 
 ### Two suite tests start running once CHEASE is installed
 
