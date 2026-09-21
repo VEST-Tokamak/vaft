@@ -37,9 +37,12 @@ from . import _runtime as rt
 
 __all__ = [
     "CoilInputSpec",
+    "GpecCoilFilaments",
+    "coil_filaments_from_coil_in",
     "resolve_coil_inputs",
     "stage_coil_data",
     "emit_coil_dat",
+    "read_coil_control",
     "read_coil_in",
     "write_coil_in",
 ]
@@ -188,7 +191,8 @@ def read_coil_in(path: str | Path) -> tuple[CoilInputSpec, ...]:
     ``coil_num`` when present.
     """
     text = Path(path).read_text(encoding="utf-8")
-    body = text.split("&COIL_CONTROL", 1)[-1]
+    match = re.search(r"&coil_control", text, re.IGNORECASE)
+    body = text[match.end():] if match else text
     names: dict[int, str] = {}
     currents: dict[int, list[float]] = {}
     coil_num: int | None = None
@@ -214,6 +218,131 @@ def read_coil_in(path: str | Path) -> tuple[CoilInputSpec, ...]:
     return tuple(
         CoilInputSpec(name=names[index], currents_a=tuple(currents.get(index, ())))
         for index in active
+    )
+
+
+
+def read_coil_control(path: str | Path) -> dict[str, str]:
+    """The scalar ``&COIL_CONTROL`` entries of a GPEC ``coil.in``, as written.
+
+    Complements :func:`read_coil_in`, which returns the activated sets and
+    their currents: this returns the run-level words around them --
+    ``machine``, ``data_dir``, ``ip_direction``, ``bt_direction`` -- which a
+    reader needs in order to find the ``.dat`` files the sets refer to.
+    Values are returned as the strings the file holds, quotes and trailing
+    comments stripped; nothing is defaulted, so a key the file omits is absent
+    from the mapping rather than guessed.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    # Fortran namelist group names are case-insensitive and hand-written
+    # coil.in files use both spellings.
+    match = re.search(r"&coil_control", text, re.IGNORECASE)
+    body = text[match.end():] if match else text
+    control: dict[str, str] = {}
+    for raw in body.splitlines():
+        # Comments first: ``data_dir="/a/b" ! ...`` puts a slash in the value,
+        # so the namelist terminator has to be recognised as its own line and
+        # not as the first "/" in the text.
+        line = raw.split("!", 1)[0].strip()
+        if line.startswith("/"):
+            break
+        if "=" not in line or "(" in line.split("=", 1)[0]:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        control[key] = value.strip().strip("\"'")
+    return control
+
+
+@dataclass(frozen=True)
+class GpecCoilFilaments:
+    """The energised filaments of a GPEC run, ready for a Biot-Savart evaluation."""
+
+    loops_xyz: tuple[np.ndarray, ...]
+    """One closed ``(npts, 3)`` polyline per energised coil, in metres."""
+    currents_a: np.ndarray
+    """Current in each loop, the ``coil.in`` value times the ``.dat`` winding [A]."""
+    coil_names: tuple[str, ...]
+    machine: str
+    source_files: tuple[Path, ...]
+
+
+def coil_filaments_from_coil_in(
+    path: str | Path, *, coil_data_dir: str | Path | None = None
+) -> GpecCoilFilaments:
+    """Read a GPEC ``coil.in`` and its ``.dat`` files as energised filaments.
+
+    The winding multiplier is the fourth header field of the ``.dat`` file and
+    **is signed**: ``d3d_c.dat`` carries ``-4.00``, and the sign is part of the
+    current GPEC drives the filament with, not a count.  It is multiplied in
+    here, which is why this returns currents rather than a
+    :class:`~vaft.machine_mapping.coils_non_axisymmetric_geometry.CoilSet3D`
+    -- that container's ``turns`` is a positive count by construction and
+    cannot hold a signed winding.
+
+    Coil sets whose current is zero are dropped: they contribute nothing to the
+    field and carrying them costs a Biot-Savart evaluation each.
+
+    Parameters
+    ----------
+    path : str or Path
+        The ``coil.in`` of the run.
+    coil_data_dir : str or Path, optional
+        Where the ``<machine>_<set>.dat`` files live.  Defaults to the
+        ``data_dir`` the file itself names, then to the directory holding
+        ``coil.in``.
+
+    Raises
+    ------
+    FileNotFoundError
+        A ``.dat`` file an activated set names is not there.
+    ValueError
+        The file activates no set, or every activated set carries zero current.
+    """
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import parse_gpec_coil_dat
+
+    path = Path(path).expanduser()
+    control = read_coil_control(path)
+    machine = control.get("machine", "")
+    if coil_data_dir is not None:
+        data_dir = Path(coil_data_dir).expanduser()
+    elif control.get("data_dir"):
+        data_dir = Path(control["data_dir"]).expanduser()
+    else:
+        data_dir = path.parent
+
+    specs = read_coil_in(path)
+    if not specs:
+        raise ValueError(f"{path} activates no coil set")
+
+    loops: list[np.ndarray] = []
+    currents: list[float] = []
+    names: list[str] = []
+    sources: list[Path] = [path]
+    for spec in specs:
+        dat_path = data_dir / f"{machine}_{spec.name}.dat"
+        if not dat_path.is_file():
+            raise FileNotFoundError(
+                f"{path} activates coil set {spec.name!r} but {dat_path} is not there; "
+                "pass coil_data_dir= when the run's data_dir is not on this machine"
+            )
+        names.append(spec.name)
+        sources.append(dat_path)
+        ncoil, _nsec, _npts, winding, points = parse_gpec_coil_dat(dat_path)
+        for index in range(ncoil):
+            current = spec.currents_a[index] if index < len(spec.currents_a) else 0.0
+            if not current:
+                continue
+            loops.append(points[index])
+            currents.append(float(current) * float(winding))
+
+    if not loops:
+        raise ValueError(f"{path} carries no non-zero coil current")
+    return GpecCoilFilaments(
+        loops_xyz=tuple(loops),
+        currents_a=np.asarray(currents, dtype=float),
+        coil_names=tuple(names),
+        machine=machine,
+        source_files=tuple(sources),
     )
 
 

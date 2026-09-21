@@ -22,11 +22,21 @@ from ...compat import is_executable
 from . import _runtime as rt
 from ._coil_input import (
     CoilInputSpec,
+    GpecCoilFilaments,
+    coil_filaments_from_coil_in,
     emit_coil_dat,
+    read_coil_control,
     read_coil_in,
     resolve_coil_inputs,
     stage_coil_data,
     write_coil_in,
+)
+from ._phase_audit import (
+    BRZPHI_COMPONENTS,
+    BrzphiHarmonics,
+    CoilPhaseAudit,
+    audit_coil_field_phase,
+    read_brzphi_harmonics,
 )
 from ._dcon_output import (
     SCAN_COLUMNS,
@@ -568,9 +578,17 @@ __all__ = [
     "GPECModuleRun",
     "GPECSuiteConfig",
     "GPECSuiteResult",
+    "BRZPHI_COMPONENTS",
+    "BrzphiHarmonics",
     "CoilInputSpec",
+    "CoilPhaseAudit",
+    "GpecCoilFilaments",
+    "audit_coil_field_phase",
+    "coil_filaments_from_coil_in",
     "collect_gpec_suite_outputs",
     "emit_coil_dat",
+    "read_brzphi_harmonics",
+    "read_coil_control",
     "format_gfile_header_for_gpec",
     "stage_coil_data",
     "write_coil_in",
