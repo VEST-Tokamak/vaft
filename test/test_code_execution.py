@@ -207,3 +207,19 @@ def test_missing_workdir_stays_a_configuration_error(tmp_path):
     with pytest.raises(FileNotFoundError) as raised:
         _python(tmp_path / "absent", "pass")
     assert not isinstance(raised.value, ExecutableNotLaunchable)
+
+
+def test_stack_limit_wraps_only_where_ulimit_can_act(monkeypatch):
+    from vaft import compat
+    from vaft.code._launch import with_stack_limit
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
+    wrapped = with_stack_limit(["solver", 129], 32768, runner_name="solver-runner")
+    assert wrapped[:2] == ["bash", "-lc"]
+    assert "ulimit -s 32768" in wrapped[2] and "ulimit -Hs" in wrapped[2]
+    assert wrapped[3:] == ["solver-runner", "solver", "129"]
+    assert "ulimit -s $(ulimit -Hs)" in with_stack_limit(["s"], "hard", runner_name="r")[2]
+    assert with_stack_limit(["s", 1], None, runner_name="r") == ["s", "1"]
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    assert with_stack_limit(["s"], 32768, runner_name="r") == ["s"]

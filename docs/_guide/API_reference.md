@@ -547,10 +547,13 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
 already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;
 a missing working directory stays a `FileNotFoundError`.
-TES, GACODE (NEO and TGLF), the GPEC suite and NUBEAM use the backend today, and `CodeConfig`
-carries the `backend` field for every adapter built on it; CHEASE, FLARE and EFIT follow in issue #671.
-GACODE declares its `n_mpi` as `ResourceRequest.ntasks` for scheduler backends, while the launcher
-still starts the ranks itself.
+Every adapter that runs a subprocess goes through the backend, and each has a `backend` field:
+EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM and FLARE. `CodeConfig`
+carries the field too. EFIT and EFUND declare one thread per task (`threads_per_task=1`), which sets
+`OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS` and
+`NUMEXPR_NUM_THREADS` to 1 unless the environment already sets them. GACODE
+declares `n_mpi` and FLARE declares `processes` as `ntasks` for scheduler backends, while their
+launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.
 
 # `vaft.data`
 

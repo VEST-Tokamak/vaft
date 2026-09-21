@@ -478,3 +478,27 @@ def test_solver_output_is_read_as_utf8_rather_than_at_the_host_locale(monkeypatc
     assert seen["errors"] == "replace"
     assert "CHEASE diagnostics" in result.stdout
     assert (tmp_path / "chease.log").read_text(encoding="utf-8").startswith("CHEASE diagnostics")
+
+
+def test_chease_launches_through_the_backend_and_keeps_its_timeout(tmp_path):
+    """#671: a backend timeout is still the stdlib's exception to the caller."""
+    import subprocess
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
+    from vaft.code.execution import ExecutionResult
+    from vaft.data.resources import sample_geqdsk
+
+    executable = write_launchable_stub(tmp_path / "chease")
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+    config = CHEASEConfig(
+        workdir=tmp_path, create_plot=False, executable=str(executable),
+        timeout=4.0, env={"CHEASE_FLAG": "1"}, backend=backend,
+    )
+    inputs = prepare_chease_inputs(sample_geqdsk("efit/g039915.00319"), config)
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_chease(inputs, config)
+    (request,) = backend.requests
+    assert request.command == (str(executable),)
+    assert request.env == {"CHEASE_FLAG": "1"}
+    assert request.timeout == 4.0

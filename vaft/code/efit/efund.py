@@ -32,16 +32,20 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from numbers import Integral
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 import f90nml
 import numpy as np
 
-from vaft import compat
 from vaft.compat import is_executable
 from vaft.machine_mapping.efund_geometry import EFUNDGeometry, efund_geometry_from_static
 
+from .._launch import with_stack_limit
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
 from .toolchain import executable_identity, resolve_role, unconfigured_reason
+
+if TYPE_CHECKING:
+    from ..execution import ExecutionBackend
 
 __all__ = [
     "EFUNDConfig",
@@ -110,6 +114,7 @@ class EFUNDConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
     stack_size_kb: int | str | None = "hard"
+    backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
 
     def __post_init__(self) -> None:
         for name in ("nw", "nh", "nsmp2", "mgaus1", "mgaus2"):
@@ -572,29 +577,12 @@ def _resolve_executable(config: EFUNDConfig) -> Optional[Path]:
 
 
 def _efund_command(config: EFUNDConfig, executable: Path) -> list[str]:
-    argv = [str(executable), *config.argv]
-    if config.stack_size_kb is None:
-        return argv
-    if compat.IS_WINDOWS:
-        # A native Windows image takes its stack reserve from the PE header,
-        # fixed by the linker, so no wrapper can raise it after the fact --
-        # install/install_efit_windows.ps1 passes -Wl,--stack instead, and
-        # -StackReserveMB is where this setting goes there. Wrapping anyway
-        # would also make every run depend on an MSYS2 bash that the installers
-        # deliberately keep off PATH.
-        return argv
     # EFUND keeps several nvsum-by-nvsum work arrays on the stack; at 950
     # vessel segments that is four times 7 MB, far beyond the 8 MB default
-    # soft limit.  "hard" raises the child's soft limit to whatever the hard
-    # limit allows (just under 64 MB on macOS, usually unlimited on Linux); an
-    # integer asks for that many kB and falls back to the hard limit when the
-    # request exceeds it.
-    if config.stack_size_kb == "hard":
-        shell = 'ulimit -s $(ulimit -Hs) 2>/dev/null; exec "$@"'
-    else:
-        limit = int(config.stack_size_kb)
-        shell = f'ulimit -s {limit} 2>/dev/null || ulimit -s $(ulimit -Hs) 2>/dev/null; exec "$@"'
-    return ["bash", "-lc", shell, "efund-runner", *argv]
+    # soft limit, hence the "hard" default.
+    return with_stack_limit(
+        [str(executable), *config.argv], config.stack_size_kb, runner_name="efund-runner"
+    )
 
 
 def run_efund(inputs: EFUNDInputs, config: EFUNDConfig) -> EFUNDResult:
@@ -602,7 +590,10 @@ def run_efund(inputs: EFUNDInputs, config: EFUNDConfig) -> EFUNDResult:
 
     The executable comes from ``config.executable`` or ``$EFITHOME`` (the
     same root as ``efit``; see :mod:`vaft.code.efit.toolchain`).  Without one
-    the result is ``skipped`` and says how to configure it.
+    the result is ``skipped`` and says how to configure it.  A binary the
+    operating system refuses to start raises
+    :class:`~vaft.code._executables.ExecutableNotLaunchable`; a timeout is a
+    ``failed`` result with ``returncode=None``.
     """
     workdir = Path(inputs.workdir)
     executable = _resolve_executable(config)
@@ -629,31 +620,21 @@ def run_efund(inputs: EFUNDInputs, config: EFUNDConfig) -> EFUNDResult:
         )
     if not (workdir / MHDIN_NAME).is_file():
         raise FileNotFoundError(f"{workdir / MHDIN_NAME} does not exist; call prepare_efund_inputs first")
-    env = os.environ.copy()
-    env.update(dict(config.env))
-    env.setdefault("OMP_NUM_THREADS", "1")
     command = _efund_command(config, executable)
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=str(workdir),
-            env=env,
-            text=True,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
+    execution = resolve_backend(config).run(
+        ExecutionRequest(
+            command=tuple(command),
+            workdir=workdir,
+            env=dict(config.env),
             timeout=config.timeout,
-            check=False,
+            resources=ResourceRequest(threads_per_task=1),
+            label="efund",
         )
-        returncode: Optional[int] = completed.returncode
-        stdout = completed.stdout or ""
-        stderr = completed.stderr or ""
-        reason = ""
-    except subprocess.TimeoutExpired as error:
-        returncode = None
-        stdout = error.stdout.decode(errors="replace") if isinstance(error.stdout, bytes) else (error.stdout or "")
-        stderr = error.stderr.decode(errors="replace") if isinstance(error.stderr, bytes) else (error.stderr or "")
-        reason = f"efund timed out after {config.timeout} seconds"
+    )
+    returncode: Optional[int] = execution.returncode
+    stdout = execution.stdout
+    stderr = execution.stderr
+    reason = f"efund timed out after {config.timeout} seconds" if execution.timed_out else ""
     (workdir / EFUND_STDOUT_NAME).write_text(stdout, encoding="utf-8")
     (workdir / EFUND_STDERR_NAME).write_text(stderr, encoding="utf-8")
     result = collect_efund_outputs(
