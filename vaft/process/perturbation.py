@@ -2918,14 +2918,20 @@ class ToroidalPhaseAudit:
     """How a stored set of toroidal harmonics compares with a resampled field."""
 
     n_tor: int
-    preferred: str
-    """``"stored"`` or ``"conjugate"``, whichever reproduces the sampled field."""
+    preferred: str | None
+    """``"stored"`` or ``"conjugate"``, or ``None`` when the two tie exactly."""
     stored_relative_norm: float
     conjugate_relative_norm: float
     stored_component_relative_norm: tuple[float, ...]
+    """``nan`` for a component whose stored coefficients are identically zero."""
     conjugate_component_relative_norm: tuple[float, ...]
     separation_ratio: float
     """Losing relative norm over winning relative norm."""
+    stored_norm: float
+    """``||C_stored||``, the scale the two relative norms are taken against [any]."""
+    measured_norm: float
+    """``||C_measured||``.  Far below ``stored_norm`` means the sampled field has
+    no content at this mode, which is why both relative norms then sit near 1."""
     sample_count: int
     phi_sample_count: int
 
@@ -2960,14 +2966,16 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
     -------
     ToroidalPhaseAudit
         Both hypotheses' relative norms, in total and per component, which one
-        wins and by how much [-].
+        wins and by how much, and the absolute norms the relative ones are
+        taken against [-].
 
     Raises
     ------
     ValueError
-        The three arrays disagree in shape, ``phi_rad`` is not one equally
-        spaced period, ``n_tor`` is not a non-zero integer, or *stored* is
-        identically zero so no relative norm exists.
+        The three arrays disagree in shape, any of them holds a non-finite
+        value, ``phi_rad`` is not one equally spaced period, it carries too few
+        samples to resolve ``n_tor``, ``n_tor`` is not a non-zero integer, or
+        *stored* is identically zero so no relative norm exists.
 
     Processing steps
     ----------------
@@ -2996,9 +3004,14 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
     -----------
     ``phi_rad`` is an equally spaced full period, which is what makes the plain
     sample mean the Fourier projection; a non-uniform grid is refused rather
-    than silently mis-weighted.  ``M`` must resolve the mode, ``M > 2|n|``,
-    or the projection aliases -- this does not check that, because a caller
-    sampling a known ``n`` chooses ``M`` itself.
+    than silently mis-weighted.
+
+    **The sampled field is assumed to carry only this harmonic.**  ``M > 2|n|``
+    is checked and refused below it, but that is Nyquist for ``n`` alone: a
+    field also carrying ``n'`` aliases it into the measurement whenever
+    ``n' = -n (mod M)``, and needs an ``M`` that resolves ``n'`` too.  A caller
+    sampling a field of unknown content chooses ``M`` from that content, not
+    from ``n``.
 
     Applicability
     -------------
@@ -3010,10 +3023,20 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
     -----------
     Says which hypothesis is *closer*, never that either is right.  When the
     sampled field has little content at this ``n`` -- the coil currents do not
-    excite it, or the sampling aliases -- both norms come out near one and the
-    separation near one with them, and that is the honest answer rather than a
-    convention.  The threshold at which a separation counts as settled is a
-    verdict and lives in :mod:`vaft.validation`, not here.
+    excite it -- ``measured_norm`` falls far below ``stored_norm``, both
+    relative norms come out near one and the separation near one with them, and
+    that is the honest answer rather than a convention.  The threshold at which
+    a separation counts as settled is a verdict and lives in
+    :mod:`vaft.validation`, not here.
+
+    An alias from another harmonic is the one failure this cannot report.  It
+    does not resemble "no content": the aliased projection is a clean complex
+    number, so the separation comes out large and the answer can be confidently
+    the wrong one.  Measured: a field of ``Re(C e^{-3i phi}) + Re(C1 e^{-i
+    phi})`` with ``C1 = C - conj(C)``, sampled at four angles and projected onto
+    ``n = 3``, returns exactly ``conj(C)`` -- a relative norm of 6e-16 for the
+    wrong hypothesis.  The ``M > 2|n|`` refusal stops that particular case; only
+    knowing the field's content stops the general one.
 
     Provenance
     ----------
@@ -3044,6 +3067,18 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
         raise ValueError(f"n_tor must be a non-zero integer, not {n_tor!r}")
     n_tor = int(n_tor)
 
+    # A single non-finite sample poisons every norm, and a comparison between
+    # two NaNs has no winner.  Refuse it here: further down the two hypotheses
+    # would come out as NaN against NaN with an infinite separation, which
+    # reads exactly like a decisive answer.
+    for name, array in (("stored", stored_array), ("sampled", sampled_array), ("phi_rad", phi)):
+        if not np.all(np.isfinite(array)):
+            bad = int(np.count_nonzero(~np.isfinite(array)))
+            raise ValueError(
+                f"{name} holds {bad} non-finite value(s); a norm taken over them "
+                "is NaN, and NaN loses every comparison rather than failing one"
+            )
+
     # The plain sample mean is the Fourier projection only on an equally spaced
     # full period; on any other grid it is a weighted sum of the wrong weights.
     spacing = np.diff(phi)
@@ -3054,6 +3089,16 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
             f"run {float(np.min(spacing)):.6g} to {float(np.max(spacing)):.6g}, "
             f"not the {step:.6g} that {phi.size} samples of 2*pi would give"
         )
+    # Nyquist.  At ``M <= 2|n|`` the mode is not resolved and the projection
+    # picks up whatever else the field carries: a field with an ``n = 1`` part
+    # sampled at four angles and projected onto ``n = 3`` returns the conjugate
+    # of the right answer, decisively and wrongly.
+    if phi.size <= 2 * abs(n_tor):
+        raise ValueError(
+            f"{phi.size} toroidal samples cannot resolve n = {n_tor}; more than "
+            f"{2 * abs(n_tor)} are needed, and a field carrying any other "
+            "harmonic needs enough to resolve that one too"
+        )
 
     norm_stored = float(np.linalg.norm(stored_array))
     if not norm_stored > 0.0:
@@ -3062,26 +3107,37 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
     measured = 2.0 * np.mean(
         sampled_array * np.exp(1j * n_tor * phi)[None, :, None], axis=1
     )
-    per_component = np.maximum(
-        np.linalg.norm(stored_array, axis=0), np.finfo(float).tiny
-    )
-    stored_component = np.linalg.norm(measured - stored_array, axis=0) / per_component
+    # A component whose stored coefficients are identically zero has no scale to
+    # be relative to.  Report NaN rather than dividing by the smallest float,
+    # which turns a perfectly ordinary residual into 1e307.
+    per_component = np.linalg.norm(stored_array, axis=0)
+    empty = per_component == 0.0
+    scale = np.where(empty, np.nan, per_component)
+    stored_component = np.linalg.norm(measured - stored_array, axis=0) / scale
     conjugate_component = (
-        np.linalg.norm(measured - np.conjugate(stored_array), axis=0) / per_component
+        np.linalg.norm(measured - np.conjugate(stored_array), axis=0) / scale
     )
     stored_total = float(np.linalg.norm(measured - stored_array) / norm_stored)
     conjugate_total = float(
         np.linalg.norm(measured - np.conjugate(stored_array)) / norm_stored
     )
     winner, loser = sorted((stored_total, conjugate_total))
+    if stored_total == conjugate_total:
+        # A harmonic equal to its own conjugate, or a projection that returned
+        # nothing: there is no winner, and naming one would invent a result.
+        preferred = None
+    else:
+        preferred = "stored" if stored_total < conjugate_total else "conjugate"
     return ToroidalPhaseAudit(
         n_tor=n_tor,
-        preferred="stored" if stored_total <= conjugate_total else "conjugate",
+        preferred=preferred,
         stored_relative_norm=stored_total,
         conjugate_relative_norm=conjugate_total,
         stored_component_relative_norm=tuple(float(v) for v in stored_component),
         conjugate_component_relative_norm=tuple(float(v) for v in conjugate_component),
         separation_ratio=float(loser / winner) if winner > 0.0 else float("inf"),
+        stored_norm=norm_stored,
+        measured_norm=float(np.linalg.norm(measured)),
         sample_count=int(positions),
         phi_sample_count=int(phi.size),
     )

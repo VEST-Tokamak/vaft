@@ -191,7 +191,8 @@ def read_coil_in(path: str | Path) -> tuple[CoilInputSpec, ...]:
     ``coil_num`` when present.
     """
     text = Path(path).read_text(encoding="utf-8")
-    body = text.split("&COIL_CONTROL", 1)[-1]
+    match = re.search(r"&coil_control", text, re.IGNORECASE)
+    body = text[match.end():] if match else text
     names: dict[int, str] = {}
     currents: dict[int, list[float]] = {}
     coil_num: int | None = None
@@ -233,7 +234,10 @@ def read_coil_control(path: str | Path) -> dict[str, str]:
     from the mapping rather than guessed.
     """
     text = Path(path).read_text(encoding="utf-8")
-    body = text.split("&COIL_CONTROL", 1)[-1]
+    # Fortran namelist group names are case-insensitive and hand-written
+    # coil.in files use both spellings.
+    match = re.search(r"&coil_control", text, re.IGNORECASE)
+    body = text[match.end():] if match else text
     control: dict[str, str] = {}
     for raw in body.splitlines():
         # Comments first: ``data_dir="/a/b" ! ...`` puts a slash in the value,

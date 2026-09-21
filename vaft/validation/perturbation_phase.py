@@ -6,15 +6,22 @@ computes, it does not decide.  This module applies the criteria that turn those
 two numbers into an answer, and it is where the numbers 3 and 0.10 live.
 
 The two criteria are not redundant.  The **separation** rules out the case that
-is by far the most common failure -- a mode the coil currents barely excite, or
-a sampling that aliases -- where both hypotheses come out near one and neither
-is right.  The **relative norm** rules out the subtler case where one hypothesis
-is merely the less bad of two bad ones.  A file passes only when the winner is
-close in absolute terms *and* the loser is far away.
+is by far the most common failure -- a mode the coil currents barely excite --
+where both hypotheses come out near one and neither is right.  The **relative
+norm** rules out the subtler case where one hypothesis is merely the less bad of
+two bad ones.  A file passes only when the winner is close in absolute terms
+*and* the loser is far away.
+
+Neither rules out an alias from another harmonic, which produces a clean answer
+that is confidently wrong; see
+:func:`vaft.process.perturbation.toroidal_phase_audit`.  That is a property of
+how the field was sampled, not of the two numbers reaching here, so no
+threshold on them can catch it.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from vaft.validation.model import ValidationStatus
@@ -81,18 +88,51 @@ def phase_convention_verdict(audit, *, criteria: PhaseAuditCriteria) -> PhaseCon
         ``INDETERMINATE`` with the reason otherwise.  There is no ``FAIL``:
         a measurement that does not separate the hypotheses is evidence about
         the measurement, not about the file.
+
+    Notes
+    -----
+    **Every criterion is written as a condition to satisfy, not one to fail.**
+    A NaN loses every comparison, so ``separation < 3`` and ``winner > 0.10``
+    are both False for a NaN and a measurement that produced nothing would
+    reach the ``PASS`` at the bottom.  ``not (separation >= 3)`` is True there
+    instead, and a non-finite metric is refused outright before either runs.
     """
     winner = min(audit.stored_relative_norm, audit.conjugate_relative_norm)
     label = f" [{criteria.name}]" if criteria.name else ""
-    if audit.separation_ratio < criteria.separation_ratio:
+
+    unusable = [
+        name
+        for name, value in (
+            ("stored_relative_norm", audit.stored_relative_norm),
+            ("conjugate_relative_norm", audit.conjugate_relative_norm),
+            ("separation_ratio", audit.separation_ratio),
+        )
+        if not math.isfinite(value)
+    ]
+    if unusable:
+        return PhaseConventionVerdict(
+            ValidationStatus.INDETERMINATE,
+            None,
+            f"the audit produced no usable number for {', '.join(unusable)}"
+            f"{label}; there is nothing here to compare against a criterion",
+        )
+    if audit.preferred is None:
+        return PhaseConventionVerdict(
+            ValidationStatus.INDETERMINATE,
+            None,
+            f"the two hypotheses are exactly equal at {winner:.3g}{label}; the "
+            "stored harmonic is its own conjugate, or the projection returned "
+            "nothing, and either way there is no winner to name",
+        )
+    if not (audit.separation_ratio >= criteria.separation_ratio):
         return PhaseConventionVerdict(
             ValidationStatus.INDETERMINATE,
             None,
             f"the two hypotheses are only {audit.separation_ratio:.3g} apart, under "
             f"{criteria.separation_ratio:g}{label}; the sampled field has little "
-            f"n = {audit.n_tor} content, or the sampling aliases it",
+            f"n = {audit.n_tor} content",
         )
-    if winner > criteria.relative_norm:
+    if not (winner <= criteria.relative_norm):
         return PhaseConventionVerdict(
             ValidationStatus.INDETERMINATE,
             None,

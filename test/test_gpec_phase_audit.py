@@ -23,7 +23,7 @@ from vaft.code.gpec import (
     read_brzphi_harmonics,
     read_coil_control,
 )
-from vaft.process.perturbation import toroidal_phase_audit
+from vaft.process.perturbation import ToroidalPhaseAudit, toroidal_phase_audit
 from vaft.validation.model import ValidationStatus
 from vaft.validation.perturbation_phase import (
     GPEC_COIL_FIELD,
@@ -70,46 +70,107 @@ def test_a_field_built_from_the_conjugate_prefers_the_conjugate(stored, n_tor):
     assert audit.conjugate_relative_norm < 1e-12
 
 
-def test_a_real_harmonic_cannot_be_told_apart(stored):
+def test_a_real_harmonic_has_no_winner_at_all(stored):
     """The one case where the question has no answer: a harmonic equal to its
-    own conjugate reconstructs identically either way, and the audit says so
-    with a separation of exactly one rather than by picking."""
+    own conjugate reconstructs identically either way.  Naming a winner there
+    would invent a result, so there is none to name."""
     real_only = np.real(stored).astype(complex)
     phi = np.linspace(0.0, TWO_PI, 16, endpoint=False)
     audit = toroidal_phase_audit(real_only, _reconstruct(real_only, phi, 1), phi, n_tor=1)
+    assert audit.preferred is None
     assert audit.separation_ratio == pytest.approx(1.0)
     assert audit.stored_relative_norm == pytest.approx(audit.conjugate_relative_norm)
 
 
 def test_a_field_with_no_content_at_this_mode_separates_nothing(stored):
     """The common failure the separation criterion exists for: project a field
-    that is constant in phi onto n = 1 and both hypotheses land near one."""
+    that is constant in phi onto n = 1 and both hypotheses land near one.  The
+    absolute norms say why -- the projection returned essentially zero."""
     phi = np.linspace(0.0, TWO_PI, 16, endpoint=False)
     constant = np.tile(np.real(stored)[:, None, :], (1, phi.size, 1))
     audit = toroidal_phase_audit(stored, constant, phi, n_tor=1)
     assert audit.separation_ratio < 3.0
     assert min(audit.stored_relative_norm, audit.conjugate_relative_norm) > 0.5
+    assert audit.stored_norm > 0.0
+    assert audit.measured_norm < 1e-12 * audit.stored_norm
 
 
 @pytest.mark.parametrize("phi_count", [3, 6])
-def test_an_under_resolved_grid_separates_nothing_rather_than_answering_wrongly(
-    stored, phi_count
-):
-    """Choosing ``M`` is the caller's job and the kernel does not check it, so
-    what happens when it is too small matters.  On an equally spaced grid
-    ``mean(e^{2 i n phi})`` is 1 when ``M`` divides ``2n`` and 0 otherwise, so
-    an aliased projection returns ``C + conj(C)`` -- which sits exactly as far
-    from one hypothesis as from the other.  Both norms come out at 1 and the
-    separation at exactly 1: no answer, not a wrong one.
-    """
+def test_a_grid_that_cannot_resolve_the_mode_is_refused(stored, phi_count):
+    """Nyquist for ``n`` itself. ``M <= 2|n|`` is refused rather than measured,
+    because what an aliased projection returns does not look like a failure."""
     n_tor = 3
     aliased = np.linspace(0.0, TWO_PI, phi_count, endpoint=False)
+    with pytest.raises(ValueError, match="cannot resolve n = 3"):
+        toroidal_phase_audit(
+            stored, _reconstruct(stored, aliased, n_tor), aliased, n_tor=n_tor
+        )
     resolved = np.linspace(0.0, TWO_PI, 8 * n_tor, endpoint=False)
-    good = toroidal_phase_audit(stored, _reconstruct(stored, resolved, n_tor), resolved, n_tor=n_tor)
-    bad = toroidal_phase_audit(stored, _reconstruct(stored, aliased, n_tor), aliased, n_tor=n_tor)
+    good = toroidal_phase_audit(
+        stored, _reconstruct(stored, resolved, n_tor), resolved, n_tor=n_tor
+    )
     assert good.stored_relative_norm < 1e-12
-    assert bad.stored_relative_norm == pytest.approx(1.0)
-    assert bad.separation_ratio == pytest.approx(1.0)
+
+
+def test_an_alias_from_a_second_harmonic_is_confidently_wrong(stored):
+    """The limitation the docstring states, pinned because it is the one failure
+    the verdict cannot catch: an alias is not "no content".  Sampled at four
+    angles, a field carrying n = 1 alongside n = 3 projects onto n = 3 as
+    exactly ``conj(C)`` -- a separation of 1e15 for the wrong answer.
+
+    ``M > 2|n|`` refuses this particular case; nothing in the two numbers would
+    have.  A field of unknown harmonic content needs an ``M`` chosen from that
+    content, not from ``n``.
+    """
+    n_tor, extra = 3, 1
+    contaminant = stored - np.conjugate(stored)
+    four = np.linspace(0.0, TWO_PI, 4, endpoint=False)
+    mixed_at = lambda phi: (
+        _reconstruct(stored, phi, n_tor) + _reconstruct(contaminant, phi, extra)
+    )
+    with pytest.raises(ValueError, match="cannot resolve n = 3"):
+        toroidal_phase_audit(stored, mixed_at(four), four, n_tor=n_tor)
+
+    # Above Nyquist for n the alias is gone and the truth comes back.
+    resolved = np.linspace(0.0, TWO_PI, 16, endpoint=False)
+    audit = toroidal_phase_audit(stored, mixed_at(resolved), resolved, n_tor=n_tor)
+    assert audit.preferred == "stored"
+    assert audit.stored_relative_norm < 1e-12
+
+
+def test_a_component_with_no_stored_coefficients_reports_no_relative_norm(stored):
+    """Dividing by the smallest positive float turns an ordinary residual into
+    1e307, which reads as a catastrophic error rather than as an undefined
+    ratio."""
+    blank = stored.copy()
+    blank[:, 1] = 0.0
+    phi = np.linspace(0.0, TWO_PI, 16, endpoint=False)
+    audit = toroidal_phase_audit(blank, _reconstruct(stored, phi, 1), phi, n_tor=1)
+    assert math.isnan(audit.stored_component_relative_norm[1])
+    assert math.isnan(audit.conjugate_component_relative_norm[1])
+    assert all(
+        math.isfinite(value)
+        for index, value in enumerate(audit.stored_component_relative_norm)
+        if index != 1
+    )
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("target", ["stored", "sampled"])
+def test_a_non_finite_input_is_refused_rather_than_propagated(stored, bad, target):
+    """A NaN loses every comparison instead of failing one: it would come out
+    as NaN against NaN with an infinite separation, which is indistinguishable
+    from a decisive answer."""
+    phi = np.linspace(0.0, TWO_PI, 16, endpoint=False)
+    sampled = _reconstruct(stored, phi, 1)
+    if target == "stored":
+        stored = stored.copy()
+        stored[0, 0] = bad
+    else:
+        sampled = sampled.copy()
+        sampled[0, 0, 0] = bad
+    with pytest.raises(ValueError, match=f"{target} holds 1 non-finite"):
+        toroidal_phase_audit(stored, sampled, phi, n_tor=1)
 
 
 @pytest.mark.parametrize(
@@ -382,12 +443,63 @@ def test_a_settled_audit_passes_and_names_the_convention(synthetic_run):
     assert verdict.convention == "stored"
 
 
+@pytest.mark.parametrize(
+    "stored_norm, conjugate_norm, separation",
+    [
+        (math.nan, math.nan, math.inf),   # what a non-finite sample used to give
+        (1e-9, math.nan, math.inf),
+        (1e-9, 5.0, math.nan),
+    ],
+)
+def test_a_verdict_never_passes_on_a_number_that_is_not_one(
+    stored_norm, conjugate_norm, separation
+):
+    """Every criterion is a condition to satisfy, not one to fail.  ``separation
+    < 3`` and ``winner > 0.10`` are both False for a NaN, so written that way
+    round the checks fall through to PASS -- which is how a poisoned audit came
+    back as a settled convention."""
+    audit = _audit_like(
+        stored_relative_norm=stored_norm,
+        conjugate_relative_norm=conjugate_norm,
+        separation_ratio=separation,
+    )
+    verdict = phase_convention_verdict(audit, criteria=GPEC_COIL_FIELD)
+    assert verdict.status is ValidationStatus.INDETERMINATE
+    assert verdict.convention is None
+    assert "no usable number" in verdict.reason
+
+
+def test_an_exact_tie_is_indeterminate_rather_than_a_coin_toss():
+    audit = _audit_like(
+        stored_relative_norm=1.0, conjugate_relative_norm=1.0,
+        separation_ratio=1.0, preferred=None,
+    )
+    verdict = phase_convention_verdict(audit, criteria=GPEC_COIL_FIELD)
+    assert verdict.status is ValidationStatus.INDETERMINATE
+    assert "no winner to name" in verdict.reason
+
+
+def _audit_like(**overrides):
+    """A ToroidalPhaseAudit with the fields a verdict reads, for the cases the
+    kernel now refuses to produce."""
+    fields = dict(
+        n_tor=1, preferred="conjugate", stored_relative_norm=1.0,
+        conjugate_relative_norm=1e-9, stored_component_relative_norm=(1.0,),
+        conjugate_component_relative_norm=(1e-9,), separation_ratio=1e9,
+        stored_norm=1.0, measured_norm=1.0, sample_count=4, phi_sample_count=16,
+    )
+    fields.update(overrides)
+    return ToroidalPhaseAudit(**fields)
+
+
 def test_an_unexcited_mode_is_indeterminate_not_a_failure(tmp_path, stored):
     """n = 2 on an n = 1 current pattern: nothing to measure, and saying so is
     not the same as saying the file is wrong."""
     phi = np.linspace(0.0, TWO_PI, 16, endpoint=False)
-    constant = np.tile(np.real(stored)[:, None, :], (1, phi.size, 1))
-    audit = toroidal_phase_audit(stored, constant, phi, n_tor=2)
+    # Not quite constant: a small n = 2 content, so the two hypotheses differ
+    # and the separation rather than the tie is what decides.
+    faint = np.real(stored)[:, None, :] + 1e-6 * _reconstruct(stored, phi, 2)
+    audit = toroidal_phase_audit(stored, faint, phi, n_tor=2)
     verdict = phase_convention_verdict(audit, criteria=GPEC_COIL_FIELD)
     assert verdict.status is ValidationStatus.INDETERMINATE
     assert verdict.convention is None

@@ -42,8 +42,10 @@ _COMPONENT_COLUMNS = ((3, 4), (5, 6), (7, 8))
 #: What the three columns are, in file order.
 BRZPHI_COMPONENTS: tuple[str, ...] = ("b_r", "b_z", "b_phi")
 
-#: How GPEC's multi-mode writer declares which modes a file superposes.
-_MODES_NOTE = re.compile(r"^\s*modes\s*=\s*([0-9,\s]+)$", re.IGNORECASE)
+#: How GPEC's multi-mode writer declares which modes a file superposes.  The
+#: list may be signed: a negative ``n`` is the conjugate harmonic, and dropping
+#: the sign would report a single-mode file where there is a superposition.
+_MODES_NOTE = re.compile(r"^\s*modes\s*=\s*([-+0-9,\s]+)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
