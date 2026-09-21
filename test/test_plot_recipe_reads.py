@@ -42,6 +42,9 @@ NEUTRAL = frozenset({
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
     "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+    "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+    "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
+    "coil_3d_profile_current", "coil_3d_spectrum_current",
     # Built on vaft.omas helpers that read through vaft.ods_access, which
     # dispatches to the registered accessor: native on an IMAS entry too.
     "pf_plasma_geometry_poloidal",
