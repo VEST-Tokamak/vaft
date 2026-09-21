@@ -11,6 +11,12 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 ``vaft.plot``
     owns data and numerical results.
 
+Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
+island model) and the stability / operational-space charts
+``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill`` and
+``troyon``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+``magnetization_current`` and ``toroidal_drift``.
+
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
 in Jupyter through ``_repr_svg_``). Rendering needs ``latex`` and
@@ -24,10 +30,30 @@ The committed reference SVGs are regenerated and checked with::
 
 from importlib import import_module
 
-__all__ = ["magnetic_island", "Diagram", "DiagramToolchainError"]
+__all__ = [
+    "magnetic_island",
+    "peeling_ballooning",
+    "s_alpha_ballooning",
+    "hugill",
+    "troyon",
+    "exb_drift",
+    "curvature_drift",
+    "magnetization_current",
+    "toroidal_drift",
+    "Diagram",
+    "DiagramToolchainError",
+]
 
 _LOCATIONS = {
     "magnetic_island": "._magnetic_island",
+    "peeling_ballooning": "._stability_space",
+    "s_alpha_ballooning": "._stability_space",
+    "hugill": "._stability_space",
+    "troyon": "._stability_space",
+    "exb_drift": "._particle_motion",
+    "curvature_drift": "._particle_motion",
+    "magnetization_current": "._particle_motion",
+    "toroidal_drift": "._particle_motion",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

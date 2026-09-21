@@ -11,7 +11,11 @@ equilibrium probes that the packaged geometry files cannot:
 - `known_faults` -- positions whose acquisition was broken. The Z = +0.06
   probe (field 170) carried a DC offset and a gain unrelated to its
   neighbours up to 36480, and sat at the DAQ rail for 36822-36905; the
-  diagnostics stage marks it invalid there, so EFIT drops it.
+  diagnostics stage marks it invalid there, so EFIT drops it. Probe C4-04
+  (index 45, Z = -0.34, field 224) is recorded on every shot: it is
+  anticorrelated with the PF-only wall model on all three reference shots
+  and carried 70 % of a statistical-sigma chi-square (#977, #924). This
+  script does not re-derive that one; the vacuum benchmark does.
 
 `verify_wiring.py` re-derives both from the raw archive, read-only:
 

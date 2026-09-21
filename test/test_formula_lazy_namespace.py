@@ -36,6 +36,8 @@ _IMPORT_ORDER = (
     "magnetics",
     "neoclassical",
     "startup",
+    "transformer",
+    "particle",
 )
 
 

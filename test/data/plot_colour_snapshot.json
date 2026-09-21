@@ -1,5 +1,10 @@
 {
  "colours": {
+  "diagnostics_spectrum_coherence": {
+   ".models.series:color=#377eb8": 2,
+   ".models.series:color=0.75": 1,
+   ".models.series:color=k": 1
+  },
   "equilibrium_field_2d": {
    ".overlays:color=#d62728": 549,
    ".overlays:color=#e41a1c": 1,
@@ -31,6 +36,12 @@
    ".models.series:color=tab:orange": 2,
    ".models.series:color=tab:red": 1
   },
+  "equilibrium_overview_constraint_weights": {
+   ".models.series:color=0.6": 6,
+   ".models.series:color=black": 9,
+   ".models.series:color=red": 3,
+   ".models.series:markerfacecolor=none": 3
+  },
   "equilibrium_overview_constraints": {
    ".models.series:color=black": 3,
    ".models.series:color=tab:orange": 1,
@@ -38,7 +49,15 @@
    ".models.series:markerfacecolor=none": 1
   },
   "equilibrium_overview_fit_quality": {
-   ".models.series:color=black": 3
+   ".models.series:color=0.6": 12,
+   ".models.series:color=black": 3,
+   ".models.series:color=tab:orange": 1,
+   ".models.series:color=tab:red": 1,
+   ".models.series:markerfacecolor=none": 1
+  },
+  "equilibrium_overview_pressure_weight_scan": {
+   ".models.series:color=#377eb8": 2,
+   ".models.series:color=0.35": 1
   },
   "equilibrium_overview_residuals": {
    ".models.series:color=black": 3,
@@ -56,7 +75,7 @@
   "machine_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#d62728": 549,
-   ".layers:color=#ff7f00": 66,
+   ".layers:color=#ff7f00": 65,
    ".layers:color=0.4": 1,
    ".layers:color=0.55": 950
   },
@@ -67,11 +86,7 @@
   },
   "magnetics_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
-   ".layers:color=#ff7f00": 66
-  },
-  "mirnov_spatial_phase": {
-   ".series:color=#377eb8": 2,
-   ".series:color=#e41a1c": 2
+   ".layers:color=#ff7f00": 65
   },
   "passive_structure_field_wall_reduction": {
    ".overlays:color=k": 1

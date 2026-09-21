@@ -82,6 +82,8 @@ _PARAMETRIC_EXPORTS = (
     "evaluate_solovev",
     "fit_miller_sequence",
     "fit_miller_surface",
+    "miller_surfaces",
+    "solovev_example",
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
     "validate_equilibrium",
@@ -117,6 +119,7 @@ __all__ = [
     "poloidal_field_at_boundary",
     "prepare_boundary_for_shafranov",
     "psi_to_RZ",
+    "plasma_cell_weights",
     "psi_to_radial",
     "psi_to_rho",
     "psi_to_rz",
@@ -127,6 +130,8 @@ __all__ = [
     "shafranov_integrals",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
@@ -326,6 +331,7 @@ def psi_to_rz(
     psi_RZ: np.ndarray,
     psi_axis: float,
     psi_lcfs: float,
+    fill_outside: str = "zero",
     ):
     """Map a flux-surface profile onto the two-dimensional grid through psi.
 
@@ -341,18 +347,24 @@ def psi_to_rz(
         Poloidal flux on the magnetic axis [Wb/rad].
     psi_lcfs : float
         Poloidal flux at the last closed flux surface [Wb/rad].
+    fill_outside : str, optional
+        ``"zero"`` (default) zeroes every cell outside ``0 <= psiN <= 1``;
+        ``"edge"`` leaves the clamped profile there, so a cell continues at the
+        nearest end value [-].
 
     Returns
     -------
     f_RZ : np.ndarray
-        The profile on the grid, zero outside the boundary [any].
+        The profile on the grid, zero outside the boundary unless
+        ``fill_outside="edge"`` [any].
     psiN_RZ : np.ndarray
         Normalized poloidal flux on the grid [-].
 
     Raises
     ------
     ValueError
-        The profile and its abscissa are not one-dimensional and of equal length.
+        The profile and its abscissa are not one-dimensional and of equal length,
+        or ``fill_outside`` is neither ``"zero"`` nor ``"edge"``.
 
     Processing steps
     ----------------
@@ -365,7 +377,12 @@ def psi_to_rz(
     ----------
     The flux map is indexed major radius first. Outside the boundary the value is
     zero, not the edge value and not a NaN, so a sum over the grid is already a
-    plasma-only integral. Because only the normalized flux is used, the absolute
+    plasma-only integral -- as far as ``0 <= psiN <= 1`` is the plasma, which
+    near the coils it is not (see :func:`volume_average`).  Pass
+    ``fill_outside="edge"`` when the map is to be weighted by
+    :func:`plasma_cell_weights`: an outline-weighted edge cell can sit just past
+    ``psiN = 1``, and a zero there biases the average low (0.5-0.8 % for a
+    profile whose edge value is 30 % of its core, on the packaged samples). Because only the normalized flux is used, the absolute
     unit of the three flux arguments cancels: weber and weber per radian give the
     same answer as long as all three agree.
 
@@ -407,6 +424,10 @@ def psi_to_rz(
         psiN_clip.ravel(), x, y
     ).reshape(psi_RZ.shape)
 
+    if fill_outside == "edge":
+        return f_interp, psiN_RZ
+    if fill_outside != "zero":
+        raise ValueError(f"fill_outside must be 'zero' or 'edge'; got {fill_outside!r}")
     # Outside LCFS → 0
     f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
     return f_RZ, psiN_RZ
@@ -421,6 +442,7 @@ def calculate_reconstructed_diamagnetic_flux(
     psiN_1d: np.ndarray,
     f_1d: np.ndarray,
     f_vac_val: float,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetic flux reconstructed from the equilibrium's own toroidal field.
 
@@ -446,6 +468,10 @@ def calculate_reconstructed_diamagnetic_flux(
     f_vac_val : float
         The same function at the boundary, standing in for the vacuum field
         [T m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -486,7 +512,12 @@ def calculate_reconstructed_diamagnetic_flux(
        integrated over the plasma cross-section, in the form the EFIT-style
        workflow this package reproduces uses.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -495,13 +526,14 @@ def calculate_reconstructed_diamagnetic_flux(
         B_phi_vacuum = f_vac_val / R_mesh
 
     diff_B = B_phi_plasma - B_phi_vacuum
-    integrand = np.where(mask_plasma, diff_B, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    integrand = np.where(cell_fraction > 0.0, diff_B, 0.0)
 
     dR = np.gradient(R_grid)[:, None]
     dZ = np.gradient(Z_grid)[None, :]
     dA = np.abs(dR * dZ)
 
-    return float(np.nansum(integrand * dA))
+    return float(np.nansum(integrand * dA * cell_fraction))
 
 
 def calculate_diamagnetism(
@@ -515,6 +547,7 @@ def calculate_diamagnetism(
     f_vac_val: float,
     B_pa: float,
     V_p: float | None = None,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetism from its volume-integral definition.
 
@@ -543,6 +576,10 @@ def calculate_diamagnetism(
     V_p : float, optional
         Plasma volume. Computed from the same grid and mask when not given
         [m^3].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -580,7 +617,12 @@ def calculate_diamagnetism(
        form is :func:`calculate_reconstructed_diamagnetic_flux`, and the two
        should agree for a consistent equilibrium.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -592,14 +634,16 @@ def calculate_diamagnetism(
     # (B_tv² - B_t²) = (F_vac² - F²) / R²; integrand * dV = 2π (F_vac² - F²)/R * dA
     with np.errstate(divide="ignore", invalid="ignore"):
         diff_sq = (f_vac_val**2 - f_2d**2) / (R_mesh**2)
-    integrand = np.where(mask_plasma, diff_sq, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    dV = dV * cell_fraction
+    integrand = np.where(cell_fraction > 0.0, diff_sq, 0.0)
 
     integral = float(np.nansum(integrand * dV))
 
     if V_p is not None and V_p > 0:
         Omega = V_p
     else:
-        Omega = float(np.sum(dV[mask_plasma]))
+        Omega = float(np.sum(dV[cell_fraction > 0.0]))
         if Omega <= 0.0:
             raise ValueError("Plasma volume is zero or negative.")
 
@@ -614,6 +658,7 @@ def volume_average(
     psiN_RZ: np.ndarray,
     R: np.ndarray,
     Z: np.ndarray,
+    weights: np.ndarray | None = None,
     ):
     """Volume average of a gridded quantity over the confined region.
 
@@ -627,6 +672,10 @@ def volume_average(
         Major-radius axis, or the full mesh [m].
     Z : array_like
         Height axis, or the full mesh [m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -639,9 +688,16 @@ def volume_average(
     ----------
     The volume element is the axisymmetric ``2*pi*R dR dZ``, so cells at large
     major radius weigh proportionally more; this is a torus average, not a
-    cross-sectional one. Only cells with normalized flux between zero and one and
-    a positive major radius contribute, which makes the mask the definition of
-    "the plasma" here. Accepts either one-dimensional axes or a full mesh.
+    cross-sectional one. Accepts either one-dimensional axes or a full mesh.
+
+    **Pass** ``weights`` **whenever the slice has a boundary outline.**  Without
+    them the plasma is every cell with normalized flux between zero and one and
+    a positive major radius -- a flux threshold, not a containment test.  Outside
+    the plasma psi is not monotonic and turns over by the coils, so the
+    threshold admits exterior cells: on the packaged VEST samples the flux-mask
+    volume is 1.7 to 18 times the plasma's, and a volume-averaged pressure
+    comes out 40-50 % low.  With :func:`plasma_cell_weights` from the outline
+    both match the contour-traced reference to 0.1 % and 1 %.
 
     Applicability
     -------------
@@ -650,10 +706,9 @@ def volume_average(
     Limitations
     -----------
     Cell areas come from a gradient of the axes, so the outermost cells are
-    one-sided and a strongly non-uniform grid is approximated. The mask is a
-    per-cell test with no sub-cell weighting, so the boundary is resolved only to
-    the grid; :func:`fractional_cell_weights_from_boundary` is the fractional
-    alternative where that matters.
+    one-sided and a strongly non-uniform grid is approximated. The flux mask is a
+    per-cell test with no sub-cell weighting; ``weights`` carry each boundary
+    cell's area fraction instead.
 
     Provenance
     ----------
@@ -675,10 +730,18 @@ def volume_average(
             np.gradient(Rm, axis=0) * np.gradient(Zm, axis=1)
         )
 
-    # LCFS mask
-    inside = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)
+    if weights is None:
+        # Flux-threshold fallback; see the Convention section.
+        cell_fraction = ((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)).astype(float)
+    else:
+        cell_fraction = np.where(Rm > 0.0, np.asarray(weights, float), 0.0)
+        if cell_fraction.shape != Rm.shape:
+            raise ValueError(
+                f"weights have shape {cell_fraction.shape}; the grid has {Rm.shape}"
+            )
 
-    dV = 2.0 * np.pi * Rm * dA
+    dV = 2.0 * np.pi * Rm * dA * cell_fraction
+    inside = cell_fraction > 0.0
 
     V = np.sum(dV[inside])
     if V == 0.0:
@@ -686,6 +749,83 @@ def volume_average(
 
     favg = np.sum(f_RZ[inside] * dV[inside]) / V
     return favg, V
+
+
+def plasma_cell_weights(
+    R: np.ndarray,
+    Z: np.ndarray,
+    psiN_RZ: np.ndarray,
+    outline_r: np.ndarray | None = None,
+    outline_z: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fraction of each grid cell that is plasma, from the boundary outline when there is one.
+
+    Parameters
+    ----------
+    R : array_like
+        Major-radius axis, or the full mesh [m].
+    Z : array_like
+        Height axis, or the full mesh [m].
+    psiN_RZ : array_like
+        Normalized poloidal flux on the grid, used only when there is no
+        outline [-].
+    outline_r : array_like, optional
+        Major radius of the last closed flux surface outline [m].
+    outline_z : array_like, optional
+        Height of the same outline [m].
+
+    Returns
+    -------
+    np.ndarray
+        Area fraction in ``[0, 1]`` on the grid's ``(R, Z)`` shape [-].
+
+    Raises
+    ------
+    ValueError
+        The outline coordinates differ in length [-].
+
+    Convention
+    ----------
+    With at least three finite outline points this is
+    :func:`fractional_cell_weights_from_boundary`: containment in the boundary,
+    with each crossed cell's area share.  Otherwise it falls back to the
+    normalized-flux threshold ``0 <= psiN <= 1`` as zeros and ones, and logs a
+    warning, because that threshold also admits exterior cells wherever psi
+    turns over near the coils (see :func:`volume_average`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The outline is trusted as given: an open or self-intersecting polygon gives
+    whatever point-in-polygon makes of it.
+    """
+    R = np.asarray(R, float)
+    Z = np.asarray(Z, float)
+    if R.ndim == 1 and Z.ndim == 1:
+        Rm, Zm = np.meshgrid(R, Z, indexing="ij")
+    else:
+        Rm, Zm = R, Z
+    if outline_r is not None and outline_z is not None:
+        outline_r = np.asarray(outline_r, float).reshape(-1)
+        outline_z = np.asarray(outline_z, float).reshape(-1)
+        if outline_r.size != outline_z.size:
+            raise ValueError("outline_r and outline_z differ in length")
+        finite = np.isfinite(outline_r) & np.isfinite(outline_z)
+        if finite.sum() >= 3:
+            return fractional_cell_weights_from_boundary(
+                Rm, Zm, outline_r[finite], outline_z[finite]
+            )
+    warnings.warn(
+        "no usable boundary outline; taking the plasma as 0 <= psiN <= 1, which "
+        "also admits cells outside the boundary",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    psiN = np.asarray(psiN_RZ, float)
+    return ((psiN >= 0.0) & (psiN <= 1.0)).astype(float)
 
 def psi_to_radial(
     psi_1d: np.ndarray,
@@ -5028,3 +5168,340 @@ def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
     angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
     result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
     return float(result) if np.ndim(theta_lab) == 0 else result
+
+
+def romero_flux_balance(
+    time: np.ndarray,
+    I_p: np.ndarray,
+    psi_boundary: np.ndarray,
+    psi_equilibrium: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+) -> dict[str, np.ndarray]:
+    r"""Romero's exact voltage and volt-second balance over a sampled discharge.
+
+    Differentiates the boundary and equilibrium fluxes and the plasma current,
+    evaluates every term of Romero's balance with :mod:`vaft.formula.transformer`,
+    and integrates the three volt-second budgets, so the residual of each
+    identity is visible sample by sample and cumulatively.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Sample times, strictly increasing, at least three [s].
+    I_p : np.ndarray
+        Plasma current at each time, non-zero, same sense throughout [A].
+    psi_boundary : np.ndarray
+        Boundary flux $\psi_B$, full flux in Romero's sign [Wb].
+    psi_equilibrium : np.ndarray
+        Current-weighted flux $\psi_C$ from
+        :func:`vaft.formula.transformer.current_weighted_flux_from_psi_j_dS`,
+        same convention [Wb].
+    R_p : np.ndarray
+        Plasma resistance at each time, or one value for all [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current at each time, or one value; ``0``
+        asserts a purely Ohmic discharge [A].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        Per sample: ``time`` [s]; ``L_i`` [H] and ``dL_i_dt`` [H/s];
+        ``dI_p_dt`` [A/s]; the voltages ``V_B``, ``V_C`` (from
+        $-\dot\psi_C$), ``V_R``, ``V_I`` $= L_i\dot I_p + \tfrac12 I_p\dot L_i$,
+        ``V_C_from_L_i`` and ``V_C_from_I_p`` (Romero's eqs. 39 and 40 solved
+        for $V_C$) and ``balance_residual`` $= V_B - V_R - V_I$ [V]; and,
+        cumulative from the first sample, ``Phi_B`` $=\int V_B\,dt$,
+        ``Phi_B_direct`` $= -(\psi_B - \psi_B(t_0))$, ``Phi_R``, ``Phi_I`` and
+        ``Phi_closure`` $= \Phi_B - \Phi_R - \Phi_I$ [Wb] [-].
+
+    Raises
+    ------
+    ValueError
+        Arrays of different lengths, fewer than three samples, a time axis
+        that does not strictly increase, a non-finite input, a zero plasma
+        current or one that changes sign, or fluxes whose sign says they are
+        not in Romero's convention [-].
+
+    Processing steps
+    ----------------
+    1. $L_i = (\psi_C - \psi_B)/I_p$ at every sample
+       (:func:`vaft.formula.transformer.internal_inductance_from_psi_C_psi_B_I_p`),
+       which refuses a flux in the opposite convention.
+    2. $\dot I_p$, $\dot L_i$, $V_B = -\dot\psi_B$ and $V_C = -\dot\psi_C$ with
+       :func:`vaft.process.numerical.time_derivative`.
+    3. $V_R = R_p(I_p - \hat I)$ and $V_I = L_i\dot I_p + \tfrac12 I_p\dot L_i$.
+    4. The two inferred $V_C$: eq. (39) from $\dot L_i$ and $V_R$, eq. (40)
+       from $\dot I_p$, $V_B$ and $V_R$.
+    5. Cumulative trapezoidal integrals of $V_B$, $V_R$ and $V_I$ from the
+       first sample, and the direct flux change $-\Delta\psi_B$ beside them.
+
+    Convention
+    ----------
+    **Romero's signs: full-weber flux and $V = -\dot\psi$.**  This is not
+    :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`'s
+    convention (#354); a COCOS-11 equilibrium has to be brought to this one
+    before the call, and step 1 refuses fluxes that were not.
+
+    **What each residual measures.**  With $L_i$ read from the same fluxes,
+    $V_B - V_C = \mathrm{d}(L_i I_p)/\mathrm{d}t$ holds to differencing error
+    on its own, so the three $V_C$ and ``balance_residual`` all disagree only
+    through $V_R$ -- they test the resistance estimate and $\hat I$, not the
+    equilibria.  ``Phi_B`` against ``Phi_B_direct`` tests the differencing and
+    the integration alone: the two agree to the trapezoid error whatever the
+    physics.
+
+    Applicability
+    -------------
+    Machine-independent.  Closed-flux phase only: $\psi_C$ and $L_i$ need an
+    equilibrium with a boundary, so a start-up window before flux closure must
+    be cut off by the caller, and a zero $I_p$ is refused rather than divided
+    by.
+
+    Limitations
+    -----------
+    All inputs must already be on one time axis, matched by time and not by
+    index; nothing here resamples.  Differentiation amplifies equilibrium
+    noise, and $\dot L_i$ from reconstructed fluxes is the noisiest term --
+    smooth upstream if the residuals are dominated by it.  $R_p$ and $\hat I$
+    are the caller's estimates, and the balance cannot tell which one is
+    wrong.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (12), (23)-(27), (34)-(40); the volt-second split
+           follows issue #781, Sec. 5.
+    """
+    from scipy.integrate import cumulative_trapezoid
+
+    from vaft.formula.transformer import (
+        equilibrium_surface_voltage_from_I_p_dL_i_V_R,
+        equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R,
+        internal_inductance_from_psi_C_psi_B_I_p,
+        resistive_voltage_from_R_p_I_p_I_ni,
+    )
+    from vaft.process.numerical import time_derivative
+
+    t = np.asarray(time, dtype=float)
+    series = {
+        "I_p": np.asarray(I_p, dtype=float),
+        "psi_boundary": np.asarray(psi_boundary, dtype=float),
+        "psi_equilibrium": np.asarray(psi_equilibrium, dtype=float),
+    }
+    if t.ndim != 1 or t.size < 3:
+        raise ValueError("time must be one-dimensional with at least three samples")
+    if not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite and strictly increasing")
+    for name, values in series.items():
+        if values.shape != t.shape:
+            raise ValueError(f"{name} has shape {values.shape}; time has {t.shape}")
+    ip, psi_b, psi_c = series["I_p"], series["psi_boundary"], series["psi_equilibrium"]
+    if np.any(ip > 0.0) and np.any(ip < 0.0):
+        # Checked before L_i, whose sign test would otherwise blame the flux
+        # convention for what is a current reversal.
+        raise ValueError(
+            "I_p changes sign within the window; L_i is undefined through the "
+            "reversal -- split the window at the zero crossing"
+        )
+    try:
+        r_p, i_ni = np.broadcast_to(np.asarray(R_p, dtype=float), t.shape), np.broadcast_to(
+            np.asarray(I_ni, dtype=float), t.shape
+        )
+    except ValueError:
+        raise ValueError("R_p and I_ni must be scalars or match time") from None
+
+    l_i = np.asarray(internal_inductance_from_psi_C_psi_B_I_p(psi_c, psi_b, ip))
+    di_dt = time_derivative(t, ip)
+    dl_dt = time_derivative(t, l_i)
+    v_b = -time_derivative(t, psi_b)
+    v_c = -time_derivative(t, psi_c)
+    v_r = np.asarray(resistive_voltage_from_R_p_I_p_I_ni(r_p, ip, i_ni))
+    v_i = l_i * di_dt + 0.5 * ip * dl_dt
+
+    def running(values):
+        return cumulative_trapezoid(values, t, initial=0.0)
+
+    phi_b, phi_r, phi_i = running(v_b), running(v_r), running(v_i)
+    return {
+        "time": t,
+        "L_i": l_i,
+        "dL_i_dt": dl_dt,
+        "dI_p_dt": di_dt,
+        "V_B": v_b,
+        "V_C": v_c,
+        "V_R": v_r,
+        "V_I": v_i,
+        "V_C_from_L_i": np.asarray(equilibrium_surface_voltage_from_I_p_dL_i_V_R(ip, dl_dt, v_r)),
+        "V_C_from_I_p": np.asarray(
+            equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R(l_i, di_dt, v_b, v_r)
+        ),
+        "balance_residual": v_b - v_r - v_i,
+        "Phi_B": phi_b,
+        "Phi_B_direct": -(psi_b - psi_b[0]),
+        "Phi_R": phi_r,
+        "Phi_I": phi_i,
+        "Phi_closure": phi_b - phi_r - phi_i,
+    }
+
+
+def integrate_romero_closure(
+    time: np.ndarray,
+    V_B: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+    *,
+    I_p0: float,
+    L_i0: float,
+    V_CB0: float = 0.0,
+    k: float,
+    tau: float,
+    rtol: float = 1e-8,
+) -> dict[str, np.ndarray]:
+    r"""Integrate Romero's first-order closure from a boundary-voltage history.
+
+    Evolves the plasma current $I_p$, the internal inductance $L_i$ and
+    $V = V_C - V_B$ under a prescribed boundary loop voltage, resistance and
+    non-inductive current, with the rates of
+    :func:`vaft.formula.transformer.romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau`.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Output times, strictly increasing, at least two; the inputs are given
+        on the same axis [s].
+    V_B : np.ndarray
+        Boundary loop voltage, Romero's sign, one per time [V].
+    R_p : np.ndarray
+        Plasma resistance, one per time or one value [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current, one per time or one value; ``0``
+        asserts a purely Ohmic plasma [A].
+    I_p0 : float
+        Plasma current at the first time, non-zero [A].
+    L_i0 : float
+        Internal inductance at the first time, positive [H].
+    V_CB0 : float, optional
+        $V_C - V_B$ at the first time [V].
+    k : float
+        Closure gain [-].
+    tau : float
+        Closure time constant, positive [s].
+    rtol : float, optional
+        Relative tolerance of the integrator [-].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        ``time`` [s]; ``I_p`` [A]; ``L_i`` [H]; ``V_CB`` and ``V_C`` $= V_B +
+        V$ and ``V_R`` $= R_p (I_p - \hat I)$ [V] [-].
+
+    Raises
+    ------
+    ValueError
+        Inputs of the wrong length, a time axis that does not strictly
+        increase, a non-finite input, or a trajectory that reaches zero
+        current or non-positive inductance [-].
+
+    Processing steps
+    ----------------
+    1. Interpolate ``V_B``, ``R_p`` and ``I_ni`` linearly in time.
+    2. Integrate the three rates with :func:`scipy.integrate.solve_ivp`
+       (RK45) from the initial state, reporting at ``time``.
+    3. Rebuild $V_C$ and $V_R$ from the state and the inputs.
+
+    Defaults
+    --------
+    ``V_CB0 = 0`` starts from a flat loop-voltage profile, a modelling choice
+    the caller should replace with a measured $V_C - V_B$ when there is one.
+    ``rtol = 1e-8`` is a numerical convenience; the absolute tolerances are
+    scaled from the initial state.
+
+    Convention
+    ----------
+    Romero's signs: full-weber flux, $V = -\dot\psi$, and a positive $V_B$
+    driving a positive $I_p$.  The first two state equations are exact; the
+    third is the closure, so every departure of the trajectory from a
+    measured one is attributable to $k$, $\tau$ or the inputs.
+
+    Applicability
+    -------------
+    Machine-independent.  $k$ and $\tau$ are the caller's, identified for the
+    machine and regime; none are supplied.
+
+    Limitations
+    -----------
+    Linear interpolation of the inputs, so a voltage history sampled more
+    coarsely than $\tau$ is smoothed.  The integration stops with an error
+    if the current falls to 0.1 % of its initial value: $\dot L_i \propto
+    1/I_p$ is undefined at a reversal, and the step size collapses before one.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (41)-(45).
+    """
+    from scipy.integrate import solve_ivp
+
+    from vaft.formula.transformer import (
+        romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau,
+    )
+
+    t = np.asarray(time, dtype=float)
+    if t.ndim != 1 or t.size < 2 or not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite, one-dimensional and strictly increasing")
+    try:
+        v_b, r_p, i_ni = (
+            np.broadcast_to(np.asarray(values, dtype=float), t.shape).copy()
+            for values in (V_B, R_p, I_ni)
+        )
+    except ValueError:
+        raise ValueError("V_B, R_p and I_ni must be scalars or match time") from None
+    for name, values in (("V_B", v_b), ("R_p", r_p), ("I_ni", i_ni)):
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} must be finite")
+    if not (np.isfinite(I_p0) and I_p0 != 0.0):
+        raise ValueError(f"I_p0 must be finite and non-zero; got {I_p0!r}")
+    if not (np.isfinite(L_i0) and L_i0 > 0.0):
+        raise ValueError(f"L_i0 must be finite and positive; got {L_i0!r}")
+
+    def rates(tt, state):
+        current, inductance, relative = state
+        v_r = np.interp(tt, t, r_p) * (current - np.interp(tt, t, i_ni))
+        return romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(
+            current, inductance, relative, np.interp(tt, t, v_b), v_r, k, tau
+        )
+
+    current_floor = 1e-3 * abs(I_p0)
+
+    def current_collapses(tt, state):
+        return abs(state[0]) - current_floor
+
+    # dL_i/dt goes as 1/I_p, so near a reversal the step size collapses before
+    # the current is ever sampled at zero; stop at 0.1 % of the initial current
+    # instead, where the trajectory is still resolved.
+    current_collapses.terminal = True
+    current_collapses.direction = -1
+
+    scale = np.array([abs(I_p0), L_i0, max(abs(V_CB0), float(np.max(np.abs(v_b))), 1e-3)])
+    solution = solve_ivp(
+        rates, (t[0], t[-1]), [I_p0, L_i0, V_CB0], t_eval=t,
+        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_collapses,
+    )
+    if solution.status == 1:
+        raise ValueError(
+            "the plasma current falls to 0.1 % of its initial value at "
+            f"t = {solution.t_events[0][0]:.6g} s; L_i is undefined through a "
+            "reversal -- end the window before it"
+        )
+    if not solution.success:
+        raise ValueError(f"the closure could not be integrated: {solution.message}")
+    current, inductance, relative = solution.y
+    return {
+        "time": t,
+        "I_p": current,
+        "L_i": inductance,
+        "V_CB": relative,
+        "V_C": v_b + relative,
+        "V_R": r_p * (current - i_ni),
+    }

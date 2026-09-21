@@ -129,18 +129,20 @@ def test_h3_08_is_condemned_on_every_packaged_shot(table):
     assert condemned[h3_08[0]] == len(PACKAGED)
 
 
-def test_the_products_carry_no_projected_validity_for_efit_channels(table):
+def test_the_products_now_carry_the_diagnostics_stage_projection(table):
     """"All valid" and "never looked at" are the same bytes in a product.
 
-    This is why the sweep assesses and gates into a copy instead of reading
-    what it is handed; if a future product does carry a projection, this test
-    is the place that notices.
+    Until the packaged samples were regenerated on the current pipeline
+    (5dfcc64a) no EFIT-facing channel carried a projected validity; now every
+    one with a waveform does -- all but the missing H1-01 placeholder.  The
+    sweep still assesses and gates into a copy: a stored projection is the
+    verdict of the detectors that ran when the product was made, and the
+    array review (#977) postdates these products.
     """
     for row in table["rows"]:
         projection = row["decisions"]["projection_in_product"]
         assert projection["efit_facing"] == row["decisions"]["channels"]
-        assert projection["efit_facing_with_projected_validity"] == 0
-        assert projection["with_projected_validity"] > 0  # the IMPA channels do carry one
+        assert projection["efit_facing_with_projected_validity"] == projection["efit_facing"] - 1
 
 
 def test_the_flux_loops_agree_with_the_vacuum_model_everywhere(table):

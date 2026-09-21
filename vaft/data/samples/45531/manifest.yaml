@@ -1,0 +1,109 @@
+schema_version: 1
+reference_id: vest-45531-fluctuation-v1
+shot: 45531
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: fluctuation-diagnostics-sample
+  description: 'Shot 45531, the canonical VEST demonstration discharge for fluctuation
+    work: the outboard fluctuation Mirnov array (three toroidal positions) at its
+    native 2 MHz / 500 kHz, the 64 equilibrium probes, flux loops, Ip, filterscope
+    (H-alpha), TF, PF, barometry and EC power from the diagnostics stage, and a teaching
+    subset of the two SXR digitizers at 976.6 kHz. No equilibrium.'
+  raw_source: FileDB raw/45531/vest_45531_daq_raw.json.gz
+  raw_sha256: 0fe273fcfe089a4f8fc759ad8400a37c76e95bd780d6a27030ab786f3ce2215e
+  raw_note: The FileDB dump (191 fields; re-dumpable from the VEST SQL archive with
+    vaft.database.raw) is not copied into the repository. vaft/data/legacy/shot_45531.json.gz
+    (117 fields, sha256 4f875b9fa7e97db42969c303b060fbefbd3abee1b2dfd62814206362a10ca505)
+    is a byte-identical subset of it on every field it carries, but lacks the PF,
+    barometry and EC fields, so the diagnostics stage built from it has no pf_active,
+    barometry or ec_launchers and differs in the limiter shunts.
+  sxr_sources:
+  - path: vaft/data/legacy/digitizer_17592_45531.csv
+    sha256: 294e0cbab17625f616ff8d6ad6bef7536e071f36ef3b9e85a0a7e1d828601ac1
+  - path: vaft/data/legacy/digitizer_22577_45531.csv
+    sha256: 71475948c4035946d535370c1b2d7db989166bc4f212123838bddb0f7221cdf7
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    size: 45916317
+    sha256: 07709cd3fa75b451dd3adcb8b74bcc2b694651ac7e5ebf4de708e21517d05f3e
+generation:
+  generated: '2026-09-18'
+  issue: https://github.com/VEST-Tokamak/vaft/issues/1005
+  canonical_policy: repository-only
+  machine_era: vest-43017-45967-pf1906
+  command: vaft.omas.vest_upstream.build_diagnostics_ods(shot=45531, raw_source=<FileDB
+    raw dump>, static_ods=build_static_ods('vest-43017-45967-pf1906'), tstart=0.283,
+    tend=0.319, dt=4e-5) -- every IDS it wrote -- plus wall from the same static product,
+    plus soft_x_rays_from_digitizer_csv(45531) restricted to the channels and window
+    below.
+  window:
+    tstart: 0.283
+    tend: 0.319
+    derivation: 'A first diagnostics pass on the archive''s 0.26-0.36 s fast coverage
+      gave vaft.omas.plasma_timing: onset 0.29368 s, offset 0.30812 s from H-alpha
+      (h_alpha_primary), agreement ''consistent'' with the Ip window 0.29384-0.30776
+      s (Ip peak 163 kA at 0.3017 s). The window is that plasma window widened by
+      10 ms on each side, for a pre-discharge floor and the decay, and rounded outward
+      to the millisecond. The diagnostics stage was then rebuilt on it, so every native-rate
+      voltage is cropped, never resampled.'
+    plasma_onset_s: 0.29368
+    plasma_offset_s: 0.30812
+  magnetics:
+    equilibrium_probes: 64 (b_field_pol_probe 0-63), native voltage 250 kHz, field
+      on the 40 us grid
+    fluctuation_array: 30 channels, b_field_pol_probe 64-93, OutMirnov_{45,135,225}_L{1,2}-{01..05}
+      (clock angles; IMAS phi 315/225/135 deg). Odd-numbered probes (-01/-03/-05,
+      18 channels) at 2 MHz, even (-02/-04, 12 channels) at 500 kHz, as acquired.
+    phase_reference_channels: 0
+    note: 'No phase-reference entry: fields 207/209/241 end at 35520 and field 171
+      is equilibrium probe 36 (issue #825).'
+  soft_x_rays:
+    selection: '52 of 104 channels: DAQ 22577 bottom array, both filters (16 Be +
+      16 Al, pairable by chord with vaft.process.soft_x_rays.sxr_te_pairs_from_ods(ods,
+      ''bottom'')), and DAQ 17592 vertical array (20 chords). Dropped: 17592 horizontal
+      (20) and 22577 lowermid (32).'
+    sample_rate_hz: 976562.5
+    window:
+    - 0.285
+    - 0.319
+    window_note: The digitizer record starts at 0.285 s, so the SXR window starts
+      there, not at 0.283 s.
+    time_alignment: hxr_fallback (packaged diagnostic trigger settings), as the mapper
+      reports
+  equilibrium: 'None. No EFIT exists for 45531: FileDB efit/ holds only 39915, and
+    ''7. Equilibrium Folder/Shot#45531'' holds VFIT MATLAB equilibria (Equilibrium_45531_1_2_{299,301,306}_Magnetic_.mat)
+    with no g-file and no VAFT reader.'
+  stage_status:
+    diagnostics: success
+    pf_active_disabled_channels:
+    - PF3
+    - PF4
+    - PF7
+    - PF8
+acceptance:
+  required_ids:
+  - magnetics
+  - soft_x_rays
+  - spectrometer_uv
+  - pf_active
+  - tf
+  - barometry
+  - wall
+  magnetics:
+    b_field_pol_probe_count: 94
+    flux_loop_count: 11
+    fluctuation_first_index: 64
+    fluctuation_count: 30
+    fluctuation_rates_hz:
+      '2000000': 18
+      '500000': 12
+  soft_x_rays:
+    channel_count: 52
+    sample_rate_hz: 976562.5
+  toroidal_array: fluctuation

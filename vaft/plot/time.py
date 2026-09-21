@@ -2415,7 +2415,9 @@ def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
     W_mag_vol = np.zeros(n_plot, dtype=float)
     for k, i in enumerate(indices):
         try:
-            W_mag_vol[k] = float(compute_magnetic_energy(ods, time_slice=i))
+            # Poloidal only: the virial W_mag is li B_pa^2 V / (2 mu0), and
+            # the total adds the vacuum toroidal field, ~30x larger.
+            W_mag_vol[k] = float(compute_magnetic_energy(ods, time_slice=i, components="poloidal"))
         except Exception:
             W_mag_vol[k] = np.nan
 
@@ -2434,10 +2436,12 @@ def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
     W_th_eq = np.full(n_plot, np.nan, dtype=float)
     for k, i in enumerate(indices):
         eq_ts = ods['equilibrium.time_slice'][i]
-        try:
-            volume = float(eq_ts['global_quantities.volume'])
-        except (KeyError, ValueError):
-            volume = np.nan
+        # Membership first: reading a missing OMAS leaf creates an empty
+        # node rather than raising KeyError, and float() of that is a TypeError.
+        volume = (
+            float(eq_ts['global_quantities.volume'])
+            if 'global_quantities.volume' in eq_ts else np.nan
+        )
         if p_vol_avg_cp is not None and i < len(p_vol_avg_cp) and not np.isnan(p_vol_avg_cp[i]) and np.isfinite(volume):
             W_th_cp[k] = p_vol_avg_cp[i] * (3.0 / 2.0) * volume
         if p_vol_avg_eq is not None and i < len(p_vol_avg_eq) and not np.isnan(p_vol_avg_eq[i]) and np.isfinite(volume):
@@ -2491,9 +2495,9 @@ def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
     axes[5].grid(True, alpha=0.3)
 
     axes[6].plot(t, W_mag_virial, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='W_mag (virial)')
-    axes[6].plot(t, W_mag_vol, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='W_mag (volume-integral)')
+    axes[6].plot(t, W_mag_vol, 'r-s', linewidth=2, markersize=4, alpha=0.7, label='W_mag (poloidal, volume integral)')
     axes[6].set_ylabel('W_mag [J]', fontsize=12)
-    axes[6].set_title('Magnetic Energy', fontsize=12, fontweight='bold')
+    axes[6].set_title('Poloidal magnetic energy inside the LCFS', fontsize=12, fontweight='bold')
     axes[6].legend(fontsize=10)
     axes[6].grid(True, alpha=0.3)
 
@@ -2561,6 +2565,7 @@ def time_energy(ods, figsize=(4, 4)):
     # Get time array
     t = np.zeros(n_slices, dtype=float)
     W_mag = np.zeros(n_slices, dtype=float)
+    W_mag_total = np.full(n_slices, np.nan, dtype=float)
     W_th_cp = np.zeros(n_slices, dtype=float)
     W_th_eq = np.zeros(n_slices, dtype=float)
     
@@ -2570,17 +2575,20 @@ def time_energy(ods, figsize=(4, 4)):
         # Get time
         t[i] = float(eq_ts.get('time', i))
         
-        # Compute magnetic energy
+        # Magnetic energy inside the LCFS: the poloidal part is the plasma's
+        # (L_i I_p^2 / 2); the total adds the vacuum toroidal field over the
+        # plasma volume, which follows the volume and not the current.
         try:
-            W_mag[i] = float(compute_magnetic_energy(ods, time_slice=i))
+            W_mag[i] = float(compute_magnetic_energy(ods, time_slice=i, components="poloidal"))
+            W_mag_total[i] = float(compute_magnetic_energy(ods, time_slice=i))
         except Exception as e:
             print(f"Warning: Could not compute W_mag for time_slice {i}: {e}")
             W_mag[i] = np.nan
         
         # Get plasma volume
-        try:
+        if 'global_quantities.volume' in eq_ts:
             volume = float(eq_ts['global_quantities.volume'])
-        except (KeyError, ValueError):
+        else:
             print(f"Warning: volume not found for time_slice {i}")
             volume = np.nan
         
@@ -2600,9 +2608,14 @@ def time_energy(ods, figsize=(4, 4)):
     fig, axes = plt.subplots(2, 1, figsize=(figsize[0], figsize[1]), sharex=True)
     
     # Plot W_mag
-    axes[0].plot(t, W_mag, 'b-o', linewidth=2, markersize=4, alpha=0.7)
+    axes[0].plot(t, W_mag, 'b-o', linewidth=2, markersize=4, alpha=0.7, label='poloidal')
+    ax0_total = axes[0].twinx()
+    ax0_total.plot(t, W_mag_total, 'k--', linewidth=1, alpha=0.5, label='total (vacuum B_phi)')
+    ax0_total.set_ylabel('total [J]', fontsize=10)
     axes[0].set_ylabel('W_mag [J]', fontsize=12)
-    axes[0].set_title('Magnetic Energy', fontsize=12, fontweight='bold')
+    axes[0].set_title('Magnetic energy inside the LCFS', fontsize=12, fontweight='bold')
+    axes[0].legend(loc='upper left', fontsize=9)
+    ax0_total.legend(loc='upper right', fontsize=9)
     axes[0].grid(True, alpha=0.3)
     
     # Plot W_th from both options

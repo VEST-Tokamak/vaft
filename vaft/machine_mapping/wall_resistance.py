@@ -49,6 +49,7 @@ __all__ = [
     "identify_calibration",
     "load_legacy_wall_coeff",
     "nominal_resistance",
+    "region_material",
 ]
 
 #: Material resistivities [Ohm m] the nominal hoop resistance is built from.
@@ -57,6 +58,12 @@ NOMINAL_RESISTIVITY: Mapping[str, float] = {"stainless": 7.8e-7, "tungsten": 5.6
 
 #: Region name -> material.  Everything not listed is stainless.
 _REGION_MATERIAL: Mapping[str, str] = {"W11": "tungsten"}
+
+
+def region_material(name: str) -> str:
+    """Material of a wall structure (``W1``..``W11``); stainless unless listed."""
+    return _REGION_MATERIAL.get(str(name).strip().upper(), "stainless")
+
 
 #: (region, loops per band, band count); the last inboard band takes the
 #: remaining 14 loops, exactly as the donor solver indexes them.
@@ -203,7 +210,7 @@ def nominal_resistance(ods: Any) -> np.ndarray:
         if declared and "resistivity" in loop:
             rho = float(loop["resistivity"])
         else:
-            rho = NOMINAL_RESISTIVITY[_REGION_MATERIAL.get(str(loop["name"]), "stainless")]
+            rho = NOMINAL_RESISTIVITY[region_material(loop["name"])]
         r_mean = float(np.mean(np.asarray(loop["element.0.geometry.outline.r"], dtype=float)))
         area = float(loop["element.0.area"])
         out[i] = rho * (2.0 * np.pi * r_mean) / area

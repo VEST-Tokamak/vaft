@@ -56,6 +56,8 @@ DEFINITIONAL = frozenset({
     "signal_on_offset",
     "process_signal",
     "time_derivative",
+    # Containment in the LCFS outline, or the flux threshold where there is none.
+    "plasma_cell_weights",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -78,6 +80,19 @@ DEFINITIONAL = frozenset({
     "find_time_match_index",
     "normalize_atomic_symbol",
     "integrate_emissivity_profile",
+    # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
+    "build_dataset",
+    "calibrate_threshold",
+    "dataset_fingerprint",
+    "evaluate_model",
+    "load_dataset",
+    "load_model",
+    "load_model_bundle",
+    "predict",
+    "register_architecture",
+    "register_augmentation",
+    "register_loss",
+    "save_dataset",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -121,8 +136,11 @@ PIPELINE = frozenset({
     "psi_to_radial",
     "psi_to_rz",
     "solve_solovev_constraints",
+    "solovev_example",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "trace_field_line",
     # cocos (#419)
     "validate_cocos",
@@ -162,11 +180,24 @@ PIPELINE = frozenset({
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
 
+    # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
+    # crossings then rate; trend, window, noise, threshold
+    "cross_spectrum",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
     # camera_fluctuation (#161)
     "mhd_band_power",
     "normalize_by_local_emission",
     "pixelwise_spectrogram",
     "subtract_temporal_background",
+    # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "fetch_model",
+    "resolve_model",
+    "save_model_bundle",
+    "split_groups",
+    "train_model",
+    "window_dataset",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -194,10 +225,16 @@ STATEFUL = frozenset({
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
+    # ml (#669): record-level samples -> windows
+    "window_dataset",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    "dominant_mode",
+    "finite_width_delta",
+    "jump_width",
+    "shielded_field",
     "lab_to_straight_field_line",
     "straight_field_line_tables",
     "cocos_field_scales",
@@ -338,11 +375,16 @@ CONVENTION_SENSITIVE = frozenset({
     "virial_alpha_thin_annulus",
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
+    "solovev_example",
+    "miller_surfaces",
     "connection_length_map",
     "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
+    "plasma_cell_weights",
     # cocos (#419): the module exists to reason about conventions
     "cocos_consistency_signs",
     "validate_cocos",
@@ -414,6 +456,15 @@ CONVENTION_SENSITIVE = frozenset({
     "subtract_temporal_background",
     "summed_region_signal",
     "track_reference_frequency",
+    # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    "resolve_model",
+    "train_model",
+    # fluctuation / transients (#1005): the phase is y relative to x, the ridge
+    # floor is relative to the map, and the current is measured on its magnitude.
+    "cross_spectrum",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

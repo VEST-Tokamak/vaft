@@ -39,13 +39,14 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines four extras; none is needed for the first result on this page:
+The project defines five extras; none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
 | `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
+| `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
 ```bash
@@ -169,6 +170,17 @@ That build runs on macOS/Apple Silicon and on native Windows. The adapter runs N
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
+NICE (`vaft.code.nice`, issue #666) is **experimental**: the adapter prepares and collects a
+standalone `nice_recon` run, but it does not yet reconstruct VEST equilibria, and nothing in the
+routine pipeline uses it. Upstream has no install step, so `$NICEHOME` is the built source tree;
+VAFT looks for `build/nice_recon`, then `run/nice_recon`, then `nice_recon` beneath it, or takes
+`NiceConfig.executable`. The validated build is pinned revision `7ad1ea8f` with AppleClang, Eigen 3
+and SuiteSparse; see `vaft/code/nice/README.md` for the flags it needs.
+
+```bash
+export NICEHOME=/path/to/nice     # experimental; source tree with build/nice_recon
+```
+
 GACODE differs from every other code here in three ways, and each one breaks an assumption stated
 above. It **builds in place**, so `$GACODEHOME` is the source checkout rather than a separate prefix.
 Each suite member carries its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
@@ -205,6 +217,25 @@ That root holds no executables at all — it is a
 with no variable set. `onnxruntime` is optional
 (`pip install 'vaft[surrogate]'`) and is needed only to *run* a network; deciding whether a model
 applies to a given plasma needs neither the runtime nor a prediction, and is the question to ask first.
+
+VAFT's own trained models are a third kind. `vaft.process.ml` trains them, and
+[`vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn) publishes them. This is a **private registry
+repository**: each version's manifest and hashes are in git, and the weights are GitHub Release
+assets. Point VAFT at a checkout of it the same way:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn         # registry: models/<name>/releases.yaml + manifests
+export VAFT_NN_CACHE=~/scratch/vaft-nn    # optional; default is the platform cache directory
+gh auth login                             # once; fetching reuses the GitHub CLI's login
+python install/check_vaft_nn.py           # registry, cache and gh access, layer by layer
+```
+
+`vaft.process.ml.fetch_model(name, version=...)` downloads a release into the cache.
+Alternatively, `load_model(..., fetch=True)` fetches on a cache miss. Either way, a file is accepted
+only if its SHA-256 matches the manifest the registry pins. VAFT never reads or stores a GitHub token
+itself. Training and inference with the `torch` and `sklearn` backends need
+`pip install 'vaft[ml]'`; resolving and verifying a model does not.
 
 On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:

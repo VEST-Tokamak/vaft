@@ -166,7 +166,9 @@ def test_residual_figure_shows_convergence_beside_the_residuals(efit_ods):
     titles = [ax.get_title() for ax in np.ravel(axes) if ax.get_visible()]
     assert any("measured − reconstructed" in title for title in titles)
     assert any("Residual RMS by family" in title for title in titles)
-    assert any("Grad-Shafranov deviation" in title for title in titles)
+    # The stored "grad_shafranov_deviation_value" is EFIT's iteration
+    # increment, and the panel says so rather than repeating the IMAS name (#924).
+    assert any("EFIT iteration increment (cerror)" in title for title in titles)
     assert any("Iterations" in title for title in titles)
     # PF currents are fitted exactly, so they are named rather than drawn on a
     # log axis that cannot show zero.

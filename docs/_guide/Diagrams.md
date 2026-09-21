@@ -60,6 +60,77 @@ All three views are drawn from one model, and the convention is the same in each
 The top view suppresses $Z$, so crossings of the projected O and X loci there are not reconnection
 points. The separatrix and $w$ are only visible in the poloidal section.
 
+## Stability and operational-space diagrams
+
+Textbook 2-D charts: two axes, the boundaries that divide the plane, and one label per region. A
+boundary that physics defines is computed by `vaft.formula`. Only the peeling–ballooning boundary,
+which has no closed form, is a schematic, and the figure says so.
+
+```python
+vaft.diagram.peeling_ballooning()
+vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
+vaft.diagram.hugill(elongation=1.0, q_limit=2.0)          # no size parameter: R, a, B cancel
+vaft.diagram.troyon(beta_N_max=2.8, aspect_ratio=3.0, elongation=1.7)
+```
+
+| | |
+| --- | --- |
+| ![peeling-ballooning]({{ '/assets/diagrams/peeling_ballooning.svg' | relative_url }}) | ![s-alpha]({{ '/assets/diagrams/s_alpha_ballooning.svg' | relative_url }}) |
+| ![Hugill]({{ '/assets/diagrams/hugill.svg' | relative_url }}) | ![Troyon]({{ '/assets/diagrams/troyon.svg' | relative_url }}) |
+
+| Diagram | Question it answers | Axes | Boundaries |
+| --- | --- | --- | --- |
+| Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
+| $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
+| Hugill | Where are the density and low-$q$ disruption limits? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The Greenwald line comes from `greenwald_density` and `q_cyl_from_B_R_epsilon_kappa_I`. Its slope depends only on $\kappa_a$: $50\kappa_a/\pi$. The low-$q$ limit is $q_\mathrm{cyl} = q_\mathrm{limit}$ |
+| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The beta limit is the line on which `beta_N_from_beta_a_B0_Ip` equals $\beta_{N,\max}$. The low-$q$ cutoff comes from `q_cyl_from_B_R_epsilon_kappa_I` |
+
+These charts show the *boundaries* of an operating space. For how measured discharges are projected
+onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
+analysis).
+
+## Single-particle motion
+
+Gyration and guiding-centre drifts, drawn in the island family's style and 3-D camera. Every orbit
+is **integrated from the Lorentz force** by `vaft.formula.boris_orbit`, and every drift arrow is the
+drift formula of `vaft.formula.particle`. The tests require the integrated guiding centre to move at
+the formula's velocity, so the figure cannot show a drift that the orbit does not make.
+
+```python
+vaft.diagram.exb_drift(mass_ratio=4.0)
+vaft.diagram.curvature_drift()
+vaft.diagram.magnetization_current()
+vaft.diagram.toroidal_drift(aspect_ratio=2.2)
+```
+
+| | |
+| --- | --- |
+| ![E x B drift]({{ '/assets/diagrams/exb_drift.svg' | relative_url }}) | ![curvature drift]({{ '/assets/diagrams/curvature_drift.svg' | relative_url }}) |
+| ![magnetization current]({{ '/assets/diagrams/magnetization_current.svg' | relative_url }}) | ![toroidal drift]({{ '/assets/diagrams/toroidal_drift.svg' | relative_url }}) |
+
+| Diagram | Shows | Arrows from |
+| --- | --- | --- |
+| E×B drift | An ion and an electron at equal energy in crossed uniform fields. The orbits differ in size, but the drift is the same, so no current flows | `exb_drift_velocity` |
+| Curvature and ∇B drift | An ion spirals along a field line of $B_0R_0/R\,\hat\phi$ and drifts along $+z$ | `grad_b_drift_velocity` + `curvature_drift_velocity` |
+| Magnetization current | Gyro-currents cancel inside a region. At its edge the diamagnetic $\mathbf{J}_M = \nabla\times\mathbf{M}$ survives | the binned current of the integrated orbits |
+| Toroidal drift | ∇B and curvature drifts separate charge. The resulting vertical $\mathbf{E}$ drives an outward $\mathbf{E}\times\mathbf{B}$, so a purely toroidal field cannot confine | the drift formulas at the drawn cross-section |
+
+Every view shows the relevant equations in a box. They are read from the `$$…$$` definition in each
+formula's docstring, so the figure shows exactly what the formula documents and implements. There is
+no second copy of any equation.
+
+Each has further projections of the same computed orbits, chosen with `projection=`:
+
+| Diagram | Projections (default first) | What the extra views add |
+| --- | --- | --- |
+| `exb_drift` | `perpendicular`, `3d` | Helices along $\mathbf{B}$ drifting sideways. The parallel velocity does not change the perpendicular motion, so both views show the same orbits |
+| `curvature_drift` | `3d`, `poloidal`, `top` | `poloidal` looks along the field line, where the gyration circle climbs at the drift velocity. `top` shows the curved line and the inward $\nabla B$ |
+| `magnetization_current` | `perpendicular`, `3d` | Helical columns along $\mathbf{B}$ with the edge current looping around them |
+| `toroidal_drift` | `3d`, `poloidal`, `top` | `poloidal` is the textbook $(R, z)$ cross-section. `top` shows the circular field lines, with the vertical drifts pointing out of the page |
+
+The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
+default) so that both orbits are visible; the figures state this.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
