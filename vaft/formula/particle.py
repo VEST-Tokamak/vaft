@@ -25,6 +25,7 @@ import numpy as np
 __all__ = [
     "gyrofrequency",
     "larmor_radius",
+    "gyration_offset",
     "exb_drift_velocity",
     "grad_b_drift_velocity",
     "curvature_drift_velocity",
@@ -135,6 +136,68 @@ def larmor_radius(q, m, v_perp, B):
     if np.any(q == 0.0) or np.any(B == 0.0):
         raise ValueError("q and B must be non-zero")
     return np.asarray(m, dtype=float) * np.abs(np.asarray(v_perp, dtype=float)) / (q * B)
+
+
+def gyration_offset(q, m, B, v):
+    r"""Position of a gyrating particle relative to its guiding centre.
+
+    $$\boldsymbol{\rho} = \frac{m}{qB^{2}}\,\mathbf{B}\times\mathbf{v}_\perp$$
+
+    Parameters
+    ----------
+    q : float
+        Particle charge, signed [C].
+    m : float
+        Particle mass [kg].
+    B : array_like
+        Magnetic field, last axis the three Cartesian components [T].
+    v : array_like
+        Velocity in the guiding-centre frame; only its part perpendicular to
+        ``B`` enters [m/s].
+
+    Returns
+    -------
+    np.ndarray
+        Vector from the guiding centre to the particle [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not a 3-vector, ``q`` is zero, ``m`` is not positive, or
+        ``B`` vanishes.
+
+    Convention
+    ----------
+    Guiding centre = position minus this vector. Its magnitude is
+    ``larmor_radius`` and its sense follows the charge: for $\mathbf{B} =
+    \hat z$ and $\mathbf{v} = \hat x$, an ion sits a Larmor radius along
+    $+\hat y$ from its guiding centre, an electron along $-\hat y$.
+
+    Physical interpretation
+    -----------------------
+    The Lorentz force $q\mathbf{v}\times\mathbf{B}$ points from the particle
+    to the centre of its orbit; this is minus that direction times the
+    Larmor radius.
+
+    Assumptions
+    -----------
+    Uniform field over the orbit; ``v`` measured in the frame moving with any
+    drift.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.2.
+    """
+    B = _vector(B, "B")
+    v = _vector(v, "v")
+    q = float(q)
+    if q == 0.0 or not float(m) > 0.0:
+        raise ValueError("q must be non-zero and m positive")
+    B2 = np.sum(B * B, axis=-1, keepdims=True)
+    if np.any(B2 == 0.0):
+        raise ValueError("B must be non-zero")
+    return float(m) / (q * B2) * np.cross(B, v)
 
 
 def exb_drift_velocity(E, B):

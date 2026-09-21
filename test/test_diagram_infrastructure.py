@@ -52,10 +52,41 @@ def test_the_particle_diagrams_take_the_toroidal_field_from_the_formula():
     assert grad == pytest.approx(-2.5 / 4.0, rel=1e-8)
 
 
-def test_no_diagram_module_restates_the_toroidal_field():
+def test_no_diagram_module_restates_the_formula_geometry():
     for module in (_particle_motion, _magnetic_island):
         source = inspect.getsource(module)
-        assert "B0 * R0 / R" not in source and "B0 / R0" not in source
+        assert "B0 * R0 / R" not in source and "B0 / R0" not in source  # vacuum_toroidal_field
+        assert "arcsin(self.triangularity" not in source  # miller_surface
+        assert "np.cross(B, v)" not in source and "np.cross(b0, u)" not in source  # gyration_offset
+
+
+def test_the_island_interior_test_agrees_with_the_formula_surface():
+    model = _magnetic_island._validate(3, 2, 0.16, 0.0, "poloidal", 0.55, 3.2, 1.7, 0.4)
+    theta = np.linspace(0, 2 * np.pi, 37)
+    R, Z = miller_surface(0.6, theta, model.major_radius, 1.7, 0.4 * 0.6)
+    centre = np.array([model.major_radius, 0.0])
+    inner = centre + 0.98 * (np.stack([R, Z], axis=-1) - centre)
+    outer = centre + 1.02 * (np.stack([R, Z], axis=-1) - centre)
+    assert model.contains(0.6, inner[:, 0], inner[:, 1]).all()
+    assert not model.contains(0.6, outer[:, 0], outer[:, 1]).any()
+
+
+def test_the_process_miller_evaluation_is_the_formula():
+    from vaft.process._equilibrium_parametric import MillerSurface, evaluate_miller
+
+    theta = np.linspace(0, 2 * np.pi, 41)
+    s = MillerSurface(0.2, 1.7, -0.1, 1.3, -0.3, zeta=0.2)
+    R, Z = evaluate_miller(s, theta)
+    Rf, Zf = miller_surface(0.2, theta, 1.7, 1.3, -0.3, squareness=0.2, Z0=-0.1)
+    assert np.array_equal(R, Rf) and np.array_equal(Z, Zf)
+
+
+def test_miller_surface_rejects_a_negative_or_nan_radius_and_a_folding_squareness():
+    for kw in ({"r": -0.5}, {"r": float("nan")}):
+        with pytest.raises(ValueError, match="r must be"):
+            miller_surface(theta=0.0, R0=2.0, kappa=1.5, delta=0.3, **kw)
+    with pytest.raises(ValueError, match="squareness"):
+        miller_surface(0.5, 0.0, 2.0, 1.5, 0.3, squareness=0.5)
 
 
 # --- chart ---------------------------------------------------------------------------
@@ -89,8 +120,19 @@ def test_a_connector_runs_edge_to_edge_along_the_centre_line():
     c = _concept.box(0.0, 3.0, 2.0, 1.0, "C")
     arrow = _concept.connector(a, c, gap=0.0)
     assert arrow.start == pytest.approx((0.0, 0.5)) and arrow.end == pytest.approx((0.0, 2.5))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="overlap"):
         _concept.connector(a, _concept.box(0.5, 0.0, 2.0, 1.0, "overlap"))
+    # crossed boxes overlap too, although their exit points face each other
+    with pytest.raises(ValueError, match="overlap"):
+        _concept.connector(_concept.box(0, 0, 10, 0.4, "wide"), _concept.box(1, 1, 0.4, 10, "tall"))
+    with pytest.raises(ValueError, match="too close"):
+        _concept.connector(a, _concept.box(2.1, 0.0, 2.0, 1.0, "near"))
+
+
+def test_box_text_is_literal_unless_it_asks_for_latex():
+    literal = _concept.box(0, 0, 4, 1, "vaft.diagram._concept #1041 50% & $x$").items[1].text
+    assert literal == r"vaft.diagram.\_concept \#1041 50\% \& \$x\$"
+    assert _concept.box(0, 0, 4, 1, "$\\beta_N$", latex=True).items[1].text == "$\\beta_N$"
 
 
 def test_a_band_is_a_background_strip_with_an_optional_label():
@@ -106,7 +148,7 @@ def test_a_concept_scene_renders():
     from vaft.diagram._render import Diagram
     from vaft.diagram._scene import Scene
 
-    a = _concept.box(0.0, 0.0, 3.0, 1.2, "vaft.formula")
+    a = _concept.box(0.0, 0.0, 3.0, 1.2, "vaft.formula #890 50% & a_b")
     b = _concept.box(5.0, 0.0, 3.0, 1.2, "vaft.diagram")
     scene = Scene(tuple(_concept.band(-2.0, 7.0, -1.2, 1.4, "layers")) + a.items + b.items
                   + (_concept.connector(a, b),))
