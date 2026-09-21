@@ -37,6 +37,7 @@ _IMPORT_ORDER = (
     "neoclassical",
     "startup",
     "transformer",
+    "particle",
 )
 
 

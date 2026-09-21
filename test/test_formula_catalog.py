@@ -91,6 +91,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
+        "particle": 6,
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
