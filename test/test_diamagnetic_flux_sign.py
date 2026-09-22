@@ -96,8 +96,11 @@ def test_the_corrected_samples_equal_a_fresh_mapping(shot):
     fresh = ods["magnetics"]["diamagnetic_flux"][0]
     np.testing.assert_array_equal(np.asarray(fresh["time"], float),
                                   np.asarray(stored["magnetics.diamagnetic_flux.0.time"], float))
-    np.testing.assert_array_equal(np.asarray(fresh["data"], float),
-                                  np.asarray(stored["magnetics.diamagnetic_flux.0.data"], float))
+    # Equal to the last few ulps: the triple integration rounds differently
+    # across platforms (~1e-18 Wb on CI against the macOS-built sample).
+    np.testing.assert_allclose(np.asarray(fresh["data"], float),
+                               np.asarray(stored["magnetics.diamagnetic_flux.0.data"], float),
+                               rtol=1e-9, atol=1e-15)
     assert fresh["method_name"] == stored["magnetics.diamagnetic_flux.0.method_name"]
     assert magnetics.DIAMAGNETIC_FLUX_SIGN_CONVENTION in fresh["method_name"]
     # Ohmic and paramagnetic: the flux is positive at its extreme.
