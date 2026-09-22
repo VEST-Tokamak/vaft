@@ -418,3 +418,71 @@ def test_missing_backing_file_is_an_error_not_a_silent_reemit(tmp_path, syntheti
     ghost = replace(synthetic_machine["rmpu"], dat_path=tmp_path / "gone.dat")
     with pytest.raises(FileNotFoundError):
         stage_coil_data([ghost], tmp_path / "coil", machine="synth")
+
+
+#: Six synthetic currents spanning what a writer has to carry: full
+#: double precision either sign, an exact zero, a value whose sixth
+#: significant digit is not its last, and one small enough that ``%g`` would
+#: reach for an exponent.  Every one is made up; none comes from a machine.
+SYNTHETIC_MEASURED_CURRENTS = (
+    1234.567890123456,
+    -1234.567890123456,
+    987.6543210987654,
+    0.0,
+    -1000.0000000000001,
+    1.0e-7,
+)
+
+
+def test_a_written_current_reads_back_as_the_double_it_was_given(tmp_path):
+    """A full-precision current survives the round trip into ``coil.in``.
+
+    ``%g`` kept six significant digits here, which is enough for a current
+    somebody typed and not for one read off a power supply: a 16-digit double
+    arrived in the file rounded to six, and nothing downstream could see that
+    the file said something the caller had not.
+    """
+    config = load_vest_3d_coil_config(coil_sets=["MID"])
+    measured = SYNTHETIC_MEASURED_CURRENTS
+    out = write_coil_in(
+        package_vest_dir() / "coil.in",
+        tmp_path / "coil.in",
+        data_dir=tmp_path,
+        specs=[CoilInputSpec("MID", measured)],
+        machine="vest",
+        coil_config=config.coil_sets,
+        **VEST_GPEC_COIL_DIRECTIONS,
+    )
+    _, _, currents = _parse_coil_control(out.read_text(encoding="utf-8"))
+    assert tuple(currents[1]) == measured
+    assert gpec.read_coil_in(out)[0].currents_a == measured
+    # And the loss the old formatting caused is real, not hypothetical.
+    assert float(f"{measured[0]:g}") != measured[0]
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_a_non_finite_current_is_refused_rather_than_written(tmp_path, bad):
+    """Fortran reads ``nan`` as a real, so GPEC would accept the file.
+
+    It would then carry the value into a Biot-Savart sum and every field it
+    contributes to would come back non-finite, with the file looking fine.
+    """
+    config = load_vest_3d_coil_config(coil_sets=["MID"])
+    currents = list(SYNTHETIC_MEASURED_CURRENTS)
+    currents[2] = bad
+    target = tmp_path / "coil.in"
+    with pytest.raises(ValueError, match="non-finite current"):
+        write_coil_in(
+            package_vest_dir() / "coil.in",
+            target,
+            data_dir=tmp_path,
+            specs=[CoilInputSpec("MID", tuple(currents))],
+            machine="vest",
+            coil_config=config.coil_sets,
+            **VEST_GPEC_COIL_DIRECTIONS,
+        )
+    # Refused before anything was written.  The write happens in two steps --
+    # patch the template, then replace its coil block -- so a refusal between
+    # them would leave a file carrying the template's own example currents,
+    # which GPEC would run.
+    assert not target.exists()
