@@ -125,12 +125,22 @@ _R, _Z, _PHI = 1, 2, 3
 class FlareMesh:
     """A FLARE mesh with every node placed in ``(R, z, phi)``.
 
-    The axes stay in the file's own coordinates -- ``u`` is whatever
-    ``# U-AXIS`` says it is, in whatever ``# UNITS`` declares -- while
-    :attr:`r`, :attr:`z` and :attr:`phi_deg` are the same nodes in metres and
-    degrees, which is what an area or a plot needs. Both are kept, because
-    the footprint axes a figure is drawn on (toroidal angle, distance along
-    the target) are not recoverable from the positions alone.
+The axes stay in the file's own coordinates while :attr:`r`, :attr:`z`
+    and :attr:`phi_deg` are the same nodes in metres and degrees, which is
+    what an area or a plot needs. Both are kept, because the footprint axes
+    a figure is drawn on (toroidal angle, distance along the target) are not
+    recoverable from the positions alone.
+
+    **``# UNITS`` does not describe the axes.** It gives the units of the
+    node *positions* -- the length for ``x1``/``x2`` and the angle for the
+    toroidal coordinate -- and that is all :attr:`length_units` and
+    :attr:`angle_units` report. On an ``rmesh`` the axes happen to be the
+    positions, so the length unit does describe ``u`` and ``v``. On a swept
+    mesh it does not: the reference footprint grids declare ``UNITS m, deg``
+    while their ``# V-AXIS`` reads ``Distance along target [cm]``, and the
+    centimetres are real. **An axis's unit is in its own label**, which is
+    why :attr:`u_label` and :attr:`v_label` are kept verbatim and why
+    :attr:`u` and :attr:`v` are never converted.
 
     Every array of node positions has shape :attr:`node_shape`, and a
     dataset's values run over it in C order -- see

@@ -23,7 +23,8 @@ psi_N     : normalized poloidal flux, 1 on the separatrix                  [-]
 psi_N,min : the deepest flux surface a traced line reached                 [-]
 lambda_psi: upstream channel width, in psi_N                               [-]
 alpha     : angle between the field line and the target surface          [deg]
-L_c       : connection length of a field line                              [m]
+L_c       : connection length of a field line, reduced over its two
+            directions by the model                                        [m]
 w_psi     : upstream channel weight exp(-max(psi_N,min - psi_sep, 0)/lambda_psi)  [-]
 w_L       : parallel-loss weight, inverse or exponential in L_c/L_0        [-]
 q         : the proxy, w_psi |sin alpha| w_L                               [-]
@@ -33,10 +34,8 @@ Conventions
 **The proxy is a surface density, and the cell areas are what integrates
 it.** ``q`` stands in for the heat flux arriving per unit target area, so
 the incident total on a target is ``sum(q A)`` -- and the areas enter there
-and nowhere else. The legacy implementation
-(``GPEC_Research/library/flare_footprint_analysis.py``) instead multiplied
-``q`` by ``1/A``, a "hit density" borrowed from FLARE's own strike-density
-task. That factor belongs there and not here: a strike density counts lines
+and nowhere else. The donor implementation instead multiplied ``q`` by
+``1/A``, a "hit density" borrowed from FLARE's own strike-density task. That factor belongs there and not here: a strike density counts lines
 launched elsewhere and landing on a cell, whereas a footprint grid launches
 exactly one line *from* every node, so ``1/A`` carries no strike information
 at all. It is the Jacobian of the launch lattice -- on a grid uniform in
@@ -51,10 +50,22 @@ legitimate choice; making it silently is not, so
 :func:`footprint_heat_load_proxy` takes the angles as a required argument
 whose ``None`` is the explicit opt-out, and records which it was.
 
+**A tracer reports two directions, and reducing them is part of the model.**
+The shortest connection length and the total are different quantities, and
+the donor used the shortest while calling the result ``Lc``. So
+:func:`footprint_heat_load_proxy` takes both directions and reduces them
+itself, by the rule :attr:`FootprintProxyModel.connection_length_reduction`
+names -- a caller cannot hand it an already-reduced array and have the
+wrong reduction labelled with a model that did not produce it. The flux is
+always the *deepest* incursion, the smaller of the two, because that is the
+surface the upstream channel weight is asking about; the model's
+``describe()`` says so, so the choice reaches the IDS provenance too.
+
 Provenance
 ----------
-.. [legacy] ``GPEC_Research/library/flare_footprint_analysis.py``:
-   ``footprint_cell_areas``, ``upstream_psi_weight``, ``incidence_factor``,
+.. [legacy] ``flare_footprint_analysis.py``, the donor divertor-footprint
+   analysis this layer replaces: ``footprint_cell_areas``,
+   ``upstream_psi_weight``, ``incidence_factor``,
    ``connection_length_weight``, ``compute_heat_flux_proxy``.
 .. [flare-area] ``moose/src/fortran/geometry/hypermesh3d.f90:563``
    (``tpzmesh3d_cell_area``), the quadrilateral area FLARE reports in its own
@@ -74,6 +85,7 @@ import numpy as np
 
 __all__ = [
     "CONNECTION_LENGTH_FORMS",
+    "CONNECTION_LENGTH_REDUCTIONS",
     "FOOTPRINT_PROXY_MODELS",
     "FootprintProxy",
     "FootprintProxyModel",
@@ -82,6 +94,7 @@ __all__ = [
     "footprint_incident_total",
     "footprint_proxy_model",
     "incidence_factor",
+    "reduce_traced_directions",
     "target_incident_fractions",
     "toroidal_surface_cell_areas",
     "toroidal_surface_node_areas",
@@ -90,6 +103,12 @@ __all__ = [
 
 #: The parallel-loss weights :func:`connection_length_weight` implements.
 CONNECTION_LENGTH_FORMS = ("inverse", "exponential", "none")
+
+#: How a model reduces a field line's two traced directions to one length.
+#: ``"shortest"`` is the nearer wall, ``"total"`` the whole line from wall to
+#: wall. They are different quantities and weight the map differently, which
+#: is why no default picks between them.
+CONNECTION_LENGTH_REDUCTIONS = ("shortest", "total")
 
 
 def _cartesian(r, z, phi_deg) -> np.ndarray:
@@ -209,7 +228,7 @@ def toroidal_surface_node_areas(r, z, phi_deg) -> np.ndarray:
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.footprint_cell_areas`` built the
+    .. [legacy] The donor's ``footprint_cell_areas`` built the
        same quantity from midpoint axis widths and ``R dphi ds``, which
        assumes the second axis is parameterized by its own arc length. This
        form reads the arc from the node positions instead, so a target curve
@@ -269,7 +288,7 @@ def upstream_flux_weight(psi_norm, *, separatrix_flux: float, decay_width: float
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.upstream_psi_weight``.
+    .. [legacy] the donor's ``upstream_psi_weight``.
     """
     if not decay_width > 0.0:
         raise ValueError(f"decay_width must be positive, not {decay_width!r}")
@@ -310,7 +329,7 @@ def incidence_factor(angle_deg) -> np.ndarray:
     Provenance
     ----------
     .. [1] ``FLARE/src/fortran/tasks/fieldline_connection.f90:158``.
-    .. [legacy] ``flare_footprint_analysis.incidence_factor``, which returned
+    .. [legacy] the donor's ``incidence_factor``, which returned
        ones when the column was absent; see
        :func:`footprint_heat_load_proxy`.
     """
@@ -357,7 +376,7 @@ def connection_length_weight(length, *, scale: float, form: str) -> np.ndarray:
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.connection_length_weight``, whose
+    .. [legacy] the donor's ``connection_length_weight``, whose
        ``"exp_loss"`` is this ``"exponential"``.
     """
     if form not in CONNECTION_LENGTH_FORMS:
@@ -396,6 +415,9 @@ class FootprintProxyModel:
     connection_length_scale: float
     #: One of :data:`CONNECTION_LENGTH_FORMS`.
     connection_length_form: str
+    #: One of :data:`CONNECTION_LENGTH_REDUCTIONS`: which of a line's two
+    #: traced directions the weight is measured on.
+    connection_length_reduction: str
     #: Whether a line reaching inside the separatrix keeps the full weight.
     clip_inside: bool
 
@@ -415,6 +437,12 @@ class FootprintProxyModel:
                 f"connection_length_scale must be positive, not "
                 f"{self.connection_length_scale!r}"
             )
+        if self.connection_length_reduction not in CONNECTION_LENGTH_REDUCTIONS:
+            raise ValueError(
+                f"connection_length_reduction must be one of "
+                f"{list(CONNECTION_LENGTH_REDUCTIONS)}, not "
+                f"{self.connection_length_reduction!r}"
+            )
 
     def describe(self) -> str:
         """The model as one line, for a provenance record."""
@@ -423,31 +451,36 @@ class FootprintProxyModel:
             f"psi_sep={self.separatrix_flux!r}, "
             f"L_0={self.connection_length_scale!r} m, "
             f"form={self.connection_length_form}, "
+            f"L_c={self.connection_length_reduction} of the two directions, "
+            "psi_N=deepest of the two directions, "
             f"clip_inside={self.clip_inside}"
         )
 
 
-#: The named footprint proxy models. Both carry the coefficients the
-#: ``hsyun_GPEC`` scans were run with -- an 0.02 channel in psi_N and a 50 m
-#: parallel-loss scale -- and differ only in the loss form, which the legacy
-#: offered as a switch. Neither is a default: a caller names one.
+#: The named footprint proxy models. Both carry the coefficients the donor
+#: divertor-footprint scans were run with -- a 0.02-wide channel in psi_N, a
+#: 50 m parallel-loss scale, and the shortest of a line's two directions --
+#: and differ only in the loss form, which the donor offered as a switch.
+#: Neither is a default: a caller names one.
 FOOTPRINT_PROXY_MODELS: dict[str, FootprintProxyModel] = {
     model.name: model
     for model in (
         FootprintProxyModel(
-            name="gpec_research_inverse",
+            name="sol_channel_inverse_loss",
             decay_width=0.02,
             separatrix_flux=1.0,
             connection_length_scale=50.0,
             connection_length_form="inverse",
+            connection_length_reduction="shortest",
             clip_inside=True,
         ),
         FootprintProxyModel(
-            name="gpec_research_exponential",
+            name="sol_channel_exponential_loss",
             decay_width=0.02,
             separatrix_flux=1.0,
             connection_length_scale=50.0,
             connection_length_form="exponential",
+            connection_length_reduction="shortest",
             clip_inside=True,
         ),
     )
@@ -478,7 +511,7 @@ def footprint_proxy_model(name: str) -> FootprintProxyModel:
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.FootprintProxyConfig``, whose
+    .. [legacy] the donor's ``FootprintProxyConfig``, whose
        field defaults these presets carry as named values.
     """
     try:
@@ -522,10 +555,74 @@ class FootprintProxy:
         return f"{self.model.describe()}, incidence={incidence}"
 
 
+def reduce_traced_directions(backward, forward, *, how: str) -> np.ndarray:
+    """Reduce a quantity traced in both directions to one value per line.
+
+    Parameters
+    ----------
+    backward : array_like
+        The value the tracer reported going one way [any].
+    forward : array_like
+        The value it reported going the other [any].
+    how : str
+        ``"shortest"`` takes the smaller magnitude, ``"total"`` the sum,
+        ``"deepest"`` the smaller signed value [n/a].
+
+    Returns
+    -------
+    ndarray
+        One value per line, in the inputs' own unit [any].
+
+    Raises
+    ------
+    ValueError
+        The arrays disagree in shape, or ``how`` is none of the three.
+
+    Convention
+    ----------
+    ``"shortest"`` compares magnitudes, because a tracer may report a
+    backward length as negative; ``"deepest"`` compares signed values,
+    because a flux label that ran further inward is genuinely smaller.
+    Non-finite entries propagate rather than being skipped: a direction the
+    tracer could not follow leaves the reduction undefined, and that is the
+    honest answer for that line.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] ``FLARE/src/fortran/tasks/fieldline_connection.f90:90-96``, whose
+       own ``Lc = Lc_bwd + Lc_fwd``, ``Lcs = min(Lc_bwd, Lc_fwd)`` and
+       ``minPsiN = min(minPsiN_bwd, minPsiN_fwd)`` are these three
+       reductions. FLARE's arclengths are non-negative, so its plain ``min``
+       and the magnitude comparison here agree on its own output.
+    """
+    first = np.asarray(backward, dtype=float)
+    second = np.asarray(forward, dtype=float)
+    if first.shape != second.shape:
+        raise ValueError(
+            f"the two directions must share a shape; got {first.shape} and "
+            f"{second.shape}"
+        )
+    if how == "shortest":
+        return np.where(np.abs(first) <= np.abs(second), first, second)
+    if how == "total":
+        return first + second
+    if how == "deepest":
+        return np.minimum(first, second)
+    raise ValueError(
+        f'how must be "shortest", "total" or "deepest", not {how!r}'
+    )
+
+
 def footprint_heat_load_proxy(
     *,
-    min_psi_norm,
-    connection_length,
+    min_psi_norm_backward,
+    min_psi_norm_forward,
+    connection_length_backward,
+    connection_length_forward,
     area,
     incidence_angle_deg,
     model: FootprintProxyModel,
@@ -534,10 +631,17 @@ def footprint_heat_load_proxy(
 
     Parameters
     ----------
-    min_psi_norm : array_like
-        Deepest normalized flux each traced line reached [-].
-    connection_length : array_like
-        Connection length of each line, on the same grid [m].
+    min_psi_norm_backward : array_like
+        Deepest normalized flux each line reached tracing one way [-].
+    min_psi_norm_forward : array_like
+        The same tracing the other way; the two are reduced to the deeper
+        incursion, which is the surface the channel weight asks about [-].
+    connection_length_backward : array_like
+        Length each line ran before it stopped, one way [m].
+    connection_length_forward : array_like
+        The same the other way; the two are reduced by
+        :attr:`FootprintProxyModel.connection_length_reduction`, so the
+        shortest and the total cannot be confused for one another [m].
     area : array_like
         Surface area each sample represents, from
         :func:`toroidal_surface_node_areas` or
@@ -563,11 +667,13 @@ def footprint_heat_load_proxy(
 
     Processing steps
     ----------------
-    1. ``w_psi`` from :func:`upstream_flux_weight`.
-    2. ``|sin alpha|`` from :func:`incidence_factor`, or ones when the
+    1. Reduce each line's two traced directions: the flux to the deeper
+       incursion, the length by the model's own rule.
+    2. ``w_psi`` from :func:`upstream_flux_weight`.
+    3. ``|sin alpha|`` from :func:`incidence_factor`, or ones when the
        caller opted out -- and the opt-out is recorded either way.
-    3. ``w_L`` from :func:`connection_length_weight`.
-    4. Their product, which is the proxy.
+    4. ``w_L`` from :func:`connection_length_weight`.
+    5. Their product, which is the proxy.
 
     Output semantics
     ----------------
@@ -578,9 +684,13 @@ def footprint_heat_load_proxy(
     Convention
     ----------
     The proxy is a density and ``area`` is only its measure -- it is not a
-    factor. Multiplying by ``1/area``, as the legacy did, imposes the launch
+    factor. Multiplying by ``1/area``, as the donor did, imposes the launch
     lattice's own Jacobian on the map and makes the per-target total scale
     with the node count; see this module's ``Conventions``.
+
+    Both directions are required rather than one reduced array, because the
+    reduction is part of the model and a pre-reduced input would let the
+    wrong one be labelled with a model that did not produce it.
 
     Assumptions
     -----------
@@ -602,13 +712,18 @@ def footprint_heat_load_proxy(
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.compute_heat_flux_proxy``.
+    .. [legacy] the donor's ``compute_heat_flux_proxy``.
     """
-    flux = np.asarray(min_psi_norm, dtype=float)
-    length = np.asarray(connection_length, dtype=float)
     cells = np.asarray(area, dtype=float)
-    shapes = {"min_psi_norm": flux.shape, "connection_length": length.shape,
-              "area": cells.shape}
+    shapes = {
+        "min_psi_norm_backward": np.asarray(min_psi_norm_backward, dtype=float).shape,
+        "min_psi_norm_forward": np.asarray(min_psi_norm_forward, dtype=float).shape,
+        "connection_length_backward":
+            np.asarray(connection_length_backward, dtype=float).shape,
+        "connection_length_forward":
+            np.asarray(connection_length_forward, dtype=float).shape,
+        "area": cells.shape,
+    }
     if incidence_angle_deg is not None:
         shapes["incidence_angle_deg"] = np.asarray(incidence_angle_deg, dtype=float).shape
     if len(set(shapes.values())) != 1:
@@ -617,6 +732,13 @@ def footprint_heat_load_proxy(
             + ", ".join(f"{name} {shape}" for name, shape in shapes.items())
         )
 
+    flux = reduce_traced_directions(
+        min_psi_norm_backward, min_psi_norm_forward, how="deepest"
+    )
+    length = reduce_traced_directions(
+        connection_length_backward, connection_length_forward,
+        how=model.connection_length_reduction,
+    )
     flux_weight = upstream_flux_weight(
         flux,
         separatrix_flux=model.separatrix_flux,
@@ -675,7 +797,7 @@ def footprint_incident_total(proxy: FootprintProxy) -> float:
 
     Provenance
     ----------
-    .. [legacy] ``flare_footprint_analysis.summarize_heat_flux_proxy``, whose
+    .. [legacy] the donor's ``summarize_heat_flux_proxy``, whose
        ``integral`` column is this same sum -- taken over a density that
        carried an extra ``1/area`` factor, which is what reduced it to the
        bare sum of the weights.

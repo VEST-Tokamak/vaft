@@ -8,11 +8,14 @@ asking whether the per-target integral converges under grid refinement.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
 from vaft.process.field_line_topology import (
     CONNECTION_LENGTH_FORMS,
+    CONNECTION_LENGTH_REDUCTIONS,
     FOOTPRINT_PROXY_MODELS,
     FootprintProxyModel,
     connection_length_weight,
@@ -20,6 +23,7 @@ from vaft.process.field_line_topology import (
     footprint_incident_total,
     footprint_proxy_model,
     incidence_factor,
+    reduce_traced_directions,
     target_incident_fractions,
     toroidal_surface_cell_areas,
     toroidal_surface_node_areas,
@@ -180,34 +184,82 @@ def test_a_flat_connection_weight_needs_no_scale():
 
 
 def test_the_registered_models_carry_the_coefficients_the_scans_used():
-    model = footprint_proxy_model("gpec_research_inverse")
+    model = footprint_proxy_model("sol_channel_inverse_loss")
     assert (model.decay_width, model.connection_length_scale) == (0.02, 50.0)
     assert model.connection_length_form == "inverse"
+    assert model.connection_length_reduction == "shortest"
     assert set(FOOTPRINT_PROXY_MODELS) == {
-        "gpec_research_inverse", "gpec_research_exponential"
+        "sol_channel_inverse_loss", "sol_channel_exponential_loss"
     }
 
 
 def test_an_unknown_model_lists_the_registered_ones():
-    with pytest.raises(KeyError, match="gpec_research_inverse"):
+    with pytest.raises(KeyError, match="sol_channel_inverse_loss"):
         footprint_proxy_model("whatever")
 
 
 def test_a_model_validates_its_own_coefficients():
     with pytest.raises(ValueError, match="decay_width"):
-        FootprintProxyModel("m", 0.0, 1.0, 50.0, "inverse", True)
+        FootprintProxyModel("m", 0.0, 1.0, 50.0, "inverse", "shortest", True)
     with pytest.raises(ValueError, match="connection_length_form"):
-        FootprintProxyModel("m", 0.02, 1.0, 50.0, "linear", True)
+        FootprintProxyModel("m", 0.02, 1.0, 50.0, "linear", "shortest", True)
     with pytest.raises(ValueError, match="connection_length_scale"):
-        FootprintProxyModel("m", 0.02, 1.0, 0.0, "inverse", True)
+        FootprintProxyModel("m", 0.02, 1.0, 0.0, "inverse", "shortest", True)
+    with pytest.raises(ValueError, match="connection_length_reduction"):
+        FootprintProxyModel("m", 0.02, 1.0, 50.0, "inverse", "average", True)
     with pytest.raises(ValueError, match="must be named"):
-        FootprintProxyModel("", 0.02, 1.0, 50.0, "inverse", True)
+        FootprintProxyModel("", 0.02, 1.0, 50.0, "inverse", "shortest", True)
 
 
 def test_the_model_describes_itself_for_a_provenance_record():
-    text = footprint_proxy_model("gpec_research_exponential").describe()
+    """Both reductions reach the record, because the shortest length and the
+    total are different quantities and the donor called the shortest one
+    ``Lc``."""
+    text = footprint_proxy_model("sol_channel_exponential_loss").describe()
     assert "lambda_psi=0.02" in text and "L_0=50.0 m" in text
     assert "form=exponential" in text
+    assert "L_c=shortest of the two directions" in text
+    assert "psi_N=deepest of the two directions" in text
+
+
+# ---------------------------------------------------------------------------
+# Reducing a line's two traced directions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("how, expected", [
+    ("shortest", [2.0, 1.0]),
+    ("total", [-1.0, -4.0]),
+    ("deepest", [-3.0, -5.0]),
+])
+def test_each_reduction_is_the_one_flare_names(how, expected):
+    """FLARE writes the three itself: Lc = bwd + fwd, Lcs = min(bwd, fwd),
+    minPsiN = min over the directions."""
+    np.testing.assert_allclose(
+        reduce_traced_directions([-3.0, 1.0], [2.0, -5.0], how=how), expected
+    )
+
+
+def test_the_shortest_compares_magnitudes_and_the_deepest_signs():
+    """A tracer may report a backward length as negative, so "shortest" is
+    the smaller magnitude; a flux label that ran further inward is genuinely
+    smaller, so "deepest" is the smaller signed value."""
+    assert reduce_traced_directions([-1.0], [5.0], how="shortest")[0] == -1.0
+    assert reduce_traced_directions([-1.0], [5.0], how="deepest")[0] == -1.0
+    assert reduce_traced_directions([1.0], [-5.0], how="shortest")[0] == 1.0
+    assert reduce_traced_directions([1.0], [-5.0], how="deepest")[0] == -5.0
+
+
+def test_a_direction_the_tracer_lost_leaves_the_reduction_undefined():
+    assert np.isnan(reduce_traced_directions([np.nan], [1.0], how="total")[0])
+
+
+def test_the_reductions_refuse_a_mismatch_and_an_unknown_rule():
+    with pytest.raises(ValueError, match="share a shape"):
+        reduce_traced_directions([1.0, 2.0], [1.0], how="total")
+    with pytest.raises(ValueError, match="shortest"):
+        reduce_traced_directions([1.0], [1.0], how="mean")
+    assert set(CONNECTION_LENGTH_REDUCTIONS) == {"shortest", "total"}
 
 
 # ---------------------------------------------------------------------------
@@ -215,13 +267,16 @@ def test_the_model_describes_itself_for_a_provenance_record():
 # ---------------------------------------------------------------------------
 
 
-MODEL = FOOTPRINT_PROXY_MODELS["gpec_research_inverse"]
+MODEL = FOOTPRINT_PROXY_MODELS["sol_channel_inverse_loss"]
 
 
 def proxy_inputs(shape=(3, 4)):
+    """Both directions, so the model does the reducing rather than the caller."""
     return {
-        "min_psi_norm": np.full(shape, 1.01),
-        "connection_length": np.full(shape, 50.0),
+        "min_psi_norm_backward": np.full(shape, 1.01),
+        "min_psi_norm_forward": np.full(shape, 1.05),
+        "connection_length_backward": np.full(shape, 50.0),
+        "connection_length_forward": np.full(shape, 400.0),
         "area": np.full(shape, 0.5),
     }
 
@@ -233,9 +288,39 @@ def test_the_proxy_is_the_product_of_its_three_factors():
     np.testing.assert_allclose(
         result.density, result.flux_weight * result.incidence * result.connection_weight
     )
+    # psi_N is the deeper of 1.01 and 1.05; the length is the shorter of
+    # 50 m and 400 m, which is the reduction this model names.
     np.testing.assert_allclose(result.flux_weight, np.exp(-0.5))
     np.testing.assert_allclose(result.incidence, 0.5)
     np.testing.assert_allclose(result.connection_weight, 0.5)
+
+
+def test_the_model_decides_which_length_the_weight_sees():
+    """Passing the total where the model says shortest is the mislabelling
+    this signature exists to prevent: the caller cannot do it, because the
+    caller never reduces."""
+    shortest = footprint_heat_load_proxy(
+        **proxy_inputs(), incidence_angle_deg=None, model=MODEL
+    )
+    total = footprint_heat_load_proxy(
+        **proxy_inputs(), incidence_angle_deg=None,
+        model=replace(MODEL, name="total", connection_length_reduction="total"),
+    )
+    # 1/(1 + 50/50) against 1/(1 + 450/50)
+    np.testing.assert_allclose(shortest.connection_weight, 0.5)
+    np.testing.assert_allclose(total.connection_weight, 0.1)
+
+
+def test_the_flux_is_always_the_deeper_incursion():
+    """Not a model knob: the upstream channel weight asks how far in the
+    line reached, and that is the smaller of the two."""
+    swapped = dict(proxy_inputs())
+    swapped["min_psi_norm_backward"], swapped["min_psi_norm_forward"] = (
+        swapped["min_psi_norm_forward"], swapped["min_psi_norm_backward"]
+    )
+    a = footprint_heat_load_proxy(**proxy_inputs(), incidence_angle_deg=None, model=MODEL)
+    b = footprint_heat_load_proxy(**swapped, incidence_angle_deg=None, model=MODEL)
+    np.testing.assert_allclose(a.flux_weight, b.flux_weight)
 
 
 def test_a_missing_incidence_column_must_be_opted_out_of_explicitly():
@@ -271,13 +356,17 @@ def test_the_incidence_angles_must_be_on_the_grid_too():
 
 def test_the_relative_field_peaks_at_one_and_survives_an_empty_map():
     result = footprint_heat_load_proxy(
-        min_psi_norm=[[1.0, 1.02]], connection_length=[[0.0, 0.0]],
+        min_psi_norm_backward=[[1.0, 1.02]], min_psi_norm_forward=[[1.0, 1.02]],
+        connection_length_backward=[[0.0, 0.0]],
+        connection_length_forward=[[0.0, 0.0]],
         area=[[1.0, 1.0]], incidence_angle_deg=None, model=MODEL,
     )
     assert result.relative.max() == pytest.approx(1.0)
 
     dark = footprint_heat_load_proxy(
-        min_psi_norm=[[1.0, 1.0]], connection_length=[[np.nan, np.nan]],
+        min_psi_norm_backward=[[1.0, 1.0]], min_psi_norm_forward=[[1.0, 1.0]],
+        connection_length_backward=[[np.nan, np.nan]],
+        connection_length_forward=[[np.nan, np.nan]],
         area=[[1.0, 1.0]], incidence_angle_deg=None, model=MODEL,
     )
     np.testing.assert_allclose(dark.relative, 0.0)
@@ -293,11 +382,14 @@ def exponential_target(n_v, n_u, *, decay=0.25, radius=2.0, height=1.5, span_deg
     r, z, phi = cylinder(n_v, n_u, radius=radius, height=height, span_deg=span_deg)
     model = FootprintProxyModel(
         name="analytic", decay_width=decay, separatrix_flux=0.0,
-        connection_length_scale=1.0, connection_length_form="none", clip_inside=False,
+        connection_length_scale=1.0, connection_length_form="none",
+        connection_length_reduction="shortest", clip_inside=False,
     )
     return footprint_heat_load_proxy(
-        min_psi_norm=z,
-        connection_length=np.zeros_like(z),
+        min_psi_norm_backward=z,
+        min_psi_norm_forward=z,
+        connection_length_backward=np.zeros_like(z),
+        connection_length_forward=np.zeros_like(z),
         area=toroidal_surface_node_areas(r, z, phi),
         incidence_angle_deg=None,
         model=model,

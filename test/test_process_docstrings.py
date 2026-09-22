@@ -291,6 +291,7 @@ CONVENTION_SENSITIVE = frozenset({
     "connection_length_weight",
     "footprint_heat_load_proxy",
     "footprint_incident_total",
+    "reduce_traced_directions",
     "target_incident_fractions",
     # perturbation (D-06): which reconstruction a stored harmonic belongs to.
     "toroidal_phase_audit",

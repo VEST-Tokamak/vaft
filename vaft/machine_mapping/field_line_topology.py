@@ -81,19 +81,34 @@ RECTANGULAR_GRID_TYPE = 1
 #: it reached the wall in at least one direction.
 FLARE_INTERSECT_BOUNDARY = -1001
 
-#: Every status :func:`b_field_lines_from_flare_connection` can read, from
-#: ``fieldline.f90:25`` plus ``moose_error``'s ``SUCCESS = 0``.  A code
-#: outside this set is refused rather than counted as "did not reach the
-#: wall": the committed reference outputs carry ``1`` on about half their
-#: lines, which no installed FLARE defines, and guessing it would put a
-#: silent 48% into an open fraction that reads as a measurement.
+#: FLARE's status code for a trace that left the field's domain:
+#: ``fieldline.f90:41`` sets ``edom = DOMAIN_ERROR`` and returns it from the
+#: derivative when ``bfield%out_of_bounds`` (``:332``, ``:364``), and
+#: ``moose_error`` defines ``DOMAIN_ERROR = 1`` (``core/error.f90:9``).
+#: ``FIELDLINE_SUCCESS`` is false for it, so such a line is a *failed* trace
+#: whose reported length is only what the integrator had accumulated when it
+#: left -- which is why whether it counts as open is a policy and not a fact.
+FLARE_DOMAIN_ERROR = 1
+
+#: Every status :func:`b_field_lines_from_flare_connection` can read: the
+#: four terminal codes of ``fieldline.f90:25``, ``moose_error``'s
+#: ``SUCCESS = 0``, and ``DOMAIN_ERROR``.  A code outside this set is
+#: refused rather than counted as "did not reach the wall" -- guessing at
+#: one would put a silent share into a number that reads as a measurement.
 FLARE_TRACE_STATUS = {
     0: "success",
+    FLARE_DOMAIN_ERROR: "left the field's domain",
     -1001: "reached the wall",
     -1002: "stopped at the arclength limit",
     -1003: "stopped at the poloidal-turn limit",
     -1004: "stopped below the minimum psi_N",
 }
+
+#: What :func:`b_field_lines_from_flare_connection` may do with a line that
+#: left the field's domain.  ``"refuse"`` is the only default: the trace
+#: failed, so whether the line is open is unknown, and calling it either way
+#: is an owner's policy rather than a reading of the data.
+DOMAIN_EXIT_POLICIES = ("refuse", "open", "closed")
 
 
 def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *,
@@ -118,6 +133,14 @@ def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *,
         ods[path] = existing[: -len("</parameters>")] + fragment_xml + "</parameters>"
     else:
         ods[path] = existing + fragment_xml
+
+
+def _plane_times(ods: ODS) -> list[float]:
+    """The time each existing ``b_field_lines`` entry records."""
+    return [
+        float(path_value(ods, f"plasma_initiation.b_field_lines.{position}.time", np.nan))
+        for position in range(path_count(ods, "plasma_initiation.b_field_lines"))
+    ]
 
 
 def _time_index(ods: ODS, ids: str, time: float) -> Optional[int]:
@@ -202,10 +225,14 @@ def write_b_field_lines(
     ------
     ValueError
         The line arrays disagree in length, the grid axes are not strictly
-        monotonic, a starting position does not lie on the declared grid, the
-        open fraction is outside ``[0, 1]``, or an entry already exists at
-        this time -- the array of structures is indexed by time, so one plane
-        per time is the whole contract.
+        monotonic, a starting position does not lie on the declared grid, two
+        lines start from one node, a length is negative or infinite (``NaN``
+        is legitimate -- it is a line the tracer could not follow), the open
+        fraction is outside ``[0, 1]``, an entry already exists at this time
+        -- the array of structures is indexed by time, so one plane per time
+        is the whole contract -- an earlier instant is written after a later
+        one, or ``plasma_initiation.time`` disagrees with the entries already
+        there.
     """
     grid_r = np.asarray(grid_r, dtype=float).ravel()
     grid_z = np.asarray(grid_z, dtype=float).ravel()
@@ -244,6 +271,17 @@ def write_b_field_lines(
             "have a hole where one of them should be and a silently "
             "overwritten value where they collide"
         )
+    finite = np.isfinite(length)
+    if np.any(length[finite] < 0.0) or np.any(np.isinf(length)):
+        raise ValueError(
+            "a connection length must be non-negative and finite, or NaN for "
+            "a line the tracer could not follow; this one carries "
+            f"{int(np.count_nonzero(length[finite] < 0.0))} negative and "
+            f"{int(np.count_nonzero(np.isinf(length)))} infinite value(s). "
+            "An infinite length is a line that never closed, which is a "
+            "statement the tracer's own status codes make and this leaf "
+            "cannot."
+        )
     if open_fraction is not None:
         open_fraction = float(open_fraction)
         if not np.isfinite(open_fraction) or not 0.0 <= open_fraction <= 1.0:
@@ -253,18 +291,42 @@ def write_b_field_lines(
 
     # Every refusal comes before the first write, so a rejected plane leaves
     # the ODS exactly as it found it rather than half updated.
-    for position in range(path_count(ods, "plasma_initiation.b_field_lines")):
-        recorded = path_value(ods, f"plasma_initiation.b_field_lines.{position}.time", None)
-        if recorded is not None and float(recorded) == float(time):
-            raise ValueError(
-                f"plasma_initiation.b_field_lines already holds an entry at "
-                f"t = {float(time)!r} s. The array of structures is indexed "
-                "by time and carries no toroidal coordinate, so one plane per "
-                "time is all it can say; write a second angle into its own "
-                "ODS rather than duplicating the time."
-            )
+    recorded = _plane_times(ods)
+    if any(existing == float(time) for existing in recorded):
+        raise ValueError(
+            f"plasma_initiation.b_field_lines already holds an entry at "
+            f"t = {float(time)!r} s. The array of structures is indexed "
+            "by time and carries no toroidal coordinate, so one plane per "
+            "time is all it can say; write a second angle into its own "
+            "ODS rather than duplicating the time."
+        )
+    if recorded and float(time) < max(recorded):
+        raise ValueError(
+            f"plasma_initiation.b_field_lines already reaches "
+            f"{max(recorded)!r} s and this is {float(time)!r} s. Entries are "
+            "appended in the order they are written, so a time base stays "
+            "sorted only if its instants do; write them in increasing order."
+        )
 
-    index = _time_base(ods, "plasma_initiation", time)
+    # The entry index comes from the array of structures, never from
+    # `plasma_initiation.time`: a time base laid out ahead of the entries
+    # would otherwise send the first plane to an index the AOS does not have
+    # yet, and OMAS raises on the gap rather than filling it.
+    index = len(recorded)
+    times = np.atleast_1d(np.asarray(
+        path_value(ods, "plasma_initiation.time", []), dtype=float))
+    times = times[np.isfinite(times)] if times.size else times
+    if times.size > index or (times.size and not np.allclose(
+            times[:len(recorded)], recorded[:times.size], equal_nan=True)):
+        raise ValueError(
+            f"plasma_initiation.time reads {[float(t) for t in times]} while "
+            f"its b_field_lines entries are at {[float(t) for t in recorded]}. "
+            "This writer keeps the "
+            "two in step and owns the time base; it will not write into one "
+            "laid out by something else."
+        )
+    ods["plasma_initiation.ids_properties.homogeneous_time"] = 1
+    ods["plasma_initiation.time"] = np.asarray(recorded + [float(time)], dtype=float)
     entry = f"plasma_initiation.b_field_lines.{index}"
     ods[f"{entry}.time"] = float(time)
     ods[f"{entry}.grid.dim1"] = grid_r
@@ -301,8 +363,8 @@ def write_b_field_lines(
 
 
 def b_field_lines_from_flare_connection(
-    ods: ODS, product, *, time: float, code_name: str = "FLARE",
-    code_repository: str = "",
+    ods: ODS, product, *, time: float, domain_exit: str = "refuse",
+    code_name: str = "FLARE", code_repository: str = "",
 ) -> int:
     """Map one FLARE connection-length product at a fixed angle into the IDS.
 
@@ -311,18 +373,33 @@ def b_field_lines_from_flare_connection(
     plane. A swept mesh is refused: its lines start at different toroidal
     angles and ``starting_positions`` has nowhere to say so.
 
+    ``domain_exit`` says what to do with a line whose trace left the field's
+    domain (:data:`FLARE_DOMAIN_ERROR`). Such a trace *failed*: its reported
+    length is only what the integrator had accumulated before it left, and
+    whether the line would have reached the wall is unknown. So the default
+    is ``"refuse"``, and ``"open"`` or ``"closed"`` are an explicit policy
+    the caller takes responsibility for -- both are written into the
+    provenance beside the fraction they produced.
+
     Raises
     ------
     ValueError
         The mesh is not a single poloidal plane; the product carries no
         ``ierr_bwd``/``ierr_fwd`` columns, so which lines reached the wall is
-        not recorded and ``open_fraction`` would be a guess; or a status code
+        not recorded and ``open_fraction`` would be a guess; a status code
         appears that :data:`FLARE_TRACE_STATUS` does not define, which means
-        the same thing for the lines that carry it. Re-run the tracing task
-        with its ``ierr`` output enabled, or call
+        the same thing for the lines that carry it; ``domain_exit`` is not
+        one of :data:`DOMAIN_EXIT_POLICIES`; or it is ``"refuse"`` and the
+        product holds a domain exit. Re-run the tracing task with its
+        ``ierr`` output enabled, choose a policy, or call
         :func:`write_b_field_lines` directly with an explicit
         ``open_fraction``.
     """
+    if domain_exit not in DOMAIN_EXIT_POLICIES:
+        raise ValueError(
+            f"domain_exit must be one of {list(DOMAIN_EXIT_POLICIES)}, not "
+            f"{domain_exit!r}"
+        )
     mesh = product.mesh
     if mesh.toroidally_swept:
         raise ValueError(
@@ -341,7 +418,8 @@ def b_field_lines_from_flare_connection(
             "call write_b_field_lines directly with an explicit open_fraction."
         )
     total = product.column("Lc_bwd") + product.column("Lc_fwd")
-    status = np.concatenate([product.column("ierr_bwd"), product.column("ierr_fwd")])
+    backward, forward = product.column("ierr_bwd"), product.column("ierr_fwd")
+    status = np.concatenate([backward, forward])
     unknown = sorted({int(code) for code in np.unique(status)
                       if int(code) not in FLARE_TRACE_STATUS})
     if unknown:
@@ -355,8 +433,27 @@ def b_field_lines_from_flare_connection(
             "write_b_field_lines directly with an explicit open_fraction if "
             "you know what the code means."
         )
-    reached = ((product.column("ierr_bwd") == FLARE_INTERSECT_BOUNDARY)
-               | (product.column("ierr_fwd") == FLARE_INTERSECT_BOUNDARY))
+
+    reached = ((backward == FLARE_INTERSECT_BOUNDARY)
+               | (forward == FLARE_INTERSECT_BOUNDARY))
+    # A domain exit is a failed trace, not a verdict on the line.
+    left_domain = ((backward == FLARE_DOMAIN_ERROR)
+                   | (forward == FLARE_DOMAIN_ERROR)) & ~reached
+    if left_domain.any():
+        if domain_exit == "refuse":
+            raise ValueError(
+                f"{product.source.name}: "
+                f"{int(np.count_nonzero(left_domain))} of {left_domain.size} "
+                f"lines left the field's domain (status {FLARE_DOMAIN_ERROR}, "
+                f"{FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR]}) without reaching "
+                "the wall. Those traces failed, so whether they are open is "
+                "unknown and open_fraction cannot be derived from them. "
+                'Pass domain_exit="open" or "closed" to state a policy -- it '
+                "is recorded with the result -- or extend the field's domain "
+                "and trace again."
+            )
+        if domain_exit == "open":
+            reached = reached | left_domain
     phi_deg = float(np.unique(mesh.phi_deg)[0])
     # The axes come off `r` and `z` rather than off `u` and `v`: a FlareMesh
     # keeps its axes in the file's own units and converts only the node
@@ -375,6 +472,11 @@ def b_field_lines_from_flare_connection(
             "open_fraction_rule":
                 "a line reaching the wall in either direction "
                 f"(FLARE status {FLARE_INTERSECT_BOUNDARY})",
+            "domain_exit_policy": (
+                f"{int(np.count_nonzero(left_domain))} line(s) left the "
+                f"field's domain and were counted as {domain_exit}"
+                if left_domain.any() else "no line left the field's domain"
+            ),
         },
         code_name=code_name, code_repository=code_repository,
     )
@@ -418,8 +520,12 @@ def write_divertor_incident_fractions(
     ValueError
         Fewer than two targets -- a single target's share is one by
         construction and says nothing but which target was analysed -- a
-        share outside ``[0, 1]``, shares that do not add to one, or a target
-        that already carries a fraction at this time.
+        share outside ``[0, 1]``, shares that do not add to one, or this
+        divertor already carrying fractions at this instant. That last one
+        is checked on the divertor rather than on the targets named here:
+        shares close to one over one *write*, so a second write at the same
+        instant sums past one even when it names only targets nobody has
+        written yet.
     """
     if len(fractions) < 2:
         raise ValueError(
@@ -445,20 +551,27 @@ def write_divertor_incident_fractions(
     # so a refused write leaves the ODS exactly as it found it. Only an
     # instant that is already in the base can collide: a new one lands past
     # the end of every target's data.
+    #
+    # The check is on the *divertor*, not on the targets this call names.
+    # Shares close to one over the targets of one write, so a second write
+    # at the same instant -- even naming targets nobody has written yet --
+    # leaves the divertor summing to two, and each write looks correct on
+    # its own. One write per divertor per instant is the whole contract.
     existing = _time_index(ods, "divertors", time)
     if existing is not None:
-        for identifier in values:
-            position = identifiers.get(identifier)
-            if position is None:
-                continue
+        for identifier, position in identifiers.items():
             data = np.atleast_1d(np.asarray(
                 path_value(ods, f"{root}.target.{position}.power_incident_fraction.data",
                            []), dtype=float))
             if existing < data.size and np.isfinite(data[existing]):
+                named = "it" if identifier in values else f"its target {identifier!r}"
                 raise ValueError(
-                    f"target {identifier!r} already carries a fraction at "
-                    f"t = {float(time)!r} s ({data[existing]!r}); a second "
-                    "value for the same instant would silently replace it."
+                    f"divertor {divertor} already carries fractions at "
+                    f"t = {float(time)!r} s ({named} reads "
+                    f"{float(data[existing])!r}). They are shares of one total over "
+                    "every target of this divertor, so a second write at the "
+                    "same instant makes them sum past one however plausible "
+                    "each write looks alone; pass every target in one call."
                 )
 
     index = _time_base(ods, "divertors", time)

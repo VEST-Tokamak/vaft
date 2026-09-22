@@ -11622,6 +11622,9 @@ RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
 # Field-line tracing (issue #1099)
 # ---------------------------------------------------------------------------
 
+#: How a field map spaces its value axis; the ``scale=`` vocabulary.
+VALUE_SCALES = ("log", "linear")
+
 _B_FIELD_LINES = "plasma_initiation.b_field_lines"
 
 _FIELD_LINE_READS = (
@@ -11663,13 +11666,18 @@ def _field_line_plane(ods: Any, options: Mapping[str, Any]) -> int:
         raise ValueError(
             "time= cannot select a traced plane: no entry records its time"
         )
-    if requested < known.min() or requested > known.max():
+    match = np.flatnonzero(times == requested)
+    if not match.size:
+        # A plane is a traced object, not a sample of a continuous signal:
+        # there is nothing between two of them to interpolate and nothing
+        # about the nearest that makes it the one the caller asked for.
         raise ValueError(
-            f"time={requested:g} s lies outside the traced planes "
-            f"({known.min():g} to {known.max():g} s); this ODS holds "
-            f"{known.size} of them"
+            f"time={requested:g} s is not one of the traced planes "
+            f"({', '.join(format(t, 'g') for t in known)} s). Each entry is "
+            "a separate trace rather than a sample of a signal, so there is "
+            "nothing between two of them; name one of these."
         )
-    return int(np.nanargmin(np.abs(times - requested)))
+    return int(match[0])
 
 
 def _plane_angle(ods: Any, index: int) -> float:
@@ -11703,6 +11711,7 @@ def _build_field_line_topology_field_connection_length(ods: Any, **options: Any)
     the other way round, and on the square grids these maps usually have, the
     wrong choice transposes the picture and still fits.
     """
+    scale = str(options.get("scale", "log"))
     index = _field_line_plane(ods, options)
     entry = f"{_B_FIELD_LINES}.{index}"
     grid_r = np.asarray(_get(ods, f"{entry}.grid.dim1"), dtype=float).ravel()
@@ -11735,6 +11744,17 @@ def _build_field_line_topology_field_connection_length(ods: Any, **options: Any)
     values = np.full((grid_z.size, grid_r.size), np.nan)
     values[rows, columns] = lengths
 
+    # A connection-length map runs from about a metre to the tracing limit,
+    # so on a linear ramp every value below the top decade shares one colour
+    # and the lobe structure the map exists to show is invisible. Zero-length
+    # cells cannot sit on a log axis; they are blanked and counted in the
+    # title rather than quietly clipped to the smallest colour.
+    blanked = 0
+    if scale == "log":
+        zero = np.isfinite(values) & (values <= 0.0)
+        blanked = int(np.count_nonzero(zero))
+        values = np.where(zero, np.nan, values)
+
     time = float(np.asarray(_get(ods, f"{entry}.time", np.nan)).ravel()[0])
     angle = _plane_angle(ods, index)
     title = "Connection length"
@@ -11745,12 +11765,16 @@ def _build_field_line_topology_field_connection_length(ods: Any, **options: Any)
     open_fraction = _get(ods, f"{entry}.open_fraction", None)
     if open_fraction is not None:
         title += f"; {float(open_fraction) * 100:.0f}% of lines reach the wall"
+    if blanked:
+        title += f"; {blanked} cell(s) of zero length left blank"
+    label = r"$L_c$ [m]" + (", log scale" if scale == "log" else "")
     return Field2D(
         r=grid_r,
         z=grid_z,
         values=values,
-        value_label=r"$L_c$ [m]",
+        value_label=label,
         title=title,
+        value_scale=scale,
     )
 
 

@@ -14,6 +14,8 @@ from omas import ODS
 
 from vaft.data.flare_products import read_flare_product
 from vaft.machine_mapping.field_line_topology import (
+    DOMAIN_EXIT_POLICIES,
+    FLARE_DOMAIN_ERROR,
     FLARE_TRACE_STATUS,
     REFUSED_TARGET_LEAVES,
     b_field_lines_from_flare_connection,
@@ -109,6 +111,28 @@ def test_two_times_become_two_entries_on_one_time_base():
     assert ods["plasma_initiation.code.parameters"].count("<field_line_plane") == 2
 
 
+def test_a_time_base_laid_out_ahead_of_the_entries_is_refused(tmp_path):
+    """The entry index comes from b_field_lines, not from the time base. A
+    base laid out first used to send the first plane to an index the array
+    of structures did not have yet, which OMAS raises on -- and for a time
+    past the end it appended to `.time` before raising, so the refusal was
+    not free either."""
+    for requested in (0.2, 0.3):
+        ods = ODS()
+        ods["plasma_initiation.time"] = np.array([0.1, 0.2])
+        with pytest.raises(ValueError, match="owns the time base"):
+            written(ods, time=requested)
+        np.testing.assert_allclose(ods["plasma_initiation.time"], [0.1, 0.2])
+
+
+def test_the_entry_index_follows_the_entries_not_the_time_base():
+    ods = ODS()
+    assert written(ods, time=0.1) == 0
+    assert written(ods, time=0.2) == 1
+    np.testing.assert_allclose(ods["plasma_initiation.time"], [0.1, 0.2])
+    assert len(ods["plasma_initiation.b_field_lines"]) == 2
+
+
 def test_an_earlier_instant_is_refused_rather_than_written_over_an_entry():
     """Entries are appended, so a time that sorts before the last one would
     land on an index that is already taken.  The version that sorted the time
@@ -118,6 +142,7 @@ def test_an_earlier_instant_is_refused_rather_than_written_over_an_entry():
     with pytest.raises(ValueError, match="increasing order"):
         written(ods, time=0.1, phi_deg=0.0)
     assert ods["plasma_initiation.b_field_lines.0.time"] == 0.3
+    assert len(ods["plasma_initiation.b_field_lines"]) == 1
     np.testing.assert_allclose(ods["plasma_initiation.time"], [0.3])
 
 
@@ -159,6 +184,28 @@ def test_an_absent_open_fraction_is_omitted_and_the_omission_recorded():
 def test_inputs_that_do_not_describe_one_plane_are_refused(overrides, message):
     with pytest.raises(ValueError, match=message):
         written(ODS(), **overrides)
+
+
+def test_a_length_the_tracer_could_not_follow_is_accepted_as_nan():
+    """NaN is a real result -- the VEST startup tracer writes one for every
+    seed outside the wall -- so it must reach the IDS rather than be refused
+    with the genuinely impossible values."""
+    lengths = np.arange(6.0)
+    lengths[2] = np.nan
+    ods = ODS()
+    written(ods, lengths=lengths)
+    assert np.isnan(ods["plasma_initiation.b_field_lines.0.lengths"][2])
+
+
+@pytest.mark.parametrize("bad", [-1.0, np.inf, -np.inf])
+def test_a_negative_or_infinite_length_is_refused(bad):
+    """An arclength cannot be negative, and an infinite one is a claim about
+    a line that never closed -- which the tracer's status codes make and
+    this leaf cannot."""
+    lengths = np.arange(6.0)
+    lengths[1] = bad
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        written(ODS(), lengths=lengths)
 
 
 def test_lines_that_do_not_cover_the_declared_grid_are_refused():
@@ -256,19 +303,89 @@ def test_a_toroidally_swept_map_is_refused_rather_than_flattened(tmp_path):
 
 
 def test_a_status_code_this_flare_does_not_define_is_refused(tmp_path):
-    """The committed reference outputs carry ``1`` on about a third of their
-    traced directions -- which is about half their lines -- and no installed
-    FLARE defines it.  Counting those lines as "did not reach the wall" would
-    put a silent half into a number that reads as a measurement."""
+    """Whether such a line reached the wall is unknown, so counting it either
+    way would put a guess into a number that reads as a measurement."""
     product = flare_connection(tmp_path)
     path = product.source
-    path.write_text(path.read_text().replace("-1.002000E+03", "1.000000E+00"))
+    path.write_text(path.read_text().replace("-1.002000E+03", "7.000000E+00"))
     with pytest.raises(ValueError, match="does not define"):
         b_field_lines_from_flare_connection(ODS(), read_flare_product(path), time=0.0)
 
 
-def test_the_known_status_codes_are_the_ones_flare_documents():
-    assert set(FLARE_TRACE_STATUS) == {0, -1001, -1002, -1003, -1004}
+def test_the_known_status_codes_are_the_ones_flare_and_moose_define():
+    """``fieldline.f90:25``'s four terminal codes, ``moose_error``'s
+    ``SUCCESS = 0``, and ``DOMAIN_ERROR = 1`` -- which ``fieldline.f90:41``
+    binds to ``edom`` and returns from the derivative when the trace leaves
+    the field's domain."""
+    assert set(FLARE_TRACE_STATUS) == {0, 1, -1001, -1002, -1003, -1004}
+    assert FLARE_DOMAIN_ERROR == 1
+    assert FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR] == "left the field's domain"
+
+
+# ---------------------------------------------------------------------------
+# A trace that left the field's domain: a failed trace, not a verdict
+# ---------------------------------------------------------------------------
+
+
+def domain_exit_product(tmp_path):
+    """One of the six lines leaves the field's domain in both directions."""
+    product = flare_connection(tmp_path)
+    path = product.source
+    rows = path.read_text().splitlines()
+    body = [row for row in rows if not row.startswith("#")]
+    body[0] = "  3.000000E+00  4.000000E+00  1.000000E+00  1.000000E+00"
+    path.write_text("\n".join([r for r in rows if r.startswith("#")] + body) + "\n")
+    return read_flare_product(path)
+
+
+def test_a_line_that_left_the_field_is_refused_by_default(tmp_path):
+    """Its trace failed: the length is only what the integrator had before
+    it left, and whether the line would have reached the wall is unknown.
+    That makes it a policy, and the default states no policy."""
+    with pytest.raises(ValueError, match="left the field's domain"):
+        b_field_lines_from_flare_connection(
+            ODS(), domain_exit_product(tmp_path), time=0.0
+        )
+
+
+@pytest.mark.parametrize("policy, fraction", [("open", 5.0 / 6.0), ("closed", 4.0 / 6.0)])
+def test_an_explicit_policy_is_applied_and_recorded(tmp_path, policy, fraction):
+    ods = ODS()
+    b_field_lines_from_flare_connection(
+        ods, domain_exit_product(tmp_path), time=0.0, domain_exit=policy
+    )
+    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(fraction)
+    parameters = ods["plasma_initiation.code.parameters"]
+    assert f"counted as {policy}" in parameters
+    assert "left the field" in parameters
+
+
+def test_a_product_with_no_domain_exit_says_so_in_the_provenance(tmp_path):
+    ods = ODS()
+    b_field_lines_from_flare_connection(ods, flare_connection(tmp_path), time=0.0)
+    assert "no line left the field's domain" in ods["plasma_initiation.code.parameters"]
+
+
+def test_an_unknown_policy_names_the_ones_that_exist(tmp_path):
+    with pytest.raises(ValueError, match="domain_exit must be one of"):
+        b_field_lines_from_flare_connection(
+            ODS(), flare_connection(tmp_path), time=0.0, domain_exit="maybe"
+        )
+    assert DOMAIN_EXIT_POLICIES == ("refuse", "open", "closed")
+
+
+def test_a_line_that_left_the_field_but_still_hit_the_wall_needs_no_policy(tmp_path):
+    """One direction reached the wall, so the line is open whatever happened
+    to the other; there is nothing for a policy to decide."""
+    product = flare_connection(tmp_path)
+    path = product.source
+    rows = path.read_text().splitlines()
+    body = [row for row in rows if not row.startswith("#")]
+    body[0] = "  3.000000E+00  4.000000E+00 -1.001000E+03  1.000000E+00"
+    path.write_text("\n".join([r for r in rows if r.startswith("#")] + body) + "\n")
+    ods = ODS()
+    b_field_lines_from_flare_connection(ods, read_flare_product(path), time=0.0)
+    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(5.0 / 6.0)
 
 
 def test_a_product_without_status_columns_is_refused(tmp_path):
@@ -382,8 +499,36 @@ def test_a_share_outside_zero_to_one_is_refused():
 def test_a_second_value_for_the_same_instant_is_refused_not_replaced():
     ods = ODS()
     write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.4)
-    with pytest.raises(ValueError, match="already carries a fraction"):
+    with pytest.raises(ValueError, match="already carries fractions"):
         write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.4)
+
+
+def test_a_second_write_naming_fresh_targets_is_refused_too():
+    """Each write closes to one on its own, so two writes at one instant
+    leave the divertor summing to two while every individual call looks
+    correct. The check is on the divertor, not on the targets named here."""
+    ods = ODS()
+    write_divertor_incident_fractions(ods, fractions={"a": 0.5, "b": 0.5}, time=0.0)
+    with pytest.raises(ValueError, match="sum past one"):
+        write_divertor_incident_fractions(ods, fractions={"c": 0.3, "d": 0.7}, time=0.0)
+    assert len(ods["divertors.divertor.0.target"]) == 2
+    total = sum(
+        float(ods[f"divertors.divertor.0.target.{i}.power_incident_fraction.data"][0])
+        for i in range(2)
+    )
+    assert total == pytest.approx(1.0)
+
+
+def test_a_second_divertor_at_the_same_instant_is_fine():
+    """The shares close per divertor, so another one is a separate total."""
+    ods = ODS()
+    write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.4)
+    write_divertor_incident_fractions(
+        ods, fractions={"upper_in": 0.2, "upper_out": 0.8}, time=0.4, divertor=1
+    )
+    np.testing.assert_allclose(
+        ods["divertors.divertor.1.target.1.power_incident_fraction.data"], [0.8]
+    )
 
 
 def test_a_refused_write_leaves_the_ods_exactly_as_it_found_it():
@@ -392,7 +537,7 @@ def test_a_refused_write_leaves_the_ods_exactly_as_it_found_it():
     ods = ODS()
     write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.4)
     before = ods.pretty_paths()
-    with pytest.raises(ValueError, match="already carries a fraction"):
+    with pytest.raises(ValueError, match="already carries fractions"):
         write_divertor_incident_fractions(
             ods, fractions={"inner_lower": 0.1, "baffle": 0.9}, time=0.4
         )
@@ -431,11 +576,13 @@ def test_a_target_first_seen_late_is_padded_rather_than_left_short():
 # ---------------------------------------------------------------------------
 
 
-def proxy(scale, *, model_name="gpec_research_inverse", incidence=True):
+def proxy(scale, *, model_name="sol_channel_inverse_loss", incidence=True):
     shape = (4, 4)
     return footprint_heat_load_proxy(
-        min_psi_norm=np.full(shape, 1.0),
-        connection_length=np.full(shape, 0.0),
+        min_psi_norm_backward=np.full(shape, 1.0),
+        min_psi_norm_forward=np.full(shape, 1.0),
+        connection_length_backward=np.full(shape, 0.0),
+        connection_length_forward=np.full(shape, 0.0),
         area=np.full(shape, float(scale)),
         incidence_angle_deg=np.full(shape, 90.0) if incidence else None,
         model=FOOTPRINT_PROXY_MODELS[model_name],
@@ -451,7 +598,7 @@ def test_proxies_become_shares_of_the_run_they_belong_to():
     np.testing.assert_allclose(
         ods["divertors.divertor.0.target.0.power_incident_fraction.data"], [0.75]
     )
-    assert "gpec_research_inverse" in ods["divertors.code.parameters"]
+    assert "sol_channel_inverse_loss" in ods["divertors.code.parameters"]
 
 
 def test_targets_built_from_different_models_are_refused():
@@ -460,7 +607,8 @@ def test_targets_built_from_different_models_are_refused():
     with pytest.raises(ValueError, match="one model and one incidence"):
         divertor_incident_fractions_from_flare_footprints(
             ODS(),
-            {"inner": proxy(1.0), "outer": proxy(1.0, model_name="gpec_research_exponential")},
+            {"inner": proxy(1.0),
+             "outer": proxy(1.0, model_name="sol_channel_exponential_loss")},
             time=0.0,
         )
 

@@ -70,6 +70,19 @@ def render_field_2d(
 
     levels = model.contour_levels
     contour_kwargs = {"cmap": cmap, **style}
+    if model.value_scale == "log" and "norm" not in contour_kwargs:
+        # Both halves are needed: the norm spaces the colours and the levels
+        # space the bands. A LogNorm with linear levels still puts every
+        # band in the top decade, which is the thing a log scale is for.
+        from matplotlib.colors import LogNorm
+
+        finite = model.values[np.isfinite(model.values)]
+        if finite.size:
+            low, high = float(finite.min()), float(finite.max())
+            contour_kwargs["norm"] = LogNorm(vmin=low, vmax=high)
+            if levels is None and high > low:
+                count = int(style.pop("log_levels", 0)) or 24
+                levels = np.logspace(np.log10(low), np.log10(high), count)
     if levels is not None:
         contour_kwargs["levels"] = levels
         if model.extend != "neither":
