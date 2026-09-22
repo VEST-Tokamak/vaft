@@ -15,7 +15,6 @@ import h5pyd
 import numpy as np
 import pandas as pd
 import requests
-import urllib3
 
 from .sources import LEGACY_SOURCE, MissingSourceError
 from .sources import resolve as resolve_source
@@ -142,6 +141,32 @@ def is_connect() -> bool:
         return False
 
 
+def _is_connection_failure(exc: BaseException) -> bool:
+    """Whether an h5pyd error means the server could not be reached at all.
+
+    h5pyd turns a transport failure into a bare ``OSError`` raised inside
+    ``except requests.ConnectionError`` (``httpconn.py``), so the requests error
+    is in the exception chain; an HTTP error such as 403 or 404 is raised as
+    ``OSError(status, reason)`` with no such cause. Only the first is a
+    connection problem -- an auth failure or a missing folder must not be
+    reported as one.
+
+    (These handlers used to catch ``urllib3.exceptions.MaxRetryError``, which
+    h5pyd never lets through: measured on urllib3 1.26.13 and 2.8.0 alike, an
+    unreachable endpoint raises ``OSError("Connection Error")``.)
+    """
+    if not isinstance(exc, OSError) or (exc.args and isinstance(exc.args[0], int)):
+        return False
+    seen = set()
+    link: BaseException | None = exc
+    while link is not None and id(link) not in seen:
+        seen.add(id(link))
+        if isinstance(link, requests.exceptions.ConnectionError):
+            return True
+        link = link.__cause__ or link.__context__
+    return False
+
+
 def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
     """Return the shot folders of one named source, with optional sorting.
 
@@ -165,7 +190,9 @@ def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
 
         print(folder_list)
         return folder_list
-    except urllib3.exceptions.MaxRetryError:
+    except OSError as exc:
+        if not _is_connection_failure(exc):
+            raise
         print("Connection error")
         return []
 
@@ -245,7 +272,9 @@ def exist_shot(
                     return True
             print("File does not exist")
             return False
-        except urllib3.exceptions.MaxRetryError:
+        except OSError as exc:
+            if not _is_connection_failure(exc):
+                raise
             print("Connection error")
             return False
 
