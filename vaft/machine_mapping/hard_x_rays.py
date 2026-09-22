@@ -25,6 +25,11 @@ What the file is, and is not:
   archived shots some bins are negative.  Those bins are marked suspect (-1)
   in ``radiance.validity_timed``, not removed; ``radiance.validity`` is the
   worst bin, as ``vaft.validation.validity.aggregate_validity`` defines it.
+  Every value in a bin shares the sign of that sum, so this flags only bins
+  whose sum went negative.  A 0 means "sum non-negative", not "inputs
+  physical": per-channel polarity is unvalidated (on 40140, 38 of 40 bins have
+  a negative channel mean and 15 a negative sum), and an Eflux-only file cannot
+  show it.
 * **One record per file, usually.** The writer appended, so a re-run adds a
   second 40-row block to the same file; such files are rejected because which
   block belongs to the shot is not recorded.
@@ -70,7 +75,8 @@ HXR_UNFOLDING_MODEL = {
 _COMMENT = (
     "VEST hard X-ray unfolded energy flux (sample_v4 Eflux CSV); relative intensity in "
     "arbitrary units, not absolute radiance. Energies are nominal labels; the 210 keV "
-    "output was dropped by the legacy writer. Negative bins are suspect (-1) in validity_timed."
+    "output was dropped by the legacy writer. validity_timed -1 marks bins whose signed channel "
+    "sum was negative; 0 does not certify per-channel polarity, which is unvalidated."
 )
 
 
@@ -196,6 +202,9 @@ def hard_x_rays(
     Fills a single channel whose ``radiance.data`` is ``(energy, time)``, the
     IDS coordinate order.  ``time_offset`` (s) overrides the trigger settings;
     ``time_reference="archive"`` keeps the axis trigger-relative.
+
+    ``data_root`` is the ``legacy/hard_x_rays`` directory of a FileDB (or its
+    parent ``legacy``); the packaged default holds no HXR data.
     """
     if time_reference not in {"auto", "archive"}:
         raise ValueError("time_reference must be 'auto' or 'archive'.")
@@ -211,7 +220,8 @@ def hard_x_rays(
     # Row i averages [i, i+1) ms after the trigger; the IDS time is its centre.
     time = alignment.offset_seconds + (np.arange(flux.shape[0]) + 0.5) * HXR_BIN_WIDTH_S
     # Data Dictionary codes, as vaft.validation.validity names them:
-    # 0 valid, -1 suspect. A negative unfolded flux is a processing artefact.
+    # 0 valid, -1 suspect. A negative unfolded flux is a processing artefact;
+    # 0 only says the bin's signed channel sum was non-negative.
     validity = np.where(np.any(flux < 0.0, axis=1), -1, 0).astype(int)
 
     set_path(ods, "hard_x_rays.ids_properties.homogeneous_time", 1)
@@ -241,6 +251,9 @@ def hard_x_rays(
                 "energy_labels_keV": list(HXR_FLUX_ENERGIES_KEV),
                 "dropped_energy_keV": [210.0],
                 "bin_width_s": HXR_BIN_WIDTH_S,
+                "bin_width_note": "nominal; sample_v4 bins 125000 full-rate samples (1 ms), 40140 reproduces "
+                "with 976 decimated samples (0.999424 ms)",
+                "validity_meaning": "-1 = signed channel sum negative; 0 does not certify channel polarity",
                 "time_convention": "bin centre after trigger",
                 "time_alignment": alignment.source,
                 "unfolding_model": HXR_UNFOLDING_MODEL,
