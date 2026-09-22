@@ -51,6 +51,9 @@ _ITERATION = re.compile(
     rf"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*({_NUMBER}).*?err=\s*({_NUMBER})"
 )
 _ICONVR = re.compile(r"iconvr=(\d+) satisfied")
+# fit.F90 prints this, as a warning, only when the outer loop ran all its
+# MXITER+1 passes; it is the one line that says the cap was reached.
+_EXHAUSTED = re.compile(r"not converged, reached max iterations")
 _FAILED = re.compile(r"Failed to reach fit/convergence criteria, shot\s+(\d+)\s+([0-9.]+)")
 _FAILURE = re.compile(rf"Failure #(\d+),\s*([^=]*?)(?:=\s*({_NUMBER}))?\s*$")
 _BARE_EXPONENT = re.compile(r"^([+-]?[0-9.]+)([+-][0-9]+)$")
@@ -70,6 +73,7 @@ _ITERATION_FIELDS = {
 EFIT_LOG_PATTERNS = {
     "iteration": _ITERATION,
     "iconvr": _ICONVR,
+    "exhausted": _EXHAUSTED,
     "failed": _FAILED,
     "failure": _FAILURE,
     "solver_error": _SOLVER_ERROR,
@@ -116,9 +120,19 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
     one would invent a slice that never ran; a warning printed before any
     slice has begun is therefore dropped rather than guessed at.
 
-    One warning is not a warning. EFIT announces the chi-square exit as
-    ``WARNING in fit ... iconvr=2 satisfied``, which is the line that says how
-    the outer loop left, so it is read as the exit path and not as a warning.
+    Two warnings are not warnings. EFIT announces the chi-square exit as
+    ``WARNING in fit ... iconvr=2 satisfied`` and the exhausted cap as
+    ``WARNING in fit ... not converged, reached max iterations``; each is the
+    line that says how the outer loop left, so it is read as the exit path and
+    not as a warning.
+
+    A slice that printed steps and neither line, and no solver error, left
+    ``fit`` by its one silent exit (``go to 2020``): an inner loop's first step
+    brought the flux increment below ``ERROR`` with the chi-square at or below
+    ``SAIMIN`` (#1038). Its exit path is ``no_exit_message`` -- it is a stop on
+    EFIT's own criterion, not an exhausted cap, and until #1038 it was
+    reported as ``iterations_exhausted``. A log cut short (a timeout) ends the
+    same way, so the name says what was seen, not what was inferred.
     """
     records = _parse_slice_records(text)
     for record in records:
@@ -192,6 +206,9 @@ def _parse_slice_records(text: str) -> list[dict[str, Any]]:
             current["iconvr"] = int(found.group(1))
             current["exit_path"] = f"iconvr={found.group(1)}"
             continue
+        if _EXHAUSTED.search(line):
+            current["exit_path"] = "iterations_exhausted"
+            continue
         found = _SOLVER_WARNING.search(line)
         if found:
             current["warnings"].append(
@@ -237,6 +254,6 @@ def _parse_slice_records(text: str) -> list[dict[str, Any]]:
         if record["accepted"] is None:
             record["accepted"] = not record["failures"] and not record["solver_errors"]
         if record["exit_path"] is None:
-            record["exit_path"] = "solver_error" if record["solver_errors"] else "iterations_exhausted"
+            record["exit_path"] = "solver_error" if record["solver_errors"] else "no_exit_message"
 
     return slices

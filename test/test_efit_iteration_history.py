@@ -73,7 +73,8 @@ def test_log_only_history_keeps_every_step_and_the_termination():
     assert first.exit_path == "iconvr=2" and first.sources == ("log",)
     # A starred chi2 and a NaN axis are still steps, not a lost slice.
     assert math.isnan(second.chi2[0]) and math.isnan(second.axis_z[1])
-    assert second.exit_path == "iterations_exhausted"
+    # No exit line at all: not an exhausted cap (#1038), just no message.
+    assert second.exit_path == "no_exit_message"
     # The slice that failed before its first step is its own, empty slice.
     assert collapsed.iterations_n == 0 and collapsed.exit_path == "solver_error"
     assert collapsed.solver_errors[0]["routine"] == "bound"
