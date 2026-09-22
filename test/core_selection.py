@@ -93,7 +93,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_spectrogram_methods.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
+    # The in-process memory guard beside it: fake cgroup trees and env only.
     "test_code_execution.py",
+    "test_code_resources.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
