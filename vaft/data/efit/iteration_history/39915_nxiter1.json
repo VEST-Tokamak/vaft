@@ -1,0 +1,890 @@
+{
+ "level": "summary",
+ "numbering": {
+  "cumulative": "EFIT's nitera: the counter printed as it= and the index of the m-file's cerror/cchisq/czmaxi arrays. It is incremented inside the inner (NXITER) loop, so it is cumulative across outer and inner iterations, and it restarts at 1 on every slice.",
+  "nxiter": 1,
+  "nxiter_source": "k-files",
+  "outer_inner": "derived: with NXITER=1 every outer iteration is exactly one inner step, so outer = cumulative and inner = 1"
+ },
+ "provenance": {
+  "args": [
+   "129"
+  ],
+  "executable_sha256": "b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d",
+  "initialization": {
+   "current_threshold": 15000.0,
+   "ellipse_rzero": 0.32,
+   "elongation": 1.6,
+   "icinit": null,
+   "minor_radius": 0.3,
+   "rzero": 0.4,
+   "zzero": 0.0
+  },
+  "log": "run_efit.out",
+  "numerics": {
+   "chi_squared_target": null,
+   "convergence_mode": null,
+   "error_minimum": null,
+   "error_tolerance": 1e-05,
+   "inner_iterations": null,
+   "max_iterations": 100,
+   "measurement_error_floor": 0.0005,
+   "relaxation": 1.0
+  },
+  "requested_executable": null,
+  "runtime_status": "completed",
+  "scientific_sha256": "9bbb69a6a858bede8184c72e3ad4436d952215ca6f71710ed2fa6433cb6812ee",
+  "shot": 39915,
+  "table": {
+   "dir": "vaft/data/efit",
+   "era": "vest-pre-43017-pf1906",
+   "identity": "e28142c72453c49c161839ea1d9be7f9e08f0aab8f8ece1d6da70c2fd4f80772",
+   "label": "vest-pre-43017-pf1906-129129-all-circuits",
+   "manifest": "vaft/data/efit/efund_table_manifest.json",
+   "mhdin_sha256": "9e09ac3ce7832d322b934e85fcb912ef8908a340c7fdf966e7e9b0aaab90ff9c",
+   "provenance": "manifest"
+  },
+  "uncertainty_mode": "legacy_weight",
+  "vaft_revision": "e4b824aabbfbd717f9ae4a9a1dba611b05535b8e",
+  "vaft_version": "0.7.1"
+ },
+ "schema": "vaft.efit.iteration_history",
+ "schema_version": 1,
+ "slices": [
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 7.956688693327996e-19,
+     "chi2": 3.5453343372182644e-08,
+     "cumulative": 1,
+     "dz": 7.957e-19,
+     "error": 17.314212799072266,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": -3.025357636224433e-18,
+     "chi2": 4.9242355970591234e-08,
+     "cumulative": 2,
+     "dz": -3.821e-18,
+     "error": 0.5372000336647034,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": -1.0084543453531574e-17,
+     "chi2": 6.007493880133552e-08,
+     "cumulative": 3,
+     "dz": -7.059e-18,
+     "error": 0.22687648236751556,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": -1.703265307590493e-17,
+     "chi2": 6.819369247068607e-08,
+     "cumulative": 4,
+     "dz": -6.948e-18,
+     "error": 0.11823270469903946,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -9.298117831235687e-18,
+     "chi2": 7.382572420056022e-08,
+     "cumulative": 5,
+     "dz": 7.735e-18,
+     "error": 0.06502474844455719,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -5.985988720388837e-18,
+     "chi2": 7.77228947868025e-08,
+     "cumulative": 6,
+     "dz": 3.312e-18,
+     "error": 0.03692833334207535,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -1.0454527444892252e-17,
+     "chi2": 8.012433028170562e-08,
+     "cumulative": 7,
+     "dz": -4.469e-18,
+     "error": 0.0220451969653368,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -1.8068879302257948e-17,
+     "chi2": 8.165604015175632e-08,
+     "cumulative": 8,
+     "dz": -7.614e-18,
+     "error": 0.014009155333042145,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -2.0742739970591122e-17,
+     "chi2": 8.262760076149789e-08,
+     "cumulative": 9,
+     "dz": -2.674e-18,
+     "error": 0.009208294562995434,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00316",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.316,
+   "time_ms": 316,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 2.303929616531697e-21,
+     "chi2": 2.6449759715774235e-08,
+     "cumulative": 1,
+     "dz": 2.075e-17,
+     "error": 17.160375595092773,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": 9.399869781606976e-18,
+     "chi2": 3.754865218752457e-08,
+     "cumulative": 2,
+     "dz": 9.398e-18,
+     "error": 0.519173800945282,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": -8.69692799129027e-19,
+     "chi2": 4.695963085055155e-08,
+     "cumulative": 3,
+     "dz": -1.027e-17,
+     "error": 0.2229762226343155,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": -5.967448757360216e-18,
+     "chi2": 5.4194654097727835e-08,
+     "cumulative": 4,
+     "dz": -5.098e-18,
+     "error": 0.11600696295499802,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -6.453171330633723e-18,
+     "chi2": 5.927761392854336e-08,
+     "cumulative": 5,
+     "dz": -4.857e-19,
+     "error": 0.06304518133401871,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -1.4025889401059503e-17,
+     "chi2": 6.282354547693103e-08,
+     "cumulative": 6,
+     "dz": -7.573e-18,
+     "error": 0.03591756522655487,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -7.452372158675483e-18,
+     "chi2": 6.50595666229492e-08,
+     "cumulative": 7,
+     "dz": 6.574e-18,
+     "error": 0.021723611280322075,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -2.82651506366971e-18,
+     "chi2": 6.644231831387515e-08,
+     "cumulative": 8,
+     "dz": 4.626e-18,
+     "error": 0.013758225366473198,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -1.1393663578457432e-17,
+     "chi2": 6.729487012080426e-08,
+     "cumulative": 9,
+     "dz": -8.567e-18,
+     "error": 0.008676480501890182,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00317",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.317,
+   "time_ms": 317,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -4.303279684818344e-18,
+     "chi2": 2.1074695766287732e-08,
+     "cumulative": 1,
+     "dz": 7.09e-18,
+     "error": 17.007362365722656,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": -7.207179943247003e-18,
+     "chi2": 2.984048208531931e-08,
+     "cumulative": 2,
+     "dz": -2.904e-18,
+     "error": 0.5016721487045288,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": -6.504020306644174e-18,
+     "chi2": 3.795789993432663e-08,
+     "cumulative": 3,
+     "dz": 7.032e-19,
+     "error": 0.21890763938426971,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": -1.8809010338821654e-17,
+     "chi2": 4.435415945636123e-08,
+     "cumulative": 4,
+     "dz": -1.23e-17,
+     "error": 0.11464737355709076,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -1.8577804225539118e-17,
+     "chi2": 4.895094463108762e-08,
+     "cumulative": 5,
+     "dz": 2.312e-19,
+     "error": 0.06152520701289177,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -2.476263551848268e-17,
+     "chi2": 5.210991815829402e-08,
+     "cumulative": 6,
+     "dz": -6.185e-18,
+     "error": 0.03516830876469612,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -2.7292947395662297e-17,
+     "chi2": 5.42050671015204e-08,
+     "cumulative": 7,
+     "dz": -2.53e-18,
+     "error": 0.022155581042170525,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -2.873168367855056e-17,
+     "chi2": 5.5443777569053054e-08,
+     "cumulative": 8,
+     "dz": -1.439e-18,
+     "error": 0.013624127022922039,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -2.462852055677917e-17,
+     "chi2": 5.618964138420779e-08,
+     "cumulative": 9,
+     "dz": 4.103e-18,
+     "error": 0.008524084463715553,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00318",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.318,
+   "time_ms": 318,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 2.1567492047040143e-19,
+     "chi2": 1.5339523429247492e-08,
+     "cumulative": 1,
+     "dz": 2.484e-17,
+     "error": 16.424274444580078,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": -2.988386500961355e-18,
+     "chi2": 2.2408499944504e-08,
+     "cumulative": 2,
+     "dz": -3.204e-18,
+     "error": 0.46542784571647644,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": -6.739996803606526e-18,
+     "chi2": 2.933818521455578e-08,
+     "cumulative": 3,
+     "dz": -3.752e-18,
+     "error": 0.2090977132320404,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": -1.4053591613599456e-17,
+     "chi2": 3.4883964161736e-08,
+     "cumulative": 4,
+     "dz": -7.314e-18,
+     "error": 0.10963354259729385,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -1.3877787807814457e-17,
+     "chi2": 3.899796396922284e-08,
+     "cumulative": 5,
+     "dz": 1.758e-19,
+     "error": 0.0578477680683136,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -2.2357117005422037e-17,
+     "chi2": 4.169958245370253e-08,
+     "cumulative": 6,
+     "dz": -8.479e-18,
+     "error": 0.03385816514492035,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -1.0833890208561403e-17,
+     "chi2": 4.3526874549115746e-08,
+     "cumulative": 7,
+     "dz": 1.152e-17,
+     "error": 0.02091699279844761,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -1.4248584421408908e-18,
+     "chi2": 4.469488246172659e-08,
+     "cumulative": 8,
+     "dz": 9.409e-18,
+     "error": 0.013828915543854237,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -4.6295433592311654e-20,
+     "chi2": 4.5415934124548585e-08,
+     "cumulative": 9,
+     "dz": 1.379e-18,
+     "error": 0.008958003483712673,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00319",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.319,
+   "time_ms": 319,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -3.0411328307736565e-18,
+     "chi2": 1.1117807119376266e-08,
+     "cumulative": 1,
+     "dz": -2.995e-18,
+     "error": 15.588106155395508,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": -6.74807432154978e-18,
+     "chi2": 1.6435610206144702e-08,
+     "cumulative": 2,
+     "dz": -3.707e-18,
+     "error": 0.4178028106689453,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": -1.7333357183718493e-17,
+     "chi2": 2.2106450003889222e-08,
+     "cumulative": 3,
+     "dz": -1.059e-17,
+     "error": 0.19370700418949127,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": -1.115774160924106e-17,
+     "chi2": 2.675558619102958e-08,
+     "cumulative": 4,
+     "dz": 6.176e-18,
+     "error": 0.10226211696863174,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -1.0833944206911791e-17,
+     "chi2": 3.0134838624462645e-08,
+     "cumulative": 5,
+     "dz": 3.238e-19,
+     "error": 0.05550925061106682,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -1.6808386280042775e-17,
+     "chi2": 3.250798741305516e-08,
+     "cumulative": 6,
+     "dz": -5.974e-18,
+     "error": 0.03132256865501404,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -1.4125202955333885e-17,
+     "chi2": 3.397445169639468e-08,
+     "cumulative": 7,
+     "dz": 2.683e-18,
+     "error": 0.01879763789474964,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -2.814653849551071e-17,
+     "chi2": 3.4917633229269995e-08,
+     "cumulative": 8,
+     "dz": -1.402e-17,
+     "error": 0.01235762145370245,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -2.7302271110829198e-17,
+     "chi2": 3.5502448980651025e-08,
+     "cumulative": 9,
+     "dz": 8.443e-19,
+     "error": 0.008022918365895748,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00320",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.32,
+   "time_ms": 320,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 4.34835533719987e-18,
+     "chi2": 4.790455587766473e-09,
+     "cumulative": 1,
+     "dz": 3.165e-17,
+     "error": 19.082674026489258,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": 1.4340200299077321e-18,
+     "chi2": 5.404535929898202e-09,
+     "cumulative": 2,
+     "dz": -2.914e-18,
+     "error": 0.5462406277656555,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": 1.038291610315782e-17,
+     "chi2": 8.204664503352888e-09,
+     "cumulative": 3,
+     "dz": 8.949e-18,
+     "error": 0.23603348433971405,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": 1.773234358319316e-17,
+     "chi2": 1.0883060674871103e-08,
+     "cumulative": 4,
+     "dz": 7.349e-18,
+     "error": 0.12058886140584946,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": 2.3486963665852708e-17,
+     "chi2": 1.2980152952479784e-08,
+     "cumulative": 5,
+     "dz": 5.755e-18,
+     "error": 0.06376022845506668,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": 3.830963154940591e-17,
+     "chi2": 1.4488413135893552e-08,
+     "cumulative": 6,
+     "dz": 1.482e-17,
+     "error": 0.036406368017196655,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": 3.991311574053514e-17,
+     "chi2": 1.549022421443169e-08,
+     "cumulative": 7,
+     "dz": 1.603e-18,
+     "error": 0.023789504542946815,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": 3.9874355512868784e-17,
+     "chi2": 1.608682609344214e-08,
+     "cumulative": 8,
+     "dz": -3.876e-20,
+     "error": 0.014624877832829952,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": 3.760240986042541e-17,
+     "chi2": 1.6450242057430842e-08,
+     "cumulative": 9,
+     "dz": -2.272e-18,
+     "error": 0.009404802694916725,
+     "inner": 1,
+     "outer": 9
+    }
+   ],
+   "mfile": "m039915.00323",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.323,
+   "time_ms": 323,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": -2.0955460119195423e-18,
+     "chi2": 2.297567025522085e-09,
+     "cumulative": 1,
+     "dz": -3.97e-17,
+     "error": 24.12008285522461,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": 1.8873791948023253e-18,
+     "chi2": 1.903491364529941e-09,
+     "cumulative": 2,
+     "dz": 3.983e-18,
+     "error": 0.7291573286056519,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": 5.509481865581458e-18,
+     "chi2": 3.863279474103365e-09,
+     "cumulative": 3,
+     "dz": 3.622e-18,
+     "error": 0.28260165452957153,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": 7.577271931308456e-18,
+     "chi2": 5.868432850775207e-09,
+     "cumulative": 4,
+     "dz": 2.068e-18,
+     "error": 0.1372232437133789,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": 1.4314938335518848e-17,
+     "chi2": 7.480747576948943e-09,
+     "cumulative": 5,
+     "dz": 6.738e-18,
+     "error": 0.07202306389808655,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": 1.3739009929736312e-17,
+     "chi2": 8.641875659520792e-09,
+     "cumulative": 6,
+     "dz": -5.759e-19,
+     "error": 0.043267540633678436,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": 2.6166569335150633e-17,
+     "chi2": 9.427458813604517e-09,
+     "cumulative": 7,
+     "dz": 1.243e-17,
+     "error": 0.029025081545114517,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": 3.002226331105221e-17,
+     "chi2": 9.887861196489212e-09,
+     "cumulative": 8,
+     "dz": 3.856e-18,
+     "error": 0.01745438389480114,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": 3.746308988126102e-17,
+     "chi2": 1.0166956165846841e-08,
+     "cumulative": 9,
+     "dz": 7.441e-18,
+     "error": 0.010781181044876575,
+     "inner": 1,
+     "outer": 9
+    },
+    {
+     "axis_z": 4.3217763962270956e-17,
+     "chi2": 1.0328887078969728e-08,
+     "cumulative": 10,
+     "dz": 5.755e-18,
+     "error": 0.006504986900836229,
+     "inner": 1,
+     "outer": 10
+    }
+   ],
+   "mfile": "m039915.00325",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.325,
+   "time_ms": 325,
+   "warnings": []
+  },
+  {
+   "accepted": true,
+   "collapsed": false,
+   "exit_path": "iconvr=2",
+   "failures": [],
+   "iconvr": 2,
+   "iterations": [
+    {
+     "axis_z": 5.180860147396432e-19,
+     "chi2": 2.104570961947161e-09,
+     "cumulative": 1,
+     "dz": -4.27e-17,
+     "error": 27.379610061645508,
+     "inner": 1,
+     "outer": 1
+    },
+    {
+     "axis_z": 1.5681900487528132e-18,
+     "chi2": 1.161603702115599e-09,
+     "cumulative": 2,
+     "dz": 1.05e-18,
+     "error": 0.8388622999191284,
+     "inner": 1,
+     "outer": 2
+    },
+    {
+     "axis_z": 5.162537170386097e-18,
+     "chi2": 2.734178439212087e-09,
+     "cumulative": 3,
+     "dz": 3.594e-18,
+     "error": 0.30332833528518677,
+     "inner": 1,
+     "outer": 3
+    },
+    {
+     "axis_z": 4.9913417532297535e-18,
+     "chi2": 4.449870694145375e-09,
+     "cumulative": 4,
+     "dz": -1.712e-19,
+     "error": 0.1417042464017868,
+     "inner": 1,
+     "outer": 4
+    },
+    {
+     "axis_z": -4.230394352591684e-18,
+     "chi2": 5.823362236867524e-09,
+     "cumulative": 5,
+     "dz": -9.222e-18,
+     "error": 0.07544993609189987,
+     "inner": 1,
+     "outer": 5
+    },
+    {
+     "axis_z": -5.419276033072427e-18,
+     "chi2": 6.811035735410087e-09,
+     "cumulative": 6,
+     "dz": -1.189e-18,
+     "error": 0.046204257756471634,
+     "inner": 1,
+     "outer": 6
+    },
+    {
+     "axis_z": -9.503953190165586e-18,
+     "chi2": 7.460156936645035e-09,
+     "cumulative": 7,
+     "dz": -4.085e-18,
+     "error": 0.029695022851228714,
+     "inner": 1,
+     "outer": 7
+    },
+    {
+     "axis_z": -4.121703084800012e-18,
+     "chi2": 7.884405128777416e-09,
+     "cumulative": 8,
+     "dz": 5.382e-18,
+     "error": 0.019461551681160927,
+     "inner": 1,
+     "outer": 8
+    },
+    {
+     "axis_z": -5.865642279242946e-18,
+     "chi2": 8.153245190101188e-09,
+     "cumulative": 9,
+     "dz": -1.744e-18,
+     "error": 0.012891381978988647,
+     "inner": 1,
+     "outer": 9
+    },
+    {
+     "axis_z": 2.125632622206015e-18,
+     "chi2": 8.315921284918204e-09,
+     "cumulative": 10,
+     "dz": 7.991e-18,
+     "error": 0.008436406962573528,
+     "inner": 1,
+     "outer": 10
+    }
+   ],
+   "mfile": "m039915.00326",
+   "notes": [],
+   "solver_errors": [],
+   "sources": [
+    "log",
+    "mfile"
+   ],
+   "time": 0.326,
+   "time_ms": 326,
+   "warnings": []
+  },
+  {
+   "accepted": null,
+   "collapsed": null,
+   "exit_path": null,
+   "failures": [],
+   "iconvr": null,
+   "iterations": [],
+   "mfile": "m039915.00331",
+   "notes": [
+    "EFIT ran no Picard step on this slice: its m-file arrays ({'cerror': 1, 'cchisq': 1, 'czmaxi': 1}) hold a single zero and were not read as iterations"
+   ],
+   "solver_errors": [],
+   "sources": [],
+   "time": 0.331,
+   "time_ms": null,
+   "warnings": []
+  }
+ ]
+}

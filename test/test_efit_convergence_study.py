@@ -357,6 +357,14 @@ def test_every_setting_that_reaches_errmin_1e_4_lands_on_the_same_equilibrium(re
     assert max(r["iteration_error"]["lcfs_rms_mm"] for r in rows) < 0.1
 
 
+def test_a_silent_criterion_exit_counts_as_converged(module):
+    # #1038: an inner loop that drops the increment below ERROR on its first
+    # step leaves fit.F90 with no message; that is EFIT's criterion, not a cap.
+    record = {"geqdsk": object(), "collapsed": False, "exit_path": "no_exit_message"}
+    assert module.converged(record)
+    assert not module.converged({**record, "exit_path": "iterations_exhausted"})
+
+
 def test_the_routine_stop_is_not_converged(recorded):
     routine = _rows(recorded, inner=1, error_minimum=1e-2)
     assert all(r["converged"] for r in routine)

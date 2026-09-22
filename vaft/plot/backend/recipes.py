@@ -10027,11 +10027,14 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
+        # With NXITER > 1 the cumulative count cannot always say (#1038).
+        undecided = sum(1 for block in blocks if block["iterations"]["hit_cap"] is None)
         panels.append(
             LineSeries(
                 series=tuple(series),
-                x_label="time", x_unit="s", y_label="iterations",
-                title=f"Iterations against cap — {hit} slice(s) hit it",
+                x_label="time", x_unit="s", y_label="iterations (cumulative)",
+                title=f"Iterations against cap — {hit} slice(s) hit it"
+                + (f", {undecided} undetermined" if undecided else ""),
             )
         )
 

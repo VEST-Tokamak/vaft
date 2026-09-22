@@ -345,12 +345,20 @@ def compare(record: Mapping[str, Any], reference: Mapping[str, Any]) -> dict[str
 # --------------------------------------------------------------------------
 
 
+#: The exits that are EFIT stopping on its own criterion: the chi-square exit
+#: it announces, and the silent one an inner loop's first step takes when the
+#: increment falls below ERROR (``go to 2020`` in fit.F90). Before #1038 the
+#: parser reported the second as ``iterations_exhausted``, so NXITER > 1 runs,
+#: where it is common, lost slices here that had in fact stopped.
+CRITERION_EXITS = ("iconvr=2", "no_exit_message")
+
+
 def converged(record: Mapping[str, Any]) -> bool:
     """Stopped on its own criterion and left an equilibrium to measure."""
     return (
         record.get("geqdsk") is not None
         and not record.get("collapsed")
-        and record.get("exit_path") == "iconvr=2"
+        and record.get("exit_path") in CRITERION_EXITS
     )
 
 
@@ -735,8 +743,9 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
             "case": dict(case),
             "time_ms": time_ms,
             # The library parser's classification, so this study and #171's
-            # count the same thing: `iconvr=2`, `iterations_exhausted` or
-            # `solver_error`; None means the log never mentions the slice.
+            # count the same thing: `iconvr=2`, `iterations_exhausted`,
+            # `no_exit_message` or `solver_error`; None means the log never
+            # mentions the slice.
             "exit_path": entry.get("exit_path"),
             "iterations_n": entry.get("iterations_n"),
             "collapsed": bool(entry.get("collapsed")),
