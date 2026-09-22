@@ -216,3 +216,46 @@ def test_a_checkpoint_is_reused_only_for_the_same_plan_and_start(module, tmp_pat
     assert module.load_checkpoint(path, plan, "xyz") is None
     assert module.load_checkpoint(path, module.rungs()[:3], None) is None
     assert module.load_checkpoint(tmp_path / "missing.json", plan, None) is None
+
+
+# --------------------------------------------------------------------------
+# The recorded run (2026-09-21).  A re-run that reverses these is a finding.
+# --------------------------------------------------------------------------
+
+RECORDED = Path(__file__).resolve().parent / "data" / "efit_sigma_calibration.json"
+
+
+@pytest.fixture(scope="module")
+def recorded():
+    import json
+
+    return json.loads(RECORDED.read_text(encoding="utf-8"))
+
+
+def test_every_recorded_run_cold_started_from_the_same_state(recorded):
+    fingerprints = {r["initialization"]["sha256"] for r in recorded["records"]}
+    assert fingerprints == {recorded["initialization_fingerprint"]}
+    assert len(recorded["records"]) == 1188
+    assert recorded["toolchain"]["efit"]["sha256"].startswith("4a4e645e")
+
+
+def test_no_rung_is_in_the_operating_range_and_the_current_sigma_converges_nowhere(recorded):
+    rows = {r["rung"]: r for r in recorded["summary"]}
+    assert recorded["operating_range"]["range"] == []
+    assert rows["p1f1_probe_x1_loop_x1_floor0pct"]["converged_tight"] == 0
+    # The best rungs lose only 41672 @ 342, to findax after the iconvr=2 exit.
+    best = max(r["converged_tight"] for r in rows.values())
+    assert best == 8
+    lost = {
+        (x["shot"], x["time_ms"]) for x in recorded["records"]
+        if x["rung"] == "p1f1_probe_x16_loop_x16_floor2pct" and x["error_minimum"] == 1e-4 and not x["converged"]
+    }
+    assert lost == {(41672, 342)}
+
+
+def test_the_weighted_magnetics_fit_the_data_better_and_land_elsewhere(recorded):
+    rows = {r["rung"]: r for r in recorded["summary"]}
+    legacy = rows["p1f1_legacy_reference"]
+    weighted = rows["p1f1_probe_x16_loop_x16_floor2pct"]
+    assert weighted["probe_residual"] < 0.5 * legacy["probe_residual"]
+    assert weighted["median_lcfs_to_reference_mm"] > 50.0
