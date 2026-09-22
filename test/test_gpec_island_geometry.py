@@ -396,7 +396,14 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     assert _branch_extrema(_separation(plain)[:-1]) == _branch_extrema(
         _separation(moved)[:-1]
     )
-    assert _separation(moved).max() == pytest.approx(_separation(plain).max(), rel=1e-6)
+    # 47 degrees is not a whole number of theta samples, so the widest sampled
+    # separation is the true one only to within half a sample: the helical
+    # phase is then off by at most m*dtheta/2, and 1 - cos of that bounds
+    # the relative loss of a cos(phase/2) half-width with room to spare.
+    m_pol = int(_gpec_resonant_table(ods)["rows"][0]["m_pol"])
+    dtheta = 2.0 * np.pi / (ods[f"{MESH}.grid.dim2"].size - 1)
+    sampling = 1.0 - np.cos(m_pol * dtheta / 2.0)
+    assert _separation(moved).max() == pytest.approx(_separation(plain).max(), rel=sampling)
     displaced = np.linalg.norm(_o_point(plain) - _o_point(moved))
     assert displaced > 0.05 * _surface_extent(plain)
 

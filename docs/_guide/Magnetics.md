@@ -448,6 +448,7 @@ fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
 `candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
 
+<!-- docs-snippet: skip needs-data (the packaged samples carry one acquisition per toroidal position since #825; a toroidal mode fit needs two) -->
 ```python
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
     ods,

@@ -94,7 +94,9 @@ def test_the_sample_probes_and_coils_lose_their_dead_channels_by_default(sample)
 def test_a_scalar_family_does_not_repeat_its_own_waveform_as_a_constraint(sample):
     entries = normalize_entries(sample)
     model = build_model("diamagnetic_flux_time", entries, synthetic="both")
-    assert [trace.role for trace in model.series] == [""]
+    # the measured waveform once, and the reconstruction the sample's EFIT
+    # carries since #986 -- but never the constraint's copy of the waveform
+    assert [trace.role for trace in model.series] == ["", "reconstruction"]
     model = build_model("plasma_current_time", entries, synthetic="both")
     assert "constraint" not in {trace.role for trace in model.series}
 

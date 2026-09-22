@@ -78,7 +78,8 @@ def _verified_copy(source: Path, destination: Path, expected_sha256: str) -> Non
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
     shutil.copy2(source, temporary)
-    with temporary.open("rb") as handle:
+    # Windows refuses fsync on a read-only descriptor (EBADF); r+b is portable
+    with temporary.open("r+b") as handle:
         os.fsync(handle.fileno())
     copied = sha256_file(temporary)
     if copied != expected_sha256:
