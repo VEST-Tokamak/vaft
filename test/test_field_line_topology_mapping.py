@@ -362,13 +362,37 @@ def test_a_line_starting_outside_the_boundary_is_neither_open_nor_closed(tmp_pat
     )
     entry = ods["plasma_initiation.b_field_lines.0"]
     lengths = np.asarray(entry["lengths"])
-    # The r = 1.0 column is outside the box; only its first line has code 1.
-    assert np.isnan(lengths[0]) and np.count_nonzero(np.isnan(lengths)) == 1
-    # Five lines are counted, four of which reached the wall.
-    assert entry["open_fraction"] == pytest.approx(4.0 / 5.0)
+    # The whole r = 1.0 column is outside the box -- both of its lines.
+    assert np.isnan(lengths[0]) and np.isnan(lengths[3])
+    assert np.count_nonzero(np.isnan(lengths)) == 2
+    # Four lines are counted, three of which reached the wall.
+    assert entry["open_fraction"] == pytest.approx(3.0 / 4.0)
     parameters = ods["plasma_initiation.code.parameters"]
-    assert "1 of 6 lines started outside the boundary" in parameters
+    assert "2 of 6 lines started outside the boundary" in parameters
     assert "numerator and denominator alike" in parameters
+
+
+def test_the_test_is_on_the_start_alone_not_on_the_status_code(tmp_path):
+    """A line seeded just outside the wall strikes it at once and reports a
+    clean intersection, so keying on the status would leave exactly those in
+    the numerator -- counted open for hitting a wall they started on the
+    wrong side of.  Nothing in this product carries a domain exit, and two
+    lines are still excluded."""
+    product = flare_connection(tmp_path)
+    assert not (product.column("ierr_bwd") == FLARE_DOMAIN_ERROR).any()
+    assert not (product.column("ierr_fwd") == FLARE_DOMAIN_ERROR).any()
+
+    ods = ODS()
+    b_field_lines_from_flare_connection(ods, product, time=0.0, boundary=BOX)
+    entry = ods["plasma_initiation.b_field_lines.0"]
+    assert np.count_nonzero(np.isnan(np.asarray(entry["lengths"]))) == 2
+    assert entry["open_fraction"] == pytest.approx(3.0 / 4.0)
+    assert "whatever their status" in ods["plasma_initiation.code.parameters"]
+
+    # ... and without the boundary the same product counts all six.
+    bare = ODS()
+    b_field_lines_from_flare_connection(bare, product, time=0.0)
+    assert bare["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(4.0 / 6.0)
 
 
 def test_a_domain_exit_from_inside_the_boundary_is_refused(tmp_path):
@@ -386,9 +410,22 @@ def test_a_domain_exit_from_inside_the_boundary_is_refused(tmp_path):
         )
 
 
-def test_a_product_with_no_domain_exit_says_so_in_the_provenance(tmp_path):
+def test_a_product_with_no_boundary_and_no_domain_exit_says_so(tmp_path):
     ods = ODS()
     b_field_lines_from_flare_connection(ods, flare_connection(tmp_path), time=0.0)
+    parameters = ods["plasma_initiation.code.parameters"]
+    assert "no boundary was supplied" in parameters
+
+
+def test_a_plane_wholly_inside_the_boundary_excludes_nothing(tmp_path):
+    ods = ODS()
+    wide = np.array([[0.0, -9.0], [9.0, -9.0], [9.0, 9.0], [0.0, 9.0]])
+    b_field_lines_from_flare_connection(
+        ods, flare_connection(tmp_path), time=0.0, boundary=wide
+    )
+    entry = ods["plasma_initiation.b_field_lines.0"]
+    assert not np.isnan(np.asarray(entry["lengths"])).any()
+    assert entry["open_fraction"] == pytest.approx(4.0 / 6.0)
     assert "every line started inside the boundary" in ods["plasma_initiation.code.parameters"]
 
 
@@ -399,7 +436,7 @@ def test_the_boundary_can_come_from_the_ods_wall(tmp_path):
     b_field_lines_from_flare_connection(
         ods, domain_exit_product(tmp_path), time=0.0, boundary=WALL_BOUNDARY
     )
-    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(0.8)
+    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(0.75)
 
 
 def test_asking_for_a_wall_the_ods_does_not_have_is_refused(tmp_path):

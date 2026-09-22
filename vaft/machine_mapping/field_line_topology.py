@@ -419,19 +419,26 @@ def b_field_lines_from_flare_connection(
     plane. A swept mesh is refused: its lines start at different toroidal
     angles and ``starting_positions`` has nowhere to say so.
 
-    ``boundary`` is what a domain exit (:data:`FLARE_DOMAIN_ERROR`) is
-    classified against -- see :data:`WALL_BOUNDARY`. FLARE does not check
-    that a starting point lies inside the wall, and a generator that seeds a
-    rectangular grid over the poloidal plane therefore launches lines from
-    outside it; those run until they leave the perturbation mesh, and the
-    status they carry says so. Such a line is **neither open nor closed**:
-    it is written with a ``NaN`` length and left out of ``open_fraction``
-    altogether, numerator and denominator both, with the count recorded in
-    the provenance (owner decision, 2026-09-22).
+    ``boundary`` is the wall a line's *starting point* is tested against --
+    see :data:`WALL_BOUNDARY`. FLARE does not check that a start point lies
+    inside it, and a generator that seeds a rectangular grid over the
+    poloidal plane puts about half of them outside; a line launched from
+    outside the vessel is **neither open nor closed**, whatever it went on
+    to do, so it is written with a ``NaN`` length and left out of
+    ``open_fraction`` altogether, numerator and denominator both, with the
+    count recorded in the provenance (owner decision, 2026-09-22).
+
+    **The test is on the start alone, not on the status code.** Most such
+    lines do carry :data:`FLARE_DOMAIN_ERROR`, because they run until they
+    leave the perturbation mesh -- but one seeded just outside the wall
+    strikes it immediately and reports a clean intersection instead. Keying
+    on the status would leave exactly those in the numerator, counted open
+    for having hit a wall they started on the wrong side of.
 
     A domain exit whose start lies *inside* the boundary is a different
     thing -- a line that should have been traceable and was not -- and is
-    refused.
+    refused. With no boundary supplied there is nothing to classify by, so a
+    domain exit is refused too.
 
     Raises
     ------
@@ -485,23 +492,16 @@ def b_field_lines_from_flare_connection(
 
     reached = ((backward == FLARE_INTERSECT_BOUNDARY)
                | (forward == FLARE_INTERSECT_BOUNDARY))
-    # A domain exit is a failed trace, not a verdict on the line.
+    # Where a line *starts* decides whether it belongs in the fraction at
+    # all; its status code decides only whether the run went wrong. FLARE
+    # does not check that a start point lies inside the wall, and a
+    # generator that seeds a rectangular grid over the poloidal plane puts
+    # about half of them outside it.
     left_domain = (backward == FLARE_DOMAIN_ERROR) | (forward == FLARE_DOMAIN_ERROR)
     starting_r, starting_z = mesh.r.ravel(), mesh.z.ravel()
     excluded = np.zeros(left_domain.shape, dtype=bool)
-    if left_domain.any():
-        contour = _resolve_boundary(ods, boundary)
-        if contour is None:
-            raise ValueError(
-                f"{product.source.name}: "
-                f"{int(np.count_nonzero(left_domain))} of {left_domain.size} "
-                f"lines left the field's domain (status {FLARE_DOMAIN_ERROR}, "
-                f"{FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR]}). Whether each of "
-                "them started inside the wall is what decides its meaning, "
-                "and no boundary was supplied to tell. Pass boundary= a "
-                f"contour or {WALL_BOUNDARY!r}, or call write_b_field_lines "
-                "directly with an explicit open_fraction."
-            )
+    contour = _resolve_boundary(ods, boundary)
+    if contour is not None:
         from matplotlib.path import Path as _Polygon
 
         inside = _Polygon(contour).contains_points(
@@ -517,8 +517,19 @@ def b_field_lines_from_flare_connection(
                 "is refused rather than written off with the ones that "
                 "started outside."
             )
-        excluded = left_domain & ~inside
+        excluded = ~inside
         total = np.where(excluded, np.nan, total)
+    elif left_domain.any():
+        raise ValueError(
+            f"{product.source.name}: "
+            f"{int(np.count_nonzero(left_domain))} of {left_domain.size} "
+            f"lines left the field's domain (status {FLARE_DOMAIN_ERROR}, "
+            f"{FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR]}). Whether each of "
+            "them started inside the wall is what decides its meaning, and "
+            "no boundary was supplied to tell. Pass boundary= a contour or "
+            f"{WALL_BOUNDARY!r}, or call write_b_field_lines directly with "
+            "an explicit open_fraction."
+        )
 
     counted = ~excluded
     if not counted.any():
@@ -549,11 +560,13 @@ def b_field_lines_from_flare_connection(
                 "inside the boundary",
             "lines_excluded": (
                 f"{int(np.count_nonzero(excluded))} of {excluded.size} lines "
-                "started outside the boundary and left the field's domain; "
+                "started outside the boundary, whatever their status; "
                 "neither open nor closed, they carry a NaN length and are "
                 "out of open_fraction's numerator and denominator alike"
                 if excluded.any() else
                 "none -- every line started inside the boundary"
+                if contour is not None else
+                "no boundary was supplied, and no line left the field's domain"
             ),
         },
         code_name=code_name, code_repository=code_repository,
