@@ -93,6 +93,10 @@ __all__ = [
     "parse_result_scalars",
     "parse_result_coils",
     "scan_tes",
+    "pentrc",
+    "PentrcFormatError",
+    "PentrcOutput",
+    "read_pentrc_output",
     "tokamaker",
     "transp",
     "TRANSPResult",
@@ -245,6 +249,9 @@ _EXPORT_MAP = {
     "parse_result_scalars": (".tes", "parse_result_scalars"),
     "parse_result_coils": (".tes", "parse_result_coils"),
     "scan_tes": (".tes", "scan_tes"),
+    "PentrcFormatError": (".pentrc", "PentrcFormatError"),
+    "PentrcOutput": (".pentrc", "PentrcOutput"),
+    "read_pentrc_output": (".pentrc", "read_pentrc_output"),
     "TRANSPResult": (".transp", "TRANSPResult"),
     "TranspFormatError": (".transp", "TranspFormatError"),
     "TranspOutput": (".transp", "TranspOutput"),
@@ -328,6 +335,7 @@ def __getattr__(name: str):
         "tes",
         "tokamaker",
         "transp",
+        "pentrc",
         "nice",
     }:
         module = import_module(f".{name}", __name__)
