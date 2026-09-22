@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import h5py
 import numpy as np
 import pytest
-
-h5py = pytest.importorskip("h5py")
 
 from vaft.cli import sxr_pack
 from vaft.database import digitizer_hdf5 as dh
