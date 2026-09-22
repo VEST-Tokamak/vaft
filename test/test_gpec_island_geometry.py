@@ -396,7 +396,21 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     assert _branch_extrema(_separation(plain)[:-1]) == _branch_extrema(
         _separation(moved)[:-1]
     )
-    assert _separation(moved).max() == pytest.approx(_separation(plain).max(), rel=1e-6)
+    # The widest *drawn* separation is the excursion at the sample nearest the
+    # O-point. Moving phi moves the O-point off the samples by up to half a
+    # step, i.e. xi by m*dtheta/2, and the excursion is (w/2)|cos(xi/2)|, so
+    # the sampled maximum may drop by up to 1 - cos(m*dtheta/4). The fixture's
+    # surfaces are circles of radius psi_N, so separation is exactly twice
+    # the excursion and nothing else enters. The island is ~1e-9 wide, far
+    # below pytest's default 1e-12 absolute floor, which is why the bound is
+    # relative and the floor is switched off.
+    table = _gpec_resonant_table(ods)
+    m_pol = int(table["rows"][0]["m_pol"])
+    dtheta = 2.0 * np.pi / (ods[f"{MESH}.grid.dim2"].size - 1)
+    sampling = 1.0 - np.cos(m_pol * dtheta / 4.0)
+    assert _separation(moved).max() == pytest.approx(
+        _separation(plain).max(), rel=sampling, abs=0.0
+    )
     displaced = np.linalg.norm(_o_point(plain) - _o_point(moved))
     assert displaced > 0.05 * _surface_extent(plain)
 
@@ -414,5 +428,37 @@ def test_the_slice_is_periodic_in_one_full_turn_of_the_pattern(mapped):
         ods, phi_deg=360.0 / table["n_tor"]
     )
 
-    np.testing.assert_allclose(plain.layers[2].r, turned.layers[2].r, atol=1e-9)
-    np.testing.assert_allclose(plain.layers[2].z, turned.layers[2].z, atol=1e-9)
+    # A full turn changes the phase only by rounding, so the same samples are
+    # drawn in the same order. The flake this used to show on CI was the
+    # start X-point flipping between two bit-identical candidates. Positions agree to rounding; the
+    # separation, which is the island itself at ~1e-9, agrees to a millionth of
+    # the island's width -- an absolute 1e-9 on positions would have passed
+    # with no island drawn at all.
+    before, after = plain.layers[2], turned.layers[2]
+    np.testing.assert_allclose(after.r, before.r, rtol=0.0, atol=1e-12)
+    np.testing.assert_allclose(after.z, before.z, rtol=0.0, atol=1e-12)
+    width = float(table["rows"][0]["w_isl"])
+    np.testing.assert_allclose(
+        _separation(turned.layers[2]), _separation(plain.layers[2]), rtol=0.0, atol=1e-6 * width
+    )
+
+
+def test_the_circuit_starts_at_the_same_x_point_whatever_rounding_favours():
+    """Two X-points whose nearest samples tie to the last bit: flipping the tie
+    by one ulp either way must not move the start (the CI flake)."""
+    from vaft.plot.backend.recipes import _island_circuit_start
+
+    theta = np.linspace(0.0, 2.0 * np.pi, 129)
+    half = 2.4e-9
+    excursion = half * np.abs(np.cos(theta + 0.3146898))  # m = 2: two X-points
+    first, second = np.argsort(excursion)[:2]
+    assert abs(int(first) - int(second)) > 10  # two distinct X-points, not neighbours
+    low, high = sorted((int(first), int(second)))
+    for nudge in (-1, 1):
+        tilted = excursion.copy()
+        tilted[high] = np.nextafter(tilted[low], nudge * np.inf)
+        assert _island_circuit_start(tilted, half) == low
+    # A genuinely deeper sample still wins.
+    deeper = excursion.copy()
+    deeper[high] = 0.5 * excursion[low]
+    assert _island_circuit_start(deeper, half) == high
