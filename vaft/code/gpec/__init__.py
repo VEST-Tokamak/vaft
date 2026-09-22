@@ -72,6 +72,7 @@ from ._gpec_output import (
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._solvers import (
+    DCON_PRODUCTS_FOR_GPEC,
     SOLVERS,
     Solver,
     SolverContext,
@@ -79,6 +80,7 @@ from ._solvers import (
     free_boundary_stable,
     missing_companion_outputs,
     required_outputs,
+    stage_dcon_products,
 )
 from ._types import (
     DEFAULT_MODES,
@@ -330,6 +332,11 @@ def _run_module(
             if policy == "strict":
                 raise RuntimeError(reason)
             return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
+        # Ideal GPEC reads its DCON products out of its own directory, because
+        # that is also where it writes the vacuum handshake files it reads back
+        # from `dcon_dir`. Staged here rather than at prepare time for the
+        # obvious reason: DCON has only just produced them.
+        stage_dcon_products(dcon_dir, run_dir)
 
     # Resuming a pipeline should not re-run a completed numerical solve just
     # because another time slice in the same code/mode cell failed.  A full
@@ -569,6 +576,7 @@ def run_gpec_suite_case(
 
 
 __all__ = [
+    "DCON_PRODUCTS_FOR_GPEC",
     "DCONOptions",
     "RDCONOptions",
     "STRIDEOptions",
@@ -596,6 +604,7 @@ __all__ = [
     "read_coil_in",
     "resolve_coil_inputs",
     "run_gpec_suite_case",
+    "stage_dcon_products",
     "validate_dcon_result",
     "DconCoordinates",
     "DconEdgeScan",
