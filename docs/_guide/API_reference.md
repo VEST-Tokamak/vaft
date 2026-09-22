@@ -650,6 +650,44 @@ environment variable of the same name. The OMAS-derived Access Layer bridge unde
 Layer entry that is not a VEST shot. See
 [Data structures]({{ site.baseurl }}/guide/Data_structures/) for worked examples.
 
+## `DD`, `DDView`, `DDCollection` (in development, #1127)
+
+`vaft.imas.DD` is one logical IMAS Data Entry holding every stored occurrence of every IDS;
+`DDView` selects at most one occurrence per IDS, and `DDCollection` is a keyed, lazy set of DDs.
+The names follow FUSE's IMASdd.jl, where the root object is a `dd`. Mind the collision: the
+**class** `DD` is a Data Entry aggregate, while `dd_version`, a "DD path" and the `dd_*` plotting
+functions keep meaning the IMAS **Data Dictionary**, which remains the schema.
+
+- An occurrence's semantic name is its own `ids_properties.name`. A Data Entry copied anywhere
+  keeps its meaning; no VAFT registry is needed to read it.
+- Unnamed occurrences are valid: they are listed by number and never given an invented name.
+- `dd.equilibrium` resolves the *default* instance, which exists only as policy (`defaults=` or an
+  optional `InstanceCatalog`), never because occurrence 0 happens to exist. A missing default is
+  an error, not a substitution.
+- A view may sit at a different occurrence for each IDS, is immutable, and shares the DD's loaded
+  objects. Selection is permissive; `view.validate()` reports lineage mismatches read from
+  `ids_properties.provenance`.
+
+```python
+store = vaft.imas.MemoryStore("3.41.0")
+for occurrence, name in [(0, "magnetic-efit"), (4, "kinetic-efit"), (5, "")]:
+    equilibrium = store.factory.equilibrium()
+    equilibrium.ids_properties.homogeneous_time = 2
+    equilibrium.ids_properties.name = name
+    store.put(equilibrium, occurrence)
+
+dd = vaft.imas.DD(store, defaults={"equilibrium": "magnetic-efit"})
+print([(info.occurrence, info.name) for info in dd.instances("equilibrium")])
+kinetic = dd.view(equilibrium="kinetic-efit")
+unnamed = dd.view(equilibrium=5)  # an explicit occurrence reaches an unnamed one
+assert kinetic.equilibrium is dd.get("equilibrium", "kinetic-efit")
+dd.close()
+```
+
+`vaft.imas.DD.open(path)` opens a local IMAS HDF5 or netCDF entry directly, including one that VAFT
+did not write. Loading shots through `vaft.database` as a DD, ODS projection (`view.to_ods()`), and
+DD-aware plotting are follow-up work on the `develop-dd` integration branch (#1135, #1131, #1181).
+
 # Notebooks and workflows
 
 Each subpackage has at least one notebook that exercises it end to end:

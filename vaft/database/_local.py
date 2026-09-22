@@ -13,7 +13,7 @@ import gzip
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 import warnings
 
 import h5py
@@ -66,15 +66,34 @@ def _decode(value: Any) -> str | None:
     return str(value)
 
 
+def _read_native(path: Path | str) -> h5py.File:
+    """Open a native IMAS HDF5/netCDF file for metadata reads, without locking.
+
+    imas_core's HDF5 backend keeps an entry's files open after DBEntry.close()
+    returns, and with HDF5 file locking a second read-only open of the same
+    entry in this process -- a second handle, a DD re-opened on it -- fails
+    with EAGAIN. These reads only inspect keys and attributes.
+    """
+    return h5py.File(path, "r", locking=False)
+
+
 def _imas_version_hdf5(path: Path) -> str | None:
     try:
-        with h5py.File(path, "r") as handle:
+        with _read_native(path) as handle:
             version = _decode(handle.attrs.get("data_dictionary_version"))
             if version:
                 return version
             roots = [handle.get("dataset_description"), handle]
+            # An entry written without dataset_description -- any third-party
+            # one, or a sparse occurrence set -- still stamps every IDS it
+            # holds, so the first stored IDS is the fallback witness.
+            roots.extend(
+                handle.get(key)
+                for key in sorted(handle.keys())
+                if key != "dataset_description"
+            )
             for root in roots:
-                if root is None:
+                if not isinstance(root, h5py.Group):
                     continue
                 for name in (
                     "imas_version",
@@ -113,7 +132,7 @@ def _omas_netcdf(path: Path) -> bool:
     root variable per flattened ODS path and no groups.
     """
     try:
-        with h5py.File(path, "r") as handle:
+        with _read_native(path) as handle:
             conventions = handle.attrs.get("Conventions")
             if isinstance(conventions, bytes):
                 conventions = conventions.decode()
@@ -127,7 +146,7 @@ def _omas_netcdf(path: Path) -> bool:
 
 def _native_image(path: Path) -> bool:
     try:
-        with h5py.File(path, "r") as handle:
+        with _read_native(path) as handle:
             if "h5image" in handle:
                 return False
             if any(
@@ -401,6 +420,42 @@ def _promote_code_parameters(ods) -> None:
     promote_in_place(ods)
 
 
+#: What imas-python raises when the Access Layer core cannot list occurrences
+#: (older than 5.1): a RuntimeError naming list_all_occurrences.
+_NO_OCCURRENCE_LISTING = (AttributeError, NotImplementedError, RuntimeError)
+
+
+def _require_listing_absent(exc: BaseException) -> None:
+    """Re-raise ``exc`` unless it says occurrence listing is unavailable.
+
+    RuntimeError is too broad to swallow whole: a DD-version mismatch raises
+    it too, and that must not turn into a silently wrong layout.
+    """
+    if isinstance(exc, RuntimeError) and "list_all_occurrences" not in str(exc):
+        raise exc
+
+
+def _occurrence_layout(
+    keys: Iterable[str], is_ids: Callable[[str], bool]
+) -> dict[str, tuple[int, ...]]:
+    """Group an entry's top-level keys into ``{ids: occurrences}``.
+
+    Native IMAS HDF5 names occurrence ``n > 0`` of an IDS ``<ids>_<n>`` in
+    ``master.h5`` (occurrence 0 is plain ``<ids>``), so the raw key list is not
+    an IDS list: ``equilibrium_4`` is equilibrium, occurrence 4 -- and may be
+    the only equilibrium there is, since a sparse occurrence set is valid.
+    ``is_ids`` (the Data Dictionary's name check) is what decides a split, so a
+    key is never cut at an underscore that is part of its own name.
+    """
+    layout: dict[str, set[int]] = {}
+    for key in keys:
+        stem, _, suffix = key.rpartition("_")
+        if stem and suffix.isdigit() and not is_ids(key) and is_ids(stem):
+            layout.setdefault(stem, set()).add(int(suffix))
+        else:
+            layout.setdefault(key, set()).add(0)
+    return {name: tuple(sorted(values)) for name, values in layout.items()}
+
 class IMASHandle(AbstractContextManager["IMASHandle"]):
     """A native IMAS entry with ownership of any temporary conversion store."""
 
@@ -418,6 +473,7 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
         self._temporary: Path | None = None
         self._entry: Any = None
         self._ids: tuple[str, ...] = ()
+        self._layout: dict[str, tuple[int, ...]] = {}
         self.info = SourceInfo(
             self._descriptor.format,
             self._descriptor.paths,
@@ -428,6 +484,7 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
 
     @property
     def ids(self) -> tuple[str, ...]:
+        """IDS names present in the entry, once each whatever their occurrences."""
         return self._ids
 
     def open(self) -> "IMASHandle":
@@ -449,13 +506,19 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
             assert descriptor.entry_path is not None
             uri = "imas:hdf5?path=" + str(descriptor.entry_path)
             master = descriptor.entry_path / "master.h5"
-            with h5py.File(master, "r") as handle:
+            with _read_native(master) as handle:
                 ids_hint = tuple(sorted(handle.keys()))
         elif descriptor.format == "imas_netcdf":
             assert descriptor.entry_path is not None
             uri = str(descriptor.entry_path)
-            with h5py.File(uri, "r") as handle:
+            with _read_native(uri) as handle:
                 ids_hint = tuple(sorted(handle.keys()))
+                # IMAS netCDF nests occurrences as <ids>/<n> groups.
+                netcdf_layout = {
+                    name: tuple(sorted(int(k) for k in handle[name].keys() if k.isdigit()))
+                    for name in ids_hint
+                    if isinstance(handle[name], h5py.Group)
+                }
         else:
             ods, _ = load_ods(descriptor.paths, imas_version=self._version)
             ids_hint = tuple(sorted(ods.keys()))
@@ -476,14 +539,62 @@ class IMASHandle(AbstractContextManager["IMASHandle"]):
 
         self._entry = imas.DBEntry(uri, "r", dd_version=self._version)
         self._entry.__enter__()
-        self._ids = ids_hint
-        self.info = replace(self.info, available_ids=ids_hint)
+        if descriptor.format == "imas_netcdf":
+            self._layout = {k: v or (0,) for k, v in netcdf_layout.items()}
+        else:
+            self._layout = _occurrence_layout(
+                ids_hint, imas.IDSFactory(self._version).exists
+            )
+        self._ids = tuple(sorted(self._layout))
+        self.info = replace(self.info, available_ids=self._ids)
         return self
 
-    def get(self, ids_name: str, occurrence: int | None = None):
+    def get(self, ids_name: str, occurrence: int | None = None, *, lazy: bool = False):
+        """Read one IDS occurrence (occurrence 0 when none is given).
+
+        ``lazy=True`` returns imas-python's read-only lazy toplevel, which reads
+        on access and stops working once the handle is closed.
+        """
         self.open()
         assert self._entry is not None
-        return self._entry.get(ids_name, 0 if occurrence is None else int(occurrence))
+        return self._entry.get(
+            ids_name, 0 if occurrence is None else int(occurrence), lazy=lazy
+        )
+
+    def occurrences(self, ids_name: str) -> tuple[int, ...]:
+        """The sorted, non-empty occurrences of ``ids_name`` in this entry."""
+        self.open()
+        assert self._entry is not None
+        try:
+            found = self._entry.list_all_occurrences(ids_name)
+        except _NO_OCCURRENCE_LISTING as exc:
+            _require_listing_absent(exc)
+            # Access Layer cores older than 5.1 have no occurrence listing;
+            # the entry's own layout (master links / netCDF groups) does.
+            return self._layout.get(ids_name, ())
+        return tuple(sorted(int(value) for value in found))
+
+    def occurrence_names(self, ids_name: str) -> dict[int, str]:
+        """``ids_properties.name`` of every stored occurrence; ``""`` if unnamed.
+
+        Read with the entry's own DD version: listing a node through a handle
+        opened at another major version raises in imas-python.
+        """
+        self.open()
+        assert self._entry is not None
+        try:
+            found, values = self._entry.list_all_occurrences(
+                ids_name, "ids_properties/name"
+            )
+        except _NO_OCCURRENCE_LISTING as exc:
+            _require_listing_absent(exc)
+            return {
+                occurrence: str(
+                    self.get(ids_name, occurrence, lazy=True).ids_properties.name
+                )
+                for occurrence in self.occurrences(ids_name)
+            }
+        return {int(occ): str(value) for occ, value in zip(found, values)}
 
     def to_omas(self):
         self.open()
