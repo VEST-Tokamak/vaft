@@ -11465,6 +11465,11 @@ def _first_island_x_point(excursion: np.ndarray) -> int:
     and far below the gap to the next sample off an X-point (~1e-2 of the peak
     at any mesh that can draw a lobe).
     """
+    if not np.isfinite(excursion).all():
+        raise ValueError(
+            "the island separatrix excursion is not finite everywhere (a NaN "
+            "helical phase or width), so it has no X-point to start from"
+        )
     floor = float(np.min(excursion)) + 1e-9 * float(np.max(excursion))
     return int(np.flatnonzero(excursion <= floor)[0])
 
@@ -11566,7 +11571,10 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         start = _first_island_x_point(excursion)
         order = np.roll(np.arange(theta_rad.size), -start)
         order = np.append(order, order[0])
-        excursion = np.append(np.roll(excursion, -start), excursion.min())
+        rolled = np.roll(excursion, -start)
+        # Close on the starting sample itself, not on min(): the start is the
+        # first sample within the tie band, which need not be the exact minimum.
+        excursion = np.append(rolled, rolled[0])
         outer_r, outer_z = _surface_at(mesh, psi_r + excursion, columns=order)
         inner_r, inner_z = _surface_at(mesh, psi_r - excursion, columns=order)
         if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():

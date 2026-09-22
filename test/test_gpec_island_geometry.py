@@ -401,9 +401,11 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     # the nearest sample within m*dtheta/4 of the peak in the half-angle, so each
     # maximum lies in [(w/2)cos(m*dtheta/4), w/2]. That band -- not a fixed
     # relative 1e-6, which pytest.approx's default abs=1e-12 was silently
-    # overriding at this 1e-9 scale -- is how far they may differ. m = 3 is the
-    # largest in the fixture.
-    sampling = 1.0 - np.cos(3 * (2.0 * np.pi / (THETA_COUNT - 1)) / 4.0)
+    # overriding at this 1e-9 scale -- is how far they may differ. layers[2] is
+    # the m = 2 island (3.0e-4); measured drift over phi = 5..311 deg peaks at
+    # 1.8e-4, and 2.3e-4 was seen on a CI runner.
+    assert plain.label.startswith("m/n = 2/"), plain.label  # the m the bound uses
+    sampling = 1.0 - np.cos(2 * (2.0 * np.pi / (THETA_COUNT - 1)) / 4.0)
     assert _separation(moved).max() == pytest.approx(
         _separation(plain).max(), rel=sampling, abs=0.0
     )
@@ -444,3 +446,10 @@ def test_the_circuit_starts_at_the_same_x_point_whatever_the_rounding():
     distinct = tied.copy()
     distinct[74] = 5e-4  # a genuinely lower X-point still wins
     assert _first_island_x_point(distinct) == 74
+
+
+def test_a_non_finite_excursion_is_refused_by_name():
+    from vaft.plot.backend.recipes import _first_island_x_point
+
+    with pytest.raises(ValueError, match="not finite"):
+        _first_island_x_point(np.array([0.3, np.nan, 0.1]))
