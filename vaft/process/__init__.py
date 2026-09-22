@@ -39,6 +39,7 @@ _SUBMODULES = {
     "cocos": ".cocos",
     "electromagnetics": ".electromagnetics",
     "equilibrium": ".equilibrium",
+    "field_line_topology": ".field_line_topology",
     "fluctuation": ".fluctuation",
     "impa": ".impa",
     "langmuir": ".langmuir",
@@ -91,6 +92,8 @@ _IMPORT_ORDER = (
     "camera_fluctuation",
     "line_of_sight",
     "magnetic_island",
+    # The FLARE interoperability half of #1099; nothing it exports collides.
+    "field_line_topology",
     # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
     "ml",
     "transients",

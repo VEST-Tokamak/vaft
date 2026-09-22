@@ -204,6 +204,7 @@ from .renderers.fields import (
     equilibrium_field_2d,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    field_line_topology_field_connection_length,
     mhd_linear_field_spectrum,
     passive_structure_field_wall_reduction,
     vacuum_field,
