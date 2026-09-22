@@ -35,7 +35,6 @@ MIB = 1024**2
 @pytest.fixture
 def no_host(monkeypatch, tmp_path):
     """Keyword arguments that hide every host source from ``memory_budget``."""
-    monkeypatch.setattr(resources, "_rlimit_as_bytes", lambda: None)
     return {
         "cgroup_root": tmp_path / "no-cgroup",
         "proc_cgroup": tmp_path / "no-proc-cgroup",
@@ -130,17 +129,20 @@ def test_cgroup_v1_limit_ignores_the_unlimited_sentinel(no_host, tmp_path):
     assert (info.limit_mb, info.source) == (5120.0, "cgroup_v1")
 
 
-def test_rlimit_as_is_a_candidate(no_host, monkeypatch):
-    monkeypatch.setattr(resources, "_rlimit_as_bytes", lambda: 2.0 * GIB)
-    info = memory_budget({}, **no_host)
-    assert (info.limit_mb, info.source) == (2048.0, "rlimit_as")
+def test_rlimit_as_is_not_a_source(no_host, monkeypatch):
+    # Address space, not RSS: an RSS guard cannot see it coming.
+    assert "rlimit_as" not in memory_budget({}, **no_host).candidates
 
 
-def test_mem_available_is_read_from_meminfo(no_host, tmp_path):
+def test_mem_available_is_headroom_on_top_of_this_process(no_host, tmp_path, monkeypatch):
     meminfo = tmp_path / "meminfo"
     _write(meminfo, "MemTotal:       16384000 kB\nMemAvailable:    1048576 kB\n")
+    monkeypatch.setattr(resources, "rss_mb", lambda: 3072.0)
     info = memory_budget({}, **{**no_host, "meminfo": meminfo})
-    assert (info.limit_mb, info.source) == (1024.0, "mem_available")
+    # 3 GiB held + 1 GiB free: the process can grow to 4 GiB.
+    assert (info.limit_mb, info.source) == (4096.0, "mem_available")
+    with MemoryBudget(info, fraction=0.9) as guard:
+        assert guard.check("already big") == 3072.0   # below 0.9 x 4096: no stop
 
 
 def test_the_budget_is_the_minimum_of_every_source(no_host, tmp_path, monkeypatch):
@@ -148,7 +150,7 @@ def test_the_budget_is_the_minimum_of_every_source(no_host, tmp_path, monkeypatc
     proc = _fake_cgroup_v2(root, 6 * GIB)
     meminfo = tmp_path / "meminfo"
     _write(meminfo, "MemAvailable:   20971520 kB\n")  # 20 GiB
-    monkeypatch.setattr(resources, "_rlimit_as_bytes", lambda: 64.0 * GIB)
+    monkeypatch.setattr(resources, "rss_mb", lambda: 0.0)
     environ = {
         "SLURM_MEM_PER_NODE": "8000",
         "SLURM_MEM_PER_CPU": "1500", "SLURM_CPUS_ON_NODE": "4",  # 6000
@@ -159,7 +161,6 @@ def test_the_budget_is_the_minimum_of_every_source(no_host, tmp_path, monkeypatc
         "slurm_mem_per_node": 8000.0,
         "slurm_mem_per_cpu": 6000.0,
         "cgroup_v2": 6144.0,
-        "rlimit_as": 65536.0,
         "env": 7000.0,
         "mem_available": 20480.0,
     }
@@ -196,8 +197,8 @@ def test_rss_units_are_mebibytes():
     assert current is not None and peak is not None
     # A running CPython with pytest loaded is tens to hundreds of MiB. A KiB or
     # byte mix-up is off by 1024 either way and lands far outside this band.
-    assert 5.0 < current < 64 * 1024
-    assert 5.0 < peak < 64 * 1024
+    assert 5.0 < current < 16 * 1024
+    assert 5.0 < peak < 16 * 1024
     assert peak >= 0.9 * current
 
 
@@ -250,6 +251,7 @@ def test_the_sampler_catches_a_crossing_between_checks():
         deadline = time.monotonic() + 5.0
         while guard._tripped is None and time.monotonic() < deadline:
             time.sleep(0.01)
+        assert guard._tripped is not None, "the sampler never saw the crossing"
         del block  # the flag stands even after RSS falls back
         with pytest.raises(MemoryBudgetExceeded) as caught:
             guard.check("next slice")
@@ -359,3 +361,68 @@ def test_an_interval_peak_belongs_to_one_item(monkeypatch):
         small = guard.start_interval()             # ends at 130, opens at 125
     assert (big, small) == (500.0, 130.0)
     assert guard.peak_mb == 500.0
+
+
+def test_the_budget_stop_survives_pickling():
+    import copy
+    import pickle
+
+    error = MemoryBudgetExceeded(900.0, 810.0, 1000.0, label="t=0.3", source="cgroup_v2", peak_mb=950.0)
+    for again in (pickle.loads(pickle.dumps(error)), copy.copy(error)):
+        assert isinstance(again, MemoryBudgetExceeded)
+        assert (again.rss_mb, again.threshold_mb, again.limit_mb) == (900.0, 810.0, 1000.0)
+        assert (again.label, again.source, again.peak_mb) == ("t=0.3", "cgroup_v2", 950.0)
+        assert str(again) == str(error)
+
+
+def test_a_cgroup_limit_is_compared_with_the_whole_cgroups_usage(no_host, tmp_path, monkeypatch):
+    """A child process or sibling task in the job's cgroup counts against its limit."""
+    root = tmp_path / "cgroup"
+    proc = _fake_cgroup_v2(root, 4 * GIB)
+    job = root / "system.slice" / "slurmstepd.scope" / "job_7"
+    # 3.8 GiB anonymous + shmem in the job, 20 GiB of page cache that does not count.
+    _write(job / "memory.stat", f"anon {3 * GIB}\nfile {20 * GIB}\nshmem {800 * MIB}\n")
+    monkeypatch.setattr(resources, "rss_mb", lambda: 100.0)   # this process is small
+    info = memory_budget({}, cgroup_root=root, proc_cgroup=proc, **{"meminfo": no_host["meminfo"]})
+    assert info.usage_cgroup == str(job) and info.usage_kind == "v2"
+    assert resources.cgroup_usage_mb(job) == 3072.0 + 800.0
+    with MemoryBudget(info, fraction=0.9) as guard:
+        with pytest.raises(MemoryBudgetExceeded) as caught:
+            guard.check("slice 2")
+    assert caught.value.rss_mb == 3872.0 and caught.value.source == "cgroup_v2"
+
+
+def test_cgroup_v1_usage_reads_total_rss(tmp_path):
+    _write(tmp_path / "memory.stat", f"cache {GIB}\ntotal_rss {2 * GIB}\ntotal_shmem 0\n")
+    assert resources.cgroup_usage_mb(tmp_path, "v1") == 2048.0
+    assert resources.cgroup_usage_mb(tmp_path / "missing", "v1") is None
+
+
+def test_entering_again_starts_afresh(monkeypatch):
+    readings = iter([50.0, 5000.0, 50.0, 50.0, 50.0, 50.0])
+    monkeypatch.setattr(resources, "rss_mb", lambda: next(readings))
+    guard = MemoryBudget(limit_mb=1000.0, fraction=1.0, on_exceed="warn")
+    with pytest.warns(ResourceWarning):
+        with guard:
+            guard.check("big")
+    assert guard.exceeded is not None and guard.peak_mb == 5000.0
+    with guard:
+        assert guard.check("small") == 50.0
+    assert guard.exceeded is None and guard.peak_mb == 50.0
+
+
+def test_a_failing_reading_does_not_end_the_sampler(monkeypatch):
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("transient")
+        return 5000.0 if calls["n"] > 3 else 10.0
+    monkeypatch.setattr(resources, "rss_mb", flaky)
+    guard = MemoryBudget(limit_mb=1000.0, fraction=1.0, interval_s=0.01)
+    with guard:
+        deadline = time.monotonic() + 5.0
+        while guard._tripped is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+    assert guard.exceeded is not None and guard.exceeded.label == "sampler"

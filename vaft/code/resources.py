@@ -44,6 +44,7 @@ __all__ = [
     "MemoryBudget",
     "MemoryBudgetExceeded",
     "MemoryBudgetInfo",
+    "cgroup_usage_mb",
     "memory_budget",
     "peak_rss_mb",
     "rss_mb",
@@ -254,11 +255,19 @@ class MemoryBudgetInfo:
     ``limit_mb`` is the minimum over ``candidates``; ``source`` names the
     candidate that set it. Both are ``None`` when no source reported a limit.
     ``candidates`` keeps every limit that was found, keyed by source.
+
+    ``usage_cgroup`` is the directory of the tightest cgroup limit found and
+    ``usage_kind`` its version (``"v2"``/``"v1"``). A cgroup limit counts
+    everything in the cgroup -- child processes, sibling tasks, tmpfs -- so
+    :class:`MemoryBudget` compares its non-reclaimable usage, not only this
+    process's RSS, against the budget.
     """
 
     limit_mb: Optional[float]
     source: Optional[str]
     candidates: Mapping[str, float] = field(default_factory=dict)
+    usage_cgroup: Optional[str] = None
+    usage_kind: Optional[str] = None
 
     def as_dict(self) -> dict[str, Any]:
         """JSON-ready form, for status records."""
@@ -266,6 +275,7 @@ class MemoryBudgetInfo:
             "limit_mb": self.limit_mb,
             "source": self.source,
             "candidates": dict(self.candidates),
+            "usage_cgroup": self.usage_cgroup,
         }
 
 
@@ -336,48 +346,72 @@ def _read_limit_bytes(path: Path) -> Optional[float]:
     return value
 
 
-def _walk_limit(base: Path, relative: Optional[str], filename: str) -> Optional[float]:
-    """Smallest ``filename`` limit from the process's cgroup up to ``base``.
+def _walk_limit(
+    base: Path, relative: Optional[str], filename: str
+) -> Optional[tuple[float, Path]]:
+    """Smallest ``filename`` limit from the process's cgroup up to ``base``,
+    with the directory that sets it.
 
     A Slurm job's limit sits on its job cgroup while the process runs in a
     step or task cgroup below it, so the leaf alone is not enough.
     """
     leaf = base / relative.strip("/") if relative else base
     directories = [leaf, *leaf.parents] if leaf != base else [base]
-    best: Optional[float] = None
+    best: Optional[tuple[float, Path]] = None
     for directory in directories:
         value = _read_limit_bytes(directory / filename)
-        if value is not None and (best is None or value < best):
-            best = value
+        if value is not None and (best is None or value < best[0]):
+            best = (value, directory)
         if directory == base:
             break
     return best
 
 
-def _cgroup_limits(cgroup_root: Path, proc_cgroup: Path) -> dict[str, float]:
+def _cgroup_limits(
+    cgroup_root: Path, proc_cgroup: Path
+) -> tuple[dict[str, float], Optional[tuple[Path, str]]]:
+    """Limits by source, and ``(directory, version)`` of the tightest one."""
     limits: dict[str, float] = {}
+    found: list[tuple[float, Path, str]] = []
     v2_path, v1_path = _proc_cgroup_paths(proc_cgroup)
     v2 = _walk_limit(cgroup_root, v2_path, "memory.max")
     if v2 is not None:
-        limits["cgroup_v2"] = v2 / _MIB
+        limits["cgroup_v2"] = v2[0] / _MIB
+        found.append((v2[0], v2[1], "v2"))
     v1_base = cgroup_root / "memory"
     if not v1_base.is_dir():
         v1_base = cgroup_root
     v1 = _walk_limit(v1_base, v1_path, "memory.limit_in_bytes")
     if v1 is not None:
-        limits["cgroup_v1"] = v1 / _MIB
-    return limits
+        limits["cgroup_v1"] = v1[0] / _MIB
+        found.append((v1[0], v1[1], "v1"))
+    tightest = min(found, key=lambda item: item[0]) if found else None
+    return limits, (None if tightest is None else (tightest[1], tightest[2]))
 
 
-def _rlimit_as_bytes() -> Optional[float]:
+#: memory.stat keys that the kernel cannot reclaim before the OOM killer runs.
+#: Page cache ("file") is left out on purpose: it is counted in memory.current
+#: but dropped under pressure, so comparing it would stop a job that reads
+#: large files long before it is in danger.
+_UNRECLAIMABLE = {"v2": ("anon", "shmem"), "v1": ("total_rss", "total_shmem")}
+
+
+def cgroup_usage_mb(directory: PathLike, kind: str = "v2") -> Optional[float]:
+    """Non-reclaimable memory in use by a whole cgroup, in MiB (``None``
+    when ``memory.stat`` cannot be read)."""
     try:
-        import resource
-    except ImportError:
+        text = (Path(directory) / "memory.stat").read_text()
+    except OSError:
         return None
-    soft, _hard = resource.getrlimit(resource.RLIMIT_AS)
-    if soft == resource.RLIM_INFINITY or soft <= 0 or soft >= _UNLIMITED_BYTES:
+    values = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1].isdigit():
+            values[parts[0]] = int(parts[1])
+    keys = _UNRECLAIMABLE.get(kind, ())
+    if not any(key in values for key in keys):
         return None
-    return float(soft)
+    return sum(values.get(key, 0) for key in keys) / _MIB
 
 
 def _meminfo_available_mib(meminfo: Path) -> Optional[float]:
@@ -446,12 +480,17 @@ def memory_budget(
     ``cgroup_v2``                ``memory.max``, smallest from the process's cgroup
                                  up to the root
     ``cgroup_v1``                ``memory/.../memory.limit_in_bytes``, likewise
-    ``rlimit_as``                the soft ``RLIMIT_AS`` (address space, so it is
-                                 an upper bound on RSS rather than an RSS limit)
     ``env``                      ``VAFT_MEMORY_BUDGET_MB``
-    ``mem_available``            ``MemAvailable`` now (psutil or ``vm_stat`` off
-                                 Linux); memory other processes may also take
+    ``mem_available``            this process's RSS plus ``MemAvailable`` now
+                                 (psutil or ``vm_stat`` off Linux): what the
+                                 process could grow to, which other processes
+                                 may also take
     ============================ ==================================================
+
+    ``RLIMIT_AS`` is not a source: it limits address space, which numpy
+    reserves far ahead of what it touches, so an RSS guard cannot see it
+    coming (``MemoryError`` arrives at the address-space limit with RSS far
+    below it).
 
     ``environ`` defaults to ``os.environ``. ``cgroup_root`` (default
     ``/sys/fs/cgroup``), ``proc_cgroup`` (default ``/proc/self/cgroup``) and
@@ -461,27 +500,28 @@ def memory_budget(
     env = os.environ if environ is None else environ
     candidates: dict[str, float] = {}
     candidates.update(_slurm_limits(env))
-    candidates.update(
-        _cgroup_limits(
-            Path(cgroup_root) if cgroup_root is not None else _DEFAULT_CGROUP_ROOT,
-            Path(proc_cgroup) if proc_cgroup is not None else _DEFAULT_PROC_CGROUP,
-        )
+    cgroups, tightest = _cgroup_limits(
+        Path(cgroup_root) if cgroup_root is not None else _DEFAULT_CGROUP_ROOT,
+        Path(proc_cgroup) if proc_cgroup is not None else _DEFAULT_PROC_CGROUP,
     )
-    rlimit = _rlimit_as_bytes()
-    if rlimit is not None:
-        candidates["rlimit_as"] = rlimit / _MIB
+    candidates.update(cgroups)
     explicit = _parse_mib(env.get(MEMORY_BUDGET_ENV))
     if explicit is not None:
         candidates["env"] = explicit
     available = _available_mib(Path(meminfo) if meminfo is not None else None)
     if available is not None and available > 0:
-        candidates["mem_available"] = available
+        # MemAvailable is headroom: it already leaves out this process's own
+        # resident pages, so the ceiling for this process is RSS + headroom.
+        candidates["mem_available"] = available + (rss_mb() or 0.0)
 
+    usage = {} if tightest is None else {
+        "usage_cgroup": str(tightest[0]), "usage_kind": tightest[1],
+    }
     if not candidates:
-        return MemoryBudgetInfo(limit_mb=None, source=None, candidates={})
+        return MemoryBudgetInfo(limit_mb=None, source=None, candidates={}, **usage)
     source = min(candidates, key=lambda name: candidates[name])
     return MemoryBudgetInfo(
-        limit_mb=candidates[source], source=source, candidates=candidates
+        limit_mb=candidates[source], source=source, candidates=candidates, **usage
     )
 
 
@@ -489,7 +529,10 @@ def memory_budget(
 
 
 class MemoryBudgetExceeded(MemoryError):
-    """RSS crossed ``fraction x limit`` inside a :class:`MemoryBudget`.
+    """Memory in use crossed ``fraction x limit`` inside a :class:`MemoryBudget`.
+
+    ``rss_mb`` is the observed usage: this process's RSS, or the limiting
+    cgroup's non-reclaimable usage when that is larger.
 
     A :class:`MemoryError`, not a :class:`RuntimeError`: analysis loops
     routinely catch ``RuntimeError``/``ValueError`` around one item as "this
@@ -517,9 +560,24 @@ class MemoryBudgetExceeded(MemoryError):
         where = f" at {label!r}" if label is not None else ""
         origin = f" ({source})" if source else ""
         super().__init__(
-            f"RSS {rss_mb:.0f} MiB{where} is above the memory threshold "
+            f"memory in use {rss_mb:.0f} MiB{where} is above the threshold "
             f"{threshold_mb:.0f} MiB of a {limit_mb:.0f} MiB budget{origin}"
         )
+
+    def __reduce__(self):
+        # Rebuildable from its fields, so it survives pickling across a
+        # process pool instead of breaking the pool on the way back.
+        return (
+            _rebuild_exceeded,
+            (self.rss_mb, self.threshold_mb, self.limit_mb,
+             self.label, self.source, self.peak_mb),
+        )
+
+
+def _rebuild_exceeded(rss_mb, threshold_mb, limit_mb, label, source, peak_mb):
+    return MemoryBudgetExceeded(
+        rss_mb, threshold_mb, limit_mb, label=label, source=source, peak_mb=peak_mb
+    )
 
 
 class MemoryBudget:
@@ -528,9 +586,10 @@ class MemoryBudget:
     Parameters
     ----------
     limit_mb:
-        The budget in MiB. ``None`` resolves it with :func:`memory_budget` when
-        the block is entered. If nothing reports a limit either, the guard only
-        records ``peak_mb`` and never raises.
+        The budget in MiB, or a :class:`MemoryBudgetInfo` (keeping its source
+        and the cgroup whose usage is compared). ``None`` resolves it with
+        :func:`memory_budget` when the block is entered. If nothing reports a
+        limit either, the guard only records ``peak_mb`` and never raises.
     fraction:
         The threshold is ``fraction x limit_mb``; ``0 < fraction <= 1``.
     on_exceed:
@@ -547,6 +606,11 @@ class MemoryBudget:
         Label recorded with an explicit ``limit_mb``; resolved budgets carry the
         source :func:`memory_budget` found.
 
+    What is compared is the memory in use: this process's RSS, or, when the
+    budget came from a cgroup limit, the larger of that and the cgroup's
+    non-reclaimable usage (:func:`cgroup_usage_mb`) -- a cgroup's limit also
+    counts child processes and sibling tasks.
+
     ``peak_mb`` is the largest RSS the guard has seen (every :meth:`check`,
     every sampler tick, entry and exit). It is a lower bound on the true peak
     inside the block; :func:`peak_rss_mb` is the process-lifetime peak.
@@ -554,7 +618,8 @@ class MemoryBudget:
     :meth:`start_interval`, so a loop can attribute a peak to one item (a
     time slice, a scan case) even though the process peak only ever grows.
     Leaving the block never raises: a crossing the sampler saw but no
-    :meth:`check` reported is left in ``exceeded``.
+    :meth:`check` reported is left in ``exceeded``. Entering the block again
+    starts afresh (``peak_mb``, ``exceeded`` and the sampler flag are reset).
     """
 
     def __init__(
@@ -571,6 +636,10 @@ class MemoryBudget:
             raise ValueError(f"fraction must be in (0, 1], got {fraction}")
         if on_exceed not in ("raise", "warn"):
             raise ValueError(f"on_exceed must be 'raise' or 'warn', got {on_exceed!r}")
+        info = limit_mb if isinstance(limit_mb, MemoryBudgetInfo) else None
+        if info is not None:
+            limit_mb = info.limit_mb
+            source = info.source if source is None else source
         if limit_mb is not None and not (float(limit_mb) > 0 and math.isfinite(limit_mb)):
             raise ValueError(f"limit_mb must be a positive number or None, got {limit_mb}")
         if interval_s is not None and not float(interval_s) > 0:
@@ -591,7 +660,9 @@ class MemoryBudget:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._resolved = limit_mb is not None
+        self._resolved = limit_mb is not None or info is not None
+        self._usage_cgroup = None if info is None else info.usage_cgroup
+        self._usage_kind = None if info is None else info.usage_kind
 
     # -- limit ---------------------------------------------------------------
 
@@ -600,6 +671,7 @@ class MemoryBudget:
             return
         info = memory_budget(self._environ)
         self.limit_mb, self.source = info.limit_mb, info.source
+        self._usage_cgroup, self._usage_kind = info.usage_cgroup, info.usage_kind
         self._resolved = True
 
     @property
@@ -621,6 +693,16 @@ class MemoryBudget:
                     self.interval_peak_mb = current
         return current
 
+    def usage(self) -> Optional[float]:
+        """The memory in use that the budget is compared against, in MiB
+        (also folds RSS into the peaks)."""
+        current = self.sample()
+        if self._usage_cgroup is not None:
+            shared = cgroup_usage_mb(self._usage_cgroup, self._usage_kind or "v2")
+            if shared is not None and (current is None or shared > current):
+                return shared
+        return current
+
     def start_interval(self) -> Optional[float]:
         """Start a new ``interval_peak_mb`` window; returns the one that ended.
 
@@ -632,11 +714,14 @@ class MemoryBudget:
         self.sample()
         return ended
 
-    def _sampler(self) -> None:
+    def _sampler(self, stop: threading.Event) -> None:
         assert self.interval_s is not None
-        while not self._stop.wait(self.interval_s):
-            current = self.sample()
-            threshold = self.threshold_mb
+        while not stop.wait(self.interval_s):
+            try:
+                current = self.usage()
+                threshold = self.threshold_mb
+            except Exception:  # noqa: BLE001 -- a failed reading must not end the sampling
+                continue
             if current is not None and threshold is not None and current > threshold:
                 with self._lock:
                     if self._tripped is None:
@@ -648,7 +733,7 @@ class MemoryBudget:
         Also raises when the sampler thread saw a crossing since the last
         check. Returns the current RSS in MiB (``None`` when unreadable).
         """
-        current = self.sample()
+        current = self.usage()
         threshold = self.threshold_mb
         if threshold is None:
             return current
@@ -677,11 +762,17 @@ class MemoryBudget:
 
     def __enter__(self) -> "MemoryBudget":
         self._resolve()
+        with self._lock:
+            self.peak_mb = self.interval_peak_mb = None
+            self.exceeded, self._tripped, self._warned = None, None, False
         self.sample()
-        if self.interval_s is not None and self._thread is None:
-            self._stop.clear()
+        if self.interval_s is not None:
+            # A fresh event per block: a sampler from an earlier block that
+            # outlived its join (a slow reading) keeps its own, already set.
+            self._stop = threading.Event()
             self._thread = threading.Thread(
-                target=self._sampler, name="vaft-memory-budget", daemon=True
+                target=self._sampler, args=(self._stop,),
+                name="vaft-memory-budget", daemon=True,
             )
             self._thread.start()
         return self
