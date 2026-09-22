@@ -11452,19 +11452,30 @@ def _surface_at(
     return r_out, z_out
 
 
-def _island_circuit_start(excursion: np.ndarray, scale: float) -> int:
+def _island_circuit_start(phase: np.ndarray) -> int:
     """The sample an island's separatrix circuit starts from: its first X-point.
 
-    An ``m``-lobed island has ``m`` X-points, and on a symmetric mesh their
-    nearest samples carry the same excursion to the last bit. ``np.argmin``
-    then picks whichever one rounding favoured, which differs between
-    platforms and library builds, and the whole drawn curve rotates by a lobe.
-    Values within a few ulps of the island's own half-width of the minimum
-    count as the same X-point sample, and the one at the smallest poloidal
-    angle wins, so the start is a property of the geometry, not of rounding.
+    The X-points are where the helical phase is ``pi`` modulo ``2 pi``. When
+    ``m`` divides the number of poloidal samples, the ``m`` X-points' nearest
+    samples sit exactly ``2 pi`` apart in phase, so they are equally near an
+    X-point and differ only by the rounding of the phase itself -- which grows
+    with ``|xi| ~ 2 pi m + n phi`` and comes out differently for inputs that
+    differ in the last bits, as a derived phase does across library builds.
+    Picking the minimum excursion let that rounding choose, and the drawn curve
+    rotated by a lobe. Distances to the nearest X-point within rounding of the
+    smallest, on the phase's own scale, count as tied and the smallest poloidal
+    angle wins. With no finite phase the first sample is returned and the
+    caller's own checks report the island.
     """
-    tolerance = 64.0 * np.finfo(float).eps * max(abs(float(scale)), float(np.max(np.abs(excursion))))
-    return int(np.flatnonzero(excursion <= float(np.min(excursion)) + tolerance)[0])
+    phase = np.asarray(phase, dtype=float)
+    offset = np.abs(np.mod(phase, 2.0 * np.pi) - np.pi)  # distance to the nearest X-point
+    finite = np.isfinite(offset)
+    if not finite.any():
+        return 0
+    scale = max(1.0, float(np.max(np.abs(phase[finite]))))
+    tolerance = 64.0 * np.finfo(float).eps * scale
+    nearest = float(np.min(offset[finite]))
+    return int(np.flatnonzero(finite & (offset <= nearest + tolerance))[0])
 
 
 def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayers:
@@ -11561,7 +11572,7 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         # is traced outward once and back along the inward branch, and the two
         # branches meet only at the X-points; starting anywhere else leaves a
         # radial chord across the island where the trace turns around.
-        start = _island_circuit_start(excursion, half)
+        start = _island_circuit_start(phase)
         order = np.roll(np.arange(theta_rad.size), -start)
         order = np.append(order, order[0])
         excursion = np.append(np.roll(excursion, -start), excursion[start])

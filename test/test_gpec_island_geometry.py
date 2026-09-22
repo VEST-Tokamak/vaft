@@ -407,7 +407,10 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     table = _gpec_resonant_table(ods)
     m_pol = int(table["rows"][0]["m_pol"])
     dtheta = 2.0 * np.pi / (ods[f"{MESH}.grid.dim2"].size - 1)
-    sampling = 1.0 - np.cos(m_pol * dtheta / 4.0)
+    # Either side may sit up to half a sample off its O-point, so the ratio of
+    # the two sampled maxima lies in [c, 1/c] with c = cos(m*dtheta/4).
+    floor = np.cos(m_pol * dtheta / 4.0)
+    sampling = (1.0 - floor) / floor
     assert _separation(moved).max() == pytest.approx(
         _separation(plain).max(), rel=sampling, abs=0.0
     )
@@ -443,22 +446,37 @@ def test_the_slice_is_periodic_in_one_full_turn_of_the_pattern(mapped):
     )
 
 
-def test_the_circuit_starts_at_the_same_x_point_whatever_rounding_favours():
-    """Two X-points whose nearest samples tie to the last bit: flipping the tie
-    by one ulp either way must not move the start (the CI flake)."""
+@pytest.mark.parametrize("m_pol", [2, 8, 16, 32, 64])
+def test_the_circuit_start_does_not_depend_on_rounding(m_pol):
+    """A full toroidal turn changes the helical phase only by rounding, so the
+    circuit must start at the same X-point sample. When m divides the sample
+    count the m X-point samples tie exactly in exact arithmetic, and their
+    rounding spread grows with |xi| ~ 2 pi m: a fixed tolerance on the
+    excursion value, or plain argmin, lets high-m islands flip (the CI flake
+    was the m = 2 case of this)."""
+    from vaft.formula.stability import helical_phase, island_separatrix_half_width
     from vaft.plot.backend.recipes import _island_circuit_start
 
-    theta = np.linspace(0.0, 2.0 * np.pi, 129)
-    half = 2.4e-9
-    excursion = half * np.abs(np.cos(theta + 0.3146898))  # m = 2: two X-points
-    first, second = np.argsort(excursion)[:2]
-    assert abs(int(first) - int(second)) > 10  # two distinct X-points, not neighbours
-    low, high = sorted((int(first), int(second)))
-    for nudge in (-1, 1):
-        tilted = excursion.copy()
-        tilted[high] = np.nextafter(tilted[low], nudge * np.inf)
-        assert _island_circuit_start(tilted, half) == low
-    # A genuinely deeper sample still wins.
-    deeper = excursion.copy()
-    deeper[high] = 0.5 * excursion[low]
-    assert _island_circuit_start(deeper, half) == high
+    rng = np.random.default_rng(1190 + m_pol)
+    theta = 2.0 * np.pi * np.linspace(0.0, 1.0, 129)[:-1]  # the builder drops the closing sample
+    for _ in range(40):
+        n_tor = int(rng.integers(1, 4))
+        offset = float(rng.uniform(-np.pi, np.pi))
+        phi = float(rng.uniform(0.0, 2.0 * np.pi))
+        width = float(10.0 ** rng.uniform(-10, -2))
+        phases = [helical_phase(theta, value, m_pol, n_tor, phase=offset)
+                  for value in (phi, phi + 2.0 * np.pi / n_tor)]
+        starts = [_island_circuit_start(phase) for phase in phases]
+        assert starts[0] == starts[1], (n_tor, offset, phi)
+        # ... and the start is an X-point sample: the smallest excursion, to rounding.
+        excursion = island_separatrix_half_width(phases[0], width)
+        assert excursion[starts[0]] <= excursion.min() + 1e-9 * width
+
+
+def test_the_circuit_start_survives_a_phase_with_no_finite_value():
+    from vaft.plot.backend.recipes import _island_circuit_start
+
+    assert _island_circuit_start(np.full(8, np.nan)) == 0
+    phase = np.linspace(0.0, 2.0 * np.pi, 8, endpoint=False)
+    phase[3] = np.nan
+    assert np.isfinite(phase[_island_circuit_start(phase)])
