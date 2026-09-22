@@ -58,7 +58,7 @@ inventory; no personal email is shown unless it is explicitly recorded in the re
 From a checkout of the `develop` branch, run:
 
 ```bash
-python -m vaft.machine_mapping.registry --output /path/to/vaft-gh/_data/vest_diagnostics.yml
+python -m vaft.machine_mapping.registry --output docs/_data/vest_diagnostics.yml
 ```
 
 The snapshot records the SHA-256 of its source `vest.yaml`; documentation validation compares it

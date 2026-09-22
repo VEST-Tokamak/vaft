@@ -109,6 +109,29 @@ require(['gitbook', 'jquery'], function (gitbook, $) {
         }
     });
 
+    // Generated reference pages: filter the function index (and, on a
+    // category page, the entries below it) by name, category or summary.
+    $(document).on('input', '[data-ref-filter]', function () {
+        var needle = this.value.trim().toLowerCase();
+        var $index = $(this).closest('[data-ref-index]');
+        var visible = {};
+        var shown = 0;
+        $index.find('[data-ref-row]').each(function () {
+            var row = $(this);
+            var match = !needle ||
+                (row.attr('data-ref-row') + ' ' + row.text()).toLowerCase().indexOf(needle) !== -1;
+            row.prop('hidden', !match);
+            if (match) {
+                visible[row.attr('data-ref-row').split(' ')[0]] = true;
+                shown += 1;
+            }
+        });
+        $index.find('.ref-filter-empty').prop('hidden', shown > 0);
+        $('.ref-entry').each(function () {
+            $(this).prop('hidden', !visible[this.id]);
+        });
+    });
+
     $(window).on('hashchange', function () {
         scrollArticleToHash(window.location.hash, false);
     });

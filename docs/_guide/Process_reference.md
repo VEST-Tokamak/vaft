@@ -47,7 +47,7 @@ The layer is being brought under the contract one submodule at a time
 ([#252](https://github.com/VEST-Tokamak/vaft/issues/252)).  A category gets a reference page when
 every function in it conforms; until then its count is shown and its page is absent.
 
-<table class="formula-table">
+<table class="ref-table">
   <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Under contract</th><th>Contents</th></tr></thead>
   <tbody>
   {% for category in site.data.process_catalog.categories %}<tr>
