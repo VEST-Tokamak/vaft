@@ -51,8 +51,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 11030784
-    sha256: 78b7502b170615534cd42a3659d4fe6a88cabe32da09f1b91927f46448c63ecf
+    size: 11030819
+    sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -60,8 +60,8 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 11419861
-    sha256: e38388036d1c74598782a50c606cc1e23339e479712e3326ad362f15b49bf226
+    size: 11420182
+    sha256: cd6c7e076d2f8d9c49fa3b3add1542d7770b39402dbaa31f91dfc878cabb4397
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
@@ -120,14 +120,8 @@ generation:
       max_plausible_amplitude:
         b_field_pol_probe: 1.0
       population_peak_factor: 4.0
-      array_departure_factor: 1.0
-      array_contradiction_fraction: 0.3
-      min_array_members: 7
-      array_min_scored: 0.5
-      array_amplitude_floor: 0.01
     condemned:
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
-    - b_field_pol_probe[45] MagneticFieldProbe_C4-04
   equilibrium_cocos: 11
   regeneration:
     generated: '2026-09-17T03:34:38+00:00'
@@ -210,8 +204,8 @@ generation:
         current that EFIT adds after the fit (#918), so it is nonzero even where reconstructed
         equals measured, and it is the whole of EFIT's total chi-square on these runs.
       diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive). measured
-        stores the signed flux, positive for a paramagnetic plasma since issue 1196
-        (it was stored negated before; see corrections). reconstructed is EFIT's cdflux
+        stores the signed flux, positive for a paramagnetic plasma since issue 1196 (it
+        was stored negated before; see corrections). reconstructed is EFIT's cdflux
         in its own sign and chi_squared is EFIT's chidflux against the submitted |DFLUX|;
         the fit weight was 1e-4, so the diamagnetic flux did not constrain the fit.
       not_written: 'chi_squared_reduced and freedom_degrees_n: the m-file carries
@@ -335,12 +329,13 @@ corrections:
   previous_reference_id: vest-39915-until-efit-v4
   previous_canonical_sha256: 5a5f7a6403d76f256b8b78208f601adc709f2b802fc5d8df3cf0686bbe84175d
   reason: 'The mapper port negated the donor''s diamagnetic flux (-1000 where VEST_DiamagneticFlux.m
-    has none), so the stored measurement had the opposite sign to EFIT''s cdflux.
-    Applied in place rather than by rerunning the pipeline: data and constraints.measured
-    are exactly negated and method_name gains the mapper''s new sign-convention token,
-    11 leaves in all, and a leaf-by-leaf comparison against the previous canonical
-    source shows no other leaf changed. constraints.diamagnetic_flux.{reconstructed,chi_squared}
-    and the archived k-files stay as EFIT produced them. The mapper was corrected
-    in the same change, so a regeneration reproduces these values rather than reverting
-    them, and the stage hashes still describe the run that produced the rest of the
-    artifact.'
+    has none), so the stored measurement had the opposite sign to EFIT''s cdflux. Applied
+    in place, in the canonical source and in both packaged representations, rather than
+    by rerunning the pipeline or the generators: data and constraints.measured are exactly
+    negated and method_name gains the mapper''s new sign-convention token (11 leaves in
+    the canonical source), and a leaf-by-leaf comparison of each rewritten file against
+    its previous version shows no other leaf changed -- in particular the signal-quality
+    verdicts are the previous ones. constraints.diamagnetic_flux.{reconstructed,chi_squared}
+    and the archived k-files stay as EFIT produced them. The mapper was corrected in the
+    same change, so a regeneration reproduces these values rather than reverting them,
+    and the stage hashes still describe the run that produced the rest of the artifact.'

@@ -48,7 +48,7 @@ equilibria:
     efit_magnetic:
       format: omas
       path: equilibria/efit_magnetic.json.gz
-      sha256: ef2c35ecfac49e6e56ba9a8ee4f43b71411f03831dba27cd467538be78dba160
+      sha256: 1133b2cdb355f227ac526e588042790034444b4743f622600074b6e7223a2efa
       size: 173781
       kfile: equilibria/efit_magnetic.k048224.00300
       kfile_sha256: 5bcf140e5c6c6897cb7b0e6726525aaafc44aed6083e294647e57679e247e50d
@@ -60,8 +60,8 @@ equilibria:
     efit_kinetic:
       format: omas
       path: equilibria/efit_kinetic.json.gz
-      sha256: edaa46b3042b7cd293f6d9a16c65fd4d0076e8284da35a27f379bc1b305f2519
-      size: 173990
+      sha256: ed09fa9c99dc6c0357050d8cf10e5a028bcf0fa42397952f14f70949c5c99973
+      size: 173989
       kfile: equilibria/efit_kinetic.k048224.00300
       kfile_sha256: c21a479e68eb07772251d1d68b73234bb736fac80de5dcf87f1545a270ff2410
       role: 'VAFT''s kinetic EFIT on the same k-file: vaft.code.efit.run_kinetic_efit
@@ -230,7 +230,9 @@ efit_magnetic_server:
   - The k-files submitted DFLUX = -7.34 mWb and the reconstruction gives +4.93 mWb
     (SIGDLC 1e7, weighted out). That DFLUX was mapped before issue 1196 and carries the
     port's extra minus, so the measured flux is +7.34 mWb, paramagnetic, the same sign
-    as the reconstruction. The archived k-files keep what was submitted.
+    as the reconstruction. The archived k-files keep what was submitted; constraints.diamagnetic_flux.measured
+    in both equilibria was negated in place to +7.34e-3 Wb (issue 1196), the one leaf
+    changed in either file, so it holds the measurement as in the other samples.
   - The server g-file's q on axis (6.88) is an axis artifact of that EFIT build; q
     at psi_N = 0.05 is 1.83.
   - efit_status.txt on the server reads 'fail' but describes the last case of that
