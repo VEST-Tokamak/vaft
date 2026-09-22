@@ -29,6 +29,7 @@ handed.
 
 from __future__ import annotations
 
+import configparser
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,10 +39,12 @@ import numpy as np
 
 __all__ = [
     "RECTANGULAR_MESHES",
+    "FlareBoundary",
     "FlareColumn",
     "FlareGrid",
     "FlareMesh",
     "FlareProduct",
+    "read_flare_boundary",
     "read_flare_grid",
     "read_flare_mesh",
     "read_flare_product",
@@ -655,3 +658,140 @@ def read_flare_product(path: str | Path, *, load_grid: bool = True) -> FlareProd
         source=product.source,
         grid=read_flare_grid(geometry),
     )
+
+
+# ---------------------------------------------------------------------------
+# The model boundary
+# ---------------------------------------------------------------------------
+
+#: The name a FLARE model gives the directory holding its boundary, and the
+#: descriptor inside it.
+BOUNDARY_DESCRIPTOR = ".boundary"
+
+
+@dataclass(frozen=True)
+class FlareBoundary:
+    """The axisymmetric surfaces of a FLARE model boundary, in metres.
+
+    A FLARE model keeps its wall in a ``.boundary`` directory beside the
+    equilibrium, described by an INI file of the same name: one section per
+    surface, named ``<label>:<type>`` or by its type alone, each naming a
+    ``filename``, with the length unit in the section or in ``[DEFAULT]``.
+
+    **The unit is in the descriptor and nowhere else.** The contour file is
+    two bare columns with at most a title comment, and the ITER model writes
+    centimetres while the meshes beside it are in metres -- so a reader that
+    assumed metres would place the ITER wall a hundred times too far out and
+    find every point inside it.
+    """
+
+    contours: tuple[np.ndarray, ...]
+    units: str
+    source: Path
+
+    @property
+    def points(self) -> np.ndarray:
+        """The one contour, when the model has exactly one ``(N, 2)`` [m].
+
+        Raises
+        ------
+        ValueError
+            The model declares several; pick from :attr:`contours`, because
+            which one bounds a region is the caller's question.
+        """
+        if len(self.contours) != 1:
+            raise ValueError(
+                f"{self.source} declares {len(self.contours)} axisymmetric "
+                "surfaces; read `contours` and choose, since which of them "
+                "bounds the region you mean is not something this can decide."
+            )
+        return self.contours[0]
+
+
+def read_flare_boundary(path: str | Path) -> FlareBoundary:
+    """Read a FLARE model's axisymmetric boundary, converted to metres.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The ``.boundary`` directory, its descriptor file, or the model
+        directory that contains it.
+
+    Returns
+    -------
+    FlareBoundary
+
+    Raises
+    ------
+    FileNotFoundError
+        No descriptor, or a section names a contour file that is not there.
+    ValueError
+        The descriptor declares no axisymmetric surface -- a toroidal one
+        (``torosurf``) is a 3-D wall and is not a poloidal polygon, so it is
+        named and refused rather than flattened -- declares no length unit,
+        declares one this reader does not know, or points at a contour of
+        fewer than three points.
+    """
+    source = Path(path)
+    # A model directory, its `.boundary` directory and the descriptor file
+    # inside that all share the same name, so descend until a file turns up
+    # rather than handing a directory to a parser that would read it as an
+    # empty document and report no surfaces.
+    for _ in range(2):
+        if not source.is_dir():
+            break
+        source = source / BOUNDARY_DESCRIPTOR
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"{Path(path)} holds no FLARE boundary descriptor; a model keeps "
+            f"one as {BOUNDARY_DESCRIPTOR}/{BOUNDARY_DESCRIPTOR} beside its "
+            "equilibrium."
+        )
+    parser = configparser.ConfigParser()
+    parser.read(source)
+
+    contours: list[np.ndarray] = []
+    declared: list[str] = []
+    units = ""
+    for name in parser.sections():
+        kind = name.split(":")[-1].strip()
+        declared.append(kind)
+        if kind != "axisurf":
+            continue
+        section = parser[name]
+        unit = section.get("units", "").strip()
+        if not unit:
+            raise ValueError(
+                f"{source} section [{name}] declares no length unit, and a "
+                "contour file carries none of its own."
+            )
+        if unit not in _LENGTH_SCALE:
+            raise ValueError(
+                f"{source} section [{name}] declares units {unit!r}; this "
+                f"reader knows {sorted(_LENGTH_SCALE)}"
+            )
+        units = unit
+        filename = section.get("filename", "").strip()
+        contour = source.parent / filename
+        if not filename or not contour.exists():
+            raise FileNotFoundError(
+                f"{source} section [{name}] names {filename!r}, which is not "
+                f"beside it in {source.parent}"
+            )
+        values = np.atleast_2d(np.loadtxt(contour, comments="#"))
+        if values.shape[0] < 3 or values.shape[1] < 2:
+            raise ValueError(
+                f"{contour} holds {values.shape[0]} point(s) of "
+                f"{values.shape[1]} column(s); a closed contour needs at "
+                "least three (R, z) points."
+            )
+        contours.append(values[:, :2] * _LENGTH_SCALE[unit])
+
+    if not contours:
+        raise ValueError(
+            f"{source} declares no axisymmetric surface -- its sections are "
+            f"{sorted(set(declared)) or 'none'}. A toroidal surface is a 3-D "
+            "wall and is not a poloidal polygon, so there is nothing here to "
+            "test a starting point against."
+        )
+    return FlareBoundary(contours=tuple(contours), units=units, source=source)

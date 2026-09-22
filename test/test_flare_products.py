@@ -453,3 +453,114 @@ def test_a_product_with_no_mesh_says_so_rather_than_failing_on_a_shape(tmp_path)
     ))
     with pytest.raises(ValueError, match="absent.grid"):
         product.mesh
+
+
+# --------------------------------------------------------------------------
+# The model boundary, whose unit is in a descriptor and not in the contour
+# --------------------------------------------------------------------------
+
+
+def boundary_model(tmp_path, *, descriptor=None, contour=None, name="wall.txt"):
+    """A FLARE model directory with a ``.boundary`` beside its equilibrium."""
+    root = tmp_path / ".boundary"
+    root.mkdir(exist_ok=True)
+    (root / ".boundary").write_text(descriptor if descriptor is not None else (
+        "[axisurf]\nfilename: {}\nunits:    cm\n".format(name)
+    ))
+    points = contour if contour is not None else [
+        (100.0, -50.0), (300.0, -50.0), (300.0, 50.0), (100.0, 50.0)
+    ]
+    (root / name).write_text(
+        "# a wall\n" + "".join(f"{r}\t{z}\n" for r, z in points)
+    )
+    return tmp_path
+
+
+def test_a_boundary_is_converted_by_the_unit_its_descriptor_declares(tmp_path):
+    """The contour file is two bare columns with at most a title comment, so
+    a reader that assumed metres would place a centimetre wall a hundred
+    times too far out and find every point inside it."""
+    from vaft.data.flare_products import read_flare_boundary
+
+    boundary = read_flare_boundary(boundary_model(tmp_path))
+    assert boundary.units == "cm"
+    np.testing.assert_allclose(boundary.points,
+                               [[1.0, -0.5], [3.0, -0.5], [3.0, 0.5], [1.0, 0.5]])
+
+
+def test_a_boundary_is_found_from_the_model_the_directory_or_the_file(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path)
+    for path in (model, model / ".boundary", model / ".boundary" / ".boundary"):
+        assert read_flare_boundary(path).points.shape == (4, 2)
+
+
+def test_a_toroidal_only_boundary_is_named_and_refused(tmp_path):
+    """A torosurf is a 3-D wall, not a poloidal polygon; flattening one to
+    test a starting point against would be an invention."""
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path, descriptor=(
+        "[DEFAULT]\nunits: cm\n\n[firstwall:torosurf]\nfilename: wall.txt\n"
+    ))
+    with pytest.raises(ValueError, match="torosurf"):
+        read_flare_boundary(model)
+
+
+def test_a_boundary_without_a_declared_unit_is_refused(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path, descriptor="[axisurf]\nfilename: wall.txt\n")
+    with pytest.raises(ValueError, match="declares no length unit"):
+        read_flare_boundary(model)
+
+
+def test_a_boundary_in_an_unknown_unit_is_refused(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(
+        tmp_path, descriptor="[axisurf]\nfilename: wall.txt\nunits: cubit\n"
+    )
+    with pytest.raises(ValueError, match="cubit"):
+        read_flare_boundary(model)
+
+
+def test_a_boundary_naming_a_contour_that_is_not_there_is_refused(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(
+        tmp_path, descriptor="[axisurf]\nfilename: absent.txt\nunits: cm\n"
+    )
+    with pytest.raises(FileNotFoundError, match="absent.txt"):
+        read_flare_boundary(model)
+
+
+def test_a_contour_too_short_to_close_is_refused(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path, contour=[(100.0, 0.0), (200.0, 0.0)])
+    with pytest.raises(ValueError, match="at least three"):
+        read_flare_boundary(model)
+
+
+def test_a_model_with_no_descriptor_says_where_one_lives(tmp_path):
+    from vaft.data.flare_products import read_flare_boundary
+
+    with pytest.raises(FileNotFoundError, match=".boundary"):
+        read_flare_boundary(tmp_path)
+
+
+def test_several_axisymmetric_surfaces_are_kept_apart(tmp_path):
+    """Which of them bounds the region a caller means is the caller's
+    question, so `points` refuses and `contours` hands them all over."""
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path, descriptor=(
+        "[DEFAULT]\nunits: cm\n\n[firstwall:axisurf]\nfilename: wall.txt\n\n"
+        "[target:axisurf]\nfilename: wall.txt\n"
+    ))
+    boundary = read_flare_boundary(model)
+    assert len(boundary.contours) == 2
+    with pytest.raises(ValueError, match="2 axisymmetric surfaces"):
+        boundary.points

@@ -14,12 +14,12 @@ from omas import ODS
 
 from vaft.data.flare_products import read_flare_product
 from vaft.machine_mapping.field_line_topology import (
-    DOMAIN_EXIT_POLICIES,
     FLARE_DOMAIN_ERROR,
     FLARE_TRACE_STATUS,
     REFUSED_TARGET_LEAVES,
     b_field_lines_from_flare_connection,
     divertor_incident_fractions_from_flare_footprints,
+    WALL_BOUNDARY,
     write_b_field_lines,
     write_divertor_incident_fractions,
 )
@@ -338,54 +338,102 @@ def domain_exit_product(tmp_path):
     return read_flare_product(path)
 
 
-def test_a_line_that_left_the_field_is_refused_by_default(tmp_path):
-    """Its trace failed: the length is only what the integrator had before
-    it left, and whether the line would have reached the wall is unknown.
-    That makes it a policy, and the default states no policy."""
-    with pytest.raises(ValueError, match="left the field's domain"):
+#: A box containing the r = 1.5 and r = 2.0 columns of the fixture grid but
+#: not the r = 1.0 one, so two of the six lines start outside it.
+BOX = np.array([[1.2, -1.5], [2.2, -1.5], [2.2, 0.5], [1.2, 0.5]])
+
+
+def test_a_domain_exit_needs_a_boundary_to_mean_anything(tmp_path):
+    """FLARE does not check that a start point lies inside the wall, so a
+    domain exit is a seeding artefact or a real anomaly depending on where
+    the line began -- and nothing in the product says which."""
+    with pytest.raises(ValueError, match="no boundary was supplied"):
         b_field_lines_from_flare_connection(
             ODS(), domain_exit_product(tmp_path), time=0.0
         )
 
 
-@pytest.mark.parametrize("policy, fraction", [("open", 5.0 / 6.0), ("closed", 4.0 / 6.0)])
-def test_an_explicit_policy_is_applied_and_recorded(tmp_path, policy, fraction):
+def test_a_line_starting_outside_the_boundary_is_neither_open_nor_closed(tmp_path):
+    """Owner decision, 2026-09-22: excluded from open_fraction on both sides
+    of the ratio, written with a NaN length, and counted in the provenance."""
     ods = ODS()
     b_field_lines_from_flare_connection(
-        ods, domain_exit_product(tmp_path), time=0.0, domain_exit=policy
+        ods, domain_exit_product(tmp_path), time=0.0, boundary=BOX
     )
-    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(fraction)
+    entry = ods["plasma_initiation.b_field_lines.0"]
+    lengths = np.asarray(entry["lengths"])
+    # The r = 1.0 column is outside the box; only its first line has code 1.
+    assert np.isnan(lengths[0]) and np.count_nonzero(np.isnan(lengths)) == 1
+    # Five lines are counted, four of which reached the wall.
+    assert entry["open_fraction"] == pytest.approx(4.0 / 5.0)
     parameters = ods["plasma_initiation.code.parameters"]
-    assert f"counted as {policy}" in parameters
-    assert "left the field" in parameters
+    assert "1 of 6 lines started outside the boundary" in parameters
+    assert "numerator and denominator alike" in parameters
+
+
+def test_a_domain_exit_from_inside_the_boundary_is_refused(tmp_path):
+    """A line that should have been traceable and was not is a real anomaly,
+    not a seeding artefact."""
+    product = flare_connection(tmp_path)
+    path = product.source
+    rows = path.read_text().splitlines()
+    body = [row for row in rows if not row.startswith("#")]
+    body[1] = "  3.000000E+00  4.000000E+00  1.000000E+00  1.000000E+00"
+    path.write_text("\n".join([r for r in rows if r.startswith("#")] + body) + "\n")
+    with pytest.raises(ValueError, match=r"from a start \*inside\* the"):
+        b_field_lines_from_flare_connection(
+            ODS(), read_flare_product(path), time=0.0, boundary=BOX
+        )
 
 
 def test_a_product_with_no_domain_exit_says_so_in_the_provenance(tmp_path):
     ods = ODS()
     b_field_lines_from_flare_connection(ods, flare_connection(tmp_path), time=0.0)
-    assert "no line left the field's domain" in ods["plasma_initiation.code.parameters"]
+    assert "every line started inside the boundary" in ods["plasma_initiation.code.parameters"]
 
 
-def test_an_unknown_policy_names_the_ones_that_exist(tmp_path):
-    with pytest.raises(ValueError, match="domain_exit must be one of"):
+def test_the_boundary_can_come_from_the_ods_wall(tmp_path):
+    ods = ODS()
+    ods["wall.description_2d.0.limiter.unit.0.outline.r"] = BOX[:, 0]
+    ods["wall.description_2d.0.limiter.unit.0.outline.z"] = BOX[:, 1]
+    b_field_lines_from_flare_connection(
+        ods, domain_exit_product(tmp_path), time=0.0, boundary=WALL_BOUNDARY
+    )
+    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(0.8)
+
+
+def test_asking_for_a_wall_the_ods_does_not_have_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="read_flare_boundary"):
         b_field_lines_from_flare_connection(
-            ODS(), flare_connection(tmp_path), time=0.0, domain_exit="maybe"
+            ODS(), domain_exit_product(tmp_path), time=0.0, boundary=WALL_BOUNDARY
         )
-    assert DOMAIN_EXIT_POLICIES == ("refuse", "open", "closed")
 
 
-def test_a_line_that_left_the_field_but_still_hit_the_wall_needs_no_policy(tmp_path):
-    """One direction reached the wall, so the line is open whatever happened
-    to the other; there is nothing for a policy to decide."""
+@pytest.mark.parametrize("bad, message", [
+    ("outline", "boundary must be a contour"),
+    (np.array([[1.0, 0.0], [2.0, 0.0]]), r"\(N, 2\) contour"),
+    (np.array([1.0, 2.0, 3.0]), r"\(N, 2\) contour"),
+])
+def test_a_boundary_that_is_not_a_contour_is_refused(tmp_path, bad, message):
+    with pytest.raises(ValueError, match=message):
+        b_field_lines_from_flare_connection(
+            ODS(), domain_exit_product(tmp_path), time=0.0, boundary=bad
+        )
+
+
+def test_a_plane_entirely_outside_the_boundary_has_no_fraction_to_take(tmp_path):
+    """Refused rather than written as zero, which would read as a closed
+    field rather than as a plane nobody traced."""
     product = flare_connection(tmp_path)
     path = product.source
     rows = path.read_text().splitlines()
-    body = [row for row in rows if not row.startswith("#")]
-    body[0] = "  3.000000E+00  4.000000E+00 -1.001000E+03  1.000000E+00"
+    body = ["  3.000000E+00  4.000000E+00  1.000000E+00  1.000000E+00"] * 6
     path.write_text("\n".join([r for r in rows if r.startswith("#")] + body) + "\n")
-    ods = ODS()
-    b_field_lines_from_flare_connection(ods, read_flare_product(path), time=0.0)
-    assert ods["plasma_initiation.b_field_lines.0.open_fraction"] == pytest.approx(5.0 / 6.0)
+    with pytest.raises(ValueError, match="no line left to take|none left to take"):
+        b_field_lines_from_flare_connection(
+            ODS(), read_flare_product(path), time=0.0,
+            boundary=np.array([[9.0, 9.0], [10.0, 9.0], [10.0, 10.0]]),
+        )
 
 
 def test_a_product_without_status_columns_is_refused(tmp_path):

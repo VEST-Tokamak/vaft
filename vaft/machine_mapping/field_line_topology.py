@@ -104,11 +104,12 @@ FLARE_TRACE_STATUS = {
     -1004: "stopped below the minimum psi_N",
 }
 
-#: What :func:`b_field_lines_from_flare_connection` may do with a line that
-#: left the field's domain.  ``"refuse"`` is the only default: the trace
-#: failed, so whether the line is open is unknown, and calling it either way
-#: is an owner's policy rather than a reading of the data.
-DOMAIN_EXIT_POLICIES = ("refuse", "open", "closed")
+#: Where :func:`b_field_lines_from_flare_connection` may take the boundary
+#: a domain exit is tested against: an ``(N, 2)`` contour of ``(R, z)`` in
+#: metres, the string ``"wall"`` for the ODS's own limiter outline, or
+#: ``None`` to supply none -- in which case a domain exit is refused, because
+#: without a boundary there is nothing to classify it by.
+WALL_BOUNDARY = "wall"
 
 
 def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *,
@@ -218,6 +219,15 @@ def write_b_field_lines(
     ``open_fraction`` may be ``None``, which leaves the leaf unwritten and
     records the omission; it is a required argument so that the omission is
     a decision rather than an oversight.
+
+    **A line counted as closed is only a line that was not seen to reach the
+    wall.** A tracer stops at its own arclength, poloidal-turn and
+    toroidal-turn limits, and a line that hit one of those was truncated,
+    not closed -- it may well have struck the wall a metre further on. So
+    the fraction is a lower bound on how open the field is, and it moves
+    with the tracing limits the run happened to use. The Data Dictionary
+    calls the leaf ``open / (open + closed)``; nothing in it can say which
+    of the two a truncated line was.
 
     Returns the index of the entry it wrote.
 
@@ -362,8 +372,44 @@ def write_b_field_lines(
     return index
 
 
+def _resolve_boundary(ods: ODS, boundary) -> Optional[np.ndarray]:
+    """``boundary`` as an ``(N, 2)`` contour in metres, or ``None``.
+
+    ``None`` in gives ``None`` out: the caller supplied no boundary, and the
+    decision of what that means belongs to whoever needs one.
+    """
+    if boundary is None:
+        return None
+    if isinstance(boundary, str):
+        if boundary != WALL_BOUNDARY:
+            raise ValueError(
+                f"boundary must be a contour, {WALL_BOUNDARY!r} or None; got "
+                f"{boundary!r}"
+            )
+        r = path_value(ods, "wall.description_2d.0.limiter.unit.0.outline.r", None)
+        z = path_value(ods, "wall.description_2d.0.limiter.unit.0.outline.z", None)
+        if r is None or z is None:
+            raise ValueError(
+                f"boundary={WALL_BOUNDARY!r} reads "
+                "wall.description_2d[0].limiter.unit[0].outline, and this ODS "
+                "has none. Pass the model's own contour instead -- "
+                "vaft.data.flare_products.read_flare_boundary reads it from "
+                "a FLARE model directory."
+            )
+        contour = np.column_stack([np.asarray(r, dtype=float).ravel(),
+                                   np.asarray(z, dtype=float).ravel()])
+    else:
+        contour = np.atleast_2d(np.asarray(boundary, dtype=float))
+    if contour.ndim != 2 or contour.shape[1] != 2 or contour.shape[0] < 3:
+        raise ValueError(
+            f"a boundary is an (N, 2) contour of (R, z) in metres with at "
+            f"least three points; got shape {contour.shape}"
+        )
+    return contour
+
+
 def b_field_lines_from_flare_connection(
-    ods: ODS, product, *, time: float, domain_exit: str = "refuse",
+    ods: ODS, product, *, time: float, boundary=None,
     code_name: str = "FLARE", code_repository: str = "",
 ) -> int:
     """Map one FLARE connection-length product at a fixed angle into the IDS.
@@ -373,13 +419,19 @@ def b_field_lines_from_flare_connection(
     plane. A swept mesh is refused: its lines start at different toroidal
     angles and ``starting_positions`` has nowhere to say so.
 
-    ``domain_exit`` says what to do with a line whose trace left the field's
-    domain (:data:`FLARE_DOMAIN_ERROR`). Such a trace *failed*: its reported
-    length is only what the integrator had accumulated before it left, and
-    whether the line would have reached the wall is unknown. So the default
-    is ``"refuse"``, and ``"open"`` or ``"closed"`` are an explicit policy
-    the caller takes responsibility for -- both are written into the
-    provenance beside the fraction they produced.
+    ``boundary`` is what a domain exit (:data:`FLARE_DOMAIN_ERROR`) is
+    classified against -- see :data:`WALL_BOUNDARY`. FLARE does not check
+    that a starting point lies inside the wall, and a generator that seeds a
+    rectangular grid over the poloidal plane therefore launches lines from
+    outside it; those run until they leave the perturbation mesh, and the
+    status they carry says so. Such a line is **neither open nor closed**:
+    it is written with a ``NaN`` length and left out of ``open_fraction``
+    altogether, numerator and denominator both, with the count recorded in
+    the provenance (owner decision, 2026-09-22).
+
+    A domain exit whose start lies *inside* the boundary is a different
+    thing -- a line that should have been traceable and was not -- and is
+    refused.
 
     Raises
     ------
@@ -388,18 +440,15 @@ def b_field_lines_from_flare_connection(
         ``ierr_bwd``/``ierr_fwd`` columns, so which lines reached the wall is
         not recorded and ``open_fraction`` would be a guess; a status code
         appears that :data:`FLARE_TRACE_STATUS` does not define, which means
-        the same thing for the lines that carry it; ``domain_exit`` is not
-        one of :data:`DOMAIN_EXIT_POLICIES`; or it is ``"refuse"`` and the
-        product holds a domain exit. Re-run the tracing task with its
-        ``ierr`` output enabled, choose a policy, or call
-        :func:`write_b_field_lines` directly with an explicit
+        the same thing for the lines that carry it; ``boundary`` is
+        ``"wall"`` and the ODS holds no limiter outline, or is a contour of
+        fewer than three points; a domain exit starts inside the boundary;
+        a domain exit appears and no boundary was supplied to classify it
+        by; or every line is excluded, leaving no fraction to take. Re-run
+        the tracing task with its ``ierr`` output enabled, pass a boundary,
+        or call :func:`write_b_field_lines` directly with an explicit
         ``open_fraction``.
     """
-    if domain_exit not in DOMAIN_EXIT_POLICIES:
-        raise ValueError(
-            f"domain_exit must be one of {list(DOMAIN_EXIT_POLICIES)}, not "
-            f"{domain_exit!r}"
-        )
     mesh = product.mesh
     if mesh.toroidally_swept:
         raise ValueError(
@@ -437,23 +486,47 @@ def b_field_lines_from_flare_connection(
     reached = ((backward == FLARE_INTERSECT_BOUNDARY)
                | (forward == FLARE_INTERSECT_BOUNDARY))
     # A domain exit is a failed trace, not a verdict on the line.
-    left_domain = ((backward == FLARE_DOMAIN_ERROR)
-                   | (forward == FLARE_DOMAIN_ERROR)) & ~reached
+    left_domain = (backward == FLARE_DOMAIN_ERROR) | (forward == FLARE_DOMAIN_ERROR)
+    starting_r, starting_z = mesh.r.ravel(), mesh.z.ravel()
+    excluded = np.zeros(left_domain.shape, dtype=bool)
     if left_domain.any():
-        if domain_exit == "refuse":
+        contour = _resolve_boundary(ods, boundary)
+        if contour is None:
             raise ValueError(
                 f"{product.source.name}: "
                 f"{int(np.count_nonzero(left_domain))} of {left_domain.size} "
                 f"lines left the field's domain (status {FLARE_DOMAIN_ERROR}, "
-                f"{FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR]}) without reaching "
-                "the wall. Those traces failed, so whether they are open is "
-                "unknown and open_fraction cannot be derived from them. "
-                'Pass domain_exit="open" or "closed" to state a policy -- it '
-                "is recorded with the result -- or extend the field's domain "
-                "and trace again."
+                f"{FLARE_TRACE_STATUS[FLARE_DOMAIN_ERROR]}). Whether each of "
+                "them started inside the wall is what decides its meaning, "
+                "and no boundary was supplied to tell. Pass boundary= a "
+                f"contour or {WALL_BOUNDARY!r}, or call write_b_field_lines "
+                "directly with an explicit open_fraction."
             )
-        if domain_exit == "open":
-            reached = reached | left_domain
+        from matplotlib.path import Path as _Polygon
+
+        inside = _Polygon(contour).contains_points(
+            np.column_stack([starting_r, starting_z])
+        )
+        anomalous = left_domain & inside
+        if anomalous.any():
+            raise ValueError(
+                f"{product.source.name}: {int(np.count_nonzero(anomalous))} "
+                "line(s) left the field's domain from a start *inside* the "
+                "boundary. A line that should have been traceable and was "
+                "not is a real anomaly rather than a seeding artefact, so it "
+                "is refused rather than written off with the ones that "
+                "started outside."
+            )
+        excluded = left_domain & ~inside
+        total = np.where(excluded, np.nan, total)
+
+    counted = ~excluded
+    if not counted.any():
+        raise ValueError(
+            f"{product.source.name}: all {excluded.size} lines started "
+            "outside the boundary, so there is none left to take an open "
+            "fraction over."
+        )
     phi_deg = float(np.unique(mesh.phi_deg)[0])
     # The axes come off `r` and `z` rather than off `u` and `v`: a FlareMesh
     # keeps its axes in the file's own units and converts only the node
@@ -462,20 +535,25 @@ def b_field_lines_from_flare_connection(
     return write_b_field_lines(
         ods,
         grid_r=mesh.r[0], grid_z=mesh.z[:, 0],
-        starting_r=mesh.r.ravel(), starting_z=mesh.z.ravel(),
+        starting_r=starting_r, starting_z=starting_z,
         lengths=total,
-        open_fraction=float(np.count_nonzero(reached)) / float(reached.size),
+        open_fraction=(float(np.count_nonzero(reached & counted))
+                       / float(np.count_nonzero(counted))),
         time=time, phi_deg=phi_deg,
         provenance={
             "source": product.source.name,
             "mesh": f"{mesh.kind} {mesh.node_shape[1]} x {mesh.node_shape[0]}",
             "open_fraction_rule":
-                "a line reaching the wall in either direction "
-                f"(FLARE status {FLARE_INTERSECT_BOUNDARY})",
-            "domain_exit_policy": (
-                f"{int(np.count_nonzero(left_domain))} line(s) left the "
-                f"field's domain and were counted as {domain_exit}"
-                if left_domain.any() else "no line left the field's domain"
+                "a line reaching the wall in either direction (FLARE status "
+                f"{FLARE_INTERSECT_BOUNDARY}), over the lines that started "
+                "inside the boundary",
+            "lines_excluded": (
+                f"{int(np.count_nonzero(excluded))} of {excluded.size} lines "
+                "started outside the boundary and left the field's domain; "
+                "neither open nor closed, they carry a NaN length and are "
+                "out of open_fraction's numerator and denominator alike"
+                if excluded.any() else
+                "none -- every line started inside the boundary"
             ),
         },
         code_name=code_name, code_repository=code_repository,
