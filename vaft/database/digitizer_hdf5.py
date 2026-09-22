@@ -43,6 +43,8 @@ from typing import Any
 
 import numpy as np
 
+from vaft.compat import IS_WINDOWS
+
 SCHEMA = "vaft.soft_x_rays.digitizer"
 SCHEMA_VERSION = 1
 SUFFIX = ".h5"
@@ -87,8 +89,17 @@ def fsync_path(path: str | Path) -> None:
     ``verify_container`` re-reads through the page cache, so it proves what the
     kernel holds, not what the disk holds; a CSV must not be unlinked until the
     container that replaces it is durable. macOS needs ``F_FULLFSYNC`` for that.
+
+    Windows can neither open a directory as a descriptor nor ``fsync`` a
+    read-only one: files are opened read-write there, and directories are
+    skipped because ``os.replace`` already made the name visible.
     """
-    fd = os.open(path, os.O_RDONLY)
+    if IS_WINDOWS:
+        if Path(path).is_dir():
+            return
+        fd = os.open(path, os.O_RDWR)
+    else:
+        fd = os.open(path, os.O_RDONLY)
     try:
         try:
             import fcntl
