@@ -227,8 +227,10 @@ efit_magnetic_server:
   - EFIT's total chi-square (686.53) is the plasma-current term alone (chipasma),
     which includes the prescribed vessel current EFIT adds after the fit (#918); reconstructed
     Ip equals measured.
-  - The measured diamagnetic flux is -7.34 mWb; the reconstruction gives +4.93 mWb
-    (SIGDLC 1e7, weighted out).
+  - The k-files submitted DFLUX = -7.34 mWb and the reconstruction gives +4.93 mWb
+    (SIGDLC 1e7, weighted out). That DFLUX was mapped before issue 1196 and carries the
+    port's extra minus, so the measured flux is +7.34 mWb, paramagnetic, the same sign
+    as the reconstruction. The archived k-files keep what was submitted.
   - The server g-file's q on axis (6.88) is an axis artifact of that EFIT build; q
     at psi_N = 0.05 is 1.83.
   - efit_status.txt on the server reads 'fail' but describes the last case of that

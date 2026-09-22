@@ -128,7 +128,7 @@ def test_an_input_without_the_axis_says_index_rather_than_time(sample):
 # the other options are unaffected
 # ---------------------------------------------------------------------------
 
-def test_layout_selection_and_orientation_are_unaffected_by_the_choice(entries):
+def test_layout_selection_and_orientation_are_unaffected_by_the_choice(sample, entries):
     panels = build_model("flux_loop_time_flux", entries, x="index", layout="subplots")
     assert isinstance(panels, Panels) and len(panels.models) == 11
     assert all(isinstance(m, LineSeries) and m.x_label == "Sample index" for m in panels.models)
@@ -138,6 +138,14 @@ def test_layout_selection_and_orientation_are_unaffected_by_the_choice(entries):
     assert len(chosen.series) == 4
     canonical = build_model("diamagnetic_flux_time", entries, x="index", orientation="canonical")
     intuitive = build_model("diamagnetic_flux_time", entries, x="index", orientation="intuitive")
+    # The stored flux is positive (paramagnetic, #1196), so nothing flips...
+    np.testing.assert_allclose(intuitive.series[0].y, canonical.series[0].y)
+    # ...and a negative-going one still does, on the index abscissa too.
+    negated = copy.deepcopy(sample)
+    negated["magnetics.diamagnetic_flux.0.data"] = -np.asarray(sample["magnetics.diamagnetic_flux.0.data"], float)
+    negated_entries = normalize_entries(negated)
+    canonical = build_model("diamagnetic_flux_time", negated_entries, x="index", orientation="canonical")
+    intuitive = build_model("diamagnetic_flux_time", negated_entries, x="index", orientation="intuitive")
     np.testing.assert_allclose(intuitive.series[0].y, -canonical.series[0].y)
 
 

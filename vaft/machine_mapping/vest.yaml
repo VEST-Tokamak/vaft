@@ -1927,9 +1927,9 @@ plasma_features:
       sigma: 5.0
       level_fraction: 0.5
       min_width_s: 1.0e-3
-  # Diamagnetic flux: the signed sample at the largest |deviation| (VEST's
-  # stored flux is negative-going; a paramagnetic shot would come back
-  # positive). Value and time only -- no window of its own.
+  # Diamagnetic flux: the signed sample at the largest |deviation| (the
+  # stored flux is positive for a paramagnetic plasma, #1196; a diamagnetic
+  # shot would come back negative). Value and time only -- no window of its own.
   diamagnetic:
     polarity: absolute
     prefilter_samples: 5

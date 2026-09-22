@@ -251,7 +251,7 @@ def _plot_poloidal_geometry(ax, geometry, color):
 #         return ods['magnetics.time'], ods['equilibrium.time_slice.:.global_quantities.ip'] / 1e3
     
 #     def get_diamagnetic_flux():
-#         return ods['magnetics.time'], ods['magnetics.diamagnetic_flux.0.data'] * 1e3 * (-1) # Wb -> mWb and negative sign
+#         return ods['magnetics.time'], ods['magnetics.diamagnetic_flux.0.data'] * 1e3 # Wb -> mWb, stored sign (#1196)
     
     
 #     def get_h_alpha():

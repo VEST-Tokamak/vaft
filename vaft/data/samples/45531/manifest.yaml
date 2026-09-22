@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-45531-fluctuation-v1
+reference_id: vest-45531-fluctuation-v2
 shot: 45531
 machine: VEST
 imas_dd_version: 3.41.0
@@ -30,8 +30,8 @@ representations:
     package: repository-only
     compatible_adapters:
     - omas
-    size: 45916317
-    sha256: 07709cd3fa75b451dd3adcb8b74bcc2b694651ac7e5ebf4de708e21517d05f3e
+    size: 45916361
+    sha256: 41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f
 generation:
   generated: '2026-09-18'
   issue: https://github.com/VEST-Tokamak/vaft/issues/1005
@@ -107,3 +107,15 @@ acceptance:
     channel_count: 52
     sample_rate_hz: 976562.5
   toroidal_array: fluctuation
+corrections:
+- issue: 1196
+  field: magnetics.diamagnetic_flux.0.{data,method_name}
+  from: negative for a paramagnetic plasma
+  to: positive for a paramagnetic plasma (EFIT's cdflux sign)
+  previous_reference_id: vest-45531-fluctuation-v1
+  previous_sha256: 07709cd3fa75b451dd3adcb8b74bcc2b694651ac7e5ebf4de708e21517d05f3e
+  reason: 'The mapper port negated the donor''s diamagnetic flux (-1000 where VEST_DiamagneticFlux.m
+    has none). Applied in place: data exactly negated and method_name given the mapper''s
+    new sign-convention token, a leaf-by-leaf comparison showing no other leaf changed.
+    The mapper was corrected in the same change, so a regeneration reproduces these
+    values.'

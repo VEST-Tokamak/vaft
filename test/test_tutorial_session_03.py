@@ -464,7 +464,7 @@ def test_the_efit_weighting_is_shown_as_it_is(executed):
     assert "vessel accounting term" in printed
     assert "Ip chi-square, plasma-only residual" in printed
     assert "sigma EFIT used" in printed
-    assert "diamagnetic flux: measured -" in printed
+    assert "diamagnetic flux: measured +" in printed  # paramagnetic (#1196)
 
 
 def test_the_topologies_are_classified(executed):

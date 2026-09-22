@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-41672-pipeline-full-imas-v5
+reference_id: vest-41672-pipeline-full-imas-v6
 shot: 41672
 machine: VEST
 imas_dd_version: 3.41.0
@@ -17,8 +17,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 38871647
-    sha256: d3693cc2a27514c20ae1f9a9e25d943b8bdcb194d66a8425e23e1e3412e0528b
+    size: 38871718
+    sha256: c37a7d0a69031d85a1116d477adf2e5c399fa305b49e710eaf32262266c2b8ce
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -26,13 +26,13 @@ representations:
     compatible_adapters:
     - imas
     - omas
-    size: 31273086
-    sha256: 3093cdbd5258d88796ebfa7ddcdca0a47b1f36d11a3b06f19f1f04f7ce545f75
+    size: 31272865
+    sha256: 8dc04c61f9aaa66721e6a94f689ebeb4e6615d66dfc8013994eef926632a3cef
 generation:
   command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
     vaft/data/samples/41672/manifest.yaml --canonical-source vaft/data/samples/41672/source/pipeline-until-efit.json.gz
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 4a72cc5a5448fd413267c7458f5eaf016fde753b5cb58e1faf6d82f61a62d480
+  canonical_sha256: d1a5baf40ed5a588292287acfabd0b6976a421201a1ec93f93a60f7f9e1040ee
   materialized_leaves: 26732
   normalizations:
   - remove non-DD equilibrium.code.parameters parser cache
@@ -59,13 +59,29 @@ generation:
       max_plausible_amplitude:
         b_field_pol_probe: 1.0
       population_peak_factor: 4.0
+      array_departure_factor: 1.0
+      array_contradiction_fraction: 0.3
+      min_array_members: 7
+      array_min_scored: 0.5
+      array_amplitude_floor: 0.01
     condemned:
+    - b_field_pol_probe[18] MagneticFieldProbe_H3-01_Bz
+    - b_field_pol_probe[20] MagneticFieldProbe_H3-03_Bz
+    - b_field_pol_probe[23] MagneticFieldProbe_H3-06_Bz
+    - b_field_pol_probe[24] MagneticFieldProbe_H3-07_Bz
     - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+    - b_field_pol_probe[26] MagneticFieldProbe_H3-09_Bz
     - b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz
     - b_field_pol_probe[37] MagneticFieldProbe_C3-01_Bz
     - b_field_pol_probe[38] MagneticFieldProbe_C3-02_Bz
+    - b_field_pol_probe[39] MagneticFieldProbe_C3-03_Bz
     - b_field_pol_probe[41] MagneticFieldProbe_C3-05_Bz
     - b_field_pol_probe[43] MagneticFieldProbe_C4-02_Bz
+    - b_field_pol_probe[44] MagneticFieldProbe_C4-03
+    - b_field_pol_probe[45] MagneticFieldProbe_C4-04
+    - b_field_pol_probe[46] MagneticFieldProbe_C4-06
+    - b_field_pol_probe[47] MagneticFieldProbe_C2-04_Bz
+    - b_field_pol_probe[61] MagneticFieldProbe_L-07_Bz
   em_coupling:
     remapped: true
     issue: https://github.com/VEST-Tokamak/vaft/issues/373
@@ -168,8 +184,9 @@ generation:
       ip: chi_squared is EFIT's chipasma as reported. It includes the prescribed vessel
         current that EFIT adds after the fit (#918), so it is nonzero even where reconstructed
         equals measured, and it is the whole of EFIT's total chi-square on these runs.
-      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive) while
-        measured stores the signed, negative flux. reconstructed is EFIT's cdflux
+      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive). measured
+        stores the signed flux, positive for a paramagnetic plasma since issue 1196
+        (it was stored negated before; see corrections). reconstructed is EFIT's cdflux
         in its own sign and chi_squared is EFIT's chidflux against the submitted |DFLUX|;
         the fit weight was 1e-4, so the diamagnetic flux did not constrain the fit.
       not_written: 'chi_squared_reduced and freedom_degrees_n: the m-file carries
@@ -305,3 +322,19 @@ corrections:
     SIGNALS was corrected in the same change, so a regeneration reproduces these values
     rather than reverting them, and the stage hashes still describe the run that produced
     the rest of the artifact.'
+- issue: 1196
+  field: magnetics.diamagnetic_flux.0.{data,method_name}, equilibrium.time_slice.:.constraints.diamagnetic_flux.measured
+  from: negative for a paramagnetic plasma
+  to: positive for a paramagnetic plasma (EFIT's cdflux sign)
+  previous_reference_id: vest-41672-pipeline-full-imas-v5
+  previous_canonical_sha256: 4a72cc5a5448fd413267c7458f5eaf016fde753b5cb58e1faf6d82f61a62d480
+  reason: 'The mapper port negated the donor''s diamagnetic flux (-1000 where VEST_DiamagneticFlux.m
+    has none), so the stored measurement had the opposite sign to EFIT''s cdflux.
+    Applied in place rather than by rerunning the pipeline: data and constraints.measured
+    are exactly negated and method_name gains the mapper''s new sign-convention token,
+    21 leaves in all, and a leaf-by-leaf comparison against the previous canonical
+    source shows no other leaf changed. constraints.diamagnetic_flux.{reconstructed,chi_squared}
+    and the archived k-files stay as EFIT produced them. The mapper was corrected
+    in the same change, so a regeneration reproduces these values rather than reverting
+    them, and the stage hashes still describe the run that produced the rest of the
+    artifact.'

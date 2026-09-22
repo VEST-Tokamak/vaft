@@ -233,6 +233,12 @@ The signed measurement reached `DFLUX` on **18 of 18, 11 of 11 and 32 of 32**
 compared slices. #385's convention holds on 41524 and 41672, which the
 packaged-sample regression never covered.
 
+These runs predate #1196. The stored measurement they read still carried an
+extra minus sign added by the mapper port (the donor has none), so every
+measured value in this README has the opposite sign under the corrected
+convention: the `-1.4275e-3` Wb above is `+1.4275e-3`, paramagnetic, the same
+sign as `cdflux`. The k-file pass-through this section checks is unaffected.
+
 ### Against Thomson
 
 Three reconstructions fell inside the Thomson window (39915 at 315, 316 and

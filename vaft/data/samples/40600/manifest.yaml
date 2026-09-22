@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-40600-camera-fluctuation-v1
+reference_id: vest-40600-camera-fluctuation-v2
 shot: 40600
 machine: VEST
 imas_dd_version: 3.41.0
@@ -26,8 +26,8 @@ representations:
     package: repository-only
     compatible_adapters:
     - omas
-    size: 21327041
-    sha256: 31443eec4238fda52b817c74ff73dfcbb586d5664da805aa78d761cee3bb9d17
+    size: 21327042
+    sha256: 7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418
 generation:
   generated: '2026-09-18'
   issue: https://github.com/VEST-Tokamak/vaft/issues/1005
@@ -107,3 +107,15 @@ acceptance:
     lfs_probe_field: 171
     lfs_probe_rate_hz: 250000.0
   toroidal_array: null
+corrections:
+- issue: 1196
+  field: magnetics.diamagnetic_flux.0.{data,method_name}
+  from: negative for a paramagnetic plasma
+  to: positive for a paramagnetic plasma (EFIT's cdflux sign)
+  previous_reference_id: vest-40600-camera-fluctuation-v1
+  previous_sha256: 31443eec4238fda52b817c74ff73dfcbb586d5664da805aa78d761cee3bb9d17
+  reason: 'The mapper port negated the donor''s diamagnetic flux (-1000 where VEST_DiamagneticFlux.m
+    has none). Applied in place: data exactly negated and method_name given the mapper''s
+    new sign-convention token, a leaf-by-leaf comparison showing no other leaf changed.
+    The mapper was corrected in the same change, so a regeneration reproduces these
+    values.'
