@@ -320,6 +320,72 @@ def test_probes_are_excluded_by_name_not_by_position(module):
         module.probe_indexes(ods, ["MagneticFieldProbe_C4-05"])
 
 
+def test_the_magnetic_fit_reports_chi_square_against_the_sigma_efit_used(module):
+    variables = {
+        "expmpi": np.array([0.10, 0.20, 0.30]), "cmpr2": np.array([0.11, 0.20, 3.0]),
+        "fwtmp2": np.array([1.0, 1.0, 0.0]), "sigmpi": np.array([0.005, 0.01, 1.0]),
+        "silopt": np.array([0.01, -0.02]), "csilop": np.array([0.01, -0.02]),
+        "fwtsi": np.array([1.0, 1.0]),
+    }
+
+    fit = module.magnetic_fit(variables)
+
+    # (0.01/0.005)^2 + 0 over the two fitted probes; the unweighted one is out.
+    assert fit["probe_chi2"] == pytest.approx(4.0)
+    assert fit["probe_reduced_chi2"] == pytest.approx(2.0)
+    assert fit["probe_median_relative"] == pytest.approx(0.05)
+    # No sigsil in this m-file: chi-square is unknown, not zero.
+    assert np.isnan(fit["loop_chi2"])
+
+
+def test_the_rigid_vertical_shift_recovers_a_known_translation(module):
+    reference = _mapping()
+    moved = dict(reference, ZBBBS=np.asarray(reference["ZBBBS"]) - 0.0123)
+
+    shift = module.rigid_vertical_shift(moved, reference)
+
+    assert shift["dz_mm"] == pytest.approx(12.3, abs=0.01)
+    assert shift["after_shift_mm"] < 0.01
+    assert shift["lcfs_rms_mm"] > 5.0
+
+
+def test_uncertainty_scales_reach_only_the_named_families(module):
+    case = module.configurations()[0]
+
+    scientific = module._scientific(case, "standard_deviation", {"bpol_probe": 0.25})
+
+    scales = scientific.constraints.uncertainty_scales
+    assert scales["bpol_probe"] == 0.25
+    assert all(value == 1.0 for key, value in scales.items() if key != "bpol_probe")
+    with pytest.raises(ValueError, match="unknown uncertainty families"):
+        module._scientific(case, "standard_deviation", {"probes": 0.5})
+
+
+def test_the_initialization_fingerprint_is_the_same_whatever_the_sigma(module, tmp_path):
+    """The calibration's cold-start contract: sigma changes, the start does not."""
+    kfile = tmp_path / "k041672.00331"
+    kfile.write_text(" &IN1\n AELIP = 0.3\n EELIP = 1.6\n ZELIP = 0.0\n RELIP = 0.32\n"
+                     " RZERO = 0.4\n BITMPI= 0.001, 0.002\n /\n")
+    case = module.configurations()[0]
+
+    base = module.initialization_fingerprint(module._scientific(case, "standard_deviation"), kfile)
+    wide = module.initialization_fingerprint(
+        module._scientific(case, "standard_deviation", {"bpol_probe": 1 / 32}), kfile
+    )
+
+    assert base == wide
+    assert base["kfile"]["RELIP"] == "0.32"
+    assert base["kfile"]["ICINIT"] is None  # EFIT's own default
+
+
+def test_a_workdir_holding_a_prior_solution_is_refused(module, tmp_path):
+    (tmp_path / "k041672.00331").write_text("")
+    module.refuse_prior_solutions(tmp_path)  # a k-file is an input, not a solution
+    (tmp_path / "g041672.00331").write_text("")
+    with pytest.raises(RuntimeError, match="cold-start"):
+        module.refuse_prior_solutions(tmp_path)
+
+
 # --------------------------------------------------------------------------
 # The recorded run (2026-09-18).  A re-run that reverses any of these is a
 # finding, and should fail here rather than be discovered in a README.
