@@ -11452,6 +11452,23 @@ def _surface_at(
     return r_out, z_out
 
 
+def _first_island_x_point(excursion: np.ndarray) -> int:
+    """The sample to start an island's separatrix circuit at: its first X-point.
+
+    An m-lobed island has m X-points, and when the poloidal sample count is a
+    multiple of m they fall on equivalent samples whose excursions agree to
+    rounding. ``argmin`` then picks whichever the platform's ``cos`` rounds
+    lower, so the same figure came out with its samples rotated by a whole lobe
+    from one CPU to the next. Every sample within rounding of the minimum is an
+    equally good X-point; taking the first makes the circuit reproducible. The
+    band, 1e-9 of the peak excursion, is far above float64 rounding (~1e-16)
+    and far below the gap to the next sample off an X-point (~1e-2 of the peak
+    at any mesh that can draw a lobe).
+    """
+    floor = float(np.min(excursion)) + 1e-9 * float(np.max(excursion))
+    return int(np.flatnonzero(excursion <= floor)[0])
+
+
 def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayers:
     r"""The island separatrices a GPEC result implies, in the poloidal plane.
 
@@ -11546,11 +11563,10 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         # is traced outward once and back along the inward branch, and the two
         # branches meet only at the X-points; starting anywhere else leaves a
         # radial chord across the island where the trace turns around.
-        order = np.roll(np.arange(theta_rad.size), -int(np.argmin(excursion)))
+        start = _first_island_x_point(excursion)
+        order = np.roll(np.arange(theta_rad.size), -start)
         order = np.append(order, order[0])
-        excursion = np.append(
-            np.roll(excursion, -int(np.argmin(excursion))), excursion.min()
-        )
+        excursion = np.append(np.roll(excursion, -start), excursion.min())
         outer_r, outer_z = _surface_at(mesh, psi_r + excursion, columns=order)
         inner_r, inner_z = _surface_at(mesh, psi_r - excursion, columns=order)
         if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():

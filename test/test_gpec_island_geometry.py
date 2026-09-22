@@ -396,7 +396,17 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     assert _branch_extrema(_separation(plain)[:-1]) == _branch_extrema(
         _separation(moved)[:-1]
     )
-    assert _separation(moved).max() == pytest.approx(_separation(plain).max(), rel=1e-6)
+    # Both maxima are samples of (w/2)|cos(xi/2)|, taken wherever the mesh
+    # happens to fall relative to the O-point: sample spacing m*dtheta in xi puts
+    # the nearest sample within m*dtheta/4 of the peak in the half-angle, so each
+    # maximum lies in [(w/2)cos(m*dtheta/4), w/2]. That band -- not a fixed
+    # relative 1e-6, which pytest.approx's default abs=1e-12 was silently
+    # overriding at this 1e-9 scale -- is how far they may differ. m = 3 is the
+    # largest in the fixture.
+    sampling = 1.0 - np.cos(3 * (2.0 * np.pi / (THETA_COUNT - 1)) / 4.0)
+    assert _separation(moved).max() == pytest.approx(
+        _separation(plain).max(), rel=sampling, abs=0.0
+    )
     displaced = np.linalg.norm(_o_point(plain) - _o_point(moved))
     assert displaced > 0.05 * _surface_extent(plain)
 
@@ -416,3 +426,21 @@ def test_the_slice_is_periodic_in_one_full_turn_of_the_pattern(mapped):
 
     np.testing.assert_allclose(plain.layers[2].r, turned.layers[2].r, atol=1e-9)
     np.testing.assert_allclose(plain.layers[2].z, turned.layers[2].z, atol=1e-9)
+
+
+def test_the_circuit_starts_at_the_same_x_point_whatever_the_rounding():
+    """Two X-points tied to rounding (an m = 2 island on an even mesh) must not
+    let the platform's cos decide where the circuit starts; which of them won
+    used to differ between CI runners, rotating the drawn samples by a lobe."""
+    from vaft.plot.backend.recipes import _first_island_x_point
+
+    base = np.abs(np.cos(np.linspace(0.0, 2.0 * np.pi, 128, endpoint=False) + 0.3))
+    tied = base.copy()
+    tied[[10, 74]] = 1e-3
+    lower_first, lower_second = tied.copy(), tied.copy()
+    lower_first[10] -= 1e-18
+    lower_second[74] -= 1e-18
+    assert _first_island_x_point(lower_first) == _first_island_x_point(lower_second) == 10
+    distinct = tied.copy()
+    distinct[74] = 5e-4  # a genuinely lower X-point still wins
+    assert _first_island_x_point(distinct) == 74
