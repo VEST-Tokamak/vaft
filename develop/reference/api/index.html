@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>681c6ba</code>. What is described
+  <code>7b00ae0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1046,6 +1046,119 @@ names no backend onto Slurm. Placement comes from <code class="language-plaintex
 <code class="language-plaintext highlighter-rouge">VAFT_SLURM_QOS</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MODE</code> and <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MAX_WAIT</code>. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit <code class="language-plaintext highlighter-rouge">backend=</code> for those.</p>
 
+<h3 id="in-process-memory-guard">In-process memory guard</h3>
+
+<p><code class="language-plaintext highlighter-rouge">ResourceRequest.memory_mb</code> only asks a scheduler for memory, and <code class="language-plaintext highlighter-rouge">LocalBackend</code> ignores it. When a
+long Python loop outgrows its allocation, the kernel’s or Slurm’s OOM killer ends the process with no
+traceback and no status record. <code class="language-plaintext highlighter-rouge">vaft.code.resources</code> (#1146) lets the loop notice first and stop at a
+point of its own choosing:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">MemoryBudget</span><span class="p">,</span> <span class="n">MemoryBudgetExceeded</span><span class="p">,</span> <span class="n">memory_budget</span><span class="p">,</span> <span class="n">peak_rss_mb</span><span class="p">,</span> <span class="n">rss_mb</span>
+
+<span class="n">budget</span> <span class="o">=</span> <span class="nf">memory_budget</span><span class="p">()</span>                    <span class="c1"># MemoryBudgetInfo(limit_mb, source, candidates, ...)
+</span><span class="k">with</span> <span class="nc">MemoryBudget</span><span class="p">(</span><span class="n">budget</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">interval_s</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span> <span class="k">as</span> <span class="n">guard</span><span class="p">:</span>   <span class="c1"># or limit_mb=None to resolve on entry
+</span>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">guard</span><span class="p">.</span><span class="nf">check</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">item</span><span class="p">)</span>         <span class="c1"># raises above 0.9 x limit_mb
+</span>        <span class="k">except</span> <span class="n">MemoryBudgetExceeded</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">stopping at </span><span class="si">{</span><span class="n">error</span><span class="p">.</span><span class="n">label</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="n">error</span><span class="p">.</span><span class="n">rss_mb</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="n">f</span><span class="si">}</span><span class="s"> MiB</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">break</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">guard</span><span class="p">.</span><span class="n">peak_mb</span><span class="p">,</span> <span class="nf">rss_mb</span><span class="p">(),</span> <span class="nf">peak_rss_mb</span><span class="p">())</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rss_mb()</code>, <code class="language-plaintext highlighter-rouge">peak_rss_mb()</code></td>
+      <td>current and process-lifetime peak resident set size, MiB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">memory_budget(environ=None)</code></td>
+      <td>the effective limit: the <strong>minimum</strong> of the sources below, with the one that set it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MemoryBudgetInfo</code></td>
+      <td><code class="language-plaintext highlighter-rouge">limit_mb</code> (<code class="language-plaintext highlighter-rouge">None</code> when nothing reports a limit), <code class="language-plaintext highlighter-rouge">source</code>, every <code class="language-plaintext highlighter-rouge">candidates</code> value; <code class="language-plaintext highlighter-rouge">as_dict()</code> for status files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MemoryBudget(limit_mb=None, fraction=0.9, *, on_exceed="raise", interval_s=None)</code></td>
+      <td>context manager; <code class="language-plaintext highlighter-rouge">limit_mb</code> is MiB or a <code class="language-plaintext highlighter-rouge">MemoryBudgetInfo</code>; <code class="language-plaintext highlighter-rouge">check(label)</code>, <code class="language-plaintext highlighter-rouge">peak_mb</code>, <code class="language-plaintext highlighter-rouge">start_interval()</code> and <code class="language-plaintext highlighter-rouge">interval_peak_mb</code> (the peak of one loop item), <code class="language-plaintext highlighter-rouge">exceeded</code>, <code class="language-plaintext highlighter-rouge">as_dict()</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MemoryBudgetExceeded</code></td>
+      <td>a <code class="language-plaintext highlighter-rouge">MemoryError</code> (so an <code class="language-plaintext highlighter-rouge">except RuntimeError</code> around one item does not swallow it; code that catches <code class="language-plaintext highlighter-rouge">MemoryError</code> to fall back to a chunked path will, so re-raise it there); picklable across a process pool; <code class="language-plaintext highlighter-rouge">rss_mb</code> (the memory in use observed), <code class="language-plaintext highlighter-rouge">threshold_mb</code>, <code class="language-plaintext highlighter-rouge">limit_mb</code>, <code class="language-plaintext highlighter-rouge">label</code>, <code class="language-plaintext highlighter-rouge">source</code>, <code class="language-plaintext highlighter-rouge">peak_mb</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cgroup_usage_mb(directory, kind)</code></td>
+      <td>a cgroup’s non-reclaimable usage (<code class="language-plaintext highlighter-rouge">anon</code> + <code class="language-plaintext highlighter-rouge">shmem</code>; v1 <code class="language-plaintext highlighter-rouge">total_rss</code> + <code class="language-plaintext highlighter-rouge">total_shmem</code>), MiB</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Sources</strong>, all in MiB (2**20 bytes, which is what Slurm means by MB):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">source</code></th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">slurm_mem_per_node</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SLURM_MEM_PER_NODE</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">slurm_mem_per_cpu</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SLURM_MEM_PER_CPU</code> × <code class="language-plaintext highlighter-rouge">SLURM_CPUS_ON_NODE</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cgroup_v2</code></td>
+      <td><code class="language-plaintext highlighter-rouge">memory.max</code>, the smallest from the process’s cgroup up to the root, since Slurm puts the limit on the job cgroup and runs the process in a step below it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cgroup_v1</code></td>
+      <td><code class="language-plaintext highlighter-rouge">memory/…/memory.limit_in_bytes</code>, likewise; the unlimited sentinel is ignored</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">env</code></td>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_MEMORY_BUDGET_MB</code>; it can lower the budget, never raise it past another source</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mem_available</code></td>
+      <td>this process’s RSS plus <code class="language-plaintext highlighter-rouge">MemAvailable</code> at call time (psutil, or <code class="language-plaintext highlighter-rouge">vm_stat</code> on macOS, off Linux): what the process could grow to; other processes may take it first</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">RLIMIT_AS</code> is not a source: it limits address space, which numpy reserves far ahead of what it
+touches, so <code class="language-plaintext highlighter-rouge">MemoryError</code> arrives at that limit with RSS far below it and no RSS guard can see it.</p>
+
+<p><strong>The guard.</strong> <code class="language-plaintext highlighter-rouge">limit_mb=None</code> resolves the budget with <code class="language-plaintext highlighter-rouge">memory_budget()</code> on entry. When nothing
+reports a limit, the guard only records <code class="language-plaintext highlighter-rouge">peak_mb</code>. <code class="language-plaintext highlighter-rouge">check()</code> compares the memory in use with
+<code class="language-plaintext highlighter-rouge">fraction × limit_mb</code>: this process’s RSS, or, when a cgroup set the limit, the larger of that and the
+cgroup’s non-reclaimable usage, because the cgroup’s limit also counts child processes, sibling tasks
+and tmpfs (page cache is left out: the kernel drops it before the OOM killer runs). Entering a guard
+again starts afresh. With <code class="language-plaintext highlighter-rouge">interval_s</code>, a daemon thread also samples RSS; a crossing it sees sets a
+flag, and the next <code class="language-plaintext highlighter-rouge">check()</code> raises even if RSS has fallen since, so a single large numpy call between
+two checks is still caught. The thread never raises into the caller. Leaving the block never raises
+either: a crossing that no <code class="language-plaintext highlighter-rouge">check()</code> reported stays in <code class="language-plaintext highlighter-rouge">exceeded</code>. <code class="language-plaintext highlighter-rouge">on_exceed="warn"</code> issues one
+<code class="language-plaintext highlighter-rouge">ResourceWarning</code> and records the event instead of raising. <code class="language-plaintext highlighter-rouge">peak_mb</code> is the largest RSS the guard
+saw, a lower bound on the true peak inside the block; <code class="language-plaintext highlighter-rouge">peak_rss_mb()</code> is the process’s lifetime peak.</p>
+
+<p><strong>Platforms.</strong> Linux reads <code class="language-plaintext highlighter-rouge">VmRSS</code>/<code class="language-plaintext highlighter-rouge">VmHWM</code> from <code class="language-plaintext highlighter-rouge">/proc/self/status</code>. macOS reads the current RSS with
+<code class="language-plaintext highlighter-rouge">task_info</code> and the peak with <code class="language-plaintext highlighter-rouge">getrusage</code>, whose <code class="language-plaintext highlighter-rouge">ru_maxrss</code> is in bytes there and in KiB on Linux.
+Windows reads <code class="language-plaintext highlighter-rouge">GetProcessMemoryInfo</code>. <code class="language-plaintext highlighter-rouge">psutil</code> is used when it is installed and no native reading is
+available, and <code class="language-plaintext highlighter-rouge">ps -o rss=</code> is the last resort; psutil is never required. The guard stops the Python
+process only; it does not limit <code class="language-plaintext highlighter-rouge">LocalBackend</code> children (see #1016).</p>
+
 <h1 id="vaftdata"><code class="language-plaintext highlighter-rouge">vaft.data</code></h1>
 
 <p>Portable file formats and the packaged sample files.</p>
@@ -1393,7 +1506,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-under-slurm" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running under Slurm</a></li></ul></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-under-slurm" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running under Slurm</a></li><li class="page-toc-item page-toc-level-3"><a href="#in-process-memory-guard" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-process memory guard</a></li></ul></li></ul>
     </nav>
 </aside>
 
@@ -1511,7 +1624,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 07:30:45 +0000"
+        "time": "2026-09-22 07:49:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
