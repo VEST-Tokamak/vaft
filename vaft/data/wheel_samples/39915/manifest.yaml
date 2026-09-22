@@ -1,5 +1,5 @@
 schema_version: 1
-reference_id: vest-39915-until-efit-v4
+reference_id: vest-39915-until-efit-v5
 shot: 39915
 machine: VEST
 imas_dd_version: 3.41.0
@@ -51,8 +51,8 @@ representations:
     compatible_adapters:
     - omas
     - imas
-    size: 10071207
-    sha256: 7bd7d61e5f6f76dfe945c560bed785d9be39067696388d73d79f3c54637630be
+    size: 10071144
+    sha256: 85eb39ea03e4f33fe6ff521d6ede60e3ef24fa7a2f1a20ead0028195f662a33b
   imas:
     path: imas.nc
     media_type: application/x-netcdf
@@ -61,12 +61,12 @@ representations:
     - imas
     - omas
     size: 10699347
-    sha256: d2f755ccf3948772bb62df652769f38c0066e448f3265080ae4b01b5d613a065
+    sha256: 77cf94a3ae79f60d5365aa45af7d779e336b6c2cea8084f17d97b7bd5778073e
 generation:
   command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
     vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
   canonical_source: source/pipeline-until-efit.json.gz
-  canonical_sha256: 5a5f7a6403d76f256b8b78208f601adc709f2b802fc5d8df3cf0686bbe84175d
+  canonical_sha256: 035ac79e667dac45dd0dc9de5fac5c5656a3097f443a8f3a4ccebdb7356205b2
   canonical_policy: repository-only
   normalizations:
   - equilibrium_psi_weber
@@ -203,8 +203,9 @@ generation:
       ip: chi_squared is EFIT's chipasma as reported. It includes the prescribed vessel
         current that EFIT adds after the fit (#918), so it is nonzero even where reconstructed
         equals measured, and it is the whole of EFIT's total chi-square on these runs.
-      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive) while
-        measured stores the signed, negative flux. reconstructed is EFIT's cdflux
+      diamagnetic_flux: The 2026-08-28 k-files submitted |DFLUX| (positive). measured
+        stores the signed flux, positive for a paramagnetic plasma since issue 1196 (it
+        was stored negated before; see corrections). reconstructed is EFIT's cdflux
         in its own sign and chi_squared is EFIT's chidflux against the submitted |DFLUX|;
         the fit weight was 1e-4, so the diamagnetic flux did not constrain the fit.
       not_written: 'chi_squared_reduced and freedom_degrees_n: the m-file carries
@@ -316,3 +317,20 @@ corrections:
     SIGNALS was corrected in the same change, so a regeneration reproduces these values
     rather than reverting them, and the stage hashes still describe the run that produced
     the rest of the artifact.'
+- issue: 1196
+  field: magnetics.diamagnetic_flux.0.{data,method_name}, equilibrium.time_slice.:.constraints.diamagnetic_flux.measured
+  from: negative for a paramagnetic plasma
+  to: positive for a paramagnetic plasma (EFIT's cdflux sign)
+  previous_reference_id: vest-39915-until-efit-v4
+  previous_canonical_sha256: 5a5f7a6403d76f256b8b78208f601adc709f2b802fc5d8df3cf0686bbe84175d
+  reason: 'The mapper port negated the donor''s diamagnetic flux (-1000 where VEST_DiamagneticFlux.m
+    has none), so the stored measurement had the opposite sign to EFIT''s cdflux. Applied
+    in place, in the canonical source and in both packaged representations, rather than
+    by rerunning the pipeline or the generators: data and constraints.measured are exactly
+    negated and method_name gains the mapper''s new sign-convention token (11 leaves in
+    the canonical source), and a leaf-by-leaf comparison of each rewritten file against
+    its previous version shows no other leaf changed -- in particular the signal-quality
+    verdicts are the previous ones. constraints.diamagnetic_flux.{reconstructed,chi_squared}
+    and the archived k-files stay as EFIT produced them. The mapper was corrected in the
+    same change, so a regeneration reproduces these values rather than reverting them,
+    and the stage hashes still describe the run that produced the rest of the artifact.'

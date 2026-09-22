@@ -404,7 +404,8 @@ class EFITConstraintConfig:
     #: How the measured diamagnetic flux is written to DFLUX.  ``"imas"`` (the
     #: default since issue #385) writes the stored, signed value, which is what
     #: EFIT expects: it fits DFLUX against ``cdflux = integral (B_t - B_tv) dA``
-    #: signed with B_t, so a diamagnetic plasma in a positive field is negative.
+    #: signed with B_t, so a paramagnetic plasma in a positive field is
+    #: positive, as the stored measurement is (#1196).
     #: ``"absolute"`` and ``"negative"`` force a sign and exist for controlled
     #: comparisons only; ``"absolute"`` was the historical default, inherited
     #: from a donor fitter that compared magnitudes.

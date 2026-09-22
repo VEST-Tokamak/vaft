@@ -245,6 +245,7 @@ def test_method_name_records_the_saturation_outcome(shot):
     )
     method_name = ods["magnetics"]["diamagnetic_flux"][0]["method_name"]
     assert "field 257" in method_name
+    assert magnetics.DIAMAGNETIC_FLUX_SIGN_CONVENTION in method_name  # #1196
     assert f"{PACKAGED_SATURATION[shot]}/25000" in method_name
     assert "0 inside the plasma window" in method_name
     # #409: the window the reconstruction was anchored to, and its source

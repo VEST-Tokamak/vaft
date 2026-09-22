@@ -3232,8 +3232,9 @@ def compute_virial_equilibrium_quantities_ods(
             #
             # The remaining approximation is first order in (F - F_b)/F_b,
             # which no single flux measurement can improve on -- not a sign
-            # ambiguity. The sign is settled: the measurement carries it, in
-            # the convention test/test_diamagnetic_flux_sign.py pins.
+            # ambiguity. The sign is settled: the measurement carries it,
+            # positive for a paramagnetic plasma (#1196), in the convention
+            # test/test_diamagnetic_flux_sign.py pins.
             mui_measured = -float(
                 virial_muihat_from_Bt_R0_dphi(
                     _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p

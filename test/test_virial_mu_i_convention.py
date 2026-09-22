@@ -254,10 +254,10 @@ def test_the_measured_mu_i_reaches_the_closures_on_their_own_convention():
         measured = row["mu_i_sources"]["measured"]
         if not np.isfinite(measured):
             continue
-        # The packaged loop reads diamagnetic, which is positive in the volume
-        # convention; the reconstruction is paramagnetic. They disagree, and
-        # the disagreement is only readable because both are on one convention.
-        assert measured > 0 > row["mui"]
+        # The packaged loop and the reconstruction are both paramagnetic,
+        # negative in the volume convention (#1196), and that agreement is only
+        # readable because both are on one convention.
+        assert measured < 0 and row["mui"] < 0
         # The two closures must differ by exactly what their two mu_i differ by,
         # and by nothing else. Re-deriving the measured one from `measured`
         # cannot see a 2*mu_i error, because both sides would carry it; the
@@ -329,8 +329,9 @@ def test_one_report_publishes_one_mu_i_convention():
         "the two published measured mu_i must be the same number"
     )
     # Both are the volume convention, so both are comparable with the
-    # equilibrium's own -- which is the point of publishing them.
-    assert energy > 0 > equilibrium
+    # equilibrium's own -- which is the point of publishing them. Loop and
+    # reconstruction are both paramagnetic (#1196).
+    assert energy < 0 and equilibrium < 0
 
 
 def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_the_machine():
@@ -381,10 +382,10 @@ def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_th
         measured_values.append(measured)
         checked += 1
     assert checked >= 8
-    # A diamagnetic loop gives a positive volume mu_i, and the trend b0's drift
-    # was hiding is monotone across this discharge.
-    assert min(measured_values) > 0
-    assert measured_values[-1] > 1.7 * measured_values[0]
+    # A paramagnetic loop gives a negative volume mu_i (#1196), and the trend
+    # b0's drift was hiding is monotone across this discharge.
+    assert max(measured_values) < 0
+    assert abs(measured_values[-1]) > 1.7 * abs(measured_values[0])
 
 
 def _measured_flux(ods, index):
@@ -424,7 +425,7 @@ def test_the_measured_mu_i_does_not_move_when_the_stored_F_sign_flips():
     assert flipped["mu_i_sources"]["measured"] == pytest.approx(
         base["mu_i_sources"]["measured"], rel=1e-9
     ), "a COCOS-dependent stored sign must not reach the measured mu_i"
-    assert flipped["mu_i_sources"]["measured"] > 0
+    assert flipped["mu_i_sources"]["measured"] < 0
 
 
 def _geometric_axis_r(eq):
@@ -565,9 +566,10 @@ def test_the_diamagnetic_beta_p_negation_is_constrained():
         row["s_1"], row["s_2"], -entry["mui_measured"], row["rt"] / entry["R_0"]
     )
     # This is the assertion that catches a dropped sign. On this slice the
-    # published value is +1.440; without the negation it is +0.174 -- still
-    # positive, so the sign check below cannot tell the two apart.
+    # published value is +0.174 (+1.440 before #1196 corrected the loop's
+    # sign); without the negation it is +1.440 -- still positive, so the sign
+    # check below cannot tell the two apart.
     assert entry["beta_p_diamagnetic"] == pytest.approx(expected, rel=1e-9)
-    # A physical floor only: a diamagnetic measurement gives a positive beta_p
-    # through this closure.
+    # A physical floor only: an ohmic, paramagnetic measurement still gives a
+    # positive beta_p through this closure.
     assert entry["beta_p_diamagnetic"] > 0
