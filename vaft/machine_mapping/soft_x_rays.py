@@ -166,9 +166,9 @@ def _resolve_digitizer_file(
 
     label = str(daq_label)
     candidates = _digitizer_file_candidates(shot, label, data_root)
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
+    found = _first_existing_digitizer_file(candidates)
+    if found is not None:
+        return found
     searched = ", ".join(str(path) for path in candidates)
     raise FileNotFoundError(
         f"Cannot find digitizer_{label}_{int(shot)}.h5/.csv. Packaged digitizer "
@@ -209,6 +209,31 @@ def _digitizer_file_candidates(
     return [directory / f"{stem}{suffix}" for directory in directories for suffix in (".h5", ".csv")]
 
 
+def _first_existing_digitizer_file(candidates: Sequence[Path]) -> Path | None:
+    """Pick the file to read from ``_digitizer_file_candidates`` output.
+
+    A container normally wins over the CSV beside it. The exception is a CSV
+    modified after its container was written: the container is then stale, and
+    reading it would silently return the old record, so the CSV is read and the
+    mismatch reported.
+    """
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        if candidate.suffix == ".h5":
+            csv = candidate.with_suffix(".csv")
+            if csv.exists() and csv.stat().st_mtime > candidate.stat().st_mtime:
+                warnings.warn(
+                    f"{csv} is newer than its container {candidate.name}; reading the CSV. "
+                    "Re-pack it with `python -m vaft.cli sxr-pack`.",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
+                return csv
+        return candidate
+    return None
+
+
 def _discover_digitizer_files(shot: int, data_root: str | Path | None = None) -> list[tuple[str, Path]]:
     """Find supported SXR digitizers for a shot in deterministic DAQ order."""
     labels = sorted(
@@ -217,10 +242,11 @@ def _discover_digitizer_files(shot: int, data_root: str | Path | None = None) ->
     )
     found: list[tuple[str, Path]] = []
     for label in labels:
-        for candidate in _digitizer_file_candidates(shot, label, data_root):
-            if candidate.exists():
-                found.append((label, candidate))
-                break
+        candidate = _first_existing_digitizer_file(
+            _digitizer_file_candidates(shot, label, data_root)
+        )
+        if candidate is not None:
+            found.append((label, candidate))
     return found
 
 

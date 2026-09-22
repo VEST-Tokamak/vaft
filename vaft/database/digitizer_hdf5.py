@@ -81,6 +81,25 @@ def container_path(csv_path: str | Path) -> Path:
     return path.with_suffix(SUFFIX)
 
 
+def fsync_path(path: str | Path) -> None:
+    """Force a file (or directory) to stable storage before anything depends on it.
+
+    ``verify_container`` re-reads through the page cache, so it proves what the
+    kernel holds, not what the disk holds; a CSV must not be unlinked until the
+    container that replaces it is durable. macOS needs ``F_FULLFSYNC`` for that.
+    """
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        try:
+            import fcntl
+
+            fcntl.fcntl(fd, getattr(fcntl, "F_FULLFSYNC"))
+        except (ImportError, AttributeError, OSError):
+            os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
@@ -197,7 +216,9 @@ def pack_digitizer_csv(
                 }
             )
         verify_container(partial, expected_sha256=digest)
+        fsync_path(partial)
         os.replace(partial, target_path)
+        fsync_path(target_path.parent)
     finally:
         partial.unlink(missing_ok=True)
     return PackResult(
@@ -282,6 +303,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "SUFFIX",
     "container_path",
+    "fsync_path",
     "load_digitizer_hdf5",
     "pack_digitizer_csv",
     "read_attributes",

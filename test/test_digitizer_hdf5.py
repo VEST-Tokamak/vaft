@@ -198,6 +198,39 @@ def test_cli_refuses_to_delete_a_csv_its_container_does_not_match(tmp_path):
     sxr_pack.main(["--root", str(root), "--last-shot", "100", "--delete-csv"])
 
     assert csv.exists()
+    log = [json.loads(line) for line in (root / "_sxr_pack_log.jsonl").read_text().splitlines()]
+    assert {r["csv"]: r["status"] for r in log}["digitizer_17592_100.csv"] == "failed"
+
+
+def test_mapper_reads_a_csv_rewritten_after_its_container(tmp_path):
+    import os
+
+    csv = tmp_path / "digitizer_17592_12345.csv"
+    _write_sample_v3(csv, _values(channels=40, samples=16, seed=1))
+    target = dh.pack_digitizer_csv(csv).target
+    fresh = _values(channels=40, samples=16, seed=2)
+    _write_sample_v3(csv, fresh)
+    stamp = target.stat().st_mtime
+    os.utime(csv, (stamp + 10, stamp + 10))
+
+    with pytest.warns(RuntimeWarning, match="newer than its container"):
+        found = _discover_digitizer_files(12345, tmp_path)
+    assert found == [("17592", csv)]
+    assert np.array_equal(load_digitizer_csv(found[0][1]), fresh.T)
+
+
+def test_cli_parallel_run_matches_serial(tmp_path):
+    serial, parallel = _archive(tmp_path / "a"), _archive(tmp_path / "b")
+    assert sxr_pack.main(["--root", str(serial)]) == 1
+    assert sxr_pack.main(["--root", str(parallel), "--jobs", "2"]) == 1
+    for root in (serial, parallel):
+        assert (root / "100" / "digitizer_17592_100.h5").exists()
+        assert (root / "100" / "digitizer_22577_100.h5").exists()
+        assert not (root / "101" / "digitizer_17592_101.h5").exists()
+    assert np.array_equal(
+        dh.load_digitizer_hdf5(serial / "100" / "digitizer_22577_100.h5"),
+        dh.load_digitizer_hdf5(parallel / "100" / "digitizer_22577_100.h5"),
+    )
 
 
 def test_cli_dry_run_writes_nothing(tmp_path):

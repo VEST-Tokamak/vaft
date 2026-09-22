@@ -75,14 +75,15 @@ def _sha256(path: Path) -> str:
 
 def _record_provenance(shot_dir: Path, entries: dict[str, dict[str, Any]]) -> None:
     path = shot_dir / PROVENANCE_NAME
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    except (OSError, json.JSONDecodeError):
-        payload = {}
+    payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     payload.setdefault("containers", {}).update(entries)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} does not hold a JSON object; not rewriting it")
     temp = path.with_name(f".{PROVENANCE_NAME}.partial")
     temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    dh.fsync_path(temp)
     os.replace(temp, path)
+    dh.fsync_path(shot_dir)
 
 
 def _pack_shot(shot_dir: Path, delete_csv: bool, dry_run: bool) -> list[dict[str, Any]]:
@@ -125,12 +126,20 @@ def _pack_shot(shot_dir: Path, delete_csv: bool, dry_run: bool) -> list[dict[str
                 # already be on disk somewhere other than inside the container.
                 _record_provenance(shot_dir, {csv.name: provenance.pop(csv.name)})
                 csv.unlink()
+                dh.fsync_path(shot_dir)
                 record["csv_deleted"] = True
         except Exception as exc:  # one bad record must not stop the archive
             record.update(status="failed", error=f"{type(exc).__name__}: {exc}")
         outcomes.append(record)
     if provenance and not dry_run:
-        _record_provenance(shot_dir, provenance)
+        try:
+            _record_provenance(shot_dir, provenance)
+        except Exception as exc:
+            # The containers are in place and verified; only the sha256 record
+            # is missing. No CSV was deleted on this path (without
+            # --delete-csv), so a rerun re-verifies and records them.
+            outcomes.append({"shot": int(shot_dir.name), "csv": PROVENANCE_NAME,
+                             "status": "failed", "error": f"{type(exc).__name__}: {exc}"})
     return outcomes
 
 
@@ -191,8 +200,13 @@ def main(argv: Iterable[str] | None = None) -> int:
             with ProcessPoolExecutor(max_workers=args.jobs) as pool:
                 futures = [pool.submit(_pack_shot, d, args.delete_csv, args.dry_run)
                            for d in shot_dirs]
-                for future in futures:
-                    consume(future.result())
+                for shot_dir, future in zip(shot_dirs, futures):
+                    try:
+                        outcomes = future.result()
+                    except Exception as exc:  # e.g. a worker killed for memory
+                        outcomes = [{"shot": int(shot_dir.name), "csv": "*", "status": "failed",
+                                     "error": f"{type(exc).__name__}: {exc}"}]
+                    consume(outcomes)
 
     summary = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
     print(f"{len(shot_dirs)} shot directories: {summary or 'nothing to do'}")
