@@ -88,7 +88,7 @@ def test_trailing_probes_get_no_decision_and_a_condemned_loop_is_rejected():
 def test_the_wrapper_has_no_manual_list_argument():
     import argparse
 
-    source = SCRIPT.read_text()
+    source = SCRIPT.read_text(encoding="utf-8")
     assert '"--broken"' not in source and "manual_rejections" not in source
     assert "--detect-broken" in source
 

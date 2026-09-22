@@ -643,8 +643,15 @@ import vaft
 
 vaft.omas.plot_mirnov_time_voltage(ods, selection=[14, 37], time_range=(0.304, 0.330), preprocess=False)
 vaft.omas.plot_mirnov_spectrogram(ods, selection=[14], time_range=(0.304, 0.330))
+```
 
-fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
+The wrapped-phase fit needs two or more distinct acquisitions at different toroidal angles. 39915 has
+no toroidal array, so the call is refused there with its reason; the repository-only sample 45531
+carries the outboard fluctuation array:
+
+```python
+array_ods = vaft.omas.sample_ods(45531)   # repository-only: loads from a Git checkout
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(array_ods, time=0.302)
 ```
 
 ---

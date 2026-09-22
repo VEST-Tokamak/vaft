@@ -124,7 +124,7 @@ def test_the_plot_command_imports_nothing_heavy_before_parsing():
 def test_the_console_script_is_declared():
     import tomllib
 
-    project = tomllib.loads(Path(vaft.__file__).resolve().parents[1].joinpath("pyproject.toml").read_text())["project"]
+    project = tomllib.loads(Path(vaft.__file__).resolve().parents[1].joinpath("pyproject.toml").read_text(encoding="utf-8"))["project"]
     assert project["scripts"]["vaft"] == "vaft.cli._main:main"
 
 
