@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>7b00ae0</code>. What is described
+  <code>2b1c94f</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1081,8 +1081,8 @@ H-alpha value is never reused for an impurity line.</p>
 
 <p><code class="language-plaintext highlighter-rouge">polarity</code> decides the sign of the answer: with <code class="language-plaintext highlighter-rouge">negative</code> or
 <code class="language-plaintext highlighter-rouge">absolute</code> the reported <code class="language-plaintext highlighter-rouge">value</code> is still the record’s own signed sample,
-not the score, so a VEST diamagnetic flux – stored negative-going – comes
-back negative.  <code class="language-plaintext highlighter-rouge">value</code> is the <em>smoothed</em> sample; the raw one is in the
+not the score, so a VEST diamagnetic flux keeps its stored sign (positive
+for a paramagnetic plasma, #1196).  <code class="language-plaintext highlighter-rouge">value</code> is the <em>smoothed</em> sample; the raw one is in the
 evidence.</p>
 
 <p><strong>Applicability.</strong></p>
@@ -1688,7 +1688,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 07:49:03 +0000"
+        "time": "2026-09-22 07:57:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
