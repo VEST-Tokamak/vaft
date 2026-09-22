@@ -59,9 +59,15 @@ CORE_MODULES: tuple[str, ...] = (
     "test_local_importers.py",
     "test_process_lazy_namespace.py",
     # Public API surface: catalogs, registries and the CLI must keep agreeing
-    # with what the packages actually export.
+    # with what the packages actually export. The DD layer (#1127) is here:
+    # its contract -- stored names, no invented default, per-IDS views -- is
+    # what everything built on develop-dd depends on, and it runs in seconds
+    # on in-memory and tmp-path IMAS entries.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_imas_dd.py",
+    "test_imas_dd_catalog.py",
+    "test_imas_dd_store.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -70,6 +76,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
     "test_code_parameters_writers.py",
+    "test_imas_dd_boundaries.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",

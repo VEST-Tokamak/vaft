@@ -13,8 +13,69 @@ from pathlib import Path
 
 from ..database._local import IMASHandle
 from .omas_imas import IMAS_DD_VERSION_CONVERSION
+from ._dd import (
+    AmbiguousInstanceError,
+    CatalogError,
+    CatalogMismatchError,
+    CoherenceError,
+    CoherenceReport,
+    DD,
+    DDCollection,
+    DDView,
+    EntryStore,
+    IMASStore,
+    InstanceCatalog,
+    InstanceInfo,
+    InstanceKey,
+    InstanceLookupError,
+    InstanceUnavailableError,
+    MemoryStore,
+    MutableEntryStore,
+    NoDefaultError,
+    PhysicalLocator,
+    StorageBindings,
+    StoreSet,
+    UnknownInstanceError,
+)
 
-__all__ = ["IMASHandle", "load", "save", "to_equilibrium", "IMAS_DD_VERSION_CONVERSION"]
+#: The DD layer (#1127): one logical Data Entry (``DD``), one selected state
+#: per IDS (``DDView``), many entries (``DDCollection``), over the physical
+#: stores below them. "DD" here is the Data Entry aggregate, after FUSE's
+#: IMASdd.jl; ``dd_version`` and the ``dd_*`` functions keep meaning the Data
+#: Dictionary.
+_DD_NAMES = [
+    "DD",
+    "DDView",
+    "DDCollection",
+    "InstanceInfo",
+    "InstanceKey",
+    "PhysicalLocator",
+    "InstanceCatalog",
+    "StorageBindings",
+    "EntryStore",
+    "MutableEntryStore",
+    "StoreSet",
+    "MemoryStore",
+    "IMASStore",
+    "CoherenceReport",
+    "InstanceLookupError",
+    "UnknownInstanceError",
+    "InstanceUnavailableError",
+    "AmbiguousInstanceError",
+    "NoDefaultError",
+    "CatalogError",
+    "CatalogMismatchError",
+    "CoherenceError",
+]
+
+__all__ = [
+    "IMASHandle",
+    "load",
+    "save",
+    "to_equilibrium",
+    "IMAS_DD_VERSION_CONVERSION",
+    *_DD_NAMES,
+]
 
 _PLOTTING_NAMES = frozenset({"available_plots", "normalize_entries", "render_plot", "plotting"})
 _ACCESS_NAMES = frozenset({"IDSEntry"})
