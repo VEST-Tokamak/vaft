@@ -22,6 +22,8 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
   camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
   camera_visible_fluctuation/index.json   what is reserved and why
+  hard_x_rays/{shot}/digitizer_hxr_{variant}_{daq}_{shot}.csv + provenance.json
+  hard_x_rays/_reference/                 placed by hand (#1160): unfolding model, acquisition scripts, paper
   shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical (#995)
   shotlog/input/supplementary/            real logs outside the monthly naming (ERC, KSTAR_Conference, ...)
   shotlog/input/other/                    copies, autosaves, forms, in-progress copies: kept, not read
@@ -32,7 +34,6 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible_arranged/{shot}/         bmp_arranger output, derived
   camera_visible_mcf/{shot}.mcf           vendor container, no reader exists
   camera_ccd_2013/{shot}/                 2013-era CCD, jpg/avi
-  hard_x_rays/{shot}/                     hard_x_rays is not_implemented
 
 {root}/omas/{tree}/{shot}/output/         generated IDS products
 {root}/omas/{tree}/{shot}/metadata/       their manifests
