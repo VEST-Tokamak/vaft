@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
 
 from ...compat import is_executable, resolve_executable
 from .._executables import (
@@ -14,6 +13,7 @@ from .._executables import (
     executable_from_home,
     missing_home_message,
 )
+from ..execution import ExecutionRequest, resolve_backend
 from .config import NiceConfig, NiceInputs, NiceResult
 from .outputs import collect_nice_outputs
 
@@ -54,7 +54,14 @@ def resolve_nice_executable(config: NiceConfig) -> Path:
 
 
 def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
-    """Execute NICE and then collect its native outputs."""
+    """Execute NICE and then collect its native outputs.
+
+    The launch goes through ``config.backend`` (see :mod:`vaft.code.execution`),
+    so it can run as a Slurm job as well as locally. Both streams are captured
+    and written to ``nice.stdout.log``/``nice.stderr.log`` once NICE exits or
+    times out: the logs do not grow while NICE runs, and they hold the output
+    decoded as UTF-8 (undecodable bytes replaced) rather than a byte copy.
+    """
     families = {d.family for d in inputs.diagnostics if d.enabled}
     if not {"bpol_probe", "flux_loop"}.issubset(families):
         return NiceResult(
@@ -70,32 +77,35 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
         raise ValueError(
             "NICE execution requires NiceConfig.parameter_file (input/param.xml is absent)"
         )
+    backend = resolve_backend(config)
     stdout_file = inputs.workdir / "nice.stdout.log"
     stderr_file = inputs.workdir / "nice.stderr.log"
-    timed_out = False
-    with stdout_file.open("w", encoding="utf-8") as stdout_handle, stderr_file.open(
-        "w", encoding="utf-8"
-    ) as stderr_handle:
-        try:
-            completed = subprocess.run(
-                [str(exe), *config.arguments],
-                cwd=inputs.workdir,
-                env={**os.environ, **dict(config.env)},
-                text=True,
-                stdout=stdout_handle,
-                stderr=stderr_handle,
+    # Truncated before the launch, as when the streams were written directly:
+    # a run that never starts must not leave an earlier run's logs behind.
+    stdout_file.write_text("", encoding="utf-8")
+    stderr_file.write_text("", encoding="utf-8")
+    try:
+        execution = backend.run(
+            ExecutionRequest(
+                command=(str(exe), *config.arguments),
+                workdir=Path(inputs.workdir),
+                env=dict(config.env),
                 timeout=config.timeout,
-                check=False,
+                label="nice",
             )
-            returncode = completed.returncode
-        except subprocess.TimeoutExpired:
-            timed_out, returncode = True, 124
-        except (FileNotFoundError, PermissionError):
-            raise
-        except OSError as error:
-            raise ExecutableNotLaunchable(f"cannot launch {exe}: {error}") from error
-    stdout = stdout_file.read_text(encoding="utf-8", errors="replace")
-    stderr = stderr_file.read_text(encoding="utf-8", errors="replace")
+        )
+    except ExecutableNotLaunchable as error:
+        # An absent or non-program executable keeps its own type.
+        if isinstance(error.__cause__, (FileNotFoundError, PermissionError)):
+            raise error.__cause__ from None
+        raise
+    # Written before the timeout is acted on, so a killed run keeps what it
+    # printed; the backend decodes NICE's bytes as UTF-8 with replacement.
+    stdout, stderr = execution.stdout, execution.stderr
+    stdout_file.write_text(stdout, encoding="utf-8")
+    stderr_file.write_text(stderr, encoding="utf-8")
+    timed_out = execution.timed_out
+    returncode = 124 if timed_out else int(execution.returncode)
     manifest = dict(inputs.manifest)
     manifest["nice_executable"] = str(exe)
     manifest["nice_executable_sha256"] = hashlib.sha256(exe.read_bytes()).hexdigest()

@@ -548,7 +548,7 @@ A timeout is returned (`timed_out=True`), not raised; each adapter maps it to th
 already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;
 a missing working directory stays a `FileNotFoundError`.
 Every adapter that runs a subprocess goes through the backend, and each has a `backend` field:
-EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM and FLARE. `CodeConfig`
+EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM, FLARE and NICE. `CodeConfig`
 carries the field too. EFIT and EFUND declare one thread per task (`threads_per_task=1`), which sets
 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS` and
 `NUMEXPR_NUM_THREADS` to 1 unless the environment already sets them. GACODE
