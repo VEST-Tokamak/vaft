@@ -91,6 +91,9 @@ class CHEASEConfig:
     boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
     boundary_fft_num: int = 128  # smooth_bnd nf
     auto_cocos: bool = True
+    # "input": the refined g-file comes back in the source's orientation -- its
+    # sign pattern, and its COCOS index (per-radian twin, as a g-file stores
+    # psi) in the CASE header, or no index when the source's is not pinned.
     output_cocos: str = "input"
     preserve_boundary_limiter: bool = True
     create_plot: bool = True
@@ -431,6 +434,54 @@ def _force_geqdsk_signs(
         "q": int(q_factor),
     }
     return item, before, after, transform
+
+
+def _source_orientation(geqdsk: Any) -> tuple[int | None, str]:
+    """The per-radian COCOS index (1-8) that shares the CHEASE source's orientation.
+
+    The source's own index is its declaration when its signs do not contradict
+    it, else the single index its signs identify; ``None`` when neither pins
+    one. A weber index (11-18) is returned as its per-radian twin, because the
+    two differ only in the flux's ``2*pi`` and a g-file stores psi per radian.
+    The second value says how the index was found, or why it was not.
+    """
+    try:
+        from vaft.process.equilibrium import as_equilibrium
+
+        convention = as_equilibrium(geqdsk).convention
+    except Exception as error:  # identification is provenance, never a failure
+        return None, f"source convention not identified: {error}"
+    if convention.cocos is not None and not convention.contradicted:
+        index, how = int(convention.cocos), "declared by the source"
+    elif len(convention.identified) == 1:
+        index, how = int(convention.identified[0]), "identified from the source's signs"
+    else:
+        return None, (f"source convention not pinned (signs allow {convention.identified})"
+                      if convention.identified else "source convention not pinned")
+    return (index - 10 if index > 10 else index), how
+
+
+def _declare_source_convention(refined: Any, source: Any) -> tuple[Any, dict[str, Any]]:
+    """Finish ``output_cocos="input"``: declare the orientation the re-signed file is in.
+
+    :func:`_force_geqdsk_signs` gives CHEASE's COCOS-2 output the source's sign
+    pattern but leaves CHEASE's ``COCOS=02`` CASE token in place. COCOS 1 and 2
+    -- and 11 and 12 -- share every sign and differ only in the toroidal
+    direction, so a re-signed file still declaring 2 reads back with its
+    current and field reversed and nothing in its signs says so. The token is
+    replaced by the source's orientation as a per-radian index, the storage
+    every g-file reader (``to_omas`` included) assumes, or removed when the
+    source's index is not pinned: no declaration beats a wrong one. psi itself
+    is left per radian, as CHEASE wrote it.
+    """
+    import re
+
+    item = _copy_geqdsk(refined)
+    index, how = _source_orientation(source)
+    stamp = re.search(r"(\d{8})", str(item.mapping.get("CASE", "")))
+    label = f"FROM CHEASE, COCOS={index:02d}" if index is not None else "FROM CHEASE"
+    item["CASE"] = f"{label}, SI UNITS {stamp.group(1) if stamp else ''}".strip()[:48]
+    return item, {"declared_cocos": index, "how": how, "case": item["CASE"]}
 
 
 def _profile(values: Any, size: int = NCHEASE) -> np.ndarray:
@@ -1374,6 +1425,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         refined = read_geqdsk(refined_target)
         if str(config.output_cocos).lower().replace("-", "_") in {"input", "preserve_input", "source"}:
             refined, before, after, transform = _force_geqdsk_signs(refined, **_desired_signs_from_info(_geqdsk_sign_info(inputs.geqdsk)))
+            refined, declared = _declare_source_convention(refined, inputs.geqdsk)
             _write_json(
                 refined_target.with_suffix(refined_target.suffix + ".cocos_export.json"),
                 {
@@ -1381,6 +1433,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
                     "before_export_signs": before.as_dict(),
                     "after_export_signs": after.as_dict(),
                     "transform": transform,
+                    "source_convention": declared,
                 },
             )
         if config.preserve_boundary_limiter:

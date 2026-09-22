@@ -54,6 +54,8 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     "shot_characteristics_classification.ipynb": {},
     # Reads the saved iteration histories under vaft/data/efit; runs no EFIT.
     "convergence_study_of_efit.ipynb": {},
+    # #886: the CHEASE comparison reads a cached fixture, so it runs offline.
+    "analytic_island_model_and_synthetic_response_model.ipynb": {},
 }
 
 
