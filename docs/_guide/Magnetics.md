@@ -446,12 +446,21 @@ the channels *this* input can actually use.
 Probes separated in toroidal angle give the mode number $n$ from the wrapped phase of each
 fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
-`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
+`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`.
+
+Shot 39915 cannot supply one: it falls in the 35521-44155 gap where no toroidal array recorded, and
+its only fluctuation-capable probe is one channel (DAQ field 171, equilibrium probe 36), which is
+not two positions (issues #724, #825). The fit is shown on the repository-only fluctuation sample
+45531 instead, which carries the three-angle outboard array (IMAS phi 315/225/135 deg) around its
+0.294-0.308 s discharge. It loads from a Git checkout; an installed wheel raises
+`FileNotFoundError`, because only 39915 ships inside the package:
 
 ```python
+array = vaft.omas.sample_ods(45531)   # outboard Mirnov array, three toroidal positions
+
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
-    ods,
-    time=0.310,
+    array,
+    time=0.300,
     frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
     num_modes=2,
     candidate_n=range(0, 5),
