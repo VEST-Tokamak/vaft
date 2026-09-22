@@ -146,6 +146,39 @@ deletion in a repository this tooling has no business editing.
 `--format` restrict and shape ingest. Routine ingest never reads
 `camera_visible_fluctuation`; `--include-fluctuation` is the deliberate override.
 
+## Packing soft X-ray records
+
+A digitizer CSV spends ~20 bytes of text on each float64 sample, and the samples
+are already-processed floats, so the int32 narrowing that shrinks camera
+products has nothing to reclaim here. `python -m vaft.cli sxr-pack` writes a
+lossless HDF5 container `digitizer_{daq}_{shot}.h5` beside each CSV instead
+(`vaft.database.digitizer_hdf5`): float64, one chunk per channel, shuffle +
+gzip, 27--30 % of the CSV and 20--40x faster to load.
+
+```bash
+python -m vaft.cli sxr-pack --root "$VAFT_FILEDB_DIR/legacy/soft_x_rays" --dry-run
+python -m vaft.cli sxr-pack --root "$VAFT_FILEDB_DIR/legacy/soft_x_rays" --jobs 4 --delete-csv
+```
+
+The container regenerates the CSV byte for byte (`restore_csv`), and a
+container is renamed into place only after that regeneration matches the
+source's sha256, so `--delete-csv` never removes a CSV that is not recoverable.
+A CSV that does not follow `sample_v3.py`'s exact text (`repr` floats, `,`,
+`\r\n`), or does not parse, is logged and kept. Each shot's `provenance.json`
+records the source CSV's size and sha256 under `containers`, written before the
+CSV is removed. The run is restartable; outcomes go to
+`{root}/_sxr_pack_log.jsonl`.
+
+The `soft_x_rays` mapping prefers the container at every location it searches
+and falls back to the CSV, and reads the CSV with pandas' round-trip parser, so
+both give bit-identical arrays. Deploy a VAFT that reads containers to every
+consumer of an archive *before* running `--delete-csv` on it.
+
+The layout -- one `/data` dataset in the CSV's own `(channels, samples)`
+orientation, source record in root attributes -- is meant to be publishable
+unchanged to an HSDS raw domain, where a reader could fetch one channel's
+chunks instead of a whole record.
+
 ## Replication
 
 Only `legacy/` goes to the server:
