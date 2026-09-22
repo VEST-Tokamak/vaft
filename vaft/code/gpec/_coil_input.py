@@ -17,6 +17,7 @@ template's or another machine's words.
 
 from __future__ import annotations
 
+import math
 import re
 import shutil
 from dataclasses import dataclass
@@ -351,24 +352,25 @@ def _render_coil_block(specs: Sequence[CoilInputSpec]) -> str:
 
     Currents are written with :func:`repr`, the shortest decimal string that
     reads back as the same double.  ``%g`` was used here and kept six
-    significant digits, so a *measured* current lost the rest of its value on
-    the way into the file: an archived power-supply current of
-    ``1739.864501953125 A`` was written as ``1739.86``, 2.6e-6 of it.
+    significant digits, which is enough for a current somebody typed and not
+    for one read off a power supply: a 16-digit double arrives in the file
+    rounded to six, and no later stage can tell that the file states a current
+    the caller did not ask for.
 
-    That is not as small as it looks.  Running one ideal-GPEC case twice --
-    once with the truncated currents and once with the exact ones -- moved its
-    n=1 control spectrum by 8.9e-5, about thirty-four times the input error,
-    because the spectrum is formed from largely cancelling contributions from
-    an upper and a lower coil row.  Nothing in the run says the file held a
-    current the caller had not asked for.
+    That truncation is not as small as it looks downstream.  Running one
+    ideal-GPEC case twice -- once with the truncated currents and once with the
+    exact ones -- moved its n=1 control spectrum by 8.9e-5, about thirty-four
+    times the input error, because the spectrum is formed from largely
+    cancelling contributions from an upper and a lower coil row.
+
+    Non-finite currents are refused by :func:`write_coil_in` before anything is
+    written, so this only ever renders values it can represent.
     """
     lines = []
     for set_index, spec in enumerate(specs, start=1):
         lines.append(f'    coil_name({set_index})="{spec.name}"')
         for sector_index, current in enumerate(spec.currents_a, start=1):
-            lines.append(
-                f"    coil_cur({set_index},{sector_index})={float(current)!r}"
-            )
+            lines.append(f"    coil_cur({set_index},{sector_index})={float(current)!r}")
         lines.append("")
     return "\n".join(lines)
 
@@ -415,6 +417,21 @@ def write_coil_in(
                 f"Coil set {spec.name!r} has {expected} sectors but the spec "
                 f"carries {len(spec.currents_a)} currents"
             )
+        # Checked before a byte is written, because the write happens in two
+        # steps -- patch the template, then replace its coil block -- and a
+        # refusal between them would leave a file behind that still carries
+        # the template's own example currents. GPEC would run that file.
+        #
+        # Fortran's list-directed reader takes `nan` and `inf` for real
+        # values, so the file would look valid and every field the coil
+        # contributes to would come back non-finite.
+        for sector_index, current in enumerate(spec.currents_a, start=1):
+            if not math.isfinite(float(current)):
+                raise ValueError(
+                    f"coil set {spec.name!r} sector {sector_index} carries a non-finite "
+                    f"current ({float(current)!r}); GPEC would read it as a Fortran real "
+                    "and every field it contributes to would come back non-finite"
+                )
 
     rt.write_template(
         template_path,

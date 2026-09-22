@@ -75,17 +75,16 @@ class BoundaryContourPolicy:
         set in which every candidate fails falls back to the g-file's stored
         ``RBBBS``/``ZBBBS`` boundary.  ``"penalize"`` subtracts
         :attr:`positive_r_penalty` instead, so the least-bad candidate is
-        still returned -- which is what the workflow this policy generalises
-        did [1]_.
+        still returned.
     positive_r_penalty : float
         Subtracted under ``"penalize"`` [-].
 
-    Provenance
-    ----------
-    .. [1] ``hsyun_GPEC library/chease_runner.py:832-901``
-       ``_install_robust_pyeqdsk_contour``, written for MAST-U diverted EPQ
-       equilibria.  The scoring is machine-independent; MAST-U is only the
-       case that exposed the defect.
+    Applicability
+    -------------
+    Machine-independent.  Any reconstruction whose ``target_psin`` surface is
+    close enough to a separatrix for the divertor legs to appear as contours of
+    their own, which is every diverted equilibrium near the edge and no limited
+    one.
     """
 
     axis_bonus: float = 100.0
@@ -112,9 +111,9 @@ class BoundaryContourPolicy:
 #: had, kept as the default so no existing case changes.
 DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
 
-#: The legacy MAST-U variant: ``R > 0`` is a penalty, so a set in which every
-#: candidate fails still yields the least-bad contour instead of falling back
-#: to the stored boundary.
+#: The variant in which ``R > 0`` is a penalty rather than a rejection, so a
+#: set in which every candidate fails still yields the least-bad contour
+#: instead of falling back to the stored boundary.
 PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
 
 
