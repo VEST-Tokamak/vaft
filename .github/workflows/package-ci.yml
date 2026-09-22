@@ -3,7 +3,11 @@ name: Package CI
 on:
   pull_request:
   push:
-    branches: [develop, main]
+    # develop-dd is the integration branch for the DD/DDView/DDCollection
+    # program (#1127): its feature PRs are gated by `core-test` like any PR,
+    # and this push trigger is what gives the branch itself the full suite a
+    # push to develop gets. Remove it when develop-dd merges into develop.
+    branches: [develop, develop-dd, main]
   workflow_dispatch:
 
 # A second push to a PR should supersede the first run rather than race it:

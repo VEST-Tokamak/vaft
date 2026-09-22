@@ -17,7 +17,8 @@ name: Bootstrap CI
 on:
   pull_request:
   push:
-    branches: [develop, main]
+    # develop-dd: the #1127 integration branch; see package-ci.yml.
+    branches: [develop, develop-dd, main]
   workflow_dispatch:
 
 permissions:
