@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import re
 import shutil
 from typing import TYPE_CHECKING, Protocol
@@ -516,14 +517,108 @@ class STRIDESolver:
         return f"stride_output_n{mode}.nc"
 
 
+#: The DCON products ideal GPEC reads, and whether it can do without one.
+#:
+#: ``gpec.in`` names four (``idconfile``, ``ieqfile``, ``ivacuumfile``,
+#: ``rdconfile``) and GPEC joins each onto ``dcon_dir``.  Only the first two
+#: are always needed: ``vacuum.bin`` is deprecated and ignored (GPEC says so
+#: on startup) and ``globalsol.bin`` is read only under ``gal_flag``, which is
+#: off in the packaged namelist.  So the optional two are staged when a DCON
+#: run produced them and their absence is not an error.
+DCON_PRODUCTS_FOR_GPEC: tuple[tuple[str, bool], ...] = (
+    ("euler.bin", True),
+    ("psi_in.bin", True),
+    ("vacuum.bin", False),
+    ("globalsol.bin", False),
+)
+
+
+def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
+    """Put DCON's products where ideal GPEC will look for them, and say which.
+
+    Ideal GPEC needs its ``dcon_dir`` to be its own working directory, because
+    it *writes* the vacuum handshake files there and *reads* them back from
+    ``dcon_dir``: ``ahg2msc_gpec.out`` and one ``ahg2msc_gpecflx_<psi>.out``
+    per rational surface.  Run in one directory -- which is how GPEC is
+    normally driven -- the two coincide and nothing shows.  Given a separate
+    directory per module it creates an empty file under ``dcon_dir`` and stops
+    at its first read with ``Fortran runtime error: End of file``, an hour into
+    a run, naming a file it wrote itself.
+
+    So the per-module layout is kept and DCON's products are brought to the
+    cell instead.  Hard links where the filesystem allows them, because
+    ``euler.bin`` is the largest thing either code produces and a scan makes
+    one per mode; a copy otherwise (a different device, or a filesystem with
+    no links).
+
+    Parameters
+    ----------
+    dcon_dir : Path
+        A completed DCON run directory for the same shot, time and mode.
+    run_dir : Path
+        The ideal-GPEC cell, which becomes ``dcon_dir`` in its ``gpec.in``.
+
+    Returns
+    -------
+    tuple of Path
+        What was staged, in :data:`DCON_PRODUCTS_FOR_GPEC` order.
+
+    Raises
+    ------
+    FileNotFoundError
+        A required product is missing from *dcon_dir*.  Checked here as well as
+        in :func:`~vaft.code.gpec.validate_dcon_result` because this is the
+        last point at which the name of the missing file is still known.
+    """
+    dcon_dir = Path(dcon_dir)
+    run_dir = Path(run_dir)
+    if dcon_dir.resolve() == run_dir.resolve():
+        # Already one directory: GPEC's own layout, nothing to bring over.
+        return ()
+    missing = [
+        name for name, required in DCON_PRODUCTS_FOR_GPEC
+        if required and not (dcon_dir / name).is_file()
+    ]
+    if missing:
+        raise FileNotFoundError(
+            f"cannot stage DCON products from {dcon_dir}: {', '.join(missing)} "
+            "not there. Ideal GPEC reads them out of its own directory, so they have "
+            "to be brought over before it starts"
+        )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    staged = []
+    for name, _required in DCON_PRODUCTS_FOR_GPEC:
+        source = dcon_dir / name
+        if not source.is_file():
+            continue
+        target = run_dir / name
+        # Re-staged on every run rather than skipped when present: a resumed
+        # scan may be pointing at a DCON cell that has since been re-solved,
+        # and a stale euler.bin is a wrong answer rather than a failure.
+        if target.exists() or target.is_symlink():
+            target.unlink()
+        try:
+            os.link(source, target)
+        except OSError:
+            shutil.copy2(source, target)
+        staged.append(target)
+    return tuple(staged)
+
+
 class IdealGPECSolver:
     name = "gpec"
 
     def prepare(self, ctx: SolverContext) -> None:
+        # `dcon_dir` is this cell, not DCON's. GPEC writes its vacuum handshake
+        # files into its working directory and reads them back from
+        # `dcon_dir`, so the two have to be the same directory; DCON's products
+        # are brought here by `stage_dcon_products` once DCON has produced
+        # them, which is after this runs. See that function for the failure
+        # this avoids.
         rt.write_template(
             ctx.template_dir / "gpec.in",
             ctx.run_dir / "gpec.in",
-            {"dcon_dir": str(ctx.dcon_dir), "coil_flag": ctx.config.gpec.coil_flag},
+            {"dcon_dir": str(ctx.run_dir.resolve()), "coil_flag": ctx.config.gpec.coil_flag},
         )
         shutil.copy2(ctx.template_dir / "vac.in", ctx.run_dir / "vac.in")
         # Precedence: an explicit coil.in wins over canonical coil_specs,
