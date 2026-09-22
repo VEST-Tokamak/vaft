@@ -163,11 +163,16 @@ def _is_connection_failure(exc: BaseException) -> bool:
         seen.add(id(link))
         if isinstance(link, requests.exceptions.ConnectionError):
             return True
-        link = link.__cause__ or link.__context__
+        if link.__cause__ is not None:
+            link = link.__cause__
+        elif link.__suppress_context__:
+            break  # ``raise ... from None``: the author cut the chain on purpose
+        else:
+            link = link.__context__
     return False
 
 
-def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
+def _get_namespace_folders(source: str, sort: int = -1, *, strict: bool = False) -> List[str]:
     """Return the shot folders of one named source, with optional sorting.
 
     Every source stores shots the same way, so the same numeric filter applies
@@ -193,6 +198,11 @@ def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
     except OSError as exc:
         if not _is_connection_failure(exc):
             raise
+        if strict:
+            raise ConnectionError(
+                f"the HSDS server holding source {source!r} could not be reached, so its "
+                "shots cannot be listed"
+            ) from exc
         print("Connection error")
         return []
 
@@ -204,6 +214,7 @@ def exist_shot(
     sort: int = -1,
     *,
     username: Optional[str] = None,
+    strict: bool = False,
 ) -> Union[List[str], bool, pd.DataFrame, None]:
     """Return a list of shot names or processed-diagnostic data from HSDS.
 
@@ -232,6 +243,10 @@ def exist_shot(
             - 1: Ascending (oldest first)
             - -1: Descending (newest first)
             - 0: No sorting
+        strict (bool, optional): For a plain shot listing, raise ConnectionError
+            when the server cannot be reached instead of printing "Connection
+            error" and returning an empty list -- for callers to whom an empty
+            list would mean "no shots".
 
     Returns:
         Union[List[str], bool, pd.DataFrame, None]:
@@ -278,7 +293,7 @@ def exist_shot(
             print("Connection error")
             return False
 
-    return _get_namespace_folders(source, sort=sort)
+    return _get_namespace_folders(source, sort=sort, strict=strict)
 
 
 def read_legacy_processed_registry(group: str) -> dict:

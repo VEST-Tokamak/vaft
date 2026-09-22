@@ -81,3 +81,27 @@ def test_exist_shot_does_not_hide_a_forbidden_folder(folder):
     with pytest.raises(OSError) as info:
         utils.exist_shot("public", 39915)
     assert info.value.args[0] == 403
+
+
+def test_a_strict_listing_raises_instead_of_returning_no_shots(folder):
+    folder(_connection_failure)
+    with pytest.raises(ConnectionError, match="could not be reached"):
+        utils.exist_shot("public", sort=1, strict=True)
+
+
+def test_summary_of_every_shot_fails_loudly_when_the_server_is_unreachable(folder):
+    from vaft.database import _summary
+
+    folder(_connection_failure)
+    with pytest.raises(ConnectionError):
+        _summary.summary(preset="equilibrium_global", source="public")
+
+
+def test_a_deliberately_cut_chain_is_not_read_as_a_connection_failure():
+    try:
+        try:
+            raise requests.exceptions.ConnectionError("down")
+        except requests.exceptions.ConnectionError:
+            raise OSError("something else") from None
+    except OSError as exc:
+        assert not utils._is_connection_failure(exc)

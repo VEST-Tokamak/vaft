@@ -1423,7 +1423,9 @@ def summary(
     if shot_range is None:
         from .utils import exist_shot
 
-        discovered = exist_shot(source=source, sort=1) or []
+        # strict: an unreachable server must not read as "no shots" and return
+        # an empty table.
+        discovered = exist_shot(source=source, sort=1, strict=True) or []
         shots = sorted({int(value) for value in discovered if str(value).isdigit()})
     else:
         if (
