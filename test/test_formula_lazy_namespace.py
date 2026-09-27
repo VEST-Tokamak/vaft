@@ -39,6 +39,7 @@ _IMPORT_ORDER = (
     "transformer",
     "particle",
     "geometry",
+    "ripple",
 )
 
 

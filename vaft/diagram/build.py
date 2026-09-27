@@ -65,6 +65,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("shaping_family", "hfs_lfs_field", "safety_factor_winding",
                                               "flux_coordinates", "poloidal_angle_comparison",
                                               "unwrapped_flux_surface", "field_line_pitch")},
+    # toroidicity and TF ripple
+    **{f"{name}.svg": (name, {}) for name in ("trapped_and_passing_orbits", "toroidal_field_ripple",
+                                              "ripple_well_formation", "stochastic_ripple_orbit")},
 }
 
 

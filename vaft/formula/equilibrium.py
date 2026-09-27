@@ -1226,6 +1226,10 @@ def vacuum_toroidal_field(B0, R0, R):
     -----------
     Axisymmetric coils (no ripple), no plasma current or diamagnetism.
 
+    See Also
+    --------
+    vaft.diagram.hfs_lfs_field : the canonical diagram of this relation.
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),

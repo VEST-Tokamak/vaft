@@ -277,6 +277,34 @@ The field line on a torus, its cylindrical and slab reductions, and the geometry
 the geometric-approximations section above. The toroidal → cylindrical → slab bridge is
 `geometry_ordering_map` together with `field_line_geometry`.
 
+## Toroidicity and TF ripple
+
+From the $1/R$ mirror to ripple-induced fast-particle transport. The formulas are in
+[`vaft.formula.ripple`]({{ '/reference/formula/ripple/' | relative_url }}), and each one names its diagram
+under *See Also*. $B_\phi \propto 1/R$ itself is `hfs_lfs_field`, in the tokamak-geometry section.
+
+```python
+vaft.diagram.trapped_and_passing_orbits()
+vaft.diagram.toroidal_field_ripple(n_tf=16)
+vaft.diagram.ripple_well_formation()
+vaft.diagram.stochastic_ripple_orbit()
+```
+
+| | |
+| --- | --- |
+| ![trapped and passing]({{ '/assets/diagrams/trapped_and_passing_orbits.svg' | relative_url }}) | ![TF ripple]({{ '/assets/diagrams/toroidal_field_ripple.svg' | relative_url }}) |
+| ![ripple wells]({{ '/assets/diagrams/ripple_well_formation.svg' | relative_url }}) | ![stochastic tips]({{ '/assets/diagrams/stochastic_ripple_orbit.svg' | relative_url }}) |
+
+| Diagram | Concept | Formula |
+| --- | --- | --- |
+| `trapped_and_passing_orbits` | $\mu$ and energy conservation in $B \propto 1/R$: small pitches bounce as bananas, large ones pass | `parallel_speed_from_mu`, `vacuum_toroidal_field` |
+| `toroidal_field_ripple` | $N_\mathrm{TF}$ coils corrugate $B(\phi)$: maximal under a coil, minimal between | `toroidal_ripple_field`, `ripple_amplitude` |
+| `ripple_well_formation` | Along a field line the ripple makes local wells where $\alpha^* \lesssim 1$, near the midplanes (to first order in $\epsilon$) | `ripple_well_parameter` |
+| `stochastic_ripple_orbit` | Ripple kicks at banana tips decorrelate above $\delta_\mathrm{GWB}$. Drawn as the standard map with $K \sim \delta/\delta_\mathrm{GWB}$ | `gwb_stochastic_threshold`, `gwb_stochasticity_parameter` |
+
+These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the
+quantitative check. Low-$n$ error fields, NTV and locking are separate topics.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

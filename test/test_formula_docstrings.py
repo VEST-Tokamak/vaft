@@ -112,6 +112,14 @@ CONVENTION_SENSITIVE = frozenset({
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
     "shafranov_shift_from_r_a_R0_beta_p_li",
+    # TF ripple: amplitude normalisation, GWB rho / q' conventions, pitch reference point
+    "toroidal_ripple_field",
+    "ripple_amplitude",
+    "ripple_well_parameter",
+    "ripple_trapping_pitch",
+    "gwb_stochastic_threshold",
+    "gwb_stochasticity_parameter",
+    "parallel_speed_from_mu",
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",
     "sheared_slab_field",
