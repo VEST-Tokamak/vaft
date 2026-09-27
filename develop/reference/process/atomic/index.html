@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/atomic.py"><code class="language-plaintext highlighter-rouge">vaft/process/atomic.py</code></a>:
-5 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("atomic.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.atomic</code>:
+<strong>5</strong> public functions. Each entry is what
+<code>vaft.process.describe("atomic.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -287,323 +285,363 @@ fraction to assume for them is machine policy, resolved by the pipeline
 (<code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_power_balance</code> from <code class="language-plaintext highlighter-rouge">vest.yaml</code>
 on VEST) and passed in; this module holds no such number (issue #420).</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>n_e</td><td>electron density</td><td>m^-3</td></tr>
-  <tr><td>n_imp</td><td>impurity density</td><td>m^-3</td></tr>
-  <tr><td>T_e</td><td>electron temperature</td><td>eV</td></tr>
-  <tr><td>L_Z</td><td>line-radiation cooling coefficient of species Z</td><td>W m^3</td></tr>
-  <tr><td>epsilon</td><td>line emissivity, n_e n_imp L_Z</td><td>W/m^3</td></tr>
-  <tr><td>P_line</td><td>radiated line power, int epsilon dV</td><td>W</td></tr>
-  <tr><td>V</td><td>cumulative enclosed plasma volume</td><td>m^3</td></tr>
-  <tr><td>rho_tor_norm</td><td>normalized toroidal-flux radius</td><td>-</td></tr>
+  <tr><td>n_e</td><td>electron density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>n_imp</td><td>impurity density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>T_e</td><td>electron temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>L_Z</td><td>line-radiation cooling coefficient of species Z</td><td class="ref-unit">W m^3</td></tr>
+  <tr><td>epsilon</td><td>line emissivity, n_e n_imp L_Z</td><td class="ref-unit">W/m^3</td></tr>
+  <tr><td>P_line</td><td>radiated line power, int epsilon dV</td><td class="ref-unit">W</td></tr>
+  <tr><td>V</td><td>cumulative enclosed plasma volume</td><td class="ref-unit">m^3</td></tr>
+  <tr><td>rho_tor_norm</td><td>normalized toroidal-flux radius</td><td class="ref-unit">-</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a> &mdash; Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.
-</li>
-  <li><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a> &mdash; An absolute time-matching tolerance adapted to the native time spacing.
-</li>
-  <li><a href="#find_time_match_index"><code>find_time_match_index</code></a> &mdash; Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.
-</li>
-  <li><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a> &mdash; Integrate an emissivity profile to a total radiated power.
-</li>
-  <li><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a> &mdash; Normalize an element or ion label to a supported atomic symbol.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="compute_line_radiation_power_series"><td><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a></td><td>Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="compute_time_match_atol"><td><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a></td><td>An absolute time-matching tolerance adapted to the native time spacing.
+</td></tr>
+  <tr data-ref-row="find_time_match_index"><td><a href="#find_time_match_index"><code>find_time_match_index</code></a></td><td>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.
+</td></tr>
+  <tr data-ref-row="integrate_emissivity_profile"><td><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a></td><td>Integrate an emissivity profile to a total radiated power.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="normalize_atomic_symbol"><td><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a></td><td>Normalize an element or ion label to a supported atomic symbol.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="compute_line_radiation_power_series"><code class="language-plaintext highlighter-rouge">compute_line_radiation_power_series</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></p>
+  <section class="ref-entry" id="compute_line_radiation_power_series">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/atomic.py#L346" title="vaft/process/atomic.py, line 346">source</a>
+</header>
+    <pre class="ref-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></pre>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+    <p>Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.</p>
 
-<p>Line-radiation power for matched equilibrium slices, from the stored kinetic profiles.</p>
-
-<p>For each species and time slice the local emissivity is
+    <p>For each species and time slice the local emissivity is
 <code class="language-plaintext highlighter-rouge">epsilon = n_e n_imp L_Z(n_e, T_e)</code> and the power <code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>ods</code></td><td>ODS</td><td>-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d</code> and <code class="language-plaintext highlighter-rouge">equilibrium.time_slice</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d</code> and <code class="language-plaintext highlighter-rouge">equilibrium.time_slice</code>.</p>
 </td></tr>
-  <tr><td><code>eq_indices</code></td><td>list of int</td><td>-</td><td><p>Equilibrium slice indices to evaluate.</p>
+  <tr><td><code>eq_indices</code></td><td class="ref-type">list of int</td><td class="ref-unit">-</td><td><p>Equilibrium slice indices to evaluate.</p>
 </td></tr>
-  <tr><td><code>eq_times</code></td><td>array_like</td><td>s</td><td><p>Time of each of those slices.</p>
+  <tr><td><code>eq_times</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time of each of those slices.</p>
 </td></tr>
-  <tr><td><code>volume_series</code></td><td>array_like</td><td>m^3</td><td><p>Total plasma volume of each slice, for the integration fallback.</p>
+  <tr><td><code>volume_series</code></td><td class="ref-type">array_like</td><td class="ref-unit">m^3</td><td><p>Total plasma volume of each slice, for the integration fallback.</p>
 </td></tr>
-  <tr><td><code>line_radiation_species</code></td><td>list of str, optional</td><td>-</td><td><p>Species to include; <code class="language-plaintext highlighter-rouge">None</code> for every species that has a configured fraction or an ion density profile in the ODS.</p>
+  <tr><td><code>line_radiation_species</code></td><td class="ref-type">list of str, optional</td><td class="ref-unit">-</td><td><p>Species to include; <code class="language-plaintext highlighter-rouge">None</code> for every species that has a configured fraction or an ion density profile in the ODS.</p>
 </td></tr>
-  <tr><td><code>impurity_fractions</code></td><td>dict of str to float, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">n_imp / n_e</code> per species, used when the ODS carries no profile for it; <code class="language-plaintext highlighter-rouge">None</code> means no assumption.</p>
+  <tr><td><code>impurity_fractions</code></td><td class="ref-type">dict of str to float, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">n_imp / n_e</code> per species, used when the ODS carries no profile for it; <code class="language-plaintext highlighter-rouge">None</code> means no assumption.</p>
 </td></tr>
-  <tr><td><code>Z_eff</code></td><td>float, optional</td><td>-</td><td><p>Effective charge, used only to infer a single species’ fraction when nothing else is known.</p>
+  <tr><td><code>Z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge, used only to infer a single species’ fraction when nothing else is known.</p>
 </td></tr>
-  <tr><td><code>return_assumptions</code></td><td>bool, optional</td><td>-</td><td><p>Also return what each species’ density was taken from.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray or tuple of (np.ndarray, dict)</td><td>W</td><td><p>Non-negative line-radiation power per <code class="language-plaintext highlighter-rouge">eq_indices</code> entry, and with <code class="language-plaintext highlighter-rouge">return_assumptions</code> a dict of <code class="language-plaintext highlighter-rouge">species</code>, per-species <code class="language-plaintext highlighter-rouge">impurity_source</code> (<code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">configured</code>, <code class="language-plaintext highlighter-rouge">inferred_from_zeff</code> or <code class="language-plaintext highlighter-rouge">none</code>), the <code class="language-plaintext highlighter-rouge">impurity_fraction</code> used, and <code class="language-plaintext highlighter-rouge">z_eff</code>.</p>
+  <tr><td><code>return_assumptions</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Also return what each species’ density was taken from.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray or tuple of (np.ndarray, dict)</td><td class="ref-unit">W</td><td><p>Non-negative line-radiation power per <code class="language-plaintext highlighter-rouge">eq_indices</code> entry, and with <code class="language-plaintext highlighter-rouge">return_assumptions</code> a dict of <code class="language-plaintext highlighter-rouge">species</code>, per-species <code class="language-plaintext highlighter-rouge">impurity_source</code> (<code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">configured</code>, <code class="language-plaintext highlighter-rouge">inferred_from_zeff</code> or <code class="language-plaintext highlighter-rouge">none</code>), the <code class="language-plaintext highlighter-rouge">impurity_fraction</code> used, and <code class="language-plaintext highlighter-rouge">z_eff</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    Mismatched <code class="language-plaintext highlighter-rouge">eq_times</code> / <code class="language-plaintext highlighter-rouge">volume_series</code> lengths, non-finite times,
-    an unrecognized species label, or a negative or non-finite fraction.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Match each equilibrium time to a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice
-(<code class="language-plaintext highlighter-rouge">find_time_match_index</code>); an unmatched slice radiates nothing.</li>
-  <li>Interpolate <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> from the slice’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> onto the
-equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> (constant edge extrapolation).</li>
-  <li>For each species, take <code class="language-plaintext highlighter-rouge">n_imp / n_e</code> from, in order: the slice’s own
-ion density profile; <code class="language-plaintext highlighter-rouge">impurity_fractions</code>; a single-species inference
-from <code class="language-plaintext highlighter-rouge">Z_eff</code>; else zero with one warning per species.</li>
-  <li><code class="language-plaintext highlighter-rouge">L_Z</code> from the ADAS tables [FORMULA]; <code class="language-plaintext highlighter-rouge">epsilon = L_Z n_e n_imp</code>.</li>
-  <li><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code> per species, summed; clipped at
-zero.</li>
-</ol>
-
-<p><strong>Input semantics.</strong></p>
-
-<p>Stored kinetic profiles (fitted or synthetic) on their <code class="language-plaintext highlighter-rouge">core_profiles</code>
-grid, plus the equilibrium grid and volume.</p>
-
-<p><strong>Output semantics.</strong></p>
-
-<p>Synthetic: a modelled diagnostic-like quantity, not a measurement.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">impurity_fractions = None</code> and <code class="language-plaintext highlighter-rouge">line_radiation_species = None</code> mean
-<em>no assumption</em>.  The VEST carbon and oxygen fractions that used to be
-this function’s defaults are machine-specific settings, each an assumed
-value in <code class="language-plaintext highlighter-rouge">vest.yaml</code> resolved by the pipeline.  <code class="language-plaintext highlighter-rouge">Z_eff = None</code>
-disables the single-species inference, a numerical convenience.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The radial coordinate is <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> throughout: the <code class="language-plaintext highlighter-rouge">core_profiles</code>
+      <p>The radial coordinate is <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> throughout: the <code class="language-plaintext highlighter-rouge">core_profiles</code>
 grid and the equilibrium <code class="language-plaintext highlighter-rouge">profiles_1d</code> both carry it and are interpolated
 against each other in it.  <code class="language-plaintext highlighter-rouge">n_i</code> for the impurity is <code class="language-plaintext highlighter-rouge">fraction * n_e</code>
 where a fraction is used; <code class="language-plaintext highlighter-rouge">Z_eff</code> inference assumes hydrogenic main ions,
 <code class="language-plaintext highlighter-rouge">n_imp/n_e = (Z_eff - 1)/(Z(Z - 1))</code>.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>Coronal equilibrium for <code class="language-plaintext highlighter-rouge">L_Z</code>; one impurity species at a time with no
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Mismatched <code class="language-plaintext highlighter-rouge">eq_times</code> / <code class="language-plaintext highlighter-rouge">volume_series</code> lengths, non-finite times, an unrecognized species label, or a negative or non-finite fraction.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Defaults · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match each equilibrium time to a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice
+(<code class="language-plaintext highlighter-rouge">find_time_match_index</code>); an unmatched slice radiates nothing.</li>
+        <li>Interpolate <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> from the slice’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> onto the
+equilibrium’s <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> (constant edge extrapolation).</li>
+        <li>For each species, take <code class="language-plaintext highlighter-rouge">n_imp / n_e</code> from, in order: the slice’s own
+ion density profile; <code class="language-plaintext highlighter-rouge">impurity_fractions</code>; a single-species inference
+from <code class="language-plaintext highlighter-rouge">Z_eff</code>; else zero with one warning per species.</li>
+        <li><code class="language-plaintext highlighter-rouge">L_Z</code> from the ADAS tables [FORMULA]; <code class="language-plaintext highlighter-rouge">epsilon = L_Z n_e n_imp</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code> per species, summed; clipped at
+zero.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>Stored kinetic profiles (fitted or synthetic) on their <code class="language-plaintext highlighter-rouge">core_profiles</code>
+grid, plus the equilibrium grid and volume.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Synthetic: a modelled diagnostic-like quantity, not a measurement.</p>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">impurity_fractions = None</code> and <code class="language-plaintext highlighter-rouge">line_radiation_species = None</code> mean
+<em>no assumption</em>.  The VEST carbon and oxygen fractions that used to be
+this function’s defaults are machine-specific settings, each an assumed
+value in <code class="language-plaintext highlighter-rouge">vest.yaml</code> resolved by the pipeline.  <code class="language-plaintext highlighter-rouge">Z_eff = None</code>
+disables the single-species inference, a numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Coronal equilibrium for <code class="language-plaintext highlighter-rouge">L_Z</code>; one impurity species at a time with no
 mutual dilution; the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice at the matched time describes
 the equilibrium slice.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.  Species and fractions arrive as arguments.</p>
+      <p>Machine-independent.  Species and fractions arrive as arguments.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Every failure mode – no <code class="language-plaintext highlighter-rouge">core_profiles</code>, no matching time, no <code class="language-plaintext highlighter-rouge">n_e</code>
+      <p>Every failure mode – no <code class="language-plaintext highlighter-rouge">core_profiles</code>, no matching time, no <code class="language-plaintext highlighter-rouge">n_e</code>
 or <code class="language-plaintext highlighter-rouge">T_e</code>, ADAS data unavailable, no fraction known – yields zero for
 that slice or species with a logged warning rather than an error, to keep
 an offline power balance running; the returned assumptions are how a
 caller can tell.  A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice stored on <code class="language-plaintext highlighter-rouge">rho_pol_norm</code>
 only (no equilibrium at its time) has no <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> and is skipped.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>ADAS tables [ADAS] through the cooling-coefficient kernel [FORMULA].
 </li>
 </ol>
 
-<h3 id="compute_time_match_atol"><code class="language-plaintext highlighter-rouge">compute_time_match_atol</code></h3>
+    </details>
 
-<p class="formula-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="compute_time_match_atol">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/atomic.py#L62" title="vaft/process/atomic.py, line 62">source</a>
+</header>
+    <pre class="ref-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></pre>
 
-<p>An absolute time-matching tolerance adapted to the native time spacing.</p>
+    <p>An absolute time-matching tolerance adapted to the native time spacing.</p>
 
-<p><code class="language-plaintext highlighter-rouge">max(base_atol, 0.25 * min(diff(unique_finite_times)))</code>, which absorbs
+    <p><code class="language-plaintext highlighter-rouge">max(base_atol, 0.25 * min(diff(unique_finite_times)))</code>, which absorbs
 floating-point drift in a time coordinate without ever matching an
 adjacent physical slice.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate to be matched against.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time_array</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>The time coordinate to be matched against.</p>
 </td></tr>
-  <tr><td><code>base_atol</code></td><td>float, optional</td><td>s</td><td><p>Floor on the tolerance.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>s</td><td><p>The tolerance; <code class="language-plaintext highlighter-rouge">base_atol</code> when fewer than two distinct finite times exist.</p>
+  <tr><td><code>base_atol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Floor on the tolerance.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>The tolerance; <code class="language-plaintext highlighter-rouge">base_atol</code> when fewer than two distinct finite times exist.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">base_atol</code> non-finite or negative.
+</li>
+</ul>
+</div>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">base_atol</code> non-finite or negative.</p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability</summary>
 
-<p><strong>Defaults.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p><code class="language-plaintext highlighter-rouge">base_atol = 1e-6</code> s and the factor <code class="language-plaintext highlighter-rouge">0.25</code> are numerical conveniences:
+      <p><code class="language-plaintext highlighter-rouge">base_atol = 1e-6</code> s and the factor <code class="language-plaintext highlighter-rouge">0.25</code> are numerical conveniences:
 a quarter of the smallest spacing can never reach the neighbouring slice.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="find_time_match_index"><code class="language-plaintext highlighter-rouge">find_time_match_index</code></h3>
+    </details>
 
-<p class="formula-signature"><code>find_time_match_index(time_array, target_time)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="find_time_match_index">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#find_time_match_index"><code>find_time_match_index</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/atomic.py#L109" title="vaft/process/atomic.py, line 109">source</a>
+</header>
+    <pre class="ref-signature"><code>find_time_match_index(time_array, target_time)</code></pre>
 
-<p>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.</p>
+    <p>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time_array</code></td><td>np.ndarray</td><td>s</td><td><p>The time coordinate.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time_array</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>The time coordinate.</p>
 </td></tr>
-  <tr><td><code>target_time</code></td><td>float</td><td>s</td><td><p>The time to match.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>int or None</td><td>-</td><td><p>Index of the closest time within <code class="language-plaintext highlighter-rouge">compute_time_match_atol</code>; <code class="language-plaintext highlighter-rouge">None</code> for an empty array, a non-finite target, or no candidate within tolerance.</p>
+  <tr><td><code>target_time</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>The time to match.</p>
 </td></tr>
   </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="integrate_emissivity_profile"><code class="language-plaintext highlighter-rouge">integrate_emissivity_profile</code></h3>
-
-<p class="formula-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Integrate an emissivity profile to a total radiated power.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>emissivity_profile</code></td><td>np.ndarray</td><td>W/m^3</td><td><p>Local emissivity on the radial grid.</p>
-</td></tr>
-  <tr><td><code>volume_profile</code></td><td>np.ndarray or None</td><td>m^3</td><td><p>Cumulative enclosed volume on the same grid, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
-</td></tr>
-  <tr><td><code>total_volume</code></td><td>float</td><td>m^3</td><td><p>Total plasma volume, for the fallback.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">int or None</td><td class="ref-unit">-</td><td><p>Index of the closest time within <code class="language-plaintext highlighter-rouge">compute_time_match_atol</code>; <code class="language-plaintext highlighter-rouge">None</code> for an empty array, a non-finite target, or no candidate within tolerance.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>W</td><td><p><code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>, or the fallback, or <code class="language-plaintext highlighter-rouge">0</code>.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="integrate_emissivity_profile">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/atomic.py#L281" title="vaft/process/atomic.py, line 281">source</a>
+</header>
+    <pre class="ref-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></pre>
+
+    <p>Integrate an emissivity profile to a total radiated power.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>emissivity_profile</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">W/m^3</td><td><p>Local emissivity on the radial grid.</p>
+</td></tr>
+  <tr><td><code>volume_profile</code></td><td class="ref-type">np.ndarray or None</td><td class="ref-unit">m^3</td><td><p>Cumulative enclosed volume on the same grid, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>total_volume</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Total plasma volume, for the fallback.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">W</td><td><p><code class="language-plaintext highlighter-rouge">P = int epsilon dV</code>, or the fallback, or <code class="language-plaintext highlighter-rouge">0</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>If <code class="language-plaintext highlighter-rouge">volume_profile</code> is given, matches the emissivity’s shape and has at
-least two finite points spanning a non-zero volume: trapezoidal
-integration of <code class="language-plaintext highlighter-rouge">epsilon</code> against <code class="language-plaintext highlighter-rouge">V</code>, in volume order.</li>
-  <li>Else, if <code class="language-plaintext highlighter-rouge">total_volume</code> is finite and positive:
-<code class="language-plaintext highlighter-rouge">nanmean(epsilon) * total_volume</code>.</li>
-  <li>Else <code class="language-plaintext highlighter-rouge">0</code>.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">volume_profile</code> is the <em>cumulative enclosed</em> volume <code class="language-plaintext highlighter-rouge">V(rho)</code>, so
+      <p><code class="language-plaintext highlighter-rouge">volume_profile</code> is the <em>cumulative enclosed</em> volume <code class="language-plaintext highlighter-rouge">V(rho)</code>, so
 <code class="language-plaintext highlighter-rouge">dV</code> is its difference; it is not a shell volume.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<p>The two fallbacks are silent: a volume profile of the wrong length drops to
+      <ol>
+        <li>If <code class="language-plaintext highlighter-rouge">volume_profile</code> is given, matches the emissivity’s shape and has at
+least two finite points spanning a non-zero volume: trapezoidal
+integration of <code class="language-plaintext highlighter-rouge">epsilon</code> against <code class="language-plaintext highlighter-rouge">V</code>, in volume order.</li>
+        <li>Else, if <code class="language-plaintext highlighter-rouge">total_volume</code> is finite and positive:
+<code class="language-plaintext highlighter-rouge">nanmean(epsilon) * total_volume</code>.</li>
+        <li>Else <code class="language-plaintext highlighter-rouge">0</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The two fallbacks are silent: a volume profile of the wrong length drops to
 the mean-times-volume estimate, and a missing volume to zero, with no
 warning from this function.</p>
 
-<h3 id="normalize_atomic_symbol"><code class="language-plaintext highlighter-rouge">normalize_atomic_symbol</code></h3>
+    </details>
 
-<p class="formula-signature"><code>normalize_atomic_symbol(label)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="normalize_atomic_symbol">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/atomic.py#L140" title="vaft/process/atomic.py, line 140">source</a>
+</header>
+    <pre class="ref-signature"><code>normalize_atomic_symbol(label)</code></pre>
 
-<p>Normalize an element or ion label to a supported atomic symbol.</p>
+    <p>Normalize an element or ion label to a supported atomic symbol.</p>
 
-<p>Full English names and charge-decorated labels are accepted –
+    <p>Full English names and charge-decorated labels are accepted –
 <code class="language-plaintext highlighter-rouge">carbon6+</code> gives <code class="language-plaintext highlighter-rouge">C</code>, <code class="language-plaintext highlighter-rouge">neon</code> gives <code class="language-plaintext highlighter-rouge">Ne</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>label</code></td><td>str, bytes or None</td><td>-</td><td><p>The label as found in an ODS <code class="language-plaintext highlighter-rouge">ion.label</code> or a species list.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>label</code></td><td class="ref-type">str, bytes or None</td><td class="ref-unit">-</td><td><p>The label as found in an ODS <code class="language-plaintext highlighter-rouge">ion.label</code> or a species list.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>str or None</td><td>-</td><td><p>The symbol, or <code class="language-plaintext highlighter-rouge">None</code> for an unrecognized label so the caller decides whether absence is fatal.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str or None</td><td class="ref-unit">-</td><td><p>The symbol, or <code class="language-plaintext highlighter-rouge">None</code> for an unrecognized label so the caller decides whether absence is fatal.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Applicability.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
 
-<p>Machine-independent.</p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p><strong>Limitations.</strong></p>
+      <p>Machine-independent.</p>
 
-<p>Only the elements in the module’s table are recognized (H through W, the
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Only the elements in the module’s table are recognized (H through W, the
 common tokamak species); isotopes D and T map to their own symbols.</p>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -704,7 +742,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#compute_line_radiation_power_series" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_line_radiation_power_series</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_time_match_atol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_time_match_atol</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_time_match_index" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_time_match_index</a></li><li class="page-toc-item page-toc-level-3"><a href="#integrate_emissivity_profile" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">integrate_emissivity_profile</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_atomic_symbol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_atomic_symbol</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -822,7 +860,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -851,7 +889,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

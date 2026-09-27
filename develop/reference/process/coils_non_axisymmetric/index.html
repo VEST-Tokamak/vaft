@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/coils_non_axisymmetric.py"><code class="language-plaintext highlighter-rouge">vaft/process/coils_non_axisymmetric.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("coils_non_axisymmetric.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.coils_non_axisymmetric</code>:
+<strong>2</strong> public functions. Each entry is what
+<code>vaft.process.describe("coils_non_axisymmetric.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -296,119 +294,131 @@ filaments carrying given currents, at arbitrary probe points.</li>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a> &mdash; Vacuum magnetic field of closed polyline filaments at probe points.
-</li>
-  <li><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a> &mdash; Complex toroidal Fourier coefficient of a per-sector quantity.
-</li>
-</ul>
-
-<h3 id="biot_savart_filaments"><code class="language-plaintext highlighter-rouge">biot_savart_filaments</code></h3>
-
-<p class="formula-signature"><code>biot_savart_filaments(points_xyz, currents_a, probes_xyz)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Vacuum magnetic field of closed polyline filaments at probe points.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>points_xyz</code></td><td>array_like</td><td>m</td><td><p>Filament vertices, shape <code class="language-plaintext highlighter-rouge">(F, P, 3)</code> or a sequence of <code class="language-plaintext highlighter-rouge">F</code> arrays <code class="language-plaintext highlighter-rouge">(P_f, 3)</code>; each filament is traversed in vertex order and must be closed (first vertex equals last).</p>
+  <tr data-ref-row="biot_savart_filaments"><td><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a></td><td>Vacuum magnetic field of closed polyline filaments at probe points.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_mode_decomposition"><td><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a></td><td>Complex toroidal Fourier coefficient of a per-sector quantity.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="biot_savart_filaments">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#biot_savart_filaments"><code>biot_savart_filaments</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/coils_non_axisymmetric.py#L99" title="vaft/process/coils_non_axisymmetric.py, line 99">source</a>
+</header>
+    <pre class="ref-signature"><code>biot_savart_filaments(points_xyz, currents_a, probes_xyz)</code></pre>
+
+    <p>Vacuum magnetic field of closed polyline filaments at probe points.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>points_xyz</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Filament vertices, shape <code class="language-plaintext highlighter-rouge">(F, P, 3)</code> or a sequence of <code class="language-plaintext highlighter-rouge">F</code> arrays <code class="language-plaintext highlighter-rouge">(P_f, 3)</code>; each filament is traversed in vertex order and must be closed (first vertex equals last).</p>
 </td></tr>
-  <tr><td><code>currents_a</code></td><td>array_like</td><td>A</td><td><p>Current in each filament, positive along the vertex order, shape <code class="language-plaintext highlighter-rouge">(F,)</code>; multiply by the winding turns first when a filament stands for a multi-turn coil.</p>
+  <tr><td><code>currents_a</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>Current in each filament, positive along the vertex order, shape <code class="language-plaintext highlighter-rouge">(F,)</code>; multiply by the winding turns first when a filament stands for a multi-turn coil.</p>
 </td></tr>
-  <tr><td><code>probes_xyz</code></td><td>array_like</td><td>m</td><td><p>Observation points, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+  <tr><td><code>probes_xyz</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Observation points, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>T</td><td><p>Cartesian field <code class="language-plaintext highlighter-rouge">(B_x, B_y, B_z)</code> at each probe, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Cartesian field <code class="language-plaintext highlighter-rouge">(B_x, B_y, B_z)</code> at each probe, shape <code class="language-plaintext highlighter-rouge">(N, 3)</code>.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    A filament is not closed, the number of currents differs from the
-    number of filaments, or a probe coincides with a segment midpoint
-    (the field is singular on the conductor).</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Right-handed Cartesian axes.  Each straight segment contributes
+      <p>Right-handed Cartesian axes.  Each straight segment contributes
 <code class="language-plaintext highlighter-rouge">mu0/(4 pi) I (dl x r) / |r|^3</code> with <code class="language-plaintext highlighter-rouge">dl</code> along the vertex order and
 <code class="language-plaintext highlighter-rouge">r</code> from the segment midpoint to the probe (midpoint rule), so the
 field is the one the right-hand rule assigns to a current flowing in the
 vertex order.  A coil traversed the other way, or a negative current,
 flips the sign.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>Filaments are thin (no conductor cross-section); the midpoint rule is
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A filament is not closed, the number of currents differs from the number of filaments, or a probe coincides with a segment midpoint (the field is singular on the conductor).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Filaments are thin (no conductor cross-section); the midpoint rule is
 second-order accurate in segment length.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.  Any set of polyline coils: RMP, error-field
+      <p>Machine-independent.  Any set of polyline coils: RMP, error-field
 correction, PF coils sampled as polygons.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Transient memory is <code class="language-plaintext highlighter-rouge">O(S N)</code> per filament (<code class="language-plaintext highlighter-rouge">S</code> segments, <code class="language-plaintext highlighter-rouge">N</code>
+      <p>Transient memory is <code class="language-plaintext highlighter-rouge">O(S N)</code> per filament (<code class="language-plaintext highlighter-rouge">S</code> segments, <code class="language-plaintext highlighter-rouge">N</code>
 probes; two <code class="language-plaintext highlighter-rouge">(N, S, 3)</code> float arrays), whichever input form is used;
 call in probe blocks when <code class="language-plaintext highlighter-rouge">S * N</code> reaches ~1e7.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. D. Jackson, <em>Classical Electrodynamics</em>, 3rd ed., Sec. 5.2: the Biot-Savart law for a line current.
 </li>
   <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> and <code class="language-plaintext highlighter-rouge">library/mast_u_input_convertor.py</code> carried three copies of this midpoint-rule kernel; this is the single replacement.
 </li>
 </ol>
 
-<h3 id="toroidal_mode_decomposition"><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code></h3>
+    </details>
 
-<p class="formula-signature"><code>toroidal_mode_decomposition(phi_rad, values, modes)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="toroidal_mode_decomposition">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_mode_decomposition"><code>toroidal_mode_decomposition</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/coils_non_axisymmetric.py#L33" title="vaft/process/coils_non_axisymmetric.py, line 33">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_mode_decomposition(phi_rad, values, modes)</code></pre>
 
-<p>Complex toroidal Fourier coefficient of a per-sector quantity.</p>
+    <p>Complex toroidal Fourier coefficient of a per-sector quantity.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle of each sector sample, any order, shape <code class="language-plaintext highlighter-rouge">(K,)</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>phi_rad</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Toroidal angle of each sector sample, any order, shape <code class="language-plaintext highlighter-rouge">(K,)</code>.</p>
 </td></tr>
-  <tr><td><code>values</code></td><td>array_like</td><td>any</td><td><p>The quantity at each sector, real or complex, shape <code class="language-plaintext highlighter-rouge">(K,)</code>; coil currents are the usual case.</p>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The quantity at each sector, real or complex, shape <code class="language-plaintext highlighter-rouge">(K,)</code>; coil currents are the usual case.</p>
 </td></tr>
-  <tr><td><code>modes</code></td><td>iterable of int</td><td>-</td><td><p>Toroidal mode numbers <code class="language-plaintext highlighter-rouge">n</code> to evaluate.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict[int, complex]</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">C_n</code> for each requested <code class="language-plaintext highlighter-rouge">n</code>, in the units of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+  <tr><td><code>modes</code></td><td class="ref-type">iterable of int</td><td class="ref-unit">-</td><td><p>Toroidal mode numbers <code class="language-plaintext highlighter-rouge">n</code> to evaluate.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict[int, complex]</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">C_n</code> for each requested <code class="language-plaintext highlighter-rouge">n</code>, in the units of <code class="language-plaintext highlighter-rouge">values</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">phi_rad</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, are not one-dimensional,
-    or are empty.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">C_n = (1/K) sum_k v_k exp(-i n phi_k)</code>, the plain sample mean, so a
+      <p><code class="language-plaintext highlighter-rouge">C_n = (1/K) sum_k v_k exp(-i n phi_k)</code>, the plain sample mean, so a
 pattern <code class="language-plaintext highlighter-rouge">v_k = A cos(n phi_k + delta)</code> returns <code class="language-plaintext highlighter-rouge">C_n = (A/2) exp(+i delta)</code>
 when the sectors resolve <code class="language-plaintext highlighter-rouge">n</code> without aliasing: the peak amplitude is
 <code class="language-plaintext highlighter-rouge">2 |C_n|</code> and the phase of <code class="language-plaintext highlighter-rouge">C_n</code> is the pattern’s phase <code class="language-plaintext highlighter-rouge">delta</code> at
@@ -417,37 +427,45 @@ documentation and the legacy hsyun_GPEC <code class="language-plaintext highligh
 use; a <code class="language-plaintext highlighter-rouge">exp(+i n phi)</code> convention conjugates every coefficient.  No
 normalisation by <code class="language-plaintext highlighter-rouge">2/K</code> is applied, so <code class="language-plaintext highlighter-rouge">C_0</code> is the mean.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>Uniform weighting of the sectors.  With <code class="language-plaintext highlighter-rouge">K</code> equally spaced sectors the
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">phi_rad</code> and <code class="language-plaintext highlighter-rouge">values</code> differ in length, are not one-dimensional, or are empty.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Uniform weighting of the sectors.  With <code class="language-plaintext highlighter-rouge">K</code> equally spaced sectors the
 coefficients are exact for <code class="language-plaintext highlighter-rouge">|n| &lt; K/2</code>; with fewer or unevenly spaced
 sectors they are the least-squares-free sample projection and alias.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.  Any toroidal array of discrete elements: RMP coil
+      <p>Machine-independent.  Any toroidal array of discrete elements: RMP coil
 rows, error-field correction coils, saddle loops.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>GPEC <code class="language-plaintext highlighter-rouge">coil.in</code> documentation: per-coil currents are combined per toroidal harmonic with <code class="language-plaintext highlighter-rouge">exp(-i n phi)</code>.
 </li>
   <li>hsyun_GPEC <code class="language-plaintext highlighter-rouge">library/gpec_input_processor.py</code> <code class="language-plaintext highlighter-rouge">fourier_mode_coefficient</code> (same kernel), ported unchanged.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -548,7 +566,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#biot_savart_filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">biot_savart_filaments</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_mode_decomposition" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_mode_decomposition</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -666,7 +684,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -695,7 +713,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

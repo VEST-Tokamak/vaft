@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/camera_geometry.py"><code class="language-plaintext highlighter-rouge">vaft/process/camera_geometry.py</code></a>:
-4 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("camera_geometry.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.camera_geometry</code>:
+<strong>4</strong> public functions. Each entry is what
+<code>vaft.process.describe("camera_geometry.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -296,254 +294,295 @@ convention: <code class="language-plaintext highlighter-rouge">(X, Y, Z)_cm = (R
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#project_points"><code>project_points</code></a> &mdash; Project world points into camera pixels, flagging the ones the model cannot be trusted for.
-</li>
-  <li><a href="#sweep_toroidal"><code>sweep_toroidal</code></a> &mdash; Sweep poloidal points through toroidal angles into world points.
-</li>
-  <li><a href="#toroidal_ring"><code>toroidal_ring</code></a> &mdash; Sweep one poloidal point into a full toroidal ring.
-</li>
-  <li><a href="#trajectory_world_points"><code>trajectory_world_points</code></a> &mdash; Convert a matched trajectory of cylindrical coordinates into world points.
-</li>
-</ul>
-
-<h3 id="project_points"><code class="language-plaintext highlighter-rouge">project_points</code></h3>
-
-<p class="formula-signature"><code>project_points(world_xyz_cm, rvec, tvec, camera_matrix, dist_coeffs, *, max_normalized_radius=1.3)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Project world points into camera pixels, flagging the ones the model cannot be trusted for.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>world_xyz_cm</code></td><td>array_like</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, in the machine frame.</p>
+  <tr data-ref-row="project_points"><td><a href="#project_points"><code>project_points</code></a></td><td>Project world points into camera pixels, flagging the ones the model cannot be trusted for.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sweep_toroidal"><td><a href="#sweep_toroidal"><code>sweep_toroidal</code></a></td><td>Sweep poloidal points through toroidal angles into world points.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_ring"><td><a href="#toroidal_ring"><code>toroidal_ring</code></a></td><td>Sweep one poloidal point into a full toroidal ring.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="trajectory_world_points"><td><a href="#trajectory_world_points"><code>trajectory_world_points</code></a></td><td>Convert a matched trajectory of cylindrical coordinates into world points.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="project_points">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_points"><code>project_points</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_geometry.py#L72" title="vaft/process/camera_geometry.py, line 72">source</a>
+</header>
+    <pre class="ref-signature"><code>project_points(world_xyz_cm, rvec, tvec, camera_matrix, dist_coeffs, *, max_normalized_radius=1.3)</code></pre>
+
+    <p>Project world points into camera pixels, flagging the ones the model cannot be trusted for.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>world_xyz_cm</code></td><td class="ref-type">array_like</td><td class="ref-unit">cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, in the machine frame.</p>
 </td></tr>
-  <tr><td><code>rvec</code></td><td>array_like</td><td>rad</td><td><p>Rotation vector of the calibrated camera pose, Rodrigues form.</p>
+  <tr><td><code>rvec</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Rotation vector of the calibrated camera pose, Rodrigues form.</p>
 </td></tr>
-  <tr><td><code>tvec</code></td><td>array_like</td><td>cm</td><td><p>Translation vector of that pose.</p>
+  <tr><td><code>tvec</code></td><td class="ref-type">array_like</td><td class="ref-unit">cm</td><td><p>Translation vector of that pose.</p>
 </td></tr>
-  <tr><td><code>camera_matrix</code></td><td>array_like</td><td>-</td><td><p>Intrinsic matrix, <code class="language-plaintext highlighter-rouge">3x3</code>.</p>
+  <tr><td><code>camera_matrix</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Intrinsic matrix, <code class="language-plaintext highlighter-rouge">3x3</code>.</p>
 </td></tr>
-  <tr><td><code>dist_coeffs</code></td><td>array_like</td><td>-</td><td><p>Brown-Conrady radial and tangential distortion coefficients.</p>
+  <tr><td><code>dist_coeffs</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Brown-Conrady radial and tangential distortion coefficients.</p>
 </td></tr>
-  <tr><td><code>max_normalized_radius</code></td><td>float, optional</td><td>-</td><td><p>Largest normalized image-plane radius still considered inside the model’s fitted range.</p>
+  <tr><td><code>max_normalized_radius</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Largest normalized image-plane radius still considered inside the model’s fitted range.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>pixel_uv</code></td><td>np.ndarray</td><td>-</td><td><p>Pixel positions as <code class="language-plaintext highlighter-rouge">(N, 2)</code> in column-then-row order.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>pixel_uv</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Pixel positions as <code class="language-plaintext highlighter-rouge">(N, 2)</code> in column-then-row order.</p>
 </td></tr>
-  <tr><td><code>valid_mask</code></td><td>np.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where the projection can be trusted.</p>
+  <tr><td><code>valid_mask</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where the projection can be trusted.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Defaults.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><code class="language-plaintext highlighter-rouge">max_normalized_radius = 1.3</code> is a validated-workflow default, the same
-guard the source notebook applies in its own projection routine.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Pixels are returned column first, then row</strong>, which is the opposite of the
+      <p><strong>Pixels are returned column first, then row</strong>, which is the opposite of the
 row-then-column order an image array is indexed with. <strong>World points are in
 centimetres</strong>, matching the packaged calibration, while every other geometry
 argument in this package is in metres; the sweep helpers here do that
 conversion.</p>
 
-<p>The pose is applied directly to the original distorted frame. Per the source
+      <p>The pose is applied directly to the original distorted frame. Per the source
 notebook’s own finding, the recovered pose is the true physical camera
 attitude whichever click-point convention solved for it, so no undistortion
 step is needed and one formula serves every calibrated shot.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent. Standard OpenCV pinhole geometry; the calibration that
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">max_normalized_radius = 1.3</code> is a validated-workflow default, the same
+guard the source notebook applies in its own projection routine.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Standard OpenCV pinhole geometry; the calibration that
 makes it a VEST camera is supplied by the caller.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Two kinds of point are excluded rather than projected. A point behind the
+      <p>Two kinds of point are excluded rather than projected. A point behind the
 camera has non-positive depth and no meaningful pixel. A point far off the
 optical axis lies outside the angular range the distortion polynomial was
 fitted over, where that polynomial can turn non-monotonic and place the point
 at a wildly wrong pixel rather than smoothly off-frame; the mask catches that
 case, which is why it is a validity test and not a crop.</p>
 
-<p>Requires OpenCV, imported at call time.</p>
+      <p>Requires OpenCV, imported at call time.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>The VEST FAST camera diagnostics repository’s <code class="language-plaintext highlighter-rouge">camera_geometry.ipynb</code> and its <code class="language-plaintext highlighter-rouge">CALIBRATION.md</code>; this reproduces that notebook’s projection, including the depth and field-of-view guard from its own routine.
 </li>
 </ol>
 
-<h3 id="sweep_toroidal"><code class="language-plaintext highlighter-rouge">sweep_toroidal</code></h3>
+    </details>
 
-<p class="formula-signature"><code>sweep_toroidal(r_m, z_m, theta_rad)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="sweep_toroidal">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sweep_toroidal"><code>sweep_toroidal</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_geometry.py#L172" title="vaft/process/camera_geometry.py, line 172">source</a>
+</header>
+    <pre class="ref-signature"><code>sweep_toroidal(r_m, z_m, theta_rad)</code></pre>
 
-<p>Sweep poloidal points through toroidal angles into world points.</p>
+    <p>Sweep poloidal points through toroidal angles into world points.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r_m</code></td><td>array_like</td><td>m</td><td><p>Major radius of each poloidal point.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r_m</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major radius of each poloidal point.</p>
 </td></tr>
-  <tr><td><code>z_m</code></td><td>array_like</td><td>m</td><td><p>Height of each poloidal point, same shape as <em>r_m</em>.</p>
+  <tr><td><code>z_m</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height of each poloidal point, same shape as <em>r_m</em>.</p>
 </td></tr>
-  <tr><td><code>theta_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angles to sweep through.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta) * len(r), 3)</code>, one row per angle and point combination.</p>
+  <tr><td><code>theta_rad</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Toroidal angles to sweep through.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta) * len(r), 3)</code>, one row per angle and point combination.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The two poloidal arrays do not have the same shape.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">X = R cos(theta)</code>, <code class="language-plaintext highlighter-rouge">Y = R sin(theta)</code>, <code class="language-plaintext highlighter-rouge">Z = Z</code>, then converted from
+      <p><code class="language-plaintext highlighter-rouge">X = R cos(theta)</code>, <code class="language-plaintext highlighter-rouge">Y = R sin(theta)</code>, <code class="language-plaintext highlighter-rouge">Z = Z</code>, then converted from
 metres to centimetres because the packaged calibration is in centimetres.
 Rows vary fastest over the poloidal points and slowest over the angles.</p>
 
-<p>This is an <strong>outer product</strong>: every point is swept through every angle, giving
+      <p>This is an <strong>outer product</strong>: every point is swept through every angle, giving
 a surface. <code class="language-plaintext highlighter-rouge">trajectory_world_points</code> pairs them element-wise instead,
 for a single ordered path. Confusing the two produces an array of the wrong
 length rather than an error.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The two poloidal arrays do not have the same shape.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>Reproduces the source notebook’s torus sweep; see <code class="language-plaintext highlighter-rouge">project_points</code> for the repository and calibration reference.
 </li>
 </ol>
 
-<h3 id="toroidal_ring"><code class="language-plaintext highlighter-rouge">toroidal_ring</code></h3>
+    </details>
 
-<p class="formula-signature"><code>toroidal_ring(r_m, z_m, theta_rad)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="toroidal_ring">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_ring"><code>toroidal_ring</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_geometry.py#L230" title="vaft/process/camera_geometry.py, line 230">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_ring(r_m, z_m, theta_rad)</code></pre>
 
-<p>Sweep one poloidal point into a full toroidal ring.</p>
+    <p>Sweep one poloidal point into a full toroidal ring.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r_m</code></td><td>float</td><td>m</td><td><p>Major radius of the point.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius of the point.</p>
 </td></tr>
-  <tr><td><code>z_m</code></td><td>float</td><td>m</td><td><p>Height of the point.</p>
+  <tr><td><code>z_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Height of the point.</p>
 </td></tr>
-  <tr><td><code>theta_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angles making up the ring.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta), 3)</code>.</p>
+  <tr><td><code>theta_rad</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Toroidal angles making up the ring.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(len(theta), 3)</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The single-point case of <code class="language-plaintext highlighter-rouge">sweep_toroidal</code>, with the same axis
+      <p>The single-point case of <code class="language-plaintext highlighter-rouge">sweep_toroidal</code>, with the same axis
 definitions and the same conversion from metres to centimetres.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<ol class="formula-references">
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">sweep_toroidal</code>, which this delegates to.
 </li>
 </ol>
 
-<h3 id="trajectory_world_points"><code class="language-plaintext highlighter-rouge">trajectory_world_points</code></h3>
+    </details>
 
-<p class="formula-signature"><code>trajectory_world_points(r_m, z_m, phi_rad)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="trajectory_world_points">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#trajectory_world_points"><code>trajectory_world_points</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_geometry.py#L263" title="vaft/process/camera_geometry.py, line 263">source</a>
+</header>
+    <pre class="ref-signature"><code>trajectory_world_points(r_m, z_m, phi_rad)</code></pre>
 
-<p>Convert a matched trajectory of cylindrical coordinates into world points.</p>
+    <p>Convert a matched trajectory of cylindrical coordinates into world points.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r_m</code></td><td>array_like</td><td>m</td><td><p>Major radius along the trajectory.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r_m</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major radius along the trajectory.</p>
 </td></tr>
-  <tr><td><code>z_m</code></td><td>array_like</td><td>m</td><td><p>Height along the trajectory, same shape.</p>
+  <tr><td><code>z_m</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height along the trajectory, same shape.</p>
 </td></tr>
-  <tr><td><code>phi_rad</code></td><td>array_like</td><td>rad</td><td><p>Toroidal angle at each point, same shape.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, one row per trajectory point.</p>
+  <tr><td><code>phi_rad</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Toroidal angle at each point, same shape.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">cm</td><td><p>World points as <code class="language-plaintext highlighter-rouge">(N, 3)</code>, one row per trajectory point.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The three arrays do not all have the same shape.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Element-wise pairing</strong>, one angle per point, for an ordered path such as a
+      <p><strong>Element-wise pairing</strong>, one angle per point, for an ordered path such as a
 traced field line. <code class="language-plaintext highlighter-rouge">sweep_toroidal</code> takes the outer product instead and
 gives a surface. Same axis definitions and the same conversion to centimetres.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The three arrays do not all have the same shape.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>The world-frame convention of the source notebook; see <code class="language-plaintext highlighter-rouge">project_points</code>.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -644,7 +683,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#project_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_points</a></li><li class="page-toc-item page-toc-level-3"><a href="#sweep_toroidal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sweep_toroidal</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_ring" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_ring</a></li><li class="page-toc-item page-toc-level-3"><a href="#trajectory_world_points" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">trajectory_world_points</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -762,7 +801,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -791,7 +830,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

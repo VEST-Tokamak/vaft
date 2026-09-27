@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/fluctuation.py"><code class="language-plaintext highlighter-rouge">vaft/process/fluctuation.py</code></a>:
-8 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("fluctuation.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.fluctuation</code>:
+<strong>8</strong> public functions. Each entry is what
+<code>vaft.process.describe("fluctuation.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -284,18 +282,18 @@ diagnostic that produced it.  The same functions serve magnetic pickup coils,
 interferometry, soft X-ray channels, Langmuir probes and optical intensity, so
 mapping modules must not grow their own spectral implementations.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>t</td><td>time</td><td>s</td></tr>
-  <tr><td>f</td><td>frequency</td><td>Hz</td></tr>
-  <tr><td>S(f)</td><td>one-sided power spectral density</td><td>signal^2/Hz</td></tr>
-  <tr><td>alpha</td><td>power-law spectral index, S ~ f^alpha</td><td>-</td></tr>
-  <tr><td>f_break</td><td>frequency separating two power-law regimes</td><td>Hz</td></tr>
-  <tr><td>S_xy(f)</td><td>one-sided cross-spectral density of x and y</td><td>x*y/Hz</td></tr>
-  <tr><td>gamma^2</td><td>magnitude-squared coherence |S_xy|^2/(S_xx S_yy)</td><td>-</td></tr>
+  <tr><td>t</td><td>time</td><td class="ref-unit">s</td></tr>
+  <tr><td>f</td><td>frequency</td><td class="ref-unit">Hz</td></tr>
+  <tr><td>S(f)</td><td>one-sided power spectral density</td><td class="ref-unit">signal^2/Hz</td></tr>
+  <tr><td>alpha</td><td>power-law spectral index, S ~ f^alpha</td><td class="ref-unit">-</td></tr>
+  <tr><td>f_break</td><td>frequency separating two power-law regimes</td><td class="ref-unit">Hz</td></tr>
+  <tr><td>S_xy(f)</td><td>one-sided cross-spectral density of x and y</td><td class="ref-unit">x*y/Hz</td></tr>
+  <tr><td>gamma^2</td><td>magnitude-squared coherence |S_xy|^2/(S_xx S_yy)</td><td class="ref-unit">-</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>Transfer functions stay outside this module.</strong>  These routines analyse
 whatever quantity they are handed and never correct for a diagnostic’s
@@ -323,643 +321,727 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a> &mdash; Run the spectral chain on one signal: density, then whatever else was asked for.
-</li>
-  <li><a href="#compute_band_power"><code>compute_band_power</code></a> &mdash; Integrate spectral power over named frequency bands, and optionally their ratios.
-</li>
-  <li><a href="#compute_psd"><code>compute_psd</code></a> &mdash; One-sided power spectral density by Welch’s method.
-</li>
-  <li><a href="#compute_spectrogram"><code>compute_spectrogram</code></a> &mdash; Short-time Fourier magnitude map of a fluctuation signal.
-</li>
-  <li><a href="#cross_spectrum"><code>cross_spectrum</code></a> &mdash; Cross-spectral density, coherence and relative phase of two fluctuation records.
-</li>
-  <li><a href="#find_spectral_break"><code>find_spectral_break</code></a> &mdash; Fit a two-regime power law, below and above a break frequency.
-</li>
-  <li><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a> &mdash; Fit a power law to a spectrum over an explicitly chosen band.
-</li>
-  <li><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a> &mdash; Follow the dominant spectral ridge of a time-frequency map, window by window.
-</li>
-</ul>
-
-<h3 id="analyze_fluctuation_spectrum"><code class="language-plaintext highlighter-rouge">analyze_fluctuation_spectrum</code></h3>
-
-<p class="formula-signature"><code>analyze_fluctuation_spectrum(time, data, *, fit_ranges=(), bands=None, ratios=None, break_frequency=None, search_range=None, break_fit_range=None, **psd_options)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Run the spectral chain on one signal: density, then whatever else was asked for.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis.</p>
+  <tr data-ref-row="analyze_fluctuation_spectrum"><td><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a></td><td>Run the spectral chain on one signal: density, then whatever else was asked for.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="compute_band_power"><td><a href="#compute_band_power"><code>compute_band_power</code></a></td><td>Integrate spectral power over named frequency bands, and optionally their ratios.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="compute_psd"><td><a href="#compute_psd"><code>compute_psd</code></a></td><td>One-sided power spectral density by Welch’s method.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="compute_spectrogram"><td><a href="#compute_spectrogram"><code>compute_spectrogram</code></a></td><td>Short-time Fourier magnitude map of a fluctuation signal.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cross_spectrum"><td><a href="#cross_spectrum"><code>cross_spectrum</code></a></td><td>Cross-spectral density, coherence and relative phase of two fluctuation records.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="find_spectral_break"><td><a href="#find_spectral_break"><code>find_spectral_break</code></a></td><td>Fit a two-regime power law, below and above a break frequency.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="fit_power_law_spectrum"><td><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a></td><td>Fit a power law to a spectrum over an explicitly chosen band.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="track_dominant_frequency"><td><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a></td><td>Follow the dominant spectral ridge of a time-frequency map, window by window.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="analyze_fluctuation_spectrum">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L742" title="vaft/process/fluctuation.py, line 742">source</a>
+</header>
+    <pre class="ref-signature"><code>analyze_fluctuation_spectrum(time, data, *, fit_ranges=(), bands=None, ratios=None, break_frequency=None, search_range=None, break_fit_range=None, **psd_options)</code></pre>
+
+    <p>Run the spectral chain on one signal: density, then whatever else was asked for.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled time axis.</p>
 </td></tr>
-  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples.</p>
+  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Signal samples.</p>
 </td></tr>
-  <tr><td><code>fit_ranges</code></td><td>sequence, optional</td><td>Hz</td><td><p>Bands to fit a power law over, each <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
+  <tr><td><code>fit_ranges</code></td><td class="ref-type">sequence, optional</td><td class="ref-unit">Hz</td><td><p>Bands to fit a power law over, each <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
 </td></tr>
-  <tr><td><code>bands</code></td><td>mapping, optional</td><td>Hz</td><td><p>Named bands whose power to integrate.</p>
+  <tr><td><code>bands</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">Hz</td><td><p>Named bands whose power to integrate.</p>
 </td></tr>
-  <tr><td><code>ratios</code></td><td>mapping, optional</td><td>-</td><td><p>Named band-power ratios to report.</p>
+  <tr><td><code>ratios</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">-</td><td><p>Named band-power ratios to report.</p>
 </td></tr>
-  <tr><td><code>break_frequency</code></td><td>float, optional</td><td>Hz</td><td><p>An imposed two-regime boundary.</p>
+  <tr><td><code>break_frequency</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>An imposed two-regime boundary.</p>
 </td></tr>
-  <tr><td><code>search_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Interval to scan for a break instead.</p>
+  <tr><td><code>search_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">Hz</td><td><p>Interval to scan for a break instead.</p>
 </td></tr>
-  <tr><td><code>break_fit_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Outer band for the two-regime fit.  Further keyword arguments are passed through to the density estimate.</p>
+  <tr><td><code>break_fit_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">Hz</td><td><p>Outer band for the two-regime fit.  Further keyword arguments are passed through to the density estimate.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict</td><td>-</td><td><p>The spectrum, and an entry for each optional analysis that was requested</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>The spectrum, and an entry for each optional analysis that was requested</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Estimate the power spectral density.</li>
-  <li>Fit a power law over each requested band.</li>
-  <li>Fit a two-regime break, if either mode argument was given.</li>
-  <li>Integrate the requested band powers and ratios.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Everything past the density is opt-in.</strong> Nothing is computed because it
+      <p><strong>Everything past the density is opt-in.</strong> Nothing is computed because it
 might be interesting, so the returned mapping holds exactly what was asked
 for. The same rules apply as to the functions this calls: fit ranges are
 explicit, the break mode is never inferred, and no result is given a physical
 name.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<p>A convenience wrapper only. It adds no analysis of its own and inherits every
+      <ol>
+        <li>Estimate the power spectral density.</li>
+        <li>Fit a power law over each requested band.</li>
+        <li>Fit a two-regime break, if either mode argument was given.</li>
+        <li>Integrate the requested band powers and ratios.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A convenience wrapper only. It adds no analysis of its own and inherits every
 limitation of the steps it runs.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>The functions it orchestrates, each documented on its own.
 </li>
 </ol>
 
-<h3 id="compute_band_power"><code class="language-plaintext highlighter-rouge">compute_band_power</code></h3>
+    </details>
 
-<p class="formula-signature"><code>compute_band_power(frequency, psd, bands, *, ratios=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="compute_band_power">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compute_band_power"><code>compute_band_power</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L548" title="vaft/process/fluctuation.py, line 548">source</a>
+</header>
+    <pre class="ref-signature"><code>compute_band_power(frequency, psd, bands, *, ratios=None)</code></pre>
 
-<p>Integrate spectral power over named frequency bands, and optionally their ratios.</p>
+    <p>Integrate spectral power over named frequency bands, and optionally their ratios.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frequency</code></td><td class="ref-type">array_like</td><td class="ref-unit">Hz</td><td><p>Frequency axis.</p>
 </td></tr>
-  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density.</p>
+  <tr><td><code>psd</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Power spectral density.</p>
 </td></tr>
-  <tr><td><code>bands</code></td><td>mapping of str to sequence of float</td><td>Hz</td><td><p>Named <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code> pairs; the names are the caller’s.</p>
+  <tr><td><code>bands</code></td><td class="ref-type">mapping of str to sequence of float</td><td class="ref-unit">Hz</td><td><p>Named <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code> pairs; the names are the caller’s.</p>
 </td></tr>
-  <tr><td><code>ratios</code></td><td>mapping, optional</td><td>-</td><td><p>Named pairs of band names whose power ratio to report.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict</td><td>-</td><td><p>Power per named band, in the signal’s own squared unit, and any requested ratios, dimensionless.</p>
+  <tr><td><code>ratios</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">-</td><td><p>Named pairs of band names whose power ratio to report.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>Power per named band, in the signal’s own squared unit, and any requested ratios, dimensionless.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><strong>Band edges are closed</strong>, so two adjacent bands sharing an edge both include
+      <p><strong>Band edges are closed</strong>, so two adjacent bands sharing an edge both include
 the sample sitting on it. A band containing fewer than two samples integrates
 to zero rather than raising, and a ratio with a zero denominator is NaN rather
 than infinite, so a caller sweeping many channels gets a comparable result
 from every one.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Integration is over the samples present, so a band narrower than the frequency
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Integration is over the samples present, so a band narrower than the frequency
 resolution reports zero rather than an error. Nothing normalizes by bandwidth;
 these are powers, not densities.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Numerical integration of the density returned by <code class="language-plaintext highlighter-rouge">compute_psd</code>.
 </li>
 </ol>
 
-<h3 id="compute_psd"><code class="language-plaintext highlighter-rouge">compute_psd</code></h3>
+    </details>
 
-<p class="formula-signature"><code>compute_psd(time, data, *, sample_rate=None, window='hann', nperseg=None, noverlap=None, detrend='constant', units='signal**2/Hz')</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="compute_psd">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compute_psd"><code>compute_psd</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L194" title="vaft/process/fluctuation.py, line 194">source</a>
+</header>
+    <pre class="ref-signature"><code>compute_psd(time, data, *, sample_rate=None, window=&#39;hann&#39;, nperseg=None, noverlap=None, detrend=&#39;constant&#39;, units=&#39;signal**2/Hz&#39;)</code></pre>
 
-<p>One-sided power spectral density by Welch’s method.</p>
+    <p>One-sided power spectral density by Welch’s method.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Strictly increasing, uniformly sampled time axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Strictly increasing, uniformly sampled time axis.</p>
 </td></tr>
-  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples, same length.</p>
+  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Signal samples, same length.</p>
 </td></tr>
-  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Overrides the rate derived from the time axis.</p>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Overrides the rate derived from the time axis.</p>
 </td></tr>
-  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Any window name SciPy accepts.</p>
+  <tr><td><code>window</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Any window name SciPy accepts.</p>
 </td></tr>
-  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Segment length in samples.</p>
+  <tr><td><code>nperseg</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Segment length in samples.</p>
 </td></tr>
-  <tr><td><code>noverlap</code></td><td>int, optional</td><td>-</td><td><p>Overlap in samples.</p>
+  <tr><td><code>noverlap</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Overlap in samples.</p>
 </td></tr>
-  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying estimator.</p>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Passed through to the underlying estimator.</p>
 </td></tr>
-  <tr><td><code>units</code></td><td>str, optional</td><td>-</td><td><p>Free-text unit label recorded on the result.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>FluctuationSpectrum</td><td>-</td><td><p>The frequency axis in hertz, the density in the signal’s own squared unit per hertz, and the parameters needed to reproduce them.</p>
+  <tr><td><code>units</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Free-text unit label recorded on the result.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FluctuationSpectrum</td><td class="ref-unit">-</td><td><p>The frequency axis in hertz, the density in the signal’s own squared unit per hertz, and the parameters needed to reproduce them.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The time axis is not uniform within the module’s tolerance.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The segment length and overlap are numerical conveniences, deferred to SciPy’s
-own choices rather than fixed here, so a caller who has not thought about
-resolution gets that library’s behaviour rather than one invented for VAFT.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>One-sided, so the power at each frequency already accounts for its negative
+      <p>One-sided, so the power at each frequency already accounts for its negative
 counterpart. The input is whatever quantity the caller wants a spectrum of and
 <strong>no transfer-function correction is applied</strong>; see the module’s conventions
 for what that means for a pickup coil.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The time axis is not uniform within the module’s tolerance.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
 
-<p>Welch’s method assumes a uniformly sampled, stationary signal. A materially
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The segment length and overlap are numerical conveniences, deferred to SciPy’s
+own choices rather than fixed here, so a caller who has not thought about
+resolution gets that library’s behaviour rather than one invented for VAFT.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Welch’s method assumes a uniformly sampled, stationary signal. A materially
 nonuniform time axis is rejected rather than interpolated, because
 interpolating one silently changes the spectrum it is being asked about.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Welch’s method as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.welch</code>.
 </li>
 </ol>
 
-<h3 id="compute_spectrogram"><code class="language-plaintext highlighter-rouge">compute_spectrogram</code></h3>
+    </details>
 
-<p class="formula-signature"><code>compute_spectrogram(time, data, *, sample_rate=None, nperseg=None, window_duration=None, overlap=0.5, window='hann', detrend='constant')</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="compute_spectrogram">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compute_spectrogram"><code>compute_spectrogram</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L628" title="vaft/process/fluctuation.py, line 628">source</a>
+</header>
+    <pre class="ref-signature"><code>compute_spectrogram(time, data, *, sample_rate=None, nperseg=None, window_duration=None, overlap=0.5, window=&#39;hann&#39;, detrend=&#39;constant&#39;)</code></pre>
 
-<p>Short-time Fourier magnitude map of a fluctuation signal.</p>
+    <p>Short-time Fourier magnitude map of a fluctuation signal.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled time axis.</p>
 </td></tr>
-  <tr><td><code>data</code></td><td>array_like</td><td>any</td><td><p>Signal samples.</p>
+  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Signal samples.</p>
 </td></tr>
-  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Overrides the rate derived from the time axis.</p>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Overrides the rate derived from the time axis.</p>
 </td></tr>
-  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Window length in samples.</p>
+  <tr><td><code>nperseg</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Window length in samples.</p>
 </td></tr>
-  <tr><td><code>window_duration</code></td><td>float, optional</td><td>s</td><td><p>Window length as a duration, converted to samples.</p>
+  <tr><td><code>window_duration</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Window length as a duration, converted to samples.</p>
 </td></tr>
-  <tr><td><code>overlap</code></td><td>float, optional</td><td>-</td><td><p>Fractional overlap between windows.</p>
+  <tr><td><code>overlap</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fractional overlap between windows.</p>
 </td></tr>
-  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Window name.</p>
+  <tr><td><code>window</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Window name.</p>
 </td></tr>
-  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying transform.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>FluctuationSpectrogram</td><td>-</td><td><p>The time and frequency axes and the magnitude map.</p>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Passed through to the underlying transform.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FluctuationSpectrogram</td><td class="ref-unit">-</td><td><p>The time and frequency axes and the magnitude map.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Defaults.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The overlap is a numerical convenience. The window may be given in samples or
-as a duration; the duration form is the portable one, since it means the same
-thing at a different sample rate.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>The time axis is returned in the caller’s own absolute base</strong>, offset back
+      <p><strong>The time axis is returned in the caller’s own absolute base</strong>, offset back
 from the transform’s window-relative one, so a feature can be read against the
 shot clock without correction.</p>
 
-<p>The field names match the magnetics module’s own spectrogram result, so the
+      <p>The field names match the magnetics module’s own spectrogram result, so the
 plotting layer accepts either without knowing which produced it.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p>The window sets the trade-off between time and frequency resolution and
+      <p>The overlap is a numerical convenience. The window may be given in samples or
+as a duration; the duration form is the portable one, since it means the same
+thing at a different sample rate.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The window sets the trade-off between time and frequency resolution and
 nothing here chooses it for the caller. A window longer than the record
 returns an empty result rather than raising, so callers sweeping many channels
 get deterministic behaviour at the edges.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>The short-time Fourier transform as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.spectrogram</code>.
 </li>
 </ol>
 
-<h3 id="cross_spectrum"><code class="language-plaintext highlighter-rouge">cross_spectrum</code></h3>
+    </details>
 
-<p class="formula-signature"><code>cross_spectrum(time_x, x, time_y, y, *, sample_rate=None, nperseg=None, noverlap=None, window='hann', detrend='constant', common_time=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="cross_spectrum">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cross_spectrum"><code>cross_spectrum</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L939" title="vaft/process/fluctuation.py, line 939">source</a>
+</header>
+    <pre class="ref-signature"><code>cross_spectrum(time_x, x, time_y, y, *, sample_rate=None, nperseg=None, noverlap=None, window=&#39;hann&#39;, detrend=&#39;constant&#39;, common_time=None)</code></pre>
 
-<p>Cross-spectral density, coherence and relative phase of two fluctuation records.</p>
+    <p>Cross-spectral density, coherence and relative phase of two fluctuation records.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time_x</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time_x</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">x</code>.</p>
 </td></tr>
-  <tr><td><code>x</code></td><td>array_like</td><td>any</td><td><p>First record, the phase reference.</p>
+  <tr><td><code>x</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>First record, the phase reference.</p>
 </td></tr>
-  <tr><td><code>time_y</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">y</code>.</p>
+  <tr><td><code>time_y</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled time axis of <code class="language-plaintext highlighter-rouge">y</code>.</p>
 </td></tr>
-  <tr><td><code>y</code></td><td>array_like</td><td>any</td><td><p>Second record.</p>
+  <tr><td><code>y</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Second record.</p>
 </td></tr>
-  <tr><td><code>sample_rate</code></td><td>float, optional</td><td>Hz</td><td><p>Rate of a uniform common grid laid over the overlap; both records are resampled onto it.</p>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Rate of a uniform common grid laid over the overlap; both records are resampled onto it.</p>
 </td></tr>
-  <tr><td><code>nperseg</code></td><td>int, optional</td><td>-</td><td><p>Welch segment length on the common grid.</p>
+  <tr><td><code>nperseg</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Welch segment length on the common grid.</p>
 </td></tr>
-  <tr><td><code>noverlap</code></td><td>int, optional</td><td>-</td><td><p>Segment overlap on the common grid.</p>
+  <tr><td><code>noverlap</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Segment overlap on the common grid.</p>
 </td></tr>
-  <tr><td><code>window</code></td><td>str, optional</td><td>-</td><td><p>Any window name SciPy accepts.</p>
+  <tr><td><code>window</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Any window name SciPy accepts.</p>
 </td></tr>
-  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Passed through to the underlying estimator.</p>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Passed through to the underlying estimator.</p>
 </td></tr>
-  <tr><td><code>common_time</code></td><td>array_like, optional</td><td>s</td><td><p>An explicit uniform grid to compare on, overriding <code class="language-plaintext highlighter-rouge">sample_rate</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>CrossSpectrum</td><td>-</td><td><p>Frequency axis in hertz, the complex cross-spectral density in the product of the two signals’ units per hertz, the dimensionless coherence and its 95 % significance level, the phase in radians, and the grid used.</p>
+  <tr><td><code>common_time</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">s</td><td><p>An explicit uniform grid to compare on, overriding <code class="language-plaintext highlighter-rouge">sample_rate</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">CrossSpectrum</td><td class="ref-unit">-</td><td><p>Frequency axis in hertz, the complex cross-spectral density in the product of the two signals’ units per hertz, the dimensionless coherence and its 95 % significance level, the phase in radians, and the grid used.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    Either axis is not uniform, or the two records do not overlap in time.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Validate both time axes as uniform and increasing.</li>
-  <li>Choose the common grid: the shared axis when the two are identical;
-otherwise <code class="language-plaintext highlighter-rouge">common_time</code>, else a uniform grid at <code class="language-plaintext highlighter-rouge">sample_rate</code> over the
-overlap, else the slower record’s own samples inside the overlap.</li>
-  <li>Put each record that is not already on that grid onto it with
-<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.resample_to_time</code>, which low-passes
-first when that is a rate reduction.</li>
-  <li>Estimate the two auto-spectra and the cross-spectrum by Welch’s method
-with one set of segments, and form coherence and phase from them.</li>
-  <li>Count the segments and set the 95 % significance level of the coherence.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p>A numerical convenience, SciPy’s own: without <code class="language-plaintext highlighter-rouge">nperseg</code> the segment is 256
-samples, or the whole record when that is shorter, and the overlap half a
-segment, stated here so the segment count can be reproduced.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>The phase is that of <code class="language-plaintext highlighter-rouge">y</code> relative to <code class="language-plaintext highlighter-rouge">x</code></strong>: <code class="language-plaintext highlighter-rouge">phase = arg(S_xy)</code> with
+      <p><strong>The phase is that of <code class="language-plaintext highlighter-rouge">y</code> relative to <code class="language-plaintext highlighter-rouge">x</code></strong>: <code class="language-plaintext highlighter-rouge">phase = arg(S_xy)</code> with
 <code class="language-plaintext highlighter-rouge">S_xy = conj(X) Y</code>, SciPy’s convention, so <code class="language-plaintext highlighter-rouge">y</code> lagging <code class="language-plaintext highlighter-rouge">x</code> by <code class="language-plaintext highlighter-rouge">dt</code>
 reads <code class="language-plaintext highlighter-rouge">-2 pi f dt</code> at frequency <code class="language-plaintext highlighter-rouge">f</code>.  Swapping the arguments flips the
 sign.  The phase is wrapped to <code class="language-plaintext highlighter-rouge">(-pi, pi]</code>.</p>
 
-<p>Coherence is the <em>magnitude-squared</em> coherence <code class="language-plaintext highlighter-rouge">|S_xy|^2 / (S_xx S_yy)</code>.
+      <p>Coherence is the <em>magnitude-squared</em> coherence <code class="language-plaintext highlighter-rouge">|S_xy|^2 / (S_xx S_yy)</code>.
 Its 95 % level for <code class="language-plaintext highlighter-rouge">n</code> averaged segments is <code class="language-plaintext highlighter-rouge">1 - 0.05**(1/(n-1))</code>, the
 level two independent Gaussian records exceed with probability 0.05 at any
 one frequency.</p>
 
-<p><strong>Different timebases are never compared silently.</strong> The comparison is
+      <p><strong>Different timebases are never compared silently.</strong> The comparison is
 restricted to the overlap of the two records, and the grid, its rate, the
 overlap and which record was resampled are all returned with the result.
 Whenever the slower record keeps its own samples, only the faster one is
 changed, and it is anti-aliased before it is decimated.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Either axis is not uniform, or the two records do not overlap in time.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
 
-<p>The significance formula assumes independent segments; with the default half
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Validate both time axes as uniform and increasing.</li>
+        <li>Choose the common grid: the shared axis when the two are identical;
+otherwise <code class="language-plaintext highlighter-rouge">common_time</code>, else a uniform grid at <code class="language-plaintext highlighter-rouge">sample_rate</code> over the
+overlap, else the slower record’s own samples inside the overlap.</li>
+        <li>Put each record that is not already on that grid onto it with
+<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.resample_to_time</code>, which low-passes
+first when that is a rate reduction.</li>
+        <li>Estimate the two auto-spectra and the cross-spectrum by Welch’s method
+with one set of segments, and form coherence and phase from them.</li>
+        <li>Count the segments and set the 95 % significance level of the coherence.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>A numerical convenience, SciPy’s own: without <code class="language-plaintext highlighter-rouge">nperseg</code> the segment is 256
+samples, or the whole record when that is shorter, and the overlap half a
+segment, stated here so the segment count can be reproduced.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The significance formula assumes independent segments; with the default half
 overlap of a Hann window neighbouring segments are correlated, so the true
 95 % level is somewhat higher than the one reported. A single segment has no
 significance level and reports NaN. Coherence between two diagnostics with
 different transfer functions is unaffected by either transfer function, but
 the phase is not: a pickup coil’s derivative adds <code class="language-plaintext highlighter-rouge">+pi/2</code> to its phase.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Welch’s method for auto- and cross-spectra as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.welch</code> and <code class="language-plaintext highlighter-rouge">scipy.signal.csd</code>.
 </li>
   <li>J. S. Bendat and A. G. Piersol, <em>Random Data: Analysis and Measurement Procedures</em>, 4th ed. (Wiley, 2010), section 9.2.3: the coherence significance level for averaged segments.
 </li>
 </ol>
 
-<h3 id="find_spectral_break"><code class="language-plaintext highlighter-rouge">find_spectral_break</code></h3>
+    </details>
 
-<p class="formula-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="find_spectral_break">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#find_spectral_break"><code>find_spectral_break</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L410" title="vaft/process/fluctuation.py, line 410">source</a>
+</header>
+    <pre class="ref-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></pre>
 
-<p>Fit a two-regime power law, below and above a break frequency.</p>
+    <p>Fit a two-regime power law, below and above a break frequency.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frequency</code></td><td class="ref-type">array_like</td><td class="ref-unit">Hz</td><td><p>Frequency axis.</p>
 </td></tr>
-  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density.</p>
+  <tr><td><code>psd</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Power spectral density.</p>
 </td></tr>
-  <tr><td><code>fit_range</code></td><td>sequence of float</td><td>Hz</td><td><p>Outer band spanning both regimes.</p>
+  <tr><td><code>fit_range</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Hz</td><td><p>Outer band spanning both regimes.</p>
 </td></tr>
-  <tr><td><code>break_frequency</code></td><td>float, optional</td><td>Hz</td><td><p>An imposed boundary, for the physics-informed mode.</p>
+  <tr><td><code>break_frequency</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>An imposed boundary, for the physics-informed mode.</p>
 </td></tr>
-  <tr><td><code>search_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Interval to scan, for the data-driven mode.</p>
+  <tr><td><code>search_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">Hz</td><td><p>Interval to scan, for the data-driven mode.</p>
 </td></tr>
-  <tr><td><code>n_candidates</code></td><td>int, optional</td><td>-</td><td><p>Log-spaced candidates scanned in search mode.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>SpectralBreak</td><td>-</td><td><p>The break, the two fits either side, the mode used, and the score.</p>
+  <tr><td><code>n_candidates</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Log-spaced candidates scanned in search mode.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">SpectralBreak</td><td class="ref-unit">-</td><td><p>The break, the two fits either side, the mode used, and the score.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    Neither or both of the two mode arguments were supplied, or the band holds
-    too few points.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The candidate count is a numerical convenience, dense enough that the scan’s
-resolution is not the limiting error.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>The mode is chosen by which argument is supplied, never inferred.</strong> Passing
+      <p><strong>The mode is chosen by which argument is supplied, never inferred.</strong> Passing
 a break frequency imposes it and the caller owns the boundary; passing a search
 range scans for one. Supplying neither, or both, is an error rather than a
 default, because a break that looks physics-informed and was in fact fitted is
 the failure this refuses to permit.</p>
 
-<p>Candidates are scored by <strong>total squared residual in log space</strong>, not by a
+      <p>Candidates are scored by <strong>total squared residual in log space</strong>, not by a
 point-weighted goodness of fit. The latter biases the score toward splits that
 hand most points to whichever segment fits best, and in practice pins the
 answer to the edge of the search range.</p>
 
-<p>A break found this way is a numerical feature of the spectrum. <strong>It is not
+      <p>A break found this way is a numerical feature of the spectrum. <strong>It is not
 identified with any plasma scale here.</strong></p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Neither or both of the two mode arguments were supplied, or the band holds too few points.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
 
-<p>Two straight lines are fitted to something that may not have two regimes; a
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The candidate count is a numerical convenience, dense enough that the scan’s
+resolution is not the limiting error.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Two straight lines are fitted to something that may not have two regimes; a
 best break is always returned in search mode, whether or not one exists.
 Inherits the log-space caveats of the single-regime fit.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">fit_power_law_spectrum</code>, applied either side of the break.
 </li>
 </ol>
 
-<h3 id="fit_power_law_spectrum"><code class="language-plaintext highlighter-rouge">fit_power_law_spectrum</code></h3>
+    </details>
 
-<p class="formula-signature"><code>fit_power_law_spectrum(frequency, psd, *, f_range)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="fit_power_law_spectrum">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L292" title="vaft/process/fluctuation.py, line 292">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_power_law_spectrum(frequency, psd, *, f_range)</code></pre>
 
-<p>Fit a power law to a spectrum over an explicitly chosen band.</p>
+    <p>Fit a power law to a spectrum over an explicitly chosen band.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frequency</code></td><td>array_like</td><td>Hz</td><td><p>Frequency axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frequency</code></td><td class="ref-type">array_like</td><td class="ref-unit">Hz</td><td><p>Frequency axis.</p>
 </td></tr>
-  <tr><td><code>psd</code></td><td>array_like</td><td>any</td><td><p>Power spectral density on that axis.</p>
+  <tr><td><code>psd</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Power spectral density on that axis.</p>
 </td></tr>
-  <tr><td><code>f_range</code></td><td>sequence of float</td><td>Hz</td><td><p>The band to fit over, as <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>SpectralFit</td><td>-</td><td><p>The index, the amplitude, the goodness of fit and the band used.</p>
+  <tr><td><code>f_range</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Hz</td><td><p>The band to fit over, as <code class="language-plaintext highlighter-rouge">(f_low, f_high)</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">SpectralFit</td><td class="ref-unit">-</td><td><p>The index, the amplitude, the goodness of fit and the band used.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    Fewer than the minimum number of usable points fall inside the band.</p>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The minimum point count is a numerical convenience: two points define a line,
-and the third is what makes the goodness of fit and the residuals mean
-anything.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Ordinary least squares in log-log space, so the fit is on the exponent
+      <p>Ordinary least squares in log-log space, so the fit is on the exponent
 directly. <strong>There is no default range and no automatic range selection</strong>: a
 reported index therefore always belongs to a band the caller chose
 deliberately, rather than to whatever the algorithm happened to like.</p>
 
-<p>Nothing here names the regime that index belongs to.</p>
+      <p>Nothing here names the regime that index belongs to.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Fewer than the minimum number of usable points fall inside the band.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
 
-<p>Samples with a non-positive density are excluded, since their logarithm does
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The minimum point count is a numerical convenience: two points define a line,
+and the third is what makes the goodness of fit and the residuals mean
+anything.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Samples with a non-positive density are excluded, since their logarithm does
 not exist. A log-log fit weights decades equally, so a band spanning many
 decades is dominated by the sparse high-frequency end.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Ordinary least squares in log-log space; the module’s conventions on why the band is never chosen for the caller.
 </li>
 </ol>
 
-<h3 id="track_dominant_frequency"><code class="language-plaintext highlighter-rouge">track_dominant_frequency</code></h3>
+    </details>
 
-<p class="formula-signature"><code>track_dominant_frequency(spectrogram, *, search_range, max_jump=None, floor_ratio=0.05)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="track_dominant_frequency">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/fluctuation.py#L1178" title="vaft/process/fluctuation.py, line 1178">source</a>
+</header>
+    <pre class="ref-signature"><code>track_dominant_frequency(spectrogram, *, search_range, max_jump=None, floor_ratio=0.05)</code></pre>
 
-<p>Follow the dominant spectral ridge of a time-frequency map, window by window.</p>
+    <p>Follow the dominant spectral ridge of a time-frequency map, window by window.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>spectrogram</code></td><td>Any</td><td>-</td><td><p>An object with <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code> – <code class="language-plaintext highlighter-rouge">FluctuationSpectrogram</code> or a magnetics spectrogram result – or the triple <code class="language-plaintext highlighter-rouge">(time, frequency, magnitude)</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>spectrogram</code></td><td class="ref-type">Any</td><td class="ref-unit">-</td><td><p>An object with <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code> – <code class="language-plaintext highlighter-rouge">FluctuationSpectrogram</code> or a magnetics spectrogram result – or the triple <code class="language-plaintext highlighter-rouge">(time, frequency, magnitude)</code>.</p>
 </td></tr>
-  <tr><td><code>search_range</code></td><td>sequence of float</td><td>Hz</td><td><p>Lowest and highest frequency the ridge may be found at.</p>
+  <tr><td><code>search_range</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Hz</td><td><p>Lowest and highest frequency the ridge may be found at.</p>
 </td></tr>
-  <tr><td><code>max_jump</code></td><td>float, optional</td><td>Hz</td><td><p>Largest frequency change allowed between neighbouring windows; <code class="language-plaintext highlighter-rouge">None</code> takes each window’s own maximum independently.</p>
+  <tr><td><code>max_jump</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Largest frequency change allowed between neighbouring windows; <code class="language-plaintext highlighter-rouge">None</code> takes each window’s own maximum independently.</p>
 </td></tr>
-  <tr><td><code>floor_ratio</code></td><td>float, optional</td><td>-</td><td><p>Fraction of the map’s in-range peak a window’s ridge must exceed.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>FrequencyTrack</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(time, frequency, power)</code>: the window times in seconds, the ridge frequency in hertz and its magnitude in the map’s own unit, each NaN in a window where no ridge clears the floor.</p>
+  <tr><td><code>floor_ratio</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fraction of the map’s in-range peak a window’s ridge must exceed.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FrequencyTrack</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(time, frequency, power)</code>: the window times in seconds, the ridge frequency in hertz and its magnitude in the map’s own unit, each NaN in a window where no ridge clears the floor.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The magnitude does not match its axes, <code class="language-plaintext highlighter-rouge">search_range</code> is not
-    increasing, or an argument is negative.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Keep the frequency bins inside <code class="language-plaintext highlighter-rouge">search_range</code>.</li>
-  <li>Set the floor at <code class="language-plaintext highlighter-rouge">floor_ratio</code> times the largest in-range magnitude of the
-whole map; a window whose in-range maximum does not exceed it has no ridge.</li>
-  <li>Split the remaining windows into runs of consecutive windows.</li>
-  <li>Within each run, choose one bin per window: the window’s own maximum when
-<code class="language-plaintext highlighter-rouge">max_jump</code> is <code class="language-plaintext highlighter-rouge">None</code>, otherwise the path of largest summed magnitude
-whose step between neighbouring windows never exceeds <code class="language-plaintext highlighter-rouge">max_jump</code>.</li>
-  <li>Report NaN for a window whose chosen bin does not exceed the floor.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">floor_ratio = 0.05</code> is a numerical convenience: well above the tail of a
-Hann window’s sidelobes relative to a clear mode, well below any mode worth
-tracking. Set it to zero to report every window that has any content at all.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>A silent window is NaN, never its loudest noise bin.</strong> The floor is relative
+      <p><strong>A silent window is NaN, never its loudest noise bin.</strong> The floor is relative
 to the map, not absolute, so it means the same thing for a voltage, a
 brightness or a camera intensity. A gap breaks continuity: the run after it
 is found afresh rather than held to where the last run ended.</p>
 
-<p>The continuity path maximises summed magnitude over the whole run rather than
+      <p>The continuity path maximises summed magnitude over the whole run rather than
 starting from the loudest pixel, so a brief loud burst far from the ridge
 cannot capture it.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The magnitude does not match its axes, <code class="language-plaintext highlighter-rouge">search_range</code> is not increasing, or an argument is negative.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
 
-<p>The ridge is resolved to one frequency bin; nothing interpolates between bins.
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Keep the frequency bins inside <code class="language-plaintext highlighter-rouge">search_range</code>.</li>
+        <li>Set the floor at <code class="language-plaintext highlighter-rouge">floor_ratio</code> times the largest in-range magnitude of the
+whole map; a window whose in-range maximum does not exceed it has no ridge.</li>
+        <li>Split the remaining windows into runs of consecutive windows.</li>
+        <li>Within each run, choose one bin per window: the window’s own maximum when
+<code class="language-plaintext highlighter-rouge">max_jump</code> is <code class="language-plaintext highlighter-rouge">None</code>, otherwise the path of largest summed magnitude
+whose step between neighbouring windows never exceeds <code class="language-plaintext highlighter-rouge">max_jump</code>.</li>
+        <li>Report NaN for a window whose chosen bin does not exceed the floor.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">floor_ratio = 0.05</code> is a numerical convenience: well above the tail of a
+Hann window’s sidelobes relative to a clear mode, well below any mode worth
+tracking. Set it to zero to report every window that has any content at all.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The ridge is resolved to one frequency bin; nothing interpolates between bins.
 One ridge only: two comparable modes are not separated, and with no
 <code class="language-plaintext highlighter-rouge">max_jump</code> the track may alternate between them. The floor is relative, so a
 map that is noise throughout still reports its noise as a ridge.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Ridge extraction as a maximum-energy continuous path through the time-frequency plane, R. Carmona, W. L. Hwang and B. Torresani, “Characterization of signals by the ridges of their wavelet transforms”, <em>IEEE Trans. Signal Process.</em> <strong>45</strong> (1997) 2586, solved here by dynamic programming over discrete bins.
 </li>
   <li>The single-argmax reference-frequency tracker of the legacy FAST-camera analysis, which <code class="language-plaintext highlighter-rouge">vaft.process.camera_fluctuation.track_reference_frequency</code> now calls with <code class="language-plaintext highlighter-rouge">floor_ratio=0</code>.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -1060,7 +1142,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#analyze_fluctuation_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">analyze_fluctuation_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_band_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_band_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_psd" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_psd</a></li><li class="page-toc-item page-toc-level-3"><a href="#compute_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">compute_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#cross_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">cross_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#find_spectral_break" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">find_spectral_break</a></li><li class="page-toc-item page-toc-level-3"><a href="#fit_power_law_spectrum" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fit_power_law_spectrum</a></li><li class="page-toc-item page-toc-level-3"><a href="#track_dominant_frequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">track_dominant_frequency</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -1178,7 +1260,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1207,7 +1289,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

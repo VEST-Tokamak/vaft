@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/process/ml"><code class="language-plaintext highlighter-rouge">vaft/process/ml/</code></a>:
-21 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("ml.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.ml</code>:
+<strong>21</strong> public functions. Each entry is what
+<code>vaft.process.describe("ml.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -303,596 +301,679 @@ version and manifest SHA-256, never only a stage alias.</p>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#build_dataset"><code>build_dataset</code></a> &mdash; Assemble a fingerprinted dataset from arrays.
-</li>
-  <li><a href="#calibrate_threshold"><code>calibrate_threshold</code></a> &mdash; Set a decision threshold on a per-sample model output from one partition.
-</li>
-  <li><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a> &mdash; SHA-256 content fingerprint of a dataset.
-</li>
-  <li><a href="#evaluate_model"><code>evaluate_model</code></a> &mdash; Standard ML metrics of a model on one partition, overall and per group.
-</li>
-  <li><a href="#export_model"><code>export_model</code></a> &mdash; Export the network to an inference format and prove it agrees.
-</li>
-  <li><a href="#fetch_model"><code>fetch_model</code></a> &mdash; Download a published model’s release assets into the cache, verified.
-</li>
-  <li><a href="#load_dataset"><code>load_dataset</code></a> &mdash; Load a dataset written by <code class="language-plaintext highlighter-rouge">save_dataset</code>, verifying its fingerprint.
-</li>
-  <li><a href="#load_model"><code>load_model</code></a> &mdash; Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.
-</li>
-  <li><a href="#load_model_artifact"><code>load_model_artifact</code></a> &mdash; Load an artifact directory, verifying every file against its manifest.
-</li>
-  <li><a href="#load_model_bundle"><code>load_model_bundle</code></a> &mdash; Load a bundle directory, verifying every file and member manifest.
-</li>
-  <li><a href="#predict"><code>predict</code></a> &mdash; Run a model on new data and stamp the result with its exact identity.
-</li>
-  <li><a href="#register_architecture"><code>register_architecture</code></a> &mdash; Make a task-defined network available to a backend by name.
-</li>
-  <li><a href="#register_augmentation"><code>register_augmentation</code></a> &mdash; Make a train-time augmentation available by name.
-</li>
-  <li><a href="#register_loss"><code>register_loss</code></a> &mdash; Make a task-defined training loss available by name.
-</li>
-  <li><a href="#resolve_model"><code>resolve_model</code></a> &mdash; Resolve a published model to one exact, hash-verified local version.
-</li>
-  <li><a href="#save_dataset"><code>save_dataset</code></a> &mdash; Materialise a dataset on disk so training can run elsewhere.
-</li>
-  <li><a href="#save_model_artifact"><code>save_model_artifact</code></a> &mdash; Write a model as an immutable, hash-pinned artifact directory.
-</li>
-  <li><a href="#save_model_bundle"><code>save_model_bundle</code></a> &mdash; Write a multi-model bundle as one immutable, hash-pinned release.
-</li>
-  <li><a href="#split_groups"><code>split_groups</code></a> &mdash; Assign independent groups to train/validation/test partitions.
-</li>
-  <li><a href="#train_model"><code>train_model</code></a> &mdash; Train a model on the train partition and package it with its provenance.
-</li>
-  <li><a href="#window_dataset"><code>window_dataset</code></a> &mdash; Cut sliding windows that never cross a group boundary.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 21 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="build_dataset"><td><a href="#build_dataset"><code>build_dataset</code></a></td><td>Assemble a fingerprinted dataset from arrays.
+</td></tr>
+  <tr data-ref-row="calibrate_threshold"><td><a href="#calibrate_threshold"><code>calibrate_threshold</code></a></td><td>Set a decision threshold on a per-sample model output from one partition.
+</td></tr>
+  <tr data-ref-row="dataset_fingerprint"><td><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a></td><td>SHA-256 content fingerprint of a dataset.
+</td></tr>
+  <tr data-ref-row="evaluate_model"><td><a href="#evaluate_model"><code>evaluate_model</code></a></td><td>Standard ML metrics of a model on one partition, overall and per group.
+</td></tr>
+  <tr data-ref-row="export_model"><td><a href="#export_model"><code>export_model</code></a></td><td>Export the network to an inference format and prove it agrees.
+</td></tr>
+  <tr data-ref-row="fetch_model"><td><a href="#fetch_model"><code>fetch_model</code></a></td><td>Download a published model’s release assets into the cache, verified.
+</td></tr>
+  <tr data-ref-row="load_dataset"><td><a href="#load_dataset"><code>load_dataset</code></a></td><td>Load a dataset written by <code class="language-plaintext highlighter-rouge">save_dataset</code>, verifying its fingerprint.
+</td></tr>
+  <tr data-ref-row="load_model"><td><a href="#load_model"><code>load_model</code></a></td><td>Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.
+</td></tr>
+  <tr data-ref-row="load_model_artifact"><td><a href="#load_model_artifact"><code>load_model_artifact</code></a></td><td>Load an artifact directory, verifying every file against its manifest.
+</td></tr>
+  <tr data-ref-row="load_model_bundle"><td><a href="#load_model_bundle"><code>load_model_bundle</code></a></td><td>Load a bundle directory, verifying every file and member manifest.
+</td></tr>
+  <tr data-ref-row="predict"><td><a href="#predict"><code>predict</code></a></td><td>Run a model on new data and stamp the result with its exact identity.
+</td></tr>
+  <tr data-ref-row="register_architecture"><td><a href="#register_architecture"><code>register_architecture</code></a></td><td>Make a task-defined network available to a backend by name.
+</td></tr>
+  <tr data-ref-row="register_augmentation"><td><a href="#register_augmentation"><code>register_augmentation</code></a></td><td>Make a train-time augmentation available by name.
+</td></tr>
+  <tr data-ref-row="register_loss"><td><a href="#register_loss"><code>register_loss</code></a></td><td>Make a task-defined training loss available by name.
+</td></tr>
+  <tr data-ref-row="resolve_model"><td><a href="#resolve_model"><code>resolve_model</code></a></td><td>Resolve a published model to one exact, hash-verified local version.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="save_dataset"><td><a href="#save_dataset"><code>save_dataset</code></a></td><td>Materialise a dataset on disk so training can run elsewhere.
+</td></tr>
+  <tr data-ref-row="save_model_artifact"><td><a href="#save_model_artifact"><code>save_model_artifact</code></a></td><td>Write a model as an immutable, hash-pinned artifact directory.
+</td></tr>
+  <tr data-ref-row="save_model_bundle"><td><a href="#save_model_bundle"><code>save_model_bundle</code></a></td><td>Write a multi-model bundle as one immutable, hash-pinned release.
+</td></tr>
+  <tr data-ref-row="split_groups"><td><a href="#split_groups"><code>split_groups</code></a></td><td>Assign independent groups to train/validation/test partitions.
+</td></tr>
+  <tr data-ref-row="train_model"><td><a href="#train_model"><code>train_model</code></a></td><td>Train a model on the train partition and package it with its provenance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="window_dataset"><td><a href="#window_dataset"><code>window_dataset</code></a></td><td>Cut sliding windows that never cross a group boundary.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="build_dataset"><code class="language-plaintext highlighter-rouge">build_dataset</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None, available=None)</code></p>
+  <section class="ref-entry" id="build_dataset">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#build_dataset"><code>build_dataset</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L90" title="vaft/process/ml/dataset.py, line 90">source</a>
+</header>
+    <pre class="ref-signature"><code>build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None, available=None)</code></pre>
 
-<p><strong>Machine-independent.</strong> </p>
+    <p>Assemble a fingerprinted dataset from arrays.</p>
 
-<p>Assemble a fingerprinted dataset from arrays.</p>
-
-<p>The generic entry point for every ML task: an engineered-feature table
+    <p>The generic entry point for every ML task: an engineered-feature table
 (pass <code class="language-plaintext highlighter-rouge">feature_spec</code>), a waveform or image tensor, or paired
 input-target supervision (pass <code class="language-plaintext highlighter-rouge">targets</code>).</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>inputs</code></td><td>array_like</td><td>any</td><td><p>Samples along the first axis, shape <code class="language-plaintext highlighter-rouge">(n, *input_shape)</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>inputs</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Samples along the first axis, shape <code class="language-plaintext highlighter-rouge">(n, *input_shape)</code>.</p>
 </td></tr>
-  <tr><td><code>groups</code></td><td>array_like</td><td>-</td><td><p>Independent unit of each sample (shot number, simulation case), shape <code class="language-plaintext highlighter-rouge">(n,)</code>.</p>
+  <tr><td><code>groups</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Independent unit of each sample (shot number, simulation case), shape <code class="language-plaintext highlighter-rouge">(n,)</code>.</p>
 </td></tr>
-  <tr><td><code>spec</code></td><td>DatasetSpec</td><td>-</td><td><p>Name, task, group key and column names of the dataset.</p>
+  <tr><td><code>spec</code></td><td class="ref-type">DatasetSpec</td><td class="ref-unit">-</td><td><p>Name, task, group key and column names of the dataset.</p>
 </td></tr>
-  <tr><td><code>targets</code></td><td>array_like or None, optional</td><td>any</td><td><p>Paired targets, shape <code class="language-plaintext highlighter-rouge">(n, *target_shape)</code>; <code class="language-plaintext highlighter-rouge">None</code> for an unsupervised dataset.</p>
+  <tr><td><code>targets</code></td><td class="ref-type">array_like or None, optional</td><td class="ref-unit">any</td><td><p>Paired targets, shape <code class="language-plaintext highlighter-rouge">(n, *target_shape)</code>; <code class="language-plaintext highlighter-rouge">None</code> for an unsupervised dataset.</p>
 </td></tr>
-  <tr><td><code>sample_meta</code></td><td>mapping of str to array_like or None, optional</td><td>any</td><td><p>Per-sample arrays that travel with every subset, such as window times.</p>
+  <tr><td><code>sample_meta</code></td><td class="ref-type">mapping of str to array_like or None, optional</td><td class="ref-unit">any</td><td><p>Per-sample arrays that travel with every subset, such as window times.</p>
 </td></tr>
-  <tr><td><code>feature_spec</code></td><td>FeatureSpec or None, optional</td><td>-</td><td><p>Column schema of a 2-D engineered-feature table; returns a <code class="language-plaintext highlighter-rouge">FeatureDataset</code> when given.</p>
+  <tr><td><code>feature_spec</code></td><td class="ref-type">FeatureSpec or None, optional</td><td class="ref-unit">-</td><td><p>Column schema of a 2-D engineered-feature table; returns a <code class="language-plaintext highlighter-rouge">FeatureDataset</code> when given.</p>
 </td></tr>
-  <tr><td><code>available</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Per-sample availability: <code class="language-plaintext highlighter-rouge">False</code> where the inputs do not exist (a diagnostic absent for that shot).  Such samples may hold non-finite inputs; they are stored as zeros and excluded from training, calibration and evaluation, and <code class="language-plaintext highlighter-rouge">predict</code> reports them as unavailable.  <code class="language-plaintext highlighter-rouge">None</code> means every sample is available.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>DatasetArtifact</td><td>-</td><td><p>The dataset with its <code class="language-plaintext highlighter-rouge">fingerprint</code> filled in.</p>
+  <tr><td><code>available</code></td><td class="ref-type">array_like of bool or None, optional</td><td class="ref-unit">-</td><td><p>Per-sample availability: <code class="language-plaintext highlighter-rouge">False</code> where the inputs do not exist (a diagnostic absent for that shot).  Such samples may hold non-finite inputs; they are stored as zeros and excluded from training, calibration and evaluation, and <code class="language-plaintext highlighter-rouge">predict</code> reports them as unavailable.  <code class="language-plaintext highlighter-rouge">None</code> means every sample is available.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>The dataset with its <code class="language-plaintext highlighter-rouge">fingerprint</code> filled in.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On mismatched lengths, a non-finite input in an available sample, or a feature table whose width differs from <code class="language-plaintext highlighter-rouge">feature_spec</code>.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On mismatched lengths, a non-finite input in an available sample, or a
-    feature table whose width differs from <code class="language-plaintext highlighter-rouge">feature_spec</code>.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Available inputs must be finite: imputation is a scientific choice
+      <p>Available inputs must be finite: imputation is a scientific choice
 (train-partition medians, a flag, a drop) that belongs to the caller.
 Unavailability is per sample, not per feature: a two-stage model whose
 second stage lacks a diagnostic builds that stage’s dataset with its own
 <code class="language-plaintext highlighter-rouge">available</code>.</p>
 
-<h3 id="calibrate_threshold"><code class="language-plaintext highlighter-rouge">calibrate_threshold</code></h3>
+    </details>
 
-<p class="formula-signature"><code>calibrate_threshold(model, dataset, split, *, partition='validation', output='score', quantile=0.99, name=None, mask=None, population=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="calibrate_threshold">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#calibrate_threshold"><code>calibrate_threshold</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/training.py#L387" title="vaft/process/ml/training.py, line 387">source</a>
+</header>
+    <pre class="ref-signature"><code>calibrate_threshold(model, dataset, split, *, partition=&#39;validation&#39;, output=&#39;score&#39;, quantile=0.99, name=None, mask=None, population=None)</code></pre>
 
-<p>Set a decision threshold on a per-sample model output from one partition.</p>
+    <p>Set a decision threshold on a per-sample model output from one partition.</p>
 
-<p>The second half of a two-stage detector: a score is only an event
+    <p>The second half of a two-stage detector: a score is only an event
 candidate once a threshold, fixed on data the network did not train on,
 has been applied.  Attach the result with
 <code class="language-plaintext highlighter-rouge">model.with_calibration(result)</code>; <code class="language-plaintext highlighter-rouge">predict</code> then reports
 <code class="language-plaintext highlighter-rouge">&lt;name&gt;_exceeds</code> for every sample.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>Trained or loaded model.</p>
 </td></tr>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Data with the model’s input shape.</p>
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Data with the model’s input shape.</p>
 </td></tr>
-  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment selecting the partition.</p>
+  <tr><td><code>split</code></td><td class="ref-type">Split</td><td class="ref-unit">-</td><td><p>Group assignment selecting the partition.</p>
 </td></tr>
-  <tr><td><code>partition</code></td><td>str, optional</td><td>-</td><td><p>Partition the quantile is taken over.</p>
+  <tr><td><code>partition</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Partition the quantile is taken over.</p>
 </td></tr>
-  <tr><td><code>output</code></td><td>str, optional</td><td>-</td><td><p>Per-sample scalar output to threshold.</p>
+  <tr><td><code>output</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Per-sample scalar output to threshold.</p>
 </td></tr>
-  <tr><td><code>quantile</code></td><td>float, optional</td><td>-</td><td><p>Quantile of that output on the partition, in <code class="language-plaintext highlighter-rouge">(0, 1)</code>.</p>
+  <tr><td><code>quantile</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Quantile of that output on the partition, in <code class="language-plaintext highlighter-rouge">(0, 1)</code>.</p>
 </td></tr>
-  <tr><td><code>name</code></td><td>str or None, optional</td><td>-</td><td><p>Calibration name; <code class="language-plaintext highlighter-rouge">output</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+  <tr><td><code>name</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Calibration name; <code class="language-plaintext highlighter-rouge">output</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
-  <tr><td><code>mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Further restricts the population within the partition – a second stage calibrated only on the first stage’s candidates.</p>
+  <tr><td><code>mask</code></td><td class="ref-type">array_like of bool or None, optional</td><td class="ref-unit">-</td><td><p>Further restricts the population within the partition – a second stage calibrated only on the first stage’s candidates.</p>
 </td></tr>
-  <tr><td><code>population</code></td><td>str or None, optional</td><td>-</td><td><p>Description of <code class="language-plaintext highlighter-rouge">mask</code> stored with the result, e.g. <code class="language-plaintext highlighter-rouge">"stage1_exceeds"</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>CalibrationResult</td><td>any</td><td><p>Threshold with the partition, population, quantile, sample count and groups it was set on.</p>
+  <tr><td><code>population</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Description of <code class="language-plaintext highlighter-rouge">mask</code> stored with the result, e.g. <code class="language-plaintext highlighter-rouge">"stage1_exceeds"</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">CalibrationResult</td><td class="ref-unit">any</td><td><p>Threshold with the partition, population, quantile, sample count and groups it was set on.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the output is not a per-sample scalar, the population is empty, <code class="language-plaintext highlighter-rouge">quantile</code> is outside <code class="language-plaintext highlighter-rouge">(0, 1)</code>, <code class="language-plaintext highlighter-rouge">mask</code> is given without a <code class="language-plaintext highlighter-rouge">population</code> description, the dataset’s columns differ from the model’s, or the partition holds groups the model was fitted on – a model scores its own training samples in-sample (a k-NN against themselves), so that threshold would be too low; use <code class="language-plaintext highlighter-rouge">TrainingResult.train_scores</code> for a training-population statistic.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the output is not a per-sample scalar, the population is empty,
-    <code class="language-plaintext highlighter-rouge">quantile</code> is outside <code class="language-plaintext highlighter-rouge">(0, 1)</code>, <code class="language-plaintext highlighter-rouge">mask</code> is given without a
-    <code class="language-plaintext highlighter-rouge">population</code> description, the dataset’s columns differ from the
-    model’s, or the partition holds groups the model was fitted on – a
-    model scores its own training samples in-sample (a k-NN against
-    themselves), so that threshold would be too low; use
-    <code class="language-plaintext highlighter-rouge">TrainingResult.train_scores</code> for a training-population statistic.</p>
+    <details class="ref-more">
+      <summary>Defaults · Applicability</summary>
 
-<p><strong>Defaults.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p><code class="language-plaintext highlighter-rouge">quantile = 0.99</code> is numerical convenience; a detector’s quantile is a
+      <p><code class="language-plaintext highlighter-rouge">quantile = 0.99</code> is numerical convenience; a detector’s quantile is a
 task decision (the VEST IRE prototype used 0.85-0.90).</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="dataset_fingerprint"><code class="language-plaintext highlighter-rouge">dataset_fingerprint</code></h3>
+    </details>
 
-<p class="formula-signature"><code>dataset_fingerprint(dataset)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="dataset_fingerprint">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L46" title="vaft/process/ml/dataset.py, line 46">source</a>
+</header>
+    <pre class="ref-signature"><code>dataset_fingerprint(dataset)</code></pre>
 
-<p>SHA-256 content fingerprint of a dataset.</p>
+    <p>SHA-256 content fingerprint of a dataset.</p>
 
-<p>Two datasets share a fingerprint only when their spec, feature schema,
+    <p>Two datasets share a fingerprint only when their spec, feature schema,
 inputs, targets, groups and per-sample metadata are identical in value,
 dtype and shape.  A model records this fingerprint as part of its identity,
 so “which data trained it” is answerable from the artifact alone.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>The dataset to fingerprint; its own <code class="language-plaintext highlighter-rouge">fingerprint</code> field is ignored.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>The dataset to fingerprint; its own <code class="language-plaintext highlighter-rouge">fingerprint</code> field is ignored.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>str</td><td>-</td><td><p>64-character lowercase hex digest.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>64-character lowercase hex digest.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability</summary>
 
-<ol>
-  <li>Hash the canonical JSON of the spec (and the feature spec, if any).</li>
-  <li>Hash inputs, targets, string group labels, the availability mask (when
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Hash the canonical JSON of the spec (and the feature spec, if any).</li>
+        <li>Hash inputs, targets, string group labels, the availability mask (when
 one is set) and each <code class="language-plaintext highlighter-rouge">sample_meta</code> array in sorted key order, each
 prefixed by its name, dtype and shape.</li>
-</ol>
+      </ol>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="evaluate_model"><code class="language-plaintext highlighter-rouge">evaluate_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>evaluate_model(model, dataset, split, partition='test', *, metrics=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="evaluate_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_model"><code>evaluate_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/training.py#L316" title="vaft/process/ml/training.py, line 316">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_model(model, dataset, split, partition=&#39;test&#39;, *, metrics=None)</code></pre>
 
-<p>Standard ML metrics of a model on one partition, overall and per group.</p>
+    <p>Standard ML metrics of a model on one partition, overall and per group.</p>
 
-<p>This is training evaluation.  Whether a model is scientifically valid –
+    <p>This is training evaluation.  Whether a model is scientifically valid –
 campaign robustness, negative controls, cross-diagnostic timing – is a
 task-specific verdict for <code class="language-plaintext highlighter-rouge">vaft.validation</code>, not a number here.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>Trained or loaded model.</p>
 </td></tr>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Data with the model’s input shape.</p>
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Data with the model’s input shape.</p>
 </td></tr>
-  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment selecting the partition.</p>
+  <tr><td><code>split</code></td><td class="ref-type">Split</td><td class="ref-unit">-</td><td><p>Group assignment selecting the partition.</p>
 </td></tr>
-  <tr><td><code>partition</code></td><td>str, optional</td><td>-</td><td><p>Partition to evaluate.</p>
+  <tr><td><code>partition</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Partition to evaluate.</p>
 </td></tr>
-  <tr><td><code>metrics</code></td><td>callable or None, optional</td><td>-</td><td><p>Task metrics, <code class="language-plaintext highlighter-rouge">metrics(outputs, subset)</code> returning a mapping of names to floats, where <code class="language-plaintext highlighter-rouge">outputs</code> are the model outputs and <code class="language-plaintext highlighter-rouge">subset</code> the <code class="language-plaintext highlighter-rouge">DatasetArtifact</code> of the evaluated samples; evaluated overall and per group, and merged into the built-in metrics.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>EvaluationResult</td><td>any</td><td><p>Aggregate and per-group metrics over the <em>available</em> samples: <code class="language-plaintext highlighter-rouge">mse</code>, <code class="language-plaintext highlighter-rouge">rmse</code>, <code class="language-plaintext highlighter-rouge">mae</code> and <code class="language-plaintext highlighter-rouge">r2</code> in target units for a supervised model; <code class="language-plaintext highlighter-rouge">score_mean</code>, <code class="language-plaintext highlighter-rouge">score_median</code>, <code class="language-plaintext highlighter-rouge">score_p95</code> (normalised units for an autoencoder, the detector’s own for a score model) and, for an autoencoder, <code class="language-plaintext highlighter-rouge">reconstruction_mse</code> in input units.</p>
+  <tr><td><code>metrics</code></td><td class="ref-type">callable or None, optional</td><td class="ref-unit">-</td><td><p>Task metrics, <code class="language-plaintext highlighter-rouge">metrics(outputs, subset)</code> returning a mapping of names to floats, where <code class="language-plaintext highlighter-rouge">outputs</code> are the model outputs and <code class="language-plaintext highlighter-rouge">subset</code> the <code class="language-plaintext highlighter-rouge">DatasetArtifact</code> of the evaluated samples; evaluated overall and per group, and merged into the built-in metrics.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">EvaluationResult</td><td class="ref-unit">any</td><td><p>Aggregate and per-group metrics over the <em>available</em> samples: <code class="language-plaintext highlighter-rouge">mse</code>, <code class="language-plaintext highlighter-rouge">rmse</code>, <code class="language-plaintext highlighter-rouge">mae</code> and <code class="language-plaintext highlighter-rouge">r2</code> in target units for a supervised model; <code class="language-plaintext highlighter-rouge">score_mean</code>, <code class="language-plaintext highlighter-rouge">score_median</code>, <code class="language-plaintext highlighter-rouge">score_p95</code> (normalised units for an autoencoder, the detector’s own for a score model) and, for an autoencoder, <code class="language-plaintext highlighter-rouge">reconstruction_mse</code> in input units.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the partition holds groups the model was fitted on (other than evaluating the training partition itself, which reports training metrics), or the dataset’s columns differ from the model’s.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the partition holds groups the model was fitted on (other than
-    evaluating the training partition itself, which reports training
-    metrics), or the dataset’s columns differ from the model’s.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="export_model"><code class="language-plaintext highlighter-rouge">export_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>export_model(model, directory, *, format='onnx')</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="export_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#export_model"><code>export_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/artifact.py#L293" title="vaft/process/ml/artifact.py, line 293">source</a>
+</header>
+    <pre class="ref-signature"><code>export_model(model, directory, *, format=&#39;onnx&#39;)</code></pre>
 
-<p>Export the network to an inference format and prove it agrees.</p>
+    <p>Export the network to an inference format and prove it agrees.</p>
 
-<p>The training artifact and the deployment artifact need not be the same
+    <p>The training artifact and the deployment artifact need not be the same
 thing: a model trained in PyTorch can be served by ONNX Runtime.  The
 export is accepted only after the exported graph reproduces the source
 model on a probe batch.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained or loaded model.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>Trained or loaded model.</p>
 </td></tr>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Output directory; must not exist or be empty.</p>
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Output directory; must not exist or be empty.</p>
 </td></tr>
-  <tr><td><code>format</code></td><td>str, optional</td><td>-</td><td><p>Target format; <code class="language-plaintext highlighter-rouge">"onnx"</code> is the only one implemented.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict</td><td>-</td><td><p>Export record written to <code class="language-plaintext highlighter-rouge">export.json</code>: format, opset, parity difference and tolerance, runtimes, and the source model identity.</p>
+  <tr><td><code>format</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Target format; <code class="language-plaintext highlighter-rouge">"onnx"</code> is the only one implemented.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>Export record written to <code class="language-plaintext highlighter-rouge">export.json</code>: format, opset, parity difference and tolerance, runtimes, and the source model identity.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the backend cannot export to <code class="language-plaintext highlighter-rouge">format</code> or the parity check fails.
+</li>
+  <li><code>BackendUnavailableError</code> When the exporter or runtime is not installed.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the backend cannot export to <code class="language-plaintext highlighter-rouge">format</code> or the parity check fails.
-BackendUnavailableError
-    When the exporter or runtime is not installed.</p>
+    <details class="ref-more">
+      <summary>Output semantics · Applicability · Provenance</summary>
 
-<p><strong>Output semantics.</strong></p>
+      <h4 class="ref-label no_toc">Output semantics</h4>
 
-<p>The exported graph maps <em>normalised</em> inputs to <em>normalised</em> outputs;
+      <p>The exported graph maps <em>normalised</em> inputs to <em>normalised</em> outputs;
 <code class="language-plaintext highlighter-rouge">normalization.npz</code> is written beside it and must be applied around it,
 exactly as <code class="language-plaintext highlighter-rouge">predict</code> does.  A <code class="language-plaintext highlighter-rouge">sklearn</code> one-class SVM’s graph
 returns <code class="language-plaintext highlighter-rouge">scores</code>, the estimator’s decision function; the model’s
 <code class="language-plaintext highlighter-rouge">score</code> is its negative.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, section 12: training and inference artifacts are separate, with numerical validation between them.
 </li>
 </ol>
 
-<h3 id="fetch_model"><code class="language-plaintext highlighter-rouge">fetch_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>fetch_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="fetch_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fetch_model"><code>fetch_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/resolver.py#L263" title="vaft/process/ml/resolver.py, line 263">source</a>
+</header>
+    <pre class="ref-signature"><code>fetch_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
-<p>Download a published model’s release assets into the cache, verified.</p>
+    <p>Download a published model’s release assets into the cache, verified.</p>
 
-<p>The registry checkout says <em>which</em> files a version is (their hashes); the
+    <p>The registry checkout says <em>which</em> files a version is (their hashes); the
 GitHub Release holds the bytes.  This copies the bytes into the cache and
 accepts them only if they are exactly the files the registry pins.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Registry model name.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Registry model name.</p>
 </td></tr>
-  <tr><td><code>version</code></td><td>str or None, optional</td><td>-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+  <tr><td><code>version</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
 </td></tr>
-  <tr><td><code>stage</code></td><td>str or None, optional</td><td>-</td><td><p>Lifecycle alias, resolved to an exact version first.</p>
+  <tr><td><code>stage</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Lifecycle alias, resolved to an exact version first.</p>
 </td></tr>
-  <tr><td><code>registry</code></td><td>str or path-like or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+  <tr><td><code>registry</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
-  <tr><td><code>cache</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
+  <tr><td><code>cache</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
 </td></tr>
-  <tr><td><code>env</code></td><td>mapping or None, optional</td><td>-</td><td><p>Environment to read the variables from; <code class="language-plaintext highlighter-rouge">os.environ</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelIdentity</td><td>-</td><td><p>The identity <code class="language-plaintext highlighter-rouge">resolve_model</code> returns for the fetched version.</p>
+  <tr><td><code>env</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Environment to read the variables from; <code class="language-plaintext highlighter-rouge">os.environ</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelIdentity</td><td class="ref-unit">-</td><td><p>The identity <code class="language-plaintext highlighter-rouge">resolve_model</code> returns for the fetched version.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelResolutionError</code> When <code class="language-plaintext highlighter-rouge">gh</code> is missing or cannot read the release, or a downloaded file is missing or differs from the registry manifest; the cache is then left as it was.
+</li>
+</ul>
+</div>
 
-<p>ModelResolutionError
-    When <code class="language-plaintext highlighter-rouge">gh</code> is missing or cannot read the release, or a downloaded
-    file is missing or differs from the registry manifest; the cache is
-    then left as it was.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Processing steps.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol>
-  <li>Resolve the exact version and its manifest from the registry.</li>
-  <li>Download the release <code class="language-plaintext highlighter-rouge">&lt;name&gt;-v&lt;version&gt;</code> (or the tag the registry
+      <ol>
+        <li>Resolve the exact version and its manifest from the registry.</li>
+        <li>Download the release <code class="language-plaintext highlighter-rouge">&lt;name&gt;-v&lt;version&gt;</code> (or the tag the registry
 records) with <code class="language-plaintext highlighter-rouge">gh release download</code> into a temporary directory inside
 the cache root; the repository is the registry checkout’s GitHub origin.</li>
-  <li>Verify every file the registry manifest lists, then replace
+        <li>Verify every file the registry manifest lists, then replace
 <code class="language-plaintext highlighter-rouge">&lt;cache&gt;/&lt;name&gt;/&lt;version&gt;</code> with the verified directory.</li>
-</ol>
+      </ol>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Needs the GitHub CLI logged in to an account that can read the private
+      <p>Needs the GitHub CLI logged in to an account that can read the private
 repository; VAFT reads no token itself.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, sections 10 and 13: weights are release artifacts outside git history, verified against the registry on resolution.
 </li>
 </ol>
 
-<h3 id="load_dataset"><code class="language-plaintext highlighter-rouge">load_dataset</code></h3>
+    </details>
 
-<p class="formula-signature"><code>load_dataset(directory)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="load_dataset">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#load_dataset"><code>load_dataset</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L447" title="vaft/process/ml/dataset.py, line 447">source</a>
+</header>
+    <pre class="ref-signature"><code>load_dataset(directory)</code></pre>
 
-<p>Load a dataset written by <code class="language-plaintext highlighter-rouge">save_dataset</code>, verifying its fingerprint.</p>
+    <p>Load a dataset written by <code class="language-plaintext highlighter-rouge">save_dataset</code>, verifying its fingerprint.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Directory holding <code class="language-plaintext highlighter-rouge">arrays.npz</code> and <code class="language-plaintext highlighter-rouge">dataset.json</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Directory holding <code class="language-plaintext highlighter-rouge">arrays.npz</code> and <code class="language-plaintext highlighter-rouge">dataset.json</code>.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>DatasetArtifact</td><td>-</td><td><p>The dataset, a <code class="language-plaintext highlighter-rouge">FeatureDataset</code> when one was saved.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>The dataset, a <code class="language-plaintext highlighter-rouge">FeatureDataset</code> when one was saved.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the files are missing or the recomputed fingerprint differs from the recorded one – the arrays changed after they were saved.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the files are missing or the recomputed fingerprint differs from
-    the recorded one – the arrays changed after they were saved.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="load_model"><code class="language-plaintext highlighter-rouge">load_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>load_model(name, *, version=None, stage=None, registry=None, cache=None, env=None, fetch=False)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="load_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#load_model"><code>load_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/resolver.py#L353" title="vaft/process/ml/resolver.py, line 353">source</a>
+</header>
+    <pre class="ref-signature"><code>load_model(name, *, version=None, stage=None, registry=None, cache=None, env=None, fetch=False)</code></pre>
 
-<p>Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.</p>
+    <p>Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Registry model name.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Registry model name.</p>
 </td></tr>
-  <tr><td><code>version</code></td><td>str or None, optional</td><td>-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+  <tr><td><code>version</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
 </td></tr>
-  <tr><td><code>stage</code></td><td>str or None, optional</td><td>-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>.</p>
+  <tr><td><code>stage</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>.</p>
 </td></tr>
-  <tr><td><code>registry</code></td><td>str or path-like or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+  <tr><td><code>registry</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
-  <tr><td><code>cache</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
+  <tr><td><code>cache</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
 </td></tr>
-  <tr><td><code>env</code></td><td>mapping or None, optional</td><td>-</td><td><p>Environment to read the variables from.</p>
+  <tr><td><code>env</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Environment to read the variables from.</p>
 </td></tr>
-  <tr><td><code>fetch</code></td><td>bool, optional</td><td>-</td><td><p>On a cache miss or mismatch, run <code class="language-plaintext highlighter-rouge">fetch_model</code> and retry.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelArtifact or ModelBundle</td><td>-</td><td><p>The model (or bundle of models), carrying the identity <code class="language-plaintext highlighter-rouge">resolve_model</code> returned.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<h3 id="load_model_artifact"><code class="language-plaintext highlighter-rouge">load_model_artifact</code></h3>
-
-<p class="formula-signature"><code>load_model_artifact(directory, *, manifest=None, verify=True)</code></p>
-
-<p><strong>Machine-independent.</strong> </p>
-
-<p>Load an artifact directory, verifying every file against its manifest.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Directory holding the weights and normalisation files.</p>
-</td></tr>
-  <tr><td><code>manifest</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Manifest to trust; <code class="language-plaintext highlighter-rouge">directory/manifest.json</code> when <code class="language-plaintext highlighter-rouge">None</code>.  The resolver passes the registry’s reviewed copy here, so a tampered cache cannot vouch for itself.</p>
-</td></tr>
-  <tr><td><code>verify</code></td><td>bool, optional</td><td>-</td><td><p>Check the SHA-256 and size of every file before loading.</p>
+  <tr><td><code>fetch</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>On a cache miss or mismatch, run <code class="language-plaintext highlighter-rouge">fetch_model</code> and retry.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelArtifact</td><td>-</td><td><p>The model with an identity naming the directory, version and manifest hash.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelArtifact or ModelBundle</td><td class="ref-unit">-</td><td><p>The model (or bundle of models), carrying the identity <code class="language-plaintext highlighter-rouge">resolve_model</code> returned.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p>ModelResolutionError
-    When the manifest is missing or a file is missing or differs.
-ModelContractError
-    When the manifest’s schema version is not one this VAFT reads.</p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p><strong>Applicability.</strong></p>
+      <p>Machine-independent.</p>
 
-<p>Machine-independent.</p>
+    </details>
 
-<p><strong>Provenance.</strong></p>
+  </section>
 
-<ol class="formula-references">
+  <section class="ref-entry" id="load_model_artifact">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#load_model_artifact"><code>load_model_artifact</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/artifact.py#L189" title="vaft/process/ml/artifact.py, line 189">source</a>
+</header>
+    <pre class="ref-signature"><code>load_model_artifact(directory, *, manifest=None, verify=True)</code></pre>
+
+    <p>Load an artifact directory, verifying every file against its manifest.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Directory holding the weights and normalisation files.</p>
+</td></tr>
+  <tr><td><code>manifest</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p>Manifest to trust; <code class="language-plaintext highlighter-rouge">directory/manifest.json</code> when <code class="language-plaintext highlighter-rouge">None</code>.  The resolver passes the registry’s reviewed copy here, so a tampered cache cannot vouch for itself.</p>
+</td></tr>
+  <tr><td><code>verify</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Check the SHA-256 and size of every file before loading.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>The model with an identity naming the directory, version and manifest hash.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelResolutionError</code> When the manifest is missing or a file is missing or differs.
+</li>
+  <li><code>ModelContractError</code> When the manifest’s schema version is not one this VAFT reads.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, section 13: resolution verifies identity, version and artifact hash.
 </li>
 </ol>
 
-<h3 id="load_model_bundle"><code class="language-plaintext highlighter-rouge">load_model_bundle</code></h3>
+    </details>
 
-<p class="formula-signature"><code>load_model_bundle(directory, *, manifest=None, verify=True)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="load_model_bundle">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#load_model_bundle"><code>load_model_bundle</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/bundle.py#L137" title="vaft/process/ml/bundle.py, line 137">source</a>
+</header>
+    <pre class="ref-signature"><code>load_model_bundle(directory, *, manifest=None, verify=True)</code></pre>
 
-<p>Load a bundle directory, verifying every file and member manifest.</p>
+    <p>Load a bundle directory, verifying every file and member manifest.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Directory holding the bundle’s files.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Directory holding the bundle’s files.</p>
 </td></tr>
-  <tr><td><code>manifest</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Bundle manifest to trust; <code class="language-plaintext highlighter-rouge">directory/manifest.json</code> when <code class="language-plaintext highlighter-rouge">None</code>. The resolver passes the registry’s reviewed copy.</p>
+  <tr><td><code>manifest</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p>Bundle manifest to trust; <code class="language-plaintext highlighter-rouge">directory/manifest.json</code> when <code class="language-plaintext highlighter-rouge">None</code>. The resolver passes the registry’s reviewed copy.</p>
 </td></tr>
-  <tr><td><code>verify</code></td><td>bool, optional</td><td>-</td><td><p>Check every file’s SHA-256 and size first.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelBundle</td><td>-</td><td><p>The members, each with an identity naming the bundle, and the composition record.</p>
+  <tr><td><code>verify</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Check every file’s SHA-256 and size first.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelBundle</td><td class="ref-unit">-</td><td><p>The members, each with an identity naming the bundle, and the composition record.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelResolutionError</code> When a file is missing or differs, or a member manifest differs from the hash the bundle pins.
+</li>
+  <li><code>ModelContractError</code> When the manifest is not a bundle manifest this VAFT reads.
+</li>
+</ul>
+</div>
 
-<p>ModelResolutionError
-    When a file is missing or differs, or a member manifest differs from
-    the hash the bundle pins.
-ModelContractError
-    When the manifest is not a bundle manifest this VAFT reads.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="predict"><code class="language-plaintext highlighter-rouge">predict</code></h3>
+    </details>
 
-<p class="formula-signature"><code>predict(model, data)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="predict">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#predict"><code>predict</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/inference.py#L69" title="vaft/process/ml/inference.py, line 69">source</a>
+</header>
+    <pre class="ref-signature"><code>predict(model, data)</code></pre>
 
-<p>Run a model on new data and stamp the result with its exact identity.</p>
+    <p>Run a model on new data and stamp the result with its exact identity.</p>
 
-<p>Accepts a dataset (checked against the model’s feature schema) or a bare
+    <p>Accepts a dataset (checked against the model’s feature schema) or a bare
 array.  The result records the model’s immutable identity – name, exact
 version, manifest and weight hashes – never an alias such as
 <code class="language-plaintext highlighter-rouge">production</code>, so a stored result keeps meaning what it meant when it was
 produced.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained, loaded or resolved model.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>Trained, loaded or resolved model.</p>
 </td></tr>
-  <tr><td><code>data</code></td><td>DatasetArtifact or array_like</td><td>any</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n, *model.input_shape)</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>InferenceResult</td><td>any</td><td><p>Outputs aligned with the samples (<code class="language-plaintext highlighter-rouge">prediction</code>; <code class="language-plaintext highlighter-rouge">reconstruction</code> and a per-sample <code class="language-plaintext highlighter-rouge">score</code>; or <code class="language-plaintext highlighter-rouge">score</code> alone; plus <code class="language-plaintext highlighter-rouge">&lt;name&gt;_exceeds</code> for every calibration and, for a dataset with an availability mask, <code class="language-plaintext highlighter-rouge">available</code>), the model identity, and the groups and per-sample metadata of a dataset input.</p>
+  <tr><td><code>data</code></td><td class="ref-type">DatasetArtifact or array_like</td><td class="ref-unit">any</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n, *model.input_shape)</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">InferenceResult</td><td class="ref-unit">any</td><td><p>Outputs aligned with the samples (<code class="language-plaintext highlighter-rouge">prediction</code>; <code class="language-plaintext highlighter-rouge">reconstruction</code> and a per-sample <code class="language-plaintext highlighter-rouge">score</code>; or <code class="language-plaintext highlighter-rouge">score</code> alone; plus <code class="language-plaintext highlighter-rouge">&lt;name&gt;_exceeds</code> for every calibration and, for a dataset with an availability mask, <code class="language-plaintext highlighter-rouge">available</code>), the model identity, and the groups and per-sample metadata of a dataset input.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the input shape, or a dataset’s column names, differ from the model’s.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the input shape, or a dataset’s column names, differ from the
-    model’s.</p>
+    <details class="ref-more">
+      <summary>Output semantics · Applicability</summary>
 
-<p><strong>Output semantics.</strong></p>
+      <h4 class="ref-label no_toc">Output semantics</h4>
 
-<p><code class="language-plaintext highlighter-rouge">prediction</code> and <code class="language-plaintext highlighter-rouge">reconstruction</code> are in the units of the targets and
+      <p><code class="language-plaintext highlighter-rouge">prediction</code> and <code class="language-plaintext highlighter-rouge">reconstruction</code> are in the units of the targets and
 inputs; an autoencoder’s <code class="language-plaintext highlighter-rouge">score</code> is the mean squared reconstruction
 error in the model’s normalised units, and a score model’s is the
 detector’s own anomaly measure (larger is more anomalous).  An
@@ -901,617 +982,698 @@ data is not “no anomaly”.  A score or an exceedance is a model output, not a
 physical event: an <code class="language-plaintext highlighter-rouge">IRE-like candidate</code>, never a reconnection onset
 (#669 section 16).</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="register_architecture"><code class="language-plaintext highlighter-rouge">register_architecture</code></h3>
+    </details>
 
-<p class="formula-signature"><code>register_architecture(name, factory, *, kind, backend='torch')</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="register_architecture">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#register_architecture"><code>register_architecture</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/_backends/__init__.py#L142" title="vaft/process/ml/_backends/__init__.py, line 142">source</a>
+</header>
+    <pre class="ref-signature"><code>register_architecture(name, factory, *, kind, backend=&#39;torch&#39;)</code></pre>
 
-<p>Make a task-defined network available to a backend by name.</p>
+    <p>Make a task-defined network available to a backend by name.</p>
 
-<p>Task code (the SXR reconstruction transformer, a sequence model) defines
+    <p>Task code (the SXR reconstruction transformer, a sequence model) defines
 its network next to its science and registers it here; a
 <code class="language-plaintext highlighter-rouge">ModelSpec</code> then selects it with <code class="language-plaintext highlighter-rouge">architecture=name</code>.  The
 factory is called only when a model is built, so registering imports no
 ML framework.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Architecture name a <code class="language-plaintext highlighter-rouge">ModelSpec</code> refers to.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Architecture name a <code class="language-plaintext highlighter-rouge">ModelSpec</code> refers to.</p>
 </td></tr>
-  <tr><td><code>factory</code></td><td>callable</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">factory(spec, input_shape, output_shape)</code> returning a network that maps a batch of shape <code class="language-plaintext highlighter-rouge">(n, *input_shape)</code> to <code class="language-plaintext highlighter-rouge">(n, *output_shape)</code> without flattening it first.</p>
+  <tr><td><code>factory</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">factory(spec, input_shape, output_shape)</code> returning a network that maps a batch of shape <code class="language-plaintext highlighter-rouge">(n, *input_shape)</code> to <code class="language-plaintext highlighter-rouge">(n, *output_shape)</code> without flattening it first.</p>
 </td></tr>
-  <tr><td><code>kind</code></td><td>{"supervised", "reconstruction", "score"}</td><td>-</td><td><p>What the network learns.</p>
+  <tr><td><code>kind</code></td><td class="ref-type">{&quot;supervised&quot;, &quot;reconstruction&quot;, &quot;score&quot;}</td><td class="ref-unit">-</td><td><p>What the network learns.</p>
 </td></tr>
-  <tr><td><code>backend</code></td><td>str, optional</td><td>-</td><td><p>Backend the factory builds for; only <code class="language-plaintext highlighter-rouge">"torch"</code> accepts registrations.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>None</td><td>-</td><td><p>The architecture is registered for this process.</p>
+  <tr><td><code>backend</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Backend the factory builds for; only <code class="language-plaintext highlighter-rouge">"torch"</code> accepts registrations.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">None</td><td class="ref-unit">-</td><td><p>The architecture is registered for this process.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On an unknown kind, a backend that does not accept registrations, a name that shadows a built-in, or a second registration of one name with a different factory.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On an unknown kind, a backend that does not accept registrations, a
-    name that shadows a built-in, or a second registration of one name
-    with a different factory.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>The registry is per process.  A published model records its
+      <p>The registry is per process.  A published model records its
 architecture’s name, not its code; loading it needs the same task module
 imported, and the code version is traced through the VAFT revision in the
 manifest.</p>
 
-<h3 id="register_augmentation"><code class="language-plaintext highlighter-rouge">register_augmentation</code></h3>
+    </details>
 
-<p class="formula-signature"><code>register_augmentation(name, function)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="register_augmentation">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#register_augmentation"><code>register_augmentation</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/_backends/__init__.py#L253" title="vaft/process/ml/_backends/__init__.py, line 253">source</a>
+</header>
+    <pre class="ref-signature"><code>register_augmentation(name, function)</code></pre>
 
-<p>Make a train-time augmentation available by name.</p>
+    <p>Make a train-time augmentation available by name.</p>
 
-<p>Selected with <code class="language-plaintext highlighter-rouge">TrainingConfig(augmentation=name)</code>.  It is applied to the
+    <p>Selected with <code class="language-plaintext highlighter-rouge">TrainingConfig(augmentation=name)</code>.  It is applied to the
 <strong>train partition only</strong>, once per epoch, after the group split – so an
 augmented copy of a sample can never reach validation or test.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Augmentation name.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Augmentation name.</p>
 </td></tr>
-  <tr><td><code>function</code></td><td>callable</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">function(inputs, targets, rng)</code> returning <code class="language-plaintext highlighter-rouge">(inputs, targets)</code> of the same shapes, in physical (un-normalised) units; <code class="language-plaintext highlighter-rouge">targets</code> is <code class="language-plaintext highlighter-rouge">None</code> for an unsupervised model and <code class="language-plaintext highlighter-rouge">rng</code> is a seeded <code class="language-plaintext highlighter-rouge">numpy.random.Generator</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>None</td><td>-</td><td><p>The augmentation is registered for this process.</p>
+  <tr><td><code>function</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">function(inputs, targets, rng)</code> returning <code class="language-plaintext highlighter-rouge">(inputs, targets)</code> of the same shapes, in physical (un-normalised) units; <code class="language-plaintext highlighter-rouge">targets</code> is <code class="language-plaintext highlighter-rouge">None</code> for an unsupervised model and <code class="language-plaintext highlighter-rouge">rng</code> is a seeded <code class="language-plaintext highlighter-rouge">numpy.random.Generator</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">None</td><td class="ref-unit">-</td><td><p>The augmentation is registered for this process.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On a name already registered with a different function.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On a name already registered with a different function.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="register_loss"><code class="language-plaintext highlighter-rouge">register_loss</code></h3>
+    </details>
 
-<p class="formula-signature"><code>register_loss(name, factory)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="register_loss">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#register_loss"><code>register_loss</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/_backends/__init__.py#L204" title="vaft/process/ml/_backends/__init__.py, line 204">source</a>
+</header>
+    <pre class="ref-signature"><code>register_loss(name, factory)</code></pre>
 
-<p>Make a task-defined training loss available by name.</p>
+    <p>Make a task-defined training loss available by name.</p>
 
-<p>Selected with <code class="language-plaintext highlighter-rouge">ModelSpec(hyperparameters={"loss": name})</code>.  The factory
+    <p>Selected with <code class="language-plaintext highlighter-rouge">ModelSpec(hyperparameters={"loss": name})</code>.  The factory
 receives the model spec and the train-partition normalisation, so a
 physics loss – a line-of-sight residual through a projector acting on
 emissivity in physical units – can undo the normalisation the network
 works in.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Loss name.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Loss name.</p>
 </td></tr>
-  <tr><td><code>factory</code></td><td>callable</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">factory(spec, normalization)</code> returning <code class="language-plaintext highlighter-rouge">loss(prediction, target, inputs)</code>, a differentiable scalar in the backend’s tensor type. <code class="language-plaintext highlighter-rouge">prediction</code>, <code class="language-plaintext highlighter-rouge">target</code> and <code class="language-plaintext highlighter-rouge">inputs</code> are normalised and keep their sample shapes; <code class="language-plaintext highlighter-rouge">normalization</code> maps <code class="language-plaintext highlighter-rouge">input_mean</code>, <code class="language-plaintext highlighter-rouge">input_std</code> and, for a supervised model, <code class="language-plaintext highlighter-rouge">target_mean</code> and <code class="language-plaintext highlighter-rouge">target_std</code> to NumPy arrays that broadcast against one sample.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>None</td><td>-</td><td><p>The loss is registered for this process.</p>
+  <tr><td><code>factory</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">factory(spec, normalization)</code> returning <code class="language-plaintext highlighter-rouge">loss(prediction, target, inputs)</code>, a differentiable scalar in the backend’s tensor type. <code class="language-plaintext highlighter-rouge">prediction</code>, <code class="language-plaintext highlighter-rouge">target</code> and <code class="language-plaintext highlighter-rouge">inputs</code> are normalised and keep their sample shapes; <code class="language-plaintext highlighter-rouge">normalization</code> maps <code class="language-plaintext highlighter-rouge">input_mean</code>, <code class="language-plaintext highlighter-rouge">input_std</code> and, for a supervised model, <code class="language-plaintext highlighter-rouge">target_mean</code> and <code class="language-plaintext highlighter-rouge">target_std</code> to NumPy arrays that broadcast against one sample.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">None</td><td class="ref-unit">-</td><td><p>The loss is registered for this process.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On a name that is already registered with a different factory, or that shadows the built-in <code class="language-plaintext highlighter-rouge">"mse"</code>.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On a name that is already registered with a different factory, or
-    that shadows the built-in <code class="language-plaintext highlighter-rouge">"mse"</code>.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Only the iterative <code class="language-plaintext highlighter-rouge">torch</code> backend trains with a loss; the closed-form
+      <p>Only the iterative <code class="language-plaintext highlighter-rouge">torch</code> backend trains with a loss; the closed-form
 and scikit-learn backends refuse a <code class="language-plaintext highlighter-rouge">loss</code> hyperparameter.</p>
 
-<h3 id="resolve_model"><code class="language-plaintext highlighter-rouge">resolve_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>resolve_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="resolve_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resolve_model"><code>resolve_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/resolver.py#L139" title="vaft/process/ml/resolver.py, line 139">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
-<p>Resolve a published model to one exact, hash-verified local version.</p>
+    <p>Resolve a published model to one exact, hash-verified local version.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>-</td><td><p>Registry model name, e.g. <code class="language-plaintext highlighter-rouge">"ire_ae_vaft_v1"</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Registry model name, e.g. <code class="language-plaintext highlighter-rouge">"ire_ae_vaft_v1"</code>.</p>
 </td></tr>
-  <tr><td><code>version</code></td><td>str or None, optional</td><td>-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+  <tr><td><code>version</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Exact version; give this or <code class="language-plaintext highlighter-rouge">stage</code>.</p>
 </td></tr>
-  <tr><td><code>stage</code></td><td>str or None, optional</td><td>-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>, resolved to an exact version before anything is loaded.</p>
+  <tr><td><code>stage</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Lifecycle alias such as <code class="language-plaintext highlighter-rouge">"production"</code>, resolved to an exact version before anything is loaded.</p>
 </td></tr>
-  <tr><td><code>registry</code></td><td>str or path-like or None, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+  <tr><td><code>registry</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">vaft-nn</code> checkout; <code class="language-plaintext highlighter-rouge">$VAFT_NN_HOME</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
-  <tr><td><code>cache</code></td><td>str or path-like or None, optional</td><td>-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
+  <tr><td><code>cache</code></td><td class="ref-type">str or path-like or None, optional</td><td class="ref-unit">-</td><td><p>Artifact cache root; <code class="language-plaintext highlighter-rouge">$VAFT_NN_CACHE</code>, else the platform cache directory.</p>
 </td></tr>
-  <tr><td><code>env</code></td><td>mapping or None, optional</td><td>-</td><td><p>Environment to read the two variables from; <code class="language-plaintext highlighter-rouge">os.environ</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelIdentity</td><td>-</td><td><p>Name, exact version, manifest SHA-256, requested stage, lifecycle status and the verified artifact directory (<code class="language-plaintext highlighter-rouge">source</code>).</p>
+  <tr><td><code>env</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Environment to read the two variables from; <code class="language-plaintext highlighter-rouge">os.environ</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelIdentity</td><td class="ref-unit">-</td><td><p>Name, exact version, manifest SHA-256, requested stage, lifecycle status and the verified artifact directory (<code class="language-plaintext highlighter-rouge">source</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ModelResolutionError
-    When the registry, model, version, stage, manifest or a cached file is
-    missing, or a hash differs from the one the registry pins.
-ModelContractError
-    When both or neither of <code class="language-plaintext highlighter-rouge">version</code> and <code class="language-plaintext highlighter-rouge">stage</code> are given.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Read <code class="language-plaintext highlighter-rouge">models/&lt;name&gt;/releases.yaml</code> from the registry.</li>
-  <li>Map <code class="language-plaintext highlighter-rouge">stage</code> to its version, or take <code class="language-plaintext highlighter-rouge">version</code>; refuse a stage that
-points at a deprecated version.</li>
-  <li>Check the registry manifest’s SHA-256 against the pinned one.</li>
-  <li>Check every file the manifest lists in <code class="language-plaintext highlighter-rouge">&lt;cache&gt;/&lt;name&gt;/&lt;version&gt;/</code>
-for presence, size and SHA-256.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p>A stage alias is mutable and a version is not.  The returned identity
+      <p>A stage alias is mutable and a version is not.  The returned identity
 always carries the exact version and manifest hash; <code class="language-plaintext highlighter-rouge">stage</code> only records
 what was asked for.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelResolutionError</code> When the registry, model, version, stage, manifest or a cached file is missing, or a hash differs from the one the registry pins.
+</li>
+  <li><code>ModelContractError</code> When both or neither of <code class="language-plaintext highlighter-rouge">version</code> and <code class="language-plaintext highlighter-rouge">stage</code> are given.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Read <code class="language-plaintext highlighter-rouge">models/&lt;name&gt;/releases.yaml</code> from the registry.</li>
+        <li>Map <code class="language-plaintext highlighter-rouge">stage</code> to its version, or take <code class="language-plaintext highlighter-rouge">version</code>; refuse a stage that
+points at a deprecated version.</li>
+        <li>Check the registry manifest’s SHA-256 against the pinned one.</li>
+        <li>Check every file the manifest lists in <code class="language-plaintext highlighter-rouge">&lt;cache&gt;/&lt;name&gt;/&lt;version&gt;/</code>
+for presence, size and SHA-256.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, sections 9 and 13: lifecycle aliases resolve to immutable artifacts, and resolution verifies the hash.
 </li>
 </ol>
 
-<h3 id="save_dataset"><code class="language-plaintext highlighter-rouge">save_dataset</code></h3>
+    </details>
 
-<p class="formula-signature"><code>save_dataset(dataset, directory)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="save_dataset">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#save_dataset"><code>save_dataset</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L392" title="vaft/process/ml/dataset.py, line 392">source</a>
+</header>
+    <pre class="ref-signature"><code>save_dataset(dataset, directory)</code></pre>
 
-<p>Materialise a dataset on disk so training can run elsewhere.</p>
+    <p>Materialise a dataset on disk so training can run elsewhere.</p>
 
-<p>Building a corpus-scale dataset (reading thousands of shots) and training
+    <p>Building a corpus-scale dataset (reading thousands of shots) and training
 on it are separate steps, often on separate machines; this is the hand-off.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Fingerprinted dataset from <code class="language-plaintext highlighter-rouge">build_dataset</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Fingerprinted dataset from <code class="language-plaintext highlighter-rouge">build_dataset</code>.</p>
 </td></tr>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Target directory; must not exist or be empty.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>str</td><td>-</td><td><p>The dataset fingerprint, which <code class="language-plaintext highlighter-rouge">load_dataset</code> re-checks.</p>
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Target directory; must not exist or be empty.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>The dataset fingerprint, which <code class="language-plaintext highlighter-rouge">load_dataset</code> re-checks.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the dataset has no fingerprint, the directory is not empty, or an array has dtype <code class="language-plaintext highlighter-rouge">object</code>.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When the dataset has no fingerprint, the directory is not empty, or an
-    array has dtype <code class="language-plaintext highlighter-rouge">object</code>.</p>
+    <details class="ref-more">
+      <summary>Applicability</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<h3 id="save_model_artifact"><code class="language-plaintext highlighter-rouge">save_model_artifact</code></h3>
+    </details>
 
-<p class="formula-signature"><code>save_model_artifact(model, directory, *, version, model_card=None, applicability=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="save_model_artifact">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#save_model_artifact"><code>save_model_artifact</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/artifact.py#L113" title="vaft/process/ml/artifact.py, line 113">source</a>
+</header>
+    <pre class="ref-signature"><code>save_model_artifact(model, directory, *, version, model_card=None, applicability=None)</code></pre>
 
-<p>Write a model as an immutable, hash-pinned artifact directory.</p>
+    <p>Write a model as an immutable, hash-pinned artifact directory.</p>
 
-<p>The directory is what gets attached to a <code class="language-plaintext highlighter-rouge">vaft-nn</code> release; its
+    <p>The directory is what gets attached to a <code class="language-plaintext highlighter-rouge">vaft-nn</code> release; its
 <code class="language-plaintext highlighter-rouge">manifest.json</code> is what gets committed to the registry.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>model</code></td><td>ModelArtifact</td><td>-</td><td><p>Trained model; <code class="language-plaintext highlighter-rouge">model.name</code> must be lower_snake_case.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>Trained model; <code class="language-plaintext highlighter-rouge">model.name</code> must be lower_snake_case.</p>
 </td></tr>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Target directory; must not exist or be empty.</p>
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Target directory; must not exist or be empty.</p>
 </td></tr>
-  <tr><td><code>version</code></td><td>str</td><td>-</td><td><p>Semantic version of this artifact, e.g. <code class="language-plaintext highlighter-rouge">"0.1.0"</code>.</p>
+  <tr><td><code>version</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Semantic version of this artifact, e.g. <code class="language-plaintext highlighter-rouge">"0.1.0"</code>.</p>
 </td></tr>
-  <tr><td><code>model_card</code></td><td>mapping or None, optional</td><td>-</td><td><p>Intended use, training population, validation evidence and known limits, stored in the manifest.</p>
+  <tr><td><code>model_card</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Intended use, training population, validation evidence and known limits, stored in the manifest.</p>
 </td></tr>
-  <tr><td><code>applicability</code></td><td>mapping or None, optional</td><td>-</td><td><p>The input domain the model was trained and validated on (parameter ranges, shot ranges, diagnostics), stored in the manifest.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelArtifact</td><td>-</td><td><p>The same model carrying its saved identity: version, manifest SHA-256 and weight SHA-256.</p>
+  <tr><td><code>applicability</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>The input domain the model was trained and validated on (parameter ranges, shot ranges, diagnostics), stored in the manifest.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelArtifact</td><td class="ref-unit">-</td><td><p>The same model carrying its saved identity: version, manifest SHA-256 and weight SHA-256.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On an invalid name or version, or a non-empty target directory.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On an invalid name or version, or a non-empty target directory.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
 
-<p><strong>Processing steps.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol>
-  <li>Write the backend weights and the normalisation moments.</li>
-  <li>Hash each file and write <code class="language-plaintext highlighter-rouge">manifest.json</code> (sorted keys, two-space
+      <ol>
+        <li>Write the backend weights and the normalisation moments.</li>
+        <li>Hash each file and write <code class="language-plaintext highlighter-rouge">manifest.json</code> (sorted keys, two-space
 indent) pinning every hash and size.</li>
-  <li>Hash the manifest; that hash is the artifact’s identity.</li>
-</ol>
+        <li>Hash the manifest; that hash is the artifact’s identity.</li>
+      </ol>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, sections 10-11: the <code class="language-plaintext highlighter-rouge">vaft-nn</code> release layout and manifest contract.
 </li>
 </ol>
 
-<h3 id="save_model_bundle"><code class="language-plaintext highlighter-rouge">save_model_bundle</code></h3>
+    </details>
 
-<p class="formula-signature"><code>save_model_bundle(bundle, directory, *, version, model_card=None, applicability=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="save_model_bundle">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#save_model_bundle"><code>save_model_bundle</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/bundle.py#L30" title="vaft/process/ml/bundle.py, line 30">source</a>
+</header>
+    <pre class="ref-signature"><code>save_model_bundle(bundle, directory, *, version, model_card=None, applicability=None)</code></pre>
 
-<p>Write a multi-model bundle as one immutable, hash-pinned release.</p>
+    <p>Write a multi-model bundle as one immutable, hash-pinned release.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>bundle</code></td><td>ModelBundle</td><td>-</td><td><p>Members by role and the composition record.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>bundle</code></td><td class="ref-type">ModelBundle</td><td class="ref-unit">-</td><td><p>Members by role and the composition record.</p>
 </td></tr>
-  <tr><td><code>directory</code></td><td>str or path-like</td><td>-</td><td><p>Target directory; must not exist or be empty.</p>
+  <tr><td><code>directory</code></td><td class="ref-type">str or path-like</td><td class="ref-unit">-</td><td><p>Target directory; must not exist or be empty.</p>
 </td></tr>
-  <tr><td><code>version</code></td><td>str</td><td>-</td><td><p>Semantic version shared by the bundle and every member.</p>
+  <tr><td><code>version</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Semantic version shared by the bundle and every member.</p>
 </td></tr>
-  <tr><td><code>model_card</code></td><td>mapping or None, optional</td><td>-</td><td><p>Intended use, population, validation evidence and limits.</p>
+  <tr><td><code>model_card</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Intended use, population, validation evidence and limits.</p>
 </td></tr>
-  <tr><td><code>applicability</code></td><td>mapping or None, optional</td><td>-</td><td><p>Input domain the bundle was trained and validated on.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ModelBundle</td><td>-</td><td><p>The bundle carrying its saved identity; every member carries its own identity and the bundle’s.</p>
+  <tr><td><code>applicability</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Input domain the bundle was trained and validated on.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelBundle</td><td class="ref-unit">-</td><td><p>The bundle carrying its saved identity; every member carries its own identity and the bundle’s.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> On an invalid bundle or member name or version, or a non-empty directory.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    On an invalid bundle or member name or version, or a non-empty
-    directory.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
 
-<p><strong>Processing steps.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol>
-  <li>Write each member as an ordinary artifact whose file names are prefixed
+      <ol>
+        <li>Write each member as an ordinary artifact whose file names are prefixed
 by its role.</li>
-  <li>Write <code class="language-plaintext highlighter-rouge">manifest.json</code> with <code class="language-plaintext highlighter-rouge">kind: "bundle"</code>, every file’s SHA-256
+        <li>Write <code class="language-plaintext highlighter-rouge">manifest.json</code> with <code class="language-plaintext highlighter-rouge">kind: "bundle"</code>, every file’s SHA-256
 and size, each member manifest’s SHA-256 and the composition record.</li>
-</ol>
+      </ol>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#973, section 24: one logical model release may contain two fitted stage artifacts.
 </li>
 </ol>
 
-<h3 id="split_groups"><code class="language-plaintext highlighter-rouge">split_groups</code></h3>
+    </details>
 
-<p class="formula-signature"><code>split_groups(groups, spec=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="split_groups">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#split_groups"><code>split_groups</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L178" title="vaft/process/ml/dataset.py, line 178">source</a>
+</header>
+    <pre class="ref-signature"><code>split_groups(groups, spec=None)</code></pre>
 
-<p>Assign independent groups to train/validation/test partitions.</p>
+    <p>Assign independent groups to train/validation/test partitions.</p>
 
-<p>Splits the <em>groups</em> – never the samples – so correlated samples of one
+    <p>Splits the <em>groups</em> – never the samples – so correlated samples of one
 shot or one simulation case can never sit on both sides of a holdout.  Do
 this on the record-level data, before any windowing or augmentation; the
 returned <code class="language-plaintext highlighter-rouge">Split</code> then applies unchanged to everything derived.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>groups</code></td><td>array_like or DatasetArtifact</td><td>-</td><td><p>Group label of every sample, or a dataset whose groups are used.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>groups</code></td><td class="ref-type">array_like or DatasetArtifact</td><td class="ref-unit">-</td><td><p>Group label of every sample, or a dataset whose groups are used.</p>
 </td></tr>
-  <tr><td><code>spec</code></td><td>SplitSpec or None, optional</td><td>-</td><td><p>Partition fractions (of groups), seed and pinned groups; <code class="language-plaintext highlighter-rouge">None</code> uses 70/15/15 with seed 0.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>Split</td><td>-</td><td><p>Group-to-partition assignment.</p>
+  <tr><td><code>spec</code></td><td class="ref-type">SplitSpec or None, optional</td><td class="ref-unit">-</td><td><p>Partition fractions (of groups), seed and pinned groups; <code class="language-plaintext highlighter-rouge">None</code> uses 70/15/15 with seed 0.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">Split</td><td class="ref-unit">-</td><td><p>Group-to-partition assignment.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When a pinned group is absent, or when there are fewer groups than partitions with a positive fraction.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When a pinned group is absent, or when there are fewer groups than
-    partitions with a positive fraction.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Provenance</summary>
 
-<p><strong>Processing steps.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol>
-  <li>Take the unique groups as strings, sorted, so the result depends on the
+      <ol>
+        <li>Take the unique groups as strings, sorted, so the result depends on the
 set of groups and the seed only – not on sample order.</li>
-  <li>Assign the groups <code class="language-plaintext highlighter-rouge">spec.fixed</code> pins.</li>
-  <li>With <code class="language-plaintext highlighter-rouge">method="permutation"</code>, permute the remaining groups with
+        <li>Assign the groups <code class="language-plaintext highlighter-rouge">spec.fixed</code> pins.</li>
+        <li>With <code class="language-plaintext highlighter-rouge">method="permutation"</code>, permute the remaining groups with
 <code class="language-plaintext highlighter-rouge">numpy.random.default_rng(seed)</code> and cut the permutation at the
 cumulative fractions, rounding so every partition with a positive
 fraction receives at least one group.  With <code class="language-plaintext highlighter-rouge">method="hash"</code>, map
 each group to <code class="language-plaintext highlighter-rouge">u = int(sha256("seed:group")) / 2**256</code> in <code class="language-plaintext highlighter-rouge">[0, 1)</code>
 and place it in the partition whose cumulative-fraction interval holds
 <code class="language-plaintext highlighter-rouge">u</code>; no partition is guaranteed a group.</li>
-</ol>
+      </ol>
 
-<p><strong>Defaults.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p>The 70/15/15 fractions are numerical convenience, the same shares the VEST
+      <p>The 70/15/15 fractions are numerical convenience, the same shares the VEST
 IRE prototype used [ire].</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>S. Kaufman, S. Rosset, C. Perlich, O. Stitelman, “Leakage in data mining: formulation, detection, and avoidance”, ACM TKDD 6, 15 (2012).
 </li>
   <li>VEST IRE two-stage anomaly-detection notebook (v4), shot-level split; reviewed in issue #669 section 15A.
 </li>
 </ol>
 
-<h3 id="train_model"><code class="language-plaintext highlighter-rouge">train_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>train_model(dataset, split, model_spec, config=None, *, name=None, train_mask=None, train_mask_record=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="train_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#train_model"><code>train_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/training.py#L88" title="vaft/process/ml/training.py, line 88">source</a>
+</header>
+    <pre class="ref-signature"><code>train_model(dataset, split, model_spec, config=None, *, name=None, train_mask=None, train_mask_record=None)</code></pre>
 
-<p>Train a model on the train partition and package it with its provenance.</p>
+    <p>Train a model on the train partition and package it with its provenance.</p>
 
-<p>The one training entry point for every backend and architecture.  What
+    <p>The one training entry point for every backend and architecture.  What
 comes back is a <code class="language-plaintext highlighter-rouge">ModelArtifact</code>, not a framework object: its
 trained state is opaque bytes and everything that identifies it – data,
 split, configuration, software – travels with it.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Fingerprinted training data from <code class="language-plaintext highlighter-rouge">build_dataset</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Fingerprinted training data from <code class="language-plaintext highlighter-rouge">build_dataset</code>.</p>
 </td></tr>
-  <tr><td><code>split</code></td><td>Split</td><td>-</td><td><p>Group assignment from <code class="language-plaintext highlighter-rouge">split_groups</code>, made before any windowing.</p>
+  <tr><td><code>split</code></td><td class="ref-type">Split</td><td class="ref-unit">-</td><td><p>Group assignment from <code class="language-plaintext highlighter-rouge">split_groups</code>, made before any windowing.</p>
 </td></tr>
-  <tr><td><code>model_spec</code></td><td>ModelSpec</td><td>-</td><td><p>Backend, architecture, task and hyperparameters.</p>
+  <tr><td><code>model_spec</code></td><td class="ref-type">ModelSpec</td><td class="ref-unit">-</td><td><p>Backend, architecture, task and hyperparameters.</p>
 </td></tr>
-  <tr><td><code>config</code></td><td>TrainingConfig or None, optional</td><td>-</td><td><p>Optimisation, normalisation and augmentation settings; <code class="language-plaintext highlighter-rouge">None</code> uses the defaults.</p>
+  <tr><td><code>config</code></td><td class="ref-type">TrainingConfig or None, optional</td><td class="ref-unit">-</td><td><p>Optimisation, normalisation and augmentation settings; <code class="language-plaintext highlighter-rouge">None</code> uses the defaults.</p>
 </td></tr>
-  <tr><td><code>name</code></td><td>str or None, optional</td><td>-</td><td><p>Model name used when publishing; <code class="language-plaintext highlighter-rouge">model_spec.task</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+  <tr><td><code>name</code></td><td class="ref-type">str or None, optional</td><td class="ref-unit">-</td><td><p>Model name used when publishing; <code class="language-plaintext highlighter-rouge">model_spec.task</code> when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
-  <tr><td><code>train_mask</code></td><td>array_like of bool or None, optional</td><td>-</td><td><p>Per-sample mask further restricting the fitted samples within the train partition – training-set cleaning; <code class="language-plaintext highlighter-rouge">None</code> keeps them all.</p>
+  <tr><td><code>train_mask</code></td><td class="ref-type">array_like of bool or None, optional</td><td class="ref-unit">-</td><td><p>Per-sample mask further restricting the fitted samples within the train partition – training-set cleaning; <code class="language-plaintext highlighter-rouge">None</code> keeps them all.</p>
 </td></tr>
-  <tr><td><code>train_mask_record</code></td><td>mapping or None, optional</td><td>-</td><td><p>How <code class="language-plaintext highlighter-rouge">train_mask</code> was made (method, threshold, source model), stored in the provenance next to the kept and removed counts.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>TrainingResult</td><td>-</td><td><p>The artifact, the per-epoch history, the split, the epoch whose weights were kept, the fitted sample indices and, for a score model that can leave a sample out (k-NN), the leave-self-out training scores.</p>
+  <tr><td><code>train_mask_record</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>How <code class="language-plaintext highlighter-rouge">train_mask</code> was made (method, threshold, source model), stored in the provenance next to the kept and removed counts.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">TrainingResult</td><td class="ref-unit">-</td><td><p>The artifact, the per-epoch history, the split, the epoch whose weights were kept, the fitted sample indices and, for a score model that can leave a sample out (k-NN), the leave-self-out training scores.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ModelContractError
-    When the dataset has no fingerprint, a group is missing from the split,
-    no sample is left to fit, a supervised architecture has no targets, or
-    a named augmentation or loss is not registered.
-BackendUnavailableError
-    When the backend’s framework is not installed.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Select the fitted samples: train partition, available, and
-<code class="language-plaintext highlighter-rouge">train_mask</code>; select the available validation samples.</li>
-  <li>Compute input (and target) normalisation moments on the fitted samples
-only, per element or pooled over <code class="language-plaintext highlighter-rouge">config.normalize_axes</code>.</li>
-  <li>Fit the backend on the normalised arrays; a reconstruction architecture
-learns to reproduce its input.  A registered augmentation is applied to
-the fitted samples only, once per epoch.  The validation loss drives
-early stopping and the best epoch’s weights are kept.</li>
-  <li>Record dataset fingerprint and spec, split groups, the train-mask
-record, model spec, configuration, software revision and runtimes, and
-the loss history.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The <code class="language-plaintext highlighter-rouge">TrainingConfig</code> defaults (Adam, learning rate 1e-3, batch 64,
-patience 10, per-element normalisation) are numerical convenience, not
-tuned for any task.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Normalisation is a z-score, <code class="language-plaintext highlighter-rouge">(x - mean) / std</code>, with a constant element
+      <p>Normalisation is a z-score, <code class="language-plaintext highlighter-rouge">(x - mean) / std</code>, with a constant element
 given <code class="language-plaintext highlighter-rouge">std = 1</code>; the reconstruction <code class="language-plaintext highlighter-rouge">score</code> of an autoencoder is
 measured in these normalised units.  A score model’s <code class="language-plaintext highlighter-rouge">score</code> is larger
 for more anomalous samples.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When the dataset has no fingerprint, a group is missing from the split, no sample is left to fit, a supervised architecture has no targets, or a named augmentation or loss is not registered.
+</li>
+  <li><code>BackendUnavailableError</code> When the backend’s framework is not installed.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Select the fitted samples: train partition, available, and
+<code class="language-plaintext highlighter-rouge">train_mask</code>; select the available validation samples.</li>
+        <li>Compute input (and target) normalisation moments on the fitted samples
+only, per element or pooled over <code class="language-plaintext highlighter-rouge">config.normalize_axes</code>.</li>
+        <li>Fit the backend on the normalised arrays; a reconstruction architecture
+learns to reproduce its input.  A registered augmentation is applied to
+the fitted samples only, once per epoch.  The validation loss drives
+early stopping and the best epoch’s weights are kept.</li>
+        <li>Record dataset fingerprint and spec, split groups, the train-mask
+record, model spec, configuration, software revision and runtimes, and
+the loss history.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The <code class="language-plaintext highlighter-rouge">TrainingConfig</code> defaults (Adam, learning rate 1e-3, batch 64,
+patience 10, per-element normalisation) are numerical convenience, not
+tuned for any task.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>VEST-Tokamak/vaft#669, sections 6 and 7: training as a VAFT processing stage, dataset provenance as part of model identity.
 </li>
 </ol>
 
-<h3 id="window_dataset"><code class="language-plaintext highlighter-rouge">window_dataset</code></h3>
+    </details>
 
-<p class="formula-signature"><code>window_dataset(dataset, window, step, *, target_mode=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="window_dataset">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#window_dataset"><code>window_dataset</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/ml/dataset.py#L290" title="vaft/process/ml/dataset.py, line 290">source</a>
+</header>
+    <pre class="ref-signature"><code>window_dataset(dataset, window, step, *, target_mode=None)</code></pre>
 
-<p>Cut sliding windows that never cross a group boundary.</p>
+    <p>Cut sliding windows that never cross a group boundary.</p>
 
-<p>Turns a record-level dataset – samples in time order, one row per time
+    <p>Turns a record-level dataset – samples in time order, one row per time
 point – into a window dataset for a sequence model or a feature extractor.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>dataset</code></td><td>DatasetArtifact</td><td>-</td><td><p>Record-level samples in time order within each group.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Record-level samples in time order within each group.</p>
 </td></tr>
-  <tr><td><code>window</code></td><td>int</td><td>-</td><td><p>Samples per window.</p>
+  <tr><td><code>window</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Samples per window.</p>
 </td></tr>
-  <tr><td><code>step</code></td><td>int</td><td>-</td><td><p>Samples between consecutive window starts.</p>
+  <tr><td><code>step</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Samples between consecutive window starts.</p>
 </td></tr>
-  <tr><td><code>target_mode</code></td><td>{"window", "last", "none"} or None, optional</td><td>-</td><td><p>What each window’s target is: the target rows over the window, the target at its last sample, or none; <code class="language-plaintext highlighter-rouge">None</code> is <code class="language-plaintext highlighter-rouge">"window"</code> for a dataset with targets and <code class="language-plaintext highlighter-rouge">"none"</code> otherwise.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>DatasetArtifact</td><td>-</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n_windows, window, *input_shape)</code>; groups repeated per window; <code class="language-plaintext highlighter-rouge">sample_meta</code> carries each window’s <code class="language-plaintext highlighter-rouge">window_start</code> and <code class="language-plaintext highlighter-rouge">window_stop</code> source indices and, for every per-sample array of the source, its value at the window’s first sample.</p>
+  <tr><td><code>target_mode</code></td><td class="ref-type">{&quot;window&quot;, &quot;last&quot;, &quot;none&quot;} or None, optional</td><td class="ref-unit">-</td><td><p>What each window’s target is: the target rows over the window, the target at its last sample, or none; <code class="language-plaintext highlighter-rouge">None</code> is <code class="language-plaintext highlighter-rouge">"window"</code> for a dataset with targets and <code class="language-plaintext highlighter-rouge">"none"</code> otherwise.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">DatasetArtifact</td><td class="ref-unit">-</td><td><p>Inputs of shape <code class="language-plaintext highlighter-rouge">(n_windows, window, *input_shape)</code>; groups repeated per window; <code class="language-plaintext highlighter-rouge">sample_meta</code> carries each window’s <code class="language-plaintext highlighter-rouge">window_start</code> and <code class="language-plaintext highlighter-rouge">window_stop</code> source indices and, for every per-sample array of the source, its value at the window’s first sample.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ModelContractError</code> When <code class="language-plaintext highlighter-rouge">window</code> or <code class="language-plaintext highlighter-rouge">step</code> is not a positive integer, or a target mode asks for targets the dataset does not have.
+</li>
+</ul>
+</div>
 
-<p>ModelContractError
-    When <code class="language-plaintext highlighter-rouge">window</code> or <code class="language-plaintext highlighter-rouge">step</code> is not a positive integer, or a target mode
-    asks for targets the dataset does not have.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Provenance</summary>
 
-<p><strong>Processing steps.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol>
-  <li>Find the maximal contiguous runs of one group label.</li>
-  <li>Within each run, start a window every <code class="language-plaintext highlighter-rouge">step</code> samples while a full
+      <ol>
+        <li>Find the maximal contiguous runs of one group label.</li>
+        <li>Within each run, start a window every <code class="language-plaintext highlighter-rouge">step</code> samples while a full
 <code class="language-plaintext highlighter-rouge">window</code> fits; a shorter tail is dropped.</li>
-  <li>Recompute the fingerprint of the result.</li>
-</ol>
+        <li>Recompute the fingerprint of the result.</li>
+      </ol>
 
-<p><strong>Input semantics.</strong></p>
+      <h4 class="ref-label no_toc">Input semantics</h4>
 
-<p>One row per sample time, grouped and time-ordered within each group.</p>
+      <p>One row per sample time, grouped and time-ordered within each group.</p>
 
-<p><strong>Output semantics.</strong></p>
+      <h4 class="ref-label no_toc">Output semantics</h4>
 
-<p>One row per window.  The group of every window is the group of all of its
+      <p>One row per window.  The group of every window is the group of all of its
 samples, so a <code class="language-plaintext highlighter-rouge">Split</code> made on the source applies unchanged.  A
 window is available only when every sample in it is.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>S. Kaufman et al., “Leakage in data mining”, ACM TKDD 6, 15 (2012): windows from one unit on both sides of a holdout leak.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every source file under <code class="language-plaintext highlighter-rouge">vaft/process/</code>, subpackages included; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -1612,7 +1774,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#build_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">build_dataset</a></li><li class="page-toc-item page-toc-level-3"><a href="#calibrate_threshold" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">calibrate_threshold</a></li><li class="page-toc-item page-toc-level-3"><a href="#dataset_fingerprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_fingerprint</a></li><li class="page-toc-item page-toc-level-3"><a href="#evaluate_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">evaluate_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#export_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">export_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#fetch_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">fetch_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_dataset</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_model_artifact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_model_artifact</a></li><li class="page-toc-item page-toc-level-3"><a href="#load_model_bundle" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">load_model_bundle</a></li><li class="page-toc-item page-toc-level-3"><a href="#predict" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">predict</a></li><li class="page-toc-item page-toc-level-3"><a href="#register_architecture" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">register_architecture</a></li><li class="page-toc-item page-toc-level-3"><a href="#register_augmentation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">register_augmentation</a></li><li class="page-toc-item page-toc-level-3"><a href="#register_loss" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">register_loss</a></li><li class="page-toc-item page-toc-level-3"><a href="#resolve_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resolve_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#save_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">save_dataset</a></li><li class="page-toc-item page-toc-level-3"><a href="#save_model_artifact" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">save_model_artifact</a></li><li class="page-toc-item page-toc-level-3"><a href="#save_model_bundle" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">save_model_bundle</a></li><li class="page-toc-item page-toc-level-3"><a href="#split_groups" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">split_groups</a></li><li class="page-toc-item page-toc-level-3"><a href="#train_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">train_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#window_dataset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">window_dataset</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -1730,7 +1892,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1759,7 +1921,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

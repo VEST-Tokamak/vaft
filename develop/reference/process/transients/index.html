@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/transients.py"><code class="language-plaintext highlighter-rouge">vaft/process/transients.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("transients.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.transients</code>:
+<strong>2</strong> public functions. Each entry is what
+<code>vaft.process.describe("transients.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -284,16 +282,16 @@ two features of a plasma-current record a transient-event analysis starts
 from.  Everything here measures them – times, rates, amplitudes – on a
 <code class="language-plaintext highlighter-rouge">(time, current)</code> pair and knows nothing about the machine that produced it.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>t</td><td>time</td><td>s</td></tr>
-  <tr><td>I_p</td><td>plasma current, as stored</td><td>A</td></tr>
-  <tr><td>I_ref</td><td>reference current the fractions are taken of</td><td>A</td></tr>
-  <tr><td>t_80, t_20</td><td>last 80 % and first 20 % crossings of the quench</td><td>s</td></tr>
-  <tr><td>dI/dt</td><td>rate of change of the current magnitude</td><td>A/s</td></tr>
+  <tr><td>t</td><td>time</td><td class="ref-unit">s</td></tr>
+  <tr><td>I_p</td><td>plasma current, as stored</td><td class="ref-unit">A</td></tr>
+  <tr><td>I_ref</td><td>reference current the fractions are taken of</td><td class="ref-unit">A</td></tr>
+  <tr><td>t_80, t_20</td><td>last 80 % and first 20 % crossings of the quench</td><td class="ref-unit">s</td></tr>
+  <tr><td>dI/dt</td><td>rate of change of the current magnitude</td><td class="ref-unit">A/s</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>Numbers, not names.</strong>  A quench found here is a fall of the current
 magnitude through two fractions of a reference; a spike is a short positive
@@ -313,83 +311,96 @@ noise, returns a result whose measured fields are <code class="language-plaintex
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#current_quench"><code>current_quench</code></a> &mdash; Time a current quench between 80 % and 20 % of a reference current, and its fastest fall.
-</li>
-  <li><a href="#current_spike"><code>current_spike</code></a> &mdash; Measure a short positive rise of the current magnitude above its trend, before a quench.
-</li>
-</ul>
-
-<h3 id="current_quench"><code class="language-plaintext highlighter-rouge">current_quench</code></h3>
-
-<p class="formula-signature"><code>current_quench(time, ip, *, window=None, reference_current=None, smoothing_s=None)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Time a current quench between 80 % and 20 % of a reference current, and its fastest fall.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Strictly increasing sample times.</p>
+  <tr data-ref-row="current_quench"><td><a href="#current_quench"><code>current_quench</code></a></td><td>Time a current quench between 80 % and 20 % of a reference current, and its fastest fall.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="current_spike"><td><a href="#current_spike"><code>current_spike</code></a></td><td>Measure a short positive rise of the current magnitude above its trend, before a quench.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="current_quench">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#current_quench"><code>current_quench</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/transients.py#L140" title="vaft/process/transients.py, line 140">source</a>
+</header>
+    <pre class="ref-signature"><code>current_quench(time, ip, *, window=None, reference_current=None, smoothing_s=None)</code></pre>
+
+    <p>Time a current quench between 80 % and 20 % of a reference current, and its fastest fall.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Strictly increasing sample times.</p>
 </td></tr>
-  <tr><td><code>ip</code></td><td>array_like</td><td>A</td><td><p>Plasma current, either sign.</p>
+  <tr><td><code>ip</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>Plasma current, either sign.</p>
 </td></tr>
-  <tr><td><code>window</code></td><td>sequence of float, optional</td><td>s</td><td><p><code class="language-plaintext highlighter-rouge">(start, stop)</code> the search is restricted to.</p>
+  <tr><td><code>window</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">s</td><td><p><code class="language-plaintext highlighter-rouge">(start, stop)</code> the search is restricted to.</p>
 </td></tr>
-  <tr><td><code>reference_current</code></td><td>float, optional</td><td>A</td><td><p>Current the fractions are taken of; default the largest magnitude in the window.</p>
+  <tr><td><code>reference_current</code></td><td class="ref-type">float, optional</td><td class="ref-unit">A</td><td><p>Current the fractions are taken of; default the largest magnitude in the window.</p>
 </td></tr>
-  <tr><td><code>smoothing_s</code></td><td>float, optional</td><td>s</td><td><p>Width of a quadratic Savitzky-Golay window the rate is taken with; <code class="language-plaintext highlighter-rouge">None</code> takes centred differences of the record as it is.</p>
+  <tr><td><code>smoothing_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Width of a quadratic Savitzky-Golay window the rate is taken with; <code class="language-plaintext highlighter-rouge">None</code> takes centred differences of the record as it is.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>CurrentQuench</td><td>-</td><td><p>The reference current in amperes, the 80 % and 20 % crossing times, their separation and its extrapolation to a full quench in seconds, the most negative rate of change of the current magnitude in amperes per second and when it occurred, the polarity, and <code class="language-plaintext highlighter-rouge">reason</code> when nothing was measured.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">CurrentQuench</td><td class="ref-unit">-</td><td><p>The reference current in amperes, the 80 % and 20 % crossing times, their separation and its extrapolation to a full quench in seconds, the most negative rate of change of the current magnitude in amperes per second and when it occurred, the polarity, and <code class="language-plaintext highlighter-rouge">reason</code> when nothing was measured.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Restrict to the window and flip the record to positive polarity.</li>
-  <li>Take the reference current, and the time of the largest magnitude.</li>
-  <li>Find the first sample after that time below 20 % of the reference, and
-the last sample before it at or above 80 %; interpolate both crossings.
-With no sample at or above 80 % in between – a <code class="language-plaintext highlighter-rouge">reference_current</code>
-above the peak divided by 0.8 – stop with a reason.</li>
-  <li>Differentiate the magnitude – centred differences, or a quadratic
-Savitzky-Golay derivative over <code class="language-plaintext highlighter-rouge">smoothing_s</code> – and take its minimum
-between the two crossings.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p>The 80 % and 20 % fractions are the conventional ITPA disruption-database
-values. With no <code class="language-plaintext highlighter-rouge">reference_current</code> the largest magnitude in the window is
-used, a numerical convenience.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>Measured on the magnitude.</strong> <code class="language-plaintext highlighter-rouge">didt_min</code> is the most negative rate of the
+      <p><strong>Measured on the magnitude.</strong> <code class="language-plaintext highlighter-rouge">didt_min</code> is the most negative rate of the
 polarity-corrected current, so a falling current reads negative whichever
 sign the machine stores. The rate is searched between the two crossings
 only, so the sharp fall at the end of a spike before the 80 % crossing is
 not mistaken for the quench rate.</p>
 
-<p><code class="language-plaintext highlighter-rouge">extrapolated_quench_time</code> is <code class="language-plaintext highlighter-rouge">duration_80_20 / 0.6</code>, the ITPA convention
+      <p><code class="language-plaintext highlighter-rouge">extrapolated_quench_time</code> is <code class="language-plaintext highlighter-rouge">duration_80_20 / 0.6</code>, the ITPA convention
 for the time a linear quench would take from 100 % to zero.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<p>The default reference is the largest magnitude, so a spike on the flat top
+      <ol>
+        <li>Restrict to the window and flip the record to positive polarity.</li>
+        <li>Take the reference current, and the time of the largest magnitude.</li>
+        <li>Find the first sample after that time below 20 % of the reference, and
+the last sample before it at or above 80 %; interpolate both crossings.
+With no sample at or above 80 % in between – a <code class="language-plaintext highlighter-rouge">reference_current</code>
+above the peak divided by 0.8 – stop with a reason.</li>
+        <li>Differentiate the magnitude – centred differences, or a quadratic
+Savitzky-Golay derivative over <code class="language-plaintext highlighter-rouge">smoothing_s</code> – and take its minimum
+between the two crossings.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The 80 % and 20 % fractions are the conventional ITPA disruption-database
+values. With no <code class="language-plaintext highlighter-rouge">reference_current</code> the largest magnitude in the window is
+used, a numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The default reference is the largest magnitude, so a spike on the flat top
 raises it and moves both crossings slightly earlier; pass
 <code class="language-plaintext highlighter-rouge">reference_current</code> to use a plateau value instead. Only the first fall
 through 20 % after the largest magnitude is timed. A spike <em>inside</em> the
@@ -399,104 +410,108 @@ the mean quench rate; <code class="language-plaintext highlighter-rouge">time_di
 derivative of a noisy record is dominated by the noise; <code class="language-plaintext highlighter-rouge">smoothing_s</code>
 exists for that, and assumes uniform sampling (it uses the median step).</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li></li>
   <li>A. Savitzky and M. J. E. Golay, <em>Anal. Chem.</em> <strong>36</strong> (1964) 1627, as implemented by <code class="language-plaintext highlighter-rouge">scipy.signal.savgol_filter</code>: the smoothed rate.
 </li>
 </ol>
 
-<h3 id="current_spike"><code class="language-plaintext highlighter-rouge">current_spike</code></h3>
+    </details>
 
-<p class="formula-signature"><code>current_spike(time, ip, *, before=None, lookback_s=0.002, trend_s=0.0005, n_sigma=5.0)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="current_spike">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#current_spike"><code>current_spike</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/transients.py#L297" title="vaft/process/transients.py, line 297">source</a>
+</header>
+    <pre class="ref-signature"><code>current_spike(time, ip, *, before=None, lookback_s=0.002, trend_s=0.0005, n_sigma=5.0)</code></pre>
 
-<p>Measure a short positive rise of the current magnitude above its trend, before a quench.</p>
+    <p>Measure a short positive rise of the current magnitude above its trend, before a quench.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time</code></td><td>array_like</td><td>s</td><td><p>Strictly increasing sample times.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Strictly increasing sample times.</p>
 </td></tr>
-  <tr><td><code>ip</code></td><td>array_like</td><td>A</td><td><p>Plasma current, either sign.</p>
+  <tr><td><code>ip</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>Plasma current, either sign.</p>
 </td></tr>
-  <tr><td><code>before</code></td><td>float, optional</td><td>s</td><td><p>End of the search; default the quench’s 80 % crossing from <code class="language-plaintext highlighter-rouge">current_quench</code>.</p>
+  <tr><td><code>before</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>End of the search; default the quench’s 80 % crossing from <code class="language-plaintext highlighter-rouge">current_quench</code>.</p>
 </td></tr>
-  <tr><td><code>lookback_s</code></td><td>float, optional</td><td>s</td><td><p>Length of the search window ending at <code class="language-plaintext highlighter-rouge">before</code>.</p>
+  <tr><td><code>lookback_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Length of the search window ending at <code class="language-plaintext highlighter-rouge">before</code>.</p>
 </td></tr>
-  <tr><td><code>trend_s</code></td><td>float, optional</td><td>s</td><td><p>Width of the centred median filter that defines the trend.</p>
+  <tr><td><code>trend_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Width of the centred median filter that defines the trend.</p>
 </td></tr>
-  <tr><td><code>n_sigma</code></td><td>float, optional</td><td>-</td><td><p>Robust standard deviations of the residual a spike must exceed.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>CurrentSpike</td><td>-</td><td><p>The time of the largest excursion in seconds, its height above the trend in amperes and as a fraction of the trend current, the trend current and the noise’s robust sigma in amperes, the search end, the polarity, and <code class="language-plaintext highlighter-rouge">reason</code> when nothing qualified.</p>
+  <tr><td><code>n_sigma</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Robust standard deviations of the residual a spike must exceed.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">CurrentSpike</td><td class="ref-unit">-</td><td><p>The time of the largest excursion in seconds, its height above the trend in amperes and as a fraction of the trend current, the trend current and the noise’s robust sigma in amperes, the search end, the polarity, and <code class="language-plaintext highlighter-rouge">reason</code> when nothing qualified.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Flip the record to positive polarity.</li>
-  <li>Take <code class="language-plaintext highlighter-rouge">before</code> as given, or the 80 % crossing of the quench; with neither,
+      <p><strong>Positive on the magnitude.</strong> A spike is a rise of the polarity-corrected
+current, so on a machine that stores a negative current it is a more negative
+excursion of the stored value. Its amplitude is reported positive.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Flip the record to positive polarity.</li>
+        <li>Take <code class="language-plaintext highlighter-rouge">before</code> as given, or the 80 % crossing of the quench; with neither,
 stop with a reason.</li>
-  <li>Median-filter the magnitude over <code class="language-plaintext highlighter-rouge">trend_s</code> and subtract it: an excursion
+        <li>Median-filter the magnitude over <code class="language-plaintext highlighter-rouge">trend_s</code> and subtract it: an excursion
 shorter than half that width survives in the residual, the trend does not.</li>
-  <li>Within <code class="language-plaintext highlighter-rouge">[before - lookback_s, before]</code> take the largest residual above
+        <li>Within <code class="language-plaintext highlighter-rouge">[before - lookback_s, before]</code> take the largest residual above
 the residual’s median, and the noise as the robust sigma of the first
 differences over the same samples divided by the square root of two.</li>
-  <li>Accept it only above <code class="language-plaintext highlighter-rouge">n_sigma</code> robust sigmas.</li>
-</ol>
+        <li>Accept it only above <code class="language-plaintext highlighter-rouge">n_sigma</code> robust sigmas.</li>
+      </ol>
 
-<p><strong>Defaults.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p><code class="language-plaintext highlighter-rouge">lookback_s = 2 ms</code> and <code class="language-plaintext highlighter-rouge">trend_s = 0.5 ms</code> are empirical, a numerical
+      <p><code class="language-plaintext highlighter-rouge">lookback_s = 2 ms</code> and <code class="language-plaintext highlighter-rouge">trend_s = 0.5 ms</code> are empirical, a numerical
 convenience sized for sub-millisecond excursions on a current that changes over
 milliseconds, as in a small tokamak; a longer discharge wants both scaled.
 <code class="language-plaintext highlighter-rouge">n_sigma = 5</code> is a numerical convenience that keeps the largest of a few
 hundred Gaussian residual samples below the threshold.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p><strong>Positive on the magnitude.</strong> A spike is a rise of the polarity-corrected
-current, so on a machine that stores a negative current it is a more negative
-excursion of the stored value. Its amplitude is reported positive.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>One spike: the largest excursion in the window. An excursion longer than
+      <p>One spike: the largest excursion in the window. An excursion longer than
 half of <code class="language-plaintext highlighter-rouge">trend_s</code> is absorbed into the trend and not reported. Pickup from a
 coil switching at the same time looks identical in a current record; nothing
 here can tell them apart.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li></li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -597,7 +612,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#current_quench" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_quench</a></li><li class="page-toc-item page-toc-level-3"><a href="#current_spike" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">current_spike</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -715,7 +730,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -744,7 +759,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

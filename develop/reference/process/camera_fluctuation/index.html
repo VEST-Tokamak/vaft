@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/camera_fluctuation.py"><code class="language-plaintext highlighter-rouge">vaft/process/camera_fluctuation.py</code></a>:
-7 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("camera_fluctuation.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.camera_fluctuation</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.process.describe("camera_fluctuation.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -303,66 +301,62 @@ this module may be renamed to suggest a calibrated density perturbation.</p>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#mhd_band_power"><code>mhd_band_power</code></a> &mdash; Integrate each pixel’s spectrogram over a band around the MHD frequency.
-</li>
-  <li><a href="#normalize_by_local_emission"><code>normalize_by_local_emission</code></a> &mdash; Divide MHD-band power by each pixel’s local average emission.
-</li>
-  <li><a href="#pixelwise_spectrogram"><code>pixelwise_spectrogram</code></a> &mdash; Treat every pixel as its own signal and take its short-time Fourier magnitude.
-</li>
-  <li><a href="#poisson_window"><code>poisson_window</code></a> &mdash; The exponentially decreasing peak-shaped window the published analysis uses.
-</li>
-  <li><a href="#subtract_temporal_background"><code>subtract_temporal_background</code></a> &mdash; Remove each pixel’s slowly varying emission by subtracting its local temporal mean.
-</li>
-  <li><a href="#summed_region_signal"><code>summed_region_signal</code></a> &mdash; Sum the intensity inside one image region, giving a single time series.
-</li>
-  <li><a href="#track_reference_frequency"><code>track_reference_frequency</code></a> &mdash; Follow the dominant MHD frequency a magnetic probe reports, window by window.
-</li>
-</ul>
-
-<h3 id="mhd_band_power"><code class="language-plaintext highlighter-rouge">mhd_band_power</code></h3>
-
-<p class="formula-signature"><code>mhd_band_power(spectrogram, *, centre_frequency, half_width=500.0)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Integrate each pixel’s spectrogram over a band around the MHD frequency.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>spectrogram</code></td><td>PixelSpectrogram</td><td>any</td><td><p>Per-pixel magnitude map.</p>
+  <tr data-ref-row="mhd_band_power"><td><a href="#mhd_band_power"><code>mhd_band_power</code></a></td><td>Integrate each pixel’s spectrogram over a band around the MHD frequency.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="normalize_by_local_emission"><td><a href="#normalize_by_local_emission"><code>normalize_by_local_emission</code></a></td><td>Divide MHD-band power by each pixel’s local average emission.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="pixelwise_spectrogram"><td><a href="#pixelwise_spectrogram"><code>pixelwise_spectrogram</code></a></td><td>Treat every pixel as its own signal and take its short-time Fourier magnitude.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="poisson_window"><td><a href="#poisson_window"><code>poisson_window</code></a></td><td>The exponentially decreasing peak-shaped window the published analysis uses.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="subtract_temporal_background"><td><a href="#subtract_temporal_background"><code>subtract_temporal_background</code></a></td><td>Remove each pixel’s slowly varying emission by subtracting its local temporal mean.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="summed_region_signal"><td><a href="#summed_region_signal"><code>summed_region_signal</code></a></td><td>Sum the intensity inside one image region, giving a single time series.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="track_reference_frequency"><td><a href="#track_reference_frequency"><code>track_reference_frequency</code></a></td><td>Follow the dominant MHD frequency a magnetic probe reports, window by window.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="mhd_band_power">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mhd_band_power"><code>mhd_band_power</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L514" title="vaft/process/camera_fluctuation.py, line 514">source</a>
+</header>
+    <pre class="ref-signature"><code>mhd_band_power(spectrogram, *, centre_frequency, half_width=500.0)</code></pre>
+
+    <p>Integrate each pixel’s spectrogram over a band around the MHD frequency.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>spectrogram</code></td><td class="ref-type">PixelSpectrogram</td><td class="ref-unit">any</td><td><p>Per-pixel magnitude map.</p>
 </td></tr>
-  <tr><td><code>centre_frequency</code></td><td>float or array_like</td><td>Hz</td><td><p>Band centre, one value or one per window.</p>
+  <tr><td><code>centre_frequency</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">Hz</td><td><p>Band centre, one value or one per window.</p>
 </td></tr>
-  <tr><td><code>half_width</code></td><td>float, optional</td><td>Hz</td><td><p>Half the band width; the band is <code class="language-plaintext highlighter-rouge">centre +/- half_width</code>.</p>
+  <tr><td><code>half_width</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Half the band width; the band is <code class="language-plaintext highlighter-rouge">centre +/- half_width</code>.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>Band magnitude per window, frame-first as <code class="language-plaintext highlighter-rouge">(window, *pixel_shape)</code>.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>Band magnitude per window, frame-first as <code class="language-plaintext highlighter-rouge">(window, *pixel_shape)</code>.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Select the frequency bins inside the band for each window.</li>
-  <li>Sum the magnitudes over them.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">MHD_BAND_HALF_WIDTH_HZ = 500</code> is a literature value; the published images
-are filtered over <code class="language-plaintext highlighter-rouge">6 +/- 0.5 kHz</code>.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Band edges are <strong>closed</strong>, as in
+      <p>Band edges are <strong>closed</strong>, as in
 <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.compute_band_power</code>, but the reduction is a
 <strong>sum over bins, not an integral over hertz</strong>, and the two are not
 interchangeable: that function consumes a power spectral density, where
@@ -373,286 +367,357 @@ published settings, where a 1 ms window resolves 1 kHz and the <code class="lang
 band is exactly one bin wide – the single-bin case the legacy
 implementation takes directly.</p>
 
-<p>A band containing no bin at all contributes zero.  A <code class="language-plaintext highlighter-rouge">nan</code> centre – what
+      <p>A band containing no bin at all contributes zero.  A <code class="language-plaintext highlighter-rouge">nan</code> centre – what
 <code class="language-plaintext highlighter-rouge">track_reference_frequency</code> returns for a window it could not judge –
 yields <code class="language-plaintext highlighter-rouge">nan</code> for that window, not zero.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<p>Because this is a sum rather than a density integral, its magnitude depends
+      <ol>
+        <li>Select the frequency bins inside the band for each window.</li>
+        <li>Sum the magnitudes over them.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">MHD_BAND_HALF_WIDTH_HZ = 500</code> is a literature value; the published images
+are filtered over <code class="language-plaintext highlighter-rouge">6 +/- 0.5 kHz</code>.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Because this is a sum rather than a density integral, its magnitude depends
 on how many bins the band happens to hold: doubling the window length halves
 the bin width and changes the number summed. Compare images computed with the
 same window, not across windows.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] section 4.1 and figure 3, which filter about the probe’s dominant frequency with a 0.5 kHz bandwidth.
 </li>
   <li>[CameraFFT], which takes the single Fourier bin matched to the magnetic probe’s peak, with a three-bin mean left in the source as the alternative it did not use.
 </li>
 </ol>
 
-<h3 id="normalize_by_local_emission"><code class="language-plaintext highlighter-rouge">normalize_by_local_emission</code></h3>
+    </details>
 
-<p class="formula-signature"><code>normalize_by_local_emission(power, frames, *, frame_time, power_time, window_frames=10, floor=0.0)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="normalize_by_local_emission">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#normalize_by_local_emission"><code>normalize_by_local_emission</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L609" title="vaft/process/camera_fluctuation.py, line 609">source</a>
+</header>
+    <pre class="ref-signature"><code>normalize_by_local_emission(power, frames, *, frame_time, power_time, window_frames=10, floor=0.0)</code></pre>
 
-<p>Divide MHD-band power by each pixel’s local average emission.</p>
+    <p>Divide MHD-band power by each pixel’s local average emission.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>power</code></td><td>array_like</td><td>any</td><td><p>Band power per window, frame-first.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>power</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Band power per window, frame-first.</p>
 </td></tr>
-  <tr><td><code>frames</code></td><td>array_like</td><td>any</td><td><p>The image cube the power was computed from, frame axis first.</p>
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The image cube the power was computed from, frame axis first.</p>
 </td></tr>
-  <tr><td><code>frame_time</code></td><td>array_like</td><td>s</td><td><p>Time of each frame.</p>
+  <tr><td><code>frame_time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time of each frame.</p>
 </td></tr>
-  <tr><td><code>power_time</code></td><td>array_like</td><td>s</td><td><p>Time of each power window.</p>
+  <tr><td><code>power_time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time of each power window.</p>
 </td></tr>
-  <tr><td><code>window_frames</code></td><td>int, optional</td><td>-</td><td><p>Width of the local emission average, in frames.</p>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Width of the local emission average, in frames.</p>
 </td></tr>
-  <tr><td><code>floor</code></td><td>float, optional</td><td>any</td><td><p>Local means at or below this are treated as carrying no emission.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Normalised power, same shape as <code class="language-plaintext highlighter-rouge">power</code>.</p>
+  <tr><td><code>floor</code></td><td class="ref-type">float, optional</td><td class="ref-unit">any</td><td><p>Local means at or below this are treated as carrying no emission.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Normalised power, same shape as <code class="language-plaintext highlighter-rouge">power</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Take each pixel’s centred rolling mean emission over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
-  <li>Sample that mean at the frame nearest each power window’s time.</li>
-  <li>Divide, leaving pixels whose local mean is at or below <code class="language-plaintext highlighter-rouge">floor</code> at zero.</li>
-</ol>
+      <p>The local mean is centred on the analysed frame with the same shrinking-edge
+rule as <code class="language-plaintext highlighter-rouge">subtract_temporal_background</code>, and is taken from the
+<strong>unsubtracted</strong> frames: the divisor is the emission level, not the
+fluctuation.</p>
 
-<p><strong>Input semantics.</strong></p>
+    </div>
 
-<p><code class="language-plaintext highlighter-rouge">power</code> and <code class="language-plaintext highlighter-rouge">frames</code> are on different time bases – one value per
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Take each pixel’s centred rolling mean emission over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Sample that mean at the frame nearest each power window’s time.</li>
+        <li>Divide, leaving pixels whose local mean is at or below <code class="language-plaintext highlighter-rouge">floor</code> at zero.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">power</code> and <code class="language-plaintext highlighter-rouge">frames</code> are on different time bases – one value per
 transform window against one per frame – so both bases are required rather
 than assumed alignable by index.</p>
 
-<p><strong>Output semantics.</strong></p>
+      <h4 class="ref-label no_toc">Output semantics</h4>
 
-<p>The result is dimensionless: a fluctuation power relative to the emission
+      <p>The result is dimensionless: a fluctuation power relative to the emission
 that produced it, which is what makes frames of different brightness
 comparable.  It is not a density perturbation.</p>
 
-<p><strong>Defaults.</strong></p>
+      <h4 class="ref-label no_toc">Defaults</h4>
 
-<p><code class="language-plaintext highlighter-rouge">EMISSION_NORMALISATION_FRAMES_50KFPS = 10</code> is a literature value, the
+      <p><code class="language-plaintext highlighter-rouge">EMISSION_NORMALISATION_FRAMES_50KFPS = 10</code> is a literature value, the
 published ten images or 0.2 ms at 50 kFrames/s.  <code class="language-plaintext highlighter-rouge">floor = 0</code> is a
 hard-coded choice: only a non-positive local mean is refused, because any
 larger threshold is a judgement about what counts as dark that belongs to
 the caller and their camera.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>The local mean is centred on the analysed frame with the same shrinking-edge
-rule as <code class="language-plaintext highlighter-rouge">subtract_temporal_background</code>, and is taken from the
-<strong>unsubtracted</strong> frames: the divisor is the emission level, not the
-fluctuation.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Where the local mean is small but positive the ratio is large and noisy;
+      <p>Where the local mean is small but positive the ratio is large and noisy;
 this is inherent to the published normalisation, not an artefact of this
 implementation. A pixel refused by the floor is indistinguishable in the
 output from one with genuinely no fluctuation.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] section 4.1: “the powers of the MHD frequency fluctuations divided by the averaged emission intensity (over ten images, 0.2 ms) are directly used as the intensities of each pixel of the final image”.
 </li>
 </ol>
 
-<h3 id="pixelwise_spectrogram"><code class="language-plaintext highlighter-rouge">pixelwise_spectrogram</code></h3>
+    </details>
 
-<p class="formula-signature"><code>pixelwise_spectrogram(frames, times, *, window_frames=50, overlap=0.5, decay_frames=None, detrend='constant')</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="pixelwise_spectrogram">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#pixelwise_spectrogram"><code>pixelwise_spectrogram</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L327" title="vaft/process/camera_fluctuation.py, line 327">source</a>
+</header>
+    <pre class="ref-signature"><code>pixelwise_spectrogram(frames, times, *, window_frames=50, overlap=0.5, decay_frames=None, detrend=&#39;constant&#39;)</code></pre>
 
-<p>Treat every pixel as its own signal and take its short-time Fourier magnitude.</p>
+    <p>Treat every pixel as its own signal and take its short-time Fourier magnitude.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frames</code></td><td>array_like</td><td>any</td><td><p>Time-ordered image cube, frame axis first.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
 </td></tr>
-  <tr><td><code>times</code></td><td>array_like</td><td>s</td><td><p>Uniformly sampled frame times.</p>
+  <tr><td><code>times</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled frame times.</p>
 </td></tr>
-  <tr><td><code>window_frames</code></td><td>int, optional</td><td>-</td><td><p>Short-time window length in frames.</p>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Short-time window length in frames.</p>
 </td></tr>
-  <tr><td><code>overlap</code></td><td>float, optional</td><td>-</td><td><p>Fractional overlap between successive windows.</p>
+  <tr><td><code>overlap</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fractional overlap between successive windows.</p>
 </td></tr>
-  <tr><td><code>decay_frames</code></td><td>float, optional</td><td>-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">poisson_window</code>.</p>
+  <tr><td><code>decay_frames</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">poisson_window</code>.</p>
 </td></tr>
-  <tr><td><code>detrend</code></td><td>str or bool, optional</td><td>-</td><td><p>Per-window detrending, passed to the transform.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>PixelSpectrogram</td><td>any</td><td><p>Frequency and time axes and the per-pixel magnitude map.</p>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Per-window detrending, passed to the transform.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">PixelSpectrogram</td><td class="ref-unit">any</td><td><p>Frequency and time axes and the per-pixel magnitude map.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Build the exponential peak-shaped window of <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
-  <li>Transform every pixel’s time series with that window.</li>
-  <li>Return the magnitudes with the frequency and time axes first.</li>
-</ol>
-
-<p><strong>Defaults.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">SPECTRAL_WINDOW_FRAMES_50KFPS = 50</code> is a literature value: 1 ms at
-50 kFrames/s.  The overlap is a numerical convenience.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><strong>The time axis is returned in the caller’s own base</strong>, offset back from the
+      <p><strong>The time axis is returned in the caller’s own base</strong>, offset back from the
 transform’s window-relative one, exactly as
 <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.compute_spectrogram</code> does, so a feature can be
 read against the shot clock without correction.  Magnitudes are amplitudes,
 not densities, from the same <code class="language-plaintext highlighter-rouge">mode="magnitude"</code> transform that function uses.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<p>Cost and memory scale with the pixel count times the window count; a
+      <ol>
+        <li>Build the exponential peak-shaped window of <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Transform every pixel’s time series with that window.</li>
+        <li>Return the magnitudes with the frequency and time axes first.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">SPECTRAL_WINDOW_FRAMES_50KFPS = 50</code> is a literature value: 1 ms at
+50 kFrames/s.  The overlap is a numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Cost and memory scale with the pixel count times the window count; a
 208x208 sequence is comfortable, a 1024x1280 one is not, and nothing here
 tiles the image for the caller.  A record shorter than one window raises
 rather than returning an empty map, because for imaging that is a mistake
 rather than an edge case.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] section 4.1, which treats each pixel of a sequence of images as an independent signal and transforms it.
 </li>
   <li>[CameraFFT], the legacy implementation of that step, which used a rectangular window rather than the published one.
 </li>
 </ol>
 
-<h3 id="poisson_window"><code class="language-plaintext highlighter-rouge">poisson_window</code></h3>
+    </details>
 
-<p class="formula-signature"><code>poisson_window(window_frames, *, decay_frames=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="poisson_window">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#poisson_window"><code>poisson_window</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L273" title="vaft/process/camera_fluctuation.py, line 273">source</a>
+</header>
+    <pre class="ref-signature"><code>poisson_window(window_frames, *, decay_frames=None)</code></pre>
 
-<p>The exponentially decreasing peak-shaped window the published analysis uses.</p>
+    <p>The exponentially decreasing peak-shaped window the published analysis uses.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>window_frames</code></td><td>int</td><td>-</td><td><p>Window length in frames.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>window_frames</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Window length in frames.</p>
 </td></tr>
-  <tr><td><code>decay_frames</code></td><td>float, optional</td><td>-</td><td><p>Length over which the weight falls by <code class="language-plaintext highlighter-rouge">1/e</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Window weights, peak in the middle.</p>
+  <tr><td><code>decay_frames</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Length over which the weight falls by <code class="language-plaintext highlighter-rouge">1/e</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Window weights, peak in the middle.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Defaults.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><code class="language-plaintext highlighter-rouge">decay_frames = window_frames / 8</code> is an assumed value.  The publications
+      <p>Periodic rather than symmetric, which is what a short-time transform wants
+and what <code class="language-plaintext highlighter-rouge">scipy.signal.spectrogram</code> would build from a window name.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">decay_frames = window_frames / 8</code> is an assumed value.  The publications
 name the window shape but not its rate, so this is a VAFT choice, recorded
 rather than presented as published: it leaves the window edges at about 0.02
 of the peak, tapering hard enough to suppress the transform’s edge artefacts
 without narrowing the effective window far below the stated 1 ms.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Periodic rather than symmetric, which is what a short-time transform wants
-and what <code class="language-plaintext highlighter-rouge">scipy.signal.spectrogram</code> would build from a window name.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>Because the rate is a choice, band powers from this window are not
+      <p>Because the rate is a choice, band powers from this window are not
 numerically comparable with published values; the structure they show is.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] section 4.1: “an exponential decreasing peak-shape time window of 1 ms (50 images)”.
 </li>
   <li><code class="language-plaintext highlighter-rouge">scipy.signal.windows.exponential</code>.
 </li>
 </ol>
 
-<h3 id="subtract_temporal_background"><code class="language-plaintext highlighter-rouge">subtract_temporal_background</code></h3>
+    </details>
 
-<p class="formula-signature"><code>subtract_temporal_background(frames, *, window_frames=15)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="subtract_temporal_background">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#subtract_temporal_background"><code>subtract_temporal_background</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L138" title="vaft/process/camera_fluctuation.py, line 138">source</a>
+</header>
+    <pre class="ref-signature"><code>subtract_temporal_background(frames, *, window_frames=15)</code></pre>
 
-<p>Remove each pixel’s slowly varying emission by subtracting its local temporal mean.</p>
+    <p>Remove each pixel’s slowly varying emission by subtracting its local temporal mean.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frames</code></td><td>array_like</td><td>any</td><td><p>Time-ordered image cube, frame axis first.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
 </td></tr>
-  <tr><td><code>window_frames</code></td><td>int, optional</td><td>-</td><td><p>Width of the local mean, in frames.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p><code class="language-plaintext highlighter-rouge">frames</code> minus its local temporal mean, same shape, float.</p>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Width of the local mean, in frames.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">frames</code> minus its local temporal mean, same shape, float.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<ol>
-  <li>Take the centred rolling mean of every pixel over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
-  <li>Subtract it from the frame at the centre of that window.</li>
-</ol>
+      <p>The window is centred on the analysed frame and spans
+<code class="language-plaintext highlighter-rouge">[i - w//2, i + (w-1)//2]</code>, clipped to the record, so the first and last
+frames average over a shrinking window rather than over zeros and the output
+keeps the input’s length.  For an odd window – both published presets are
+odd – that span is symmetric; an even window takes one more frame from
+before than after.</p>
 
-<p><strong>Defaults.</strong></p>
+      <p>A window wider than the record is allowed and clips the same way, so every
+frame is measured against the whole record.  Refusing it would make the
+result depend on how many frames a caller happened to pass rather than on
+the window it asked for: a fourteen-frame acquisition and a fourteen-frame
+slice of a long one would come out differently.</p>
 
-<p><code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_50KFPS = 15</code> and <code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_2500FPS = 3</code> are
+      <p>Frame values and their order are otherwise untouched: this subtracts, it does
+not filter, reorder or resample.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Take the centred rolling mean of every pixel over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Subtract it from the frame at the centre of that window.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_50KFPS = 15</code> and <code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_2500FPS = 3</code> are
 literature values.  The 50 kFrames/s preset is the analysed frame plus seven
 before and seven after, which is what reproduces the published filter
 behaviour: measured at 50 kFrames/s this window passes 0.89 of a 3 kHz
@@ -662,168 +727,163 @@ components below about 3 kHz while enhancing the several-kHz structures.  A
 passes only 0.26 at 3 kHz and 0.81 at 6 kHz – it would attenuate the MHD
 band this analysis exists to see.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>The window is centred on the analysed frame and spans
-<code class="language-plaintext highlighter-rouge">[i - w//2, i + (w-1)//2]</code>, clipped to the record, so the first and last
-frames average over a shrinking window rather than over zeros and the output
-keeps the input’s length.  For an odd window – both published presets are
-odd – that span is symmetric; an even window takes one more frame from
-before than after.</p>
+      <p>Machine-independent.</p>
 
-<p>A window wider than the record is allowed and clips the same way, so every
-frame is measured against the whole record.  Refusing it would make the
-result depend on how many frames a caller happened to pass rather than on
-the window it asked for: a fourteen-frame acquisition and a fourteen-frame
-slice of a long one would come out differently.</p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Frame values and their order are otherwise untouched: this subtracts, it does
-not filter, reorder or resample.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>The subtraction is zero-phase but the shrinking edge windows bias the first
+      <p>The subtraction is zero-phase but the shrinking edge windows bias the first
 and last <code class="language-plaintext highlighter-rouge">window_frames / 2</code> frames toward the local level; a burst there is
 partly removed along with the background.  A single very bright frame pulls
 the mean toward itself and appears, inverted, in its neighbours.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] section 3.1: “subtracts the average value of each pixel in a series of seven images before and after the analysed image … removes slowly varying components (less than about 3 kHz)”.
 </li>
   <li>[JungThesis], the background-removal figure.
 </li>
 </ol>
 
-<h3 id="summed_region_signal"><code class="language-plaintext highlighter-rouge">summed_region_signal</code></h3>
+    </details>
 
-<p class="formula-signature"><code>summed_region_signal(frames, *, region=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="summed_region_signal">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#summed_region_signal"><code>summed_region_signal</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L216" title="vaft/process/camera_fluctuation.py, line 216">source</a>
+</header>
+    <pre class="ref-signature"><code>summed_region_signal(frames, *, region=None)</code></pre>
 
-<p>Sum the intensity inside one image region, giving a single time series.</p>
+    <p>Sum the intensity inside one image region, giving a single time series.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>frames</code></td><td>array_like</td><td>any</td><td><p>Time-ordered image cube, frame axis first.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
 </td></tr>
-  <tr><td><code>region</code></td><td>sequence of int, optional</td><td>-</td><td><p>Pixel box as <code class="language-plaintext highlighter-rouge">(row_start, row_stop, column_start, column_stop)</code>, the stops exclusive; <code class="language-plaintext highlighter-rouge">None</code> sums the whole frame.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any</td><td><p>One value per frame.</p>
+  <tr><td><code>region</code></td><td class="ref-type">sequence of int, optional</td><td class="ref-unit">-</td><td><p>Pixel box as <code class="language-plaintext highlighter-rouge">(row_start, row_stop, column_start, column_stop)</code>, the stops exclusive; <code class="language-plaintext highlighter-rouge">None</code> sums the whole frame.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>One value per frame.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Bounds are half-open and in row-then-column order, the order an image array
+      <p>Bounds are half-open and in row-then-column order, the order an image array
 is indexed with – which is the opposite of the column-then-row order
 <code class="language-plaintext highlighter-rouge">vaft.process.camera_geometry.project_points</code> returns pixels in.  A
 region is stated explicitly rather than inferred, because which part of the
 image faces the low-field side depends on the camera pose.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>A plain sum, not a mean: two regions of different size are not comparable in
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A plain sum, not a mean: two regions of different size are not comparable in
 magnitude. Nothing checks that the region holds plasma rather than wall.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>[Jung2022] figure 3, the summed camera pixel intensity viewing the low-field side whose spectrogram is compared with the magnetic probe’s.
 </li>
 </ol>
 
-<h3 id="track_reference_frequency"><code class="language-plaintext highlighter-rouge">track_reference_frequency</code></h3>
+    </details>
 
-<p class="formula-signature"><code>track_reference_frequency(spectrogram, *, search_range=(3000.0, 15000.0))</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="track_reference_frequency">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#track_reference_frequency"><code>track_reference_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/camera_fluctuation.py#L449" title="vaft/process/camera_fluctuation.py, line 449">source</a>
+</header>
+    <pre class="ref-signature"><code>track_reference_frequency(spectrogram, *, search_range=(3000.0, 15000.0))</code></pre>
 
-<p>Follow the dominant MHD frequency a magnetic probe reports, window by window.</p>
+    <p>Follow the dominant MHD frequency a magnetic probe reports, window by window.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>spectrogram</code></td><td>Any</td><td>-</td><td><p>Any object carrying <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code>, such as a magnetics spectrogram result.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>spectrogram</code></td><td class="ref-type">Any</td><td class="ref-unit">-</td><td><p>Any object carrying <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code>, such as a magnetics spectrogram result.</p>
 </td></tr>
-  <tr><td><code>search_range</code></td><td>sequence of float, optional</td><td>Hz</td><td><p>Lowest and highest frequency the peak may be found at.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>Hz</td><td><p>One frequency per window, <code class="language-plaintext highlighter-rouge">nan</code> where no bin lies in range.</p>
+  <tr><td><code>search_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">Hz</td><td><p>Lowest and highest frequency the peak may be found at.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Hz</td><td><p>One frequency per window, <code class="language-plaintext highlighter-rouge">nan</code> where no bin lies in range.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Defaults.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><code class="language-plaintext highlighter-rouge">REFERENCE_SEARCH_RANGE_HZ = (3000, 15000)</code> is a legacy compatibility
+      <p>The frequency is tracked, not assumed.  The published filtering is “centred
+at the dominant MHD mode frequency measured by the magnetic probe”, which
+moves during a shot; a fixed 6 kHz is the value of one example, not the
+method.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">REFERENCE_SEARCH_RANGE_HZ = (3000, 15000)</code> is a legacy compatibility
 value.  The legacy code searched the first fifteen bins of a magnetics
 transform whose resolution was 1 kHz and rejected anything below the fourth,
 which is this range expressed in hertz rather than in bins, so it means the
 same thing at any window length.  The lower edge matters: without it the
 peak sits on the equilibrium field’s own slow variation instead of the mode.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>The frequency is tracked, not assumed.  The published filtering is “centred
-at the dominant MHD mode frequency measured by the magnetic probe”, which
-moves during a shot; a fixed 6 kHz is the value of one example, not the
-method.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Machine-independent.</p>
-
-<p><strong>Limitations.</strong></p>
-
-<p>A single argmax per window, with no continuity requirement between windows,
+      <p>A single argmax per window, with no continuity requirement between windows,
 so it can jump between two comparable modes from one window to the next. It
 reports the strongest component in range whether or not one is really there;
 a window with no mode still returns its loudest bin.
 <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.track_dominant_frequency</code>, which this calls,
 offers a floor and a continuity limit for callers that want neither.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li></li>
   <li>[Jung2022] section 4.1, which specifies the magnetic probe as the source of the centre frequency.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -924,7 +984,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#mhd_band_power" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">mhd_band_power</a></li><li class="page-toc-item page-toc-level-3"><a href="#normalize_by_local_emission" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">normalize_by_local_emission</a></li><li class="page-toc-item page-toc-level-3"><a href="#pixelwise_spectrogram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pixelwise_spectrogram</a></li><li class="page-toc-item page-toc-level-3"><a href="#poisson_window" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">poisson_window</a></li><li class="page-toc-item page-toc-level-3"><a href="#subtract_temporal_background" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">subtract_temporal_background</a></li><li class="page-toc-item page-toc-level-3"><a href="#summed_region_signal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">summed_region_signal</a></li><li class="page-toc-item page-toc-level-3"><a href="#track_reference_frequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">track_reference_frequency</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -1042,7 +1102,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1071,7 +1131,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

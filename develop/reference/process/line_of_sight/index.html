@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/line_of_sight.py"><code class="language-plaintext highlighter-rouge">vaft/process/line_of_sight.py</code></a>:
-3 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("line_of_sight.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.line_of_sight</code>:
+<strong>3</strong> public functions. Each entry is what
+<code>vaft.process.describe("line_of_sight.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -291,14 +289,14 @@ what the field is: soft X-ray emissivity, radiated power or density all
 integrate the same way. Machine geometry is loaded elsewhere, for VEST by
 <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.soft_x_rays.sxr_sightlines</code>.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>G_ij</td><td>length of chord i inside cell j</td><td>m</td></tr>
-  <tr><td>epsilon_j</td><td>field value on cell j</td><td>any, per metre</td></tr>
-  <tr><td>B_i</td><td>line integral along chord i</td><td>any</td></tr>
+  <tr><td>G_ij</td><td>length of chord i inside cell j</td><td class="ref-unit">m</td></tr>
+  <tr><td>epsilon_j</td><td>field value on cell j</td><td class="ref-unit">any, per metre</td></tr>
+  <tr><td>B_i</td><td>line integral along chord i</td><td class="ref-unit">any</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>A grid node is a cell centre.</strong> Cell edges sit halfway between nodes and
 half a spacing beyond the outermost ones, so the cells tile the rectangle the
@@ -313,64 +311,56 @@ not representable here.</p>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#build_line_integral_operator"><code>build_line_integral_operator</code></a> &mdash; The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.
-</li>
-  <li><a href="#clip_segment_to_polygon"><code>clip_segment_to_polygon</code></a> &mdash; The parameter intervals of a segment that lie inside a closed polygon.
-</li>
-  <li><a href="#project_emissivity"><code>project_emissivity</code></a> &mdash; Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.
-</li>
-</ul>
-
-<h3 id="build_line_integral_operator"><code class="language-plaintext highlighter-rouge">build_line_integral_operator</code></h3>
-
-<p class="formula-signature"><code>build_line_integral_operator(r, z, sightlines, *, domain=None)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 3 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Major-radius grid axis, the cell centres, strictly increasing.</p>
-</td></tr>
-  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Height grid axis, the cell centres, strictly increasing.</p>
-</td></tr>
-  <tr><td><code>sightlines</code></td><td>Sightlines</td><td>-</td><td><p>The chords, one row of the operator each.</p>
-</td></tr>
-  <tr><td><code>domain</code></td><td>tuple of array_like, optional</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> vertices of a closed polygon, normally the limiter; each chord counts only where it is inside it.</p>
+  <tr data-ref-row="build_line_integral_operator"><td><a href="#build_line_integral_operator"><code>build_line_integral_operator</code></a></td><td>The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="clip_segment_to_polygon"><td><a href="#clip_segment_to_polygon"><code>clip_segment_to_polygon</code></a></td><td>The parameter intervals of a segment that lie inside a closed polygon.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="project_emissivity"><td><a href="#project_emissivity"><code>project_emissivity</code></a></td><td>Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.
 </td></tr>
   </tbody>
-</table>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>scipy.sparse.csr_matrix</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">G</code> shaped <code class="language-plaintext highlighter-rouge">(len(sightlines), len(r) * len(z))</code>; <code class="language-plaintext highlighter-rouge">G @ field.reshape(-1)</code> is the line integral of a field indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code></p>
+<div class="ref-entries">
+
+  <section class="ref-entry" id="build_line_integral_operator">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#build_line_integral_operator"><code>build_line_integral_operator</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/line_of_sight.py#L200" title="vaft/process/line_of_sight.py, line 200">source</a>
+</header>
+    <pre class="ref-signature"><code>build_line_integral_operator(r, z, sightlines, *, domain=None)</code></pre>
+
+    <p>The path-length matrix of chords through the cells of an <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major-radius grid axis, the cell centres, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height grid axis, the cell centres, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>sightlines</code></td><td class="ref-type">Sightlines</td><td class="ref-unit">-</td><td><p>The chords, one row of the operator each.</p>
+</td></tr>
+  <tr><td><code>domain</code></td><td class="ref-type">tuple of array_like, optional</td><td class="ref-unit">m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> vertices of a closed polygon, normally the limiter; each chord counts only where it is inside it.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">scipy.sparse.csr_matrix</td><td class="ref-unit">m</td><td><p><code class="language-plaintext highlighter-rouge">G</code> shaped <code class="language-plaintext highlighter-rouge">(len(sightlines), len(r) * len(z))</code>; <code class="language-plaintext highlighter-rouge">G @ field.reshape(-1)</code> is the line integral of a field indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code></p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    A grid axis is not strictly increasing or has fewer than two values,
-    or the domain polygon is degenerate.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Clip each chord to the domain polygon, if one is given.</li>
-  <li>For each inside interval, collect the parameters at which it crosses a
-cell edge in either direction.</li>
-  <li>Assign each piece between consecutive crossings to the cell containing
-its midpoint, with the piece’s length as the entry.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p>Nodes are cell centres, with edges halfway between them and half a spacing
+      <p>Nodes are cell centres, with edges halfway between them and half a spacing
 beyond the outermost node, and cells are flattened in C order over
 <code class="language-plaintext highlighter-rouge">(R, Z)</code>. A chord running exactly along an interior edge is assigned to
 the cell above it, and along an outer edge to the outermost cell. Each entry is the exact length of the chord inside that cell,
@@ -378,132 +368,170 @@ so a row sums to the chord’s length inside the gridded rectangle and the
 domain. Chords are straight in the <code class="language-plaintext highlighter-rouge">(R, Z)</code> plane; their toroidal angle
 does not enter the operator.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A grid axis is not strictly increasing or has fewer than two values, or the domain polygon is degenerate.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
 
-<p>A pencil beam: no finite aperture, no viewing cone, no etendue weighting
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Clip each chord to the domain polygon, if one is given.</li>
+        <li>For each inside interval, collect the parameters at which it crosses a
+cell edge in either direction.</li>
+        <li>Assign each piece between consecutive crossings to the cell containing
+its midpoint, with the piece’s length as the entry.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A pencil beam: no finite aperture, no viewing cone, no etendue weighting
 and no reflection. Deterministic but not cached; build it once per grid
 and chord set and reuse it.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Siddon, R. L., Med. Phys. 12, 252 (1985).
 </li>
 </ol>
 
-<h3 id="clip_segment_to_polygon"><code class="language-plaintext highlighter-rouge">clip_segment_to_polygon</code></h3>
+    </details>
 
-<p class="formula-signature"><code>clip_segment_to_polygon(p1, p2, polygon_r, polygon_z)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="clip_segment_to_polygon">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#clip_segment_to_polygon"><code>clip_segment_to_polygon</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/line_of_sight.py#L101" title="vaft/process/line_of_sight.py, line 101">source</a>
+</header>
+    <pre class="ref-signature"><code>clip_segment_to_polygon(p1, p2, polygon_r, polygon_z)</code></pre>
 
-<p>The parameter intervals of a segment that lie inside a closed polygon.</p>
+    <p>The parameter intervals of a segment that lie inside a closed polygon.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>p1</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment start.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p1</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment start.</p>
 </td></tr>
-  <tr><td><code>p2</code></td><td>sequence of float</td><td>m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment end.</p>
+  <tr><td><code>p2</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">m</td><td><p><code class="language-plaintext highlighter-rouge">(R, Z)</code> of the segment end.</p>
 </td></tr>
-  <tr><td><code>polygon_r</code></td><td>array_like</td><td>m</td><td><p>Polygon vertex major radii, closed or open.</p>
+  <tr><td><code>polygon_r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Polygon vertex major radii, closed or open.</p>
 </td></tr>
-  <tr><td><code>polygon_z</code></td><td>array_like</td><td>m</td><td><p>Polygon vertex heights.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>list of tuple of float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(t_start, t_end)</code> intervals of the segment parameter <code class="language-plaintext highlighter-rouge">p = p1 + t (p2 - p1)</code>, <code class="language-plaintext highlighter-rouge">0 &lt;= t &lt;= 1</code>, lying inside the polygon, in increasing order.</p>
+  <tr><td><code>polygon_z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Polygon vertex heights.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">list of tuple of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(t_start, t_end)</code> intervals of the segment parameter <code class="language-plaintext highlighter-rouge">p = p1 + t (p2 - p1)</code>, <code class="language-plaintext highlighter-rouge">0 &lt;= t &lt;= 1</code>, lying inside the polygon, in increasing order.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The polygon has fewer than three distinct vertices.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Inside is decided by even-odd parity at each sub-interval’s midpoint, so a
+      <p>Inside is decided by even-odd parity at each sub-interval’s midpoint, so a
 non-convex polygon, such as a limiter with a divertor recess, yields
 several intervals. A segment grazing a vertex or running along an edge
 splits there with zero-length pieces dropped.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The polygon has fewer than three distinct vertices.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p>The polygon is a single loop; holes are not supported.</p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p><strong>Provenance.</strong></p>
+      <p>Machine-independent.</p>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The polygon is a single loop; holes are not supported.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>The even-odd rule for point-in-polygon, as <code class="language-plaintext highlighter-rouge">matplotlib.path.Path</code> applies it.
 </li>
 </ol>
 
-<h3 id="project_emissivity"><code class="language-plaintext highlighter-rouge">project_emissivity</code></h3>
+    </details>
 
-<p class="formula-signature"><code>project_emissivity(emissivity, operator)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="project_emissivity">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_emissivity"><code>project_emissivity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/line_of_sight.py#L302" title="vaft/process/line_of_sight.py, line 302">source</a>
+</header>
+    <pre class="ref-signature"><code>project_emissivity(emissivity, operator)</code></pre>
 
-<p>Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.</p>
+    <p>Line integrals of one or many <code class="language-plaintext highlighter-rouge">(R, Z)</code> fields through a path-length operator.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>emissivity</code></td><td>array_like</td><td>any, per metre</td><td><p>Field indexed <code class="language-plaintext highlighter-rouge">(..., R, Z)</code>; leading axes, such as time, are kept</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>emissivity</code></td><td class="ref-type">array_like</td><td class="ref-unit">any, per metre</td><td><p>Field indexed <code class="language-plaintext highlighter-rouge">(..., R, Z)</code>; leading axes, such as time, are kept</p>
 </td></tr>
-  <tr><td><code>operator</code></td><td>scipy.sparse matrix or ndarray</td><td>m</td><td><p>From <code class="language-plaintext highlighter-rouge">build_line_integral_operator</code> for the same grid.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>numpy.ndarray</td><td>any</td><td><p>Line integrals shaped <code class="language-plaintext highlighter-rouge">(..., n_chords)</code>.</p>
+  <tr><td><code>operator</code></td><td class="ref-type">scipy.sparse matrix or ndarray</td><td class="ref-unit">m</td><td><p>From <code class="language-plaintext highlighter-rouge">build_line_integral_operator</code> for the same grid.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>Line integrals shaped <code class="language-plaintext highlighter-rouge">(..., n_chords)</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The field’s last two axes do not hold as many cells as the operator has columns.
+</li>
+</ul>
+</div>
 
-<p>ValueError
-    The field’s last two axes do not hold as many cells as the operator
-    has columns.</p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Exactly linear: whatever the field’s unit, the result is that unit times
+      <p>Exactly linear: whatever the field’s unit, the result is that unit times
 metres. No detector response, filter transmission or etendue is applied.</p>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -604,7 +632,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#build_line_integral_operator" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">build_line_integral_operator</a></li><li class="page-toc-item page-toc-level-3"><a href="#clip_segment_to_polygon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">clip_segment_to_polygon</a></li><li class="page-toc-item page-toc-level-3"><a href="#project_emissivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_emissivity</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -722,7 +750,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -751,7 +779,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

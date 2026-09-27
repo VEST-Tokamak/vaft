@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/field_line_topology.py"><code class="language-plaintext highlighter-rouge">vaft/process/field_line_topology.py</code></a>:
-10 public functions.  The category overview, notation and conventions come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("field_line_topology.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.field_line_topology</code>:
+<strong>10</strong> public functions. Each entry is what
+<code>vaft.process.describe("field_line_topology.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -295,20 +293,20 @@ with each other. It does not say how many watts.</p>
 <code class="language-plaintext highlighter-rouge">vaft.data.flare_products</code>, and the IDS stand-ins they are written into
 are in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.field_line_topology</code>.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>A</td><td>area of one target surface element</td><td>m^2</td></tr>
-  <tr><td>psi_N</td><td>normalized poloidal flux, 1 on the separatrix</td><td>-</td></tr>
-  <tr><td>psi_N,min</td><td>the deepest flux surface a traced line reached</td><td>-</td></tr>
-  <tr><td>lambda_psi</td><td>upstream channel width, in psi_N</td><td>-</td></tr>
-  <tr><td>alpha</td><td>angle between the field line and the target surface</td><td>deg</td></tr>
-  <tr><td>L_c</td><td>connection length of a field line, reduced over its two</td><td></td></tr>
-  <tr><td>w_psi</td><td>upstream channel weight exp(-max(psi_N,min - psi_sep, 0)/lambda_psi)</td><td>-</td></tr>
-  <tr><td>w_L</td><td>parallel-loss weight, inverse or exponential in L_c/L_0</td><td>-</td></tr>
-  <tr><td>q</td><td>the proxy, w_psi |sin alpha| w_L</td><td>-</td></tr>
+  <tr><td>A</td><td>area of one target surface element</td><td class="ref-unit">m^2</td></tr>
+  <tr><td>psi_N</td><td>normalized poloidal flux, 1 on the separatrix</td><td class="ref-unit">-</td></tr>
+  <tr><td>psi_N,min</td><td>the deepest flux surface a traced line reached</td><td class="ref-unit">-</td></tr>
+  <tr><td>lambda_psi</td><td>upstream channel width, in psi_N</td><td class="ref-unit">-</td></tr>
+  <tr><td>alpha</td><td>angle between the field line and the target surface</td><td class="ref-unit">deg</td></tr>
+  <tr><td>L_c</td><td>connection length of a field line, reduced over its two</td><td class="ref-unit"></td></tr>
+  <tr><td>w_psi</td><td>upstream channel weight exp(-max(psi_N,min - psi_sep, 0)/lambda_psi)</td><td class="ref-unit">-</td></tr>
+  <tr><td>w_L</td><td>parallel-loss weight, inverse or exponential in L_c/L_0</td><td class="ref-unit">-</td></tr>
+  <tr><td>q</td><td>the proxy, w_psi |sin alpha| w_L</td><td class="ref-unit">-</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>The proxy is a surface density, and the cell areas are what integrates
 it.</strong> <code class="language-plaintext highlighter-rouge">q</code> stands in for the heat flux arriving per unit target area, so
@@ -342,293 +340,342 @@ surface the upstream channel weight is asking about; the model’s
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#connection_length_weight"><code>connection_length_weight</code></a> &mdash; Parallel-loss weight from a field line’s connection length.
-</li>
-  <li><a href="#footprint_heat_load_proxy"><code>footprint_heat_load_proxy</code></a> &mdash; A relative heat-load proxy over a divertor target’s footprint grid.
-</li>
-  <li><a href="#footprint_incident_total"><code>footprint_incident_total</code></a> &mdash; The proxy integrated over one target.
-</li>
-  <li><a href="#footprint_proxy_model"><code>footprint_proxy_model</code></a> &mdash; One named footprint proxy model.
-</li>
-  <li><a href="#incidence_factor"><code>incidence_factor</code></a> &mdash; The projection of a field line onto the surface it strikes.
-</li>
-  <li><a href="#reduce_traced_directions"><code>reduce_traced_directions</code></a> &mdash; Reduce a quantity traced in both directions to one value per line.
-</li>
-  <li><a href="#target_incident_fractions"><code>target_incident_fractions</code></a> &mdash; Each target’s share of the proxy incident on all of them.
-</li>
-  <li><a href="#toroidal_surface_cell_areas"><code>toroidal_surface_cell_areas</code></a> &mdash; Area of every quadrilateral cell of a surface mesh in <code class="language-plaintext highlighter-rouge">(R, z, phi)</code>.
-</li>
-  <li><a href="#toroidal_surface_node_areas"><code>toroidal_surface_node_areas</code></a> &mdash; Area each node of a surface mesh represents, as a dual cell.
-</li>
-  <li><a href="#upstream_flux_weight"><code>upstream_flux_weight</code></a> &mdash; Exponential upstream heat-channel weight in normalized flux.
-</li>
-</ul>
-
-<h3 id="connection_length_weight"><code class="language-plaintext highlighter-rouge">connection_length_weight</code></h3>
-
-<p class="formula-signature"><code>connection_length_weight(length, *, scale, form)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>Parallel-loss weight from a field line’s connection length.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 10 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>length</code></td><td>array_like</td><td>m</td><td><p>Connection length per line; negative entries are treated as zero, and non-finite ones are given zero weight.</p>
+  <tr data-ref-row="connection_length_weight"><td><a href="#connection_length_weight"><code>connection_length_weight</code></a></td><td>Parallel-loss weight from a field line’s connection length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="footprint_heat_load_proxy"><td><a href="#footprint_heat_load_proxy"><code>footprint_heat_load_proxy</code></a></td><td>A relative heat-load proxy over a divertor target’s footprint grid.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="footprint_incident_total"><td><a href="#footprint_incident_total"><code>footprint_incident_total</code></a></td><td>The proxy integrated over one target.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="footprint_proxy_model"><td><a href="#footprint_proxy_model"><code>footprint_proxy_model</code></a></td><td>One named footprint proxy model.
 </td></tr>
-  <tr><td><code>scale</code></td><td>float</td><td>m</td><td><p>The length the weight is measured against; must be positive.</p>
+  <tr data-ref-row="incidence_factor"><td><a href="#incidence_factor"><code>incidence_factor</code></a></td><td>The projection of a field line onto the surface it strikes.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="reduce_traced_directions"><td><a href="#reduce_traced_directions"><code>reduce_traced_directions</code></a></td><td>Reduce a quantity traced in both directions to one value per line.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="target_incident_fractions"><td><a href="#target_incident_fractions"><code>target_incident_fractions</code></a></td><td>Each target’s share of the proxy incident on all of them.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_surface_cell_areas"><td><a href="#toroidal_surface_cell_areas"><code>toroidal_surface_cell_areas</code></a></td><td>Area of every quadrilateral cell of a surface mesh in <code class="language-plaintext highlighter-rouge">(R, z, phi)</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_surface_node_areas"><td><a href="#toroidal_surface_node_areas"><code>toroidal_surface_node_areas</code></a></td><td>Area each node of a surface mesh represents, as a dual cell.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="upstream_flux_weight"><td><a href="#upstream_flux_weight"><code>upstream_flux_weight</code></a></td><td>Exponential upstream heat-channel weight in normalized flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="connection_length_weight">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#connection_length_weight"><code>connection_length_weight</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L340" title="vaft/process/field_line_topology.py, line 340">source</a>
+</header>
+    <pre class="ref-signature"><code>connection_length_weight(length, *, scale, form)</code></pre>
+
+    <p>Parallel-loss weight from a field line’s connection length.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>length</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Connection length per line; negative entries are treated as zero, and non-finite ones are given zero weight.</p>
 </td></tr>
-  <tr><td><code>form</code></td><td>str</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">"inverse"</code> for <code class="language-plaintext highlighter-rouge">1 / (1 + L / L_0)</code>, <code class="language-plaintext highlighter-rouge">"exponential"</code> for <code class="language-plaintext highlighter-rouge">exp(-L / L_0)</code>, <code class="language-plaintext highlighter-rouge">"none"</code> for a flat one.</p>
+  <tr><td><code>scale</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>The length the weight is measured against; must be positive.</p>
+</td></tr>
+  <tr><td><code>form</code></td><td class="ref-type">str</td><td class="ref-unit">n/a</td><td><p><code class="language-plaintext highlighter-rouge">"inverse"</code> for <code class="language-plaintext highlighter-rouge">1 / (1 + L / L_0)</code>, <code class="language-plaintext highlighter-rouge">"exponential"</code> for <code class="language-plaintext highlighter-rouge">exp(-L / L_0)</code>, <code class="language-plaintext highlighter-rouge">"none"</code> for a flat one.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>-</td><td><p>Weights in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">-</td><td><p>Weights in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">scale</code> is not positive, or <code class="language-plaintext highlighter-rouge">form</code> is not one of
-    <code class="language-plaintext highlighter-rouge">CONNECTION_LENGTH_FORMS</code>.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>A longer line is weighted less: the length stands in for how much of the
+      <p>A longer line is weighted less: the length stands in for how much of the
 flux tube’s content was lost on the way. The two forms are empirical and
 disagree by construction – the inverse one keeps a long line at a small
 but finite weight, the exponential one takes it to zero – so which is
 used is part of the model, never a default.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">scale</code> is not positive, or <code class="language-plaintext highlighter-rouge">form</code> is not one of <code class="language-plaintext highlighter-rouge">CONNECTION_LENGTH_FORMS</code>.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>the donor’s <code class="language-plaintext highlighter-rouge">connection_length_weight</code>, whose <code class="language-plaintext highlighter-rouge">"exp_loss"</code> is this <code class="language-plaintext highlighter-rouge">"exponential"</code>.
 </li>
 </ol>
 
-<h3 id="footprint_heat_load_proxy"><code class="language-plaintext highlighter-rouge">footprint_heat_load_proxy</code></h3>
+    </details>
 
-<p class="formula-signature"><code>footprint_heat_load_proxy(*, min_psi_norm_backward, min_psi_norm_forward, connection_length_backward, connection_length_forward, area, incidence_angle_deg, model)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="footprint_heat_load_proxy">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#footprint_heat_load_proxy"><code>footprint_heat_load_proxy</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L620" title="vaft/process/field_line_topology.py, line 620">source</a>
+</header>
+    <pre class="ref-signature"><code>footprint_heat_load_proxy(*, min_psi_norm_backward, min_psi_norm_forward, connection_length_backward, connection_length_forward, area, incidence_angle_deg, model)</code></pre>
 
-<p>A relative heat-load proxy over a divertor target’s footprint grid.</p>
+    <p>A relative heat-load proxy over a divertor target’s footprint grid.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>min_psi_norm_backward</code></td><td>array_like</td><td>-</td><td><p>Deepest normalized flux each line reached tracing one way.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>min_psi_norm_backward</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Deepest normalized flux each line reached tracing one way.</p>
 </td></tr>
-  <tr><td><code>min_psi_norm_forward</code></td><td>array_like</td><td>-</td><td><p>The same tracing the other way; the two are reduced to the deeper incursion, which is the surface the channel weight asks about.</p>
+  <tr><td><code>min_psi_norm_forward</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>The same tracing the other way; the two are reduced to the deeper incursion, which is the surface the channel weight asks about.</p>
 </td></tr>
-  <tr><td><code>connection_length_backward</code></td><td>array_like</td><td>m</td><td><p>Length each line ran before it stopped, one way.</p>
+  <tr><td><code>connection_length_backward</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Length each line ran before it stopped, one way.</p>
 </td></tr>
-  <tr><td><code>connection_length_forward</code></td><td>array_like</td><td>m</td><td><p>The same the other way; the two are reduced by <code class="language-plaintext highlighter-rouge">FootprintProxyModel.connection_length_reduction</code>, so the shortest and the total cannot be confused for one another.</p>
+  <tr><td><code>connection_length_forward</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>The same the other way; the two are reduced by <code class="language-plaintext highlighter-rouge">FootprintProxyModel.connection_length_reduction</code>, so the shortest and the total cannot be confused for one another.</p>
 </td></tr>
-  <tr><td><code>area</code></td><td>array_like</td><td>m^2</td><td><p>Surface area each sample represents, from <code class="language-plaintext highlighter-rouge">toroidal_surface_node_areas</code> or <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>; carried through so an integral needs nothing else.</p>
+  <tr><td><code>area</code></td><td class="ref-type">array_like</td><td class="ref-unit">m^2</td><td><p>Surface area each sample represents, from <code class="language-plaintext highlighter-rouge">toroidal_surface_node_areas</code> or <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>; carried through so an integral needs nothing else.</p>
 </td></tr>
-  <tr><td><code>incidence_angle_deg</code></td><td>array_like or None</td><td>deg</td><td><p>Angle between each line and the target, as FLARE’s <code class="language-plaintext highlighter-rouge">alphaS</code> reports it. <code class="language-plaintext highlighter-rouge">None</code> is the explicit opt-out, recorded on the result – there is no implicit one.</p>
+  <tr><td><code>incidence_angle_deg</code></td><td class="ref-type">array_like or None</td><td class="ref-unit">deg</td><td><p>Angle between each line and the target, as FLARE’s <code class="language-plaintext highlighter-rouge">alphaS</code> reports it. <code class="language-plaintext highlighter-rouge">None</code> is the explicit opt-out, recorded on the result – there is no implicit one.</p>
 </td></tr>
-  <tr><td><code>model</code></td><td>FootprintProxyModel</td><td>n/a</td><td><p>A named preset; see <code class="language-plaintext highlighter-rouge">footprint_proxy_model</code>. Required, because every coefficient in it is a modelling choice.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>FootprintProxy</td><td>-</td><td><p>The proxy and its three factors, all on the caller’s grid.</p>
+  <tr><td><code>model</code></td><td class="ref-type">FootprintProxyModel</td><td class="ref-unit">n/a</td><td><p>A named preset; see <code class="language-plaintext highlighter-rouge">footprint_proxy_model</code>. Required, because every coefficient in it is a modelling choice.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FootprintProxy</td><td class="ref-unit">-</td><td><p>The proxy and its three factors, all on the caller’s grid.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The arrays disagree in shape.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Reduce each line’s two traced directions: the flux to the deeper
-incursion, the length by the model’s own rule.</li>
-  <li><code class="language-plaintext highlighter-rouge">w_psi</code> from <code class="language-plaintext highlighter-rouge">upstream_flux_weight</code>.</li>
-  <li><code class="language-plaintext highlighter-rouge">|sin alpha|</code> from <code class="language-plaintext highlighter-rouge">incidence_factor</code>, or ones when the
-caller opted out – and the opt-out is recorded either way.</li>
-  <li><code class="language-plaintext highlighter-rouge">w_L</code> from <code class="language-plaintext highlighter-rouge">connection_length_weight</code>.</li>
-  <li>Their product, which is the proxy.</li>
-</ol>
-
-<p><strong>Output semantics.</strong></p>
-
-<p>A relative surface density, in no unit. Only ratios within one run and
-between targets of the same run mean anything; two runs are comparable
-only if they used the same model and the same tracing limits.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The proxy is a density and <code class="language-plaintext highlighter-rouge">area</code> is only its measure – it is not a
+      <p>The proxy is a density and <code class="language-plaintext highlighter-rouge">area</code> is only its measure – it is not a
 factor. Multiplying by <code class="language-plaintext highlighter-rouge">1/area</code>, as the donor did, imposes the launch
 lattice’s own Jacobian on the map and makes the per-target total scale
 with the node count; see this module’s <code class="language-plaintext highlighter-rouge">Conventions</code>.</p>
 
-<p>Both directions are required rather than one reduced array, because the
+      <p>Both directions are required rather than one reduced array, because the
 reduction is part of the model and a pre-reduced input would let the
 wrong one be labelled with a model that did not produce it.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>One traced line per grid sample, launched from the target – which is how
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The arrays disagree in shape.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Output semantics · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Reduce each line’s two traced directions: the flux to the deeper
+incursion, the length by the model’s own rule.</li>
+        <li><code class="language-plaintext highlighter-rouge">w_psi</code> from <code class="language-plaintext highlighter-rouge">upstream_flux_weight</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">|sin alpha|</code> from <code class="language-plaintext highlighter-rouge">incidence_factor</code>, or ones when the
+caller opted out – and the opt-out is recorded either way.</li>
+        <li><code class="language-plaintext highlighter-rouge">w_L</code> from <code class="language-plaintext highlighter-rouge">connection_length_weight</code>.</li>
+        <li>Their product, which is the proxy.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>A relative surface density, in no unit. Only ratios within one run and
+between targets of the same run mean anything; two runs are comparable
+only if they used the same model and the same tracing limits.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>One traced line per grid sample, launched from the target – which is how
 FLARE’s <code class="language-plaintext highlighter-rouge">equi2d_footprint_grid</code> builds a footprint grid. A product
 whose lines were launched upstream and counted where they land is a
 strike density and is a different quantity.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent. Any target whose footprint was sampled by field-line
+      <p>Machine-independent. Any target whose footprint was sampled by field-line
 tracing; the model’s coefficients are not.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>No cross-field transport, radiation, detachment, sheath physics or
+      <p>No cross-field transport, radiation, detachment, sheath physics or
 self-consistent scrape-off layer. The result has no heat-flux units and
 must not be converted into any.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>the donor’s <code class="language-plaintext highlighter-rouge">compute_heat_flux_proxy</code>.
 </li>
 </ol>
 
-<h3 id="footprint_incident_total"><code class="language-plaintext highlighter-rouge">footprint_incident_total</code></h3>
+    </details>
 
-<p class="formula-signature"><code>footprint_incident_total(proxy)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="footprint_incident_total">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#footprint_incident_total"><code>footprint_incident_total</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L767" title="vaft/process/field_line_topology.py, line 767">source</a>
+</header>
+    <pre class="ref-signature"><code>footprint_incident_total(proxy)</code></pre>
 
-<p>The proxy integrated over one target.</p>
+    <p>The proxy integrated over one target.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>proxy</code></td><td>FootprintProxy</td><td>-</td><td><p>As <code class="language-plaintext highlighter-rouge">footprint_heat_load_proxy</code> returns it.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>proxy</code></td><td class="ref-type">FootprintProxy</td><td class="ref-unit">-</td><td><p>As <code class="language-plaintext highlighter-rouge">footprint_heat_load_proxy</code> returns it.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">sum(density * area)</code>, in the proxy’s own relative scale.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">sum(density * area)</code>, in the proxy’s own relative scale.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Processing steps.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Non-finite samples are skipped rather than propagated: a line the tracer
-could not follow contributes nothing, and one NaN would otherwise erase
-the target.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>This is a Riemann sum over the sample areas, so it converges as the grid
+      <p>This is a Riemann sum over the sample areas, so it converges as the grid
 is refined – which is the property a fraction between targets needs, and
 the one the legacy’s extra <code class="language-plaintext highlighter-rouge">1/area</code> factor destroyed. With it the sum
 reduces to <code class="language-plaintext highlighter-rouge">sum(w)</code>, which grows roughly with the number of samples the
 caller chose to trace rather than settling on the target’s own value.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Processing steps</h4>
 
-<ol class="formula-references">
+      <p>Non-finite samples are skipped rather than propagated: a line the tracer
+could not follow contributes nothing, and one NaN would otherwise erase
+the target.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>the donor’s <code class="language-plaintext highlighter-rouge">summarize_heat_flux_proxy</code>, whose <code class="language-plaintext highlighter-rouge">integral</code> column is this same sum – taken over a density that carried an extra <code class="language-plaintext highlighter-rouge">1/area</code> factor, which is what reduced it to the bare sum of the weights.
 </li>
 </ol>
 
-<h3 id="footprint_proxy_model"><code class="language-plaintext highlighter-rouge">footprint_proxy_model</code></h3>
+    </details>
 
-<p class="formula-signature"><code>footprint_proxy_model(name)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> </p>
+  <section class="ref-entry" id="footprint_proxy_model">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#footprint_proxy_model"><code>footprint_proxy_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L490" title="vaft/process/field_line_topology.py, line 490">source</a>
+</header>
+    <pre class="ref-signature"><code>footprint_proxy_model(name)</code></pre>
 
-<p>One named footprint proxy model.</p>
+    <p>One named footprint proxy model.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>name</code></td><td>str</td><td>n/a</td><td><p>A key of <code class="language-plaintext highlighter-rouge">FOOTPRINT_PROXY_MODELS</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>name</code></td><td class="ref-type">str</td><td class="ref-unit">n/a</td><td><p>A key of <code class="language-plaintext highlighter-rouge">FOOTPRINT_PROXY_MODELS</code>.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>FootprintProxyModel</td><td>n/a</td><td><p>The preset, which is frozen and safe to share.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FootprintProxyModel</td><td class="ref-unit">n/a</td><td><p>The preset, which is frozen and safe to share.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> No model carries that name; the message lists the ones that do.
+</li>
+</ul>
+</div>
 
-<p>KeyError
-    No model carries that name; the message lists the ones that do.</p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Machine-independent.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>the donor’s <code class="language-plaintext highlighter-rouge">FootprintProxyConfig</code>, whose field defaults these presets carry as named values.
 </li>
 </ol>
 
-<h3 id="incidence_factor"><code class="language-plaintext highlighter-rouge">incidence_factor</code></h3>
+    </details>
 
-<p class="formula-signature"><code>incidence_factor(angle_deg)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="incidence_factor">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#incidence_factor"><code>incidence_factor</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L301" title="vaft/process/field_line_topology.py, line 301">source</a>
+</header>
+    <pre class="ref-signature"><code>incidence_factor(angle_deg)</code></pre>
 
-<p>The projection of a field line onto the surface it strikes.</p>
+    <p>The projection of a field line onto the surface it strikes.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>angle_deg</code></td><td>array_like</td><td>deg</td><td><p>Angle between the field line and the target surface, as FLARE’s <code class="language-plaintext highlighter-rouge">alphaS</code> reports it.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>angle_deg</code></td><td class="ref-type">array_like</td><td class="ref-unit">deg</td><td><p>Angle between the field line and the target surface, as FLARE’s <code class="language-plaintext highlighter-rouge">alphaS</code> reports it.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">|sin alpha|</code>, in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">|sin alpha|</code>, in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The angle is measured from the <em>surface</em>, not from its normal, so a
+      <p>The angle is measured from the <em>surface</em>, not from its normal, so a
 grazing line has a small angle and a small factor. That is FLARE’s own
 definition: <code class="language-plaintext highlighter-rouge">alphaS = asin(|b.n| / |b|)</code>, which makes <code class="language-plaintext highlighter-rouge">|sin alpha|</code>
 the projection exactly rather than an approximation of it. A line that
@@ -636,157 +683,202 @@ never struck the boundary is written as zero by the tracer and so
 receives zero weight, which is the right answer for a different reason –
 it deposits nothing because it does not arrive.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<ol class="formula-references">
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">FLARE/src/fortran/tasks/fieldline_connection.f90:158</code>.
 </li>
   <li>the donor’s <code class="language-plaintext highlighter-rouge">incidence_factor</code>, which returned ones when the column was absent; see <code class="language-plaintext highlighter-rouge">footprint_heat_load_proxy</code>.
 </li>
 </ol>
 
-<h3 id="reduce_traced_directions"><code class="language-plaintext highlighter-rouge">reduce_traced_directions</code></h3>
+    </details>
 
-<p class="formula-signature"><code>reduce_traced_directions(backward, forward, *, how)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="reduce_traced_directions">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#reduce_traced_directions"><code>reduce_traced_directions</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L558" title="vaft/process/field_line_topology.py, line 558">source</a>
+</header>
+    <pre class="ref-signature"><code>reduce_traced_directions(backward, forward, *, how)</code></pre>
 
-<p>Reduce a quantity traced in both directions to one value per line.</p>
+    <p>Reduce a quantity traced in both directions to one value per line.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>backward</code></td><td>array_like</td><td>any</td><td><p>The value the tracer reported going one way.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>backward</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The value the tracer reported going one way.</p>
 </td></tr>
-  <tr><td><code>forward</code></td><td>array_like</td><td>any</td><td><p>The value it reported going the other.</p>
+  <tr><td><code>forward</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The value it reported going the other.</p>
 </td></tr>
-  <tr><td><code>how</code></td><td>str</td><td>n/a</td><td><p><code class="language-plaintext highlighter-rouge">"shortest"</code> takes the smaller magnitude, <code class="language-plaintext highlighter-rouge">"total"</code> the sum, <code class="language-plaintext highlighter-rouge">"deepest"</code> the smaller signed value.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>any</td><td><p>One value per line, in the inputs’ own unit.</p>
+  <tr><td><code>how</code></td><td class="ref-type">str</td><td class="ref-unit">n/a</td><td><p><code class="language-plaintext highlighter-rouge">"shortest"</code> takes the smaller magnitude, <code class="language-plaintext highlighter-rouge">"total"</code> the sum, <code class="language-plaintext highlighter-rouge">"deepest"</code> the smaller signed value.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">any</td><td><p>One value per line, in the inputs’ own unit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The arrays disagree in shape, or <code class="language-plaintext highlighter-rouge">how</code> is none of the three.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">"shortest"</code> compares magnitudes, because a tracer may report a
+      <p><code class="language-plaintext highlighter-rouge">"shortest"</code> compares magnitudes, because a tracer may report a
 backward length as negative; <code class="language-plaintext highlighter-rouge">"deepest"</code> compares signed values,
 because a flux label that ran further inward is genuinely smaller.
 Non-finite entries propagate rather than being skipped: a direction the
 tracer could not follow leaves the reduction undefined, and that is the
 honest answer for that line.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The arrays disagree in shape, or <code class="language-plaintext highlighter-rouge">how</code> is none of the three.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">FLARE/src/fortran/tasks/fieldline_connection.f90:90-96</code>, whose own <code class="language-plaintext highlighter-rouge">Lc = Lc_bwd + Lc_fwd</code>, <code class="language-plaintext highlighter-rouge">Lcs = min(Lc_bwd, Lc_fwd)</code> and <code class="language-plaintext highlighter-rouge">minPsiN = min(minPsiN_bwd, minPsiN_fwd)</code> are these three reductions. FLARE’s arclengths are non-negative, so its plain <code class="language-plaintext highlighter-rouge">min</code> and the magnitude comparison here agree on its own output.
 </li>
 </ol>
 
-<h3 id="target_incident_fractions"><code class="language-plaintext highlighter-rouge">target_incident_fractions</code></h3>
+    </details>
 
-<p class="formula-signature"><code>target_incident_fractions(totals)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="target_incident_fractions">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#target_incident_fractions"><code>target_incident_fractions</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L809" title="vaft/process/field_line_topology.py, line 809">source</a>
+</header>
+    <pre class="ref-signature"><code>target_incident_fractions(totals)</code></pre>
 
-<p>Each target’s share of the proxy incident on all of them.</p>
+    <p>Each target’s share of the proxy incident on all of them.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>totals</code></td><td>mapping of str to float</td><td>-</td><td><p>Per-target integrals, from <code class="language-plaintext highlighter-rouge">footprint_incident_total</code>; each must be finite and not negative.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>totals</code></td><td class="ref-type">mapping of str to float</td><td class="ref-unit">-</td><td><p>Per-target integrals, from <code class="language-plaintext highlighter-rouge">footprint_incident_total</code>; each must be finite and not negative.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>dict of str to float</td><td>-</td><td><p>The same keys, each divided by the sum over all of them, so the values add to one.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict of str to float</td><td class="ref-unit">-</td><td><p>The same keys, each divided by the sum over all of them, so the values add to one.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">totals</code> is empty, an entry is negative or not finite, or they sum
-    to zero – in which case there is no share to take, and returning
-    equal shares would invent one.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The denominator is the total over the targets <em>in this mapping</em>, so the
+      <p>The denominator is the total over the targets <em>in this mapping</em>, so the
 fraction says what it says only if that set is every target the run
 covered. A fraction over a subset is a fraction of the subset.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">totals</code> is empty, an entry is negative or not finite, or they sum to zero – in which case there is no share to take, and returning equal shares would invent one.
+</li>
+</ul>
+</div>
 
-<p><strong>Provenance.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
   <li>The IMAS stand-in decided on vaft#1099 (2026-09-21): the proxy integrated over each target, divided by the total over all targets, written to <code class="language-plaintext highlighter-rouge">divertors.divertor[].target[].power_incident_fraction</code> because it is dimensionless and so is the proxy.
 </li>
 </ol>
 
-<h3 id="toroidal_surface_cell_areas"><code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code></h3>
+    </details>
 
-<p class="formula-signature"><code>toroidal_surface_cell_areas(r, z, phi_deg)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="toroidal_surface_cell_areas">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_surface_cell_areas"><code>toroidal_surface_cell_areas</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L131" title="vaft/process/field_line_topology.py, line 131">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_surface_cell_areas(r, z, phi_deg)</code></pre>
 
-<p>Area of every quadrilateral cell of a surface mesh in <code class="language-plaintext highlighter-rouge">(R, z, phi)</code>.</p>
+    <p>Area of every quadrilateral cell of a surface mesh in <code class="language-plaintext highlighter-rouge">(R, z, phi)</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Node major radius, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Node major radius, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>.</p>
 </td></tr>
-  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Node height, same shape.</p>
+  <tr><td><code>z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Node height, same shape.</p>
 </td></tr>
-  <tr><td><code>phi_deg</code></td><td>array_like</td><td>deg</td><td><p>Node toroidal angle, same shape.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>m^2</td><td><p>Cell areas, shape <code class="language-plaintext highlighter-rouge">(n_v - 1, n_u - 1)</code>.</p>
+  <tr><td><code>phi_deg</code></td><td class="ref-type">array_like</td><td class="ref-unit">deg</td><td><p>Node toroidal angle, same shape.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">m^2</td><td><p>Cell areas, shape <code class="language-plaintext highlighter-rouge">(n_v - 1, n_u - 1)</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The three arrays disagree in shape, or the mesh is not two
-    dimensional with at least two nodes on each axis.</p>
+      <p>Node order is <code class="language-plaintext highlighter-rouge">[i_v, i_u]</code>, the order FLARE’s own mesh files lay their
+values out in – see <code class="language-plaintext highlighter-rouge">vaft.data.flare_products.FlareMesh.node_shape</code>.
+Cell <code class="language-plaintext highlighter-rouge">[j, i]</code> is bounded by nodes <code class="language-plaintext highlighter-rouge">[j, i]</code>, <code class="language-plaintext highlighter-rouge">[j, i+1]</code>,
+<code class="language-plaintext highlighter-rouge">[j+1, i+1]</code> and <code class="language-plaintext highlighter-rouge">[j+1, i]</code>.</p>
 
-<p><strong>Processing steps.</strong></p>
+    </div>
 
-<p>The nodes are placed in Cartesian space, and each cell is split along the
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The three arrays disagree in shape, or the mesh is not two dimensional with at least two nodes on each axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <p>The nodes are placed in Cartesian space, and each cell is split along the
 diagonal from <code class="language-plaintext highlighter-rouge">[j, i+1]</code> to <code class="language-plaintext highlighter-rouge">[j+1, i]</code> into two triangles whose areas
 are summed. No small-angle expansion is taken, so the result is exact for
 a flat quadrilateral. A cell that is not flat has two diagonals that give
@@ -794,147 +886,159 @@ slightly different answers, and this is the one FLARE splits along –
 which is why the two agree to parts in a trillion rather than merely
 closely.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Node order is <code class="language-plaintext highlighter-rouge">[i_v, i_u]</code>, the order FLARE’s own mesh files lay their
-values out in – see <code class="language-plaintext highlighter-rouge">vaft.data.flare_products.FlareMesh.node_shape</code>.
-Cell <code class="language-plaintext highlighter-rouge">[j, i]</code> is bounded by nodes <code class="language-plaintext highlighter-rouge">[j, i]</code>, <code class="language-plaintext highlighter-rouge">[j, i+1]</code>,
-<code class="language-plaintext highlighter-rouge">[j+1, i+1]</code> and <code class="language-plaintext highlighter-rouge">[j+1, i]</code>.</p>
-
-<p><strong>Applicability.</strong></p>
-
-<p>Machine-independent. Any surface described by node positions in
+      <p>Machine-independent. Any surface described by node positions in
 cylindrical coordinates; nothing here is specific to a divertor target.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">moose/src/fortran/geometry/hypermesh3d.f90:563</code>, the same two-triangle construction FLARE uses for the <code class="language-plaintext highlighter-rouge">area</code> column of its strike-density product.
 </li>
 </ol>
 
-<h3 id="toroidal_surface_node_areas"><code class="language-plaintext highlighter-rouge">toroidal_surface_node_areas</code></h3>
+    </details>
 
-<p class="formula-signature"><code>toroidal_surface_node_areas(r, z, phi_deg)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="toroidal_surface_node_areas">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_surface_node_areas"><code>toroidal_surface_node_areas</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L190" title="vaft/process/field_line_topology.py, line 190">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_surface_node_areas(r, z, phi_deg)</code></pre>
 
-<p>Area each node of a surface mesh represents, as a dual cell.</p>
+    <p>Area each node of a surface mesh represents, as a dual cell.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>r</code></td><td>array_like</td><td>m</td><td><p>Node major radius, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Node major radius, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>.</p>
 </td></tr>
-  <tr><td><code>z</code></td><td>array_like</td><td>m</td><td><p>Node height, same shape.</p>
+  <tr><td><code>z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Node height, same shape.</p>
 </td></tr>
-  <tr><td><code>phi_deg</code></td><td>array_like</td><td>deg</td><td><p>Node toroidal angle, same shape.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>m^2</td><td><p>Node areas, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>, summing to the total surface area</p>
+  <tr><td><code>phi_deg</code></td><td class="ref-type">array_like</td><td class="ref-unit">deg</td><td><p>Node toroidal angle, same shape.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">m^2</td><td><p>Node areas, shape <code class="language-plaintext highlighter-rouge">(n_v, n_u)</code>, summing to the total surface area</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    As <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>.</p>
+      <p>Node order is <code class="language-plaintext highlighter-rouge">[i_v, i_u]</code>, as <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>.</p>
 
-<p><strong>Processing steps.</strong></p>
+    </div>
 
-<p>Each cell’s area is split equally between its four corners. A corner node
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <p>Each cell’s area is split equally between its four corners. A corner node
 therefore receives a quarter of one cell, an edge node a quarter of two,
 and an interior node a quarter of four – so the node areas sum to the
 surface area exactly, which is what makes an integral over them the same
 integral whether the values sit on nodes or on cells.</p>
 
-<p><strong>Convention.</strong></p>
+      <h4 class="ref-label no_toc">Applicability</h4>
 
-<p>Node order is <code class="language-plaintext highlighter-rouge">[i_v, i_u]</code>, as <code class="language-plaintext highlighter-rouge">toroidal_surface_cell_areas</code>.</p>
+      <p>Machine-independent.</p>
 
-<p><strong>Applicability.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<p>Machine-independent.</p>
-
-<p><strong>Provenance.</strong></p>
-
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>The donor’s <code class="language-plaintext highlighter-rouge">footprint_cell_areas</code> built the same quantity from midpoint axis widths and <code class="language-plaintext highlighter-rouge">R dphi ds</code>, which assumes the second axis is parameterized by its own arc length. This form reads the arc from the node positions instead, so a target curve whose parameter is not arc length is measured rather than assumed.
 </li>
 </ol>
 
-<h3 id="upstream_flux_weight"><code class="language-plaintext highlighter-rouge">upstream_flux_weight</code></h3>
+    </details>
 
-<p class="formula-signature"><code>upstream_flux_weight(psi_norm, *, separatrix_flux, decay_width, clip_inside=True)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="upstream_flux_weight">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#upstream_flux_weight"><code>upstream_flux_weight</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/field_line_topology.py#L247" title="vaft/process/field_line_topology.py, line 247">source</a>
+</header>
+    <pre class="ref-signature"><code>upstream_flux_weight(psi_norm, *, separatrix_flux, decay_width, clip_inside=True)</code></pre>
 
-<p>Exponential upstream heat-channel weight in normalized flux.</p>
+    <p>Exponential upstream heat-channel weight in normalized flux.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>psi_norm</code></td><td>array_like</td><td>-</td><td><p>The flux label each field line is weighted by – for a connection product, the deepest normalized flux it reached.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>The flux label each field line is weighted by – for a connection product, the deepest normalized flux it reached.</p>
 </td></tr>
-  <tr><td><code>separatrix_flux</code></td><td>float</td><td>-</td><td><p>Where the channel starts, normally 1.</p>
+  <tr><td><code>separatrix_flux</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Where the channel starts, normally 1.</p>
 </td></tr>
-  <tr><td><code>decay_width</code></td><td>float</td><td>-</td><td><p>e-folding width of the channel, in the same normalized flux; must be positive.</p>
+  <tr><td><code>decay_width</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>e-folding width of the channel, in the same normalized flux; must be positive.</p>
 </td></tr>
-  <tr><td><code>clip_inside</code></td><td>bool, optional</td><td>n/a</td><td><p>Whether a line that reached inside <code class="language-plaintext highlighter-rouge">separatrix_flux</code> is given the full weight rather than one growing exponentially. <code class="language-plaintext highlighter-rouge">True</code> clips</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>-</td><td><p>Weights in <code class="language-plaintext highlighter-rouge">(0, 1]</code> when clipped, unbounded above otherwise.</p>
+  <tr><td><code>clip_inside</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">n/a</td><td><p>Whether a line that reached inside <code class="language-plaintext highlighter-rouge">separatrix_flux</code> is given the full weight rather than one growing exponentially. <code class="language-plaintext highlighter-rouge">True</code> clips</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">-</td><td><p>Weights in <code class="language-plaintext highlighter-rouge">(0, 1]</code> when clipped, unbounded above otherwise.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">decay_width</code> is not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">psi_norm</code> increases outward, so a line that stayed further out is
+      <p><code class="language-plaintext highlighter-rouge">psi_norm</code> increases outward, so a line that stayed further out is
 weighted less. With <code class="language-plaintext highlighter-rouge">clip_inside</code> false the weight grows without bound
 inside the separatrix, which is the model being read outside the region
 it describes; it is offered because a caller comparing against the
 unclipped legacy form needs it, not because it is ever the better choice.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent. The channel is an upstream scrape-off-layer width,
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">decay_width</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. The channel is an upstream scrape-off-layer width,
 so the weight is meaningful only for lines that reach the plasma edge.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>the donor’s <code class="language-plaintext highlighter-rouge">upstream_psi_weight</code>.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -1035,7 +1139,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#connection_length_weight" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">connection_length_weight</a></li><li class="page-toc-item page-toc-level-3"><a href="#footprint_heat_load_proxy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">footprint_heat_load_proxy</a></li><li class="page-toc-item page-toc-level-3"><a href="#footprint_incident_total" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">footprint_incident_total</a></li><li class="page-toc-item page-toc-level-3"><a href="#footprint_proxy_model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">footprint_proxy_model</a></li><li class="page-toc-item page-toc-level-3"><a href="#incidence_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">incidence_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduce_traced_directions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">reduce_traced_directions</a></li><li class="page-toc-item page-toc-level-3"><a href="#target_incident_fractions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">target_incident_fractions</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_surface_cell_areas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_surface_cell_areas</a></li><li class="page-toc-item page-toc-level-3"><a href="#toroidal_surface_node_areas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">toroidal_surface_node_areas</a></li><li class="page-toc-item page-toc-level-3"><a href="#upstream_flux_weight" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">upstream_flux_weight</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -1153,7 +1257,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1182,7 +1286,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

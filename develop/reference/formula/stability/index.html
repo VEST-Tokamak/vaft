@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>:
-26 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.stability</code>:
+<strong>26</strong> public functions. Each entry is what
+<code>vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -283,478 +281,546 @@ Back to the <a href="/vaft/develop/reference/formula/">formula reference index</
 including beta limits, ballooning stability, MHD stability criteria, operational
 limits, and transport parameters.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>β_N</td><td>normalized beta</td><td>-</td></tr>
-  <tr><td>β_p</td><td>poloidal beta</td><td>-</td></tr>
-  <tr><td>β_t</td><td>toroidal beta</td><td>-</td></tr>
-  <tr><td>q_95</td><td>safety factor at 95% flux surface</td><td>-</td></tr>
-  <tr><td>α</td><td>ballooning parameter</td><td>-</td></tr>
-  <tr><td>s</td><td>magnetic shear</td><td>-</td></tr>
-  <tr><td>n_G</td><td>Greenwald density limit</td><td>10¹⁹ m⁻³</td></tr>
-  <tr><td>P_L</td><td>power limit</td><td>W</td></tr>
-  <tr><td>ν*</td><td>effective collisionality</td><td>-</td></tr>
-  <tr><td>v_A</td><td>Alfven speed</td><td>m/s</td></tr>
-  <tr><td>c_s</td><td>ion-sound speed</td><td>m/s</td></tr>
-  <tr><td>τ_E</td><td>energy confinement time</td><td>s</td></tr>
+  <tr><td>β_N</td><td>normalized beta</td><td class="ref-unit">-</td></tr>
+  <tr><td>β_p</td><td>poloidal beta</td><td class="ref-unit">-</td></tr>
+  <tr><td>β_t</td><td>toroidal beta</td><td class="ref-unit">-</td></tr>
+  <tr><td>q_95</td><td>safety factor at 95% flux surface</td><td class="ref-unit">-</td></tr>
+  <tr><td>α</td><td>ballooning parameter</td><td class="ref-unit">-</td></tr>
+  <tr><td>s</td><td>magnetic shear</td><td class="ref-unit">-</td></tr>
+  <tr><td>n_G</td><td>Greenwald density limit</td><td class="ref-unit">10¹⁹ m⁻³</td></tr>
+  <tr><td>P_L</td><td>power limit</td><td class="ref-unit">W</td></tr>
+  <tr><td>ν*</td><td>effective collisionality</td><td class="ref-unit">-</td></tr>
+  <tr><td>v_A</td><td>Alfven speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>c_s</td><td>ion-sound speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>τ_E</td><td>energy confinement time</td><td class="ref-unit">s</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a> &mdash; Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
-</li>
-  <li><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a> &mdash; Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
-</li>
-  <li><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a> &mdash; Normalised beta in the Troyon convention, %·m·T/MA.
-</li>
-  <li><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a> &mdash; Poloidal beta from toroidal beta, cylindrical relation.
-</li>
-  <li><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a> &mdash; Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
-</li>
-  <li><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a> &mdash; Toroidal beta from poloidal beta, cylindrical relation.
-</li>
-  <li><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a> &mdash; Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
-</li>
-  <li><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a> &mdash; Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.
-</li>
-  <li><a href="#empirical_li_qa"><code>empirical_li_qa</code></a> &mdash; Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
-</li>
-  <li><a href="#greenwald_density"><code>greenwald_density</code></a> &mdash; Greenwald density limit $n_G$.
-</li>
-  <li><a href="#greenwald_fraction"><code>greenwald_fraction</code></a> &mdash; Greenwald fraction $f_G = n_e/n_G$.
-</li>
-  <li><a href="#helical_phase"><code>helical_phase</code></a> &mdash; Helical phase of an $m/n$ perturbation at a point on a flux surface.
-</li>
-  <li><a href="#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a> &mdash; Local flux function of a constant-$\psi$ magnetic island.
-</li>
-  <li><a href="#island_separatrix_half_width"><code>island_separatrix_half_width</code></a> &mdash; Radial half-width of the island separatrix at a given helical phase.
-</li>
-  <li><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a> &mdash; Full magnetic island width from the pitch-resonant flux.
-</li>
-  <li><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a> &mdash; Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
-</li>
-  <li><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a> &mdash; Internal inductance at a given $q_a$ by interpolating the JET survey points.
-</li>
-  <li><a href="#plasma_stability_margins"><code>plasma_stability_margins</code></a> &mdash; Beta, $q_{95}$ and density margins in one call.
-</li>
-  <li><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a> &mdash; Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
-</li>
-  <li><a href="#power_limit_from_q"><code>power_limit_from_q</code></a> &mdash; Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
-</li>
-  <li><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a> &mdash; Pitch-resonant flux from the resonance parameter and the surface geometry.
-</li>
-  <li><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a> &mdash; Normalised electron gyroradius $\rho_e/a$.
-</li>
-  <li><a href="#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a> &mdash; Ideal ballooning stability of the circular $s$-$\alpha$ model.
-</li>
-  <li><a href="#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a> &mdash; First and second ballooning stability boundaries of the $s$-$\alpha$ model.
-</li>
-  <li><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a> &mdash; Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
-</li>
-  <li><a href="#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a> &mdash; Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 26 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="ballooning_alpha_from_p_B_R"><td><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ballooning_stability_criterion"><td><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a></td><td>Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="beta_N_from_beta_a_B0_Ip"><td><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a></td><td>Normalised beta in the Troyon convention, %·m·T/MA.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="beta_pol_from_beta_tor"><td><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a></td><td>Poloidal beta from toroidal beta, cylindrical relation.
+</td></tr>
+  <tr data-ref-row="beta_stability_boundary"><td><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a></td><td>Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="beta_tor_from_beta_pol"><td><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a></td><td>Toroidal beta from poloidal beta, cylindrical relation.
+</td></tr>
+  <tr data-ref-row="c_s_from_Te_Ti_mi"><td><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a></td><td>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="collisionality_from_n_T_B_R"><td><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a></td><td>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="empirical_li_qa"><td><a href="#empirical_li_qa"><code>empirical_li_qa</code></a></td><td>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="greenwald_density"><td><a href="#greenwald_density"><code>greenwald_density</code></a></td><td>Greenwald density limit $n_G$.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="greenwald_fraction"><td><a href="#greenwald_fraction"><code>greenwald_fraction</code></a></td><td>Greenwald fraction $f_G = n_e/n_G$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="helical_phase"><td><a href="#helical_phase"><code>helical_phase</code></a></td><td>Helical phase of an $m/n$ perturbation at a point on a flux surface.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="island_pendulum_hamiltonian"><td><a href="#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a></td><td>Local flux function of a constant-$\psi$ magnetic island.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="island_separatrix_half_width"><td><a href="#island_separatrix_half_width"><code>island_separatrix_half_width</code></a></td><td>Radial half-width of the island separatrix at a given helical phase.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="island_width_from_resonant_flux"><td><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a></td><td>Full magnetic island width from the pitch-resonant flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="kink_stability_criterion"><td><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a></td><td>Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="li_from_qa_empirical"><td><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a></td><td>Internal inductance at a given $q_a$ by interpolating the JET survey points.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="plasma_stability_margins"><td><a href="#plasma_stability_margins"><code>plasma_stability_margins</code></a></td><td>Beta, $q_{95}$ and density margins in one call.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="power_limit_from_beta"><td><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a></td><td>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
+</td></tr>
+  <tr data-ref-row="power_limit_from_q"><td><a href="#power_limit_from_q"><code>power_limit_from_q</code></a></td><td>Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
+</td></tr>
+  <tr data-ref-row="resonant_flux_from_delta"><td><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a></td><td>Pitch-resonant flux from the resonance parameter and the surface geometry.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="rhostar_from_Te_a_Bt"><td><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td>Normalised electron gyroradius $\rho_e/a$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_ballooning_stable"><td><a href="#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a></td><td>Ideal ballooning stability of the circular $s$-$\alpha$ model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_marginal_alpha"><td><a href="#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a></td><td>First and second ballooning stability boundaries of the $s$-$\alpha$ model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sawtooth_stability_criterion"><td><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a></td><td>Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
+ <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="v_alfven_from_B_n_mi"><td><a href="#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a></td><td>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="ballooning_alpha_from_p_B_R"><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>ballooning_alpha_from_p_B_R(p, B, R, q)</code></p>
+  <section class="ref-entry" id="ballooning_alpha_from_p_B_R">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L312" title="vaft/formula/stability.py, line 312">source</a>
+</header>
+    <pre class="ref-signature"><code>ballooning_alpha_from_p_B_R(p, B, R, q)</code></pre>
 
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.</p>
+    <p>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.</p>
 
 \[\alpha = -\frac{2\mu_0 R q^2}{B^2}\,\frac{dp}{dr}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>p</code></td><td>float or np.ndarray</td><td>Pa</td><td><p>Pressure along a radial cut.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Pressure along a radial cut.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic field strength.</p>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Magnetic field strength.</p>
 </td></tr>
-  <tr><td><code>R</code></td><td>float or np.ndarray</td><td>m</td><td><p>Major radius of the samples, monotonic.</p>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius of the samples, monotonic.</p>
 </td></tr>
-  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor on the same surfaces.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Safety factor on the same surfaces.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Connor, Hastie and Taylor [1] define $\alpha$ with the $q^2$ and with $r$
+      <p>Connor, Hastie and Taylor [1] define $\alpha$ with the $q^2$ and with $r$
 the minor radius. Until #364 this omitted the $q^2$ entirely, so it returned
 $\alpha/q^2$ – an order of magnitude at $q \simeq 3$ – while
 <code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code> compared the result against
 $0.6\,s$ as though it were the standard $\alpha$.</p>
 
-<p><strong>Limitations.</strong></p>
+    </div>
 
-<p>The derivative is still taken against the <strong>major</strong> radius $R$, not the
+    <details class="ref-more">
+      <summary>Limitations · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The derivative is still taken against the <strong>major</strong> radius $R$, not the
 minor radius $r$ of the definition. For a large-aspect-ratio circular
 plasma on the outboard midplane the two coincide, which is the case this is
 used for; anywhere else the caller must supply a minor-radius abscissa.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p><code class="language-plaintext highlighter-rouge">numpy.gradient</code> along the supplied axis (second-order interior, first-order
+      <p><code class="language-plaintext highlighter-rouge">numpy.gradient</code> along the supplied axis (second-order interior, first-order
 ends), sign-sensitive to the direction of <code class="language-plaintext highlighter-rouge">R</code>.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396, Eq. (2).
 </li>
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13 (ballooning modes).
 </li>
 </ol>
 
-<h3 id="ballooning_stability_criterion"><code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code></h3>
+    </details>
 
-<p class="formula-signature"><code>ballooning_stability_criterion(alpha, s)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="ballooning_stability_criterion">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L366" title="vaft/formula/stability.py, line 366">source</a>
+</header>
+    <pre class="ref-signature"><code>ballooning_stability_criterion(alpha, s)</code></pre>
 
-<p>Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.</p>
+    <p>Distance from the first ballooning stability boundary $\alpha_{crit} \approx 0.6\,s$.</p>
 
 \[\Delta = \alpha - \alpha_{crit}, \qquad \alpha_{crit} = 0.6\,s\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>alpha</code></td><td>float or np.ndarray</td><td>-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>alpha</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ballooning parameter in the Connor-Hastie-Taylor normalisation.</p>
 </td></tr>
-  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>margin</code></td><td>float or np.ndarray</td><td>-</td><td><p>$\alpha - \alpha_{crit}$; positive means unstable.</p>
-</td></tr>
-  <tr><td><code>alpha_crit</code></td><td>float or np.ndarray</td><td>-</td><td><p>The threshold $0.6\,s$.</p>
+  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Magnetic shear.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>margin</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\alpha - \alpha_{crit}$; positive means unstable.</p>
+</td></tr>
+  <tr><td><code>alpha_crit</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>The threshold $0.6\,s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Validity.</strong></p>
+    <details class="ref-more">
+      <summary>Validity · Limitations · References</summary>
 
-<p>Empirical fit.  A straight-line approximation of the first-stability
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit.  A straight-line approximation of the first-stability
 boundary of the circular $s$-$\alpha$ diagram [1] for moderate shear
 ($0.3 \lesssim s \lesssim 1.5$). The boundary itself, computed from the
 ballooning equation, is <code class="language-plaintext highlighter-rouge">s_alpha_marginal_alpha</code>: it leaves this line
 at small shear and has a second-stable region beyond $\alpha_2(s)$.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Ignores shaping, which raises the boundary, and the second-stable region;
+      <p>Ignores shaping, which raises the boundary, and the second-stable region;
 uncited coefficient (read from the diagram).</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396, Fig. 1.
 </li>
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
 </li>
 </ol>
 
-<h3 id="beta_N_from_beta_a_B0_Ip"><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></h3>
+    </details>
 
-<p class="formula-signature"><code>beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="beta_N_from_beta_a_B0_Ip">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L84" title="vaft/formula/stability.py, line 84">source</a>
+</header>
+    <pre class="ref-signature"><code>beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)</code></pre>
 
-<p>Normalised beta in the Troyon convention, %·m·T/MA.</p>
+    <p>Normalised beta in the Troyon convention, %·m·T/MA.</p>
 
 \[\beta_N = \frac{\beta[\%]\;a[\mathrm{m}]\;B_0[\mathrm{T}]}{I_p[\mathrm{MA}]}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_percent</code></td><td>float</td><td>%</td><td><p>Toroidal beta <strong>in percent</strong>, not as a fraction.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_percent</code></td><td class="ref-type">float</td><td class="ref-unit">%</td><td><p>Toroidal beta <strong>in percent</strong>, not as a fraction.</p>
 </td></tr>
-  <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+  <tr><td><code>a</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
 </td></tr>
-  <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
+  <tr><td><code>B0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field on axis.</p>
 </td></tr>
-  <tr><td><code>I_p_MA</code></td><td>float</td><td>MA</td><td><p>Plasma current <strong>in megaamperes</strong>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>%·m·T/MA</td><td><p>Normalised beta, directly comparable with the Troyon limit.</p>
+  <tr><td><code>I_p_MA</code></td><td class="ref-type">float</td><td class="ref-unit">MA</td><td><p>Plasma current <strong>in megaamperes</strong>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">%·m·T/MA</td><td><p>Normalised beta, directly comparable with the Troyon limit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Percent and megaamperes, which is how Troyon [1] and the ITER Physics
+      <p>Percent and megaamperes, which is how Troyon [1] and the ITER Physics
 Basis [2] quote $\beta_N$ and the only convention in which the limit
 $\beta_N \lesssim 2.8$ means anything. The parameter names carry their
 units because this function used to take SI – a fraction and amperes –
 and return $10^{-8}$ times the conventional number, which no rescaling of
 the <em>output</em> fixes for a reader comparing against 2.8 (#349).</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The pressure a tokamak can hold scales with $I_p/(aB_0)$, so dividing it
 out leaves a figure that is comparable across machines; exceeding ~2.8
 means an ideal-MHD beta limit rather than a machine-specific one.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
 </li>
   <li>ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 3, Sec. 2.1 (definition of $\beta_N$).
 </li>
 </ol>
 
-<h3 id="beta_pol_from_beta_tor"><code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code></h3>
+    </details>
 
-<p class="formula-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95, epsilon)</code></p>
+  </section>
 
-<p>Poloidal beta from toroidal beta, cylindrical relation.</p>
+  <section class="ref-entry" id="beta_pol_from_beta_tor">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L132" title="vaft/formula/stability.py, line 132">source</a>
+</header>
+    <pre class="ref-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95, epsilon)</code></pre>
+
+    <p>Poloidal beta from toroidal beta, cylindrical relation.</p>
 
 \[\beta_p = \beta_t\left(\frac{q}{\varepsilon}\right)^2\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_tor</code></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_tor</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Toroidal beta.</p>
 </td></tr>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
-  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tr><td><code>epsilon</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive, since the relation divides by it [-].
+</li>
+</ul>
+</div>
 
-<p>ValueError
-    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive, since the relation divides
-    by it [-].</p>
+    <details class="ref-more">
+      <summary>Assumptions · Limitations · References</summary>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Circular, large-aspect-ratio cylinder in which $B_p/B_t = \varepsilon/q$.</p>
+      <p>Circular, large-aspect-ratio cylinder in which $B_p/B_t = \varepsilon/q$.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
+      <p>Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
 at $\varepsilon = 1$ and low by $\varepsilon^2$ everywhere else – a factor
 of about 2 at the $\varepsilon \simeq 0.7$ of a spherical tokamak and more
 than 10 at a conventional $\varepsilon \simeq 0.3$. Round-tripping through
 <code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code> hid it, because both directions were wrong by
 the same factor.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.5 (relation between $\beta$, $\beta_p$ and $q$).
 </li>
 </ol>
 
-<h3 id="beta_stability_boundary"><code class="language-plaintext highlighter-rouge">beta_stability_boundary</code></h3>
+    </details>
 
-<p class="formula-signature"><code>beta_stability_boundary(beta_N, q_95)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="beta_stability_boundary">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L662" title="vaft/formula/stability.py, line 662">source</a>
+</header>
+    <pre class="ref-signature"><code>beta_stability_boundary(beta_N, q_95)</code></pre>
 
-<p>Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.</p>
+    <p>Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.</p>
 
 \[\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 0.028\,q_{95}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta as a fraction (Troyon’s 2.8 % is 0.028).</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_N</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised beta as a fraction (Troyon’s 2.8 % is 0.028).</p>
 </td></tr>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
-</td></tr>
-  <tr><td><code>beta_N_crit</code></td><td>float</td><td>-</td><td><p>The threshold $0.028\,q_{95}$.</p>
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_N_crit</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The threshold $0.028\,q_{95}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Validity.</strong></p>
+    <details class="ref-more">
+      <summary>Validity · References</summary>
 
-<p>Empirical fit.  The fraction-convention twin of
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit.  The fraction-convention twin of
 <code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> (2.8 versus 0.028); the Troyon coefficient
 [1] is the only sourced part, the $q_{95}$ factor is not.
 <code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> builds on this function, so it lives in
 the fraction convention.  Tracked in #350.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
 </li>
 </ol>
 
-<h3 id="beta_tor_from_beta_pol"><code class="language-plaintext highlighter-rouge">beta_tor_from_beta_pol</code></h3>
+    </details>
 
-<p class="formula-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95, epsilon)</code></p>
+  </section>
 
-<p>Toroidal beta from poloidal beta, cylindrical relation.</p>
+  <section class="ref-entry" id="beta_tor_from_beta_pol">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L181" title="vaft/formula/stability.py, line 181">source</a>
+</header>
+    <pre class="ref-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95, epsilon)</code></pre>
+
+    <p>Toroidal beta from poloidal beta, cylindrical relation.</p>
 
 \[\beta_t = \beta_p\left(\frac{\varepsilon}{q}\right)^2\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_pol</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
 </td></tr>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
-  <tr><td><code>epsilon</code></td><td>float</td><td>-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Toroidal beta.</p>
+  <tr><td><code>epsilon</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Inverse aspect ratio $a/R_0$, strictly positive.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Toroidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive [-].
+</li>
+</ul>
+</div>
 
-<p>ValueError
-    When <code class="language-plaintext highlighter-rouge">epsilon</code> is not strictly positive [-].</p>
+    <details class="ref-more">
+      <summary>Assumptions · Limitations · References</summary>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Circular, large-aspect-ratio cylinder; exact inverse of
+      <p>Circular, large-aspect-ratio cylinder; exact inverse of
 <code class="language-plaintext highlighter-rouge">beta_pol_from_beta_tor</code>.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Carried the same missing $\varepsilon^2$ as its inverse until #363.</p>
+      <p>Carried the same missing $\varepsilon^2$ as its inverse until #363.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.5.
 </li>
 </ol>
 
-<h3 id="c_s_from_Te_Ti_mi"><code class="language-plaintext highlighter-rouge">c_s_from_Te_Ti_mi</code></h3>
+    </details>
 
-<p class="formula-signature"><code>c_s_from_Te_Ti_mi(T_e_keV, T_i_keV, m_i=1.67262192e-27)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="c_s_from_Te_Ti_mi">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L832" title="vaft/formula/stability.py, line 832">source</a>
+</header>
+    <pre class="ref-signature"><code>c_s_from_Te_Ti_mi(T_e_keV, T_i_keV, m_i=1.67262192e-27)</code></pre>
 
-<p>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.</p>
+    <p>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.</p>
 
 \[c_s = \sqrt{\frac{\gamma_eT_e + \gamma_iT_i}{m_i}}, \qquad \gamma_e = \gamma_i = 1\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>T_e_keV</code></td><td>float</td><td>keV</td><td><p>Electron temperature.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e_keV</code></td><td class="ref-type">float</td><td class="ref-unit">keV</td><td><p>Electron temperature.</p>
 </td></tr>
-  <tr><td><code>T_i_keV</code></td><td>float</td><td>keV</td><td><p>Ion temperature.</p>
+  <tr><td><code>T_i_keV</code></td><td class="ref-type">float</td><td class="ref-unit">keV</td><td><p>Ion temperature.</p>
 </td></tr>
-  <tr><td><code>m_i</code></td><td>float, optional</td><td>kg</td><td><p>Ion mass; default the proton mass.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>m/s</td><td><p>Ion sound speed.</p>
+  <tr><td><code>m_i</code></td><td class="ref-type">float, optional</td><td class="ref-unit">kg</td><td><p>Ion mass; default the proton mass.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">m/s</td><td><p>Ion sound speed.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Isothermal closure ($\gamma = 1$ for both species); the adiabatic
+      <p>Isothermal closure ($\gamma = 1$ for both species); the adiabatic
 $\gamma_i = 3$ used for ion acoustic waves gives a speed larger by up to
 $\sqrt{(T_e + 3T_i)/(T_e + T_i)}$.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2007), Sec. 10.4 (sound waves).
 </li>
   <li>NRL Plasma Formulary (2019), p. 29.
 </li>
 </ol>
 
-<h3 id="collisionality_from_n_T_B_R"><code class="language-plaintext highlighter-rouge">collisionality_from_n_T_B_R</code></h3>
+    </details>
 
-<p class="formula-signature"><code>collisionality_from_n_T_B_R(n_e, T_e_keV, B_t, R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="collisionality_from_n_T_B_R">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L750" title="vaft/formula/stability.py, line 750">source</a>
+</header>
+    <pre class="ref-signature"><code>collisionality_from_n_T_B_R(n_e, T_e_keV, B_t, R0)</code></pre>
 
-<p>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.</p>
+    <p>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.</p>
 
 \[\nu_* = 6.921\times10^{-18}\,\frac{n_e\,R_0}{T_e^2\,B_t}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Electron density.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Electron density.</p>
 </td></tr>
-  <tr><td><code>T_e_keV</code></td><td>float</td><td>keV</td><td><p>Electron temperature.</p>
+  <tr><td><code>T_e_keV</code></td><td class="ref-type">float</td><td class="ref-unit">keV</td><td><p>Electron temperature.</p>
 </td></tr>
-  <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
+  <tr><td><code>B_t</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field.</p>
 </td></tr>
-  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Collisionality figure in this function’s own normalisation.</p>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Collisionality figure in this function’s own normalisation.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The prefactor is Sauter’s $\nu_{e<em>} = 6.921\times10^{-18}\,qR\,n_e
+      <p>The prefactor is Sauter’s $\nu_{e<em>} = 6.921\times10^{-18}\,qR\,n_e
 Z_{\mathrm{eff}}\ln\Lambda/(T_e^2\varepsilon^{3/2})$ with $n_e$ in m^-3 and
 $T_e$ in eV [1].  This routine drops $q$, $\varepsilon^{-3/2}$,
 $Z_{\mathrm{eff}}$ and $\ln\Lambda$, divides by $B_t$ instead, and takes
@@ -763,209 +829,242 @@ the IPB98 database $\nu_*$ it was labelled with, and it is not comparable
 to <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I</code>.
 Tracked in #353.</p>
 
-<p><strong>Limitations.</strong></p>
+    </div>
 
-<p>Use only for relative trends within one dataset.</p>
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<ol class="formula-references">
+      <p>Use only for relative trends within one dataset.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834, Eq. (18b).
 </li>
 </ol>
 
-<h3 id="empirical_li_qa"><code class="language-plaintext highlighter-rouge">empirical_li_qa</code></h3>
+    </details>
 
-<p class="formula-signature"><code>empirical_li_qa()</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="empirical_li_qa">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#empirical_li_qa"><code>empirical_li_qa</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L228" title="vaft/formula/stability.py, line 228">source</a>
+</header>
+    <pre class="ref-signature"><code>empirical_li_qa()</code></pre>
 
-<p>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.</p>
+    <p>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.</p>
 
-<p>Eighteen $(q_a, l_i)$ pairs read from the JET operational diagram: at each
+    <p>Eighteen $(q_a, l_i)$ pairs read from the JET operational diagram: at each
 integer $q_a$ from 2 to 10, the upper and lower $l_i$ of the observed
 operating band.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>qa</code></td><td>np.ndarray</td><td>-</td><td><p>Edge safety factor of each point.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>qa</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Edge safety factor of each point.</p>
 </td></tr>
-  <tr><td><code>li</code></td><td>np.ndarray</td><td>-</td><td><p>Internal inductance of each point.</p>
+  <tr><td><code>li</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Internal inductance of each point.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · Limitations · References</summary>
 
-<p>Low $q_a$ goes with high $l_i$ (a peaked current profile); above
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Low $q_a$ goes with high $l_i$ (a peaked current profile); above
 $q_a \approx 6$ the lower branch saturates near $l_i \approx 0.3$ (flat
 profile).  The band bounds the region where JET discharges avoided
 disruptions in the $q_a$-$l_i$ plane.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Empirical fit.  Digitised from the JET survey of Wesson et al. [1]
+      <p>Empirical fit.  Digitised from the JET survey of Wesson et al. [1]
 (ohmic and early NBI discharges, circular-to-D-shaped, 1985-1988); the
 values are approximate readings of a published figure, not tabulated data.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>JET-specific operating experience; a spherical tokamak reaches lower $q_a$
+      <p>JET-specific operating experience; a spherical tokamak reaches lower $q_a$
 and different $l_i$ ranges, so use only as a qualitative boundary.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. A. Wesson et al., “Disruptions in JET”, Nucl. Fusion 29 (1989) 641, Fig. 5 ($l_i$-$q_a$ diagram).
 </li>
 </ol>
 
-<h3 id="greenwald_density"><code class="language-plaintext highlighter-rouge">greenwald_density</code></h3>
+    </details>
 
-<p class="formula-signature"><code>greenwald_density(I_p, a)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="greenwald_density">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#greenwald_density"><code>greenwald_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L501" title="vaft/formula/stability.py, line 501">source</a>
+</header>
+    <pre class="ref-signature"><code>greenwald_density(I_p, a)</code></pre>
 
-<p>Greenwald density limit $n_G$.</p>
+    <p>Greenwald density limit $n_G$.</p>
 
 \[n_G\,[10^{20}\,\mathrm{m^{-3}}] = \frac{I_p\,[\mathrm{MA}]}{\pi a^2\,[\mathrm{m^2}]}\]
 
-<p>returned as $10\,I_p/(\pi a^2)$ in units of $10^{19}\,\mathrm{m^{-3}}$.</p>
+    <p>returned as $10\,I_p/(\pi a^2)$ in units of $10^{19}\,\mathrm{m^{-3}}$.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>I_p</code></td><td>float</td><td>MA</td><td><p>Plasma current.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>I_p</code></td><td class="ref-type">float</td><td class="ref-unit">MA</td><td><p>Plasma current.</p>
 </td></tr>
-  <tr><td><code>a</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit.</p>
+  <tr><td><code>a</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Greenwald density limit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Engineering units (MA, m) with the result in $10^{19}\,\mathrm{m^{-3}}$; the
+      <p>Engineering units (MA, m) with the result in $10^{19}\,\mathrm{m^{-3}}$; the
 literature quotes $n_G$ in $10^{20}\,\mathrm{m^{-3}}$.  Pair with the
 line-averaged electron density when forming $f_G$
 (<code class="language-plaintext highlighter-rouge">greenwald_fraction</code>).</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Operational density limit above which discharges typically disrupt through
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Operational density limit above which discharges typically disrupt through
 edge cooling and MARFE formation; not a hard MHD boundary.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Empirical fit.  Multi-machine ohmic and auxiliary-heated database,
+      <p>Empirical fit.  Multi-machine ohmic and auxiliary-heated database,
 Greenwald et al. 1988 [1]; reviewed with H-mode data in [2].  Peaked
 profiles can exceed $f_G = 1$.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>No dependence on shaping, heating power or fuelling; spherical tokamaks
+      <p>No dependence on shaping, heating power or fuelling; spherical tokamaks
 routinely exceed it.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>M. Greenwald et al., Nucl. Fusion 28 (1988) 2199, Eq. (1).
 </li>
   <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
 </li>
 </ol>
 
-<h3 id="greenwald_fraction"><code class="language-plaintext highlighter-rouge">greenwald_fraction</code></h3>
+    </details>
 
-<p class="formula-signature"><code>greenwald_fraction(n_e, n_G)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="greenwald_fraction">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#greenwald_fraction"><code>greenwald_fraction</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L552" title="vaft/formula/stability.py, line 552">source</a>
+</header>
+    <pre class="ref-signature"><code>greenwald_fraction(n_e, n_G)</code></pre>
 
-<p>Greenwald fraction $f_G = n_e/n_G$.</p>
+    <p>Greenwald fraction $f_G = n_e/n_G$.</p>
 
 \[f_G = \frac{\bar n_e}{n_G}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Line-averaged electron density.</p>
 </td></tr>
-  <tr><td><code>n_G</code></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit in the same unit.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Greenwald fraction.</p>
+  <tr><td><code>n_G</code></td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Greenwald density limit in the same unit.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Greenwald fraction.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Both inputs in one unit and with the line-averaged density, the definition
+      <p>Both inputs in one unit and with the line-averaged density, the definition
 used in the Greenwald database; a volume average gives a systematically
 lower fraction.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
 </li>
 </ol>
 
-<h3 id="helical_phase"><code class="language-plaintext highlighter-rouge">helical_phase</code></h3>
+    </details>
 
-<p class="formula-signature"><code>helical_phase(theta, phi, m_pol, n_tor, phase=0.0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="helical_phase">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#helical_phase"><code>helical_phase</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1080" title="vaft/formula/stability.py, line 1080">source</a>
+</header>
+    <pre class="ref-signature"><code>helical_phase(theta, phi, m_pol, n_tor, phase=0.0)</code></pre>
 
-<p>Helical phase of an $m/n$ perturbation at a point on a flux surface.</p>
+    <p>Helical phase of an $m/n$ perturbation at a point on a flux surface.</p>
 
 \[\xi = m\,\theta - n\,\phi - \phi_0\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>theta</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Poloidal angle.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>theta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Poloidal angle.</p>
 </td></tr>
-  <tr><td><code>phi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Toroidal angle.</p>
+  <tr><td><code>phi</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Toroidal angle.</p>
 </td></tr>
-  <tr><td><code>m_pol</code></td><td>int</td><td>-</td><td><p>Poloidal mode number.</p>
+  <tr><td><code>m_pol</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Poloidal mode number.</p>
 </td></tr>
-  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
+  <tr><td><code>n_tor</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
 </td></tr>
-  <tr><td><code>phase</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Phase offset $\phi_0$ of the perturbation.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase $\xi$, not wrapped.</p>
+  <tr><td><code>phase</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Phase offset $\phi_0$ of the perturbation.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Helical phase $\xi$, not wrapped.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">m_pol</code> or <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>$\theta$ is a straight-field-line poloidal angle (see
+      <p>$\theta$ is a straight-field-line poloidal angle (see
 <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.straight_field_line_angle</code>), increasing from
 the outboard midplane towards the top of the cross-section, and $\phi$
 increases counter-clockwise seen from above, so a field line of
@@ -978,851 +1077,987 @@ clock numbering runs the other way (see
 <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions</code>), which matters when a measured
 phase is converted, not for this definition.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The one coordinate a single-helicity perturbation depends on: every point
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">m_pol</code> or <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The one coordinate a single-helicity perturbation depends on: every point
 with the same $\xi$ on the resonant surface sees the same perturbed field.
 O-points sit at $\xi = 0$ and X-points at $\xi = \pi$ (see
 <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>), so a fixed-$\phi$ section shows $m$ of
 each and a fixed-$\theta$ trace shows $n$.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.2.
 </li>
   <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
 </li>
 </ol>
 
-<h3 id="island_pendulum_hamiltonian"><code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code></h3>
+    </details>
 
-<p class="formula-signature"><code>island_pendulum_hamiltonian(x, xi, width)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="island_pendulum_hamiltonian">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1147" title="vaft/formula/stability.py, line 1147">source</a>
+</header>
+    <pre class="ref-signature"><code>island_pendulum_hamiltonian(x, xi, width)</code></pre>
 
-<p>Local flux function of a constant-$\psi$ magnetic island.</p>
+    <p>Local flux function of a constant-$\psi$ magnetic island.</p>
 
 \[H(x, \xi) = \tfrac{1}{2}x^{2} - \left(\frac{w}{4}\right)^{2}\cos\xi\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>x</code></td><td>float or np.ndarray</td><td>L</td><td><p>Radial distance from the rational surface, $r - r_s$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">L</td><td><p>Radial distance from the rational surface, $r - r_s$.</p>
 </td></tr>
-  <tr><td><code>xi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
+  <tr><td><code>xi</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
 </td></tr>
-  <tr><td><code>width</code></td><td>float</td><td>L</td><td><p>Full island width at the O-point.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>L^2</td><td><p>Helical flux function, in the square of the unit of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+  <tr><td><code>width</code></td><td class="ref-type">float</td><td class="ref-unit">L</td><td><p>Full island width at the O-point.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">L^2</td><td><p>Helical flux function, in the square of the unit of <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">width</code> is not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Normalised so that <code class="language-plaintext highlighter-rouge">width</code> is the <strong>full</strong> radial width at the O-point
+      <p>Normalised so that <code class="language-plaintext highlighter-rouge">width</code> is the <strong>full</strong> radial width at the O-point
 and the separatrix is the level $H = (w/4)^{2}$. The minimum
 $H = -(w/4)^{2}$ at $x = 0$, $\xi = 0$ is the O-point; the saddle at
 $x = 0$, $\xi = \pi$ is the X-point. $x$ and $w$ share one length unit,
 which the function never converts.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The helical flux a single resonant harmonic leaves near its rational
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">width</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The helical flux a single resonant harmonic leaves near its rational
 surface: a linear shear of the helical field plus a $\cos\xi$ ripple.
 Its level sets are the perturbed flux surfaces – closed around the
 O-points inside the separatrix, open and rippled outside it. It is the
 phase portrait of a pendulum, which is where the name comes from.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Constant-$\psi$ and a single helicity, with the shear taken constant
+      <p>Constant-$\psi$ and a single helicity, with the shear taken constant
 across the island, which is what makes the island symmetric about the
 rational surface.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>An island narrow compared with the distance to the neighbouring rational
+      <p>An island narrow compared with the distance to the neighbouring rational
 surfaces and to the plasma boundary. Overlapping islands (Chirikov
 parameter near one) are outside it.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
 </li>
   <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
 </li>
 </ol>
 
-<h3 id="island_separatrix_half_width"><code class="language-plaintext highlighter-rouge">island_separatrix_half_width</code></h3>
+    </details>
 
-<p class="formula-signature"><code>island_separatrix_half_width(xi, width)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="island_separatrix_half_width">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#island_separatrix_half_width"><code>island_separatrix_half_width</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1213" title="vaft/formula/stability.py, line 1213">source</a>
+</header>
+    <pre class="ref-signature"><code>island_separatrix_half_width(xi, width)</code></pre>
 
-<p>Radial half-width of the island separatrix at a given helical phase.</p>
+    <p>Radial half-width of the island separatrix at a given helical phase.</p>
 
 \[x_\mathrm{sep}(\xi) = \frac{w}{2}\,\left|\cos\frac{\xi}{2}\right|\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>xi</code></td><td>float or np.ndarray</td><td>rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>xi</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Helical phase, as <code class="language-plaintext highlighter-rouge">helical_phase</code> returns it.</p>
 </td></tr>
-  <tr><td><code>width</code></td><td>float</td><td>L</td><td><p>Full island width at the O-point.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>L</td><td><p>Distance from the rational surface to the separatrix, the same on both sides.</p>
+  <tr><td><code>width</code></td><td class="ref-type">float</td><td class="ref-unit">L</td><td><p>Full island width at the O-point.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">L</td><td><p>Distance from the rational surface to the separatrix, the same on both sides.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">width</code> is not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The separatrix of <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>: the level
+      <p>The separatrix of <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>: the level
 $H = (w/4)^{2}$ solved for $x$. It is $w/2$ at the O-point ($\xi = 0$),
 so the full width there is <code class="language-plaintext highlighter-rouge">width</code>, and zero at the X-point
 ($\xi = \pi$), where the two branches cross.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The boundary between field lines trapped in the island and the ones that
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">width</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The boundary between field lines trapped in the island and the ones that
 pass it. The separatrix is $2\pi$-periodic in $\xi$, so a fixed-$\phi$
 section closes into $m$ lobes.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>The same constant-$\psi$, single-helicity island as
+      <p>The same constant-$\psi$, single-helicity island as
 <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
 </li>
   <li>R. Fitzpatrick, <em>Plasma Physics: An Introduction</em>, CRC Press (2014), Ch. 7 (magnetic islands).
 </li>
 </ol>
 
-<h3 id="island_width_from_resonant_flux"><code class="language-plaintext highlighter-rouge">island_width_from_resonant_flux</code></h3>
+    </details>
 
-<p class="formula-signature"><code>island_width_from_resonant_flux(Phi_res, area, q, dq_dpsi_norm, m_pol, chi1)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="island_width_from_resonant_flux">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L925" title="vaft/formula/stability.py, line 925">source</a>
+</header>
+    <pre class="ref-signature"><code>island_width_from_resonant_flux(Phi_res, area, q, dq_dpsi_norm, m_pol, chi1)</code></pre>
 
-<p>Full magnetic island width from the pitch-resonant flux.</p>
+    <p>Full magnetic island width from the pitch-resonant flux.</p>
 
 \[w = 2\sqrt{\left|\frac{4\,\Phi_\mathrm{res}\,A}{2\pi\,s\,q\,\chi_1}\right|},
 \qquad s = \frac{m\,q'}{q^{2}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>Phi_res</code></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Phi_res</code></td><td class="ref-type">complex or np.ndarray</td><td class="ref-unit">T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
 </td></tr>
-  <tr><td><code>area</code></td><td>float or np.ndarray</td><td>m^2</td><td><p>Area of the rational surface.</p>
+  <tr><td><code>area</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2</td><td><p>Area of the rational surface.</p>
 </td></tr>
-  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>-</td><td><p>Safety factor at the surface.</p>
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Safety factor at the surface.</p>
 </td></tr>
-  <tr><td><code>dq_dpsi_norm</code></td><td>float or np.ndarray</td><td>-</td><td><p>$\mathrm{d}q/\mathrm{d}\psi_N$ at the surface.</p>
+  <tr><td><code>dq_dpsi_norm</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\mathrm{d}q/\mathrm{d}\psi_N$ at the surface.</p>
 </td></tr>
-  <tr><td><code>m_pol</code></td><td>int or np.ndarray</td><td>-</td><td><p>Poloidal mode number, $m = nq$.</p>
+  <tr><td><code>m_pol</code></td><td class="ref-type">int or np.ndarray</td><td class="ref-unit">-</td><td><p>Poloidal mode number, $m = nq$.</p>
 </td></tr>
-  <tr><td><code>chi1</code></td><td>float</td><td>-</td><td><p>$\mathrm{d}\chi/\mathrm{d}\psi_N$, the poloidal flux normalisation the equilibrium was solved with.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>-</td><td><p>Full island width, in normalised poloidal flux.</p>
+  <tr><td><code>chi1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\mathrm{d}\chi/\mathrm{d}\psi_N$, the poloidal flux normalisation the equilibrium was solved with.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Full island width, in normalised poloidal flux.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>A <strong>full</strong> width, not a half width, and in $\psi_N$ rather than in metres
+      <p>A <strong>full</strong> width, not a half width, and in $\psi_N$ rather than in metres
 – matching what GPEC writes as <code class="language-plaintext highlighter-rouge">w_isl</code> (its <code class="language-plaintext highlighter-rouge">units</code> attribute reads
 <code class="language-plaintext highlighter-rouge">psi_n</code>). Converting to metres needs the equilibrium’s
 $\mathrm{d}r/\mathrm{d}\psi_N$ and is not done here.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The island a resonant flux would open if it were not shielded. In an ideal
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · Validity · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The island a resonant flux would open if it were not shielded. In an ideal
 solution it is not opened: the resonant component of the perturbed field
 is screened to zero at the surface, and $\Phi_\mathrm{res}$ is what the
 singular current would have to admit for the island to form.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Constant-$\psi$, a single helicity, and a shear evaluated at the surface
+      <p>Constant-$\psi$, a single helicity, and a shear evaluated at the surface
 rather than across the island. The island is taken to be symmetric about
 the rational surface.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>A rational surface with non-zero shear. At $q’ \to 0$ the width diverges,
+      <p>A rational surface with non-zero shear. At $q’ \to 0$ the width diverges,
 which is the formula failing rather than the island growing.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>The magnitude is taken before the square root, so a negative or complex
+      <p>The magnitude is taken before the square root, so a negative or complex
 argument does not propagate a <code class="language-plaintext highlighter-rouge">nan</code>: the sign carries the island’s
 phase, which this width does not report.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.4.
 </li>
   <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1709-1711</code>, which this reproduces exactly on the DIII-D 147131 reference – 16 rational surfaces over n = 1 and n = 3, ratio 1.000000 on every one.
 </li>
 </ol>
 
-<h3 id="kink_stability_criterion"><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code></h3>
+    </details>
 
-<p class="formula-signature"><code>kink_stability_criterion(q_95, beta_N)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="kink_stability_criterion">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L413" title="vaft/formula/stability.py, line 413">source</a>
+</header>
+    <pre class="ref-signature"><code>kink_stability_criterion(q_95, beta_N)</code></pre>
 
-<p>Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.</p>
+    <p>Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.</p>
 
 \[\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 2.8\,q_{95}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
-  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta in %·m·T/MA.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
-</td></tr>
-  <tr><td><code>beta_N_crit</code></td><td>float</td><td>-</td><td><p>The threshold $2.8\,q_{95}$.</p>
+  <tr><td><code>beta_N</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised beta in %·m·T/MA.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\beta_N - \beta_{N,crit}$; positive means the limit is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_N_crit</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The threshold $2.8\,q_{95}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Validity.</strong></p>
+    <details class="ref-more">
+      <summary>Validity · Limitations · References</summary>
 
-<p>Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
 [1]; the multiplication by $q_{95}$ has no source in the literature or the
 VAFT history and makes the limit rise with $q_{95}$, opposite to the
 observed trend.  <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code> uses the same form with
 0.028, i.e. the fraction rather than percent convention of $\beta_N$.
 Tracked in #350.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Not a stability calculation; use DCON or a Troyon-type $\beta_N \le C\,l_i$
+      <p>Not a stability calculation; use DCON or a Troyon-type $\beta_N \le C\,l_i$
 estimate for a physical limit.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
 </li>
 </ol>
 
-<h3 id="li_from_qa_empirical"><code class="language-plaintext highlighter-rouge">li_from_qa_empirical</code></h3>
+    </details>
 
-<p class="formula-signature"><code>li_from_qa_empirical(qa)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="li_from_qa_empirical">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L272" title="vaft/formula/stability.py, line 272">source</a>
+</header>
+    <pre class="ref-signature"><code>li_from_qa_empirical(qa)</code></pre>
 
-<p>Internal inductance at a given $q_a$ by interpolating the JET survey points.</p>
+    <p>Internal inductance at a given $q_a$ by interpolating the JET survey points.</p>
 
 \[l_i(q_a) = \mathrm{interp}\big(q_a;\ q_a^{(k)}, l_i^{(k)}\big)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>qa</code></td><td>np.ndarray</td><td>-</td><td><p>Edge safety factor values.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>qa</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Edge safety factor values.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>-</td><td><p>Interpolated internal inductance.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Interpolated internal inductance.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Validity.</strong></p>
+    <details class="ref-more">
+      <summary>Validity · Limitations · References</summary>
 
-<p>Empirical fit.  Piecewise-linear interpolation through the eighteen
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit.  Piecewise-linear interpolation through the eighteen
 <code class="language-plaintext highlighter-rouge">empirical_li_qa</code> points from Wesson et al. [1]; a sanity check for
 when only $q_a$ is known.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>The survey lists two $l_i$ per integer $q_a$ (upper and lower band edge),
+      <p>The survey lists two $l_i$ per integer $q_a$ (upper and lower band edge),
 so <code class="language-plaintext highlighter-rouge">numpy.interp</code> over the duplicated abscissae returns a value that
 depends on the point ordering; outside $2 \le q_a \le 10$ the end values are
 held constant (no extrapolation).</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. A. Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 5.
 </li>
 </ol>
 
-<h3 id="plasma_stability_margins"><code class="language-plaintext highlighter-rouge">plasma_stability_margins</code></h3>
+    </details>
 
-<p class="formula-signature"><code>plasma_stability_margins(beta_N, q_95, n_e, n_G)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="plasma_stability_margins">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#plasma_stability_margins"><code>plasma_stability_margins</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L699" title="vaft/formula/stability.py, line 699">source</a>
+</header>
+    <pre class="ref-signature"><code>plasma_stability_margins(beta_N, q_95, n_e, n_G)</code></pre>
 
-<p>Beta, $q_{95}$ and density margins in one call.</p>
+    <p>Beta, $q_{95}$ and density margins in one call.</p>
 
 \[\Delta_\beta = \beta_N - 0.028\,q_{95}, \qquad
   \Delta_q = q_{95} - 2, \qquad
   f_G = \frac{n_e}{n_G}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta as a fraction.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_N</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised beta as a fraction.</p>
 </td></tr>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
-  <tr><td><code>n_e</code></td><td>float</td><td>1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+  <tr><td><code>n_e</code></td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Line-averaged electron density.</p>
 </td></tr>
-  <tr><td><code>n_G</code></td><td>float</td><td>1e19 m^-3</td><td><p>Greenwald density limit.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_margin</code></td><td>float</td><td>-</td><td><p>From <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code>; positive exceeds the limit.</p>
-</td></tr>
-  <tr><td><code>q_margin</code></td><td>float</td><td>-</td><td><p>$q_{95} - 2$; negative is below the $q_{95} = 2$ disruption boundary.</p>
-</td></tr>
-  <tr><td><code>density_margin</code></td><td>float</td><td>-</td><td><p>Greenwald fraction, from <code class="language-plaintext highlighter-rouge">greenwald_fraction</code>; 1 is the limit.</p>
+  <tr><td><code>n_G</code></td><td class="ref-type">float</td><td class="ref-unit">1e19 m^-3</td><td><p>Greenwald density limit.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code>; positive exceeds the limit.</p>
+</td></tr>
+  <tr><td><code>q_margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$q_{95} - 2$; negative is below the $q_{95} = 2$ disruption boundary.</p>
+</td></tr>
+  <tr><td><code>density_margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Greenwald fraction, from <code class="language-plaintext highlighter-rouge">greenwald_fraction</code>; 1 is the limit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The three margins use three different sign conventions: beta and $q$ are
+      <p>The three margins use three different sign conventions: beta and $q$ are
 differences (sign tells the side of the boundary) while density is a ratio.
 $q_{95} = 2$ is the empirical operational boundary [1].</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>J. A. Wesson et al., Nucl. Fusion 29 (1989) 641.
 </li>
   <li>M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27.
 </li>
 </ol>
 
-<h3 id="power_limit_from_beta"><code class="language-plaintext highlighter-rouge">power_limit_from_beta</code></h3>
+    </details>
 
-<p class="formula-signature"><code>power_limit_from_beta(beta_N, B0, V)</code></p>
+  </section>
 
-<p>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.</p>
+  <section class="ref-entry" id="power_limit_from_beta">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L587" title="vaft/formula/stability.py, line 587">source</a>
+</header>
+    <pre class="ref-signature"><code>power_limit_from_beta(beta_N, B0, V)</code></pre>
+
+    <p>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.</p>
 
 \[P = \beta_N\,\frac{B_0^2}{2\mu_0}\,V\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_N</code></td><td>float</td><td>-</td><td><p>Normalised beta, any convention.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_N</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised beta, any convention.</p>
 </td></tr>
-  <tr><td><code>B0</code></td><td>float</td><td>T</td><td><p>Toroidal field on axis.</p>
+  <tr><td><code>B0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field on axis.</p>
 </td></tr>
-  <tr><td><code>V</code></td><td>float</td><td>m^3</td><td><p>Plasma volume.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>J</td><td><p>The expression above, dimensionally an energy.</p>
+  <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>The expression above, dimensionally an energy.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
 
-<p>$\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>$\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
 (<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.stored_energy_from_beta_V</code>), not a power;
 no time scale enters, and no source records what limit was intended.  Kept
 for compatibility.  Tracked in #362.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209 (the $\beta_N$ limit the expression appears to draw on).
 </li>
 </ol>
 
-<h3 id="power_limit_from_q"><code class="language-plaintext highlighter-rouge">power_limit_from_q</code></h3>
+    </details>
 
-<p class="formula-signature"><code>power_limit_from_q(q_95, I_p, R0)</code></p>
+  </section>
 
-<p>Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.</p>
+  <section class="ref-entry" id="power_limit_from_q">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#power_limit_from_q"><code>power_limit_from_q</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L623" title="vaft/formula/stability.py, line 623">source</a>
+</header>
+    <pre class="ref-signature"><code>power_limit_from_q(q_95, I_p, R0)</code></pre>
+
+    <p>Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.</p>
 
 \[P = \frac{2\pi R_0\,I_p}{\mu_0\,q_{95}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q_95</code></td><td>float</td><td>-</td><td><p>Safety factor at the 95% flux surface.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q_95</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at the 95% flux surface.</p>
 </td></tr>
-  <tr><td><code>I_p</code></td><td>float</td><td>A</td><td><p>Plasma current.</p>
+  <tr><td><code>I_p</code></td><td class="ref-type">float</td><td class="ref-unit">A</td><td><p>Plasma current.</p>
 </td></tr>
-  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>A^2</td><td><p>The expression above.</p>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">A^2</td><td><p>The expression above.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
 
-<p>Dimensionally $I_p R/\mu_0 q$ is A$^2$ (current times $R/L$), not a power;
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Dimensionally $I_p R/\mu_0 q$ is A$^2$ (current times $R/L$), not a power;
 no derivation or source is recorded.  Kept for compatibility.  Tracked in
 #362.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.4 (cylindrical $q$, the relation this seems to rearrange).
 </li>
 </ol>
 
-<h3 id="resonant_flux_from_delta"><code class="language-plaintext highlighter-rouge">resonant_flux_from_delta</code></h3>
+    </details>
 
-<p class="formula-signature"><code>resonant_flux_from_delta(delta, geometric_factor, n_tor)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="resonant_flux_from_delta">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1003" title="vaft/formula/stability.py, line 1003">source</a>
+</header>
+    <pre class="ref-signature"><code>resonant_flux_from_delta(delta, geometric_factor, n_tor)</code></pre>
 
-<p>Pitch-resonant flux from the resonance parameter and the surface geometry.</p>
+    <p>Pitch-resonant flux from the resonance parameter and the surface geometry.</p>
 
 \[\Phi_\mathrm{res} = -\frac{G(\psi_\mathrm{res})}{n}\,\Delta\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>delta</code></td><td>complex or np.ndarray</td><td>-</td><td><p>Unitless resonance parameter $\Delta$, the jump in the resonant field’s $\psi$ derivative across the surface.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>delta</code></td><td class="ref-type">complex or np.ndarray</td><td class="ref-unit">-</td><td><p>Unitless resonance parameter $\Delta$, the jump in the resonant field’s $\psi$ derivative across the surface.</p>
 </td></tr>
-  <tr><td><code>geometric_factor</code></td><td>float or np.ndarray</td><td>T</td><td><p>$G(\psi_\mathrm{res})$, the surface’s own factor.</p>
+  <tr><td><code>geometric_factor</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>$G(\psi_\mathrm{res})$, the surface’s own factor.</p>
 </td></tr>
-  <tr><td><code>n_tor</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>complex or np.ndarray</td><td>T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+  <tr><td><code>n_tor</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">complex or np.ndarray</td><td class="ref-unit">T</td><td><p>Pitch-resonant flux, normalised by the surface area.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>$G$ absorbs two equilibrium-only quantities GPEC forms separately: the
+      <p>$G$ absorbs two equilibrium-only quantities GPEC forms separately: the
 surface integral $j_c$ of $B^{2}/|\nabla\psi|^{3}$, and the diagonal of
 the vacuum surface inductance that <code class="language-plaintext highlighter-rouge">gpvacuum_flxsurf</code> builds by calling
 the VACUUM code. Both depend on the flux surface and not on the
 perturbation, so $G$ is a property of the equilibrium and is measured
 once for it rather than rebuilt per run.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>$\Delta$ says how much the resonant field is discontinuous across the
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">n_tor</code> is not a positive mode number.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · Validity · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\Delta$ says how much the resonant field is discontinuous across the
 surface; $G$ converts that discontinuity into the flux the singular
 current drives. The minus sign is GPEC’s: measured, the phase of
 $n\,\Phi_\mathrm{res}/\Delta$ is exactly 180 degrees.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>That $G$ was measured on the same equilibrium. It is not transferable
+      <p>That $G$ was measured on the same equilibrium. It is not transferable
 between equilibria, and nothing here can detect a mismatch.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Measured on the DIII-D 147131 reference, $n\,\Phi_\mathrm{res}/\Delta$
+      <p>Measured on the DIII-D 147131 reference, $n\,\Phi_\mathrm{res}/\Delta$
 agrees across n = 1, 2 and 3 at every shared rational surface to within
 0.6 per cent, and the values the three modes report at <em>different</em>
 surfaces fall on one smooth curve in $q$ – which is what makes $G$
 interpolable in $\psi$ from the surfaces any single run reaches.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>The 0.6 per cent spread is systematic rather than noise: it grows
+      <p>The 0.6 per cent spread is systematic rather than noise: it grows
 monotonically from n = 1 to n = 3, which is the vacuum Green’s function’s
 own weak dependence on the toroidal mode number. A study needing better
 than that has to build the inductance rather than measure $G$.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">GPEC/gpec/gpout.f:1690-1705</code> for the chain $\Delta \to I_\mathrm{res} \to \Phi_\mathrm{res}$, and <code class="language-plaintext highlighter-rouge">GPEC/gpec/gpvacuum.f:236-342</code> for the inductance $G$ absorbs.
 </li>
 </ol>
 
-<h3 id="rhostar_from_Te_a_Bt"><code class="language-plaintext highlighter-rouge">rhostar_from_Te_a_Bt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="rhostar_from_Te_a_Bt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L874" title="vaft/formula/stability.py, line 874">source</a>
+</header>
+    <pre class="ref-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t)</code></pre>
 
-<p>Normalised electron gyroradius $\rho_e/a$.</p>
+    <p>Normalised electron gyroradius $\rho_e/a$.</p>
 
 \[\rho_* = \frac{\rho_e}{a}, \qquad
   \rho_e = \frac{\sqrt{2 m_e e T_e}}{e B_t}
           = \sqrt{\frac{2m_e}{e}}\;\frac{\sqrt{T_e}}{B_t}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>Te_eV</code></td><td>float</td><td>eV</td><td><p>Electron temperature.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Te_eV</code></td><td class="ref-type">float</td><td class="ref-unit">eV</td><td><p>Electron temperature.</p>
 </td></tr>
-  <tr><td><code>a_minor</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+  <tr><td><code>a_minor</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
 </td></tr>
-  <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Toroidal field.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Normalised electron gyroradius.</p>
+  <tr><td><code>B_t</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised electron gyroradius.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
+      <p>Thermal speed $\sqrt{2T/m}$ and the toroidal field, normalised by the minor
 radius: the ITER Physics Basis definition [1], and the electron counterpart
 of <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code>,
 which this delegates to so the two cannot drift.</p>
 
-<p>Until #348 this multiplied by $a$ instead of dividing, omitted the constant
+      <p>Until #348 this multiplied by $a$ instead of dividing, omitted the constant
 $\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$, and ignored an
 <code class="language-plaintext highlighter-rouge">m_e</code> argument it accepted – so the result was neither dimensionless nor
 proportional to $\rho_*$ across devices, and no rescaling recovered it. The
 dead <code class="language-plaintext highlighter-rouge">m_e</code> parameter is gone with the defect.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6 (dimensionless parameters).
 </li>
 </ol>
 
-<h3 id="s_alpha_ballooning_stable"><code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code></h3>
+    </details>
 
-<p class="formula-signature"><code>s_alpha_ballooning_stable(s, alpha, theta_max=125.66370614359172, step=0.02)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="s_alpha_ballooning_stable">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1278" title="vaft/formula/stability.py, line 1278">source</a>
+</header>
+    <pre class="ref-signature"><code>s_alpha_ballooning_stable(s, alpha, theta_max=125.66370614359172, step=0.02)</code></pre>
 
-<p>Ideal ballooning stability of the circular $s$-$\alpha$ model.</p>
+    <p>Ideal ballooning stability of the circular $s$-$\alpha$ model.</p>
 
 \[\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
 + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = 0,
 \qquad \Lambda = s\theta - \alpha\sin\theta\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear $r q’/q$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Magnetic shear $r q’/q$.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float or np.ndarray</td><td>-</td><td><p>Normalised pressure gradient $-2\mu_0 R q^{2} p’/B^{2}$.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Normalised pressure gradient $-2\mu_0 R q^{2} p’/B^{2}$.</p>
 </td></tr>
-  <tr><td><code>theta_max</code></td><td>float</td><td>rad</td><td><p>Extent of the ballooning-angle integration.</p>
+  <tr><td><code>theta_max</code></td><td class="ref-type">float</td><td class="ref-unit">rad</td><td><p>Extent of the ballooning-angle integration.</p>
 </td></tr>
-  <tr><td><code>step</code></td><td>float</td><td>rad</td><td><p>Fixed fourth-order Runge-Kutta step.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>bool or np.ndarray</td><td>-</td><td><p>True where the marginal ballooning equation is stable, broadcast over <code class="language-plaintext highlighter-rouge">s</code> and <code class="language-plaintext highlighter-rouge">alpha</code>.</p>
+  <tr><td><code>step</code></td><td class="ref-type">float</td><td class="ref-unit">rad</td><td><p>Fixed fourth-order Runge-Kutta step.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">bool or np.ndarray</td><td class="ref-unit">-</td><td><p>True where the marginal ballooning equation is stable, broadcast over <code class="language-plaintext highlighter-rouge">s</code> and <code class="language-plaintext highlighter-rouge">alpha</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">theta_max</code> or <code class="language-plaintext highlighter-rouge">step</code> is not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Connor-Hastie-Taylor normalisation: $\alpha &gt; 0$ for pressure falling
+      <p>Connor-Hastie-Taylor normalisation: $\alpha &gt; 0$ for pressure falling
 outwards (<code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code>), $s &gt; 0$ for $q$ rising
 outwards. Newcomb’s criterion on the even solution, $F(0) = 1$,
 $F’(0) = 0$: the point is unstable if $F$ crosses zero anywhere on
 $0 &lt; \theta \le \theta_\mathrm{max}$.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>$\alpha\cos\theta$ is the bad-curvature drive on the outboard side and
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">theta_max</code> or <code class="language-plaintext highlighter-rouge">step</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · Validity · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\alpha\cos\theta$ is the bad-curvature drive on the outboard side and
 $\Lambda$ the local shear that bends field lines against it. Raising
 $\alpha$ first destabilises (first stability boundary) and then, through
 the $-\alpha\sin\theta$ term that makes the local shear vanish on the
 outboard side and reverse elsewhere, restabilises (second stability).</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Large aspect ratio, circular shifted flux surfaces, infinite toroidal
+      <p>Large aspect ratio, circular shifted flux surfaces, infinite toroidal
 mode number, marginal stability ($\omega^{2} = 0$).</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>$s \gtrsim 0.05$. Towards zero shear the solutions decay only
+      <p>$s \gtrsim 0.05$. Towards zero shear the solutions decay only
 algebraically and a finite <code class="language-plaintext highlighter-rouge">theta_max</code> resolves the boundary
 progressively worse; at $s \le 0$ the model is stable.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>A fixed-step integrator, vectorised over the broadcast inputs, so the
+      <p>A fixed-step integrator, vectorised over the broadcast inputs, so the
 result is deterministic and a whole $(s, \alpha)$ grid costs one pass.
 With the defaults, halving <code class="language-plaintext highlighter-rouge">step</code> does not move the boundary at the
 1e-4 level; extending <code class="language-plaintext highlighter-rouge">theta_max</code> to $2560\pi$ moves $\alpha_1$ by
 about 0.012 at $s = 0.1$ and 0.002 at $s = 1$.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
 </li>
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
 </li>
 </ol>
 
-<h3 id="s_alpha_marginal_alpha"><code class="language-plaintext highlighter-rouge">s_alpha_marginal_alpha</code></h3>
+    </details>
 
-<p class="formula-signature"><code>s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=0.001)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="s_alpha_marginal_alpha">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L1374" title="vaft/formula/stability.py, line 1374">source</a>
+</header>
+    <pre class="ref-signature"><code>s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=0.001)</code></pre>
 
-<p>First and second ballooning stability boundaries of the $s$-$\alpha$ model.</p>
+    <p>First and second ballooning stability boundaries of the $s$-$\alpha$ model.</p>
 
 \[\alpha_1(s) = \min\{\alpha : \text{unstable}\}, \qquad
 \alpha_2(s) = \max\{\alpha : \text{unstable}\}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>s</code></td><td>float or np.ndarray</td><td>-</td><td><p>Magnetic shear $r q’/q$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Magnetic shear $r q’/q$.</p>
 </td></tr>
-  <tr><td><code>alpha_max</code></td><td>float</td><td>-</td><td><p>Upper end of the searched $\alpha$ range.</p>
+  <tr><td><code>alpha_max</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Upper end of the searched $\alpha$ range.</p>
 </td></tr>
-  <tr><td><code>resolution</code></td><td>float</td><td>-</td><td><p>Bisection tolerance on each boundary.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>alpha_first</code></td><td>float or np.ndarray</td><td>-</td><td><p>Lowest unstable $\alpha$: the first stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where no instability is found.</p>
-</td></tr>
-  <tr><td><code>alpha_second</code></td><td>float or np.ndarray</td><td>-</td><td><p>Highest unstable $\alpha$: the second stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where none is found or the unstable band reaches <code class="language-plaintext highlighter-rouge">alpha_max</code>.</p>
+  <tr><td><code>resolution</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Bisection tolerance on each boundary.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>alpha_first</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Lowest unstable $\alpha$: the first stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where no instability is found.</p>
+</td></tr>
+  <tr><td><code>alpha_second</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Highest unstable $\alpha$: the second stability boundary; <code class="language-plaintext highlighter-rouge">nan</code> where none is found or the unstable band reaches <code class="language-plaintext highlighter-rouge">alpha_max</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">s</code> is not finite, <code class="language-plaintext highlighter-rouge">alpha_max</code> is below 0.1 or <code class="language-plaintext highlighter-rouge">resolution</code> is
-    not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The boundaries of <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code> (same normalisation and
+      <p>The boundaries of <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code> (same normalisation and
 Newcomb criterion). The unstable set at fixed $s$ is taken to be the
 single band $[\alpha_1, \alpha_2]$ it is in this model.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Below $\alpha_1$ the plasma is first-stable; above $\alpha_2$ it has
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">s</code> is not finite, <code class="language-plaintext highlighter-rouge">alpha_max</code> is below 0.1 or <code class="language-plaintext highlighter-rouge">resolution</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Below $\alpha_1$ the plasma is first-stable; above $\alpha_2$ it has
 reached second stability. $\alpha_1 \approx 0.6\,s$ at moderate shear,
 the line <code class="language-plaintext highlighter-rouge">ballooning_stability_criterion</code> uses.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>As for <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code>.</p>
+      <p>As for <code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code>.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>A scan on a 0.05-spaced $\alpha$ grid brackets each boundary, then one
+      <p>A scan on a 0.05-spaced $\alpha$ grid brackets each boundary, then one
 vectorised bisection refines both to <code class="language-plaintext highlighter-rouge">resolution</code>. A band narrower than
 the scan spacing (very small $s$) can be missed.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
 </li>
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.13.
 </li>
 </ol>
 
-<h3 id="sawtooth_stability_criterion"><code class="language-plaintext highlighter-rouge">sawtooth_stability_criterion</code></h3>
+    </details>
 
-<p class="formula-signature"><code>sawtooth_stability_criterion(q_0, beta_pol)</code></p>
+  </section>
 
-<p><strong>Empirical fit.</strong> </p>
+  <section class="ref-entry" id="sawtooth_stability_criterion">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L455" title="vaft/formula/stability.py, line 455">source</a>
+</header>
+    <pre class="ref-signature"><code>sawtooth_stability_criterion(q_0, beta_pol)</code></pre>
 
-<p>Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.</p>
+    <p>Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.</p>
 
 \[\Delta = \beta_p - \beta_{p,crit}, \qquad \beta_{p,crit} = 0.3\,(1 - q_0)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q_0</code></td><td>float</td><td>-</td><td><p>Safety factor on axis.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q_0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor on axis.</p>
 </td></tr>
-  <tr><td><code>beta_pol</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$\beta_p - \beta_{p,crit}$; positive means the threshold is exceeded.</p>
-</td></tr>
-  <tr><td><code>beta_pol_crit</code></td><td>float</td><td>-</td><td><p>The threshold.</p>
+  <tr><td><code>beta_pol</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\beta_p - \beta_{p,crit}$; positive means the threshold is exceeded.</p>
+</td></tr>
+  <tr><td><code>beta_pol_crit</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The threshold.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Validity.</strong></p>
+    <details class="ref-more">
+      <summary>Validity · Limitations · References</summary>
 
-<p>Empirical fit.  Modelled on the Porcelli trigger, in which the internal-kink
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit.  Modelled on the Porcelli trigger, in which the internal-kink
 threshold scales with the poloidal beta inside the $q=1$ surface and a
 critical value of order 0.3 [1]; the linear $(1 - q_0)$ dependence and
 the coefficient are VAFT heuristics without a recorded source.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>Uses the global $\beta_p$, not $\beta_{p,1}$ inside $q=1$; returns a
+      <p>Uses the global $\beta_p$, not $\beta_{p,1}$ inside $q=1$; returns a
 negative threshold for $q_0 &gt; 1$, where sawteeth do not occur.  Tracked in
 #350.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys. Control. Fusion 38 (1996) 2163, Sec. 3.
 </li>
 </ol>
 
-<h3 id="v_alfven_from_B_n_mi"><code class="language-plaintext highlighter-rouge">v_alfven_from_B_n_mi</code></h3>
+    </details>
 
-<p class="formula-signature"><code>v_alfven_from_B_n_mi(B, n, m_i=1.67262192e-27)</code></p>
+  </section>
 
-<p>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.</p>
+  <section class="ref-entry" id="v_alfven_from_B_n_mi">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/stability.py#L797" title="vaft/formula/stability.py, line 797">source</a>
+</header>
+    <pre class="ref-signature"><code>v_alfven_from_B_n_mi(B, n, m_i=1.67262192e-27)</code></pre>
+
+    <p>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.</p>
 
 \[v_A = \frac{B}{\sqrt{\mu_0\,n\,m_i}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>B</code></td><td>float</td><td>T</td><td><p>Magnetic field strength.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Magnetic field strength.</p>
 </td></tr>
-  <tr><td><code>n</code></td><td>float</td><td>m^-3</td><td><p>Ion number density.</p>
+  <tr><td><code>n</code></td><td class="ref-type">float</td><td class="ref-unit">m^-3</td><td><p>Ion number density.</p>
 </td></tr>
-  <tr><td><code>m_i</code></td><td>float, optional</td><td>kg</td><td><p>Ion mass; default the proton mass.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>m/s</td><td><p>Alfven speed.</p>
+  <tr><td><code>m_i</code></td><td class="ref-type">float, optional</td><td class="ref-unit">kg</td><td><p>Ion mass; default the proton mass.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">m/s</td><td><p>Alfven speed.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Assumptions.</strong></p>
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
 
-<p>Single ion species, $n_i = n$; the mass density is $n m_i$ (electron mass
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Single ion species, $n_i = n$; the mass density is $n m_i$ (electron mass
 neglected).</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2007), Sec. 10.5 (Alfven waves).
 </li>
   <li>NRL Plasma Formulary (2019), p. 29.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -1923,7 +2158,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ballooning_alpha_from_p_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_alpha_from_p_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">ballooning_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_N_from_beta_a_B0_Ip" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_N_from_beta_a_B0_Ip</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_pol_from_beta_tor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_pol_from_beta_tor</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_stability_boundary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_stability_boundary</a></li><li class="page-toc-item page-toc-level-3"><a href="#beta_tor_from_beta_pol" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">beta_tor_from_beta_pol</a></li><li class="page-toc-item page-toc-level-3"><a href="#c_s_from_Te_Ti_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">c_s_from_Te_Ti_mi</a></li><li class="page-toc-item page-toc-level-3"><a href="#collisionality_from_n_T_B_R" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">collisionality_from_n_T_B_R</a></li><li class="page-toc-item page-toc-level-3"><a href="#empirical_li_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">empirical_li_qa</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_density" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_density</a></li><li class="page-toc-item page-toc-level-3"><a href="#greenwald_fraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">greenwald_fraction</a></li><li class="page-toc-item page-toc-level-3"><a href="#helical_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">helical_phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_pendulum_hamiltonian" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_pendulum_hamiltonian</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_separatrix_half_width" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_separatrix_half_width</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_width_from_resonant_flux" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_width_from_resonant_flux</a></li><li class="page-toc-item page-toc-level-3"><a href="#kink_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">kink_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#li_from_qa_empirical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">li_from_qa_empirical</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma_stability_margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">plasma_stability_margins</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_beta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_beta</a></li><li class="page-toc-item page-toc-level-3"><a href="#power_limit_from_q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">power_limit_from_q</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant_flux_from_delta" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resonant_flux_from_delta</a></li><li class="page-toc-item page-toc-level-3"><a href="#rhostar_from_Te_a_Bt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">rhostar_from_Te_a_Bt</a></li><li class="page-toc-item page-toc-level-3"><a href="#s_alpha_ballooning_stable" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">s_alpha_ballooning_stable</a></li><li class="page-toc-item page-toc-level-3"><a href="#s_alpha_marginal_alpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">s_alpha_marginal_alpha</a></li><li class="page-toc-item page-toc-level-3"><a href="#sawtooth_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">sawtooth_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#v_alfven_from_B_n_mi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">v_alfven_from_B_n_mi</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -2041,7 +2276,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -2070,7 +2305,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/particle.py"><code class="language-plaintext highlighter-rouge">vaft/formula/particle.py</code></a>:
-7 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.particle</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -283,113 +281,128 @@ Back to the <a href="/vaft/develop/reference/formula/">formula reference index</
 charged particle, and a Boris integrator of the full Lorentz-force orbit
 against which the drift relations can be checked.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>q</td><td>particle charge, signed</td><td>C</td></tr>
-  <tr><td>m</td><td>particle mass</td><td>kg</td></tr>
-  <tr><td>B</td><td>magnetic field (vector or magnitude)</td><td>T</td></tr>
-  <tr><td>E</td><td>electric field</td><td>V/m</td></tr>
-  <tr><td>v_perp</td><td>speed perpendicular to B</td><td>m/s</td></tr>
-  <tr><td>v_par</td><td>speed parallel to B</td><td>m/s</td></tr>
-  <tr><td>omega_c</td><td>signed gyrofrequency qB/m</td><td>rad/s</td></tr>
-  <tr><td>rho</td><td>Larmor radius</td><td>m</td></tr>
-  <tr><td>R_c</td><td>radius-of-curvature vector of the field line</td><td>m</td></tr>
+  <tr><td>q</td><td>particle charge, signed</td><td class="ref-unit">C</td></tr>
+  <tr><td>m</td><td>particle mass</td><td class="ref-unit">kg</td></tr>
+  <tr><td>B</td><td>magnetic field (vector or magnitude)</td><td class="ref-unit">T</td></tr>
+  <tr><td>E</td><td>electric field</td><td class="ref-unit">V/m</td></tr>
+  <tr><td>v_perp</td><td>speed perpendicular to B</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>v_par</td><td>speed parallel to B</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>omega_c</td><td>signed gyrofrequency qB/m</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>rho</td><td>Larmor radius</td><td class="ref-unit">m</td></tr>
+  <tr><td>R_c</td><td>radius-of-curvature vector of the field line</td><td class="ref-unit">m</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#boris_orbit"><code>boris_orbit</code></a> &mdash; Charged-particle orbit from the Lorentz force, by the Boris scheme.
-</li>
-  <li><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a> &mdash; Curvature drift velocity of the guiding centre.
-</li>
-  <li><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a> &mdash; E-cross-B drift velocity of the guiding centre.
-</li>
-  <li><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a> &mdash; Grad-B drift velocity of the guiding centre.
-</li>
-  <li><a href="#gyration_offset"><code>gyration_offset</code></a> &mdash; Position of a gyrating particle relative to its guiding centre.
-</li>
-  <li><a href="#gyrofrequency"><code>gyrofrequency</code></a> &mdash; Signed gyrofrequency of a charged particle.
-</li>
-  <li><a href="#larmor_radius"><code>larmor_radius</code></a> &mdash; Larmor (gyro) radius of a charged particle.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="boris_orbit"><td><a href="#boris_orbit"><code>boris_orbit</code></a></td><td>Charged-particle orbit from the Lorentz force, by the Boris scheme.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="curvature_drift_velocity"><td><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></td><td>Curvature drift velocity of the guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="exb_drift_velocity"><td><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a></td><td>E-cross-B drift velocity of the guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="grad_b_drift_velocity"><td><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></td><td>Grad-B drift velocity of the guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gyration_offset"><td><a href="#gyration_offset"><code>gyration_offset</code></a></td><td>Position of a gyrating particle relative to its guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gyrofrequency"><td><a href="#gyrofrequency"><code>gyrofrequency</code></a></td><td>Signed gyrofrequency of a charged particle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="larmor_radius"><td><a href="#larmor_radius"><code>larmor_radius</code></a></td><td>Larmor (gyro) radius of a charged particle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="boris_orbit"><code class="language-plaintext highlighter-rouge">boris_orbit</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps)</code></p>
+  <section class="ref-entry" id="boris_orbit">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#boris_orbit"><code>boris_orbit</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L380" title="vaft/formula/particle.py, line 380">source</a>
+</header>
+    <pre class="ref-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps)</code></pre>
 
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Charged-particle orbit from the Lorentz force, by the Boris scheme.</p>
+    <p>Charged-particle orbit from the Lorentz force, by the Boris scheme.</p>
 
 \[m\,\frac{\mathrm{d}\mathbf{v}}{\mathrm{d}t} = q\,(\mathbf{E} + \mathbf{v}\times\mathbf{B}),
 \qquad \frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float</td><td class="ref-unit">C</td><td><p>Particle charge, signed.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>x0</code></td><td>array_like</td><td>m</td><td><p>Initial position.</p>
+  <tr><td><code>x0</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Initial position.</p>
 </td></tr>
-  <tr><td><code>v0</code></td><td>array_like</td><td>m/s</td><td><p>Initial velocity.</p>
+  <tr><td><code>v0</code></td><td class="ref-type">array_like</td><td class="ref-unit">m/s</td><td><p>Initial velocity.</p>
 </td></tr>
-  <tr><td><code>E_field</code></td><td>callable</td><td>V/m</td><td><p><code class="language-plaintext highlighter-rouge">E_field(x)</code> returning the electric field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
+  <tr><td><code>E_field</code></td><td class="ref-type">callable</td><td class="ref-unit">V/m</td><td><p><code class="language-plaintext highlighter-rouge">E_field(x)</code> returning the electric field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
 </td></tr>
-  <tr><td><code>B_field</code></td><td>callable</td><td>T</td><td><p><code class="language-plaintext highlighter-rouge">B_field(x)</code> returning the magnetic field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
+  <tr><td><code>B_field</code></td><td class="ref-type">callable</td><td class="ref-unit">T</td><td><p><code class="language-plaintext highlighter-rouge">B_field(x)</code> returning the magnetic field at position <code class="language-plaintext highlighter-rouge">x</code>.</p>
 </td></tr>
-  <tr><td><code>dt</code></td><td>float</td><td>s</td><td><p>Time step.</p>
+  <tr><td><code>dt</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>Time step.</p>
 </td></tr>
-  <tr><td><code>n_steps</code></td><td>int</td><td>-</td><td><p>Number of steps.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>positions</code></td><td>np.ndarray</td><td>m</td><td><p>Positions, shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>, the first being <code class="language-plaintext highlighter-rouge">x0</code>.</p>
-</td></tr>
-  <tr><td><code>velocities</code></td><td>np.ndarray</td><td>m/s</td><td><p><code class="language-plaintext highlighter-rouge">velocities[i + 1]</code> is the velocity over the step from <code class="language-plaintext highlighter-rouge">positions[i]</code> to <code class="language-plaintext highlighter-rouge">positions[i + 1]</code>; <code class="language-plaintext highlighter-rouge">velocities[0]</code> is <code class="language-plaintext highlighter-rouge">v0</code>. Shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>.</p>
+  <tr><td><code>n_steps</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Number of steps.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>positions</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Positions, shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>, the first being <code class="language-plaintext highlighter-rouge">x0</code>.</p>
+</td></tr>
+  <tr><td><code>velocities</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p><code class="language-plaintext highlighter-rouge">velocities[i + 1]</code> is the velocity over the step from <code class="language-plaintext highlighter-rouge">positions[i]</code> to <code class="language-plaintext highlighter-rouge">positions[i + 1]</code>; <code class="language-plaintext highlighter-rouge">velocities[0]</code> is <code class="language-plaintext highlighter-rouge">v0</code>. Shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">m</code>, <code class="language-plaintext highlighter-rouge">dt</code> or <code class="language-plaintext highlighter-rouge">n_steps</code> is not positive, or a vector is not a
-    3-vector.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Non-relativistic leapfrog: velocities live at the half steps between
+      <p>Non-relativistic leapfrog: velocities live at the half steps between
 positions (half electric kick, magnetic rotation, half kick, then the
 position advance). <code class="language-plaintext highlighter-rouge">v0</code> is taken as the velocity half a step before
 <code class="language-plaintext highlighter-rouge">x0</code>. Right-handed Cartesian components.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The full orbit the drift formulas average: integrated in a uniform or
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">m</code>, <code class="language-plaintext highlighter-rouge">dt</code> or <code class="language-plaintext highlighter-rouge">n_steps</code> is not positive, or a vector is not a 3-vector.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The full orbit the drift formulas average: integrated in a uniform or
 slowly varying field, its guiding centre moves at <code class="language-plaintext highlighter-rouge">exb_drift_velocity</code>,
 <code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code> and <code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code>.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>The magnetic rotation is exact in angle up to the $\tan(\omega_c\Delta t
+      <p>The magnetic rotation is exact in angle up to the $\tan(\omega_c\Delta t
 /2)$ phase error, so with $E = 0$ the kinetic energy is conserved to
 round-off for any step; the scheme is volume-preserving and has no
 secular energy drift. Keep $|\omega_c|\Delta t \lesssim 0.1$ for an
 accurate gyrophase. Fixed step, so the output is deterministic.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>J. P. Boris, Proc. 4th Conf. Numer. Sim. Plasmas, NRL (1970), 3.
 </li>
   <li>C. K. Birdsall and A. B. Langdon, <em>Plasma Physics via Computer Simulation</em>, McGraw-Hill (1985), Sec. 4-4.
@@ -398,149 +411,178 @@ accurate gyrophase. Fixed step, so the output is deterministic.</p>
 </li>
 </ol>
 
-<h3 id="curvature_drift_velocity"><code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code></h3>
+    </details>
 
-<p class="formula-signature"><code>curvature_drift_velocity(q, m, v_par, B, R_c)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="curvature_drift_velocity">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L315" title="vaft/formula/particle.py, line 315">source</a>
+</header>
+    <pre class="ref-signature"><code>curvature_drift_velocity(q, m, v_par, B, R_c)</code></pre>
 
-<p>Curvature drift velocity of the guiding centre.</p>
+    <p>Curvature drift velocity of the guiding centre.</p>
 
 \[\mathbf{v}_R = \frac{m v_\parallel^{2}}{qB^{2}}\,
 \frac{\mathbf{R}_c\times\mathbf{B}}{R_c^{2}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float</td><td class="ref-unit">C</td><td><p>Particle charge, signed.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>v_par</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed along the magnetic field.</p>
+  <tr><td><code>v_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Speed along the magnetic field.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
 </td></tr>
-  <tr><td><code>R_c</code></td><td>array_like</td><td>m</td><td><p>Radius-of-curvature vector, from the centre of curvature to the field line.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity.</p>
+  <tr><td><code>R_c</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Radius-of-curvature vector, from the centre of curvature to the field line.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>Drift velocity.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> or <code class="language-plaintext highlighter-rouge">R_c</code>
-    vanishes.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>$\mathbf{R}_c$ points <em>outward</em>, from the centre of curvature to the
+      <p>$\mathbf{R}_c$ points <em>outward</em>, from the centre of curvature to the
 line, as in Chen. Charge-signed like the grad-B drift. In a vacuum field
 $\nabla\times\mathbf{B} = 0$ the two drifts add in the same direction.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The centrifugal force of streaming along a curved line, $m v_\parallel^2
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> or <code class="language-plaintext highlighter-rouge">R_c</code> vanishes.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The centrifugal force of streaming along a curved line, $m v_\parallel^2
 / R_c$, acts like any other perpendicular force $\mathbf{F}$ and drives
 $\mathbf{F}\times\mathbf{B}/(qB^2)$.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>$\rho \ll R_c$.</p>
+      <p>$\rho \ll R_c$.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.3.2.
 </li>
 </ol>
 
-<h3 id="exb_drift_velocity"><code class="language-plaintext highlighter-rouge">exb_drift_velocity</code></h3>
+    </details>
 
-<p class="formula-signature"><code>exb_drift_velocity(E, B)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="exb_drift_velocity">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L203" title="vaft/formula/particle.py, line 203">source</a>
+</header>
+    <pre class="ref-signature"><code>exb_drift_velocity(E, B)</code></pre>
 
-<p>E-cross-B drift velocity of the guiding centre.</p>
+    <p>E-cross-B drift velocity of the guiding centre.</p>
 
 \[\mathbf{v}_E = \frac{\mathbf{E}\times\mathbf{B}}{B^{2}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>E</code></td><td>array_like</td><td>V/m</td><td><p>Electric field, last axis the three Cartesian components.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>E</code></td><td class="ref-type">array_like</td><td class="ref-unit">V/m</td><td><p>Electric field, last axis the three Cartesian components.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity, same shape as the broadcast inputs.</p>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>Drift velocity, same shape as the broadcast inputs.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    An input is not a 3-vector, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Right-handed Cartesian components. The drift is independent of charge
+      <p>Right-handed Cartesian components. The drift is independent of charge
 and mass, so ions and electrons move together and no current flows.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Over each gyration the particle gains energy on one side of its orbit
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not a 3-vector, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Over each gyration the particle gains energy on one side of its orbit
 and loses it on the other, so its radius changes around the orbit and
 the guiding centre steps sideways – perpendicular to both fields.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>$E_\perp \ll cB$ (non-relativistic drift); uniform fields over a Larmor
+      <p>$E_\perp \ll cB$ (non-relativistic drift); uniform fields over a Larmor
 radius and slow in time compared with the gyroperiod.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.2.
 </li>
 </ol>
 
-<h3 id="grad_b_drift_velocity"><code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code></h3>
+    </details>
 
-<p class="formula-signature"><code>grad_b_drift_velocity(q, m, v_perp, B, grad_B)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="grad_b_drift_velocity">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L254" title="vaft/formula/particle.py, line 254">source</a>
+</header>
+    <pre class="ref-signature"><code>grad_b_drift_velocity(q, m, v_perp, B, grad_B)</code></pre>
 
-<p>Grad-B drift velocity of the guiding centre.</p>
+    <p>Grad-B drift velocity of the guiding centre.</p>
 
 \[\mathbf{v}_{\nabla B} = \frac{m v_\perp^{2}}{2qB}\,
 \frac{\mathbf{B}\times\nabla B}{B^{2}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float</td><td class="ref-unit">C</td><td><p>Particle charge, signed.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>v_perp</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
+  <tr><td><code>v_perp</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
 </td></tr>
-  <tr><td><code>grad_B</code></td><td>array_like</td><td>T/m</td><td><table>
+  <tr><td><code>grad_B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T/m</td><td><table>
   <tbody>
     <tr>
       <td>Gradient of the field magnitude $</td>
@@ -551,228 +593,264 @@ radius and slow in time compared with the gyroperiod.</p>
 </table>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>m/s</td><td><p>Drift velocity.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>Drift velocity.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Charge-signed: ions and electrons drift in opposite directions, which is
+      <p>Charge-signed: ions and electrons drift in opposite directions, which is
 what makes this drift carry current.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The orbit is tighter where the field is stronger, so the guiding centre
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The orbit is tighter where the field is stronger, so the guiding centre
 walks perpendicular to both $\mathbf{B}$ and its gradient.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>$\rho \ll B/|\nabla B|$; the drift is the first-order average over a
+      <p>$\rho \ll B/|\nabla B|$; the drift is the first-order average over a
 gyration.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.3.1.
 </li>
 </ol>
 
-<h3 id="gyration_offset"><code class="language-plaintext highlighter-rouge">gyration_offset</code></h3>
+    </details>
 
-<p class="formula-signature"><code>gyration_offset(q, m, B, v)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="gyration_offset">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#gyration_offset"><code>gyration_offset</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L141" title="vaft/formula/particle.py, line 141">source</a>
+</header>
+    <pre class="ref-signature"><code>gyration_offset(q, m, B, v)</code></pre>
 
-<p>Position of a gyrating particle relative to its guiding centre.</p>
+    <p>Position of a gyrating particle relative to its guiding centre.</p>
 
 \[\boldsymbol{\rho} = \frac{m}{qB^{2}}\,\mathbf{B}\times\mathbf{v}_\perp\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float</td><td>C</td><td><p>Particle charge, signed.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float</td><td class="ref-unit">C</td><td><p>Particle charge, signed.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>array_like</td><td>T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
 </td></tr>
-  <tr><td><code>v</code></td><td>array_like</td><td>m/s</td><td><p>Velocity in the guiding-centre frame; only its part perpendicular to <code class="language-plaintext highlighter-rouge">B</code> enters.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>m</td><td><p>Vector from the guiding centre to the particle.</p>
+  <tr><td><code>v</code></td><td class="ref-type">array_like</td><td class="ref-unit">m/s</td><td><p>Velocity in the guiding-centre frame; only its part perpendicular to <code class="language-plaintext highlighter-rouge">B</code> enters.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Vector from the guiding centre to the particle.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, <code class="language-plaintext highlighter-rouge">m</code> is not positive, or
-    <code class="language-plaintext highlighter-rouge">B</code> vanishes.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Guiding centre = position minus this vector. Its magnitude is
+      <p>Guiding centre = position minus this vector. Its magnitude is
 <code class="language-plaintext highlighter-rouge">larmor_radius</code> and its sense follows the charge: for $\mathbf{B} =
 \hat z$ and $\mathbf{v} = \hat x$, an ion sits a Larmor radius along
 $+\hat y$ from its guiding centre, an electron along $-\hat y$.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The Lorentz force $q\mathbf{v}\times\mathbf{B}$ points from the particle
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not a 3-vector, <code class="language-plaintext highlighter-rouge">q</code> is zero, <code class="language-plaintext highlighter-rouge">m</code> is not positive, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The Lorentz force $q\mathbf{v}\times\mathbf{B}$ points from the particle
 to the centre of its orbit; this is minus that direction times the
 Larmor radius.</p>
 
-<p><strong>Assumptions.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<p>Uniform field over the orbit; <code class="language-plaintext highlighter-rouge">v</code> measured in the frame moving with any
+      <p>Uniform field over the orbit; <code class="language-plaintext highlighter-rouge">v</code> measured in the frame moving with any
 drift.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
 </li>
 </ol>
 
-<h3 id="gyrofrequency"><code class="language-plaintext highlighter-rouge">gyrofrequency</code></h3>
+    </details>
 
-<p class="formula-signature"><code>gyrofrequency(q, m, B)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="gyrofrequency">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#gyrofrequency"><code>gyrofrequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L43" title="vaft/formula/particle.py, line 43">source</a>
+</header>
+    <pre class="ref-signature"><code>gyrofrequency(q, m, B)</code></pre>
 
-<p>Signed gyrofrequency of a charged particle.</p>
+    <p>Signed gyrofrequency of a charged particle.</p>
 
 \[\omega_c = \frac{qB}{m}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>C</td><td><p>Particle charge, signed.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">C</td><td><p>Particle charge, signed.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic-field magnitude.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>rad/s</td><td><p>Gyrofrequency, positive for positive charge.</p>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Gyrofrequency, positive for positive charge.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">m</code> is not positive.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Signed: $\omega_c &gt; 0$ for an ion, $&lt; 0$ for an electron. An ion gyrates
+      <p>Signed: $\omega_c &gt; 0$ for an ion, $&lt; 0$ for an electron. An ion gyrates
 in the left-handed sense about $\mathbf{B}$ (clockwise seen with
 $\mathbf{B}$ pointing at the viewer), an electron in the right-handed
 sense; the sign carries that. Use <code class="language-plaintext highlighter-rouge">abs</code> for the frequency alone.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The rate at which the Lorentz force turns the perpendicular velocity:
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">m</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The rate at which the Lorentz force turns the perpendicular velocity:
 the fastest time scale of magnetised motion, and the reason drifts are
 slow by comparison.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
 </li>
   <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.2.
 </li>
 </ol>
 
-<h3 id="larmor_radius"><code class="language-plaintext highlighter-rouge">larmor_radius</code></h3>
+    </details>
 
-<p class="formula-signature"><code>larmor_radius(q, m, v_perp, B)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="larmor_radius">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#larmor_radius"><code>larmor_radius</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/particle.py#L93" title="vaft/formula/particle.py, line 93">source</a>
+</header>
+    <pre class="ref-signature"><code>larmor_radius(q, m, v_perp, B)</code></pre>
 
-<p>Larmor (gyro) radius of a charged particle.</p>
+    <p>Larmor (gyro) radius of a charged particle.</p>
 
 \[\rho = \frac{m\,v_\perp}{|q|\,B}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>q</code></td><td>float or np.ndarray</td><td>C</td><td><p>Particle charge; only its magnitude enters.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">C</td><td><p>Particle charge; only its magnitude enters.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float or np.ndarray</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>v_perp</code></td><td>float or np.ndarray</td><td>m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
+  <tr><td><code>v_perp</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Speed perpendicular to the magnetic field.</p>
 </td></tr>
-  <tr><td><code>B</code></td><td>float or np.ndarray</td><td>T</td><td><p>Magnetic-field magnitude.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float or np.ndarray</td><td>m</td><td><p>Radius of the gyro-orbit.</p>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Radius of the gyro-orbit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">q</code> or <code class="language-plaintext highlighter-rouge">B</code> is zero.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Always positive: the gyration sense is in <code class="language-plaintext highlighter-rouge">gyrofrequency</code>. $v_\perp$ is
+      <p>Always positive: the gyration sense is in <code class="language-plaintext highlighter-rouge">gyrofrequency</code>. $v_\perp$ is
 the speed in the guiding-centre frame, i.e. after removing any drift.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The scale below which a particle does not follow field lines; drift
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">q</code> or <code class="language-plaintext highlighter-rouge">B</code> is zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The scale below which a particle does not follow field lines; drift
 approximations need it small against the field’s gradient length.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -873,7 +951,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#boris_orbit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">boris_orbit</a></li><li class="page-toc-item page-toc-level-3"><a href="#curvature_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">curvature_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#exb_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">exb_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#grad_b_drift_velocity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">grad_b_drift_velocity</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyration_offset" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyration_offset</a></li><li class="page-toc-item page-toc-level-3"><a href="#gyrofrequency" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">gyrofrequency</a></li><li class="page-toc-item page-toc-level-3"><a href="#larmor_radius" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">larmor_radius</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -991,7 +1069,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1020,7 +1098,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

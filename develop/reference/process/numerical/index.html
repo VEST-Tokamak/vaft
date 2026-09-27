@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/numerical.py"><code class="language-plaintext highlighter-rouge">vaft/process/numerical.py</code></a>:
-1 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("numerical.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.numerical</code>:
+<strong>1</strong> public functions. Each entry is what
+<code>vaft.process.describe("numerical.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -283,99 +281,110 @@ Back to the <a href="/vaft/develop/reference/process/">process reference index</
 <code class="language-plaintext highlighter-rouge">vaft.formula</code>; anything that knows about a diagnostic belongs in a
 diagnostic module.  This is for the operations that are neither.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>t</td><td>time</td><td>s</td></tr>
-  <tr><td>x</td><td>the sampled quantity</td><td>any</td></tr>
+  <tr><td>t</td><td>time</td><td class="ref-unit">s</td></tr>
+  <tr><td>x</td><td>the sampled quantity</td><td class="ref-unit">any</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#time_derivative"><code>time_derivative</code></a> &mdash; Time derivative of a sampled quantity on a non-uniform time axis.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 1 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="time_derivative"><td><a href="#time_derivative"><code>time_derivative</code></a></td><td>Time derivative of a sampled quantity on a non-uniform time axis.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="time_derivative"><code class="language-plaintext highlighter-rouge">time_derivative</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>time_derivative(time, data)</code></p>
+  <section class="ref-entry" id="time_derivative">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#time_derivative"><code>time_derivative</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/numerical.py#L20" title="vaft/process/numerical.py, line 20">source</a>
+</header>
+    <pre class="ref-signature"><code>time_derivative(time, data)</code></pre>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+    <p>Time derivative of a sampled quantity on a non-uniform time axis.</p>
 
-<p>Time derivative of a sampled quantity on a non-uniform time axis.</p>
-
-<p>A weighted central difference: at each interior point the forward and
+    <p>A weighted central difference: at each interior point the forward and
 backward differences are averaged with weights proportional to the
 <em>opposite</em> interval, so the closer neighbour counts more.  On a uniform
 grid this reduces to the ordinary central difference; the ends use a
 one-sided difference.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>time</code></td><td>np.ndarray</td><td>s</td><td><p>Sample times; spacing may vary.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>Sample times; spacing may vary.</p>
 </td></tr>
-  <tr><td><code>data</code></td><td>np.ndarray</td><td>any</td><td><p>The sampled quantity, same shape as <code class="language-plaintext highlighter-rouge">time</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>np.ndarray</td><td>any/s</td><td><p><code class="language-plaintext highlighter-rouge">d(data)/dt</code> at each sample, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+  <tr><td><code>data</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>The sampled quantity, same shape as <code class="language-plaintext highlighter-rouge">time</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any/s</td><td><p><code class="language-plaintext highlighter-rouge">d(data)/dt</code> at each sample, same shape as <code class="language-plaintext highlighter-rouge">data</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The arrays differ in shape, or hold fewer than two samples.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>First sample: forward difference.  Last sample: backward difference.</li>
-  <li>Interior sample <code class="language-plaintext highlighter-rouge">i</code>: with <code class="language-plaintext highlighter-rouge">h_b = t[i] - t[i-1]</code> and
-<code class="language-plaintext highlighter-rouge">h_f = t[i+1] - t[i]</code>, the derivative is
-<code class="language-plaintext highlighter-rouge">(h_f * backward + h_b * forward) / (h_b + h_f)</code>.</li>
-  <li>A zero interval on either side falls back to the difference across the
-other; zero on both sides yields <code class="language-plaintext highlighter-rouge">0</code>.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p>The weighting is the simple interval-weighted average of the two one-sided
+      <p>The weighting is the simple interval-weighted average of the two one-sided
 differences, not the second-order non-uniform stencil; it is what was
 written and is kept so that results do not move.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The arrays differ in shape, or hold fewer than two samples.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations</summary>
 
-<p>A zero time interval produces a <code class="language-plaintext highlighter-rouge">0</code> derivative silently rather than an
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>First sample: forward difference.  Last sample: backward difference.</li>
+        <li>Interior sample <code class="language-plaintext highlighter-rouge">i</code>: with <code class="language-plaintext highlighter-rouge">h_b = t[i] - t[i-1]</code> and
+<code class="language-plaintext highlighter-rouge">h_f = t[i+1] - t[i]</code>, the derivative is
+<code class="language-plaintext highlighter-rouge">(h_f * backward + h_b * forward) / (h_b + h_f)</code>.</li>
+        <li>A zero interval on either side falls back to the difference across the
+other; zero on both sides yields <code class="language-plaintext highlighter-rouge">0</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A zero time interval produces a <code class="language-plaintext highlighter-rouge">0</code> derivative silently rather than an
 error, so a duplicated timestamp hides as a flat spot.  The scheme is
 first-order accurate on a non-uniform grid and amplifies sample noise as
 any finite difference does; smooth or filter first if the derivative is
 to be read quantitatively.  The loop over interior points is pure Python
 and slow on long records.</p>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -476,7 +485,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#time_derivative" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">time_derivative</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -594,7 +603,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -623,7 +632,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

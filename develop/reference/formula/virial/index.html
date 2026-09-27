@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/virial.py"><code class="language-plaintext highlighter-rouge">vaft/formula/virial.py</code></a>:
-33 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("virial.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.virial</code>:
+<strong>33</strong> public functions. Each entry is what
+<code>vaft.formula.describe("virial.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -289,17 +287,17 @@ diamagnetic parameter the third relation needs.</p>
 110 functions and a third of its length while coupling to nothing else in it.
 Every name remains importable from that module.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>S_1, S_2, S_3</td><td>Shafranov boundary integrals, normalised by B_pa</td><td>-</td></tr>
-  <tr><td>alpha</td><td>closure coefficient multiplying l_i</td><td>-</td></tr>
-  <tr><td>mu_i</td><td>diamagnetic parameter, volume convention</td><td>-</td></tr>
-  <tr><td>mu_i_hat</td><td>the same in the flux convention, its negative</td><td>-</td></tr>
-  <tr><td>R_T</td><td>the virial radius</td><td>m</td></tr>
-  <tr><td>B_pa</td><td>boundary-average poloidal field</td><td>T</td></tr>
+  <tr><td>S_1, S_2, S_3</td><td>Shafranov boundary integrals, normalised by B_pa</td><td class="ref-unit">-</td></tr>
+  <tr><td>alpha</td><td>closure coefficient multiplying l_i</td><td class="ref-unit">-</td></tr>
+  <tr><td>mu_i</td><td>diamagnetic parameter, volume convention</td><td class="ref-unit">-</td></tr>
+  <tr><td>mu_i_hat</td><td>the same in the flux convention, its negative</td><td class="ref-unit">-</td></tr>
+  <tr><td>R_T</td><td>the virial radius</td><td class="ref-unit">m</td></tr>
+  <tr><td>B_pa</td><td>boundary-average poloidal field</td><td class="ref-unit">T</td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>Two sign conventions for the diamagnetic parameter coexist, and they are
 negatives of each other.</strong> The volume form is what the three relations use –
@@ -315,332 +313,390 @@ finite number, at the threshold <code class="language-plaintext highlighter-roug
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a> &mdash; Diamagnetic parameter from the vacuum toroidal field and flux change.
-</li>
-  <li><a href="#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a> &mdash; Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
-</li>
-  <li><a href="#virial_S1_approx"><code>virial_S1_approx</code></a> &mdash; Leading-order value of the first Shafranov integral, $S_1 = 2$.
-</li>
-  <li><a href="#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a> &mdash; Analytic approximation of the second Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a> &mdash; Analytic approximation of the third Shafranov integral for an elongated boundary.
-</li>
-  <li><a href="#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a> &mdash; Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
-</li>
-  <li><a href="#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a> &mdash; Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
-</li>
-  <li><a href="#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a> &mdash; Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a> &mdash; Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
-</li>
-  <li><a href="#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a> &mdash; Poloidal beta from a volume integral of pressure.
-</li>
-  <li><a href="#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a> &mdash; Poloidal beta, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a> &mdash; Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
-</li>
-  <li><a href="#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a> &mdash; Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
-</li>
-  <li><a href="#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a> &mdash; Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a> &mdash; Deprecated historical name for the three-relation virial solve.
-</li>
-  <li><a href="#virial_closure_denominators"><code>virial_closure_denominators</code></a> &mdash; The denominator each virial closure divides by, for conditioning checks.
-</li>
-  <li><a href="#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a> &mdash; Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
-</li>
-  <li><a href="#virial_identity_residuals"><code>virial_identity_residuals</code></a> &mdash; Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
-</li>
-  <li><a href="#virial_kinetic_energy"><code>virial_kinetic_energy</code></a> &mdash; Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
-</li>
-  <li><a href="#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a> &mdash; Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
-</li>
-  <li><a href="#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a> &mdash; Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
-</li>
-  <li><a href="#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a> &mdash; Internal inductance, Lao large-aspect-ratio virial closure.
-</li>
-  <li><a href="#virial_li_from_volume"><code>virial_li_from_volume</code></a> &mdash; Internal inductance from a volume integral of $B_p^2$.
-</li>
-  <li><a href="#virial_magnetic_energy"><code>virial_magnetic_energy</code></a> &mdash; Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
-</li>
-  <li><a href="#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a> &mdash; Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
-</li>
-  <li><a href="#virial_normalized_residual"><code>virial_normalized_residual</code></a> &mdash; Scale a virial identity residual so shots can be compared.
-</li>
-  <li><a href="#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a> &mdash; Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
-</li>
-  <li><a href="#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a> &mdash; Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
-</li>
-  <li><a href="#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a> &mdash; Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
-</li>
-  <li><a href="#virial_residual_rms"><code>virial_residual_rms</code></a> &mdash; Aggregate the three normalised virial residuals into one number.
-</li>
-  <li><a href="#virial_stability_criterion"><code>virial_stability_criterion</code></a> &mdash; Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
-</li>
-  <li><a href="#virial_theorem"><code>virial_theorem</code></a> &mdash; Total energy and virial ratio of magnetic, kinetic and thermal contributions.
-</li>
-  <li><a href="#virial_thermal_energy"><code>virial_thermal_energy</code></a> &mdash; Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 33 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><td><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a></td><td>Diamagnetic parameter from the vacuum toroidal field and flux change.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_D0_boundary_from_bp_li_eK"><td><a href="#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a></td><td>Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_S1_approx"><td><a href="#virial_S1_approx"><code>virial_S1_approx</code></a></td><td>Leading-order value of the first Shafranov integral, $S_1 = 2$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_S2_approx_from_D0_a_R0"><td><a href="#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a></td><td>Analytic approximation of the second Shafranov integral for an elongated boundary.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_S3_approx_from_eK_d"><td><a href="#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a></td><td>Analytic approximation of the third Shafranov integral for an elongated boundary.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_alpha_approx_from_kappa"><td><a href="#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a></td><td>Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_alpha_from_R_Bz_Bp_dl"><td><a href="#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a></td><td>Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_beta_p_from_S_alpha_mu"><td><a href="#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a></td><td>Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_beta_p_from_S_li"><td><a href="#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a></td><td>Poloidal beta from $S_1$, $S_2$ and a known internal inductance.
+</td></tr>
+  <tr data-ref-row="virial_beta_p_from_volume"><td><a href="#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></td><td>Poloidal beta from a volume integral of pressure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_beta_p_lao_from_S_mu_rt"><td><a href="#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a></td><td>Poloidal beta, Lao large-aspect-ratio virial closure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_beta_p_li_from_S_alpha_mu_rt"><td><a href="#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a></td><td>Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.
+</td></tr>
+  <tr data-ref-row="virial_beta_pd_from_S_mu_rt"><td><a href="#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a></td><td>Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_bongard_from_S_alpha_mu"><td><a href="#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a></td><td>Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.
+</td></tr>
+  <tr data-ref-row="virial_bp_li_lihat_from_S123"><td><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a></td><td>Deprecated historical name for the three-relation virial solve.
+ <span class="ref-flag ref-flag-deprecated">Deprecated</span></td></tr>
+  <tr data-ref-row="virial_closure_denominators"><td><a href="#virial_closure_denominators"><code>virial_closure_denominators</code></a></td><td>The denominator each virial closure divides by, for conditioning checks.
+</td></tr>
+  <tr data-ref-row="virial_full_123_from_S_alpha_rt"><td><a href="#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a></td><td>Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_identity_residuals"><td><a href="#virial_identity_residuals"><code>virial_identity_residuals</code></a></td><td>Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_kinetic_energy"><td><a href="#virial_kinetic_energy"><code>virial_kinetic_energy</code></a></td><td>Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.
+</td></tr>
+  <tr data-ref-row="virial_lao_from_S_alpha_mu_rt"><td><a href="#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a></td><td>Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.
+</td></tr>
+  <tr data-ref-row="virial_li_from_S_alpha_mu"><td><a href="#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a></td><td>Internal inductance from the Shafranov integrals, low-aspect-ratio closure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_li_from_S_alpha_rt"><td><a href="#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a></td><td>Internal inductance, Lao large-aspect-ratio virial closure.
+</td></tr>
+  <tr data-ref-row="virial_li_from_volume"><td><a href="#virial_li_from_volume"><code>virial_li_from_volume</code></a></td><td>Internal inductance from a volume integral of $B_p^2$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_magnetic_energy"><td><a href="#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></td><td>Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.
+</td></tr>
+  <tr data-ref-row="virial_muihat_from_Bt_R0_dphi"><td><a href="#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a></td><td>Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_normalized_residual"><td><a href="#virial_normalized_residual"><code>virial_normalized_residual</code></a></td><td>Scale a virial identity residual so shots can be compared.
+</td></tr>
+  <tr data-ref-row="virial_pair_12_from_S_mu_rt"><td><a href="#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a></td><td>Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_pair_13_from_S_alpha_mu"><td><a href="#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a></td><td>Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="virial_pair_23_from_S_alpha_mu_rt"><td><a href="#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a></td><td>Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.
+</td></tr>
+  <tr data-ref-row="virial_residual_rms"><td><a href="#virial_residual_rms"><code>virial_residual_rms</code></a></td><td>Aggregate the three normalised virial residuals into one number.
+</td></tr>
+  <tr data-ref-row="virial_stability_criterion"><td><a href="#virial_stability_criterion"><code>virial_stability_criterion</code></a></td><td>Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
+</td></tr>
+  <tr data-ref-row="virial_theorem"><td><a href="#virial_theorem"><code>virial_theorem</code></a></td><td>Total energy and virial ratio of magnetic, kinetic and thermal contributions.
+</td></tr>
+  <tr data-ref-row="virial_thermal_energy"><td><a href="#virial_thermal_energy"><code>virial_thermal_energy</code></a></td><td>Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code class="language-plaintext highlighter-rouge">approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa, B_tv, R0, delta_phi, V_p)</code></p>
+  <section class="ref-entry" id="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L369" title="vaft/formula/virial.py, line 369">source</a>
+</header>
+    <pre class="ref-signature"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa, B_tv, R0, delta_phi, V_p)</code></pre>
 
-<p><strong>Convention-sensitive.</strong> </p>
-
-<p>Diamagnetic parameter from the vacuum toroidal field and flux change.</p>
+    <p>Diamagnetic parameter from the vacuum toroidal field and flux change.</p>
 
 \[\hat\mu_i \approx \frac{1}{B_{pa}^2 V_p}\int_0^{2\pi}d\varphi\,R_0\,(2B_{tv}\Delta\phi)
   = \frac{4\pi\,B_{tv}\,R_0\,\Delta\phi}{B_{pa}^2\,V_p}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>B_pa</code></td><td>float</td><td>T</td><td><p>Boundary-averaged poloidal field.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B_pa</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Boundary-averaged poloidal field.</p>
 </td></tr>
-  <tr><td><code>B_tv</code></td><td>float</td><td>T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>.</p>
+  <tr><td><code>B_tv</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>.</p>
 </td></tr>
-  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius.</p>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius.</p>
 </td></tr>
-  <tr><td><code>delta_phi</code></td><td>float</td><td>Wb</td><td><p>Diamagnetic flux $\Delta\phi$.</p>
+  <tr><td><code>delta_phi</code></td><td class="ref-type">float</td><td class="ref-unit">Wb</td><td><p>Diamagnetic flux $\Delta\phi$.</p>
 </td></tr>
-  <tr><td><code>V_p</code></td><td>float</td><td>m^3</td><td><p>Plasma volume.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>$\hat\mu_i$.</p>
+  <tr><td><code>V_p</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\hat\mu_i$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Numerically identical to <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code>; kept under
+      <p>Numerically identical to <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code>; kept under
 the name used by the VFIT-era analysis.  Same sign caveat on <code class="language-plaintext highlighter-rouge">delta_phi</code>.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 2.
 </li>
 </ol>
 
-<h3 id="virial_D0_boundary_from_bp_li_eK"><code class="language-plaintext highlighter-rouge">virial_D0_boundary_from_bp_li_eK</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_D0_boundary_from_bp_li_eK(beta_p, li_int, eK, b_minor, R_plasma)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_D0_boundary_from_bp_li_eK">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1591" title="vaft/formula/virial.py, line 1591">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_D0_boundary_from_bp_li_eK(beta_p, li_int, eK, b_minor, R_plasma)</code></pre>
 
-<p>Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.</p>
+    <p>Boundary Shafranov shift $D_0(b)$ from $\beta_p$, $l_i$ and elongation.</p>
 
 \[D_0(b) = -\frac{b}{2R_{\mathrm{plasma}}}\;
   \frac{2\beta_p + l_i + \tfrac{1}{2}e_K}{1 + \tfrac{1}{2}e_K}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
 </td></tr>
-  <tr><td><code>li_int</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>li_int</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
 </td></tr>
-  <tr><td><code>eK</code></td><td>float</td><td>-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
+  <tr><td><code>eK</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
 </td></tr>
-  <tr><td><code>b_minor</code></td><td>float</td><td>m</td><td><p>Minor radius at which the shift is evaluated.</p>
+  <tr><td><code>b_minor</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius at which the shift is evaluated.</p>
 </td></tr>
-  <tr><td><code>R_plasma</code></td><td>float</td><td>m</td><td><p>Plasma major radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Normalised shift $D_0$ at radius <code class="language-plaintext highlighter-rouge">b_minor</code>.</p>
+  <tr><td><code>R_plasma</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Plasma major radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised shift $D_0$ at radius <code class="language-plaintext highlighter-rouge">b_minor</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Negative sign convention of Martynov and Pustovitov: the magnetic axis moves
+      <p>Negative sign convention of Martynov and Pustovitov: the magnetic axis moves
 outboard, so $D_0 &lt; 0$ for positive $\beta_p + l_i/2$.</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>First order in $b/R$; elongation through $e_K$ only.</p>
+    <details class="ref-more">
+      <summary>Validity · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<ol class="formula-references">
+      <p>First order in $b/R$; elongation through $e_K$ only.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eq. (37).
 </li>
 </ol>
 
-<h3 id="virial_S1_approx"><code class="language-plaintext highlighter-rouge">virial_S1_approx</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_S1_approx()</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_S1_approx">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_S1_approx"><code>virial_S1_approx</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1427" title="vaft/formula/virial.py, line 1427">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_S1_approx()</code></pre>
 
-<p>Leading-order value of the first Shafranov integral, $S_1 = 2$.</p>
+    <p>Leading-order value of the first Shafranov integral, $S_1 = 2$.</p>
 
 \[S_1 = 2 + O(\epsilon, D_0, \delta)\]
 
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>The constant 2.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The constant 2.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Lao/EFIT normalisation of the surface integrals by $B_{pa}$ and the plasma
+      <p>Lao/EFIT normalisation of the surface integrals by $B_{pa}$ and the plasma
 volume, in which $S_1\to2$ for a circular, unshifted, large-aspect-ratio
 boundary.</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>Valid to first order in inverse aspect ratio, Shafranov shift $D_0$ and
+    <details class="ref-more">
+      <summary>Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Valid to first order in inverse aspect ratio, Shafranov shift $D_0$ and
 triangularity; a placeholder when the surface integral itself is unavailable.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Sec. III.
 </li>
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421.
 </li>
 </ol>
 
-<h3 id="virial_S2_approx_from_D0_a_R0"><code class="language-plaintext highlighter-rouge">virial_S2_approx_from_D0_a_R0</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_S2_approx_from_D0_a_R0(eK, D0, a_minor, R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_S2_approx_from_D0_a_R0">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1456" title="vaft/formula/virial.py, line 1456">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_S2_approx_from_D0_a_R0(eK, D0, a_minor, R0)</code></pre>
 
-<p>Analytic approximation of the second Shafranov integral for an elongated boundary.</p>
+    <p>Analytic approximation of the second Shafranov integral for an elongated boundary.</p>
 
 \[S_2 = -\frac{2a}{R_0}\,(D_0 + 1)\left(1 + \frac{e_K}{2}\right)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>eK</code></td><td>float</td><td>-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>eK</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
 </td></tr>
-  <tr><td><code>D0</code></td><td>float</td><td>-</td><td><p>Normalised Shafranov shift of the boundary.</p>
+  <tr><td><code>D0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised Shafranov shift of the boundary.</p>
 </td></tr>
-  <tr><td><code>a_minor</code></td><td>float</td><td>m</td><td><p>Minor radius.</p>
+  <tr><td><code>a_minor</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
 </td></tr>
-  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Reference major radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>$S_2$.</p>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Reference major radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$S_2$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Lao/EFIT normalisation of the surface integrals; $D_0$ as defined by
+      <p>Lao/EFIT normalisation of the surface integrals; $D_0$ as defined by
 Martynov and Pustovitov (shift over minor radius).</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>First order in $a/R_0$ and in the shift; elongation enters only through
+    <details class="ref-more">
+      <summary>Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>First order in $a/R_0$ and in the shift; elongation enters only through
 $e_K$.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eq. (21).
 </li>
 </ol>
 
-<h3 id="virial_S3_approx_from_eK_d"><code class="language-plaintext highlighter-rouge">virial_S3_approx_from_eK_d</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_S3_approx_from_eK_d(eK, d_param)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_S3_approx_from_eK_d">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1496" title="vaft/formula/virial.py, line 1496">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_S3_approx_from_eK_d(eK, d_param)</code></pre>
 
-<p>Analytic approximation of the third Shafranov integral for an elongated boundary.</p>
+    <p>Analytic approximation of the third Shafranov integral for an elongated boundary.</p>
 
 \[S_3 = 1 - \frac{e_K}{2} - \delta\left(1 - \frac{e_K^2}{2}\right)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>eK</code></td><td>float</td><td>-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>eK</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Elongation parameter $(\kappa^2-1)/(\kappa^2+1)$.</p>
 </td></tr>
-  <tr><td><code>d_param</code></td><td>float</td><td>-</td><td><p>Triangularity-like shape parameter $\delta$ of the approximation.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>$S_3$.</p>
+  <tr><td><code>d_param</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Triangularity-like shape parameter $\delta$ of the approximation.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$S_3$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Lao/EFIT normalisation of the surface integrals.</p>
+      <p>Lao/EFIT normalisation of the surface integrals.</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>First order in the shape parameters.</p>
+    <details class="ref-more">
+      <summary>Validity · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<ol class="formula-references">
+      <p>First order in the shape parameters.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eq. (22).
 </li>
 </ol>
 
-<h3 id="virial_alpha_approx_from_kappa"><code class="language-plaintext highlighter-rouge">virial_alpha_approx_from_kappa</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_alpha_approx_from_kappa(kappa)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_alpha_approx_from_kappa">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1278" title="vaft/formula/virial.py, line 1278">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_alpha_approx_from_kappa(kappa)</code></pre>
 
-<p>Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).</p>
+    <p>Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).</p>
 
 \[\hat\alpha_1 = \frac{2\kappa^2}{1 + \kappa^2}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>kappa</code></td><td>float</td><td>-</td><td><p>Boundary elongation $\kappa$.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>kappa</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Boundary elongation $\kappa$.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Closure coefficient $\hat\alpha_1$.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient $\hat\alpha_1$.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>$\alpha$ here is the coefficient multiplying $l_i$ in the third virial
+      <p>$\alpha$ here is the coefficient multiplying $l_i$ in the third virial
 relation, defined by the volume ratio
 $\alpha = 2\langle R B_Z^2\rangle / \langle R B_p^2\rangle$ over the plasma,
 so that $\alpha\to1$ for an up-down and in-out symmetric circular
@@ -651,16 +707,21 @@ are both the bounding-box $(Z_{max}-Z_{min})/(2a)$, while a Miller fit
 $\kappa$ is a different measure of the same contour and shifts
 $\hat\alpha_1$ by a few percent.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Replaces the volume integral over the plasma interior by a function of the
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Replaces the volume integral over the plasma interior by a function of the
 boundary shape alone, so $\alpha$ can be obtained from a reconstruction
 that determines the boundary but not the internal poloidal field –
 a filament or current-element model, for instance.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Bongard et al. report roughly 10% over the aspect-ratio range they tested,
+      <p>Bongard et al. report roughly 10% over the aspect-ratio range they tested,
 with slightly less spread than their annulus estimate.  Measured here
 against the volume integral of an analytic Solov’ev equilibrium over
 $\kappa\in[1,2]$ and $\epsilon\in[0.4,0.8]$, the ordering comes out the
@@ -669,70 +730,79 @@ $11.4\%$, against $-1.0\%$, $1.0\%$ and $2.8\%$ for
 <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.virial_alpha_conformal_annulus</code>.  Pick
 between them on evidence from the geometry at hand, not on either claim.</p>
 
-<p>The error is systematically negative and largest for a round, fat plasma:
+      <p>The error is systematically negative and largest for a round, fat plasma:
 $\hat\alpha_1$ depends only on $\kappa$, so it cannot represent the
 aspect-ratio contribution that holds the true $\alpha$ above 1 even at
 $\kappa=1$ (where it runs 1.03 to 1.14 across that $\epsilon$ range while
 this returns 1.00).  $\kappa=1$ is therefore where the approximation is
 weakest, not where it is exact.</p>
 
-<p>The Bongard closure divides by $3\alpha-2$, so an $\alpha$ error grows on
+      <p>The Bongard closure divides by $3\alpha-2$, so an $\alpha$ error grows on
 its way into $l_i$: near $\alpha=1.4$ the logarithmic sensitivity
 $-3\alpha/(3\alpha-2)$ is $-1.9$, and a finite 10% error costs about 16%.
 See <code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_mu</code>.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
 </ol>
 
-<h3 id="virial_alpha_from_R_Bz_Bp_dl"><code class="language-plaintext highlighter-rouge">virial_alpha_from_R_Bz_Bp_dl</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_alpha_from_R_Bz_Bp_dl(R, B_Z, B_p, dl, weight=None)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_alpha_from_R_Bz_Bp_dl">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1346" title="vaft/formula/virial.py, line 1346">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_alpha_from_R_Bz_Bp_dl(R, B_Z, B_p, dl, weight=None)</code></pre>
 
-<p>Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).</p>
+    <p>Virial closure coefficient from the boundary field (thin-annulus $\hat\alpha_2$).</p>
 
 \[\hat\alpha_2 = \frac{2\oint R\,B_Z^2\,w\,dl}{\oint R\,B_p^2\,w\,dl}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>R</code></td><td>np.ndarray</td><td>m</td><td><p>Major radius of each boundary segment.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>R</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius of each boundary segment.</p>
 </td></tr>
-  <tr><td><code>B_Z</code></td><td>np.ndarray</td><td>T</td><td><p>Vertical field component on each segment.</p>
+  <tr><td><code>B_Z</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Vertical field component on each segment.</p>
 </td></tr>
-  <tr><td><code>B_p</code></td><td>np.ndarray</td><td>T</td><td><p>Poloidal field magnitude on each segment.</p>
+  <tr><td><code>B_p</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Poloidal field magnitude on each segment.</p>
 </td></tr>
-  <tr><td><code>dl</code></td><td>np.ndarray</td><td>m</td><td><p>Arc length of each segment.</p>
+  <tr><td><code>dl</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Arc length of each segment.</p>
 </td></tr>
-  <tr><td><code>weight</code></td><td>np.ndarray, optional</td><td>m</td><td><p>Annulus width per unit arc length $w$, in the same segment order; default ones, the uniform-offset annulus.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Closure coefficient $\hat\alpha_2$ in the thin-annulus limit.</p>
+  <tr><td><code>weight</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">m</td><td><p>Annulus width per unit arc length $w$, in the same segment order; default ones, the uniform-offset annulus.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient $\hat\alpha_2$ in the thin-annulus limit.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Same normalisation as <code class="language-plaintext highlighter-rouge">virial_alpha_approx_from_kappa</code>: the volume
+      <p>Same normalisation as <code class="language-plaintext highlighter-rouge">virial_alpha_approx_from_kappa</code>: the volume
 ratio $2\langle R B_Z^2\rangle/\langle R B_p^2\rangle$, which is 1 for a
 symmetric circular cross-section.  Every array is indexed by boundary
 segment and must share one ordering; <code class="language-plaintext highlighter-rouge">B_Z</code> and <code class="language-plaintext highlighter-rouge">B_p</code> are components of
 the same field, so $|B_Z| \le B_p$ segment by segment.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>A thin annulus of local width $t\,w$ has area element $dA = t\,w\,dl$, and
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A thin annulus of local width $t\,w$ has area element $dA = t\,w\,dl$, and
 the constant $t$ cancels between numerator and denominator, so this is the
 $t\to0$ limit of an annulus estimate.  <strong>The weight is what makes the limit
 exact, and it depends on how the inner contour was constructed.</strong>  For a
@@ -746,64 +816,68 @@ converge to it: on a VEST-like Solov’ev boundary the two limits differ by
 about 5%.  <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.virial_alpha_thin_annulus</code>
 assembles the geometry and calls this function with the right weight.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>The limiting form of an estimate reported accurate to roughly 10% by
+      <p>The limiting form of an estimate reported accurate to roughly 10% by
 Bongard et al.  How fast a given equilibrium approaches the limit is a
 property of that equilibrium, not of this quadrature: a boundary whose
 field varies strongly across the annulus approaches it more slowly.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>Plain weighted sum over the supplied segments; the caller chooses the
+      <p>Plain weighted sum over the supplied segments; the caller chooses the
 quadrature by choosing the segment values.  Returns <code class="language-plaintext highlighter-rouge">nan</code> rather than
 raising when the denominator is zero or non-finite, matching
 <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.efit_virial_volume_integrals</code>.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
 </ol>
 
-<h3 id="virial_beta_p_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_alpha_mu</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_beta_p_from_S_alpha_mu">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L419" title="vaft/formula/virial.py, line 419">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></pre>
 
-<p>Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.</p>
+    <p>Poloidal beta from the Shafranov integrals, low-aspect-ratio closure.</p>
 
 \[\beta_p = \frac{(S_1 + S_2)(\alpha - 1) + \alpha\mu_i + S_3}{3(\alpha-1) + 1}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tr><td><code>mui_hat</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
+      <p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
 three virial relations use – $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
 positive when diamagnetic – not the flux-sign $\hat\mu_i$ that
 <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> produces. The two are negatives of
@@ -813,146 +887,172 @@ $B_{pa}$ (<code class="language-plaintext highlighter-rouge">virial_beta_p_from_
 diamagnetic term, so it holds at low aspect ratio where the Lao form does
 not.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_beta_p_from_S_li"><code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_li</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_p_from_S_li(S1, S2, li)</code></p>
+  </section>
 
-<p>Poloidal beta from $S_1$, $S_2$ and a known internal inductance.</p>
+  <section class="ref-entry" id="virial_beta_p_from_S_li">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L615" title="vaft/formula/virial.py, line 615">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_p_from_S_li(S1, S2, li)</code></pre>
+
+    <p>Poloidal beta from $S_1$, $S_2$ and a known internal inductance.</p>
 
 \[\beta_p^{\mathrm{vir}} = \frac{S_1}{4} + \frac{S_2}{2} - \frac{l_i}{2}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
 
-<p>Solves the first virial relation $S_1 + S_2 = 3\beta_p + l_i - \hat l_i$ for
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Solves the first virial relation $S_1 + S_2 = 3\beta_p + l_i - \hat l_i$ for
 $\beta_p$ after dropping $\hat l_i$ and rescaling, giving the classic
 “$\beta_p + l_i/2$ from magnetics” separation when $l_i$ is known
 independently.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_beta_p_from_volume"><code class="language-plaintext highlighter-rouge">virial_beta_p_from_volume</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_p_from_volume(p, dV, B_pa, Omega, mu0=None)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_beta_p_from_volume">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L241" title="vaft/formula/virial.py, line 241">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_p_from_volume(p, dV, B_pa, Omega, mu0=None)</code></pre>
 
-<p>Poloidal beta from a volume integral of pressure.</p>
+    <p>Poloidal beta from a volume integral of pressure.</p>
 
 \[\beta_p = \frac{2\mu_0}{B_{pa}^2\,\Omega}\int_\Omega p\,dV\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>p</code></td><td>np.ndarray</td><td>Pa</td><td><p>Pressure at each cell.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">Pa</td><td><p>Pressure at each cell.</p>
 </td></tr>
-  <tr><td><code>dV</code></td><td>np.ndarray</td><td>m^3</td><td><p>Volume of each cell.</p>
+  <tr><td><code>dV</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^3</td><td><p>Volume of each cell.</p>
 </td></tr>
-  <tr><td><code>B_pa</code></td><td>float</td><td>T</td><td><p>Boundary-averaged poloidal field, $\mu_0 I_p/L_p$.</p>
+  <tr><td><code>B_pa</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Boundary-averaged poloidal field, $\mu_0 I_p/L_p$.</p>
 </td></tr>
-  <tr><td><code>Omega</code></td><td>float</td><td>m^3</td><td><p>Plasma volume $\Omega = \sum dV$.</p>
+  <tr><td><code>Omega</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume $\Omega = \sum dV$.</p>
 </td></tr>
-  <tr><td><code>mu0</code></td><td>float, optional</td><td>H/m</td><td><p>Vacuum permeability; default <code class="language-plaintext highlighter-rouge">MU0</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tr><td><code>mu0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">H/m</td><td><p>Vacuum permeability; default <code class="language-plaintext highlighter-rouge">MU0</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The EFIT/Lao definition normalised by $B_{pa} = \mu_0 I_p/L_p$ with $L_p$ the
+      <p>The EFIT/Lao definition normalised by $B_{pa} = \mu_0 I_p/L_p$ with $L_p$ the
 boundary contour length, as used by the virial closures below.  Other codes
 normalise by $B_p$ at the boundary or by $\mu_0 I_p/(2\pi a)$; the values
 differ by shape-dependent factors.</p>
 
-<p><strong>Numerical notes.</strong></p>
+    </div>
 
-<p>Plain weighted sum over the supplied cells.</p>
+    <details class="ref-more">
+      <summary>Numerical notes · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<ol class="formula-references">
+      <p>Plain weighted sum over the supplied cells.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 2.
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_beta_p_lao_from_S_mu_rt"><code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_beta_p_lao_from_S_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L517" title="vaft/formula/virial.py, line 517">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></pre>
 
-<p>Poloidal beta, Lao large-aspect-ratio virial closure.</p>
+    <p>Poloidal beta, Lao large-aspect-ratio virial closure.</p>
 
 \[\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right) + \mu_i\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
+  <tr><td><code>mui</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The $R_T/R_0$ term carries a <strong>minus</strong> sign: this is $\tfrac{1}{2}(E_1-E_2)$
+      <p>The $R_T/R_0$ term carries a <strong>minus</strong> sign: this is $\tfrac{1}{2}(E_1-E_2)$
 of the three virial relations solved by
 <code class="language-plaintext highlighter-rouge">virial_bp_li_lihat_from_S123</code>, which fixes $\beta_p - \mu_i$ from
 $E_1$ and $E_2$ alone. A plus sign belongs to the other combination,
@@ -960,44 +1060,57 @@ $E_1+E_2$, which eliminates $\mu_i$ in favour of $l_i$ and is what
 <code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_li</code> evaluates at $R_T/R_0 = 1$. The two are not
 interchangeable, and confusing them is what this function did until #546.</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
+    <details class="ref-more">
+      <summary>Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Large aspect ratio; at VEST aspect ratio the neglected $\epsilon$ terms
 reach tens of percent, which is why the Bongard closure exists.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_beta_p_li_from_S_alpha_mu_rt"><code class="language-plaintext highlighter-rouge">virial_beta_p_li_from_S_alpha_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_p_li_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></p>
+  </section>
 
-<p>Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.</p>
+  <section class="ref-entry" id="virial_beta_p_li_from_S_alpha_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L697" title="vaft/formula/virial.py, line 697">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_p_li_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></pre>
 
-<p>Evaluates <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>,
+    <p>Lao closure bundle: $\beta_p$, $l_i$ and $\beta_{p,d}$ in one call.</p>
+
+    <p>Evaluates <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>,
 <code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_rt</code> and <code class="language-plaintext highlighter-rouge">virial_beta_pd_from_S_mu_rt</code>
 on the same inputs.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
+  <tr><td><code>mui</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><table>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><table>
   <tbody>
     <tr>
       <td>Singularity tolerance on $</td>
@@ -1008,62 +1121,66 @@ on the same inputs.</p>
 </table>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p_lao</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p_lao</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
 </td></tr>
-  <tr><td><code>li_lao</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>li_lao</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
 </td></tr>
-  <tr><td><code>beta_pd_vir</code></td><td>float</td><td>-</td><td><p>Diamagnetic poloidal beta.</p>
+  <tr><td><code>beta_pd_vir</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic poloidal beta.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>References.</strong></p>
+    <details class="ref-more">
+      <summary>References</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_beta_pd_from_S_mu_rt"><code class="language-plaintext highlighter-rouge">virial_beta_pd_from_S_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_beta_pd_from_S_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L651" title="vaft/formula/virial.py, line 651">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></pre>
 
-<p>Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.</p>
+    <p>Diamagnetic poloidal beta $\beta_{p,d}$ from $S_1$, $S_2$ and $\mu_i$.</p>
 
 \[\beta_{p,d}^{\mathrm{vir}} = \frac{S_1}{2} - \mu_i + \frac{S_2}{2}\left(1 - \frac{R_T}{R_0}\right)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
+  <tr><td><code>mui</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Diamagnetic poloidal beta.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic poloidal beta.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><strong>The one consumer in this module that takes the flux-sign $\hat\mu_i$</strong>,
+      <p><strong>The one consumer in this module that takes the flux-sign $\hat\mu_i$</strong>,
 the quantity <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> and
 <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.computed_diamagnetism_from_phi</code> produce –
 not the volume $\mu_i$ every closure here takes. The two are negatives of
@@ -1071,71 +1188,90 @@ each other, so the wrong one returns $\beta_p \mp 2\mu_i$ with nothing in
 the number to show it. The parameter is named <code class="language-plaintext highlighter-rouge">mui</code> for history; read it
 as $\hat\mu_i$.</p>
 
-<p><strong>Validity.</strong></p>
+    </div>
 
-<p>Large aspect ratio (Lao closure).</p>
+    <details class="ref-more">
+      <summary>Validity · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<ol class="formula-references">
+      <p>Large aspect ratio (Lao closure).</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_bongard_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_bongard_from_S_alpha_mu</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_bongard_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=1e-09)</code></p>
+  </section>
 
-<p>Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.</p>
+  <section class="ref-entry" id="virial_bongard_from_S_alpha_mu">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L793" title="vaft/formula/virial.py, line 793">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_bongard_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=1e-09)</code></pre>
 
-<p>The historical name for the $E_1$/$E_3$ pairwise closure; delegates to
+    <p>Low-aspect-ratio virial closure (Bongard 2016): $\beta_p$ and $l_i$.</p>
+
+    <p>The historical name for the $E_1$/$E_3$ pairwise closure; delegates to
 <code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code>, which is the same algebra. The two
 are identical by construction, not by approximation.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
+  <tr><td><code>mui</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN, forwarded to the closure; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p_bongard</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
-</td></tr>
-  <tr><td><code>li_bongard</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Denominator magnitude below which the result is NaN, forwarded to the closure; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p_bongard</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  <tr><td><code>li_bongard</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>References.</strong></p>
+    <details class="ref-more">
+      <summary>References</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
 </ol>
 
-<h3 id="virial_bp_li_lihat_from_S123"><code class="language-plaintext highlighter-rouge">virial_bp_li_lihat_from_S123</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_bp_li_lihat_from_S123(S1, S2, S3, a_param, RT_over_R0)</code></p>
+  </section>
 
-<p><strong>Deprecated.</strong> </p>
+  <section class="ref-entry" id="virial_bp_li_lihat_from_S123">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1528" title="vaft/formula/virial.py, line 1528">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_bp_li_lihat_from_S123(S1, S2, S3, a_param, RT_over_R0)</code></pre>
 
-<p>Deprecated historical name for the three-relation virial solve.</p>
+    <p>Deprecated historical name for the three-relation virial solve.</p>
 
-<p>Use <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code>, which this delegates to. The
+    <p>Use <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code>, which this delegates to. The
 third return is renamed there from $\hat l_i$ to $\mu_i$: it is the
 diamagnetic parameter the pairwise closures take as an input, and the hat
 notation read as a second internal inductance.  Emits a
@@ -1145,37 +1281,37 @@ notation read as a second internal inductance.  Emits a
   \beta_p + l_i + \hat l_i = \frac{R_T}{R_0}S_2, \qquad
   \beta_p - (\alpha-1)\,l_i - \hat l_i = S_3\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>a_param</code></td><td>float</td><td>-</td><td><p>Closure coefficient $\alpha$ of the third relation.</p>
+  <tr><td><code>a_param</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient $\alpha$ of the third relation.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
-</td></tr>
-  <tr><td><code>li_int</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
-</td></tr>
-  <tr><td><code>li_hat</code></td><td>float</td><td>-</td><td><p>Toroidal-field contribution $\hat l_i$.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  <tr><td><code>li_int</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
+</td></tr>
+  <tr><td><code>li_hat</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Toroidal-field contribution $\hat l_i$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Numerical notes.</strong></p>
+    <details class="ref-more">
+      <summary>Numerical notes · References</summary>
 
-<p>Closed-form solve, delegated to <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code>.
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>Closed-form solve, delegated to <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code>.
 The determinant is $4(\alpha-1)$, so the system is singular at
 $\alpha = 1$ – the same limit that makes the historical Lao $l_i$ blow up,
 because $E_1$ and $E_2$ fix $\beta_p - \mu_i$ and only $E_3$ separates $l_i$
@@ -1183,263 +1319,305 @@ from it.  There all three returns are <code class="language-plaintext highlighte
 a singular closure; until 0.7.0 this name used <code class="language-plaintext highlighter-rouge">numpy.linalg.solve</code> and
 raised <code class="language-plaintext highlighter-rouge">LinAlgError</code> instead.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_closure_denominators"><code class="language-plaintext highlighter-rouge">virial_closure_denominators</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_closure_denominators(alpha)</code></p>
+  </section>
 
-<p>The denominator each virial closure divides by, for conditioning checks.</p>
+  <section class="ref-entry" id="virial_closure_denominators">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_closure_denominators"><code>virial_closure_denominators</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1171" title="vaft/formula/virial.py, line 1171">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_closure_denominators(alpha)</code></pre>
+
+    <p>The denominator each virial closure divides by, for conditioning checks.</p>
 
 \[3\alpha-2,\qquad \alpha,\qquad \alpha-1,\qquad 4(\alpha-1)\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>pair_13</code></td><td>float</td><td>-</td><td><p>Denominator of the $E_1$/$E_3$ closure, $3\alpha-2$.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>pair_13</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Denominator of the $E_1$/$E_3$ closure, $3\alpha-2$.</p>
 </td></tr>
-  <tr><td><code>pair_23</code></td><td>float</td><td>-</td><td><p>Denominator of the $E_2$/$E_3$ closure, $\alpha$.</p>
+  <tr><td><code>pair_23</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Denominator of the $E_2$/$E_3$ closure, $\alpha$.</p>
 </td></tr>
-  <tr><td><code>lao_li</code></td><td>float</td><td>-</td><td><p>Denominator of the historical Lao $l_i$, $\alpha-1$.</p>
+  <tr><td><code>lao_li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Denominator of the historical Lao $l_i$, $\alpha-1$.</p>
 </td></tr>
-  <tr><td><code>full_123</code></td><td>float</td><td>-</td><td><p>Determinant of the three-relation system, $4(\alpha-1)$.</p>
+  <tr><td><code>full_123</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Determinant of the three-relation system, $4(\alpha-1)$.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · Notes</summary>
 
-<p>The identities themselves have no singularities; only the inversions do.
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The identities themselves have no singularities; only the inversions do.
 Reporting the denominators separates “this equilibrium violates force
 balance” from “this particular closure cannot be inverted here”, which a
 bare $\beta_p$ cannot distinguish.</p>
 
-<p><strong>Notes.</strong></p>
+      <h4 class="ref-label no_toc">Notes</h4>
 
-<p>The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
+      <p>The $E_1$/$E_2$ closure is absent because it has no denominator; it is the
 one pair that cannot become singular.</p>
 
-<h3 id="virial_full_123_from_S_alpha_rt"><code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-09)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_full_123_from_S_alpha_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1090" title="vaft/formula/virial.py, line 1090">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-09)</code></pre>
 
-<p>Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.</p>
+    <p>Solve all three virial relations for $\beta_p$, $l_i$ and $\mu_i$.</p>
 
 \[\begin{pmatrix} 3 &amp; 1 &amp; -1 \\ 1 &amp; 1 &amp; 1 \\ 1 &amp; -(\alpha-1) &amp; -1
   \end{pmatrix}
   \begin{pmatrix}\beta_p \\ l_i \\ \mu_i\end{pmatrix}
   = \begin{pmatrix} S_1+S_2 \\ \tfrac{R_T}{R_0}S_2 \\ S_3\end{pmatrix}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Determinant magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $4(\alpha-1)$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
-</td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
-</td></tr>
-  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter, NaN under the same condition.</p>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Determinant magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta, NaN when $4(\alpha-1)$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  <tr><td><code>mu_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Its $l_i$ is identically the historical Lao $l_i$, because $E_1$ and $E_2$
+      <p>Its $l_i$ is identically the historical Lao $l_i$, because $E_1$ and $E_2$
 already fix $\beta_p-\mu_i$ and only $E_3$ separates $l_i$ from it. That is
 an algebraic identity, not an approximation.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>A different inverse problem from the pairwise closures: they take $\mu_i$ as
+    <details class="ref-more">
+      <summary>Physical interpretation · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A different inverse problem from the pairwise closures: they take $\mu_i$ as
 known and solve for two unknowns, while this takes none of the three as
 known. Its $\mu_i$ is therefore an equilibrium-derived prediction that a
 measured diamagnetic flux can be compared against, rather than an input.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>Determinant $4(\alpha-1)$: singular at $\alpha = 1$, the same limit that
+      <p>Determinant $4(\alpha-1)$: singular at $\alpha = 1$, the same limit that
 makes the historical Lao $l_i$ diverge. Solved in closed form rather than
 with <code class="language-plaintext highlighter-rouge">numpy.linalg.solve</code> so the singularity is detected instead of
 raising or returning a large finite value.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_identity_residuals"><code class="language-plaintext highlighter-rouge">virial_identity_residuals</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, RT_over_R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_identity_residuals">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_identity_residuals"><code>virial_identity_residuals</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L836" title="vaft/formula/virial.py, line 836">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, RT_over_R0)</code></pre>
 
-<p>Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.</p>
+    <p>Residuals of the three virial identities at a given $(\beta_p, l_i, \mu_i)$.</p>
 
 \[R_1 = 3\beta_p + l_i - \mu_i - (S_1+S_2), \qquad
   R_2 = \beta_p + l_i + \mu_i - \frac{R_T}{R_0}S_2, \qquad
   R_3 = \beta_p - (\alpha-1)l_i - \mu_i - S_3\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta at which the identities are evaluated.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta at which the identities are evaluated.</p>
 </td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance at which the identities are evaluated.</p>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance at which the identities are evaluated.</p>
 </td></tr>
-  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter at which the identities are evaluated.</p>
+  <tr><td><code>mu_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter at which the identities are evaluated.</p>
 </td></tr>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>e1</code></td><td>float</td><td>-</td><td><p>Residual of the first identity.</p>
-</td></tr>
-  <tr><td><code>e2</code></td><td>float</td><td>-</td><td><p>Residual of the second identity.</p>
-</td></tr>
-  <tr><td><code>e3</code></td><td>float</td><td>-</td><td><p>Residual of the third identity.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>e1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Residual of the first identity.</p>
+</td></tr>
+  <tr><td><code>e2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Residual of the second identity.</p>
+</td></tr>
+  <tr><td><code>e3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Residual of the third identity.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Signs follow the relations as written above, which are the ones
+      <p>Signs follow the relations as written above, which are the ones
 <code class="language-plaintext highlighter-rouge">virial_full_123_from_S_alpha_rt</code> solves. Every closure and residual
 in this module is derived from these three and no other statement of them.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Zero residuals say the triple closes the three global force-balance
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Zero residuals say the triple closes the three global force-balance
 relations; a residual localises <em>which</em> relation an inconsistent
 equilibrium violates, which a single $\beta_p$ estimator cannot.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_kinetic_energy"><code class="language-plaintext highlighter-rouge">virial_kinetic_energy</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_kinetic_energy(n, v, m, V)</code></p>
+  </section>
 
-<p>Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.</p>
+  <section class="ref-entry" id="virial_kinetic_energy">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_kinetic_energy"><code>virial_kinetic_energy</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L90" title="vaft/formula/virial.py, line 90">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_kinetic_energy(n, v, m, V)</code></pre>
+
+    <p>Bulk kinetic energy of a sampled flow, $W_{kin} = \tfrac{1}{2}\sum n m v^2\,V$.</p>
 
 \[W_{\mathrm{kin}} = \int\frac{1}{2}\,n\,m\,v^2\,dV\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n</code></td><td>np.ndarray</td><td>m^-3</td><td><p>Number density at each sample.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Number density at each sample.</p>
 </td></tr>
-  <tr><td><code>v</code></td><td>np.ndarray</td><td>m/s</td><td><p>Flow speed at each sample.</p>
+  <tr><td><code>v</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>Flow speed at each sample.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>float</td><td>kg</td><td><p>Particle mass.</p>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Particle mass.</p>
 </td></tr>
-  <tr><td><code>V</code></td><td>float</td><td>m^3</td><td><p>Volume attributed to each sample.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>J</td><td><p>Kinetic energy of the flow.</p>
+  <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Volume attributed to each sample.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Kinetic energy of the flow.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Assumptions.</strong></p>
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
 
-<p>Equal-volume samples (<code class="language-plaintext highlighter-rouge">V</code> is the cell volume); the flow is a bulk velocity,
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Equal-volume samples (<code class="language-plaintext highlighter-rouge">V</code> is the cell volume); the flow is a bulk velocity,
 not a thermal speed.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103.
 </li>
 </ol>
 
-<h3 id="virial_lao_from_S_alpha_mu_rt"><code class="language-plaintext highlighter-rouge">virial_lao_from_S_alpha_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_lao_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></p>
+  </section>
 
-<p>Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.</p>
+  <section class="ref-entry" id="virial_lao_from_S_alpha_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L747" title="vaft/formula/virial.py, line 747">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_lao_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></pre>
 
-<p>Evaluates <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code> and
+    <p>Large-aspect-ratio virial closure (Lao 1985): $\beta_p$ and $l_i$.</p>
+
+    <p>Evaluates <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code> and
 <code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_rt</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
+  <tr><td><code>mui</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><table>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><table>
   <tbody>
     <tr>
       <td>Singularity tolerance on $</td>
@@ -1450,103 +1628,120 @@ not a thermal speed.</p>
 </table>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p_lao</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p_lao</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
 </td></tr>
-  <tr><td><code>li_lao</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>li_lao</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>References.</strong></p>
+    <details class="ref-more">
+      <summary>References</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_li_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_mu</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_li_from_S_alpha_mu">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L467" title="vaft/formula/virial.py, line 467">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></pre>
 
-<p>Internal inductance from the Shafranov integrals, low-aspect-ratio closure.</p>
+    <p>Internal inductance from the Shafranov integrals, low-aspect-ratio closure.</p>
 
 \[l_i = \frac{S_1 + S_2 - 2\mu_i - 3S_3}{3\alpha - 2}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>mui_hat</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>mui_hat</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$, volume convention – see Convention.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
+      <p>Despite the parameter name, this takes $\mu_i$ in the <strong>volume</strong> sign the
 three virial relations use – $\langle B_{tv}^2-B_t^2\rangle/B_{pa}^2$,
 positive when diamagnetic – not the flux-sign $\hat\mu_i$ that
 <code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code> produces. The two are negatives of
 each other, so the wrong one returns a result off by $2\mu_i$ with nothing
 in the number to show it.</p>
 
-<p>Companion of <code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_alpha_mu</code>, same normalisation.</p>
+      <p>Companion of <code class="language-plaintext highlighter-rouge">virial_beta_p_from_S_alpha_mu</code>, same normalisation.</p>
 
-<p><strong>Limitations.</strong></p>
+    </div>
 
-<p>Ill-conditioned as $\alpha\to2/3$; no guard.</p>
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<ol class="formula-references">
+      <p>Ill-conditioned as $\alpha\to2/3$; no guard.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
 </ol>
 
-<h3 id="virial_li_from_S_alpha_rt"><code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_li_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-12)</code></p>
+  </section>
 
-<p>Internal inductance, Lao large-aspect-ratio virial closure.</p>
+  <section class="ref-entry" id="virial_li_from_S_alpha_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L564" title="vaft/formula/virial.py, line 564">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_li_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-12)</code></pre>
+
+    <p>Internal inductance, Lao large-aspect-ratio virial closure.</p>
 
 \[l_i^{\mathrm{vir}} = \frac{\tfrac{S_1}{2} + \tfrac{S_2}{2}\left(1 - \tfrac{R_T}{R_0}\right) - S_3}{\alpha - 1}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third virial relation.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><table>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><table>
   <tbody>
     <tr>
       <td>Tolerance below which $</td>
@@ -1557,590 +1752,681 @@ in the number to show it.</p>
 </table>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When <code class="language-plaintext highlighter-rouge">alpha</code> is within <code class="language-plaintext highlighter-rouge">eps</code> of 1 (the closure is singular there).
+</li>
+</ul>
+</div>
 
-<p>ValueError
-    When <code class="language-plaintext highlighter-rouge">alpha</code> is within <code class="language-plaintext highlighter-rouge">eps</code> of 1 (the closure is singular there).</p>
+    <details class="ref-more">
+      <summary>Validity · References</summary>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Large aspect ratio, as <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>.</p>
+      <p>Large aspect ratio, as <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
 </ol>
 
-<h3 id="virial_li_from_volume"><code class="language-plaintext highlighter-rouge">virial_li_from_volume</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_li_from_volume(B_p, dV, B_pa, Omega)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_li_from_volume">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_li_from_volume"><code>virial_li_from_volume</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L288" title="vaft/formula/virial.py, line 288">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_li_from_volume(B_p, dV, B_pa, Omega)</code></pre>
 
-<p>Internal inductance from a volume integral of $B_p^2$.</p>
+    <p>Internal inductance from a volume integral of $B_p^2$.</p>
 
 \[l_i = \frac{1}{B_{pa}^2\,\Omega}\int_\Omega B_p^2\,dV\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>B_p</code></td><td>np.ndarray</td><td>T</td><td><p>Poloidal field magnitude at each cell.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B_p</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Poloidal field magnitude at each cell.</p>
 </td></tr>
-  <tr><td><code>dV</code></td><td>np.ndarray</td><td>m^3</td><td><p>Volume of each cell.</p>
+  <tr><td><code>dV</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^3</td><td><p>Volume of each cell.</p>
 </td></tr>
-  <tr><td><code>B_pa</code></td><td>float</td><td>T</td><td><p>Boundary-averaged poloidal field, $\mu_0 I_p/L_p$.</p>
+  <tr><td><code>B_pa</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Boundary-averaged poloidal field, $\mu_0 I_p/L_p$.</p>
 </td></tr>
-  <tr><td><code>Omega</code></td><td>float</td><td>m^3</td><td><p>Plasma volume.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>Omega</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Lao/EFIT normalisation by $B_{pa}$; not the IMAS $l_{i,3}$ (normalised by
+      <p>Lao/EFIT normalisation by $B_{pa}$; not the IMAS $l_{i,3}$ (normalised by
 $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.</p>
 
-<p><strong>References.</strong></p>
+    </div>
 
-<ol class="formula-references">
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 2.
 </li>
 </ol>
 
-<h3 id="virial_magnetic_energy"><code class="language-plaintext highlighter-rouge">virial_magnetic_energy</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_magnetic_energy(B, V)</code></p>
+  </section>
 
-<p>Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.</p>
+  <section class="ref-entry" id="virial_magnetic_energy">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L57" title="vaft/formula/virial.py, line 57">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_magnetic_energy(B, V)</code></pre>
+
+    <p>Magnetic energy of a sampled field, $W_{mag} = \sum B^2\,V/(2\mu_0)$.</p>
 
 \[W_{\mathrm{mag}} = \int\frac{B^2}{2\mu_0}\,dV \approx \frac{V}{2\mu_0}\sum_i B_i^2\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>B</code></td><td>np.ndarray</td><td>T</td><td><p>Field magnitude at each sample.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Field magnitude at each sample.</p>
 </td></tr>
-  <tr><td><code>V</code></td><td>float</td><td>m^3</td><td><p>Volume attributed to <em>each</em> sample.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>J</td><td><p>Magnetic energy.</p>
+  <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Volume attributed to <em>each</em> sample.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Magnetic energy.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Assumptions.</strong></p>
+    <details class="ref-more">
+      <summary>Assumptions · Numerical notes · References</summary>
 
-<p>Equal-volume samples: <code class="language-plaintext highlighter-rouge">V</code> multiplies the plain sum, so it is the cell
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Equal-volume samples: <code class="language-plaintext highlighter-rouge">V</code> multiplies the plain sum, so it is the cell
 volume, not the total.  Pass <code class="language-plaintext highlighter-rouge">V_total / B.size</code> for a uniform grid.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>A Riemann sum, first order in the cell size.</p>
+      <p>A Riemann sum, first order in the cell size.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103 (virial theorem for a confined plasma).
 </li>
 </ol>
 
-<h3 id="virial_muihat_from_Bt_R0_dphi"><code class="language-plaintext highlighter-rouge">virial_muihat_from_Bt_R0_dphi</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_muihat_from_Bt_R0_dphi">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L323" title="vaft/formula/virial.py, line 323">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)</code></pre>
 
-<p>Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.</p>
+    <p>Diamagnetic parameter $\hat\mu_i$ from the measured diamagnetic flux.</p>
 
 \[\hat\mu_i \approx \frac{4\pi\,B_t\,R_0\,\Delta\phi}{B_{pa}^2\,\Omega}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>B_t</code></td><td>float</td><td>T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B_t</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>.</p>
 </td></tr>
-  <tr><td><code>R0</code></td><td>float</td><td>m</td><td><p>Major radius at which <code class="language-plaintext highlighter-rouge">B_t</code> is quoted.</p>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius at which <code class="language-plaintext highlighter-rouge">B_t</code> is quoted.</p>
 </td></tr>
-  <tr><td><code>dphi</code></td><td>float</td><td>Wb</td><td><p>Diamagnetic flux $\Delta\phi$ (plasma-induced change of toroidal flux).</p>
+  <tr><td><code>dphi</code></td><td class="ref-type">float</td><td class="ref-unit">Wb</td><td><p>Diamagnetic flux $\Delta\phi$ (plasma-induced change of toroidal flux).</p>
 </td></tr>
-  <tr><td><code>B_pa</code></td><td>float</td><td>T</td><td><p>Boundary-averaged poloidal field.</p>
+  <tr><td><code>B_pa</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Boundary-averaged poloidal field.</p>
 </td></tr>
-  <tr><td><code>Omega</code></td><td>float</td><td>m^3</td><td><p>Plasma volume.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>$\hat\mu_i$.</p>
+  <tr><td><code>Omega</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\hat\mu_i$.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>Sign follows <code class="language-plaintext highlighter-rouge">dphi</code>: a paramagnetic (low-$\beta_p$) plasma increases the
+      <p>Sign follows <code class="language-plaintext highlighter-rouge">dphi</code>: a paramagnetic (low-$\beta_p$) plasma increases the
 toroidal flux and gives $\hat\mu_i &gt; 0$ in the sign convention of the
 diamagnetic loop; check the loop’s polarity before comparing with a virial
 closure.  $\Delta\phi$ is a full-weber toroidal flux.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>Large-aspect-ratio expansion of the toroidal-field energy term, $B_t R_0$
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Large-aspect-ratio expansion of the toroidal-field energy term, $B_t R_0$
 constant over the cross-section.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 2 ($\mu_i$ definition).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_normalized_residual"><code class="language-plaintext highlighter-rouge">virial_normalized_residual</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_normalized_residual(residual, lhs, rhs)</code></p>
+  </section>
 
-<p>Scale a virial identity residual so shots can be compared.</p>
+  <section class="ref-entry" id="virial_normalized_residual">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_normalized_residual"><code>virial_normalized_residual</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1210" title="vaft/formula/virial.py, line 1210">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_normalized_residual(residual, lhs, rhs)</code></pre>
+
+    <p>Scale a virial identity residual so shots can be compared.</p>
 
 \[\epsilon = \frac{R}{\max\left(1, |\mathrm{LHS}|, |\mathrm{RHS}|\right)}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>residual</code></td><td>float</td><td>-</td><td><p>Raw residual $\mathrm{LHS}-\mathrm{RHS}$ of one identity.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>residual</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Raw residual $\mathrm{LHS}-\mathrm{RHS}$ of one identity.</p>
 </td></tr>
-  <tr><td><code>lhs</code></td><td>float</td><td>-</td><td><p>Left-hand side of that identity.</p>
+  <tr><td><code>lhs</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Left-hand side of that identity.</p>
 </td></tr>
-  <tr><td><code>rhs</code></td><td>float</td><td>-</td><td><p>Right-hand side of that identity.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Dimensionless residual.</p>
+  <tr><td><code>rhs</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Right-hand side of that identity.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Dimensionless residual.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · Limitations</summary>
 
-<p>Symmetric in the two sides, and the floor of 1 keeps the scale from
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Symmetric in the two sides, and the floor of 1 keeps the scale from
 collapsing when both sides pass through zero, which would turn a small
 absolute residual into a large apparent one.</p>
 
-<p><strong>Limitations.</strong></p>
+      <h4 class="ref-label no_toc">Limitations</h4>
 
-<p>A placeholder scale, not an uncertainty. It is deliberately replaceable: an
+      <p>A placeholder scale, not an uncertainty. It is deliberately replaceable: an
 uncertainty-propagated normalisation would be strictly better and would
 change the numbers, so the thresholds built on this one stay report-only
 until a representative equilibrium population qualifies them.</p>
 
-<h3 id="virial_pair_12_from_S_mu_rt"><code class="language-plaintext highlighter-rouge">virial_pair_12_from_S_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_pair_12_from_S_mu_rt(S1, S2, mu_i, RT_over_R0)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_pair_12_from_S_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L902" title="vaft/formula/virial.py, line 902">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_pair_12_from_S_mu_rt(S1, S2, mu_i, RT_over_R0)</code></pre>
 
-<p>Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.</p>
+    <p>Virial closure on $E_1$ and $E_2$, leaving $E_3$ free.</p>
 
 \[\beta_p = \frac{S_1}{2} + \frac{S_2}{2}\left(1-\frac{R_T}{R_0}\right) + \mu_i,
   \qquad
   l_i = -\frac{S_1}{2} + \frac{S_2}{2}\left(3\frac{R_T}{R_0}-1\right) - 2\mu_i\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+  <tr><td><code>mu_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta.</p>
-</td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>The $\beta_p$ here is the conventional Lao one and agrees with
+      <p>The $\beta_p$ here is the conventional Lao one and agrees with
 <code class="language-plaintext highlighter-rouge">virial_beta_p_lao_from_S_mu_rt</code>. The $l_i$ does <strong>not</strong>: the
 historical Lao $l_i$ takes $\beta_p-\mu_i$ from this same pair and then
 substitutes it into $E_3$, so it is the $l_i$ of the full three-relation
 solve, not of this closure. See
 <code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_rt</code>.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>Both unknowns come from the two relations that do not involve $\alpha$, so
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Both unknowns come from the two relations that do not involve $\alpha$, so
 this closure is insensitive to the boundary field’s poloidal anisotropy and
 has no singular denominator. It is the only one of the three pairs that
 cannot become ill-conditioned.</p>
 
-<p><strong>Validity.</strong></p>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-<p>Depends entirely on $R_T/R_0$, which is poorly conditioned whenever the
+      <p>Depends entirely on $R_T/R_0$, which is poorly conditioned whenever the
 volume integral defining $R_T$ has a near-vanishing denominator. Compare
 against <code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code>, which does not use it.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion 25 (1985) 1421, Sec. 3.
 </li>
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
 </ol>
 
-<h3 id="virial_pair_13_from_S_alpha_mu"><code class="language-plaintext highlighter-rouge">virial_pair_13_from_S_alpha_mu</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mu_i, eps=1e-09)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_pair_13_from_S_alpha_mu">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L964" title="vaft/formula/virial.py, line 964">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mu_i, eps=1e-09)</code></pre>
 
-<p>Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.</p>
+    <p>Virial closure on $E_1$ and $E_3$, leaving $E_2$ free.</p>
 
 \[\beta_p = \frac{(\alpha-1)(S_1+S_2)+S_3+\alpha\mu_i}{3\alpha-2},
   \qquad
   l_i = \frac{S_1+S_2-3S_3-2\mu_i}{3\alpha-2}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S1</code></td><td>float</td><td>-</td><td><p>First Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>First Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
 </td></tr>
-  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+  <tr><td><code>mu_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $3\alpha-2$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
-</td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta, NaN when $3\alpha-2$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>This is the Bongard low-aspect-ratio closure;
+      <p>This is the Bongard low-aspect-ratio closure;
 <code class="language-plaintext highlighter-rouge">virial_bongard_from_S_alpha_mu</code> is the same numbers under the
 historical name.</p>
 
-<p><strong>Physical interpretation.</strong></p>
+    </div>
 
-<p>The only closure that never mentions $R_T/R_0$. At low aspect ratio, where
+    <details class="ref-more">
+      <summary>Physical interpretation · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The only closure that never mentions $R_T/R_0$. At low aspect ratio, where
 the current centroid is both large and poorly determined, comparing this
 against the other two pairs isolates how much of a $\beta_p$ or $l_i$
 disagreement is $R_T$ sensitivity rather than physics.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>Singular at $\alpha = 2/3$. Returns NaN there rather than a large finite
+      <p>Singular at $\alpha = 2/3$. Returns NaN there rather than a large finite
 value, so a near-singular closure is not mistaken for a physical failure.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>M. W. Bongard et al., Phys. Plasmas 23 (2016), low-aspect-ratio virial closure (journal page not recorded in the VAFT source).
 </li>
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
 </ol>
 
-<h3 id="virial_pair_23_from_S_alpha_mu_rt"><code class="language-plaintext highlighter-rouge">virial_pair_23_from_S_alpha_mu_rt</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mu_i, RT_over_R0, eps=1e-09)</code></p>
+  </section>
 
-<p>Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.</p>
+  <section class="ref-entry" id="virial_pair_23_from_S_alpha_mu_rt">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1030" title="vaft/formula/virial.py, line 1030">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mu_i, RT_over_R0, eps=1e-09)</code></pre>
+
+    <p>Virial closure on $E_2$ and $E_3$, leaving $E_1$ free.</p>
 
 \[\beta_p = \frac{(\alpha-1)\tfrac{R_T}{R_0}S_2+S_3+(2-\alpha)\mu_i}{\alpha},
   \qquad
   l_i = \frac{\tfrac{R_T}{R_0}S_2-S_3-2\mu_i}{\alpha}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>S2</code></td><td>float</td><td>-</td><td><p>Second Shafranov surface integral.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Second Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>S3</code></td><td>float</td><td>-</td><td><p>Third Shafranov surface integral.</p>
+  <tr><td><code>S3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Third Shafranov surface integral.</p>
 </td></tr>
-  <tr><td><code>alpha</code></td><td>float</td><td>-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Closure coefficient multiplying $l_i$ in the third relation.</p>
 </td></tr>
-  <tr><td><code>mu_i</code></td><td>float</td><td>-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
+  <tr><td><code>mu_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Diamagnetic parameter $\mu_i$, supplied independently.</p>
 </td></tr>
-  <tr><td><code>RT_over_R0</code></td><td>float</td><td>-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
+  <tr><td><code>RT_over_R0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current-centroid radius over reference radius, $R_T/R_0$.</p>
 </td></tr>
-  <tr><td><code>eps</code></td><td>float, optional</td><td>-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>beta_p</code></td><td>float</td><td>-</td><td><p>Poloidal beta, NaN when $\alpha$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
-</td></tr>
-  <tr><td><code>li</code></td><td>float</td><td>-</td><td><p>Internal inductance, NaN under the same condition.</p>
+  <tr><td><code>eps</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Denominator magnitude below which the result is NaN; default <code class="language-plaintext highlighter-rouge">VIRIAL_SINGULAR_EPS</code>.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>beta_p</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Poloidal beta, NaN when $\alpha$ is within <code class="language-plaintext highlighter-rouge">eps</code> of zero.</p>
+</td></tr>
+  <tr><td><code>li</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Internal inductance, NaN under the same condition.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · Numerical notes · References</summary>
 
-<p>Drops $E_1$, the relation carrying $S_1$, which is the integral least
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Drops $E_1$, the relation carrying $S_1$, which is the integral least
 sensitive to boundary shape and therefore the best determined of the three.
 Read this closure as a probe of $E_1$ rather than as a preferred estimator:
 its residual on the omitted identity is the informative output.</p>
 
-<p><strong>Numerical notes.</strong></p>
+      <h4 class="ref-label no_toc">Numerical notes</h4>
 
-<p>Singular at $\alpha = 0$, and returns NaN there rather than a large finite
+      <p>Singular at $\alpha = 0$, and returns NaN there rather than a large finite
 value.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>A. A. Martynov and V. D. Pustovitov, Phys. Plasmas 31 (2024), “Virial relations for elongated plasmas in tokamaks”, Eqs. (1)-(3).
 </li>
   <li>V. D. Shafranov, Plasma Phys. 13 (1971) 757.
 </li>
 </ol>
 
-<h3 id="virial_residual_rms"><code class="language-plaintext highlighter-rouge">virial_residual_rms</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_residual_rms(e1, e2, e3)</code></p>
+  </section>
 
-<p>Aggregate the three normalised virial residuals into one number.</p>
+  <section class="ref-entry" id="virial_residual_rms">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_residual_rms"><code>virial_residual_rms</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L1249" title="vaft/formula/virial.py, line 1249">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_residual_rms(e1, e2, e3)</code></pre>
+
+    <p>Aggregate the three normalised virial residuals into one number.</p>
 
 \[E_{virial} = \sqrt{\frac{\epsilon_1^2+\epsilon_2^2+\epsilon_3^2}{3}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>e1</code></td><td>float</td><td>-</td><td><p>Normalised residual of the first identity.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>e1</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised residual of the first identity.</p>
 </td></tr>
-  <tr><td><code>e2</code></td><td>float</td><td>-</td><td><p>Normalised residual of the second identity.</p>
+  <tr><td><code>e2</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised residual of the second identity.</p>
 </td></tr>
-  <tr><td><code>e3</code></td><td>float</td><td>-</td><td><p>Normalised residual of the third identity.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>-</td><td><p>Root-mean-square residual, NaN if any input is.</p>
+  <tr><td><code>e3</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Normalised residual of the third identity.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Root-mean-square residual, NaN if any input is.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Limitations</summary>
 
-<p>A summary, not a verdict: it says how badly the three relations fail to
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A summary, not a verdict: it says how badly the three relations fail to
 close together but not which one failed. Read it beside the three
 residuals, never instead of them.</p>
 
-<h3 id="virial_stability_criterion"><code class="language-plaintext highlighter-rouge">virial_stability_criterion</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_stability_criterion(W_mag, W_kin, W_th)</code></p>
+  </section>
 
-<p>Virial-ratio margin against the heuristic threshold $r_v = 0.5$.</p>
+  <section class="ref-entry" id="virial_stability_criterion">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_stability_criterion"><code>virial_stability_criterion</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L202" title="vaft/formula/virial.py, line 202">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_stability_criterion(W_mag, W_kin, W_th)</code></pre>
+
+    <p>Virial-ratio margin against the heuristic threshold $r_v = 0.5$.</p>
 
 \[\Delta = r_v - 0.5, \qquad
   r_v = \frac{W_{\mathrm{kin}} + W_{\mathrm{th}}}{W_{\mathrm{mag}}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>W_mag</code></td><td>float</td><td>J</td><td><p>Magnetic energy.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>W_mag</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Magnetic energy.</p>
 </td></tr>
-  <tr><td><code>W_kin</code></td><td>float</td><td>J</td><td><p>Bulk kinetic energy.</p>
+  <tr><td><code>W_kin</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Bulk kinetic energy.</p>
 </td></tr>
-  <tr><td><code>W_th</code></td><td>float</td><td>J</td><td><p>Thermal energy.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>margin</code></td><td>float</td><td>-</td><td><p>$r_v - 0.5$.</p>
-</td></tr>
-  <tr><td><code>critical_ratio</code></td><td>float</td><td>-</td><td><p>The threshold 0.5.</p>
+  <tr><td><code>W_th</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Thermal energy.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>margin</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$r_v - 0.5$.</p>
+</td></tr>
+  <tr><td><code>critical_ratio</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The threshold 0.5.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
 
-<p>The threshold 0.5 is labelled “theoretical value for stability” in the
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The threshold 0.5 is labelled “theoretical value for stability” in the
 original VAFT source but no derivation or reference for it was recorded;
 the scalar virial theorem constrains equilibrium, not stability.  Treat the
 margin as a bookkeeping diagnostic.  Tracked in #366.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103.
 </li>
 </ol>
 
-<h3 id="virial_theorem"><code class="language-plaintext highlighter-rouge">virial_theorem</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_theorem(W_mag, W_kin, W_th)</code></p>
+  </section>
 
-<p>Total energy and virial ratio of magnetic, kinetic and thermal contributions.</p>
+  <section class="ref-entry" id="virial_theorem">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_theorem"><code>virial_theorem</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L161" title="vaft/formula/virial.py, line 161">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_theorem(W_mag, W_kin, W_th)</code></pre>
+
+    <p>Total energy and virial ratio of magnetic, kinetic and thermal contributions.</p>
 
 \[W_{\mathrm{total}} = W_{\mathrm{mag}} + W_{\mathrm{kin}} + W_{\mathrm{th}},
   \qquad r_v = \frac{W_{\mathrm{kin}} + W_{\mathrm{th}}}{W_{\mathrm{mag}}}\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>W_mag</code></td><td>float</td><td>J</td><td><p>Magnetic energy.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>W_mag</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Magnetic energy.</p>
 </td></tr>
-  <tr><td><code>W_kin</code></td><td>float</td><td>J</td><td><p>Bulk kinetic energy.</p>
+  <tr><td><code>W_kin</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Bulk kinetic energy.</p>
 </td></tr>
-  <tr><td><code>W_th</code></td><td>float</td><td>J</td><td><p>Thermal energy.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>W_total</code></td><td>float</td><td>J</td><td><p>Sum of the three energies.</p>
-</td></tr>
-  <tr><td><code>virial_ratio</code></td><td>float</td><td>-</td><td><p>Ratio of material to magnetic energy.</p>
+  <tr><td><code>W_th</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Thermal energy.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>W_total</code></td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Sum of the three energies.</p>
+</td></tr>
+  <tr><td><code>virial_ratio</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ratio of material to magnetic energy.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Physical interpretation.</strong></p>
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
 
-<p>The scalar virial theorem forbids a plasma confined by its own fields alone:
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The scalar virial theorem forbids a plasma confined by its own fields alone:
 a positive-definite $W_{\mathrm{mag}}$ must be balanced by external
 (coil) fields, and the ratio measures how far the material energy is from
 that balance.</p>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">References</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103.
 </li>
   <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Sec. 3.6 (virial theorem).
 </li>
 </ol>
 
-<h3 id="virial_thermal_energy"><code class="language-plaintext highlighter-rouge">virial_thermal_energy</code></h3>
+    </details>
 
-<p class="formula-signature"><code>virial_thermal_energy(n, T, V)</code></p>
+  </section>
 
-<p><strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="virial_thermal_energy">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#virial_thermal_energy"><code>virial_thermal_energy</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/virial.py#L125" title="vaft/formula/virial.py, line 125">source</a>
+</header>
+    <pre class="ref-signature"><code>virial_thermal_energy(n, T, V)</code></pre>
 
-<p>Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.</p>
+    <p>Thermal energy of a sampled plasma, $W_{th} = \tfrac{3}{2}\sum n T\,V$.</p>
 
 \[W_{\mathrm{th}} = \int\frac{3}{2}\,n\,T\,dV\]
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>n</code></td><td>np.ndarray</td><td>m^-3</td><td><p>Number density at each sample.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Number density at each sample.</p>
 </td></tr>
-  <tr><td><code>T</code></td><td>np.ndarray</td><td>J</td><td><p>Temperature at each sample, in energy units.</p>
+  <tr><td><code>T</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">J</td><td><p>Temperature at each sample, in energy units.</p>
 </td></tr>
-  <tr><td><code>V</code></td><td>float</td><td>m^3</td><td><p>Volume attributed to each sample.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>float</td><td>J</td><td><p>Thermal energy.</p>
+  <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Volume attributed to each sample.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">J</td><td><p>Thermal energy.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Convention.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p><code class="language-plaintext highlighter-rouge">T</code> must be in joules ($k_B T$); a temperature in eV needs the factor
+      <p><code class="language-plaintext highlighter-rouge">T</code> must be in joules ($k_B T$); a temperature in eV needs the factor
 <code class="language-plaintext highlighter-rouge">QE</code>.  One species only: sum electron and ion calls for the total.</p>
 
-<p><strong>Assumptions.</strong></p>
+    </div>
 
-<p>Equal-volume samples (<code class="language-plaintext highlighter-rouge">V</code> is the cell volume); three degrees of freedom.</p>
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
 
-<p><strong>References.</strong></p>
+      <h4 class="ref-label no_toc">Assumptions</h4>
 
-<ol class="formula-references">
+      <p>Equal-volume samples (<code class="language-plaintext highlighter-rouge">V</code> is the cell volume); three degrees of freedom.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>V. D. Shafranov, in <em>Reviews of Plasma Physics</em>, Vol. 2, Consultants Bureau (1966), p. 103.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -2241,7 +2527,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_D0_boundary_from_bp_li_eK" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_D0_boundary_from_bp_li_eK</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S1_approx" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S1_approx</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S2_approx_from_D0_a_R0" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S2_approx_from_D0_a_R0</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_S3_approx_from_eK_d" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_S3_approx_from_eK_d</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_approx_from_kappa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_approx_from_kappa</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_alpha_from_R_Bz_Bp_dl" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_alpha_from_R_Bz_Bp_dl</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_S_li" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_S_li</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_lao_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_lao_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_p_li_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_p_li_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_beta_pd_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_beta_pd_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bongard_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bongard_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_bp_li_lihat_from_S123" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_bp_li_lihat_from_S123</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_closure_denominators" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_closure_denominators</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_full_123_from_S_alpha_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_full_123_from_S_alpha_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_identity_residuals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_identity_residuals</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_kinetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_kinetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_lao_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_lao_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_S_alpha_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_S_alpha_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_li_from_volume" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_li_from_volume</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_magnetic_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_magnetic_energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_muihat_from_Bt_R0_dphi" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_muihat_from_Bt_R0_dphi</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_normalized_residual" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_normalized_residual</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_12_from_S_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_12_from_S_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_13_from_S_alpha_mu" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_13_from_S_alpha_mu</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_pair_23_from_S_alpha_mu_rt" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_pair_23_from_S_alpha_mu_rt</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_residual_rms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_residual_rms</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_stability_criterion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_stability_criterion</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_theorem" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_theorem</a></li><li class="page-toc-item page-toc-level-3"><a href="#virial_thermal_energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">virial_thermal_energy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -2359,7 +2645,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -2388,7 +2674,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/magnetic_island.py"><code class="language-plaintext highlighter-rouge">vaft/process/magnetic_island.py</code></a>:
-4 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.process.describe("magnetic_island.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/process/">process reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.magnetic_island</code>:
+<strong>4</strong> public functions. Each entry is what
+<code>vaft.process.describe("magnetic_island.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -297,19 +295,19 @@ emissivity       epsilon(R, Z; t, phi)                      island_emissivity
 <p>The diagnostic response, a line integral of the emissivity, lives in
 <code class="language-plaintext highlighter-rouge">vaft.process.line_of_sight</code> and <code class="language-plaintext highlighter-rouge">vaft.process.soft_x_rays</code>.</p>
 
-<table class="formula-table">
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>psi_N</td><td>normalized poloidal flux, 0 on axis and 1 on the boundary</td><td>-</td></tr>
-  <tr><td>psi_N,s</td><td>psi_N of the resonant surface q = m/n</td><td>-</td></tr>
-  <tr><td>theta*</td><td>PEST straight-field-line poloidal angle</td><td>rad</td></tr>
-  <tr><td>phi</td><td>IMAS toroidal angle, counter-clockwise seen from above</td><td>rad</td></tr>
-  <tr><td>xi</td><td>helical phase m theta* - sigma n phi - alpha(t)</td><td>rad</td></tr>
-  <tr><td>x</td><td>outboard-midplane distance of a point&#39;s flux surface from the</td><td></td></tr>
-  <tr><td>W</td><td>full island width at the outboard midplane</td><td>m</td></tr>
-  <tr><td>Omega</td><td>helical flux 8 (x/W)^2 - cos xi, -1 at the O-point, 1 on the</td><td></td></tr>
+  <tr><td>psi_N</td><td>normalized poloidal flux, 0 on axis and 1 on the boundary</td><td class="ref-unit">-</td></tr>
+  <tr><td>psi_N,s</td><td>psi_N of the resonant surface q = m/n</td><td class="ref-unit">-</td></tr>
+  <tr><td>theta*</td><td>PEST straight-field-line poloidal angle</td><td class="ref-unit">rad</td></tr>
+  <tr><td>phi</td><td>IMAS toroidal angle, counter-clockwise seen from above</td><td class="ref-unit">rad</td></tr>
+  <tr><td>xi</td><td>helical phase m theta* - sigma n phi - alpha(t)</td><td class="ref-unit">rad</td></tr>
+  <tr><td>x</td><td>outboard-midplane distance of a point&#39;s flux surface from the</td><td class="ref-unit"></td></tr>
+  <tr><td>W</td><td>full island width at the outboard midplane</td><td class="ref-unit">m</td></tr>
+  <tr><td>Omega</td><td>helical flux 8 (x/W)^2 - cos xi, -1 at the O-point, 1 on the</td><td class="ref-unit"></td></tr>
   </tbody>
-</table>
+</table></div>
 
 <p><strong>W is the full width at the outboard midplane.</strong> <code class="language-plaintext highlighter-rouge">x</code> is a flux label
 measured in metres: the outboard-midplane distance between the flux surface
@@ -337,191 +335,203 @@ fold <code class="language-plaintext highlighter-rouge">IslandTopology.helicity<
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#equilibrium_safety_factor"><code>equilibrium_safety_factor</code></a> &mdash; The magnitude of the safety factor on normalized flux, as the equilibrium knows it.
-</li>
-  <li><a href="#island_emissivity"><code>island_emissivity</code></a> &mdash; A soft-X-ray emissivity phantom from an island topology.
-</li>
-  <li><a href="#magnetic_island_topology"><code>magnetic_island_topology</code></a> &mdash; The helical flux of an <code class="language-plaintext highlighter-rouge">m/n</code> island placed on an equilibrium.
-</li>
-  <li><a href="#resolve_rational_surface"><code>resolve_rational_surface</code></a> &mdash; Where the equilibrium’s own safety factor equals <code class="language-plaintext highlighter-rouge">m/n</code>.
-</li>
-</ul>
-
-<h3 id="equilibrium_safety_factor"><code class="language-plaintext highlighter-rouge">equilibrium_safety_factor</code></h3>
-
-<p class="formula-signature"><code>equilibrium_safety_factor(equilibrium)</code></p>
-
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
-
-<p>The magnitude of the safety factor on normalized flux, as the equilibrium knows it.</p>
-
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr><td><code>equilibrium</code></td><td>EquilibriumData or source</td><td>-</td><td><p>An equilibrium record, or anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
+  <tr data-ref-row="equilibrium_safety_factor"><td><a href="#equilibrium_safety_factor"><code>equilibrium_safety_factor</code></a></td><td>The magnitude of the safety factor on normalized flux, as the equilibrium knows it.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="island_emissivity"><td><a href="#island_emissivity"><code>island_emissivity</code></a></td><td>A soft-X-ray emissivity phantom from an island topology.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetic_island_topology"><td><a href="#magnetic_island_topology"><code>magnetic_island_topology</code></a></td><td>The helical flux of an <code class="language-plaintext highlighter-rouge">m/n</code> island placed on an equilibrium.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="resolve_rational_surface"><td><a href="#resolve_rational_surface"><code>resolve_rational_surface</code></a></td><td>Where the equilibrium’s own safety factor equals <code class="language-plaintext highlighter-rouge">m/n</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="equilibrium_safety_factor">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#equilibrium_safety_factor"><code>equilibrium_safety_factor</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/magnetic_island.py#L209" title="vaft/process/magnetic_island.py, line 209">source</a>
+</header>
+    <pre class="ref-signature"><code>equilibrium_safety_factor(equilibrium)</code></pre>
+
+    <p>The magnitude of the safety factor on normalized flux, as the equilibrium knows it.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData or source</td><td class="ref-unit">-</td><td><p>An equilibrium record, or anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>tuple of numpy.ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_n, abs(q))</code>, sorted by increasing <code class="language-plaintext highlighter-rouge">psi_n</code>.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of numpy.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_n, abs(q))</code>, sorted by increasing <code class="language-plaintext highlighter-rouge">psi_n</code>.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The record carries neither a q profile nor the flux map and poloidal
-    current function to compute one, or its flux storage family is unknown.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The record’s own profile when it has one; otherwise q is computed from the
+      <p>The record’s own profile when it has one; otherwise q is computed from the
 flux map and <code class="language-plaintext highlighter-rouge">F</code> by <code class="language-plaintext highlighter-rouge">calculate_q_profile_from_psi</code> on 97 interior
 levels, which is the case for an analytic Solov’ev export. Only the
 magnitude is returned: resonance is <code class="language-plaintext highlighter-rouge">|q| = m/n</code>, and the direction is the
 helicity’s job.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The record carries neither a q profile nor the flux map and poloidal current function to compute one, or its flux storage family is unknown.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p>A computed profile starts at <code class="language-plaintext highlighter-rouge">psi_n = 0.02</code> and ends at <code class="language-plaintext highlighter-rouge">0.98</code>, so a
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A computed profile starts at <code class="language-plaintext highlighter-rouge">psi_n = 0.02</code> and ends at <code class="language-plaintext highlighter-rouge">0.98</code>, so a
 resonance closer to the axis or the boundary than that is not found.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.calculate_q_profile_from_psi</code>, the contour-integral safety factor it falls back to.
 </li>
 </ol>
 
-<h3 id="island_emissivity"><code class="language-plaintext highlighter-rouge">island_emissivity</code></h3>
+    </details>
 
-<p class="formula-signature"><code>island_emissivity(topology, *, profile=None, model='flatten', amplitude=1.0, smoothing=0.1, hard_mask=False)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="island_emissivity">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#island_emissivity"><code>island_emissivity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/magnetic_island.py#L563" title="vaft/process/magnetic_island.py, line 563">source</a>
+</header>
+    <pre class="ref-signature"><code>island_emissivity(topology, *, profile=None, model=&#39;flatten&#39;, amplitude=1.0, smoothing=0.1, hard_mask=False)</code></pre>
 
-<p>A soft-X-ray emissivity phantom from an island topology.</p>
+    <p>A soft-X-ray emissivity phantom from an island topology.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>topology</code></td><td>IslandTopology</td><td>-</td><td><p>The island on its equilibrium grid, from <code class="language-plaintext highlighter-rouge">magnetic_island_topology</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>topology</code></td><td class="ref-type">IslandTopology</td><td class="ref-unit">-</td><td><p>The island on its equilibrium grid, from <code class="language-plaintext highlighter-rouge">magnetic_island_topology</code>.</p>
 </td></tr>
-  <tr><td><code>profile</code></td><td>callable or tuple of array_like, optional</td><td>emissivity unit</td><td><p>Axisymmetric background <code class="language-plaintext highlighter-rouge">epsilon_0(psi_N)</code>, as a callable or a <code class="language-plaintext highlighter-rouge">(psi_N, values)</code> table; required by <code class="language-plaintext highlighter-rouge">model="flatten"</code>, zero when omitted for <code class="language-plaintext highlighter-rouge">model="island"</code>.</p>
+  <tr><td><code>profile</code></td><td class="ref-type">callable or tuple of array_like, optional</td><td class="ref-unit">emissivity unit</td><td><p>Axisymmetric background <code class="language-plaintext highlighter-rouge">epsilon_0(psi_N)</code>, as a callable or a <code class="language-plaintext highlighter-rouge">(psi_N, values)</code> table; required by <code class="language-plaintext highlighter-rouge">model="flatten"</code>, zero when omitted for <code class="language-plaintext highlighter-rouge">model="island"</code>.</p>
 </td></tr>
-  <tr><td><code>model</code></td><td>str, optional</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">"flatten"</code> drives the emissivity inside the island toward its resonant-surface value; <code class="language-plaintext highlighter-rouge">"island"</code> adds <code class="language-plaintext highlighter-rouge">amplitude</code> times the island mask.</p>
+  <tr><td><code>model</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"flatten"</code> drives the emissivity inside the island toward its resonant-surface value; <code class="language-plaintext highlighter-rouge">"island"</code> adds <code class="language-plaintext highlighter-rouge">amplitude</code> times the island mask.</p>
 </td></tr>
-  <tr><td><code>amplitude</code></td><td>float, optional</td><td>- or emissivity unit</td><td><p><code class="language-plaintext highlighter-rouge">A</code>: the flattening fraction for <code class="language-plaintext highlighter-rouge">"flatten"</code>, the added emissivity for <code class="language-plaintext highlighter-rouge">"island"</code>.</p>
+  <tr><td><code>amplitude</code></td><td class="ref-type">float, optional</td><td class="ref-unit">- or emissivity unit</td><td><p><code class="language-plaintext highlighter-rouge">A</code>: the flattening fraction for <code class="language-plaintext highlighter-rouge">"flatten"</code>, the added emissivity for <code class="language-plaintext highlighter-rouge">"island"</code>.</p>
 </td></tr>
-  <tr><td><code>smoothing</code></td><td>float, optional</td><td>-</td><td><p>Width of the <code class="language-plaintext highlighter-rouge">tanh</code> edge of the island mask, in helical-flux units.</p>
+  <tr><td><code>smoothing</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Width of the <code class="language-plaintext highlighter-rouge">tanh</code> edge of the island mask, in helical-flux units.</p>
 </td></tr>
-  <tr><td><code>hard_mask</code></td><td>bool, optional</td><td>-</td><td><p>Use the binary mask <code class="language-plaintext highlighter-rouge">Omega &lt;= 1</code> instead of the smooth one.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>tuple of numpy.ndarray</td><td>emissivity unit</td><td><p><code class="language-plaintext highlighter-rouge">(epsilon, delta_epsilon)</code> on the equilibrium grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, zero outside the boundary; <code class="language-plaintext highlighter-rouge">delta_epsilon</code> is <code class="language-plaintext highlighter-rouge">epsilon - epsilon_0</code>.</p>
+  <tr><td><code>hard_mask</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Use the binary mask <code class="language-plaintext highlighter-rouge">Omega &lt;= 1</code> instead of the smooth one.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of numpy.ndarray</td><td class="ref-unit">emissivity unit</td><td><p><code class="language-plaintext highlighter-rouge">(epsilon, delta_epsilon)</code> on the equilibrium grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, zero outside the boundary; <code class="language-plaintext highlighter-rouge">delta_epsilon</code> is <code class="language-plaintext highlighter-rouge">epsilon - epsilon_0</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    An unknown model, a flattening model without a profile, a non-positive
-    smoothing, or a malformed profile table.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>The mask is <code class="language-plaintext highlighter-rouge">M = (1 - tanh((Omega - 1)/smoothing)) / 2</code>, one inside the
+      <p>The mask is <code class="language-plaintext highlighter-rouge">M = (1 - tanh((Omega - 1)/smoothing)) / 2</code>, one inside the
 separatrix and zero outside it. <code class="language-plaintext highlighter-rouge">"island"</code>: <code class="language-plaintext highlighter-rouge">delta_epsilon = A M</code>.
 <code class="language-plaintext highlighter-rouge">"flatten"</code>: <code class="language-plaintext highlighter-rouge">delta_epsilon = A M (epsilon_0(psi_N,s) -
 epsilon_0(psi_N))</code>, so <code class="language-plaintext highlighter-rouge">A = 0</code> returns the axisymmetric background and
 <code class="language-plaintext highlighter-rouge">A = 1</code> flattens it to the resonant-surface value inside the island.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown model, a flattening model without a profile, a non-positive smoothing, or a malformed profile table.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p>A phenomenological response, not a transport calculation: the flattening
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A phenomenological response, not a transport calculation: the flattening
 is instantaneous and complete to the separatrix, with no dependence on the
 island’s size against a critical width, and no atomic or filter physics.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Le, T. X. K. et al., Plasma Phys. Control. Fusion 68, 065003 (2026), for modelling an island’s SXR signature as flattened emissivity.
 </li>
   <li>Dreval, M. B. et al., Plasma Phys. Control. Fusion 65, 035001 (2023), for a prescribed emissivity perturbation on magnetic surfaces.
 </li>
 </ol>
 
-<h3 id="magnetic_island_topology"><code class="language-plaintext highlighter-rouge">magnetic_island_topology</code></h3>
+    </details>
 
-<p class="formula-signature"><code>magnetic_island_topology(equilibrium, island, *, time=0.0, phi=0.0, sfl_map=None)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="magnetic_island_topology">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#magnetic_island_topology"><code>magnetic_island_topology</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/magnetic_island.py#L413" title="vaft/process/magnetic_island.py, line 413">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetic_island_topology(equilibrium, island, *, time=0.0, phi=0.0, sfl_map=None)</code></pre>
 
-<p>The helical flux of an <code class="language-plaintext highlighter-rouge">m/n</code> island placed on an equilibrium.</p>
+    <p>The helical flux of an <code class="language-plaintext highlighter-rouge">m/n</code> island placed on an equilibrium.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>equilibrium</code></td><td>EquilibriumData or source</td><td>-</td><td><p>The axisymmetric equilibrium, the only source of geometry; anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData or source</td><td class="ref-unit">-</td><td><p>The axisymmetric equilibrium, the only source of geometry; anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
 </td></tr>
-  <tr><td><code>island</code></td><td>MagneticIslandSpec</td><td>-</td><td><p>Mode numbers, outboard-midplane full width and phase.</p>
+  <tr><td><code>island</code></td><td class="ref-type">MagneticIslandSpec</td><td class="ref-unit">-</td><td><p>Mode numbers, outboard-midplane full width and phase.</p>
 </td></tr>
-  <tr><td><code>time</code></td><td>float, optional</td><td>s</td><td><p>Time at which to evaluate the island phase.</p>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time at which to evaluate the island phase.</p>
 </td></tr>
-  <tr><td><code>phi</code></td><td>float, optional</td><td>rad</td><td><p>IMAS toroidal angle of the poloidal plane.</p>
+  <tr><td><code>phi</code></td><td class="ref-type">float, optional</td><td class="ref-unit">rad</td><td><p>IMAS toroidal angle of the poloidal plane.</p>
 </td></tr>
-  <tr><td><code>sfl_map</code></td><td>StraightFieldLineMap, optional</td><td>-</td><td><p>A straight-field-line map already built for this equilibrium, to reuse</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>IslandTopology</td><td>-</td><td><p>The resonant surface, the helicity, the flux width, and on the equilibrium grid <code class="language-plaintext highlighter-rouge">theta_star</code>, <code class="language-plaintext highlighter-rouge">normal_displacement</code>, <code class="language-plaintext highlighter-rouge">helical_phase</code>, <code class="language-plaintext highlighter-rouge">helical_flux</code> and <code class="language-plaintext highlighter-rouge">inside_separatrix</code>, with the O- and X-point positions.</p>
+  <tr><td><code>sfl_map</code></td><td class="ref-type">StraightFieldLineMap, optional</td><td class="ref-unit">-</td><td><p>A straight-field-line map already built for this equilibrium, to reuse</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">IslandTopology</td><td class="ref-unit">-</td><td><p>The resonant surface, the helicity, the flux width, and on the equilibrium grid <code class="language-plaintext highlighter-rouge">theta_star</code>, <code class="language-plaintext highlighter-rouge">normal_displacement</code>, <code class="language-plaintext highlighter-rouge">helical_phase</code>, <code class="language-plaintext highlighter-rouge">helical_flux</code> and <code class="language-plaintext highlighter-rouge">inside_separatrix</code>, with the O- and X-point positions.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    The resonant surface does not exist, the boundary is not closed on the
-    grid, or the helicity cannot be read from the record and was not given.</p>
-
-<p><strong>Processing steps.</strong></p>
-
-<ol>
-  <li>Build (or reuse) the straight-field-line map of the equilibrium.</li>
-  <li>Find <code class="language-plaintext highlighter-rouge">psi_N,s</code> from <code class="language-plaintext highlighter-rouge">q = m/n</code>, unless the spec overrides it.</li>
-  <li>Solve the resonant surface; take the helicity from the field direction
-at its outboard-midplane point.</li>
-  <li>Form the outboard-midplane displacement and the helical phase on the grid, and
-from them the helical flux and the separatrix mask.</li>
-  <li>Locate the O- and X-points on the resonant surface.</li>
-</ol>
-
-<p><strong>Convention.</strong></p>
-
-<p><code class="language-plaintext highlighter-rouge">Omega = 8 (x/W)^2 - cos(xi)</code> with <code class="language-plaintext highlighter-rouge">xi = m theta* - sigma n phi -
+      <p><code class="language-plaintext highlighter-rouge">Omega = 8 (x/W)^2 - cos(xi)</code> with <code class="language-plaintext highlighter-rouge">xi = m theta* - sigma n phi -
 alpha(t)</code>: <code class="language-plaintext highlighter-rouge">Omega = -1</code> at the O-point (<code class="language-plaintext highlighter-rouge">xi = 0</code>, <code class="language-plaintext highlighter-rouge">x = 0</code>) and
 <code class="language-plaintext highlighter-rouge">Omega = 1</code> on the separatrix and at the X-point (<code class="language-plaintext highlighter-rouge">xi = pi</code>), and the
 separatrix branches through an outboard O-point are exactly <code class="language-plaintext highlighter-rouge">W</code> apart.
@@ -532,97 +542,128 @@ is the IMAS toroidal angle. <code class="language-plaintext highlighter-rouge">s
 along a field line from the equilibrium’s field, so <code class="language-plaintext highlighter-rouge">xi</code> is constant along
 field lines on the resonant surface.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The resonant surface does not exist, the boundary is not closed on the grid, or the helicity cannot be read from the record and was not given.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
 
-<p>A prescribed constant-psi island: no island-induced change of the
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Build (or reuse) the straight-field-line map of the equilibrium.</li>
+        <li>Find <code class="language-plaintext highlighter-rouge">psi_N,s</code> from <code class="language-plaintext highlighter-rouge">q = m/n</code>, unless the spec overrides it.</li>
+        <li>Solve the resonant surface; take the helicity from the field direction
+at its outboard-midplane point.</li>
+        <li>Form the outboard-midplane displacement and the helical phase on the grid, and
+from them the helical flux and the separatrix mask.</li>
+        <li>Locate the O- and X-points on the resonant surface.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A prescribed constant-psi island: no island-induced change of the
 equilibrium, no finite-width distortion beyond the quadratic flux model,
 and no island that crosses the boundary is treated specially. The
 displacement is first order in the flux offset, so an island wide against
 the local flux-surface curvature is only approximately symmetric.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li>Choi, G. J., Rev. Mod. Plasma Phys. 8, 11 (2024), the constant-psi helical flux.
 </li>
   <li>Le, T. X. K. et al., Plasma Phys. Control. Fusion 68, 065003 (2026), a rotating-island SXR forward model of the same scope on a spherical tokamak.
 </li>
 </ol>
 
-<h3 id="resolve_rational_surface"><code class="language-plaintext highlighter-rouge">resolve_rational_surface</code></h3>
+    </details>
 
-<p class="formula-signature"><code>resolve_rational_surface(equilibrium, m, n, *, index=0)</code></p>
+  </section>
 
-<p><strong>Machine-independent.</strong> <strong>Convention-sensitive.</strong> </p>
+  <section class="ref-entry" id="resolve_rational_surface">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resolve_rational_surface"><code>resolve_rational_surface</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/process/magnetic_island.py#L272" title="vaft/process/magnetic_island.py, line 272">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_rational_surface(equilibrium, m, n, *, index=0)</code></pre>
 
-<p>Where the equilibrium’s own safety factor equals <code class="language-plaintext highlighter-rouge">m/n</code>.</p>
+    <p>Where the equilibrium’s own safety factor equals <code class="language-plaintext highlighter-rouge">m/n</code>.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>equilibrium</code></td><td>EquilibriumData or source</td><td>-</td><td><p>An equilibrium record, or anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData or source</td><td class="ref-unit">-</td><td><p>An equilibrium record, or anything <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code> accepts.</p>
 </td></tr>
-  <tr><td><code>m</code></td><td>int</td><td>-</td><td><p>Poloidal mode number.</p>
+  <tr><td><code>m</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Poloidal mode number.</p>
 </td></tr>
-  <tr><td><code>n</code></td><td>int</td><td>-</td><td><p>Toroidal mode number.</p>
+  <tr><td><code>n</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
 </td></tr>
-  <tr><td><code>index</code></td><td>int, optional</td><td>-</td><td><p>Which crossing when <code class="language-plaintext highlighter-rouge">q</code> crosses <code class="language-plaintext highlighter-rouge">m/n</code> more than once, innermost first.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>tuple of float</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_n_s, q_s)</code>: the normalized flux of the resonant surface and the profile’s value there, which equals <code class="language-plaintext highlighter-rouge">m/n</code> to the root tolerance.</p>
+  <tr><td><code>index</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Which crossing when <code class="language-plaintext highlighter-rouge">q</code> crosses <code class="language-plaintext highlighter-rouge">m/n</code> more than once, innermost first.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(psi_n_s, q_s)</code>: the normalized flux of the resonant surface and the profile’s value there, which equals <code class="language-plaintext highlighter-rouge">m/n</code> to the root tolerance.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>Raises.</strong></p>
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
 
-<p>ValueError
-    <code class="language-plaintext highlighter-rouge">q = m/n</code> does not occur in the profile, or <code class="language-plaintext highlighter-rouge">index</code> asks for a
-    crossing that does not exist.</p>
-
-<p><strong>Convention.</strong></p>
-
-<p>Resonance is <code class="language-plaintext highlighter-rouge">|q| = m/n</code>. The crossings are bracketed by
+      <p>Resonance is <code class="language-plaintext highlighter-rouge">|q| = m/n</code>. The crossings are bracketed by
 <code class="language-plaintext highlighter-rouge">find_rational_surfaces</code> and each is refined by a root solve on a
 cubic spline through the profile, so the answer is not limited to the
 linear interpolation between samples.</p>
 
-<p><strong>Applicability.</strong></p>
+    </div>
 
-<p>Machine-independent.</p>
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">q = m/n</code> does not occur in the profile, or <code class="language-plaintext highlighter-rouge">index</code> asks for a crossing that does not exist.
+</li>
+</ul>
+</div>
 
-<p><strong>Limitations.</strong></p>
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
 
-<p>Only as good as the profile the equilibrium carries; a reconstruction with
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Only as good as the profile the equilibrium carries; a reconstruction with
 a poorly constrained core q places a core resonance equally poorly.</p>
 
-<p><strong>Provenance.</strong></p>
+      <h4 class="ref-label no_toc">Provenance</h4>
 
-<ol class="formula-references">
+      <ol class="ref-cites">
   <li><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.find_rational_surfaces</code> for the bracketing.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -723,7 +764,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#equilibrium_safety_factor" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">equilibrium_safety_factor</a></li><li class="page-toc-item page-toc-level-3"><a href="#island_emissivity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">island_emissivity</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic_island_topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetic_island_topology</a></li><li class="page-toc-item page-toc-level-3"><a href="#resolve_rational_surface" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">resolve_rational_surface</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -841,7 +882,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -870,7 +911,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>

@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a4ff54d</code>. What is described
+  <code>1c0d92c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -270,12 +270,10 @@
   </dl>
 </aside>
 
-
-<p>This page is generated from the docstrings of
-<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/formula/magnetics.py"><code class="language-plaintext highlighter-rouge">vaft/formula/magnetics.py</code></a>:
-2 public functions.  The category overview and notation come from the module
-docstring; every entry below is what <code class="language-plaintext highlighter-rouge">vaft.formula.describe("magnetics.&lt;name&gt;")</code> prints.
-Back to the <a href="/vaft/develop/reference/formula/">formula reference index</a>.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.magnetics</code>:
+<strong>2</strong> public functions. Each entry is what
+<code>vaft.formula.describe("magnetics.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
@@ -293,96 +291,111 @@ untouched, which is exactly how the mistake hides: VAFT carried it until
 
 <h2 id="functions">Functions</h2>
 
-<ul class="formula-index">
-  <li><a href="#probe_axis"><code>probe_axis</code></a> &mdash; Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.
-</li>
-  <li><a href="#project_poloidal_field"><code>project_poloidal_field</code></a> &mdash; The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.
-</li>
-</ul>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="probe_axis"><td><a href="#probe_axis"><code>probe_axis</code></a></td><td>Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.
+</td></tr>
+  <tr data-ref-row="project_poloidal_field"><td><a href="#project_poloidal_field"><code>project_poloidal_field</code></a></td><td>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<h3 id="probe_axis"><code class="language-plaintext highlighter-rouge">probe_axis</code></h3>
+<div class="ref-entries">
 
-<p class="formula-signature"><code>probe_axis(poloidal_angle)</code></p>
+  <section class="ref-entry" id="probe_axis">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#probe_axis"><code>probe_axis</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/magnetics.py#L23" title="vaft/formula/magnetics.py, line 23">source</a>
+</header>
+    <pre class="ref-signature"><code>probe_axis(poloidal_angle)</code></pre>
 
-<p>Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.</p>
+    <p>Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.</p>
 
 \[c_R = \cos\theta, \qquad c_Z = -\sin\theta\]
 
-<p><code class="language-plaintext highlighter-rouge">probe_axis(3*pi/2) == (0, +1)</code>: VEST’s +Bz probes.</p>
+    <p><code class="language-plaintext highlighter-rouge">probe_axis(3*pi/2) == (0, +1)</code>: VEST’s +Bz probes.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>poloidal_angle</code></td><td>float or ndarray</td><td>rad</td><td><p>Probe orientation angle in the DD convention; scalar or array.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>poloidal_angle</code></td><td class="ref-type">float or ndarray</td><td class="ref-unit">rad</td><td><p>Probe orientation angle in the DD convention; scalar or array.</p>
 </td></tr>
   </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>tuple of ndarray</td><td>-</td><td><p><code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> direction cosines, each the shape of the input.</p>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> direction cosines, each the shape of the input.</p>
 </td></tr>
   </tbody>
-</table>
+</table></div>
 
-<p><strong>References.</strong></p>
+    <details class="ref-more">
+      <summary>References</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>IMAS Data Dictionary, <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe[:].poloidal_angle</code>.
 </li>
 </ol>
 
-<h3 id="project_poloidal_field"><code class="language-plaintext highlighter-rouge">project_poloidal_field</code></h3>
+    </details>
 
-<p class="formula-signature"><code>project_poloidal_field(b_r, b_z, poloidal_angle)</code></p>
+  </section>
 
-<p>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.</p>
+  <section class="ref-entry" id="project_poloidal_field">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_poloidal_field"><code>project_poloidal_field</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/1c0d92cc90cfeeecac347c4ac02f1be2943c3a7e/vaft/formula/magnetics.py#L48" title="vaft/formula/magnetics.py, line 48">source</a>
+</header>
+    <pre class="ref-signature"><code>project_poloidal_field(b_r, b_z, poloidal_angle)</code></pre>
+
+    <p>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.</p>
 
 \[B_{\mathrm{probe}} = B_R \cos\theta - B_Z \sin\theta\]
 
-<p><code class="language-plaintext highlighter-rouge">b_r</code> and <code class="language-plaintext highlighter-rouge">b_z</code> may carry any trailing shape (a time series, a response
+    <p><code class="language-plaintext highlighter-rouge">b_r</code> and <code class="language-plaintext highlighter-rouge">b_z</code> may carry any trailing shape (a time series, a response
 row); <code class="language-plaintext highlighter-rouge">poloidal_angle</code> must broadcast against them – pass a scalar per
 probe, or <code class="language-plaintext highlighter-rouge">angles[:, None]</code> for a stack of rows.</p>
 
-<table class="formula-table">
-  <thead><tr><th>Parameter</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td><code>b_r</code></td><td>float or ndarray</td><td>T</td><td><p>Radial field component.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>b_r</code></td><td class="ref-type">float or ndarray</td><td class="ref-unit">T</td><td><p>Radial field component.</p>
 </td></tr>
-  <tr><td><code>b_z</code></td><td>float or ndarray</td><td>T</td><td><p>Vertical field component.</p>
+  <tr><td><code>b_z</code></td><td class="ref-type">float or ndarray</td><td class="ref-unit">T</td><td><p>Vertical field component.</p>
 </td></tr>
-  <tr><td><code>poloidal_angle</code></td><td>float or ndarray</td><td>rad</td><td><p>Probe orientation angle in the DD convention.</p>
-</td></tr>
-  </tbody>
-</table>
-
-<table class="formula-table">
-  <thead><tr><th>Returns</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody>
-  <tr><td></td><td>ndarray</td><td>T</td><td><p>Projected field along the probe axis.</p>
+  <tr><td><code>poloidal_angle</code></td><td class="ref-type">float or ndarray</td><td class="ref-unit">rad</td><td><p>Probe orientation angle in the DD convention.</p>
 </td></tr>
   </tbody>
-</table>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ndarray</td><td class="ref-unit">T</td><td><p>Projected field along the probe axis.</p>
+</td></tr>
+  </tbody>
+</table></div>
 
-<p><strong>References.</strong></p>
+    <details class="ref-more">
+      <summary>References</summary>
 
-<ol class="formula-references">
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
   <li>IMAS Data Dictionary, <code class="language-plaintext highlighter-rouge">magnetics.b_field_pol_probe[:].poloidal_angle</code>.
 </li>
 </ol>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+    </details>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+  </section>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.formula.catalog <span class="nt">--output</span> /path/to/vaft-gh/_data/formula_catalog.yml
-</code></pre></div></div>
+</div>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/formula/*.py</code> source file; documentation
-validation compares them when <code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.
-The same text is available offline as <code class="language-plaintext highlighter-rouge">vaft.formula.describe("&lt;name&gt;")</code>,
-<code class="language-plaintext highlighter-rouge">vaft.formula.search("&lt;text&gt;")</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.list_formulas(category="&lt;category&gt;")</code>.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -483,7 +496,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#probe_axis" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">probe_axis</a></li><li class="page-toc-item page-toc-level-3"><a href="#project_poloidal_field" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">project_poloidal_field</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -601,7 +614,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-22 08:11:44 +0000"
+        "time": "2026-09-27 13:16:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -630,7 +643,7 @@ window.MathJax = {
 -->
 
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
-<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260821-2"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
 </body>
 </html>
