@@ -38,6 +38,13 @@ from .status import (
     apply_temporal_continuity,
     validate_efit_slice,
 )
+from .iteration_history import (
+    ITERATION_HISTORY_LEVELS,
+    PLANNED_ITERATION_HISTORY_LEVELS,
+    SIDECAR_NAME as ITERATION_HISTORY_SIDECAR,
+    EFITIterationHistory,
+    parse_iteration_history,
+)
 from .config import (
     EFITConstraintConfig,
     EFITInitializationConfig,
@@ -87,6 +94,12 @@ class EFITConfig:
     direction_constraint: Path | str | None = None
     restart_from: Path | str | None = None
     write_restart: bool = False
+    #: How much of EFIT's Picard trajectory to keep (issue #1038): ``"none"``
+    #: (routine; nothing is parsed or written) or ``"summary"`` -- the log's
+    #: and the m-files' per-iteration chi-square, flux increment and axis
+    #: height, written to ``efit_iteration_history.json`` beside the outputs
+    #: and returned as :attr:`EFITResult.iteration_history`.
+    iteration_history: str = "none"
     # How the run is launched; None -> LocalBackend (vaft.code.execution).
     backend: Optional["ExecutionBackend"] = None
 
@@ -120,6 +133,17 @@ class EFITConfig:
             value = getattr(self, name)
             if value is not None:
                 object.__setattr__(self, name, Path(value).expanduser())
+        if self.iteration_history in PLANNED_ITERATION_HISTORY_LEVELS:
+            raise ValueError(
+                f"iteration_history={self.iteration_history!r} needs per-iteration "
+                "output EFIT does not write yet (issue #1038 phases 2-3); "
+                f"use one of {ITERATION_HISTORY_LEVELS}"
+            )
+        if self.iteration_history not in ITERATION_HISTORY_LEVELS:
+            raise ValueError(
+                f"iteration_history must be one of {ITERATION_HISTORY_LEVELS}; "
+                f"got {self.iteration_history!r}"
+            )
 
     def scientific_config(self) -> EFITScientificConfig:
         """Return the fully resolved scientific configuration.
@@ -180,6 +204,10 @@ class EFITResult:
     linearizations: tuple[EFITLinearization, ...] = ()
     restart_file: Path | None = None
     diagnostic_errors: tuple[str, ...] = ()
+    #: The run's Picard trajectory when ``EFITConfig.iteration_history`` asked
+    #: for one, and the sidecar it was written to; ``None`` otherwise.
+    iteration_history: EFITIterationHistory | None = None
+    iteration_history_file: Path | None = None
 
     @property
     def ok(self) -> bool:
@@ -237,6 +265,7 @@ def resolved_efit_configuration(config: EFITConfig) -> dict[str, Any]:
             ),
             "restart_from_sha256": _optional_file_sha256(config.restart_from),
             "write_restart": config.write_restart,
+            "iteration_history": config.iteration_history,
         },
         "provenance": _json_value(config.provenance),
     }
@@ -714,6 +743,10 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
     :class:`EFITResult`.
     """
     workdir = _efit_workdir(config, inputs.workdir)
+    # A history left by an earlier run in this workdir would read as this
+    # run's -- even beside a run that is skipped. It is only ever vaft's own
+    # product, so it goes first.
+    (workdir / ITERATION_HISTORY_SIDECAR).unlink(missing_ok=True)
     executable = _resolve_efit_executable(config)
     if executable is None:
         return _skipped_efit_result(
@@ -1356,6 +1389,39 @@ def collect_efit_outputs(
             "requested EFIT restart file was not rewritten; refusing stale esave.dat"
         )
 
+    iteration_history = None
+    iteration_history_file = None
+    if config is not None and config.iteration_history != "none":
+        iteration_history, iteration_history_file = _write_iteration_history(
+            base,
+            config,
+            runtime_status=runtime_status,
+            meqdsk=[parsed_m_by_case[case] for case in sorted(parsed_m_by_case, key=_efit_case_time)],
+            # The k-files this run fed EFIT, not every k-file the workdir holds.
+            keqdsk=[
+                parsed_k_by_case[case]
+                for case in sorted(parsed_k_by_case, key=_efit_case_time)
+                if not executed_kfiles
+                or case in {_efit_case_key(Path(path)) for path in executed_kfiles}
+            ],
+            configuration=result_configuration,
+            kfiles=tuple(Path(path) for path in executed_kfiles) or kfiles,
+        )
+        if ods is not None:
+            # One flat leaf holding a JSON string: `code.parameters` is a
+            # STR_0D, and a nested sub-path is discarded by the Access Layer
+            # together with every flat leaf beside it (#561).
+            ods["equilibrium.code.parameters.iteration_history"] = json.dumps(
+                {
+                    "path": str(iteration_history_file),
+                    "sha256": _file_sha256(iteration_history_file),
+                    "schema": iteration_history.schema,
+                    "schema_version": int(iteration_history.schema_version),
+                    "level": iteration_history.level,
+                },
+                sort_keys=True,
+            )
+
     artifact_hashes = {
         str(path): _file_sha256(path)
         for paths in (
@@ -1367,6 +1433,7 @@ def collect_efit_outputs(
             tuple(linearization_files),
             ((completed_restart,) if completed_restart is not None else ()),
             tuple(Path(path) for path in executed_kfiles),
+            ((iteration_history_file,) if iteration_history_file is not None else ()),
         )
         for path in paths
         if path.is_file()
@@ -1398,7 +1465,46 @@ def collect_efit_outputs(
         linearizations=tuple(linearizations),
         restart_file=completed_restart,
         diagnostic_errors=tuple(diagnostic_errors),
+        iteration_history=iteration_history,
+        iteration_history_file=iteration_history_file,
     )
+
+
+def _write_iteration_history(
+    base: Path,
+    config: EFITConfig,
+    *,
+    runtime_status: str,
+    meqdsk: Sequence[Any],
+    keqdsk: Sequence[Any],
+    configuration: Mapping[str, Any],
+    kfiles: Sequence[Path],
+) -> tuple[EFITIterationHistory, Path]:
+    """Build the run's Picard history and write it beside the outputs.
+
+    A run that never launched wrote no log, so a ``run_efit.out`` in its
+    workdir belongs to an earlier run and is not read.
+    """
+    from vaft.version import __version__
+
+    log = base / "run_efit.out"
+    text = ""
+    if runtime_status != "runtime_error" and log.is_file():
+        text = log.read_text(encoding="utf-8", errors="replace")
+    history = parse_iteration_history(
+        text,
+        mfiles=meqdsk,
+        kfiles=keqdsk,
+        configuration=configuration,
+        provenance={
+            "log": str(log) if text else None,
+            "runtime_status": runtime_status,
+            "vaft_version": __version__,
+            "vaft_revision": _vaft_revision(),
+            "table": _table_record(kfiles),
+        },
+    )
+    return history, history.write_json(base / ITERATION_HISTORY_SIDECAR)
 
 
 def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_data=True):

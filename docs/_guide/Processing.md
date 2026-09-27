@@ -643,13 +643,12 @@ import vaft
 
 vaft.omas.plot_mirnov_time_voltage(ods, selection=[14, 37], time_range=(0.304, 0.330), preprocess=False)
 vaft.omas.plot_mirnov_spectrogram(ods, selection=[14], time_range=(0.304, 0.330))
-```
 
-On a shot whose toroidal array has two or more distinct acquisitions, the wrapped-phase fit is one call:
-
-<!-- docs-snippet: skip needs-data (the packaged samples carry one acquisition per toroidal position since #825; a toroidal mode fit needs two) -->
-```python
-fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
+# The wrapped-phase fit needs probes at distinct toroidal angles. Shot 39915 has none (no toroidal
+# array recorded between 35521 and 44155), so it uses the repository-only sample 45531, whose
+# outboard array sits at three angles. It loads from a Git checkout, not from an installed wheel.
+array = vaft.omas.sample_ods(45531)
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(array, time=0.300)
 ```
 
 ---

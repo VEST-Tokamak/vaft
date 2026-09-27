@@ -91,6 +91,7 @@ __all__ = [
     "fit_quality_metrics",
     "fitted_mask",
     "ip_chi_squared_record",
+    "iteration_cap_reached",
     "normalizable_mask",
     "normalized_residuals",
     "run_test_z",
@@ -145,6 +146,7 @@ EFIT_DEFAULTS = {
     "mxiter": -25,
     "nxiter": 1,         # inner equilibrium-loop length
     "iconvr": 2,
+    "elomin": 0.90,      # elongation below which iconvr=2 may stop without errmin
 }
 
 #: Hard-coded in ``response_matrix.F90`` (``integer*4, parameter :: minite=8``),
@@ -658,6 +660,89 @@ def _bilinear(
     )
 
 
+
+def iteration_cap_reached(
+    iterations: float,
+    mxiter: float,
+    nxiter: float,
+    iconvr: float = 2.0,
+    *,
+    final_error: float = float("nan"),
+    error: float = float("nan"),
+    errmin: float = float("nan"),
+    elongation: float = float("nan"),
+    elomin: float = float("nan"),
+    fwtdlc: float = float("nan"),
+    errmin_source: str = "",
+) -> tuple[bool | None, str]:
+    """Whether a slice ran out of EFIT's outer passes, from what it left behind.
+
+    ``iterations`` is ``len(cerror)``: EFIT's cumulative ``nitera``, counted
+    inside the inner loop (``fit.F90``). ``MXITER`` caps the *outer* loop,
+    which runs ``MXITER + 1`` passes; each takes one to ``NXITER`` inner steps
+    and the last exactly one. So a capped slice has ``MXITER + 1`` to
+    ``NXITER * MXITER + 1`` steps. Fewer than ``MXITER + 1`` is never the cap.
+
+    The count alone never proves the cap, because a slice can stop in that
+    same range: on the chi-square criterion at the start of a pass (which
+    needs the increment at or below ``ERRMIN``) or on the silent ``go to 2020``
+    of an inner loop's first step -- the last pass included -- which needs it
+    at or below ``ERROR``. ``final_error`` (``terror``, the increment the slice
+    ended on) is what excludes those: above both, the slice cannot have
+    stopped and so ran out; otherwise the answer is ``None``, and EFIT's log
+    (``not converged, reached max iterations``,
+    :func:`vaft.code.efit.parse_slices`) is what decides. The #171 scan has a
+    301-step ``NXITER = 3`` slice with no such line, which is why 301 is not
+    taken as proof. ``ICONVR = 3`` runs a single pass that ``MXITER`` does not
+    cap.
+
+    The chi-square exit has a second door that ignores the increment
+    (``response_matrix.F90``): a boundary elongation at or below ``ELOMIN``
+    with the diamagnetic loop unfitted (``FWTDLC <= 0``). Before the last
+    pass the answer is ``True`` only when ``elongation`` (the a-file's) is
+    above ``elomin`` or ``fwtdlc`` is positive; unknown, it stays ``None``.
+    """
+    if not (np.isfinite(iterations) and np.isfinite(mxiter) and mxiter > 0):
+        return None, "no iteration count or cap"
+    if iconvr == 3:
+        return None, "iconvr=3 runs one outer pass; MXITER does not cap it"
+    if iterations <= mxiter:
+        return False, "no more steps than MXITER; a capped run takes at least MXITER + 1"
+    inner = int(nxiter) if np.isfinite(nxiter) and nxiter >= 1 else None
+    if inner is None:
+        return None, "NXITER is not known, so the count cannot be read against MXITER"
+    last_pass = iterations > inner * mxiter
+    # Only the silent exit can end the last pass short of the cap; before it,
+    # the chi-square exit (iconvr=2) can too.
+    # An unknown ICONVR keeps the chi-square exit in play: ruling it out
+    # needs the run to say it was not 2.
+    chi_square_exit = not (np.isfinite(iconvr) and iconvr != 2)
+    chi_square_exit = chi_square_exit and not last_pass
+    thresholds = [error, errmin] if chi_square_exit else [error]
+    # ...and the elongation door of that exit, which no increment closes.
+    door_closed = (np.isfinite(fwtdlc) and fwtdlc > 0) or (
+        np.isfinite(elongation) and np.isfinite(elomin) and elongation > elomin
+    )
+    if (
+        np.isfinite(final_error)
+        and all(np.isfinite(t) for t in thresholds)
+        and (not chi_square_exit or door_closed)
+    ):
+        if final_error > max(thresholds):
+            source = f" (ERRMIN from {errmin_source})" if chi_square_exit and errmin_source else ""
+            return True, (
+                f"{int(iterations)} steps and a final increment {final_error:.3g} above "
+                + ("ERROR" if len(thresholds) == 1 else "ERROR and ERRMIN")
+                + source
+                + ": no exit short of the cap was open to it"
+            )
+    return None, (
+        f"{int(iterations)} steps is in the range a capped run ends in "
+        f"(MXITER + 1 = {int(mxiter) + 1} to NXITER * MXITER + 1 = {inner * int(mxiter) + 1}), "
+        "and so is a stop on EFIT's criterion; the log's exit line decides"
+    )
+
+
 def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     """Numerical-convergence metrics for one slice, from EFIT-native output."""
     root = f"equilibrium.time_slice.{time_slice}"
@@ -856,19 +941,46 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     )
     cap, cap_source = _setting("mxiter")
     cap = abs(cap)
-    hit_cap = bool(
-        np.isfinite(iterations) and np.isfinite(cap) and cap and iterations >= cap
+    errmin_value, errmin_source = _setting("errmin")
+    # FWTDLC is a k-file name; the m-file keeps the processed weight as fwtdia.
+    fwtdlc = _scalar(_get(ods, f"{parameters}.in1.fwtdlc"))
+    if not np.isfinite(fwtdlc):
+        weights = _array(ods, f"{parameters}.meqdsk.variables.fwtdia.data")
+        fwtdlc = float(weights.reshape(-1)[0]) if weights is not None and weights.size else float("nan")
+    # EFIT's default NXITER holds only where its namelist was read; with no
+    # in1/out1 at all, the run's NXITER is simply not known.
+    known_nxiter = nxiter_source != "efit_default" or any(
+        path_value(ods, f"{parameters}.{block}", None) is not None for block in ("in1", "out1")
+    )
+    hit_cap, hit_cap_basis = iteration_cap_reached(
+        iterations,
+        cap,
+        abs(nxiter) if known_nxiter else float("nan"),
+        iconvr,
+        final_error=final_error,
+        error=exit_tolerance,
+        errmin=errmin_value,
+        errmin_source=errmin_source,
+        elongation=_scalar(_get(ods, f"{aeqdsk}.elong")),
+        elomin=_setting("elomin")[0],
+        fwtdlc=fwtdlc,
     )
     iteration_block = {
         "iterations": iterations,
         "iteration_cap": cap,
         "iteration_cap_source": cap_source,
+        "inner_iterations": abs(nxiter),
+        "inner_iterations_source": nxiter_source,
         "minimum_iterations": EFIT_MINITE,
+        # True/False where the count decides it, None where it cannot.
         "hit_cap": hit_cap,
+        "hit_cap_basis": hit_cap_basis,
         # True when the solve left through the iconvr==2 criterion rather than
         # running out of iterations. This is the convergence question that has
         # content for this configuration.
-        "stopped_on_criterion": bool(
+        "stopped_on_criterion": None
+        if hit_cap is None
+        else bool(
             np.isfinite(iterations)
             and iterations >= EFIT_MINITE
             and not hit_cap
@@ -1063,6 +1175,12 @@ def efit_quality_metrics(ods: Any) -> dict[str, Any]:
             "slices_with_final_error": len(reached),
             "slices_hitting_iteration_cap": sum(
                 1 for entry in slices if entry["convergence"]["iterations"]["hit_cap"]
+            ),
+            # NXITER > 1 leaves some counts undecidable from the m-file alone.
+            "slices_with_undetermined_iteration_cap": sum(
+                1
+                for entry in slices
+                if entry["convergence"]["iterations"]["hit_cap"] is None
             ),
             "slices_stopped_on_criterion": sum(
                 1

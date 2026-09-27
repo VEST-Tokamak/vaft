@@ -48,6 +48,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `magnetic_diagnostics_processing.ipynb`: Raw magnetic diagnostics from acquisition to processed signal — calibration, filtering, and the stage-by-stage waveforms — including a worked diamagnetic-Rogowski acquisition-saturation section (issue #285) showing raw and integrated signals, original vs corrected, on the packaged reference shots.
 - `fluctuation_diagnostics_analysis.ipynb`: Fluctuation spectral analysis — Welch PSD, power-law spectral index, spectral breaks, band powers and spectrograms — with the theory behind each routine, demonstrated on VEST magnetic probes and soft X-rays.
 - `soft_x_ray_signal_analysis.ipynb`: VEST SXR workflow — LOS geometry, traces, spectrogram, chord-time patterns, plus band-decomposed chord maps, optional vacuum-shot PF-noise subtraction, Be/Al two-filter electron temperature, and a two-point toroidal mode-number estimate ported from the validated VEST SXR Viewer.
+- `analytic_island_model_and_synthetic_response_model.ipynb`: Forward model of an analytic magnetic island (#886). Resonant surface from `q = m/n`, the PEST straight-field-line angle, the helical flux and separatrix, island-only and flattening emissivity, exact path-length line integrals through the VEST SXR chords, and a rigidly rotating island. The same island spec is placed on an analytic Solov'ev equilibrium and on its CHEASE refinement, which is a cached fixture, so the notebook runs offline.
 - `eddy_current_calculation_and_startup_analysis.ipynb`: PF passive eddy-current solve on the packaged shot — circuit assembly from the machine description, the induced currents written back into the ODS, and the vacuum field they produce, checked against the flux loops in the plasma-free window and read as loop voltage, decay index, the midplane null and a 2D null map.
 - `fast_camera_video_analysis.ipynb`: VEST FAST-camera frames from the packaged sample — loading, time synchronization, the calibration geometry projected onto a real frame, and the equilibrium and field-line overlays that read plasma behaviour off it.
 
@@ -55,6 +56,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 
 - `electromagnetic_response_modeling_with_efund.ipynb`: Blocked on EFUND, which ships inside an EFIT build; the notebook documents what it needs and what `vaft.process.electromagnetics` already derives without it.
 - `magnetic_equilibrium_reconstruction_with_efit.ipynb`: Blocked on an EFIT installation; the notebook documents how to obtain and configure one, and which parts of the workflow — constraints, k-files, the parameter grid — `vaft.code.efit` runs without it.
+- `convergence_study_of_efit.ipynb`: EFIT's Picard trajectory per slice (issue #1038) — chi-square, flux increment and magnetic-axis height at every iteration, what the cumulative iteration counter means, and the same slice under `NXITER=1` and `NXITER=3` — read from saved iteration histories, so it runs without EFIT.
 - `forward_equilibrium_using_TokaMaker.ipynb`: Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) driven by measured PF currents.
 - `time_dependent_equilibrium_using_TokaMaker.ipynb`: VEST vessel eddy currents, wall eigenmodes, quasi-static shot evolution, and vertical-stability growth rates with TokaMaker.
 - `free_boundary_pf_coil_scan.ipynb`: Free-boundary PF-coil-current scans with TokaMaker — commanded/materialized currents, per-case topology classification (limited/near-null/SN/DN), continuation with manifests and resume.
@@ -98,21 +100,22 @@ Use the following order as the main technical path through the notebooks. Existi
 9. `eddy_current_calculation_and_startup_analysis.ipynb`
 10. `electromagnetic_response_modeling_with_efund.ipynb`
 11. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
-12. `mhd_equilibrium_analysis.ipynb`
-13. `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`
-14. `linear_ideal_stability_analysis_with_dcon.ipynb`
-15. `linear_resistive_stability_analysis_with_rdcon.ipynb`
-16. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
-17. `vest_nbi_analysis_with_nubeam.ipynb`
-18. `neoclassical_transport_with_neo.ipynb`
-19. `turbulent_transport_with_tglf.ipynb`
-20. `plotting_sample_using_vaft_plot_module.ipynb`
-21. `shot_characteristics_classification.ipynb`
-22. `vest_daily_monitoring.ipynb`
-23. `fast_camera_video_analysis.ipynb`
-24. `confinement_time_scaling.ipynb`
-25. `multiple_tokamak_comparison.ipynb`
-26. `publication_figures.ipynb`
+12. `convergence_study_of_efit.ipynb`
+13. `mhd_equilibrium_analysis.ipynb`
+14. `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`
+15. `linear_ideal_stability_analysis_with_dcon.ipynb`
+16. `linear_resistive_stability_analysis_with_rdcon.ipynb`
+17. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
+18. `vest_nbi_analysis_with_nubeam.ipynb`
+19. `neoclassical_transport_with_neo.ipynb`
+20. `turbulent_transport_with_tglf.ipynb`
+21. `plotting_sample_using_vaft_plot_module.ipynb`
+22. `shot_characteristics_classification.ipynb`
+23. `vest_daily_monitoring.ipynb`
+24. `fast_camera_video_analysis.ipynb`
+25. `confinement_time_scaling.ipynb`
+26. `multiple_tokamak_comparison.ipynb`
+27. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:

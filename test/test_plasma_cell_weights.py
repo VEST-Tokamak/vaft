@@ -138,10 +138,9 @@ def test_the_reconstructed_diamagnetic_flux_has_the_measured_size(samples, shot)
     # Against the diamagnetic loop -- a measurement, not a grid quantity.  With
     # the flux threshold the reconstruction grew to 3.8 times the measurement
     # on 41524 as the plasma shrank; inside the outline it stays within
-    # 0.66-1.19 on the first five slices of all three shots.  Magnitude only:
-    # the two carry opposite signs on every slice because the packaged
-    # reconstructions are paramagnetic against a diamagnetic measurement --
-    # a reconstruction disagreement (#385, #386), not a masking one.
+    # 0.66-1.19 on the first five slices of all three shots.  Signed: loop and
+    # reconstruction are both paramagnetic since the mapper's extra minus was
+    # removed (#1196); before that this could compare magnitudes only.
     from vaft.omas.process_wrapper import compute_diamagnetic_flux_measured_vs_computed
 
     ods, _ = samples[shot]
@@ -153,7 +152,7 @@ def test_the_reconstructed_diamagnetic_flux_has_the_measured_size(samples, shot)
     finally:
         logging.disable(logging.NOTSET)
     for idx in sorted(rows)[:5]:
-        ratio = abs(rows[idx]["computed"] / rows[idx]["measured"])
+        ratio = rows[idx]["computed"] / rows[idx]["measured"]
         assert 0.6 < ratio < 1.3, (idx, ratio)
 
 

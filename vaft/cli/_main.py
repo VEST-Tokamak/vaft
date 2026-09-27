@@ -13,6 +13,7 @@ _COMMANDS = {
     "shotlog": (".shotlog", "archive the VEST ShotLog and extract per-shot records"),
     "raw-redump": (".raw_redump", "serial, restartable VEST raw-DAQ exports"),
     "raw-upgrade": (".raw_upgrade", "in-place timebase upgrade for legacy raw dumps"),
+    "sxr-pack": (".sxr_pack", "pack soft X-ray digitizer CSVs into lossless HDF5"),
     "compare-ods": (".compare_ods", "compare two local ODS products"),
     "vest-upstream": (".vest_upstream", "run VEST upstream OMAS stages"),
     "summary": (".summary", "query and export preset database summaries"),

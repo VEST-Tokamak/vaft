@@ -335,6 +335,13 @@ class Field2D(ViewModel):
     #: The display policy's resolution of the value unit, when the builder
     #: applied one; ``value_label`` already carries the unit it names.
     display: "DisplaySpec | None" = None
+    #: ``"linear"`` or ``"log"``: how the value axis and its colours are
+    #: spaced.  A field whose interest is spread over decades -- a connection
+    #: length running from a metre to the tracing limit -- is unreadable on a
+    #: linear ramp, where every value below the top decade shares one colour.
+    #: ``"log"`` requires strictly positive values, so a caller masks the
+    #: zeros first; ``value_label`` should say the axis is logarithmic.
+    value_scale: str = "linear"
     #: What happens to values outside ``contour_levels``: ``"neither"`` leaves
     #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
     #: colours.  Levels chosen from a percentile need this -- otherwise the
@@ -377,6 +384,21 @@ class Field2D(ViewModel):
                 "contour_levels",
                 as_model_array(self.contour_levels, where="Field2D.contour_levels"),
             )
+        if self.value_scale not in ("linear", "log"):
+            raise ValueError(
+                'Field2D.value_scale must be "linear" or "log"; got '
+                f"{self.value_scale!r}"
+            )
+        if self.value_scale == "log":
+            positive = values[np.isfinite(values)]
+            if positive.size and positive.min() <= 0.0:
+                raise ValueError(
+                    "Field2D.value_scale='log' needs strictly positive "
+                    f"values; the smallest finite one is {positive.min()!r}. "
+                    "Mask the non-positive cells rather than clipping them, "
+                    "so the map shows where there is no value instead of "
+                    "inventing the smallest one."
+                )
         if self.extend not in ("neither", "min", "max", "both"):
             raise ValueError(
                 'Field2D.extend must be one of "neither", "min", "max", "both"; '

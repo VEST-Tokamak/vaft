@@ -308,7 +308,7 @@ def test_a_stale_case_header_declares_a_convention_the_signs_contradict():
     is currently accepted in silence; Eq. 23 catches it.
 
     `kineticEfit/g048224.00300.chease` used to be a second example. It was
-    regenerated from the packaged EFIT file with the NS = NT = 150 mesh (#885),
+    regenerated from `g048224.00300.kinetic_efit` with the NS = NT = 150 mesh (#885),
     and that source already carries CHEASE's COCOS-2 signs, so nothing was
     re-signed and its header now holds -- see the test after the next one.
     """
@@ -612,7 +612,7 @@ def test_identification_is_independent_of_psi_profile_storage_order():
 def test_a_chease_product_of_a_cocos2_source_keeps_a_true_header():
     """The stale header comes from re-signing, not from CHEASE itself.
 
-    The packaged 48224 EFIT file already has CHEASE's COCOS-2 sign pattern, so
+    The packaged 48224 kinetic-EFIT file it refines already has CHEASE's COCOS-2 sign pattern, so
     `output_cocos="input"` re-signs nothing and the `COCOS=02` CASE token of
     its CHEASE product stays true.
     """
@@ -621,7 +621,7 @@ def test_a_chease_product_of_a_cocos2_source_keeps_a_true_header():
     from vaft.process.cocos import identify_convention, validate_cocos
     from vaft.process.equilibrium import as_equilibrium
 
-    source = as_equilibrium(read_geqdsk(require_repository_sample(data_path("kineticEfit/g048224.00300"))))
+    source = as_equilibrium(read_geqdsk(require_repository_sample(data_path("kineticEfit/g048224.00300.kinetic_efit"))))
     geqdsk = read_geqdsk(require_repository_sample(data_path("kineticEfit/g048224.00300.chease")))
     assert "COCOS=02" in str(geqdsk.mapping["CASE"])
     refined = as_equilibrium(geqdsk)

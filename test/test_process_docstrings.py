@@ -280,6 +280,19 @@ CONVENTION_SENSITIVE = frozenset({
     "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
+    # field_line_topology (#1099): the node order a FLARE mesh lays its values
+    # out in, the direction normalized flux increases, the angle alphaS is
+    # measured from, and that the proxy is a density whose measure -- never
+    # whose factor -- is the cell area.
+    "toroidal_surface_cell_areas",
+    "toroidal_surface_node_areas",
+    "upstream_flux_weight",
+    "incidence_factor",
+    "connection_length_weight",
+    "footprint_heat_load_proxy",
+    "footprint_incident_total",
+    "reduce_traced_directions",
+    "target_incident_fractions",
     # perturbation (D-06): which reconstruction a stored harmonic belongs to.
     "toroidal_phase_audit",
 

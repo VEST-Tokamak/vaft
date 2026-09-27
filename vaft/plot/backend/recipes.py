@@ -10027,11 +10027,14 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
+        # With NXITER > 1 the cumulative count cannot always say (#1038).
+        undecided = sum(1 for block in blocks if block["iterations"]["hit_cap"] is None)
         panels.append(
             LineSeries(
                 series=tuple(series),
-                x_label="time", x_unit="s", y_label="iterations",
-                title=f"Iterations against cap — {hit} slice(s) hit it",
+                x_label="time", x_unit="s", y_label="iterations (cumulative)",
+                title=f"Iterations against cap — {hit} slice(s) hit it"
+                + (f", {undecided} undetermined" if undecided else ""),
             )
         )
 
@@ -11451,6 +11454,28 @@ def _surface_at(
     return r_out, z_out
 
 
+def _first_island_x_point(excursion: np.ndarray) -> int:
+    """The sample to start an island's separatrix circuit at: its first X-point.
+
+    An m-lobed island has m X-points, and when the poloidal sample count is a
+    multiple of m they fall on equivalent samples whose excursions agree to
+    rounding. ``argmin`` then picks whichever the platform's ``cos`` rounds
+    lower, so the same figure came out with its samples rotated by a whole lobe
+    from one CPU to the next. Every sample within rounding of the minimum is an
+    equally good X-point; taking the first makes the circuit reproducible. The
+    band, 1e-9 of the peak excursion, is far above float64 rounding (~1e-16)
+    and far below the gap to the next sample off an X-point (~1e-2 of the peak
+    at any mesh that can draw a lobe).
+    """
+    if not np.isfinite(excursion).all():
+        raise ValueError(
+            "the island separatrix excursion is not finite everywhere (a NaN "
+            "helical phase or width), so it has no X-point to start from"
+        )
+    floor = float(np.min(excursion)) + 1e-9 * float(np.max(excursion))
+    return int(np.flatnonzero(excursion <= floor)[0])
+
+
 def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayers:
     r"""The island separatrices a GPEC result implies, in the poloidal plane.
 
@@ -11545,15 +11570,13 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         # is traced outward once and back along the inward branch, and the two
         # branches meet only at the X-points; starting anywhere else leaves a
         # radial chord across the island where the trace turns around.
-        # An m-fold pattern has m X-points whose sampled minima can tie; the
-        # first within rounding is taken, so a phase shift of 2*pi (phi by
-        # 360/n) cannot move the start to another X-point on another platform.
-        start = int(np.flatnonzero(
-            excursion <= excursion.min() + 1e-9 * np.ptp(excursion)
-        )[0])
+        start = _first_island_x_point(excursion)
         order = np.roll(np.arange(theta_rad.size), -start)
         order = np.append(order, order[0])
-        excursion = np.append(np.roll(excursion, -start), excursion[start])
+        rolled = np.roll(excursion, -start)
+        # Close on the starting sample itself, not on min(): the start is the
+        # first sample within the tie band, which need not be the exact minimum.
+        excursion = np.append(rolled, rolled[0])
         outer_r, outer_z = _surface_at(mesh, psi_r + excursion, columns=order)
         inner_r, inner_z = _surface_at(mesh, psi_r - excursion, columns=order)
         if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():
@@ -11619,6 +11642,190 @@ RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
     backend=NEUTRAL,
 )
 
+
+
+# ---------------------------------------------------------------------------
+# Field-line tracing (issue #1099)
+# ---------------------------------------------------------------------------
+
+#: How a field map spaces its value axis; the ``scale=`` vocabulary.
+VALUE_SCALES = ("log", "linear")
+
+_B_FIELD_LINES = "plasma_initiation.b_field_lines"
+
+_FIELD_LINE_READS = (
+    f"{_B_FIELD_LINES}.{{i}}.grid.dim1",
+    f"{_B_FIELD_LINES}.{{i}}.grid.dim2",
+    f"{_B_FIELD_LINES}.{{i}}.starting_positions.r",
+    f"{_B_FIELD_LINES}.{{i}}.starting_positions.z",
+    f"{_B_FIELD_LINES}.{{i}}.lengths",
+    f"{_B_FIELD_LINES}.{{i}}.open_fraction",
+    f"{_B_FIELD_LINES}.{{i}}.time",
+    "plasma_initiation.code.parameters",
+)
+
+
+def _field_line_plane(ods: Any, options: Mapping[str, Any]) -> int:
+    """Which ``b_field_lines`` entry to draw, from ``time=`` or the first one.
+
+    The array of structures is indexed by time, so ``time=`` picks an entry
+    rather than a sample.  A time outside the recorded ones raises: snapping
+    to the nearest end would draw a different plane under the caller's own
+    label, which is the defect vaft#1035 fixed in the spectrum figures.
+    """
+    count = _count(ods, _B_FIELD_LINES)
+    if not count:
+        raise ValueError(
+            "this ODS holds no plasma_initiation.b_field_lines entry; nothing "
+            "has been traced into it."
+        )
+    times = np.array([
+        float(np.asarray(_get(ods, f"{_B_FIELD_LINES}.{index}.time", np.nan)).ravel()[0])
+        for index in range(count)
+    ])
+    requested = options.get("time")
+    if requested is None:
+        return 0
+    requested = float(requested)
+    known = times[np.isfinite(times)]
+    if not known.size:
+        raise ValueError(
+            "time= cannot select a traced plane: no entry records its time"
+        )
+    match = np.flatnonzero(times == requested)
+    if not match.size:
+        # A plane is a traced object, not a sample of a continuous signal:
+        # there is nothing between two of them to interpolate and nothing
+        # about the nearest that makes it the one the caller asked for.
+        raise ValueError(
+            f"time={requested:g} s is not one of the traced planes "
+            f"({', '.join(format(t, 'g') for t in known)} s). Each entry is "
+            "a separate trace rather than a sample of a signal, so there is "
+            "nothing between two of them; name one of these."
+        )
+    return int(match[0])
+
+
+def _plane_angle(ods: Any, index: int) -> float:
+    """The toroidal angle the mapper recorded for entry ``index`` [deg].
+
+    ``b_field_lines`` has no toroidal coordinate, so the writer puts the
+    angle in ``code.parameters``.  A missing one comes back as NaN and is
+    left out of the title rather than guessed: a connection-length map at an
+    unnamed angle is still a map, but an angle invented for it is a claim.
+    """
+    parameters = _get(ods, "plasma_initiation.code.parameters", None)
+    if not parameters:
+        return float("nan")
+    pattern = (r'<field_line_plane[^>]*\bindex="%d"[^>]*\bphi_deg="([^"]+)"' % index)
+    found = re.search(pattern, str(parameters))
+    if found is None:
+        return float("nan")
+    try:
+        return float(found.group(1))
+    except ValueError:  # pragma: no cover - the writer formats a repr
+        return float("nan")
+
+
+def _build_field_line_topology_field_connection_length(ods: Any, **options: Any) -> Field2D:
+    """Connection length over the rectangular plane the lines were launched from.
+
+    The image is built by matching each line's own starting position onto the
+    declared grid, never by reshaping the flat list and hoping the order was
+    the one this builder expects.  That order is exactly what goes wrong: a
+    FLARE mesh runs its first axis fastest while its header prints the axes
+    the other way round, and on the square grids these maps usually have, the
+    wrong choice transposes the picture and still fits.
+    """
+    scale = str(options.get("scale", "log"))
+    index = _field_line_plane(ods, options)
+    entry = f"{_B_FIELD_LINES}.{index}"
+    grid_r = np.asarray(_get(ods, f"{entry}.grid.dim1"), dtype=float).ravel()
+    grid_z = np.asarray(_get(ods, f"{entry}.grid.dim2"), dtype=float).ravel()
+    r = np.asarray(_get(ods, f"{entry}.starting_positions.r"), dtype=float).ravel()
+    z = np.asarray(_get(ods, f"{entry}.starting_positions.z"), dtype=float).ravel()
+    lengths = np.asarray(_get(ods, f"{entry}.lengths"), dtype=float).ravel()
+    if not (r.size == z.size == lengths.size):
+        raise ValueError(
+            f"{entry}: {r.size} starting r, {z.size} starting z and "
+            f"{lengths.size} lengths; each line needs all three"
+        )
+
+    rows = _grid_index(z, grid_z, entry, "dim2")
+    columns = _grid_index(r, grid_r, entry, "dim1")
+    # Counted on the nodes rather than on the values that land there: a line
+    # the tracer could not follow has a NaN length and still occupies its
+    # node, so asking which cells came out finite would call a real result a
+    # collision. `vaft.process.equilibrium.connection_length_map` writes NaN
+    # for every seed outside the wall, so that is the common case, not a
+    # corner one.
+    occupied = rows * grid_r.size + columns
+    if np.unique(occupied).size != lengths.size:
+        duplicated = lengths.size - int(np.unique(occupied).size)
+        raise ValueError(
+            f"{entry}: {duplicated} of {lengths.size} lines share a grid node "
+            "with another; the starting positions and the declared grid do "
+            "not describe the same plane"
+        )
+    values = np.full((grid_z.size, grid_r.size), np.nan)
+    values[rows, columns] = lengths
+
+    # A connection-length map runs from about a metre to the tracing limit,
+    # so on a linear ramp every value below the top decade shares one colour
+    # and the lobe structure the map exists to show is invisible. Zero-length
+    # cells cannot sit on a log axis; they are blanked and counted in the
+    # title rather than quietly clipped to the smallest colour.
+    blanked = 0
+    if scale == "log":
+        zero = np.isfinite(values) & (values <= 0.0)
+        blanked = int(np.count_nonzero(zero))
+        values = np.where(zero, np.nan, values)
+
+    time = float(np.asarray(_get(ods, f"{entry}.time", np.nan)).ravel()[0])
+    angle = _plane_angle(ods, index)
+    title = "Connection length"
+    if np.isfinite(angle):
+        title += f" — φ = {angle:g}°"
+    if np.isfinite(time):
+        title += f", t = {time:g} s"
+    open_fraction = _get(ods, f"{entry}.open_fraction", None)
+    if open_fraction is not None:
+        title += f"; {float(open_fraction) * 100:.0f}% of lines reach the wall"
+    if blanked:
+        title += f"; {blanked} cell(s) of zero length left blank"
+    label = r"$L_c$ [m]" + (", log scale" if scale == "log" else "")
+    return Field2D(
+        r=grid_r,
+        z=grid_z,
+        values=values,
+        value_label=label,
+        title=title,
+        value_scale=scale,
+    )
+
+
+def _grid_index(positions: np.ndarray, axis: np.ndarray, entry: str, name: str) -> np.ndarray:
+    """Where each position sits on ``axis``, refusing any that is not on it."""
+    order = np.argsort(axis, kind="stable")
+    sorted_axis = axis[order]
+    candidate = np.clip(np.searchsorted(sorted_axis, positions), 0, sorted_axis.size - 1)
+    if not np.array_equal(sorted_axis[candidate], positions):
+        off = int(np.count_nonzero(sorted_axis[candidate] != positions))
+        raise ValueError(
+            f"{entry}: {off} starting position(s) do not lie on grid.{name}; "
+            "the grid this entry declares is not the plane its lines were "
+            "launched from"
+        )
+    return order[candidate]
+
+
+RECIPES["field_line_topology_field_connection_length"] = CallableRecipe(
+    builder=_build_field_line_topology_field_connection_length,
+    description="Total connection length over one traced poloidal plane.",
+    reads=_FIELD_LINE_READS,
+    backend=NEUTRAL,
+    time_axis=OWN_TIME,
+)
 
 RECIPES["mhd_linear_field_spectrum"] = CallableRecipe(
     builder=_build_mhd_linear_field_spectrum,

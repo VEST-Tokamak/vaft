@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional
+
+if TYPE_CHECKING:
+    from ..execution import ExecutionBackend
 
 
 def vest_reference_parameter_file() -> Path:
@@ -61,6 +64,9 @@ class NiceConfig:
     # Fixed current per pf_passive loop [A].  None reads pf_passive.loop[:].current.
     passive_currents: Optional[tuple[float, ...]] = None
     passive_current_mode: str = "diagnostic_subtraction"
+
+    # How the solver is launched; None -> LocalBackend (vaft.code.execution).
+    backend: Optional["ExecutionBackend"] = None
 
 
 @dataclass(frozen=True)
