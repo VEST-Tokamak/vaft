@@ -367,15 +367,18 @@ vaft.diagram.sfl_fourier_convergence()
 | PEST | $(0, 0, 2)$ | yes | the toroidal angle | classical MHD stability |
 | Boozer | $(0, 2, 0)$ | no ($\zeta = \phi + \nu$) | $\mathcal{J} \propto B^{-2}$, the $B$ spectrum | orbits, neoclassical, 3-D |
 | Hamada | $(0, 0, 0)$ | no | flux-function Jacobian; current lines straight too | MHD stability |
-| equal-arc | $(1, 0, 0)$ | formulation-dependent | uniform poloidal sampling | numerical representation |
+| equal-arc | $(1, 0, 0)$ | no ($\zeta = \phi + \nu$) | uniform poloidal sampling | numerical representation |
 
 * **Same equilibrium, different grids.** All four panels of `sfl_coordinate_grids` share one
   equilibrium: $R_0/a = 1.7$, $\kappa = 2$, $\delta = 0.45$. The surfaces are identical and only the
   angle changes. A test checks this.
-* **Different Fourier costs.** In `sfl_fourier_convergence`, one outboard-localised perturbation needs
-  anywhere from about 9 to more than 25 poloidal harmonics, depending on the angle it is expanded in.
-  This is why stability runs in different coordinates can differ in harmonic content for the same
-  plasma.
+* **Different Fourier costs.** In `sfl_fourier_convergence`, one outboard-localised, axisymmetric
+  perturbation needs anywhere from 9 to 26 poloidal harmonics, depending on the angle it is expanded
+  in. Moved inboard, the ranking reverses: which angle is compact depends on where the structure sits.
+  For $n \ne 0$, the toroidal shift $\nu$ of every angle except PEST couples harmonics further. The
+  figure leaves that out.
+* **Only PEST keeps $\phi$.** Keeping the geometric $\phi$ forces $\mathcal{J} \propto R^2$, so every
+  other member has $\zeta = \phi + \nu$.
 * **Boozer ≈ PEST here.** The two nearly coincide at this $B_p \ll B_\phi$, where $B^2 \propto R^{-2}$.
 * **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
   taxonomy, independently of which angle is chosen.

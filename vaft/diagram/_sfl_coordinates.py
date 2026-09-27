@@ -72,7 +72,7 @@ def _surface(r: float) -> Dict[str, np.ndarray]:
     B = np.hypot(B_p, B_phi)
     angles = {name: generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, *powers)
               for name, powers in COORDINATES.items()}
-    return {"theta": theta, "R": R, "Z": Z, "B_p": B_p, "B": B, "angles": angles}
+    return {"theta": theta, "R": R, "Z": Z, "B_p": B_p, "B": B, "jacobian": jacobian, "angles": angles}
 
 
 def _angle_lines(name: str, n_lines: int = 16, radii=None) -> List[np.ndarray]:
@@ -164,41 +164,44 @@ def sfl_coordinate_taxonomy(*, labels: bool = True) -> Diagram:
     nodes = {
         "flux": box(0.0, 0.0, 5.2, H, "magnetic flux coordinates\\\\ $(\\psi, \\theta, \\zeta)$", role="node:flux",
                     latex=True),
-        "sfl": box(0.0, -2.1, 5.2, 1.35, "straight-field-line condition\\\\ $d\\zeta/d\\theta = q(\\psi)$: a family, "
+        "sfl": box(0.0, -2.1, 6.4, 1.35, "straight-field-line condition\\\\ $d\\zeta/d\\theta = q(\\psi)$: a family, "
                    "not one system", role="node:sfl", latex=True),
         "pest": box(-7.2, -4.6, W, H, "PEST\\\\ keeps geometric $\\phi$", role="node:pest", latex=True),
         "boozer": box(-2.4, -4.6, W, H, "Boozer\\\\ $\\mathcal{J} \\propto B^{-2}$", role="node:boozer", latex=True),
         "hamada": box(2.4, -4.6, W, H, "Hamada\\\\ $\\mathbf{B}$ and $\\mathbf{J}$ lines straight",
                       role="node:hamada", latex=True),
-        "equal_arc": box(7.2, -4.6, W, H, "equal-arc\\\\ uniform poloidal sampling", role="node:equal_arc",
+        "equal_arc": box(7.2, -4.6, W, H, "equal-arc\\\\ even arc sampling", role="node:equal_arc",
                          latex=True),
-        "gen_boozer": box(-2.4, -6.6, W, H, "generalised Boozer", role="node:generalized_boozer"),
-        "canonical": box(-7.2, -6.6, W, H, "canonical SFL\\\\ Hamiltonian structure", role="node:canonical",
+        "gen_boozer": box(-2.4, -7.7, W, H, "generalised Boozer", role="node:generalized_boozer"),
+        "canonical": box(-7.2, -7.7, W, H, "canonical SFL\\\\ Hamiltonian structure", role="node:canonical",
                          latex=True),
-        "clebsch": box(4.8, -6.6, W + 0.4, H, "Clebsch labels\\\\ $\\mathbf{B} = \\nabla\\alpha\\times\\nabla\\psi$",
+        "clebsch": box(4.8, -7.7, W + 0.4, H, "Clebsch labels\\\\ $\\mathbf{B} = \\nabla\\alpha\\times\\nabla\\psi$",
                        role="node:clebsch", latex=True),
-        "aligned": box(4.8, -8.6, W + 0.4, 1.35, "field-aligned, ballooning,\\\\ flux-tube, X-point-adapted",
+        "aligned": box(4.8, -9.8, W + 0.4, 1.35, "field-aligned, ballooning,\\\\ flux-tube, X-point-adapted",
                        role="node:derived", latex=True),
     }
-    items += band(-9.8, 9.8, -5.35, -3.35, "generalised family $\\mathcal{J} \\propto R^{p_R}/(B_p^{p_{Bp}}B^{p_B})$",
-                  role="family")
+    items += band(-9.8, 9.8, -5.9, -3.8, role="family")
+    items.append(Label((-9.65, -5.85), "generalised family $\\mathcal{J} \\propto R^{p_R}/(B_p^{p_{Bp}}B^{p_B})$",
+                       "concept band label", anchor="south west", role="family"))
     for b in nodes.values():
         items += list(b.items)
     for a, b in (("flux", "sfl"), ("sfl", "pest"), ("sfl", "boozer"), ("sfl", "hamada"), ("sfl", "equal_arc"),
                  ("boozer", "gen_boozer"), ("clebsch", "aligned")):
         items.append(connector(nodes[a], nodes[b], role=f"edge:{a}->{b}"))
-    # canonical SFL and Clebsch labels come from the family as a whole, not from one member
-    for name in ("canonical", "clebsch"):
+    # canonical SFL and Clebsch labels come from the family as a whole, not from one member:
+    # their arrows leave the band between the member boxes
+    for name, gap_x in (("canonical", -4.8), ("clebsch", 4.8)):
         n = nodes[name]
-        items.append(Arrow((n.x, -5.35), (n.x, n.y + 0.5 * n.height + 0.08), "connector", role=f"edge:family->{name}"))
+        items.append(Arrow((gap_x, -5.9), (n.x + (0.3 if n.x < gap_x else -0.3 if n.x > gap_x else 0.0),
+                                           n.y + 0.5 * n.height + 0.08), "connector", role=f"edge:family->{name}"))
     # COCOS: a convention layer across the whole tree, drawn beside it
-    cocos = box(12.3, -3.3, 3.6, 5.6, "COCOS\\\\[3pt] signs and orientation of $\\psi$, $q$, $\\phi$, $\\theta$, "
-                "$I_p$, $B_\\phi$\\\\[3pt] applies to every node; not a coordinate choice", role="node:cocos",
+    cocos = box(12.6, -3.3, 4.2, 5.6, "COCOS\\\\[3pt] signs and orientation of $\\psi$, $q$, $\\phi$, $\\theta$, "
+                "$I_p$, $B_\\phi$\\\\[3pt] across all nodes: a convention, not a coordinate", role="node:cocos",
                 latex=True)
     items += list(cocos.items)
     if labels:
         items += [
-            Label((0.0, -9.6), "Nested-surface coordinates are singular at separatrices and X-points and fail in islands "
+            Label((0.0, -10.8), "Nested-surface coordinates are singular at separatrices and X-points and fail in islands "
                   "and stochastic regions", "note", anchor="north", role="note"),
         ]
     model = {"nodes": tuple(nodes), "family": tuple(COORDINATES)}
@@ -214,28 +217,31 @@ _R_SPECTRUM, _WIDTH = 0.8, 0.35
 _M_MAX = 40
 
 
-def perturbation_spectra() -> Dict[str, np.ndarray]:
+def perturbation_spectra(centre: float = 0.0) -> Dict[str, Dict]:
     """$|f_m|$ of one physical perturbation in each angle, and the harmonics that hold 99 % of its power.
 
-    The perturbation is fixed in space: a Gaussian in the geometric polar
-    angle about the outboard midplane, $f = \\exp[-(\\vartheta/w)^2]$ with
-    $\\vartheta$ the angle from the magnetic axis. It is sampled on an even grid of
-    each coordinate's angle and transformed.
+    The perturbation is fixed in space and axisymmetric ($n = 0$): a Gaussian
+    in the geometric polar angle $\\vartheta$ from the magnetic axis,
+    $f = \\exp[-((\\vartheta - \\vartheta_0)/w)^2]$, centred outboard ($\\vartheta_0 = 0$)
+    or anywhere else. It is sampled on an even grid of each coordinate's angle
+    and transformed. For $n \\ne 0$ the toroidal shift $\\nu$ of every member
+    but PEST would add a factor $e^{-in\\nu}$ and couple harmonics further; that
+    is not included.
     """
     s = _surface(_R_SPECTRUM)
-    polar = np.arctan2(s["Z"], s["R"] - _R0)
     out = {}
     for name in COORDINATES:
         grid = np.linspace(0.0, 2.0 * math.pi, 512, endpoint=False)
         th = np.interp(grid, s["angles"][name], s["theta"])
         R, Z = _section(_R_SPECTRUM, th)
-        f = np.exp(-(np.arctan2(Z, R - _R0) / _WIDTH) ** 2)
+        polar = np.arctan2(Z, R - _R0)
+        offset = np.angle(np.exp(1j * (polar - centre)))
+        f = np.exp(-(offset / _WIDTH) ** 2)
         amp = np.abs(np.fft.rfft(f)) / len(grid)
         power = amp ** 2
         power[1:] *= 2.0
         cum = np.cumsum(power) / power.sum()
         out[name] = {"amplitude": amp[: _M_MAX + 1], "m99": int(np.searchsorted(cum, 0.99))}
-    del polar
     return out
 
 
@@ -251,25 +257,29 @@ def sfl_fourier_convergence(*, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     spectra = perturbation_spectra()
+    inboard = perturbation_spectra(math.pi)
     m = np.arange(_M_MAX + 1, dtype=float)
     top = max(float(v["amplitude"].max()) for v in spectra.values())
-    chart = Chart(x_range=(0.0, float(_M_MAX) + 0.5), y_range=(1e-4, 1.2 * top))
     styles = {"PEST": "orbit ion", "Boozer": "orbit electron", "Hamada": "boundary", "equal-arc": "approx"}
-    keys = {"PEST": "light", "Boozer": "dark", "Hamada": "thick", "equal-arc": "dashed"}
+    keys = {"PEST": "light", "Boozer": "dark, on PEST", "Hamada": "thick", "equal-arc": "dashed"}
     # log scale on y, drawn as log10
     chart = Chart(x_range=(0.0, float(_M_MAX) + 0.5), y_range=(-5.0, math.log10(1.5 * top)))
     for name, v in spectra.items():
         chart.curves[name] = np.stack([m, np.log10(np.maximum(v["amplitude"], 1e-6))], -1)
     chart.parameters.update({name: v["m99"] for name, v in spectra.items()})
+    chart.parameters["inboard"] = {name: v["m99"] for name, v in inboard.items()}
     scene = render_chart(chart, x_label="poloidal harmonic $m$", y_label="$\\log_{10}|f_m|$",
                          curve_styles=styles, region_text={}, x_ticks=(0.0, 10.0, 20.0, 30.0, 40.0),
-                         y_ticks=(-4.0, -2.0, 0.0))
+                         y_ticks=(-4.0, -2.0))
     items: List = []
     if labels:
+        # beside the chart: the steep spectra cross every corner of it
+        items.append(Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.1), "$m_{99}$: outboard / inboard bump", "small label",
+                           anchor="north west", role="legend"))
         for i, (name, v) in enumerate(spectra.items()):
-            items.append(Label((CHART_WIDTH - 0.1, CHART_HEIGHT - 0.1 - 0.5 * i),
-                               f"{name} ({keys[name]}): 99\\% in $m \\le {v['m99']}$", "small label",
-                               anchor="north east", role=f"legend:{name}"))
-        items.append(Label((CHART_WIDTH / 2, -1.45), "One perturbation fixed in space (outboard-localised); "
-                           "only the angle it is expanded in changes", "note", anchor="north", role="note"))
+            items.append(Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.6 - 0.45 * i),
+                               f"{name} ({keys[name]}): {v['m99']} / {inboard[name]['m99']}", "small label",
+                               anchor="north west", role=f"legend:{name}"))
+        items.append(Label((CHART_WIDTH / 2, -1.45), "Outboard bump drawn, $n = 0$; which angle is compact depends "
+                           "on where the structure sits", "note", anchor="north", role="note"))
     return Diagram("sfl_fourier_convergence", scene + Scene(tuple(items)), model=chart)

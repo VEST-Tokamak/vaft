@@ -182,13 +182,13 @@
     },
     "sfl_coordinate_taxonomy.svg": {
       "call": "vaft.diagram.sfl_coordinate_taxonomy()",
-      "source_sha256": "4c7b23b1f1940be25805802eceb8d794b0809b7e8610d581f1929f8ffb62ccfb",
-      "svg_sha256": "17223c087640a5cb0dda3c7472cfc08e713db47885cfcb3413459ad79fc4b293"
+      "source_sha256": "325e94912ea16f70a6fff26e5b7fcc9c2ba1434246c2cc3cea181bc8c23bbbc1",
+      "svg_sha256": "ec47c7f100cd92cd36cf65ba54e9bc1131fb95792c97ef81f78c71a1c105eb57"
     },
     "sfl_fourier_convergence.svg": {
       "call": "vaft.diagram.sfl_fourier_convergence()",
-      "source_sha256": "1a2251cc4812d53cb7b3babf0f843b538d25f3ead4d4727e7ca593549ce96f31",
-      "svg_sha256": "907bcf12dc910216814e4510f56b260d4b00a730c96d5f6ce17ad7caacb9de2d"
+      "source_sha256": "26aad88a8e09e6b7dfa27cad46439ff977d9969413f45f55b319603e1a27234a",
+      "svg_sha256": "a44cc335e6387efb111b8787370dc0ac9c031cb5d773c19d31e874f44d9a2274"
     },
     "shaping_family.svg": {
       "call": "vaft.diagram.shaping_family()",

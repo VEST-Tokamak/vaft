@@ -25,6 +25,17 @@ def test_every_member_is_a_monotonic_angle_and_they_differ():
             assert diff > 0.05, (names[i], names[j])
 
 
+@pytest.mark.parametrize("name", list(sfl.COORDINATES))
+def test_each_member_has_its_own_jacobian(name):
+    # d theta_sfl / d theta = J / J_sfl with J_sfl ~ R^pR / (Bp^pBp B^pB): the ratio must be constant
+    s = sfl._surface(0.7)
+    p_bp, p_b, p_r = sfl.COORDINATES[name]
+    j_sfl = s["R"] ** p_r / (s["B_p"] ** p_bp * s["B"] ** p_b)
+    rate = np.gradient(s["angles"][name], s["theta"])
+    ratio = rate * j_sfl / np.abs(s["jacobian"])
+    assert np.ptp(ratio[5:-5]) < 1e-3 * np.mean(ratio[5:-5]), name
+
+
 def test_equal_arc_spaces_the_angle_evenly_along_the_surface():
     s = sfl._surface(0.8)
     arc = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(s["R"]), np.diff(s["Z"])))])
@@ -67,9 +78,13 @@ def test_the_spectra_legend_states_the_computed_widths():
     spectra = sfl.perturbation_spectra()
     for name, v in spectra.items():
         (label,) = [it for it in d.scene.role(f"legend:{name}") if hasattr(it, "text")]
-        assert f"m \\le {v['m99']}" in label.text
+        assert f": {v['m99']} / " in label.text
     widths = [v["m99"] for v in spectra.values()]
     assert max(widths) > 2 * min(widths)  # the same structure costs very different numbers of harmonics
+    # and the ranking follows where the structure sits: moved inboard, PEST and Hamada swap
+    inboard = sfl.perturbation_spectra(math.pi)
+    assert spectra["Hamada"]["m99"] < spectra["PEST"]["m99"]
+    assert inboard["Hamada"]["m99"] > inboard["PEST"]["m99"]
 
 
 def test_cocos_stands_apart_from_the_coordinate_tree():

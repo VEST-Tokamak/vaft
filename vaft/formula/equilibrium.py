@@ -952,11 +952,6 @@ def straight_field_line_angle(theta, jacobian, R):
     return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]
 
 
-# ------------------------------------------------------------------
-# Current Density
-# ------------------------------------------------------------------
-
-
 def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0.0, power_b=0.0, power_r=2.0):
     r"""Straight-field-line poloidal angle of the generalised family: PEST, Boozer, Hamada, equal-arc.
 
@@ -1005,9 +1000,11 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     $(p_{Bp}, p_B, p_R)$. Since $\mathbf B\cdot\nabla\theta_\mathrm{sfl} \propto
     1/\mathcal J_\mathrm{sfl}$ whatever toroidal angle is paired with it,
     $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
-    poloidal angle is fully set here. Boozer and Hamada also shift the toroidal
-    angle, $\zeta = \phi + \nu(\psi, \theta)$, which this function does not
-    compute. The defaults give PEST, equal to ``straight_field_line_angle``.
+    poloidal angle is fully set here. Every member except PEST also shifts the
+    toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- which this
+    function does not compute. The defaults give PEST, equal to
+    ``straight_field_line_angle``.
 
     Physical interpretation
     -----------------------
@@ -1045,6 +1042,11 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     weighted = np.asarray(jacobian, dtype=float) * R ** (2.0 - float(power_r)) * B_p ** float(power_bp) \
         * B ** float(power_b)
     return straight_field_line_angle(theta, weighted, R)
+
+
+# ------------------------------------------------------------------
+# Current Density
+# ------------------------------------------------------------------
 
 
 def current_density_from_B(B: Union[float, np.ndarray],
