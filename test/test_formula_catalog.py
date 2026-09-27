@@ -93,6 +93,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
         "particle": 7,  # +gyration_offset (#1145 review)
+        "geometry": 7,  # slab / cylinder / local reduction (#1062)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

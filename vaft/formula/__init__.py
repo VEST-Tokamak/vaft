@@ -36,6 +36,7 @@ _SUBMODULES = {
     "startup": ".startup",
     "transformer": ".transformer",
     "particle": ".particle",
+    "geometry": ".geometry",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -59,6 +60,7 @@ _IMPORT_ORDER = (
     "startup",
     "transformer",
     "particle",
+    "geometry",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
