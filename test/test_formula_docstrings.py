@@ -107,6 +107,7 @@ CONVENTION_SENSITIVE = frozenset({
     "helical_phase",
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
+    "delta_prime_from_outer_derivatives",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
     # single-particle motion: charge signs, vector orientation, half-step velocities

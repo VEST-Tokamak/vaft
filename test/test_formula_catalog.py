@@ -71,7 +71,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # conversions: 84 + 3 = 87.
         "equilibrium": 89,  # +miller_surface, vacuum_toroidal_field (#1145)
         "virial": 33,
-        "stability": 26,
+        "stability": 27,
         "green": 16,
         "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
         "statistics": 22,
