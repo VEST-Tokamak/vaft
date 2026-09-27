@@ -1,4 +1,4 @@
-"""
+r"""
 Green's function calculations for plasma physics.
 
 This module provides functions for calculating various Green's function integrals

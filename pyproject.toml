@@ -10,7 +10,7 @@ authors = [
 description = "Versatile Analysis Framework for Tokamak"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 dynamic = ["version"]
 keywords = ["tokamak", "imas", "omas", "fusion", "vest"]
 classifiers = [
@@ -22,41 +22,48 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Physics",
 ]
 
 dependencies = [
-  "astropy==6.1.7",
-  "cryptography>=42.0.0",
-  "fortranformat",
+  # Every direct dependency is here because VAFT imports it (or omas needs it
+  # outside what its sdist declares -- xmltodict below). Pin policy (#1012):
+  #   exact pins only where a version is required for reproducibility or
+  #   compatibility, with the reason next to them; otherwise a floor that is the
+  #   oldest version known to work and a ceiling at the next major release.
+  #   Older interpreters may resolve older releases (see #1009).
+  "cryptography>=42.0.0",               # vaft.database.raw (credential file)
   "f90nml>=1.4.4",
-  "h5py==3.16.0",
+  # The floor is issue #50: older h5py builds break against NumPy 2.
+  "h5py>=3.16,<4",
+  # Exact: the HSDS client. Its upgrade (0.24.x/1.0.0, which drops Python 3.10)
+  # changes the credential and transport path and is tracked in #969.
   "h5pyd==0.20.0",
-  "imageio>=2.34.0",
   "ipykernel>=6.29.4",
   "ipython",
   "ipywidgets",
   "matplotlib>=3.7.3,<4",
   "plotly>=5.24,<7",
   "mysql-connector-python>=8.4.0",
-  "numba",
   "numpy>=2.0.0,<3",
-  "omas==0.94.2",
+  # Exact: VAFT reads and writes through omas internals (DD tables up to
+  # 3.41.0, code.parameters serialisation, path materialisation), so an omas
+  # release is adopted deliberately, never by resolution. 0.95.2 (2026-03) was
+  # adopted after a full-suite A/B against 0.94.2 on Python 3.14 gave the
+  # identical pass/fail list; its default IMAS DD version is still 3.41.0.
+  "omas==0.95.2",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
-  "pyjwt",
-  "PyYAML==6.0.2",
-  "requests-unixsocket==0.4.1",
+  "PyYAML>=6.0.2,<7",
   "scikit-image",
   "scipy>=1.13.0,<2",
   "seaborn",
-  "setuptools>=64.0.0,<81.0.0",
   "snakemake",
-  "statsmodels==0.14.6",
+  "statsmodels>=0.14.6,<0.16",
   "tqdm>=4.67.3",
-  "uncertainties==3.2.2",
-  "urllib3==1.26.13",
+  "uncertainties>=3.2.2,<4",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
   # omas needs it to serialize equilibrium.code.parameters (the EFIT
@@ -96,6 +103,14 @@ tokamaker = ["openfusiontoolkit"]
 # Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
 # the CPU wheel explicitly instead (package-ci.yml).
 ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
+# Numba is reserved for measured acceleration work (#1013) and is not a runtime
+# dependency: no VAFT module imports it yet. It used to be required, but
+# electromagnetics.py only checked whether it imported and printed a warning when
+# it did not. Keeping it required would cost every install a compiled
+# dependency, and on Python 3.15 its missing wheels would block installation
+# entirely. A kernel that later adopts it must keep a NumPy fallback that
+# produces the same result, and must import numba lazily inside that kernel.
+accel = ["numba"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs

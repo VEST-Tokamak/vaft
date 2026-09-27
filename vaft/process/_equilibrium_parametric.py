@@ -1031,9 +1031,10 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
         raise ValueError("Miller geometry requires r>0, kappa>0, and abs(delta)<1")
     if abs(surface.zeta) >= 0.5:
         raise ValueError("Miller geometry requires abs(zeta)<0.5; beyond that the parameterization doubles back on itself")
-    angle = theta + np.arcsin(surface.delta) * np.sin(theta)
-    vertical = theta + surface.zeta * np.sin(2.0 * theta)
-    return surface.r0 + surface.r * np.cos(angle), surface.z0 + surface.kappa * surface.r * np.sin(vertical)
+    from vaft.formula.equilibrium import miller_surface
+
+    return miller_surface(surface.r, theta, surface.r0, surface.kappa, surface.delta,
+                          squareness=surface.zeta, Z0=surface.z0)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:

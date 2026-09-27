@@ -490,11 +490,17 @@ def make_gpec_resonant(_sample: ODS) -> ODS:
         write_control_nc(path, n=1)
         write_cylindrical_nc(path, n=1)
         write_profile_nc(path, n=1, rational_q=(2.0, 3.0))
-        gpec_ideal(out, str(path), {"modes": [1]})
+        # The island overlay is drawn on the flux-surface mesh, which the
+        # mapper writes only when asked.
+        gpec_ideal(out, str(path), {"modes": [1], "include_geometry": True})
     return out
 
 
-for _name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width"):
+for _name in (
+    "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+    "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+    "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
+):
     SYNTHETIC[_name] = make_gpec_resonant
 
 
@@ -523,3 +529,42 @@ def make_mirnov_toroidal_array(_sample: ODS) -> ODS:
 
 SYNTHETIC["mirnov_spatial_phase"] = make_mirnov_toroidal_array
 OPTIONS["mirnov_spatial_phase"] = {"frequencies": [20_000.0], "window_size": 512, "preprocess": False}
+
+
+# ---------------------------------------------------------------------------
+# coil_3d_profile_current / coil_3d_spectrum_current -- the packaged VEST 3D
+# coil geometry with an n = 2 excitation overlaid, which is how a GPEC run's
+# coil currents reach the IDS.
+# ---------------------------------------------------------------------------
+
+
+def make_coil_3d_excitation(_sample: ODS) -> ODS:
+    from vaft.machine_mapping.coils_non_axisymmetric import (
+        apply_coil_excitation,
+        coils_non_axisymmetric,
+    )
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
+        CoilExcitation,
+        load_vest_3d_coil_config,
+    )
+
+    out = ODS(consistency_check=False)
+    coils_non_axisymmetric(out)
+    config = load_vest_3d_coil_config()
+    excitations = []
+    for name, coil_set in config.coil_sets.items():
+        angles = np.asarray([
+            np.mean(np.unwrap(np.arctan2(
+                filament.points_xyz[:, 1], filament.points_xyz[:, 0]
+            )))
+            for filament in coil_set.filaments
+        ])
+        excitations.append(
+            CoilExcitation(coil_set=name, currents_a=list(1000.0 * np.cos(2.0 * angles)))
+        )
+    apply_coil_excitation(out, excitations, time_s=[0.0, 0.1])
+    return out
+
+
+for _name in ("coil_3d_profile_current", "coil_3d_spectrum_current"):
+    SYNTHETIC[_name] = make_coil_3d_excitation

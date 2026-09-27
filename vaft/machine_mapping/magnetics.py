@@ -175,6 +175,13 @@ LIMITER_SHUNT_CHANNELS = (
 LIMITER_SHUNT_RESISTANCE = 0.1
 LIMITER_SHUNT_BASELINE_WINDOW = (0.0, 0.2)
 
+#: Scale and sign of the stored diamagnetic flux (#1196): the donor's value,
+#: positive for a paramagnetic plasma in VEST's positive toroidal field.
+DIAMAGNETIC_FLUX_SCALE = 1000.0
+#: Written into `magnetics.diamagnetic_flux[0].method_name`, so a product can
+#: be told from one mapped before #1196, whose flux carries the opposite sign.
+DIAMAGNETIC_FLUX_SIGN_CONVENTION = "sign paramagnetic-positive (#1196)"
+
 
 @lru_cache(maxsize=1024)
 def _safe_vest_load_cached(shot: int, field: int, raw_source: str | None):
@@ -1476,7 +1483,12 @@ def vest_diamagnetic_flux_detailed(
     baseline = np.polyval(coeff, temp_time)
     baseline[: start_index + 1] = 0.0
 
-    dia_flux_final = -1000.0 * (dia_flux - baseline)
+    # Signed as the donor's `DiaFlux - Baseline2` (VEST_DiamagneticFlux.m) and
+    # as EFIT's cdflux = integral (B_t - B_tv) dA: positive for a paramagnetic
+    # plasma (#1196).  The factor 1000 reproduces the donor's scale, which
+    # integrates per sample in milliseconds; the port once also negated it,
+    # which the donor never did.
+    dia_flux_final = DIAMAGNETIC_FLUX_SCALE * (dia_flux - baseline)
     dia_flux_final[end_index:] = 0.0
     if with_stages:
         report["stages"] = {
@@ -2336,7 +2348,7 @@ def _diamagnetic_method_name(
     """
     base = (
         "Rogowski triple-integration of VEST raw field "
-        f"{report['field']}"
+        f"{report['field']}; {DIAMAGNETIC_FLUX_SIGN_CONVENTION}"
     )
     if not report["n_saturated"]:
         text = f"{base}; no acquisition-limit saturation detected"

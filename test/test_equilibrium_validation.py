@@ -319,37 +319,36 @@ def test_pressure_consistency_names_both_definitions(report):
     assert _slice(report, "physical_validity", "pressure_consistency", DEAD)["status"] == NOT_AVAILABLE
 
 
-def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_sign(report):
-    """A finding on shot 39915 the report surfaces: the reconstructed flux is
-    paramagnetic where the loop measures diamagnetic.
+def test_the_reconstructed_diamagnetic_flux_agrees_with_the_measurement_in_sign(report):
+    """Shot 39915: the loop and the reconstruction are both paramagnetic.
 
-    This test has twice asserted that the measured flux nearly closes the
-    virial energy balance -- to half a percent, then to ~8%. Both were
-    artifacts of sign errors, and both are gone:
+    This test used to pin the opposite -- a paramagnetic reconstruction
+    against a loop "measuring diamagnetic", and W_diamagnetic tens of times
+    W_kin.  The loop's sign came from an extra minus in the mapper port that
+    the donor never had (#1196).  Corrected, the fluxes agree in sign and to
+    ~19 %, so ``diamagnetic_flux`` passes.
 
-    * the Lao ``beta_p`` carried a spurious ``+r*S2`` (#546, fixed in #566), and
-    * ``mu_i`` was handed to the closures on the flux convention, which is the
-      negative of the volume definition the three virial relations use.
-
-    With both corrected the two sides say what the data says. ``W_kin`` comes
-    from a reconstruction whose virial ``beta_p`` is 0.034 -- almost no poloidal
-    beta, the pressure-profile defect #386 -- while ``W_diamagnetic`` comes from
-    a loop implying ``beta_p`` above 1. They differ by a factor of tens, so the
-    check **fails**, alongside ``diamagnetic_flux``. Two checks, one story.
+    ``diamagnetic_energy`` still fails, and by a smaller, now credible margin:
+    the loop implies beta_p ~ 0.17 (W ~ 180 J) where the reconstruction's
+    virial beta_p is 0.034 (W_kin ~ 35 J) -- a factor of ~5, the
+    pressure-profile defect #386 without the sign error on top.
     """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
-    assert flux["status"] == FAIL
-    assert flux["sign_agreement"] is False
-    assert flux["measured"] < 0 < flux["computed"]
+    assert flux["status"] == PASS
+    assert flux["sign_agreement"] is True
+    assert 0 < flux["measured"] < flux["computed"]
+    assert flux["relative_error"] == pytest.approx(0.193, abs=0.005)
 
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     assert energy["status"] == FAIL
     assert abs(energy["log_ratio"]) > describe(
         "independent_validation.diamagnetic_energy"
     ).tolerance[1]
-    # The reconstruction is paramagnetic; the loop is not.
+    assert energy["beta_p_diamagnetic"] == pytest.approx(0.174, abs=0.005)
+    assert energy["W_diamagnetic"] / energy["W_kin_virial"] == pytest.approx(5.1, abs=0.2)
+    # Both paramagnetic: the volume-convention mu_i is negative on either side.
     virial = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
-    assert virial["mui"] < 0 < energy["W_diamagnetic"]
+    assert virial["mui"] < 0 and energy["mui_measured"] < 0
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
@@ -359,7 +358,7 @@ def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
     assert alone["diamagnetic_flux"]["status"] == NOT_AVAILABLE
     assert validate_independent(equilibrium_only, time_slice=LIVE)["diamagnetic_energy"]["status"] == NOT_AVAILABLE
     with_measurement = validate_physical(equilibrium_only, time_slice=LIVE, diagnostics=sample)
-    assert with_measurement["diamagnetic_flux"]["status"] == FAIL
+    assert with_measurement["diamagnetic_flux"]["status"] == PASS
     assert "magnetics" not in equilibrium_only  # the graft happened on the working copy
 
 

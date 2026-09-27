@@ -15,6 +15,7 @@ from __future__ import annotations
 import inspect
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -214,6 +215,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "provenance", "machine_scope",
     "convention_sensitive", "deprecated", "conforming", "aliases", "errors",
+    "raises", "source",
 }
 _CATEGORY_KEYS = {
     "name", "module", "title", "overview", "notation", "conventions",
@@ -243,6 +245,29 @@ def test_snapshot_schema():
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
         assert ":func:" not in yaml.safe_dump(row), row["id"]
+        assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
+
+
+def test_snapshot_rows_point_at_their_definition():
+    """The site links each entry to ``source.path#L<line>``; that line must be the ``def``."""
+    root = Path(vaft.process.__file__).resolve().parents[2]
+    for row in catalog.documentation_snapshot()["functions"]:
+        path, line = row["source"]["path"], row["source"]["line"]
+        assert path.startswith("vaft/process/"), row["id"]
+        lines = (root / path).read_text(encoding="utf-8").splitlines()
+        assert line >= 1, row["id"]
+        start = lines[line - 1].lstrip()
+        assert start.startswith(("def ", "@")), (row["id"], start)
+
+
+def test_raises_are_structured():
+    row = next(
+        item for item in catalog.documentation_snapshot("signal_processing")["functions"]
+        if item["name"] == "butterworth_lowpass"
+    )
+    assert row["raises"] == [
+        {"type": "ValueError", "description": "``cutoff`` is not inside ``(0, fs / 2)``."}
+    ]
 
 
 def test_snapshot_omits_provenance_unless_asked():
@@ -264,3 +289,13 @@ def test_cli_can_restrict_to_one_category(tmp_path):
     catalog.main(["--output", str(output), "--category", "numerical"])
     data = yaml.safe_load(output.read_text(encoding="utf-8"))
     assert {row["category"] for row in data["functions"]} == {"numerical"}
+
+
+def test_source_location_never_raises(tmp_path):
+    """``describe`` builds every spec of a category through it; no source must not break that."""
+    from vaft._docstring import source_location
+
+    namespace: dict = {}
+    exec("def made_up():\n    pass\n", namespace)  # no source file behind it
+    assert source_location(namespace["made_up"], tmp_path) == ("", 0)
+    assert source_location(catalog.describe, tmp_path) == ("", 0)  # outside the root

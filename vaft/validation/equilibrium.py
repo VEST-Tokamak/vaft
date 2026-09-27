@@ -472,7 +472,8 @@ def verify_convergence(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
         within_acceptance_tolerance=bool(error.get("within_acceptance_tolerance")),
         iterations=_float(iterations.get("iterations")),
         iteration_cap=_float(iterations.get("iteration_cap")),
-        hit_iteration_cap=bool(iterations.get("hit_cap")),
+        # None where the step count cannot decide it (#1038): not "no cap".
+        hit_iteration_cap=iterations.get("hit_cap"),
         chi_squared_total=_float(error.get("chi_squared_total")),
     )
     if accepted is None and not math.isfinite(final_error) and flag is None and declared is None:
@@ -486,7 +487,7 @@ def verify_convergence(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
         reasons.append("the final iteration error exceeds the acceptance tolerance")
     if reasons:
         return _result(ValidationStatus.FAIL, reason="; ".join(reasons), **fields)
-    if fields["hit_iteration_cap"]:
+    if fields["hit_iteration_cap"] is True:
         reasons.append("the iteration cap was reached")
     if math.isfinite(final_error) and not fields["reached_exit_tolerance"]:
         reasons.append("the exit tolerance was not reached")

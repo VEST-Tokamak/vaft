@@ -601,9 +601,10 @@ def generate_constraints_ods(
 
     # The diamagnetic flux keeps its sign (issue #385).  EFIT reads DFLUX as a
     # signed quantity and fits it against cdflux = integral (B_t - B_tv) dA, so
-    # a diamagnetic plasma in VEST's positive toroidal field is a *negative*
-    # flux.  The donor code compared magnitudes with a magnitude-only
-    # reconstruction, which is not what EFIT does.
+    # a paramagnetic plasma in VEST's positive toroidal field is a *positive*
+    # flux, and the stored measurement is signed the same way (#1196).  The
+    # donor code compared magnitudes with a magnitude-only reconstruction,
+    # which is not what EFIT does.
     for i in range(len(EQ["time"])):
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
             EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weights.pf_current

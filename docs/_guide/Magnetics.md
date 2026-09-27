@@ -377,7 +377,7 @@ See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstruct
 # Mirnov and fluctuation diagnostics
 
 The Mirnov analysis works on `magnetics.b_field_pol_probe.<i>.voltage` — the **raw, un-integrated**
-coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 63 of its 64 probes
+coil voltage at the native 250 kHz DAQ rate. The packaged 39915 ODS carries this: 70 of its 76 probes
 have `voltage.data`, so the plots below run offline from `vaft.omas.sample_ods()`.
 
 ```python
@@ -448,31 +448,26 @@ fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
 `candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`.
 
-Shot 39915 has no toroidal array, so the call refuses there, with its reason: the fit counts
-*distinct acquisitions*, and a probe whose samples copy another's is the same channel, not a second
-toroidal position (#724, #825). The repository-only sample 45531 carries the outboard fluctuation
-array, three toroidal angles per poloidal row; its midplane trio is:
+Shot 39915 cannot supply one: it falls in the 35521-44155 gap where no toroidal array recorded, and
+its only fluctuation-capable probe is one channel (DAQ field 171, equilibrium probe 36), which is
+not two positions (issues #724, #825). The fit is shown on the repository-only fluctuation sample
+45531 instead, which carries the three-angle outboard array (IMAS phi 315/225/135 deg) around its
+0.294-0.308 s discharge. It loads from a Git checkout; an installed wheel raises
+`FileNotFoundError`, because only 39915 ships inside the package:
 
 ```python
-array_ods = vaft.omas.sample_ods(45531)   # repository-only: loads from a Git checkout
-probe_names = [str(array_ods[f"magnetics.b_field_pol_probe.{i}.name"])
-               for i in range(len(array_ods["magnetics.b_field_pol_probe"]))]
-midplane = [probe_names.index(f"OutMirnov_{clock}_L1-03") for clock in (45, 135, 225)]
+array = vaft.omas.sample_ods(45531)   # outboard Mirnov array, three toroidal positions
 
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
-    array_ods,
-    time=0.302,                       # inside the 294-308 ms plasma
-    channels=midplane,
-    frequencies=None,                 # None -> dominant peaks are picked automatically
+    array,
+    time=0.300,
+    frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
     num_modes=2,
     candidate_n=range(0, 5),
-    window_size=2000,
+    window_size=500,
     preprocess=True,
 )
 ```
-
-Three angles at 90 degree spacing resolve $n$ only modulo 4; Tutorial 04 works through what that
-leaves undetermined.
 
 The fit needs probes that carry a toroidal angle as well as a waveform. Restricting `channels=` to a
 set that has no `position.phi` is refused, and the message lists the channels this input does offer —

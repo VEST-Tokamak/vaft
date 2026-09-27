@@ -708,11 +708,11 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 # ------------------------------------------------------------------
 
 
-def miller_surface(r, theta, R0, kappa, delta, shift=0.0):
+def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0):
     r"""Major radius and height of a Miller-parametrised flux surface.
 
     $$R = R_0 + \Delta + r\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right),
-    \qquad Z = \kappa\, r \sin\theta$$
+    \qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)$$
 
     Parameters
     ----------
@@ -728,6 +728,10 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0):
         Triangularity of the surface, in $(-1, 1)$ [-].
     shift : float or np.ndarray
         Shafranov shift of the surface centre along $R$ [m].
+    squareness : float or np.ndarray
+        Squareness $\zeta$, in $(-1/2, 1/2)$ [-].
+    Z0 : float or np.ndarray
+        Height of the surface centre [m].
 
     Returns
     -------
@@ -739,7 +743,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0):
     Raises
     ------
     ValueError
-        ``kappa`` is not positive or ``delta`` lies outside $(-1, 1)$.
+        ``r`` is negative or not finite, ``kappa`` is not positive, ``delta``
+        lies outside $(-1, 1)$, or ``squareness`` outside $(-1/2, 1/2)$.
 
     Convention
     ----------
@@ -747,7 +752,9 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0):
     the surface's own triangularity: a family of nested surfaces passes its
     radial profile (VAFT's schematics use $\delta(r) = \delta_a r/a$).
     ``theta`` is the parametrisation angle, not a straight-field-line angle
-    (see ``straight_field_line_angle``).
+    (see ``straight_field_line_angle``). ``squareness = 0`` and ``Z0 = 0``
+    reproduce the five-parameter surface exactly; the process layer's
+    ``evaluate_miller`` evaluates this same function.
 
     Physical interpretation
     -----------------------
@@ -766,14 +773,19 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0):
     """
     kappa = np.asarray(kappa, dtype=float)
     delta = np.asarray(delta, dtype=float)
+    squareness = np.asarray(squareness, dtype=float)
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0):
+        raise ValueError("r must be finite and non-negative")
     if np.any(kappa <= 0.0):
         raise ValueError("kappa must be positive")
     if np.any(np.abs(delta) >= 1.0):
         raise ValueError("delta must lie in (-1, 1)")
-    r = np.asarray(r, dtype=float)
+    if np.any(np.abs(squareness) >= 0.5):
+        raise ValueError("squareness must lie in (-1/2, 1/2): beyond it the surface doubles back on itself")
     theta = np.asarray(theta, dtype=float)
     R = R0 + np.asarray(shift, dtype=float) + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
-    return R, kappa * r * np.sin(theta)
+    return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
 
 
 def straight_field_line_angle(theta, jacobian, R):
@@ -1153,7 +1165,6 @@ def vacuum_toroidal_field(B0, R0, R):
     if np.any(R <= 0.0) or np.any(R0 <= 0.0):
         raise ValueError("R and R0 must be positive")
     return np.asarray(B0, dtype=float) * R0 / R
-
 
 
 def poloidal_field_magnitude(b_r: np.ndarray, b_z: np.ndarray) -> np.ndarray:

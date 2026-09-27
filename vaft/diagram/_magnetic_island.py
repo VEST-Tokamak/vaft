@@ -228,11 +228,9 @@ class IslandModel:
         R, Z = np.broadcast_arrays(np.asarray(R, dtype=float), np.asarray(Z, dtype=float))
         s = Z / (self.elongation * r)
         inside = np.abs(s) < 1.0
-        s = np.clip(s, -1.0, 1.0)
-        theta1 = np.arcsin(s)
-        a = np.arcsin(self.triangularity * r) * s
-        R1 = self.major_radius + r * np.cos(theta1 + a)
-        R2 = self.major_radius + r * np.cos(np.pi - theta1 + a)
+        theta1 = np.arcsin(np.clip(s, -1.0, 1.0))
+        R1, _ = miller_surface(r, theta1, self.major_radius, self.elongation, self.triangularity * r)
+        R2, _ = miller_surface(r, np.pi - theta1, self.major_radius, self.elongation, self.triangularity * r)
         return inside & (R > np.minimum(R1, R2)) & (R < np.maximum(R1, R2))
 
     def locus(self, kind: str, phi) -> Tuple[np.ndarray, np.ndarray]:

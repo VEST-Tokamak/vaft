@@ -18,6 +18,19 @@ from ._scene import Arrow, Label, Polyline
 
 #: inner padding between a box's outline and its text [cm]
 _PAD = 0.15
+#: shortest arrow worth drawing between two boxes [cm]
+_MIN_ARROW = 0.2
+
+#: LaTeX's special characters, as they must be written to appear literally
+_LATEX_ESCAPES = {
+    "\\": r"\textbackslash{}", "{": r"\{", "}": r"\}", "$": r"\$", "&": r"\&", "%": r"\%",
+    "#": r"\#", "_": r"\_", "^": r"\textasciicircum{}", "~": r"\textasciitilde{}",
+}
+
+
+def escape_latex(text: str) -> str:
+    """``text`` with every LaTeX special character made literal."""
+    return "".join(_LATEX_ESCAPES.get(ch, ch) for ch in text)
 
 
 @dataclass(frozen=True)
@@ -47,29 +60,35 @@ class Box:
 
 
 def box(x: float, y: float, width: float, height: float, text: str, *, style: str = "concept box",
-        text_style: str = "concept text", role: str = "") -> Box:
-    """A rounded box centred at ``(x, y)`` with ``text`` wrapped to its width."""
+        text_style: str = "concept text", role: str = "", latex: bool = False) -> Box:
+    """A rounded box centred at ``(x, y)`` with ``text`` wrapped to its width.
+
+    ``text`` is plain text, escaped so module names, issue numbers and
+    percentages print as written; pass ``latex=True`` to typeset it as LaTeX.
+    """
     if not width > 2 * _PAD or not height > 0:
         raise ValueError(f"box needs a width above {2 * _PAD} cm and a positive height, not {width} x {height}")
     hw, hh = 0.5 * width, 0.5 * height
     outline = Polyline.of([(x - hw, y - hh), (x + hw, y - hh), (x + hw, y + hh), (x - hw, y + hh)], style,
                           role=role, closed=True)
-    label = Label((x, y), text, f"{text_style},text width={width - 2 * _PAD:.2f}cm", role=role)
+    label = Label((x, y), text if latex else escape_latex(text),
+                  f"{text_style},text width={width - 2 * _PAD:.2f}cm", role=role)
     return Box(x, y, width, height, (outline, label))
 
 
 def connector(start: Box, end: Box, *, style: str = "connector", role: str = "", gap: float = 0.08) -> Arrow:
     """An arrow from the edge of ``start`` to the edge of ``end``, along their centre line."""
-    a = np.array(start.boundary_point(end.center))
-    b = np.array(end.boundary_point(start.center))
+    if (abs(end.x - start.x) < 0.5 * (start.width + end.width)
+            and abs(end.y - start.y) < 0.5 * (start.height + end.height)):
+        raise ValueError("the boxes overlap: nothing to connect")
+    a = np.array(start.boundary_point(end.center), dtype=float)
+    b = np.array(end.boundary_point(start.center), dtype=float)
     d = b - a
     length = float(np.hypot(*d))
-    towards = np.array(end.center) - np.array(start.center)
-    # overlapping boxes put the exit points the wrong way round
-    if length <= 2 * gap or float(np.dot(d, towards)) <= 0.0:
-        raise ValueError("the boxes touch or overlap: nothing to connect")
+    if length <= 2 * gap + _MIN_ARROW:
+        raise ValueError(f"the boxes are {length:.2f} cm apart: too close for a {gap:g} cm gap and a visible arrow")
     u = d / length
-    return Arrow(tuple(a + gap * u), tuple(b - gap * u), style, role=role)
+    return Arrow(tuple(float(v) for v in a + gap * u), tuple(float(v) for v in b - gap * u), style, role=role)
 
 
 def band(x0: float, x1: float, y0: float, y1: float, text: str = "", *, style: str = "concept band",

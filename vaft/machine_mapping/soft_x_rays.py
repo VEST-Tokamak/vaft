@@ -162,16 +162,16 @@ def _resolve_digitizer_file(
         path = Path(digitizer_file).expanduser()
         if path.exists():
             return path
-        raise FileNotFoundError(f"Digitizer CSV file not found: {path}")
+        raise FileNotFoundError(f"Digitizer file not found: {path}")
 
     label = str(daq_label)
     candidates = _digitizer_file_candidates(shot, label, data_root)
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
+    found = _first_existing_digitizer_file(candidates)
+    if found is not None:
+        return found
     searched = ", ".join(str(path) for path in candidates)
     raise FileNotFoundError(
-        f"Cannot find digitizer_{label}_{int(shot)}.csv. Packaged digitizer "
+        f"Cannot find digitizer_{label}_{int(shot)}.h5/.csv. Packaged digitizer "
         "samples are not included in the PyPI distribution; provide "
         "digitizer_file/data_root or clone the VAFT GitHub repository. "
         f"Searched: {searched}"
@@ -191,16 +191,47 @@ def _digitizer_file_candidates(
     ``vaft.database.filedb.FileDB.legacy`` resolves and what the camera mapping
     already assumes; pointing ``data_root`` at that directory is then enough to
     read a whole archive without naming files one at a time.
+
+    At every location the lossless HDF5 container
+    (:mod:`vaft.database.digitizer_hdf5`) is preferred over the CSV it was
+    packed from; the two hold identical values, so which one is found only
+    changes load time.
     """
     root = resolve_data_root(data_root)
-    filename = f"digitizer_{str(daq_label)}_{int(shot)}.csv"
-    return [
-        root / "legacy" / filename,
-        root / filename,
-        root / "soft_x_rays" / filename,
-        root / "raw" / filename,
-        root / str(int(shot)) / filename,
+    stem = f"digitizer_{str(daq_label)}_{int(shot)}"
+    directories = [
+        root / "legacy",
+        root,
+        root / "soft_x_rays",
+        root / "raw",
+        root / str(int(shot)),
     ]
+    return [directory / f"{stem}{suffix}" for directory in directories for suffix in (".h5", ".csv")]
+
+
+def _first_existing_digitizer_file(candidates: Sequence[Path]) -> Path | None:
+    """Pick the file to read from ``_digitizer_file_candidates`` output.
+
+    A container normally wins over the CSV beside it. The exception is a CSV
+    modified after its container was written: the container is then stale, and
+    reading it would silently return the old record, so the CSV is read and the
+    mismatch reported.
+    """
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        if candidate.suffix == ".h5":
+            csv = candidate.with_suffix(".csv")
+            if csv.exists() and csv.stat().st_mtime > candidate.stat().st_mtime:
+                warnings.warn(
+                    f"{csv} is newer than its container {candidate.name}; reading the CSV. "
+                    "Re-pack it with `python -m vaft.cli sxr-pack`.",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
+                return csv
+        return candidate
+    return None
 
 
 def _discover_digitizer_files(shot: int, data_root: str | Path | None = None) -> list[tuple[str, Path]]:
@@ -211,16 +242,17 @@ def _discover_digitizer_files(shot: int, data_root: str | Path | None = None) ->
     )
     found: list[tuple[str, Path]] = []
     for label in labels:
-        for candidate in _digitizer_file_candidates(shot, label, data_root):
-            if candidate.exists():
-                found.append((label, candidate))
-                break
+        candidate = _first_existing_digitizer_file(
+            _digitizer_file_candidates(shot, label, data_root)
+        )
+        if candidate is not None:
+            found.append((label, candidate))
     return found
 
 
 def _daq_label_from_filename(path: str | Path, shot: int) -> str | None:
     """Infer a DAQ label from the standard digitizer filename, if present."""
-    match = re.fullmatch(rf"digitizer_(.+)_{int(shot)}\.csv", Path(path).name)
+    match = re.fullmatch(rf"digitizer_(.+)_{int(shot)}\.(?:csv|h5)", Path(path).name)
     return match.group(1) if match else None
 
 
@@ -470,9 +502,21 @@ def load_digitizer_csv(
     channels_as_rows: bool = True,
     nrows: int | None = None,
 ) -> np.ndarray:
-    """Load a VEST SXR digitizer CSV as a time x channel matrix."""
-    frame = pd.read_csv(filepath, delimiter=",", header=None, nrows=nrows)
-    values = frame.to_numpy(dtype=float)
+    """Load a VEST SXR digitizer record as a time x channel matrix.
+
+    Accepts the CSV ``sample_v3.py`` wrote or the lossless ``.h5`` container
+    packed from it. The CSV is parsed with pandas' round-trip float parser, so
+    both return bit-identical arrays.
+    """
+    if Path(filepath).suffix.lower() == ".h5":
+        from vaft.database.digitizer_hdf5 import load_digitizer_hdf5
+
+        values = load_digitizer_hdf5(filepath, nrows=nrows)
+    else:
+        frame = pd.read_csv(
+            filepath, delimiter=",", header=None, nrows=nrows, float_precision="round_trip"
+        )
+        values = frame.to_numpy(dtype=float)
     if channels_as_rows:
         values = values.T
     return values
@@ -880,7 +924,7 @@ def soft_x_rays(
             if inferred_label is None:
                 raise ValueError(
                     "daq_label is required when digitizer_file does not use "
-                    "digitizer_{daq}_{shot}.csv naming."
+                    "digitizer_{daq}_{shot}.csv/.h5 naming."
                 )
             daq_label = inferred_label
         sources = [
@@ -892,7 +936,7 @@ def soft_x_rays(
         sources = _discover_digitizer_files(shot, data_root)
         if not sources:
             raise FileNotFoundError(
-                f"No supported SXR digitizer CSV files found for shot {int(shot)}. "
+                f"No supported SXR digitizer files found for shot {int(shot)}. "
                 "Provide data_root, digitizer_file, or daq_label for an explicit source."
             )
 
@@ -926,10 +970,10 @@ def soft_x_rays(
         try:
             data = load_digitizer_csv(source_file, channels_as_rows=channels_as_rows)
         except (OSError, ValueError) as exc:
-            raise ValueError(f"Malformed SXR digitizer CSV {source_file}: {exc}") from exc
+            raise ValueError(f"Malformed SXR digitizer file {source_file}: {exc}") from exc
         if data.ndim != 2 or not data.shape[0] or not data.shape[1] or not np.isfinite(data).all():
             raise ValueError(
-                f"Malformed SXR digitizer CSV {source_file}: "
+                f"Malformed SXR digitizer file {source_file}: "
                 "expected a finite, non-empty 2D array."
             )
 

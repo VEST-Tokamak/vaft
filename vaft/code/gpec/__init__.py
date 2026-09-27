@@ -22,11 +22,21 @@ from ...compat import is_executable
 from . import _runtime as rt
 from ._coil_input import (
     CoilInputSpec,
+    GpecCoilFilaments,
+    coil_filaments_from_coil_in,
     emit_coil_dat,
+    read_coil_control,
     read_coil_in,
     resolve_coil_inputs,
     stage_coil_data,
     write_coil_in,
+)
+from ._phase_audit import (
+    BRZPHI_COMPONENTS,
+    BrzphiHarmonics,
+    CoilPhaseAudit,
+    audit_coil_field_phase,
+    read_brzphi_harmonics,
 )
 from ._dcon_output import (
     SCAN_COLUMNS,
@@ -62,6 +72,7 @@ from ._gpec_output import (
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._solvers import (
+    DCON_PRODUCTS_FOR_GPEC,
     SOLVERS,
     Solver,
     SolverContext,
@@ -69,6 +80,7 @@ from ._solvers import (
     free_boundary_stable,
     missing_companion_outputs,
     required_outputs,
+    stage_dcon_products,
 )
 from ._types import (
     DEFAULT_MODES,
@@ -320,6 +332,11 @@ def _run_module(
             if policy == "strict":
                 raise RuntimeError(reason)
             return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
+        # Ideal GPEC reads its DCON products out of its own directory, because
+        # that is also where it writes the vacuum handshake files it reads back
+        # from `dcon_dir`. Staged here rather than at prepare time for the
+        # obvious reason: DCON has only just produced them.
+        stage_dcon_products(dcon_dir, run_dir)
 
     # Resuming a pipeline should not re-run a completed numerical solve just
     # because another time slice in the same code/mode cell failed.  A full
@@ -559,6 +576,7 @@ def run_gpec_suite_case(
 
 
 __all__ = [
+    "DCON_PRODUCTS_FOR_GPEC",
     "DCONOptions",
     "RDCONOptions",
     "STRIDEOptions",
@@ -568,9 +586,17 @@ __all__ = [
     "GPECModuleRun",
     "GPECSuiteConfig",
     "GPECSuiteResult",
+    "BRZPHI_COMPONENTS",
+    "BrzphiHarmonics",
     "CoilInputSpec",
+    "CoilPhaseAudit",
+    "GpecCoilFilaments",
+    "audit_coil_field_phase",
+    "coil_filaments_from_coil_in",
     "collect_gpec_suite_outputs",
     "emit_coil_dat",
+    "read_brzphi_harmonics",
+    "read_coil_control",
     "format_gfile_header_for_gpec",
     "stage_coil_data",
     "write_coil_in",
@@ -578,6 +604,7 @@ __all__ = [
     "read_coil_in",
     "resolve_coil_inputs",
     "run_gpec_suite_case",
+    "stage_dcon_products",
     "validate_dcon_result",
     "DconCoordinates",
     "DconEdgeScan",

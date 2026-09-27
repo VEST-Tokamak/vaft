@@ -281,8 +281,22 @@ class TestTargetPaths:
         )
         assert target == self.ROOT / "legacy" / "soft_x_rays" / "39107" / "digitizer_17592_39107.csv"
 
+    def test_hard_x_ray_csv_lands_where_its_mapping_reads(self):
+        target = CONSOLIDATE.target_for(
+            self._entry(
+                source="/src/digitizer_hxr_Eflux_17592_40600.csv",
+                kind="digitizer_csv",
+                diagnostic="hard_x_rays",
+                shot=40600,
+            ),
+            self.ROOT,
+        )
+        assert target == (
+            self.ROOT / "legacy" / "hard_x_rays" / "40600" / "digitizer_hxr_Eflux_17592_40600.csv"
+        )
+
     def test_unreadable_data_stays_out_of_the_legacy_domain(self):
-        for diagnostic in ("camera_visible_arranged", "camera_visible_mcf", "hard_x_rays"):
+        for diagnostic in ("camera_visible_arranged", "camera_visible_mcf"):
             target = CONSOLIDATE.target_for(self._entry(diagnostic=diagnostic), self.ROOT)
             assert target is not None
             # Not a literal ("/", ...) tuple: `Path("/filedb").parts` starts

@@ -208,6 +208,10 @@ def test_formula_equation_refuses_a_function_without_one():
 
     with pytest.raises(ValueError, match="documents no"):
         pm.formula_equation(lambda: None)
+    from vaft.formula.equilibrium import poloidal_field_magnitude  # a formula without $$...$$
+
+    with pytest.raises(ValueError, match="documents no"):
+        pm.formula_equation(poloidal_field_magnitude)
 
 
 def _arrow_direction(diagram, role):

@@ -69,13 +69,6 @@ __all__ = [
 ]
 # from scipy.linalg import expm # 행렬 지수 함수 - EVD 방법으로 대체
 
-try:
-    import numba
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
-    print("Warning: Numba not found. Falling back to slower Python execution for solve_eddy_currents. Install Numba for performance.")
-
 
 # Description of the axisymmetric mutual electromagnetics calculations.
 def compute_br_bz_phi(

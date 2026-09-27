@@ -17,8 +17,10 @@ Two deliberate exclusions:
     one-off.
 
 ``unmapped/``
-    Arranged frames, vendor ``.mcf`` containers, the 2013-era CCD export and
-    hard X-ray CSVs. No mapping can read any of it yet.
+    Arranged frames, vendor ``.mcf`` containers and the 2013-era CCD export.
+    No mapping can read any of it yet. (Hard X-ray CSVs moved to
+    ``legacy/hard_x_rays/`` once ``vaft.machine_mapping.hard_x_rays`` could
+    read them; they have no ingest tree yet.)
 
 Products land in the canonical ``omas/`` domain, resolved through
 ``FileDB.omas_product`` / ``FileDB.omas_manifest``. Each tree is a real

@@ -120,6 +120,8 @@ __all__ = [
     "SINGULAR_OFFSET",
     "SURFACE_MEMBERSHIPS",
     "SurfaceMember",
+    "toroidal_phase_audit",
+    "ToroidalPhaseAudit",
 ]
 
 #: The statistics a resonant column may be reduced with. ``rms`` is the
@@ -2908,4 +2910,234 @@ def dominant_mode(coupling, *, response_area=None, control_area=None) -> Dominan
         singular_value=float(singular[0]),
         control_vector=right[0].conj() / columns,
         response_vector=left[:, 0] / rows,
+    )
+
+
+@dataclass(frozen=True)
+class ToroidalPhaseAudit:
+    """How a stored set of toroidal harmonics compares with a resampled field."""
+
+    n_tor: int
+    preferred: str | None
+    """``"stored"`` or ``"conjugate"``, or ``None`` when the two tie exactly."""
+    stored_relative_norm: float
+    conjugate_relative_norm: float
+    stored_component_relative_norm: tuple[float, ...]
+    """``nan`` for a component whose stored coefficients are identically zero."""
+    conjugate_component_relative_norm: tuple[float, ...]
+    separation_ratio: float
+    """Losing relative norm over winning relative norm."""
+    stored_norm: float
+    """``||C_stored||``, the scale the two relative norms are taken against [any]."""
+    measured_norm: float
+    """``||C_measured||``.  Far below ``stored_norm`` means the sampled field has
+    no content at this mode, which is why both relative norms then sit near 1."""
+    sample_count: int
+    phi_sample_count: int
+
+
+def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPhaseAudit:
+    """Test a stored toroidal harmonic against the same field resampled in real space.
+
+    A complex harmonic ``C`` on its own does not say which reconstruction it
+    belongs to: ``Re(C e^{-i n phi})`` and ``Re(C e^{+i n phi})`` are different
+    fields, and a file that stores ``C`` without saying which one it means is
+    ambiguous by exactly a complex conjugation.  Nothing in the harmonic
+    resolves that; only an independent evaluation of the same physical field
+    over ``phi`` does.  This measures both hypotheses against such an
+    evaluation and reports how far apart they are.
+
+    Parameters
+    ----------
+    stored : array_like of complex
+        The harmonic as the file holds it, shape ``(P, K)`` for ``P`` positions
+        and ``K`` vector components [any].
+    sampled : array_like of float
+        The same physical field evaluated independently at those ``P``
+        positions and ``M`` toroidal angles, shape ``(P, M, K)``, in the units
+        of *stored* [any].
+    phi_rad : array_like
+        The ``M`` toroidal angles *sampled* was evaluated at, equally spaced and
+        covering one full period without repeating its endpoint [rad].
+    n_tor : int
+        The toroidal mode number the harmonic belongs to [-].
+
+    Returns
+    -------
+    ToroidalPhaseAudit
+        Both hypotheses' relative norms, in total and per component, which one
+        wins and by how much, and the absolute norms the relative ones are
+        taken against [-].
+
+    Raises
+    ------
+    ValueError
+        The three arrays disagree in shape, any of them holds a non-finite
+        value, ``phi_rad`` is not one equally spaced period, it carries too few
+        samples to resolve ``n_tor``, ``n_tor`` is not a non-zero integer, or
+        *stored* is identically zero so no relative norm exists.
+
+    Processing steps
+    ----------------
+    1. Project the sampled field onto the mode:
+       ``C_measured = 2 * mean_phi(B(phi) e^{+i n phi})``.
+    2. Take ``||C_measured - C_stored||`` and
+       ``||C_measured - conj(C_stored)||``, each over the positions and divided
+       by ``||C_stored||`` on the same axis, once per component and once for the
+       whole array.
+    3. The smaller total wins; the separation ratio is the larger over the
+       smaller.
+
+    Convention
+    ----------
+    The extracted coefficient is ``2 * mean_phi(B e^{+i n phi})``, which is the
+    coefficient of the reconstruction ``B(phi) = Re(C e^{-i n phi})`` in a
+    counter-clockwise machine angle -- the convention GPEC writes and FLARE
+    reads.  It is the conjugate of the kernel
+    :func:`~vaft.process.coils_non_axisymmetric.toroidal_mode_decomposition`
+    uses, and twice it, because that one returns the plain sample mean.  So a
+    ``"conjugate"`` verdict here means the stored file belongs to the
+    ``e^{+i n phi}`` reconstruction instead, and a consumer of the file has to
+    conjugate before use.
+
+    Assumptions
+    -----------
+    ``phi_rad`` is an equally spaced full period, which is what makes the plain
+    sample mean the Fourier projection; a non-uniform grid is refused rather
+    than silently mis-weighted.
+
+    **The sampled field is assumed to carry only this harmonic.**  ``M > 2|n|``
+    is checked and refused below it, but that is Nyquist for ``n`` alone: a
+    field also carrying ``n'`` aliases it into the measurement whenever
+    ``n' = -n (mod M)``, and needs an ``M`` that resolves ``n'`` too.  A caller
+    sampling a field of unknown content chooses ``M`` from that content, not
+    from ``n``.
+
+    Applicability
+    -------------
+    Machine-independent.  Any stored complex toroidal harmonic with an
+    independent way to evaluate the same field: a coil field against
+    Biot-Savart, a measured field against a model.
+
+    Limitations
+    -----------
+    Says which hypothesis is *closer*, never that either is right.  When the
+    sampled field has little content at this ``n`` -- the coil currents do not
+    excite it -- ``measured_norm`` falls far below ``stored_norm``, both
+    relative norms come out near one and the separation near one with them, and
+    that is the honest answer rather than a convention.  The threshold at which
+    a separation counts as settled is a verdict and lives in
+    :mod:`vaft.validation`, not here.
+
+    An alias from another harmonic is the one failure this cannot report.  It
+    does not resemble "no content": the aliased projection is a clean complex
+    number, so the separation comes out large and the answer can be confidently
+    the wrong one.  Measured: a field of ``Re(C e^{-3i phi}) + Re(C1 e^{-i
+    phi})`` with ``C1 = C - conj(C)``, sampled at four angles and projected onto
+    ``n = 3``, returns exactly ``conj(C)`` -- a relative norm of 6e-16 for the
+    wrong hypothesis.  The ``M > 2|n|`` refusal stops that particular case; only
+    knowing the field's content stops the general one.
+
+    Provenance
+    ----------
+    .. [legacy] hsyun_GPEC ``library/gpec_phase.py::audit_gpec_coil_brzphi_phase``
+       on branch ``codex/gpec-flare-cocos-handshake``, which is this
+       measurement; decision D-06 makes it mandatory for a GPEC-to-FLARE
+       handshake.  The legacy computed it only for a GPEC coil field and only
+       against its own Biot-Savart; the arithmetic is the same and is machine-
+       and code-independent, so it is separated from both here.
+    """
+    stored_array = np.asarray(stored, dtype=complex)
+    sampled_array = np.asarray(sampled, dtype=float)
+    phi = np.asarray(phi_rad, dtype=float).reshape(-1)
+
+    if stored_array.ndim != 2:
+        raise ValueError(f"stored must be (P, K), got shape {stored_array.shape}")
+    if sampled_array.ndim != 3:
+        raise ValueError(f"sampled must be (P, M, K), got shape {sampled_array.shape}")
+    positions, components = stored_array.shape
+    if sampled_array.shape != (positions, phi.size, components):
+        raise ValueError(
+            f"sampled is {sampled_array.shape} but stored and phi_rad ask for "
+            f"{(positions, phi.size, components)}"
+        )
+    if positions == 0 or components == 0 or phi.size == 0:
+        raise ValueError("stored, sampled and phi_rad must all be non-empty")
+    if int(n_tor) != n_tor or int(n_tor) == 0:
+        raise ValueError(f"n_tor must be a non-zero integer, not {n_tor!r}")
+    n_tor = int(n_tor)
+
+    # A single non-finite sample poisons every norm, and a comparison between
+    # two NaNs has no winner.  Refuse it here: further down the two hypotheses
+    # would come out as NaN against NaN with an infinite separation, which
+    # reads exactly like a decisive answer.
+    for name, array in (("stored", stored_array), ("sampled", sampled_array), ("phi_rad", phi)):
+        if not np.all(np.isfinite(array)):
+            bad = int(np.count_nonzero(~np.isfinite(array)))
+            raise ValueError(
+                f"{name} holds {bad} non-finite value(s); a norm taken over them "
+                "is NaN, and NaN loses every comparison rather than failing one"
+            )
+
+    # The plain sample mean is the Fourier projection only on an equally spaced
+    # full period; on any other grid it is a weighted sum of the wrong weights.
+    spacing = np.diff(phi)
+    step = 2.0 * np.pi / phi.size
+    if phi.size > 1 and not np.allclose(spacing, step, rtol=1e-9, atol=1e-12):
+        raise ValueError(
+            "phi_rad must be equally spaced over one full period; its spacings "
+            f"run {float(np.min(spacing)):.6g} to {float(np.max(spacing)):.6g}, "
+            f"not the {step:.6g} that {phi.size} samples of 2*pi would give"
+        )
+    # Nyquist.  At ``M <= 2|n|`` the mode is not resolved and the projection
+    # picks up whatever else the field carries: a field with an ``n = 1`` part
+    # sampled at four angles and projected onto ``n = 3`` returns the conjugate
+    # of the right answer, decisively and wrongly.
+    if phi.size <= 2 * abs(n_tor):
+        raise ValueError(
+            f"{phi.size} toroidal samples cannot resolve n = {n_tor}; more than "
+            f"{2 * abs(n_tor)} are needed, and a field carrying any other "
+            "harmonic needs enough to resolve that one too"
+        )
+
+    norm_stored = float(np.linalg.norm(stored_array))
+    if not norm_stored > 0.0:
+        raise ValueError("stored is identically zero, so no relative norm exists")
+
+    measured = 2.0 * np.mean(
+        sampled_array * np.exp(1j * n_tor * phi)[None, :, None], axis=1
+    )
+    # A component whose stored coefficients are identically zero has no scale to
+    # be relative to.  Report NaN rather than dividing by the smallest float,
+    # which turns a perfectly ordinary residual into 1e307.
+    per_component = np.linalg.norm(stored_array, axis=0)
+    empty = per_component == 0.0
+    scale = np.where(empty, np.nan, per_component)
+    stored_component = np.linalg.norm(measured - stored_array, axis=0) / scale
+    conjugate_component = (
+        np.linalg.norm(measured - np.conjugate(stored_array), axis=0) / scale
+    )
+    stored_total = float(np.linalg.norm(measured - stored_array) / norm_stored)
+    conjugate_total = float(
+        np.linalg.norm(measured - np.conjugate(stored_array)) / norm_stored
+    )
+    winner, loser = sorted((stored_total, conjugate_total))
+    if stored_total == conjugate_total:
+        # A harmonic equal to its own conjugate, or a projection that returned
+        # nothing: there is no winner, and naming one would invent a result.
+        preferred = None
+    else:
+        preferred = "stored" if stored_total < conjugate_total else "conjugate"
+    return ToroidalPhaseAudit(
+        n_tor=n_tor,
+        preferred=preferred,
+        stored_relative_norm=stored_total,
+        conjugate_relative_norm=conjugate_total,
+        stored_component_relative_norm=tuple(float(v) for v in stored_component),
+        conjugate_component_relative_norm=tuple(float(v) for v in conjugate_component),
+        separation_ratio=float(loser / winner) if winner > 0.0 else float("inf"),
+        stored_norm=norm_stored,
+        measured_norm=float(np.linalg.norm(measured)),
+        sample_count=int(positions),
+        phi_sample_count=int(phi.size),
     )

@@ -54,7 +54,7 @@ All three views are drawn from one model, and the convention is the same in each
 | O-points / X-points | $\xi = 0$ (minimum of $\mathcal{H}$) / $\xi = \pi$ (saddle): $m$ of each per poloidal section, alternating |
 | separatrix | $\mathcal{H} = (w/4)^2$, so $x_\mathrm{sep} = \tfrac{w}{2}\lvert\cos(\xi/2)\rvert$ |
 | `width` | the **full** radial width at the O-point, in units of the minor radius |
-| geometry | Miller shaping: $R = R_0 + r\cos(\theta + \arcsin\delta(r)\,\sin\theta)$ and $Z = \kappa r\sin\theta$, with $\delta(r) = \delta\,r$ so the surfaces stay nested and become circular towards the axis. Lengths are in units of the minor radius $a$ |
+| geometry | Miller shaping from `vaft.formula.miller_surface`: $R = R_0 + r\cos(\theta + \arcsin\delta(r)\,\sin\theta)$ and $Z = \kappa r\sin\theta$, with $\delta(r) = \delta\,r$ so the surfaces stay nested and become circular towards the axis. Lengths are in units of the minor radius $a$ |
 | caveats | The surfaces are prescribed, with no Shafranov shift, so $\theta^*$ is exact for these surfaces rather than for a Grad-Shafranov equilibrium. `width` is a width in the flux label $r$ and is a physical distance only on the outboard midplane |
 
 The top view suppresses $Z$, so crossings of the projected O and X loci there are not reconnection
@@ -130,6 +130,31 @@ Each has further projections of the same computed orbits, chosen with `projectio
 
 The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
 default) so that both orbits are visible; the figures state this.
+
+## Tearing physics
+
+The ideas upstream of an island, **one concept per diagram**, so each can be used on its own in a
+page, notebook or slide. None takes an equilibrium, shot or solver output: the curves are schematic.
+
+```python
+vaft.diagram.rational_surface(m=2, n=1)
+vaft.diagram.delta_prime(sign="positive")   # "positive", "zero" or "negative"
+vaft.diagram.tearing_layer_matching()
+```
+
+| | | |
+| --- | --- | --- |
+| ![rational surface]({{ '/assets/diagrams/rational_surface.svg' | relative_url }}) | ![Delta prime]({{ '/assets/diagrams/delta_prime.svg' | relative_url }}) | ![layer matching]({{ '/assets/diagrams/tearing_layer_matching.svg' | relative_url }}) |
+
+| Diagram | Question | What is schematic |
+| --- | --- | --- |
+| `rational_surface` | Where does a perturbation resonate with the field-line pitch, $q(r_s) = m/n$? | The monotonic $q(r)$; it is not an equilibrium profile |
+| `delta_prime` | What does the tearing stability index measure? | The outer solutions: quadratics that vanish on the axis and at the edge. Their slopes at $r_s$ go through `vaft.formula.delta_prime_from_outer_derivatives`, and only the sign of $\Delta'$ is meaningful |
+| `tearing_layer_matching` | Why are the ideal outer regions and the non-ideal inner layer solved separately? | The layer width and the layer solution, which only joins the outer solutions in value and slope |
+
+The index drawn here is the definition, not a stability result: no outer equation is solved. Solver
+values of $\Delta'$ (RDCON, STRIDE) belong to `vaft.plot`, and they are not the RDCON $D_R$ or the
+Modified Rutherford terms. The object these lead to is `magnetic_island`.
 
 ## Using the committed assets
 

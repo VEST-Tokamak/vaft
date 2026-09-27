@@ -44,12 +44,14 @@ PACKAGED = {
     # anti-aliased filterscope decimation (#425; 39915 0.7005 -> 0.7054, 41524
     # 3.596 -> 3.832, 41672 0.9297 -> 0.9694) and the diamagnetic peak with the
     # diamagnetic plasma window (013a3f58; -1.553e-3 -> -1.546e-3,
-    # -8.545e-3 -> -8.515e-3, -3.900e-3 -> -3.934e-3).
-    39915: dict(ip=83852.0, h_alpha=0.2986, diamagnetic=-1.546e-3, ciii=0.7054),
+    # -8.545e-3 -> -8.515e-3, -3.900e-3 -> -3.934e-3). The diamagnetic peaks
+    # changed sign on 2026-09-22 when the mapper's extra minus was removed
+    # (#1196): the loop is paramagnetic, positive in EFIT's cdflux sign.
+    39915: dict(ip=83852.0, h_alpha=0.2986, diamagnetic=1.546e-3, ciii=0.7054),
     # 41524's H-alpha: 0.850 was the shoulder of the refused spike at 334 ms; the
     # representative peak is the 0.507 plateau
-    41524: dict(ip=222026.0, h_alpha=0.5072, diamagnetic=-8.515e-3, ciii=3.832),
-    41672: dict(ip=127105.0, h_alpha=0.5586, diamagnetic=-3.934e-3, ciii=0.9694),
+    41524: dict(ip=222026.0, h_alpha=0.5072, diamagnetic=8.515e-3, ciii=3.832),
+    41672: dict(ip=127105.0, h_alpha=0.5586, diamagnetic=3.934e-3, ciii=0.9694),
 }
 
 
@@ -80,7 +82,7 @@ def test_the_packaged_products_pin_the_peaks_inside_the_window(shot):
     assert features.lines["CIII_1909"].base.startswith("spectrometer_uv.channel.2.")
     assert features.lines["CIII_1909"].value == pytest.approx(expected["ciii"], rel=1e-3)
     assert features.diamagnetic.value == pytest.approx(expected["diamagnetic"], rel=1e-3)
-    assert features.diamagnetic.value < 0 and "reference_flat" in features.diamagnetic.flags
+    assert features.diamagnetic.value > 0 and "reference_flat" in features.diamagnetic.flags
     # The regenerated products record how the flux was integrated (#409).
     assert str(features.diamagnetic.notes["method_name"]).startswith("Rogowski triple-integration")
     # ...including the saturation repair (676af6a9), which reconstructs samples
