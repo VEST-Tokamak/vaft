@@ -19,9 +19,11 @@ output:
     external and plasma-response fields add as complex numbers, so the total
     depends on both amplitude and phase.
 
-The phase convention is ``helical_phase``'s, $\\xi = m\\theta - n\\phi$, which is
-also how ``vaft.code.gpec`` pairs its stored real/imaginary columns
-(``real + 1j * imag``). Amplitudes and phases here are schematic.
+The phase convention is ``helical_phase``'s, $\\xi = m\\theta - n\\phi$.
+``vaft.code.gpec`` only pairs stored real/imaginary columns into
+``real + 1j * imag`` and decides no convention; how its spectral and
+real-space outputs relate to this one is in ``helical_harmonic``'s
+Convention. Amplitudes and phases here are schematic.
 """
 
 from __future__ import annotations
@@ -198,14 +200,44 @@ def _wrapped(angle: float) -> float:
     return math.pi if wrapped == -math.pi else wrapped
 
 
+def _outward_anchor(direction) -> str:
+    """The TikZ anchor that puts a label beyond a point in ``direction``, text running away from it."""
+    dx, dy = float(direction[0]), float(direction[1])
+    norm = math.hypot(dx, dy) or 1.0
+    dx, dy = dx / norm, dy / norm
+    vertical = "south" if dy > 0.38 else ("north" if dy < -0.38 else "")
+    horizontal = "west" if dx > 0.38 else ("east" if dx < -0.38 else "")
+    return " ".join(part for part in (vertical, horizontal) if part) or "center"
+
+
+def _clear_angle(start: float, stop: float, avoid=()) -> float:
+    """The angle along an arc from ``start`` to ``stop`` farthest from the axes and from ``avoid``."""
+    candidates = np.linspace(start, stop, 17)
+
+    def gap(a):
+        to_axes = abs(((a + math.pi / 4) % (math.pi / 2)) - math.pi / 4)
+        return min([to_axes] + [abs(_wrapped(a - b)) for b in avoid])
+
+    return float(max(candidates, key=gap))
+
+
+def _diagonal_away_from(*angles: float) -> float:
+    """The diagonal (45, 135, 225 or 315 degrees) farthest from every angle given."""
+    diagonals = [math.pi / 4 + k * math.pi / 2 for k in range(4)]
+
+    def gap(d):
+        return min(abs(_wrapped(d - a)) for a in angles)
+
+    return max(diagonals, key=gap)
+
+
 def complex_harmonic(amplitude: float = 1.0, phase: float = math.pi / 3, *, labels: bool = True) -> Diagram:
     r"""One harmonic as a complex coefficient $\hat b = b_R + i\,b_I = A\,e^{i\alpha}$.
 
     The phasor's projections on the axes are $b_R = A\cos\alpha$ and
-    $b_I = A\sin\alpha$, the cosine and sine quadratures of a single pattern
-    (``vaft.code.gpec`` stores exactly this pair as ``i = 0, 1``); they are not
-    two magnetic fields. ``amplitude`` sets the label only: the phasor is drawn
-    at a fixed length.
+    $b_I = A\sin\alpha$, the cosine and sine quadratures of a single pattern;
+    they are not two magnetic fields. The phasor is drawn at a fixed length
+    and the circle it sweeps is labelled with the given amplitude.
     """
     A = _finite("amplitude", amplitude, positive=True)
     alpha = _wrapped(_finite("phase", phase))
@@ -213,6 +245,8 @@ def complex_harmonic(amplitude: float = 1.0, phase: float = math.pi / 3, *, labe
     b = A * complex(math.cos(alpha), math.sin(alpha))
     unit = _UNIT / A
     tip = _xy(b, unit)
+    # a quadrature this close to zero is drawn on an axis: its label moves off it
+    eps = 0.08 * _UNIT
     items: List = _complex_axes(1.35 * _UNIT, labels=labels)
     items += [Polyline.of(_arc(_UNIT, 0.0, 2.0 * math.pi, n=121), "surface", role="amplitude", closed=True)]
     items += _quadratures(b, "construction", unit)
@@ -225,18 +259,26 @@ def complex_harmonic(amplitude: float = 1.0, phase: float = math.pi / 3, *, labe
     if abs(alpha) > 1e-9:
         items.append(Polyline.of(_arc(0.7, 0.0, alpha), "angle arc", role="phase"))
     if labels:
-        mid = 0.5 * np.array(tip)
-        normal = np.array([-math.sin(alpha), math.cos(alpha)])
+        direction = (math.cos(alpha), math.sin(alpha))
+        diagonal = _diagonal_away_from(alpha, 0.0)
+        circle_at = (1.02 * _UNIT * math.cos(diagonal), 1.02 * _UNIT * math.sin(diagonal))
+        alpha_at = _clear_angle(0.0, alpha) if abs(alpha) >= 0.6 else alpha + math.copysign(0.35, alpha or 1.0)
+        below = tip[1] >= -eps  # the b_R label goes on the side of the Re axis the phasor is not on
         items += [
-            Label(tuple(np.array(tip) * 1.08 + 0.1 * normal), "$\\hat b = A\\,e^{i\\alpha}$", "label",
-                  anchor="south west" if tip[0] >= 0 else "south east", role="phasor"),
-            Label(tuple(mid + 0.3 * normal), "$A$", "label", anchor="center", role="amplitude"),
-            Label(tuple(0.95 * np.array([math.cos(alpha / 2), math.sin(alpha / 2)])), "$\\alpha$", "label",
+            Label(tuple(np.array(tip) + 0.18 * np.array(direction)), "$\\hat b$", "label",
+                  anchor=_outward_anchor(direction), role="phasor"),
+            Label(circle_at, f"$|\\hat b| = A = {A:g}$", "label",
+                  anchor=_outward_anchor((math.cos(diagonal), math.sin(diagonal))), role="amplitude"),
+            Label((1.0 * math.cos(alpha_at), 1.0 * math.sin(alpha_at)), "$\\alpha$", "label",
                   anchor="center", role="phase"),
-            Label((tip[0], -0.2 if tip[1] >= 0 else 0.2), "$b_R = A\\cos\\alpha$", "label",
-                  anchor="north" if tip[1] >= 0 else "south", role="real_component"),
-            Label((-0.2 if tip[0] >= 0 else 0.2, tip[1]), "$b_I = A\\sin\\alpha$", "label",
-                  anchor="east" if tip[0] >= 0 else "west", role="imag_component"),
+            Label((tip[0] if abs(tip[0]) > eps else 0.35, -0.2 if below else 0.2), "$b_R = A\\cos\\alpha$", "label",
+                  anchor=("north" if below else "south") + ("" if abs(tip[0]) > eps else " west"),
+                  role="real_component"),
+            (Label((-0.2 if tip[0] >= -eps else 0.2, tip[1]), "$b_I = A\\sin\\alpha$", "label",
+                   anchor="east" if tip[0] >= -eps else "west", role="imag_component") if abs(tip[1]) > eps
+             # on the Re axis: below it, on the side the phasor is not
+             else Label((-0.35 if tip[0] > 0 else 0.35, -0.25), "$b_I = A\\sin\\alpha$", "label",
+                        anchor="north east" if tip[0] > 0 else "north west", role="imag_component")),
             _equation_box("$\\hat b = b_R + i\\,b_I = A\\,e^{i\\alpha}, \\qquad A = |\\hat b|,"
                           "\\quad \\alpha = \\arg\\hat b$", 0.0, -1.35 * _UNIT - 0.7),
             _note("$b_R$ and $b_I$ are two quadratures of one harmonic, not two fields",
@@ -272,13 +314,14 @@ def toroidal_harmonic_phase(n: int = 1, *, labels: bool = True) -> Diagram:
     b0 = complex(math.cos(alpha0), math.sin(alpha0))
     rotation = float(helical_phase(0.0, _DELTA_PHI, 1, n))  # = -n * delta_phi
     b1 = b0 * complex(math.cos(rotation), math.sin(rotation))
+    arc_radius = 0.38 * _UNIT
     items: List = _complex_axes(1.35 * _UNIT, labels=labels)
     items += [Polyline.of(_arc(_UNIT, 0.0, 2.0 * math.pi, n=121), "surface", role="amplitude", closed=True)]
     items += _quadratures(b0, "construction", _UNIT) + _quadratures(b1, "construction", _UNIT)
     items += [
         Arrow((0.0, 0.0), _xy(b0), "phasor", role="phase_zero"),
         Arrow((0.0, 0.0), _xy(b1), "phasor alt", role="phase_shifted"),
-        Polyline.of(_arc(0.38 * _UNIT, alpha0, alpha0 + rotation, n=64), "angle arc", role="phasor"),
+        Polyline.of(_arc(arc_radius, alpha0, alpha0 + rotation, n=64), "angle arc", role="phasor"),
     ]
     # the toroidal angle, seen from above
     c, r = (2.45 * _UNIT, 0.5 * _UNIT), 0.7 * _UNIT
@@ -290,21 +333,22 @@ def toroidal_harmonic_phase(n: int = 1, *, labels: bool = True) -> Diagram:
         Polyline.of(_arc(0.45 * r, 0.0, _DELTA_PHI, origin=c), "angle arc", role="toroidal_angle"),
     ]
     if labels:
-        mid = alpha0 + rotation / 2
+        at = _clear_angle(alpha0, alpha0 + rotation, avoid=(alpha0, alpha0 + rotation))
+        for value, text, role in ((b0, "$\\hat b$", "phase_zero"), (b1, "$\\hat b'$", "phase_shifted")):
+            direction = (value.real, value.imag)
+            items.append(Label(tuple(np.array(_xy(value)) + 0.18 * np.array(direction)), text, "label",
+                               anchor=_outward_anchor(direction), role=role))
         items += [
-            Label(tuple(1.08 * np.array(_xy(b0))), "$\\hat b(\\phi_0)$", "label", anchor="south west",
-                  role="phase_zero"),
-            Label(tuple(1.1 * np.array(_xy(b1))), "$\\hat b(\\phi_0 + \\Delta\\phi)$", "label",
-                  anchor="north west" if b1.imag < 0 else "west", role="phase_shifted"),
-            Label((0.68 * _UNIT * math.cos(mid), 0.68 * _UNIT * math.sin(mid)), "$-n\\Delta\\phi$", "label",
-                  anchor="center", role="phasor"),
+            Label((0.62 * _UNIT * math.cos(at), 0.62 * _UNIT * math.sin(at)), "$-n\\Delta\\phi$",
+                  "label", anchor="center", role="phasor"),
             Label((c[0] + 0.72 * r * math.cos(_DELTA_PHI / 2), c[1] + 0.72 * r * math.sin(_DELTA_PHI / 2)),
                   "$\\Delta\\phi$", "small label", anchor="center", role="toroidal_angle"),
-            Label((c[0], c[1] + r + 0.15), "top view", "small label", anchor="south", role="toroidal_angle"),
+            Label((c[0], c[1] + r + 0.15), "top view: origin moved by $\\Delta\\phi$", "small label",
+                  anchor="south", role="toroidal_angle"),
             _equation_box(f"$\\displaystyle {formula_equation(helical_phase)}, \\qquad "
-                          f"\\hat b(\\phi_0 + \\Delta\\phi) = \\hat b(\\phi_0)\\,e^{{-in\\Delta\\phi}},"
-                          f"\\quad n = {n}$", 0.8 * _UNIT, -1.35 * _UNIT - 0.7),
-            _note("$|\\hat b|$ is unchanged; $b_R$ and $b_I$ depend on the phase origin",
+                          f"\\hat b' = \\hat b\\,e^{{-in\\Delta\\phi}},\\quad n = {n}$",
+                          0.8 * _UNIT, -1.35 * _UNIT - 0.7),
+            _note("$|\\hat b'| = |\\hat b|$; $b_R$ and $b_I$ depend on the phase origin",
                   0.8 * _UNIT, -1.35 * _UNIT - 1.8),
         ]
     model = HarmonicFigure(
@@ -398,6 +442,26 @@ def harmonic_real_space_projection(m: int = 2, n: int = 1, phase: float = math.p
 # ---------------------------------------------------------------------------
 
 
+def _side_label(start, end, text: str, away_from, role: str) -> Label:
+    """A label beside the arrow ``start -> end``, on the side away from ``away_from``."""
+    start, end = np.asarray(start, dtype=float), np.asarray(end, dtype=float)
+    d = end - start
+    normal = np.array([-d[1], d[0]]) / (np.linalg.norm(d) or 1.0)
+    mid = 0.5 * (start + end)
+    if np.dot(mid - np.asarray(away_from, dtype=float), normal) < 0:
+        normal = -normal
+    return Label(tuple(mid + 0.2 * normal), text, "label", anchor=_outward_anchor(normal), role=role)
+
+
+def _plasma_label(ext_tip, tot_tip, centroid, beyond: bool) -> Label:
+    """The response arrow's label: beside it, or past its tip when the triangle is too thin for that."""
+    if not beyond:
+        return _side_label(ext_tip, tot_tip, "plasma", centroid, "plasma")
+    d = np.array(tot_tip) - np.array(ext_tip)
+    d = d / np.linalg.norm(d)
+    return Label(tuple(np.array(tot_tip) + 0.15 * d), "plasma", "label", anchor=_outward_anchor(d), role="plasma")
+
+
 def complex_field_superposition(case: str = "screening", *, labels: bool = True) -> Diagram:
     r"""External and plasma-response fields add as complex numbers.
 
@@ -407,7 +471,7 @@ def complex_field_superposition(case: str = "screening", *, labels: bool = True)
     (``"amplification"``), and in general both size and phase change
     (``"phase_shift"``). The values are schematic, not a response calculation.
     """
-    if case not in _CASES:
+    if not isinstance(case, str) or case not in _CASES:
         raise ValueError(f"case must be one of {tuple(_CASES)}, not {case!r}")
     labels = _check_labels(labels)
     external = complex(1.0, 0.0)
@@ -415,24 +479,23 @@ def complex_field_superposition(case: str = "screening", *, labels: bool = True)
     total = external + plasma
     unit = 2.4
     extent = 1.1 * unit * max(abs(external), abs(total), 1.0) + 0.4
+    origin, ext_tip, tot_tip = (0.0, 0.0), _xy(external, unit), _xy(total, unit)
     items: List = _complex_axes(extent, labels=labels)
     items += [
         Polyline.of(_arc(unit * abs(external), 0.0, 2.0 * math.pi, n=121), "surface", role="external",
                     closed=True),
-        Arrow((0.0, 0.0), _xy(external, unit), "phasor", role="external"),
-        Arrow(_xy(external, unit), _xy(total, unit), "phasor alt", role="plasma"),
-        Arrow((0.0, 0.0), _xy(total, unit), "phasor total", role="total"),
+        Arrow(origin, ext_tip, "phasor", role="external"),
+        Arrow(ext_tip, tot_tip, "phasor alt", role="plasma"),
+        Arrow(origin, tot_tip, "phasor total", role="total"),
     ]
     if labels:
-        ext_tip = np.array(_xy(external, unit))
-        mid_plasma = 0.5 * (ext_tip + np.array(_xy(total, unit)))
-        tot = np.array(_xy(total, unit))
+        centroid = (np.array(origin) + np.array(ext_tip) + np.array(tot_tip)) / 3.0
+        # the external arrow lies on the Re axis: label it below, the side the triangle is not on
+        below = (0.0, 1.0) if tot_tip[1] >= 0 else (0.0, -1.0)
         items += [
-            Label(tuple(0.5 * ext_tip + np.array([0.0, -0.25])), "external", "label", anchor="north",
-                  role="external"),
-            Label(tuple(mid_plasma + np.array([0.25, 0.1])), "plasma", "label", anchor="west", role="plasma"),
-            Label(tuple(0.55 * tot + np.array([-0.2, 0.25])), "total", "label", anchor="south east",
-                  role="total"),
+            _side_label(origin, ext_tip, "external", below, "external"),
+            _plasma_label(ext_tip, tot_tip, centroid, beyond=case == "amplification"),
+            _side_label(origin, tot_tip, "total", centroid, "total"),
             _equation_box("$\\hat b_\\mathrm{total} = \\hat b_\\mathrm{external} + \\hat b_\\mathrm{plasma}$",
                           0.0, -extent - 0.6),
             _note(f"{case.replace('_', ' ')}: $|\\hat b_\\mathrm{{total}}|/|\\hat b_\\mathrm{{external}}|"

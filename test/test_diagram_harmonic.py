@@ -36,6 +36,18 @@ def test_helical_harmonic_is_the_real_part_in_the_helical_phase():
         helical_harmonic(1.0, 0.0, 0.0, 0, 1)
 
 
+def test_a_sampled_toroidal_decomposition_is_the_conjugate_coefficient():
+    from vaft.process import toroidal_mode_decomposition
+
+    n, A, delta = 2, 1.3, 0.7
+    phi = np.linspace(0, 2 * np.pi, 12, endpoint=False)
+    C = toroidal_mode_decomposition(phi, A * np.cos(n * phi + delta), [n])[n]
+    b_hat = 2 * np.conj(C)  # as helical_harmonic's Convention states
+    # at theta = 0 the m-part drops out, whatever m is
+    np.testing.assert_allclose(helical_harmonic(b_hat, 0.0, phi, 1, n), A * np.cos(n * phi + delta), atol=1e-12)
+    assert not np.allclose(helical_harmonic(2 * C, 0.0, phi, 1, n), A * np.cos(n * phi + delta))
+
+
 # --- normal component ----------------------------------------------------------------------
 
 
@@ -73,6 +85,12 @@ def test_the_quadratures_are_a_cos_and_a_sin(amplitude, phase):
     (imag,) = [it for it in d.scene.role("imag_component") if hasattr(it, "points")]
     assert real.points[1][0] == pytest.approx(end[0]) and real.points[1][1] == 0.0
     assert imag.points[1][1] == pytest.approx(end[1]) and imag.points[1][0] == 0.0
+
+
+def test_the_amplitude_is_printed_on_its_circle():
+    (label,) = [it for it in vaft.diagram.complex_harmonic(2.5, 0.4).scene.role("amplitude") if hasattr(it, "text")]
+    assert "2.5" in label.text
+    assert vaft.diagram.complex_harmonic(2.5, 0.4).tikz != vaft.diagram.complex_harmonic(1.0, 0.4).tikz
 
 
 @pytest.mark.parametrize("kw", [{"amplitude": 0.0}, {"amplitude": -1.0}, {"amplitude": float("nan")},

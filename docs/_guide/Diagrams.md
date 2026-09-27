@@ -186,10 +186,16 @@ vaft.diagram.complex_field_superposition(case="screening")   # "amplification", 
 
 The phase convention is `helical_phase`'s $\xi = m\theta - n\phi$, with both mode numbers positive and
 the helicity in the minus sign. `vaft.code.gpec` stores each complex quantity as a real/imaginary pair
-(`i = 0` real, `i = 1` imaginary) and rebuilds it as `real + 1j * imag`. That pair is the $(b_R, b_I)$
-of `complex_harmonic`, and it becomes a field only through the real-space reconstruction. A code whose
-Fourier kernel has the opposite sign stores the complex conjugate; the readers do not reinterpret it.
-Amplitudes, phases and responses in these figures are schematic.
+(`i = 0` real, `i = 1` imaginary) and rebuilds it as `real + 1j * imag`, deciding no convention. For
+GPEC's spectral outputs that pair is the $(b_R, b_I)$ of `complex_harmonic`, and it becomes a field only
+through the real-space reconstruction. Two sources differ:
+
+* the `*_fun` quantities (`b_n_fun`, `xi_n_fun`) are already real-space in $\theta$, and GPEC writes
+  them as $(\mathrm{Re}, -h\,\mathrm{Im})$ with its helicity $h$;
+* `vaft.process.toroidal_mode_decomposition` returns the conjugate, $\hat b = 2\,\overline{C_n}$.
+
+`helical_harmonic`'s Convention section states both. Amplitudes, phases and responses in these
+figures are schematic.
 
 ## Using the committed assets
 

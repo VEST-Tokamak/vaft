@@ -1182,9 +1182,15 @@ def helical_harmonic(b_hat, theta, phi, m_pol, n_tor):
     both mode numbers positive, the helicity in the minus sign, and
     $\hat b$ carrying the amplitude $|\hat b|$ and the phase
     $\arg\hat b$ of the pattern. A crest ($\delta b = |\hat b|$) sits where
-    $\xi = -\arg\hat b$. A code whose Fourier kernel is $e^{-i(m\theta - n\phi)}$
-    stores the complex conjugate of this $\hat b$; a stored real/imaginary
-    pair is converted by that rule, never reinterpreted.
+    $\xi = -\arg\hat b$. A coefficient taken with the kernel
+    $e^{-in\phi}$ over a real pattern -- ``toroidal_mode_decomposition``'s
+    $C_n$, for which $A\cos(n\phi + \delta)$ gives $(A/2)e^{+i\delta}$ --
+    is the conjugate of this one: $\hat b = 2\,\overline{C_n}$. GPEC's
+    spectral output matches $e^{-in\phi}$ as written here, while its
+    real-space $\theta$-functions (``*_fun``) are stored as
+    $(\mathrm{Re}, -h\,\mathrm{Im})$ with the helicity $h$ (see
+    ``vaft.machine_mapping.conventions``). A stored pair is converted by the
+    rule of its source, never reinterpreted.
 
     Physical interpretation
     -----------------------

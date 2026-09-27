@@ -2,13 +2,13 @@
   "diagrams": {
     "complex_field_superposition.svg": {
       "call": "vaft.diagram.complex_field_superposition()",
-      "source_sha256": "55b6bbae42f211281afed12c49bd603ea2d56159f78e6b78fcd03b949e5d6604",
-      "svg_sha256": "28ac1653cf0eaf4b60918995c741d80c095a4d948ccfe00d07a76bd929abc786"
+      "source_sha256": "a3bfd8c0b91ed60b23c3d3f6cbdc57cc775ffb13dbfdd0f58132bc790878925a",
+      "svg_sha256": "04a1ef9f14677fccbfb18657e869ff561dff318466ab30071f1fe36c580b7405"
     },
     "complex_harmonic.svg": {
       "call": "vaft.diagram.complex_harmonic()",
-      "source_sha256": "573176ea3c7bc4c453096c3c46e51d641905c761198178c7188b43fa8f22c07c",
-      "svg_sha256": "fe213c6d4b6ba40735d47495c2cd8170f2d19babd09ddd3e9195cbbdb4e79223"
+      "source_sha256": "0b62ead4a4e0f7499c0175f9b40fa7a5230392ef763e54e0d115fa2ef82ce2df",
+      "svg_sha256": "54b84c15ca711177b40c69b23089b309ebd6301bb79c4a7b027c0b37cb4337b5"
     },
     "curvature_drift.svg": {
       "call": "vaft.diagram.curvature_drift()",
@@ -117,8 +117,8 @@
     },
     "toroidal_harmonic_phase.svg": {
       "call": "vaft.diagram.toroidal_harmonic_phase()",
-      "source_sha256": "fe84db8fa9c98dc88a0ad9521a8b75cb6f42600fd696205994ddf102295c5037",
-      "svg_sha256": "e54f26d38a3f832d825e3bb67217a3040256d0479c36386aee17370450a2940a"
+      "source_sha256": "2c6010b5bfe5a162bba23b562b567369227778e26d805fb79200d843951902f7",
+      "svg_sha256": "1afb5b281efd0effd7c1daa980622f72485c64529b4f9a7bfc65cbaa459509ba"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",
