@@ -83,10 +83,12 @@ def test_a_declared_weber_artifact_is_left_alone(weber):
 
 
 def test_a_declared_per_radian_artifact_is_converted_without_probing(legacy, weber):
-    """The declaration wins: no phi, boundary or ip is consulted."""
+    """The declaration wins: no phi, boundary, ip or q is consulted."""
     set_ods_cocos(legacy, 3)
     ts = legacy["equilibrium.time_slice.0"]
-    for leaf in ("profiles_1d.phi", "boundary.outline.r", "boundary.outline.z", "global_quantities.ip"):
+    # q goes too: the contour-q rung (7111a8e3) decides from it alone
+    for leaf in ("profiles_1d.phi", "boundary.outline.r", "boundary.outline.z", "global_quantities.ip",
+                 "profiles_1d.q"):
         if leaf in ts:
             del ts[leaf]
     assert slice_flux_exponent(ts) is None
@@ -107,11 +109,24 @@ def test_inconsistent_slices_are_refused(legacy, weber):
     assert ods_cocos(mixed) is None
 
 
-def test_an_undecidable_artifact_is_refused(legacy):
+def test_an_artifact_without_phi_or_outline_is_decided_from_q(legacy, weber):
     ts = legacy["equilibrium.time_slice.0"]
     for leaf in ("profiles_1d.phi", "boundary.outline.r", "boundary.outline.z"):
         if leaf in ts:
             del ts[leaf]
+    assert slice_flux_exponent(ts) == 0
+    assert equilibrium_psi_to_weber(legacy) is True
+    _assert_same_equilibrium(legacy, weber)
+
+
+def test_an_undecidable_artifact_is_refused(legacy):
+    ts = legacy["equilibrium.time_slice.0"]
+    # without phi and an outline the contour-q rung still decides; without q
+    # as well, nothing can
+    for leaf in ("profiles_1d.phi", "boundary.outline.r", "boundary.outline.z", "profiles_1d.q"):
+        if leaf in ts:
+            del ts[leaf]
+    assert slice_flux_exponent(ts) is None
     with pytest.raises(ValueError, match="declare the COCOS index"):
         equilibrium_psi_to_weber(legacy)
 
