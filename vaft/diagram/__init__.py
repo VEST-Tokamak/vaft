@@ -82,6 +82,11 @@ __all__ = [
     "sfl_coordinate_grids",
     "sfl_coordinate_taxonomy",
     "sfl_fourier_convergence",
+    "clebsch_field_line_label",
+    "ballooning_curvature_drive",
+    "ballooning_eigenfunction",
+    "ballooning_harmonic_envelope",
+    "ballooning_workflow",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -127,6 +132,11 @@ _LOCATIONS = {
     "sfl_coordinate_grids": "._sfl_coordinates",
     "sfl_coordinate_taxonomy": "._sfl_coordinates",
     "sfl_fourier_convergence": "._sfl_coordinates",
+    "clebsch_field_line_label": "._ballooning",
+    "ballooning_curvature_drive": "._ballooning",
+    "ballooning_eigenfunction": "._ballooning",
+    "ballooning_harmonic_envelope": "._ballooning",
+    "ballooning_workflow": "._ballooning",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

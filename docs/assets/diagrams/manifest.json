@@ -1,9 +1,34 @@
 {
   "diagrams": {
+    "ballooning_curvature_drive.svg": {
+      "call": "vaft.diagram.ballooning_curvature_drive()",
+      "source_sha256": "1e4addb6497662d284b7bd8fcf12ca4271de11343acd08f0ba098289659fd83c",
+      "svg_sha256": "02af6d1efa6675e852bc5b186b953989bf148971269cc74e451e9d90bd292456"
+    },
+    "ballooning_eigenfunction.svg": {
+      "call": "vaft.diagram.ballooning_eigenfunction()",
+      "source_sha256": "60b033a59bb0e4367302920c0e02754019c7d42be40d0bb48ef46029c37e7d84",
+      "svg_sha256": "39ca7349a7a2e11f497cb6858e0426a07c24e119aea0173ef108e556a354ca94"
+    },
+    "ballooning_harmonic_envelope.svg": {
+      "call": "vaft.diagram.ballooning_harmonic_envelope()",
+      "source_sha256": "5d2830290c9af42b7cab33e4be90faf100dc069fc0153daeba349ccbbadbe1d8",
+      "svg_sha256": "88e6449439d1b6f1fedaef6df83f6a3bbacd892cd17213c88ffaf4969e1c9029"
+    },
+    "ballooning_workflow.svg": {
+      "call": "vaft.diagram.ballooning_workflow()",
+      "source_sha256": "70e479a0389c1b1e90b5ff510a1f568e8b1f291796ad1c4869c7e4513f839078",
+      "svg_sha256": "675757b7885277699264ab2d9577dfad32eec60f9bc52ded9de9ffcbc0b7f914"
+    },
     "canonical_toroidal_momentum.svg": {
       "call": "vaft.diagram.canonical_toroidal_momentum()",
       "source_sha256": "c582b680226b495b7f463eb07d7c427482153e3d6395f169d49870c9f3030724",
       "svg_sha256": "c0fb3d448e51bb963b2872ca0f4fde6d291a4db25a9f461e2477a0c76a0c8a91"
+    },
+    "clebsch_field_line_label.svg": {
+      "call": "vaft.diagram.clebsch_field_line_label()",
+      "source_sha256": "e0d0625ff28c29fc9643182db9641466496bcb9516b472b537c8f22e1be8b99f",
+      "svg_sha256": "5b121c5c1426d6af56b4e0046a9478804761ded612ced1df09ede59d34a69d64"
     },
     "collision_processes.svg": {
       "call": "vaft.diagram.collision_processes()",

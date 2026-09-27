@@ -64,6 +64,9 @@ __all__ = [
     "s_alpha_marginal_alpha",
     "rhostar_from_Te_a_Bt",
     "sawtooth_stability_criterion",
+    "s_alpha_ballooning_solution",
+    "s_alpha_curvature_drive",
+    "field_line_label",
     "v_alfven_from_B_n_mi",
 ]
 
@@ -1504,6 +1507,183 @@ def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_AL
         theta += h
         stable &= F > 0.0
     return stable if stable.ndim else bool(stable)
+
+
+def field_line_label(phi, theta, q):
+    r"""Clebsch field-line label on a flux surface in straight-field-line coordinates.
+
+    $$\alpha = \phi - q\,\theta$$
+
+    Parameters
+    ----------
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    theta : float or np.ndarray
+        Straight-field-line poloidal angle, e.g. PEST $\theta^*$ [rad].
+    q : float or np.ndarray
+        Safety factor of the surface, a positive magnitude [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha$, constant along each field line; not wrapped [rad].
+
+    Convention
+    ----------
+    Along a field line $d\phi/d\theta = q$, so $\alpha$ is constant. With
+    $\psi$ rising outward and $\mathbf B$ along $+\phi$, $+\theta$ the Clebsch
+    form is $\mathbf B \propto \nabla\psi\times\nabla\alpha$; the opposite
+    orientation (COCOS) gives $\nabla\alpha\times\nabla\psi$.
+    For a rational $q = m/n$ it relates to ``helical_phase`` by
+    $\alpha = -\xi/n$ ($\phi_0 = 0$): lines of one $\alpha$ are lines of one
+    helical phase.
+
+    Physical interpretation
+    -----------------------
+    Together with $\psi$ it names a field line: the line is the intersection
+    of the surfaces $\psi = $ const and $\alpha = $ const. It is the natural
+    binormal coordinate of field-aligned, ballooning and flux-tube models.
+
+    Assumptions
+    -----------
+    Nested flux surfaces with a straight-field-line angle; undefined at
+    separatrices and in islands or stochastic regions.
+
+    References
+    ----------
+    .. [1] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 4 and 6.
+    """
+    result = np.asarray(phi, dtype=float) - np.asarray(q, dtype=float) * np.asarray(theta, dtype=float)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_curvature_drive(theta, s, alpha, theta0=0.0):
+    r"""Normal-curvature drive of the $s$-$\alpha$ ballooning equation along the extended angle.
+
+    $$K(\theta) = \cos\theta + \Lambda\sin\theta,\qquad
+      \Lambda = s(\theta - \theta_0) - \alpha(\sin\theta - \sin\theta_0)$$
+
+    Parameters
+    ----------
+    theta : float or np.ndarray
+        Extended ballooning angle, not restricted to one period [rad].
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta0 : float
+        Ballooning angle $\theta_0$ (radial-wavenumber parameter) [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $K$; the drive $\alpha K F$ is destabilising where $K > 0$ [-].
+
+    Convention
+    ----------
+    The coefficient of $\alpha F$ in the equation of
+    ``s_alpha_ballooning_stable`` (there $\theta_0 = 0$). $\cos\theta$ is the
+    normal curvature -- bad (positive) on the outboard side -- and
+    $\Lambda\sin\theta$ the geodesic curvature weighted by the local shear.
+
+    Physical interpretation
+    -----------------------
+    Where the mode sits along the field line decides whether pressure
+    drives it: it balloons where $K > 0$, on the outboard, bad-curvature side,
+    and is stabilised by field-line bending elsewhere. $\theta_0$ slides the
+    point of zero local shear along the line.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``: large aspect ratio, circular shifted
+    surfaces, infinite toroidal mode number.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    """
+    theta = np.asarray(theta, dtype=float)
+    lam = float(s) * (theta - float(theta0)) - float(alpha) * (np.sin(theta) - np.sin(float(theta0)))
+    result = np.cos(theta) + lam * np.sin(theta)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_STEP):
+    r"""The even solution $F(\theta)$ of the marginal $s$-$\alpha$ ballooning equation.
+
+    $$\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
+    + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = 0,\qquad F(0) = 1,\ F'(0) = 0$$
+
+    Parameters
+    ----------
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta_max : float
+        End of the extended-angle interval [rad].
+    step : float
+        Fixed fourth-order Runge-Kutta step [rad].
+
+    Returns
+    -------
+    theta : np.ndarray
+        Extended angle from 0 to ``theta_max`` [rad].
+    F : np.ndarray
+        The solution; it is even, so $F(-\theta) = F(\theta)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``theta_max`` or ``step`` is not positive.
+
+    Convention
+    ----------
+    The same equation, normalisation and integrator as
+    ``s_alpha_ballooning_stable``, returning the path instead of the verdict:
+    by Newcomb's criterion the surface is unstable exactly when this $F$
+    crosses zero.
+
+    Physical interpretation
+    -----------------------
+    The ballooning envelope along the field line on the extended angle: a
+    zero crossing means a localised perturbation can release energy.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    """
+    if not theta_max > 0.0 or not step > 0.0:
+        raise ValueError("theta_max and step must be positive")
+    s, a = float(s), float(alpha)
+
+    def rhs(theta, F, G):
+        lam = s * theta - a * np.sin(theta)
+        return G / (1.0 + lam * lam), -a * (np.cos(theta) + lam * np.sin(theta)) * F
+
+    h = float(step)
+    n = int(np.ceil(theta_max / h))
+    thetas = np.arange(n + 1) * h
+    F, G = 1.0, 0.0
+    out = [F]
+    for i in range(n):
+        theta = thetas[i]
+        k1F, k1G = rhs(theta, F, G)
+        k2F, k2G = rhs(theta + h / 2, F + h / 2 * k1F, G + h / 2 * k1G)
+        k3F, k3G = rhs(theta + h / 2, F + h / 2 * k2F, G + h / 2 * k2G)
+        k4F, k4G = rhs(theta + h, F + h * k3F, G + h * k3G)
+        F = F + h / 6 * (k1F + 2 * k2F + 2 * k3F + k4F)
+        G = G + h / 6 * (k1G + 2 * k2G + 2 * k3G + k4G)
+        out.append(F)
+    return thetas, np.array(out)
 
 
 def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
