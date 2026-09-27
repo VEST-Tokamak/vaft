@@ -123,6 +123,7 @@ CONVENTION_SENSITIVE = frozenset({
     "magnetic_moment",
     "canonical_toroidal_momentum",
     "guiding_center_toroidal_momentum",
+    "psi_per_radian_from_cocos",
     "bounce_harmonic_detuning",
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",

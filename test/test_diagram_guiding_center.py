@@ -27,6 +27,21 @@ def test_the_banana_conserves_p_phi_mu_and_energy():
     assert o["v_par"].min() < 0 < o["v_par"].max()
 
 
+def test_the_banana_is_one_continuous_time_ordered_path_with_closed_tips():
+    o = banana_orbit()
+    step = np.hypot(np.diff(o["R"]), np.diff(o["Z"]))
+    assert step.max() < 6 * np.median(step)  # no chords: the segments follow in time order
+    closing = np.hypot(o["R"][-1] - o["R"][0], o["Z"][-1] - o["Z"][0])
+    assert closing < 6 * np.median(step)
+    tip = int(np.argmax(o["theta"]))
+    assert abs(o["v_par"][tip]) < 0.01 * abs(o["v_par"][0])  # the tip is a bounce point
+    assert o["r"][tip] == pytest.approx(o["r_tip"])
+    # the path is outboard -> upper tip -> back -> lower tip -> home: theta rises, falls, then rises
+    th = o["theta"]
+    assert th[tip] == th.max() and np.argmin(th) > tip
+    assert np.all(o["v_par"][:tip] > 0) and np.all(o["v_par"][tip + 1:np.argmin(th)] <= 0)
+
+
 def test_the_decomposition_shows_the_parts_trading_at_constant_p_phi():
     d = vaft.diagram.canonical_toroidal_momentum()
     parts, changes = d.model["parts"], d.model["changes"]
@@ -37,6 +52,7 @@ def test_the_decomposition_shows_the_parts_trading_at_constant_p_phi():
         assert d_flux + d_mech == pytest.approx(0.0, abs=1e-12)
     for name in ("A", "C"):
         assert d.scene.role(f"bar:flux:{name}") and d.scene.role(f"bar:mechanical:{name}")
+    assert changes["B"] == (0.0, 0.0)  # measured from the bounce tip itself
     (box,) = d.scene.role("equations")
     assert formula_equation(guiding_center_toroidal_momentum) in box.text
 
@@ -46,6 +62,7 @@ def test_the_phase_moves_point_c_along_one_orbit(phase):
     m = vaft.diagram.canonical_toroidal_momentum(phase).model
     n = len(m["orbit"]["theta"])
     assert m["points"]["C"] == round(phase * (n - 1))
+    # later phases are later in time: the orbit is time-ordered, so C walks along it
     with pytest.raises(ValueError):
         vaft.diagram.canonical_toroidal_momentum(1.0)
 
@@ -53,8 +70,12 @@ def test_the_phase_moves_point_c_along_one_orbit(phase):
 def test_the_invariant_diagram_separates_particle_guiding_centre_surfaces_and_invariants():
     d = vaft.diagram.guiding_center_invariants()
     for role in ("particle_orbit", "guiding_center", "flux_surface", "invariant:mu", "invariant:j_parallel",
-                 "invariant:p_phi", "motion:gyro", "motion:bounce", "motion:drift"):
+                 "invariant:p_phi"):
         assert d.scene.role(role), role
+    texts = " ".join(it.text for r in ("invariant:mu", "invariant:j_parallel", "invariant:p_phi")
+                     for it in d.scene.role(r) if hasattr(it, "text"))
+    for symbol in ("\\mu", "J_\\parallel", "P_\\phi", "\\Omega_c", "\\omega_b", "\\omega_d"):
+        assert symbol in texts, symbol
     # the particle circles about the guiding centre at the drawn Larmor radius
     (particle,) = d.scene.role("particle_orbit")
     assert len(particle.points) > 50
@@ -69,7 +90,9 @@ def test_symmetry_breaking_is_secular_only_at_resonance():
     non = chart.curves["non_resonant"][:, 1]
     res = chart.curves["resonant"][:, 1]
     assert np.ptp(axi) == 0.0
-    assert abs(non[-1] - 1.0) < 2 * p["kick"] / abs(p["detuning_non_resonant"])  # bounded
+    # off resonance: bounded, and at least two full oscillations are shown
+    assert np.max(np.abs(non - 1.0)) <= p["kick"] / abs(p["detuning_non_resonant"]) + 1e-12
+    assert 60.0 * abs(p["detuning_non_resonant"]) / (2 * np.pi) > 2
     assert res[-1] - 1.0 == pytest.approx(p["kick"] * 60.0)  # linear
 
 

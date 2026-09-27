@@ -33,6 +33,7 @@ __all__ = [
     "magnetic_moment",
     "canonical_toroidal_momentum",
     "guiding_center_toroidal_momentum",
+    "psi_per_radian_from_cocos",
     "bounce_harmonic_detuning",
     "boris_orbit",
 ]
@@ -547,8 +548,8 @@ def canonical_toroidal_momentum(q, m, R, v_phi, A_phi):
 
     Assumptions
     -----------
-    A static or axisymmetric field; the Lagrangian
-    $\mathcal L = \tfrac12 mv^2 + q\mathbf A\cdot\mathbf v - q\Phi$.
+    The Lagrangian $\mathcal L = \tfrac12 mv^2 + q\mathbf A\cdot\mathbf v - q\Phi$;
+    conservation needs axisymmetry, $\partial\mathcal L/\partial\phi = 0$.
 
     References
     ----------
@@ -596,10 +597,11 @@ def guiding_center_toroidal_momentum(q, m, v_par, R, b_phi, psi_per_radian):
     Convention
     ----------
     $\psi$ is **per radian** and is the covariant $RA_\phi$ with the IMAS
-    $\phi$: its sign follows the plasma current and field directions. A COCOS
-    flux in Wb (the whole-turn flux of COCOS 11-18, which IMAS uses) must be
-    divided by $2\pi$ and given the sign that makes $\psi = RA_\phi$ -- see
-    ``vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor``. $b_\phi v_\parallel$ is
+    $\phi$: its sign follows the plasma current's direction in $\phi$, largest
+    on the axis for a current along $+\phi$. A stored COCOS flux is converted
+    by ``psi_per_radian_from_cocos`` -- $-\psi/(2\pi)$ for COCOS 11 (IMAS DD3),
+    $+\psi/(2\pi)$ for COCOS 17; used as stored it gives the flux term the
+    wrong sign or a $2\pi$ error. $b_\phi v_\parallel$ is
     the toroidal velocity of the guiding centre; $mRb_\phi v_\parallel = mIv_\parallel/B$
     with $I = RB_\phi$.
 
@@ -628,6 +630,60 @@ def guiding_center_toroidal_momentum(q, m, v_par, R, b_phi, psi_per_radian):
         raise ValueError("m must be positive and R non-negative")
     result = (float(q) * np.asarray(psi_per_radian, dtype=float)
               + m * np.asarray(v_par, dtype=float) * R * np.asarray(b_phi, dtype=float))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def psi_per_radian_from_cocos(psi, cocos):
+    r"""The guiding-centre $\psi = RA_\phi$ from a flux stored in a COCOS convention.
+
+    $$\psi_{RA_\phi} = -\,\sigma_{Bp}\,\sigma_{R\phi Z}\,\frac{\psi_\mathrm{COCOS}}{(2\pi)^{e_{Bp}}}$$
+
+    Parameters
+    ----------
+    psi : float or np.ndarray
+        Poloidal flux as the COCOS convention stores it [Wb or Wb/rad].
+    cocos : int
+        The COCOS index, 1-8 or 11-18 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $RA_\phi$ with the IMAS $\phi$, the flux per radian that
+        ``guiding_center_toroidal_momentum`` takes [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``cocos`` is not one of the sixteen indices.
+
+    Convention
+    ----------
+    $\mathbf B_\mathrm{pol} = \nabla(RA_\phi)\times\nabla\phi$ with $\phi$
+    counter-clockwise from above, so $RA_\phi$ is largest on the axis for a
+    current along $+\phi$. Sauter's COCOS flux has $d\psi/d\rho$ of sign
+    $\sigma_{Ip}\sigma_{Bp}$ and its own $\phi$ orientation $\sigma_{R\phi Z}$,
+    hence the factor: $-1/(2\pi)$ for COCOS 11 (IMAS DD3), $+1/(2\pi)$ for
+    COCOS 17 (DD4), $-1$ for COCOS 1. $e_{Bp} = 1$ for 11-18 (whole-turn flux in Wb).
+
+    Physical interpretation
+    -----------------------
+    Only this signed, per-radian flux makes $q\psi + mv_\parallel Rb_\phi$ a
+    conserved quantity; a COCOS flux used as stored gives the flux term the
+    wrong sign or a $2\pi$ error.
+
+    References
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013)
+           293, Eq. 8 and Table I.
+    """
+    if isinstance(cocos, bool) or int(cocos) != cocos or int(cocos) not in (*range(1, 9), *range(11, 19)):
+        raise ValueError(f"cocos must be one of 1-8 or 11-18, not {cocos!r}")
+    c = int(cocos)
+    base = c % 10
+    sigma_bp = 1 if base in (1, 2, 5, 6) else -1
+    sigma_rphiz = 1 if base % 2 == 1 else -1
+    exponent = 1 if c >= 11 else 0
+    result = -sigma_bp * sigma_rphiz * np.asarray(psi, dtype=float) / (2.0 * np.pi) ** exponent
     return float(result) if np.ndim(result) == 0 else result
 
 

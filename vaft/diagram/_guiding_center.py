@@ -22,6 +22,7 @@ integrator is added: the orbit follows from the two invariants directly.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Dict, List
 
 import numpy as np
@@ -61,49 +62,85 @@ def _r_of_psi(psi):
     return np.sqrt(np.maximum(2.0 * _QS * np.asarray(psi, dtype=float) / _B0, 0.0))
 
 
-def banana_orbit(n: int = 1201) -> Dict[str, np.ndarray]:
-    """One bounce of a trapped guiding centre, from $\\mu$ and $P_\\phi$ conservation.
+def _leg_radius(P: float, theta: float, sign: float, B_start: float) -> float:
+    """Radius on one leg at ``theta``: the root of $P - q\\psi(r) - mv_\\parallel(r, \\theta)R(r, \\theta)$."""
+    from scipy.optimize import brentq
+
+    def f(r):
+        R = _R0 + r * math.cos(theta)
+        speed = parallel_speed_from_mu(_SPEED, _PITCH, B_start, float(vacuum_toroidal_field(_B0, _R0, R)))
+        return P - float(_psi(r)) - sign * speed * R if np.isfinite(speed) else np.nan
+
+    def edge(r_in, r_out):
+        """The boundary of the reachable region between a reachable and an unreachable radius."""
+        for _ in range(80):
+            mid = 0.5 * (r_in + r_out)
+            if np.isfinite(f(mid)):
+                r_in = mid
+            else:
+                r_out = mid
+        return r_in
+
+    grid = np.linspace(0.3, 0.9, 241)
+    values = np.array([f(r) for r in grid])
+    for i in range(len(grid) - 1):
+        lo, hi, a, b = grid[i], grid[i + 1], values[i], values[i + 1]
+        if np.isfinite(a) != np.isfinite(b):
+            # near a bounce tip the root sits at the edge of the reachable region, where v_par = 0
+            e = edge(lo, hi) if np.isfinite(a) else edge(hi, lo)
+            lo, hi = (lo, e) if np.isfinite(a) else (e, hi)
+            a, b = f(lo), f(hi)
+        if np.isfinite(a) and np.isfinite(b) and a * b <= 0.0:
+            return float(brentq(f, lo, hi, xtol=1e-13)) if a != b else float(lo)
+    return float("nan")
+
+
+def banana_orbit(n: int = 400) -> Dict[str, np.ndarray]:
+    """One bounce of a trapped guiding centre; see ``_banana_orbit``. Cached: it takes no physics inputs."""
+    return {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in _banana_orbit(int(n)).items()}
+
+
+@lru_cache(maxsize=4)
+def _banana_orbit(n: int) -> Dict[str, np.ndarray]:
+    """One bounce of a trapped guiding centre, from $\\mu$ and $P_\\phi$ conservation, in time order.
 
     Along the orbit $v_\\parallel$ follows from $\\mu$ and energy
     (``parallel_speed_from_mu``) in $B = B_0R_0/R$, and $\\psi$ from
     $P_\\phi = q\\psi + mv_\\parallel R$ held fixed
-    (``guiding_center_toroidal_momentum`` with $b_\\phi = 1$); the two are
-    solved together by fixed-point iteration at each poloidal angle.
+    (``guiding_center_toroidal_momentum`` with $b_\\phi = 1$): at each poloidal
+    angle the radius is the bracketed root of the two together. The tips are
+    exact: $v_\\parallel = 0$ there, so $\\psi = P_\\phi$ and the mirror sets the angle.
+    The path starts outboard with $v_\\parallel > 0$, runs to the upper tip,
+    back along the other leg, to the lower tip and home.
     """
     R_start = _R0 + _R_START
     B_start = float(vacuum_toroidal_field(_B0, _R0, R_start))
-    v_start = _SPEED * _PITCH
-    P = guiding_center_toroidal_momentum(1.0, 1.0, v_start, R_start, 1.0, float(_psi(_R_START)))
-    legs = []
+    P = guiding_center_toroidal_momentum(1.0, 1.0, _SPEED * _PITCH, R_start, 1.0, float(_psi(_R_START)))
+    r_tip = float(_r_of_psi(P))
+    R_tip = _R0 * _B0 * (1.0 - _PITCH**2) / B_start  # where the mirror stops the particle
+    theta_tip = math.acos((R_tip - _R0) / r_tip)
+    theta = theta_tip * (1.0 - (1.0 - np.linspace(0.0, 1.0, n)) ** 2)[:-1]  # denser towards the tip
+    theta = np.concatenate([theta[:1], theta[1:]])
+    legs = {}
     for sign in (1.0, -1.0):
-        rows = []
-        for theta in np.linspace(0.0, math.pi, n):
-            r = _R_START
-            v_par = sign * v_start
-            reached = True
-            for _ in range(30):
-                R = _R0 + r * math.cos(theta)
-                speed = parallel_speed_from_mu(_SPEED, _PITCH, B_start, float(vacuum_toroidal_field(_B0, _R0, R)))
-                if not np.isfinite(speed):
-                    reached = False
-                    break
-                v_par = sign * speed
-                r = float(_r_of_psi(P - v_par * R))
-            if not reached:
-                break
-            rows.append((theta, r, v_par))
-        legs.append(np.array(rows))
-    up, down = legs
-    # the upper leg runs out along +theta with v_par > 0, the return along the lower-v_par leg;
-    # mirror the lower half-plane: the orbit is up-down symmetric in this field
-    theta = np.concatenate([up[:, 0], down[::-1, 0], -up[::-1, 0], -down[:, 0]])
-    r = np.concatenate([up[:, 1], down[::-1, 1], up[::-1, 1], down[:, 1]])
-    v_par = np.concatenate([up[:, 2], down[::-1, 2], up[::-1, 2], down[:, 2]])
-    R = _R0 + r * np.cos(theta)
-    Z = r * np.sin(theta)
-    psi = _psi(r)
-    return {"theta": theta, "r": r, "R": R, "Z": Z, "v_par": v_par, "psi": psi, "P_phi": P,
-            "bounce_theta": float(up[-1, 0])}
+        r = np.array([_leg_radius(P, t, sign, B_start) for t in theta])
+        legs[sign] = np.append(r, r_tip)
+    th = np.append(theta, theta_tip)
+
+    def speed(r, t):
+        R = _R0 + r * np.cos(t)
+        return parallel_speed_from_mu(_SPEED, _PITCH, B_start, vacuum_toroidal_field(_B0, _R0, R))
+
+    up_r, down_r = legs[1.0], legs[-1.0]
+    up_v, down_v = np.nan_to_num(speed(up_r, th)), -np.nan_to_num(speed(down_r, th))
+    # time order: up leg to the upper tip, back on the down leg, on to the lower tip, home on the up leg
+    theta_path = np.concatenate([th, th[::-1][1:], -th[1:], -th[::-1][1:]])
+    r_path = np.concatenate([up_r, down_r[::-1][1:], down_r[1:], up_r[::-1][1:]])
+    v_path = np.concatenate([up_v, down_v[::-1][1:], down_v[1:], up_v[::-1][1:]])
+    R = _R0 + r_path * np.cos(theta_path)
+    Z = r_path * np.sin(theta_path)
+    return {"theta": theta_path, "r": r_path, "R": R, "Z": Z, "v_par": v_path, "psi": _psi(r_path), "P_phi": P,
+            "bounce_theta": theta_tip, "r_tip": r_tip}
 
 
 def _xy(R, Z):
@@ -179,7 +216,7 @@ def guiding_center_invariants(*, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
-def canonical_toroidal_momentum(phase: float = 0.35, *, labels: bool = True) -> Diagram:
+def canonical_toroidal_momentum(phase: float = 0.45, *, labels: bool = True) -> Diagram:
     r"""$P_\phi = q\psi + mv_\parallel Rb_\phi$ along one banana: the parts trade, the sum stays.
 
     Three points of the orbit of ``banana_orbit`` -- the outboard start, the
@@ -198,7 +235,7 @@ def canonical_toroidal_momentum(phase: float = 0.35, *, labels: bool = True) -> 
     labels = _check_labels(labels)
     orbit = banana_orbit()
     n = len(orbit["theta"])
-    tip = int(np.argmax(orbit["theta"]))
+    tip = int(np.argmax(orbit["theta"]))  # the upper bounce tip, v_par = 0 there
     picks = {"A": 0, "B": tip, "C": int(round(phase * (n - 1)))}
     items: List = []
     _surfaces(items)
@@ -219,7 +256,7 @@ def canonical_toroidal_momentum(phase: float = 0.35, *, labels: bool = True) -> 
     x0 = 1.5 * _A * _CM + 3.2
     ref = parts["B"]
     changes = {k: (v["flux"] - ref["flux"], v["mechanical"] - ref["mechanical"]) for k, v in parts.items()}
-    scale = 3.0 / max(max(abs(a), abs(b)) for a, b in changes.values())
+    scale = 2.8 / max(max(abs(a), abs(b)) for a, b in changes.values())
     for j, (name, (d_flux, d_mech)) in enumerate(changes.items()):
         y = 1.6 - 1.6 * j
         if abs(d_flux) * scale > 0.05:  # at B both changes are zero: nothing to draw
@@ -231,7 +268,7 @@ def canonical_toroidal_momentum(phase: float = 0.35, *, labels: bool = True) -> 
         else:
             items.append(Marker((x0, y), "o", "opoint", role=f"bar:flux:{name}"))
         if labels:
-            items.append(Label((x0 - 3.3, y), name, "small label", anchor="west", role=f"bar:{name}"))
+            items.append(Label((x0 - 3.35, y), name, "small label", anchor="east", role=f"bar:{name}"))
     items.append(Polyline.of([(x0, 2.2), (x0, -2.2 - 0.4)], "rational", role="p_phi_level"))
     if labels:
         top = _A * _CM
@@ -239,10 +276,10 @@ def canonical_toroidal_momentum(phase: float = 0.35, *, labels: bool = True) -> 
             Label((x0, 2.3), "$\\Delta P_\\phi = 0$", "label", anchor="south", role="p_phi_level"),
             Label((x0 - 3.3, -2.8), "change from B: blue $\\Delta(q\\psi)$, red $\\Delta(mv_\\parallel Rb_\\phi)$, returning to $\\Delta P_\\phi = 0$",
                   "small label", anchor="north west", role="bar:key"),
-            Label((0.5 * (x0 + 1.0), -top - 0.8), f"$\\displaystyle {formula_equation(guiding_center_toroidal_momentum)}$",
+            Label((0.5 * (x0 + 1.0), -top - 1.3), f"$\\displaystyle {formula_equation(guiding_center_toroidal_momentum)}$",
                   "formula box", anchor="north", role="equations"),
             _note_label("Axisymmetric: $\\partial\\mathcal{L}/\\partial\\phi = 0$ keeps $P_\\phi$ fixed, so $\\psi$ moves "
-                        "with $v_\\parallel$; normalised units", 0.5 * (x0 + 1.0), -top - 2.0),
+                        "with $v_\\parallel$; normalised units", 0.5 * (x0 + 1.0), -top - 2.5),
         ]
     model = {"orbit": orbit, "points": picks, "parts": parts, "changes": changes, "phase": phase}
     return Diagram("canonical_toroidal_momentum", Scene(tuple(items)), model=model)
@@ -270,7 +307,7 @@ def toroidal_symmetry_breaking(*, labels: bool = True) -> Diagram:
     labels = _check_labels(labels)
     t = np.linspace(0.0, 60.0, 1201)
     kick = 0.02
-    detuned = bounce_harmonic_detuning(1.0, 0.35, 0.1, l=1, n=2)  # 1 - 0.9 = 0.1
+    detuned = bounce_harmonic_detuning(1.0, 0.25, 0.1, l=1, n=2)  # 1 - 0.7 = 0.3: three periods shown
     resonant = bounce_harmonic_detuning(1.0, 0.375, 0.125, l=1, n=2)  # exactly 0
     curves = {"axisymmetric": np.ones_like(t),
               "non_resonant": 1.0 + kick * np.sin(detuned * t) / detuned,
@@ -279,7 +316,7 @@ def toroidal_symmetry_breaking(*, labels: bool = True) -> Diagram:
     for name, c in curves.items():
         chart.curves[name] = np.stack([t, c], -1)
     chart.parameters.update({"detuning_non_resonant": detuned, "detuning_resonant": resonant, "kick": kick})
-    scene = render_chart(chart, x_label="time (bounce periods)", y_label="$P_\\phi/P_{\\phi,0}$",
+    scene = render_chart(chart, x_label="$\\omega_b t$", y_label="$P_\\phi/P_{\\phi,0}$",
                          curve_styles={"axisymmetric": "approx", "non_resonant": "orbit ion", "resonant": "orbit electron"},
                          region_text={}, x_ticks=(0.0, 20.0, 40.0, 60.0), y_ticks=(1.0, 2.0))
     items: List = []

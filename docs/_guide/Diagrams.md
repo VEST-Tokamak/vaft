@@ -314,7 +314,7 @@ ways, not competing explanations.
 
 ```python
 vaft.diagram.guiding_center_invariants()
-vaft.diagram.canonical_toroidal_momentum(phase=0.35)
+vaft.diagram.canonical_toroidal_momentum(phase=0.45)
 vaft.diagram.toroidal_symmetry_breaking()
 ```
 
@@ -333,8 +333,10 @@ vaft.diagram.toroidal_symmetry_breaking()
 **Conventions.**
 * $P_\phi = mRv_\phi + qRA_\phi$ (`canonical_toroidal_momentum`) uses physical components and the
   IMAS $\phi$.
-* The guiding-centre form uses $\psi = RA_\phi$ in **Wb per radian**. A COCOS 11–18 whole-turn flux
-  must be divided by $2\pi$ and given the matching sign (`ods_psi_to_wb_per_radian_factor`).
+* The guiding-centre form uses $\psi = RA_\phi$ in **Wb per radian**, largest on the axis for a current
+  along $+\phi$. `psi_per_radian_from_cocos` converts a stored flux: $-\psi/2\pi$ for COCOS 11
+  (IMAS DD3) and $+\psi/2\pi$ for COCOS 17 (DD4). Used as stored, the flux has the wrong sign or a
+  $2\pi$ error.
 * $J_\parallel$ is documented but deliberately not a numerical helper: its bounce interval and
   orientation depend on the orbit.
 * The drift of one orbit's $P_\phi$ is not NTV. Torque and transport are #1111's, and need the kinetic

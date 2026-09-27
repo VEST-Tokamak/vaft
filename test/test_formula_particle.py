@@ -128,7 +128,6 @@ def test_gyration_offset_places_the_guiding_centre_at_the_orbit_centre(q):
 # --- guiding-centre invariants (#1092) -------------------------------------------------------
 
 from vaft.formula.particle import (  # noqa: E402
-    boris_orbit,
     bounce_harmonic_detuning,
     canonical_toroidal_momentum,
     guiding_center_toroidal_momentum,
@@ -203,3 +202,21 @@ def test_bounce_harmonic_detuning_vanishes_at_resonance_only():
     assert bounce_harmonic_detuning(0.0, 1.0, 0.5, l=0, n=3) == pytest.approx(-4.5)  # precession resonance ell = 0
     with pytest.raises(ValueError):
         bounce_harmonic_detuning(1.0, 1.0, l=1.5)
+
+
+def test_the_cocos_flux_conversion_matches_the_table_and_the_physics():
+    from vaft.data.cocos import cocos_spec
+    from vaft.formula.particle import psi_per_radian_from_cocos
+
+    for c in (*range(1, 9), *range(11, 19)):
+        spec = cocos_spec(c)
+        factor = psi_per_radian_from_cocos(1.0, c)
+        assert factor == pytest.approx(-spec.sigma_bp * spec.sigma_rpz / (2 * np.pi) ** spec.exp_bp), c
+    assert psi_per_radian_from_cocos(2 * np.pi, 11) == pytest.approx(-1.0)
+    assert psi_per_radian_from_cocos(2 * np.pi, 17) == pytest.approx(1.0)
+    # the physics: a current along +phi has R A_phi falling outward, and COCOS 11 psi rising
+    # (d psi / d rho has the sign sigma_Ip sigma_Bp = +1), so the conversion must flip the slope
+    psi_11 = np.array([0.0, 0.1, 0.3])  # rising outward, Ip > 0
+    assert np.all(np.diff(psi_per_radian_from_cocos(psi_11, 11)) < 0)
+    with pytest.raises(ValueError):
+        psi_per_radian_from_cocos(1.0, 9)

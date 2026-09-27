@@ -251,8 +251,8 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     wrapped around it.
     
     The global, invariant view of the same orbit physics is
-    ``canonical_toroidal_momentum``.
-    """
+    ``vaft.diagram.canonical_toroidal_momentum``.
+"""
     _check_projection(projection, ("3d", "poloidal", "top"))
     R0, B0, q, m = 6.0, 4.0, 1.0, 1.0
     v_par, v_perp = 1.0, 2.0
@@ -446,8 +446,8 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels:
     lines and the inward $\nabla B$, with the vertical drifts out of the page.
     
     The global, invariant view of the same orbit physics is
-    ``canonical_toroidal_momentum``.
-    """
+    ``vaft.diagram.canonical_toroidal_momentum``.
+"""
     from ._magnetic_island import _validate as _island_model
 
     _check_projection(projection, ("3d", "poloidal", "top"))
