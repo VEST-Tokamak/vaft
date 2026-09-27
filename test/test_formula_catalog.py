@@ -288,6 +288,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
+    "definitions",
 }
 
 
@@ -339,3 +340,128 @@ def test_cli_can_restrict_to_one_category(tmp_path):
     catalog.main(["--output", str(output), "--category", "atomic"])
     data = yaml.safe_load(output.read_text(encoding="utf-8"))
     assert {row["category"] for row in data["formulas"]} == {"atomic"}
+
+
+# --- definitions and the Markdown card (issue #889) ---------------------------------
+
+
+def test_the_definition_is_the_docstrings_display_equation():
+    spec = catalog.describe("greenwald_density")
+    assert spec.definitions == (
+        r"n_G\,[10^{20}\,\mathrm{m^{-3}}] = \frac{I_p\,[\mathrm{MA}]}{\pi a^2\,[\mathrm{m^2}]}",
+    )
+    assert spec.definition == f"$${spec.definitions[0]}$$"
+    several = catalog.describe("startup.plasma_external_inductance_hirshman_from_R_eps_kappa")
+    assert len(several.definitions) == 3 and several.definition.count("$$") == 6
+    assert catalog.describe("equilibrium.poloidal_field_magnitude").definition == ""
+
+
+@pytest.mark.parametrize("category", catalog.CATEGORIES)
+def test_every_definition_is_read_out_of_the_description(category):
+    for spec in catalog.list_formulas(category):
+        rest = spec.description
+        for equation in spec.definitions:
+            assert equation and "$$" not in equation, spec.qualname
+            assert equation in rest, spec.qualname
+            rest = rest.replace(equation, "", 1)
+        assert re.sub(r"\$\$\s*\$\$", "", rest).count("$$") == 0, spec.qualname  # none left behind
+
+
+def test_the_snapshot_carries_the_same_definitions_the_card_renders():
+    for row in catalog.documentation_snapshot()["formulas"]:
+        spec = catalog.describe(row["id"])
+        assert row["definitions"] == list(spec.definitions), row["id"]
+        for equation in row["definitions"]:
+            assert equation in row["description"], row["id"]  # what the reference page shows
+            assert equation in spec.to_markdown(), row["id"]
+
+
+@pytest.mark.parametrize("category", catalog.CATEGORIES)
+def test_every_formula_renders_a_markdown_card(category):
+    for spec in catalog.list_formulas(category):
+        card = spec.to_markdown()
+        assert card == spec._repr_markdown_()
+        assert card.startswith(f"**`{spec.qualname}")
+        assert ":func:" not in card and ":class:" not in card, spec.qualname
+        for item in spec.parameters:
+            assert f"`{item.name}` : " in card, (spec.qualname, item.name)
+            if item.unit:
+                assert f"[{item.unit}]" in card, (spec.qualname, item.name)
+        for title, _ in spec.sections:
+            if title not in ("Parameters", "Returns", "Yields", "Raises", "References"):
+                assert f"**{title}**" in card, (spec.qualname, title)
+        for ref in spec.references:
+            assert f"- [{ref.label}]" in card, spec.qualname
+
+
+def test_the_card_follows_the_reference_page_order():
+    card = catalog.describe("greenwald_density").to_markdown()
+    marks = ["**`stability.greenwald_density(I_p, a)`**", "Greenwald density limit", "$$n_G",
+             "**Parameters**", "**Returns**", "**Convention**", "**Validity**", "**References**"]
+    positions = [card.index(mark) for mark in marks]
+    assert positions == sorted(positions)
+    assert "*empirical fit · convention-sensitive*" in card
+
+
+def test_selected_parts_render_alone_and_in_the_order_asked():
+    spec = catalog.describe("greenwald_density")
+    assert spec.to_markdown(["definition"]) == spec.definition
+    text = spec.to_markdown(["validity", "definition"])
+    assert text.index("**Validity**") < text.index("$$") and "**Parameters**" not in text
+    assert spec.to_markdown(["Physical_interpretation"]) == spec.to_markdown(["physical interpretation"])
+    # the description shows the equation in its prose already
+    both = spec.to_markdown(["definition", "description"])
+    assert both == spec.to_markdown(["description"])
+
+
+def test_asking_for_what_a_formula_lacks_or_does_not_exist_fails():
+    spec = catalog.describe("equilibrium.poloidal_field_magnitude")
+    with pytest.raises(ValueError, match="documents no definition"):
+        spec.to_markdown(["definition"])
+    with pytest.raises(ValueError, match="documents no validity"):
+        catalog.describe("exb_drift_velocity").to_markdown(["validity"])
+    with pytest.raises(ValueError, match="unknown part"):
+        spec.to_markdown(["equation"])
+    with pytest.raises(TypeError):
+        spec.to_markdown("definition")
+    with pytest.raises(ValueError, match="empty"):
+        spec.to_markdown([])
+
+
+def test_a_part_asked_twice_renders_once():
+    spec = catalog.describe("greenwald_density")
+    assert spec.to_markdown(["definition", "definition"]) == spec.definition
+    assert spec.to_markdown(["description", "definition", "definition"]) == spec.to_markdown(["description"])
+
+
+def test_the_card_carries_the_alias_and_shadowing_notes_the_page_shows():
+    aliased = [spec for spec in catalog.list_formulas() if spec.aliases]
+    shadowed = [spec for spec in catalog.list_formulas() if spec.shadowed_by]
+    assert aliased and shadowed
+    for spec in aliased:
+        assert all(f"`{alias}`" in spec.to_markdown(["signature"]) for alias in spec.aliases), spec.qualname
+    for spec in shadowed:
+        assert f"resolves to the `{spec.shadowed_by}` copy" in spec.to_markdown(), spec.qualname
+
+
+def test_examples_render_as_code():
+    for spec in catalog.list_formulas():
+        if spec.section("Examples"):
+            assert "**Examples**\n\n```python\n" in spec.to_markdown(), spec.qualname
+
+
+def test_the_terminal_text_is_not_markdown():
+    spec = catalog.describe("greenwald_density")
+    assert str(spec) == spec.render()
+    assert spec.render().startswith("stability.greenwald_density(I_p, a)")
+    assert "**" not in spec.render()
+
+
+def test_show_renders_in_jupyter():
+    formatters = pytest.importorskip("IPython.core.formatters")
+    shown = vaft.formula.show("greenwald_density", sections=["definition"])
+    data, _ = formatters.DisplayFormatter().format(shown)
+    assert data["text/markdown"] == catalog.describe("greenwald_density").definition
+    data, _ = formatters.DisplayFormatter().format(vaft.formula.describe("greenwald_density"))
+    assert data["text/markdown"] == catalog.describe("greenwald_density").to_markdown()
+    assert str(vaft.formula.show("greenwald_density")) == data["text/markdown"]

@@ -14,7 +14,6 @@ orbits and drift vectors, so tests check the physics without the drawing.
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -101,20 +100,26 @@ _EQUATIONS = {
     "magnetization_current": (boris_orbit, gyrofrequency, larmor_radius),
     "toroidal_drift": (grad_b_drift_velocity, curvature_drift_velocity, exb_drift_velocity),
 }
-_DISPLAY_EQUATION = re.compile(r"\$\$(.+?)\$\$", re.S)
 _EQUATION_LINE_HEIGHT = 0.95  # cm per displayed equation in the box
 
 
 def formula_equation(function) -> str:
-    """The defining equation of a ``vaft.formula`` function, from its docstring.
+    """The defining equation of a ``vaft.formula`` function, as its catalog entry gives it.
 
-    The figures show exactly this text, so an equation on a diagram cannot
-    drift from the one the formula documents and implements.
+    The figures show exactly the first of ``FormulaSpec.definitions``, so an
+    equation on a diagram cannot drift from the one the formula documents,
+    the reference page shows and ``vaft.formula.show`` renders.
     """
-    match = _DISPLAY_EQUATION.search(function.__doc__ or "")
-    if match is None:
-        raise ValueError(f"{function.__name__} documents no $$...$$ equation")
-    return " ".join(match.group(1).split())
+    from vaft.formula.catalog import CATEGORIES, describe
+
+    package, _, category = getattr(function, "__module__", "").rpartition(".")
+    name = getattr(function, "__name__", repr(function))
+    if package != "vaft.formula" or category not in CATEGORIES:
+        raise ValueError(f"{name} is not a vaft.formula function, so it documents no equation")
+    definitions = describe(f"{category}.{name}").definitions
+    if not definitions:
+        raise ValueError(f"{name} documents no $$...$$ equation")
+    return " ".join(definitions[0].split())
 
 
 def _with_equations(scene: Scene, family: str) -> Scene:

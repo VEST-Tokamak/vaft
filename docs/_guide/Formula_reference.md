@@ -27,7 +27,21 @@ import vaft.formula as F
 print(F.describe("greenwald_density"))          # one formula, rendered
 F.search("Sauter")                              # every formula whose text mentions it
 F.list_formulas(category="stability")           # imports only that submodule
+F.describe("greenwald_density").definition      # its $$...$$ equation, from the docstring
 ```
+
+In Jupyter the same entry renders as a Markdown card with typeset equations when it is a cell's
+last expression, and `F.show` renders only the parts a notebook needs, in the order given, so a
+tutorial shows the docstring's equation instead of restating it:
+
+```python
+F.describe("greenwald_density")                 # the whole card
+F.show("greenwald_density", sections=["definition", "convention", "validity"])
+```
+
+A part is `signature`, `summary`, `definition`, `description`, `parameters`, `returns`, `raises`,
+`references` or a docstring section (`convention`, `validity`, ...).  Asking for one the formula
+does not document raises `ValueError`; `print(...)` keeps the terminal text.
 
 The discovery layer is loaded on first use only; `import vaft.formula.stability` never touches it.
 
