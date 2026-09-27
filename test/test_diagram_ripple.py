@@ -80,3 +80,11 @@ def test_bad_coil_counts_fail():
     for n in (2, 40, 16.0, True):
         with pytest.raises(ValueError):
             vaft.diagram.toroidal_field_ripple(n)
+
+
+def test_the_tip_map_is_insensitive_to_last_bit_differences():
+    from vaft.diagram import _ripple
+
+    a = _ripple._tip_map(2.5, 300)
+    b = _ripple._tip_map(2.5, 300, x0=0.4 + 1e-15)
+    np.testing.assert_array_equal(a, b)

@@ -172,8 +172,8 @@
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",
-      "source_sha256": "4c2c700f73816715ba819f8e37b7ae83c1bc67e5a1af40fd4c0df110b3939732",
-      "svg_sha256": "625ec5254d9d328c62da72d1a0def9337a42a9e17c220fb289c9dc199276e23c"
+      "source_sha256": "42342342be5dcba5c8c77a555ecded36a6c28b4eeb5253e8e001b4674cdc90ba",
+      "svg_sha256": "0f296c34f512790a4d8406811634ecba580ac9a6b1581e57ff185e0f6a30cfaa"
     },
     "tearing_layer_matching.svg": {
       "call": "vaft.diagram.tearing_layer_matching()",

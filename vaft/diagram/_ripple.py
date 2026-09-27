@@ -267,8 +267,10 @@ def _tip_map(K: float, steps: int, x0: float = 0.4, p0: float = 0.3) -> np.ndarr
     x, p = x0, p0
     out = [p]
     for _ in range(steps):
-        p = p + K * math.sin(x)
-        x = x + p
+        # the stochastic map amplifies a one-ulp libm difference to O(1) within tens of steps;
+        # rounding the state every step keeps the drawn orbit, and so the SVG, platform independent
+        p = round(p + K * math.sin(x), 9)
+        x = round(x + p, 9)
         out.append(p)
     return np.array(out)
 
