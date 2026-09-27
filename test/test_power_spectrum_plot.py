@@ -172,6 +172,10 @@ class TestRegistration:
             "interferometer_spectrum",
             # issue #1005: two channels' coherence and phase, a Panels model
             "diagnostics_spectrum_coherence",
+            # issue #886: toroidal/poloidal mode spectra share the view, not
+            # the PowerSpectrum model
+            "coil_3d_spectrum_current",
+            "mhd_linear_spectrum_b_field_perturbed",
         }
 
     def test_every_spectrum_renderer_is_exported(self):
