@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e3b5a95</code>. What is described
+  <code>5f111f5</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -919,6 +919,76 @@ under <em>See Also</em>. $B_\phi \propto 1/R$ itself is <code class="language-pl
 <p>These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the
 quantitative check. Low-$n$ error fields, NTV and locking are separate topics.</p>
 
+<h2 id="guiding-centre-invariants-and-toroidal-symmetry">Guiding-centre invariants and toroidal symmetry</h2>
+
+<p>This is the global view of the orbit physics that <code class="language-plaintext highlighter-rouge">curvature_drift</code> and <code class="language-plaintext highlighter-rouge">toroidal_drift</code> show locally.
+The grad-B and curvature drifts say why a guiding centre moves at each instant. Conservation of
+$P_\phi$ constrains the whole orbit in an axisymmetric field. These are the same physics seen two
+ways, not competing explanations.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">guiding_center_invariants</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">canonical_toroidal_momentum</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="mf">0.45</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">toroidal_symmetry_breaking</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/guiding_center_invariants.svg" alt="invariants" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/canonical_toroidal_momentum.svg" alt="P_phi" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/toroidal_symmetry_breaking.svg" alt="symmetry breaking" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+      <th>Formula</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">guiding_center_invariants</code></td>
+      <td>Gyration, bounce and toroidal drift, with invariants $\mu$, $J_\parallel = \oint p_\parallel\,dl$ and $P_\phi$, valid for $\Omega_c \gg \omega_b \gg \omega_d$</td>
+      <td><code class="language-plaintext highlighter-rouge">magnetic_moment</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">canonical_toroidal_momentum</code></td>
+      <td>A banana built from $\mu$ and $P_\phi$ conservation. From the bounce tip, $\Delta(q\psi)$ and $\Delta(mv_\parallel Rb_\phi)$ cancel, so $\psi$ moves with $v_\parallel$: this is the orbit width. <code class="language-plaintext highlighter-rouge">phase</code> is the state a future animation steps</td>
+      <td><code class="language-plaintext highlighter-rouge">guiding_center_toroidal_momentum</code>, <code class="language-plaintext highlighter-rouge">parallel_speed_from_mu</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">toroidal_symmetry_breaking</code></td>
+      <td>A 3-D field changes $P_\phi$. Away from resonance the change oscillates; where $\Delta\omega_\mathrm{BH} = 0$ it is secular</td>
+      <td><code class="language-plaintext highlighter-rouge">bounce_harmonic_detuning</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Conventions.</strong></p>
+<ul>
+  <li>$P_\phi = mRv_\phi + qRA_\phi$ (<code class="language-plaintext highlighter-rouge">canonical_toroidal_momentum</code>) uses physical components and the
+IMAS $\phi$.</li>
+  <li>The guiding-centre form uses $\psi = RA_\phi$ in <strong>Wb per radian</strong>, largest on the axis for a current
+along $+\phi$. <code class="language-plaintext highlighter-rouge">psi_per_radian_from_cocos</code> converts a stored flux: $-\psi/2\pi$ for COCOS 11
+(IMAS DD3) and $+\psi/2\pi$ for COCOS 17 (DD4). Used as stored, the flux has the wrong sign or a
+$2\pi$ error.</li>
+  <li>$J_\parallel$ is documented but deliberately not a numerical helper: its bounce interval and
+orientation depend on the orbit.</li>
+  <li>The drift of one orbit’s $P_\phi$ is not NTV. Torque and transport are #1111’s, and need the kinetic
+response of the whole distribution.</li>
+</ul>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -1051,7 +1121,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1169,7 +1239,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 17:48:44 +0000"
+        "time": "2026-09-27 18:21:56 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

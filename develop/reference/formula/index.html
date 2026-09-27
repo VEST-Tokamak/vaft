@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e3b5a95</code>. What is described
+  <code>5f111f5</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -359,7 +359,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="particle">
     <td><a href="/vaft/develop/reference/formula/particle/">particle</a></td>
-    <td><code>vaft.formula.particle</code></td><td>8</td><td>Single-particle motion in magnetic and electric fields.</td>
+    <td><code>vaft.formula.particle</code></td><td>13</td><td>Single-particle motion in magnetic and electric fields.</td>
   </tr>
   <tr id="geometry">
     <td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td>
@@ -430,7 +430,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 282 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 287 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1000,11 +1000,17 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="boris_orbit particle"><td><a href="/vaft/develop/reference/formula/particle/#boris_orbit"><code>boris_orbit</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Charged-particle orbit from the Lorentz force, by the Boris scheme.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="bounce_harmonic_detuning particle"><td><a href="/vaft/develop/reference/formula/particle/#bounce_harmonic_detuning"><code>bounce_harmonic_detuning</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Frequency mismatch of a trapped orbit with a toroidal-$n$ perturbation at bounce harmonic $\ell$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="canonical_toroidal_momentum particle"><td><a href="/vaft/develop/reference/formula/particle/#canonical_toroidal_momentum"><code>canonical_toroidal_momentum</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Canonical toroidal angular momentum of a particle in an axisymmetric field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="curvature_drift_velocity particle"><td><a href="/vaft/develop/reference/formula/particle/#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Curvature drift velocity of the guiding centre.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="exb_drift_velocity particle"><td><a href="/vaft/develop/reference/formula/particle/#exb_drift_velocity"><code>exb_drift_velocity</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>E-cross-B drift velocity of the guiding centre.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="grad_b_drift_velocity particle"><td><a href="/vaft/develop/reference/formula/particle/#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Grad-B drift velocity of the guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="guiding_center_toroidal_momentum particle"><td><a href="/vaft/develop/reference/formula/particle/#guiding_center_toroidal_momentum"><code>guiding_center_toroidal_momentum</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Canonical toroidal momentum of a guiding centre, flux plus mechanical parts.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="gyration_offset particle"><td><a href="/vaft/develop/reference/formula/particle/#gyration_offset"><code>gyration_offset</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Position of a gyrating particle relative to its guiding centre.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1012,7 +1018,11 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="larmor_radius particle"><td><a href="/vaft/develop/reference/formula/particle/#larmor_radius"><code>larmor_radius</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Larmor (gyro) radius of a charged particle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetic_moment particle"><td><a href="/vaft/develop/reference/formula/particle/#magnetic_moment"><code>magnetic_moment</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Magnetic moment of a gyrating particle, the first adiabatic invariant.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="parallel_speed_from_mu particle"><td><a href="/vaft/develop/reference/formula/particle/#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="psi_per_radian_from_cocos particle"><td><a href="/vaft/develop/reference/formula/particle/#psi_per_radian_from_cocos"><code>psi_per_radian_from_cocos</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>The guiding-centre $\psi = RA_\phi$ from a flux stored in a COCOS convention.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1312,7 +1322,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 17:48:44 +0000"
+        "time": "2026-09-27 18:21:56 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
