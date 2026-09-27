@@ -621,3 +621,267 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Generated formula / process reference pages (_includes/reference/). */
+.ref-intro {
+  color: var(--vaft-muted-color);
+}
+
+.ref-table-wrap {
+  margin: 0.8em 0 1.2em;
+  overflow-x: auto;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  font-size: 0.92em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table td,
+.book .book-body .page-wrapper .page-inner section.normal .ref-table th {
+  padding: 0.45em 0.7em;
+  vertical-align: top;
+  text-align: left;
+}
+
+.ref-table td > p {
+  margin: 0;
+}
+
+.ref-table td > p + p {
+  margin-top: 0.4em;
+}
+
+.ref-table .ref-type,
+.ref-table .ref-unit {
+  white-space: nowrap;
+  color: var(--vaft-muted-color);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table tr.ref-group th {
+  background: var(--vaft-panel-surface);
+  color: var(--vaft-muted-color);
+  font-size: 0.8em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Long names (alpha_heating_power_from_n_D_n_T_T_keV_V) break anywhere
+   rather than starving the summary column. */
+.ref-index-table td:first-child {
+  width: 19em;
+  min-width: 12em;
+}
+
+.ref-index-table td:first-child code {
+  overflow-wrap: anywhere;
+}
+
+.ref-index-table td:last-child {
+  min-width: 14em;
+}
+
+.ref-filter {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: var(--vaft-surface);
+  color: var(--vaft-body-color);
+  font: inherit;
+}
+
+.ref-filter-empty {
+  color: var(--vaft-muted-color);
+  font-style: italic;
+}
+
+.ref-entry {
+  margin: 1.6em 0;
+  padding: 0.2em 1.2em 0.6em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 8px;
+  background: var(--vaft-surface);
+  scroll-margin-top: calc(var(--vaft-header-height) + 12px);
+}
+
+.ref-entry[hidden],
+.ref-index [hidden] {
+  display: none;
+}
+
+.ref-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 0.8em;
+  margin: 0.9em 0 0.4em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name {
+  margin: 0;
+  font-size: 1.15em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name a {
+  color: var(--vaft-heading-color);
+  text-decoration: none;
+}
+
+.ref-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.ref-flag {
+  display: inline-block;
+  padding: 0.05em 0.55em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 999px;
+  background: var(--vaft-panel-surface);
+  color: var(--vaft-muted-color);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.ref-flag-convention {
+  border-color: #c98a1b;
+  color: #9a6200;
+}
+
+.ref-flag-empirical {
+  border-color: #7c5cbf;
+  color: #5f3fa3;
+}
+
+.ref-flag-vest {
+  border-color: #2f7fb8;
+  color: #1f5f8f;
+}
+
+.ref-flag-deprecated {
+  border-color: #c0392b;
+  color: #a12b20;
+}
+
+.book.color-theme-2 .ref-flag-convention { color: #f0b85a; }
+.book.color-theme-2 .ref-flag-empirical { color: #b9a0f0; }
+.book.color-theme-2 .ref-flag-vest { color: #86c3f0; }
+.book.color-theme-2 .ref-flag-deprecated { color: #f08a7e; }
+
+.ref-source {
+  margin-left: auto;
+  font-size: 0.85em;
+}
+
+/* Light rather than the dark code-block style: one per entry, and it reads as
+   a heading line, not as a listing.  The copy-button plugin wraps every <pre>
+   in .code-block-wrapper, so the frame goes on that wrapper; the right
+   padding keeps the wrapped text clear of the button. */
+.book .book-body .page-wrapper .page-inner section.normal .code-block-wrapper:has(> pre.ref-signature) {
+  margin: 0.2em 0 0.9em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: var(--vaft-inline-code-bg);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre.ref-signature {
+  margin: 0.2em 0 0.9em;
+  padding: 0.6em 5.5em 0.6em 0.8em;
+  border-radius: 6px;
+  background: var(--vaft-inline-code-bg);
+  color: var(--vaft-inline-code-fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .code-block-wrapper > pre.ref-signature {
+  margin: 0;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre.ref-signature code {
+  color: inherit;
+  white-space: pre-wrap;
+  font-size: 1.25rem;
+}
+
+.ref-note {
+  color: var(--vaft-muted-color);
+  font-size: 0.9em;
+}
+
+.ref-callout {
+  margin: 0.9em 0;
+  padding: 0.5em 0.9em;
+  border-left: 3px solid var(--vaft-border);
+  border-radius: 0 6px 6px 0;
+  background: var(--vaft-panel-surface);
+}
+
+.ref-callout-convention {
+  border-left-color: #c98a1b;
+}
+
+.ref-callout-raises {
+  border-left-color: #c0392b;
+}
+
+.ref-callout > :last-child {
+  margin-bottom: 0.3em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-label {
+  margin: 0.3em 0 0.3em;
+  color: var(--vaft-muted-color);
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ref-raises {
+  margin: 0;
+  padding-left: 1.1em;
+}
+
+.ref-more {
+  margin: 0.9em 0 0.3em;
+  border-top: 1px solid var(--vaft-border);
+  padding-top: 0.5em;
+}
+
+.ref-more > summary {
+  cursor: pointer;
+  color: var(--vaft-link-color);
+  font-size: 0.9em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-more h4.ref-label {
+  margin-top: 1em;
+}
+
+@media (max-width: 700px) {
+  .ref-entry {
+    padding: 0.1em 0.8em 0.5em;
+  }
+
+  .ref-source {
+    margin-left: 0;
+  }
+
+  /* The table scrolls inside its wrapper; let the short columns wrap and
+     keep the description wide enough to read once it is scrolled to. */
+  .ref-table .ref-type {
+    white-space: normal;
+  }
+
+  .ref-table:not(.ref-index-table) td:last-child {
+    min-width: 13em;
+  }
+}

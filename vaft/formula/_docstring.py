@@ -28,6 +28,7 @@ from vaft._docstring import (  # noqa: F401 -- re-exported for the catalog and t
     RaiseDoc,
     Reference,
     ReturnDoc,
+    source_location,
     strip_roles,
 )
 from vaft._docstring import parse_docstring as _parse_docstring

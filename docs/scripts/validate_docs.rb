@@ -107,9 +107,10 @@ if (ROOT / "_data" / "formula_catalog.yml").file?
   formula_ids = formulas.map { |item| item["id"] }
   errors << "formula snapshot has duplicate IDs" unless formula_ids.uniq.length == formula_ids.length
   formulas.each do |item|
-    %w[id name category signature summary parameters returns sections references empirical convention_sensitive].each do |field|
+    %w[id name category signature summary parameters returns sections references raises source empirical convention_sensitive].each do |field|
       errors << "formula #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
     end
+    errors << "formula #{item['id']} has no source location" unless item["source"].is_a?(Hash) && item["source"]["path"].to_s.start_with?("vaft/formula/") && item["source"]["line"].to_i.positive?
     errors << "formula #{item['id']} has unknown category #{item['category']}" unless formula_categories.include?(item["category"])
   end
   if registry_source && !registry_source.empty?
@@ -149,9 +150,10 @@ if (ROOT / "_data" / "process_catalog.yml").file?
   errors << "process snapshot has duplicate IDs" unless function_ids.uniq.length == function_ids.length
   functions.each do |item|
     # machine_scope is legitimately nil until a category is brought under the contract.
-    %w[id name category signature summary parameters returns sections provenance convention_sensitive conforming errors].each do |field|
+    %w[id name category signature summary parameters returns sections provenance raises source convention_sensitive conforming errors].each do |field|
       errors << "process function #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
     end
+    errors << "process function #{item['id']} has no source location" unless item["source"].is_a?(Hash) && item["source"]["path"].to_s.start_with?("vaft/process/") && item["source"]["line"].to_i.positive?
     errors << "process function #{item['id']} has unknown category #{item['category']}" unless process_category_names.include?(item["category"])
     errors << "process function #{item['id']} has unknown machine_scope #{item['machine_scope']}" unless [nil, "independent", "vest"].include?(item["machine_scope"])
     errors << "process function #{item['id']} is conforming but lists errors" if item["conforming"] && !item["errors"].empty?

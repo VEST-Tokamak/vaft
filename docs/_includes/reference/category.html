@@ -1,0 +1,57 @@
+{%- comment -%}
+Body of one generated reference category page.
+
+  include.kind      "formula" or "process"
+  include.category  category key, e.g. "equilibrium"
+
+Every Formula_reference_<category>.md and Process_reference_<category>.md is
+front matter plus this include; the pages exist as files only because each
+needs its own permalink and the validator requires one per category.
+{%- endcomment -%}
+{%- if include.kind == "formula" -%}
+{%- assign catalog = site.data.formula_catalog -%}
+{%- assign entries = catalog.formulas | where: "category", include.category -%}
+{%- assign describe = "vaft.formula.describe" -%}
+{%- else -%}
+{%- assign catalog = site.data.process_catalog -%}
+{%- assign entries = catalog.functions | where: "category", include.category -%}
+{%- assign describe = "vaft.process.describe" -%}
+{%- endif -%}
+{%- assign category = catalog.categories | where: "name", include.category | first -%}
+{%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
+
+<p class="ref-intro">Generated from the docstrings of <code>{{ category.module }}</code>:
+<strong>{{ entries.size }}</strong> public functions. Each entry is what
+<code>{{ describe }}("{{ include.category }}.&lt;name&gt;")</code> prints.
+<a href="{{ site.baseurl }}/reference/{{ include.kind }}/">All {{ include.kind }} categories</a></p>
+
+## Overview
+
+{{ category.overview }}
+
+{% if category.notation.size > 0 %}<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  {% for row in category.notation %}<tr><td>{{ row.symbol | escape }}</td><td>{{ row.description | escape }}</td><td class="ref-unit">{{ row.unit | escape }}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+
+{% endif %}{% if category.conventions != "" %}{{ category.conventions }}
+
+{% endif %}## Functions
+
+<div class="ref-index" data-ref-index>
+<input class="ref-filter" type="search" placeholder="Filter {{ entries.size }} functions by name or summary" aria-label="Filter functions" data-ref-filter>
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  {% for f in entries %}<tr data-ref-row="{{ f.name }}{% for alias in f.aliases %} {{ alias }}{% endfor %}"><td><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></td><td>{{ f.summary | markdownify | remove: "<p>" | remove: "</p>" }}{% if f.empirical %} <span class="ref-flag ref-flag-empirical">Empirical</span>{% endif %}{% if f.convention_sensitive %} <span class="ref-flag ref-flag-convention">Convention</span>{% endif %}{% if f.deprecated %} <span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+<p class="ref-filter-empty" hidden>No function matches.</p>
+</div>
+
+<div class="ref-entries" markdown="block">
+{% for f in entries %}
+{% include reference/entry.html f=f kind=include.kind ref=source_ref %}
+{% endfor %}
+</div>

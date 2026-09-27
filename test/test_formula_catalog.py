@@ -6,6 +6,7 @@ import inspect
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -286,7 +287,7 @@ def test_the_normal_import_path_stays_cheap():
 _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
-    "convention_sensitive", "deprecated", "aliases", "shadowed_by",
+    "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
 }
 
 
@@ -310,6 +311,19 @@ def test_snapshot_schema():
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
         assert ":func:" not in yaml.safe_dump(row), row["id"]
+        assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
+        assert row["source"]["path"] == f"vaft/formula/{row['category']}.py", row["id"]
+        for item in row["raises"]:
+            assert set(item) == {"type", "description"} and item["type"], row["id"]
+
+
+def test_snapshot_rows_point_at_their_definition():
+    """The site links each entry to ``source.path#L<line>``; that line must be the ``def``."""
+    root = Path(vaft.formula.__file__).resolve().parents[2]
+    for row in catalog.documentation_snapshot()["formulas"]:
+        lines = (root / row["source"]["path"]).read_text(encoding="utf-8").splitlines()
+        start = lines[row["source"]["line"] - 1].lstrip()
+        assert start.startswith(("def ", "@")), (row["id"], start)
 
 
 def test_cli_round_trip(tmp_path):
