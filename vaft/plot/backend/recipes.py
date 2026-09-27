@@ -10443,9 +10443,8 @@ RECIPES["equilibrium_overview_pressure_weight_scan"] = CallableRecipe(
         "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.pressure",
         "equilibrium.time_slice.{i}.profiles_1d.q", "equilibrium.time_slice.{i}.global_quantities.beta_pol",
         "equilibrium.time_slice.{i}.global_quantities.li_3", "dataset_description.data_entry.pulse",
-        # the auxquantities counts live inside code.parameters, whose content
-        # the DD does not define; the DD leaf is the parameters string itself
-        "equilibrium.code.parameters",
+        # The auxquantities counts live inside the code.parameters tree, which
+        # _EFIT_QUALITY_READS declares as its DD leaf `equilibrium.code.parameters`.
     ),
     backend=NEUTRAL,
     multi_entry=True,

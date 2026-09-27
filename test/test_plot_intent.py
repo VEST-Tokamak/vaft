@@ -77,7 +77,7 @@ def _walk(obj, path, out, theme):
 # ---------------------------------------------------------------------------
 
 def test_every_model_resolves_to_the_colours_it_had(sample):
-    snapshot = json.loads(SNAPSHOT.read_text())["colours"]
+    snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))["colours"]
     entries = normalize_entries(sample)
     seen = {}
     for name in canonical_names():

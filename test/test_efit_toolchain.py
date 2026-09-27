@@ -68,9 +68,9 @@ def test_the_legacy_efit_variable_serves_efit_only(tmp_path):
 
 
 def test_there_is_no_efundhome():
-    source = Path(toolchain.__file__).read_text()
+    source = Path(toolchain.__file__).read_text(encoding="utf-8")
     assert "EFUNDHOME" not in source
-    assert "EFUNDHOME" not in Path(magnetic.__file__).read_text()
+    assert "EFUNDHOME" not in Path(magnetic.__file__).read_text(encoding="utf-8")
     assert "EFITHOME" in toolchain.unconfigured_reason("efund")
 
 
