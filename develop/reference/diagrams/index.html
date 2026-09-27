@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>86c9c82</code>. What is described
+  <code>e3b5a95</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -853,6 +853,72 @@ explains each representation.</p>
 the geometric-approximations section above. The toroidal → cylindrical → slab bridge is
 <code class="language-plaintext highlighter-rouge">geometry_ordering_map</code> together with <code class="language-plaintext highlighter-rouge">field_line_geometry</code>.</p>
 
+<h2 id="toroidicity-and-tf-ripple">Toroidicity and TF ripple</h2>
+
+<p>From the $1/R$ mirror to ripple-induced fast-particle transport. The formulas are in
+<a href="/vaft/develop/reference/formula/ripple/"><code class="language-plaintext highlighter-rouge">vaft.formula.ripple</code></a>, and each one names its diagram
+under <em>See Also</em>. $B_\phi \propto 1/R$ itself is <code class="language-plaintext highlighter-rouge">hfs_lfs_field</code>, in the tokamak-geometry section.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">trapped_and_passing_orbits</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">toroidal_field_ripple</span><span class="p">(</span><span class="n">n_tf</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ripple_well_formation</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">stochastic_ripple_orbit</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/trapped_and_passing_orbits.svg" alt="trapped and passing" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/toroidal_field_ripple.svg" alt="TF ripple" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/ripple_well_formation.svg" alt="ripple wells" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/stochastic_ripple_orbit.svg" alt="stochastic tips" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+      <th>Formula</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">trapped_and_passing_orbits</code></td>
+      <td>$\mu$ and energy conservation in $B \propto 1/R$: small pitches bounce as bananas, large ones pass</td>
+      <td><code class="language-plaintext highlighter-rouge">parallel_speed_from_mu</code>, <code class="language-plaintext highlighter-rouge">vacuum_toroidal_field</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">toroidal_field_ripple</code></td>
+      <td>$N_\mathrm{TF}$ coils corrugate $B(\phi)$: maximal under a coil, minimal between</td>
+      <td><code class="language-plaintext highlighter-rouge">toroidal_ripple_field</code>, <code class="language-plaintext highlighter-rouge">ripple_amplitude</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ripple_well_formation</code></td>
+      <td>Along a field line the ripple makes local wells where $\alpha^* \lesssim 1$, near the midplanes (to first order in $\epsilon$)</td>
+      <td><code class="language-plaintext highlighter-rouge">ripple_well_parameter</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stochastic_ripple_orbit</code></td>
+      <td>Ripple kicks at banana tips decorrelate above $\delta_\mathrm{GWB}$. Drawn as the standard map with $K \sim \delta/\delta_\mathrm{GWB}$</td>
+      <td><code class="language-plaintext highlighter-rouge">gwb_stochastic_threshold</code>, <code class="language-plaintext highlighter-rouge">gwb_stochasticity_parameter</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the
+quantitative check. Low-$n$ error fields, NTV and locking are separate topics.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -985,7 +1051,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1103,7 +1169,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 15:51:25 +0000"
+        "time": "2026-09-27 17:48:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

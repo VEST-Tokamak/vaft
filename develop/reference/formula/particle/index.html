@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>86c9c82</code>. What is described
+  <code>e3b5a95</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -277,7 +277,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.particle</code>:
-<strong>7</strong> public functions. Each entry is what
+<strong>8</strong> public functions. Each entry is what
 <code>vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -305,7 +305,7 @@ against which the drift relations can be checked.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="boris_orbit"><td><a href="#boris_orbit"><code>boris_orbit</code></a></td><td>Charged-particle orbit from the Lorentz force, by the Boris scheme.
@@ -322,6 +322,8 @@ against which the drift relations can be checked.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="larmor_radius"><td><a href="#larmor_radius"><code>larmor_radius</code></a></td><td>Larmor (gyro) radius of a charged particle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="parallel_speed_from_mu"><td><a href="#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></td><td>Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No function matches.</p>
@@ -333,7 +335,7 @@ against which the drift relations can be checked.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boris_orbit"><code>boris_orbit</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L380" title="vaft/formula/particle.py, line 380">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L447" title="vaft/formula/particle.py, line 447">source</a>
 </header>
     <pre class="ref-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps)</code></pre>
 
@@ -425,7 +427,7 @@ accurate gyrophase. Fixed step, so the output is deterministic.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L315" title="vaft/formula/particle.py, line 315">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L316" title="vaft/formula/particle.py, line 316">source</a>
 </header>
     <pre class="ref-signature"><code>curvature_drift_velocity(q, m, v_par, B, R_c)</code></pre>
 
@@ -500,7 +502,7 @@ $\mathbf{F}\times\mathbf{B}/(qB^2)$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L203" title="vaft/formula/particle.py, line 203">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L204" title="vaft/formula/particle.py, line 204">source</a>
 </header>
     <pre class="ref-signature"><code>exb_drift_velocity(E, B)</code></pre>
 
@@ -568,7 +570,7 @@ radius and slow in time compared with the gyroperiod.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L254" title="vaft/formula/particle.py, line 254">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L255" title="vaft/formula/particle.py, line 255">source</a>
 </header>
     <pre class="ref-signature"><code>grad_b_drift_velocity(q, m, v_perp, B, grad_B)</code></pre>
 
@@ -650,7 +652,7 @@ gyration.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gyration_offset"><code>gyration_offset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L141" title="vaft/formula/particle.py, line 141">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L142" title="vaft/formula/particle.py, line 142">source</a>
 </header>
     <pre class="ref-signature"><code>gyration_offset(q, m, B, v)</code></pre>
 
@@ -724,7 +726,7 @@ drift.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gyrofrequency"><code>gyrofrequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L43" title="vaft/formula/particle.py, line 43">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L44" title="vaft/formula/particle.py, line 44">source</a>
 </header>
     <pre class="ref-signature"><code>gyrofrequency(q, m, B)</code></pre>
 
@@ -793,7 +795,7 @@ slow by comparison.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#larmor_radius"><code>larmor_radius</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86c9c827b69e7d92882e412abd4baa88e4fae691/vaft/formula/particle.py#L93" title="vaft/formula/particle.py, line 93">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L94" title="vaft/formula/particle.py, line 94">source</a>
 </header>
     <pre class="ref-signature"><code>larmor_radius(q, m, v_perp, B)</code></pre>
 
@@ -848,6 +850,90 @@ approximations need it small against the field’s gradient length.</p>
 
       <ol class="ref-cites">
   <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="parallel_speed_from_mu">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e3b5a95b249df6acf516bd917742339daa5096b8/vaft/formula/particle.py#L381" title="vaft/formula/particle.py, line 381">source</a>
+</header>
+    <pre class="ref-signature"><code>parallel_speed_from_mu(v, pitch_ref, B_ref, B)</code></pre>
+
+    <p>Parallel speed where the field is $B$, from energy and magnetic-moment conservation.</p>
+
+\[\frac{v_\parallel}{v} = \pm\sqrt{1 - \left(1 - \xi_\mathrm{ref}^2\right)\frac{B}{B_\mathrm{ref}}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>v</code></td><td class="ref-type">float</td><td class="ref-unit">m/s</td><td><p>Speed, conserved.</p>
+</td></tr>
+  <tr><td><code>pitch_ref</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Pitch $\xi = v_\parallel/v$ where the field is <code class="language-plaintext highlighter-rouge">B_ref</code>, in $[-1, 1]$.</p>
+</td></tr>
+  <tr><td><code>B_ref</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Field strength at the reference point.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Field strength along the orbit.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><table>
+  <tbody>
+    <tr>
+      <td>$</td>
+      <td>v_\parallel</td>
+      <td>$, NaN where the particle cannot reach (it is reflected before $B$).</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Magnitude only: the sign is the direction of travel, which the caller
+tracks. $\mu = mv_\perp^2/(2B)$ and $E = mv^2/2$ are the invariants;
+a static field, no electric potential.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">pitch_ref</code> lies outside $[-1, 1]$ or a field is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The magnetic mirror: $v_\parallel$ falls as the particle moves into
+stronger field and vanishes where $B = B_\mathrm{ref}/(1 - \xi_\mathrm{ref}^2)$,
+the bounce point of a trapped particle.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Adiabatic motion: $\mu$ conserved, field varying slowly over a gyro-orbit.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>vaft.diagram.trapped_and_passing_orbits : the canonical diagram of this relation.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 2.3.3.
 </li>
 </ol>
 
@@ -1075,7 +1161,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 15:51:25 +0000"
+        "time": "2026-09-27 17:48:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

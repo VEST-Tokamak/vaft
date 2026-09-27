@@ -150,6 +150,11 @@
       "source_sha256": "bc68fd92a7fb4e6d87ca66dae713923e21f3c79971acc8c56139f230af31edff",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
     },
+    "ripple_well_formation.svg": {
+      "call": "vaft.diagram.ripple_well_formation()",
+      "source_sha256": "d13c5b24c86ab925d67a02b43b9e56c7254933361c02f20c0214824c0e2863b2",
+      "svg_sha256": "9b837fe3849fe8cd86777fa5572ef2cf822e2a001030b4c699faac0837e260bb"
+    },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",
       "source_sha256": "2f4e46f9d242c2d25d337699a415ff101a2f99bd586bebccfc204564e6b985d4",
@@ -164,6 +169,11 @@
       "call": "vaft.diagram.shaping_family()",
       "source_sha256": "30aa1e8ebec656c8514d396cf00ec255f2bac0eb32ff6098cdc5652fd847e01d",
       "svg_sha256": "641920ef1aa17fe581491bb67f9032316445091646f62d16735f011c5604416d"
+    },
+    "stochastic_ripple_orbit.svg": {
+      "call": "vaft.diagram.stochastic_ripple_orbit()",
+      "source_sha256": "42342342be5dcba5c8c77a555ecded36a6c28b4eeb5253e8e001b4674cdc90ba",
+      "svg_sha256": "0f296c34f512790a4d8406811634ecba580ac9a6b1581e57ff185e0f6a30cfaa"
     },
     "tearing_layer_matching.svg": {
       "call": "vaft.diagram.tearing_layer_matching()",
@@ -195,10 +205,20 @@
       "source_sha256": "7e3d3e4531c12006387c3e7ad04d9e65aa1645645fb84de89fd1c35717e49c08",
       "svg_sha256": "55bf4f58c5e3f2db85319e4aaa2d8c3eb07e091bc8f81fc596417f088e907982"
     },
+    "toroidal_field_ripple.svg": {
+      "call": "vaft.diagram.toroidal_field_ripple()",
+      "source_sha256": "6a37a4e29f195be4bdd3af667ff10bf0a89d95d63f0fc9924dc080f99102d1a3",
+      "svg_sha256": "ddeee64f46a71e74bcac483866e94d42905016de960574befb3a435538c6b077"
+    },
     "toroidal_harmonic_phase.svg": {
       "call": "vaft.diagram.toroidal_harmonic_phase()",
       "source_sha256": "3e9f43676330fd3fc7c6b7170690c9af730b2f911fda60cab78ce10dfa467e9c",
       "svg_sha256": "1afb5b281efd0effd7c1daa980622f72485c64529b4f9a7bfc65cbaa459509ba"
+    },
+    "trapped_and_passing_orbits.svg": {
+      "call": "vaft.diagram.trapped_and_passing_orbits()",
+      "source_sha256": "b2121fc7685c05b0975f163f7fd5037bc73368d6785039c9a4531a7ac872ff2a",
+      "svg_sha256": "3ef35fc6963e0ba0832ef68af71dffdd0371d28be282e957c87b69b3198c6ed5"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",

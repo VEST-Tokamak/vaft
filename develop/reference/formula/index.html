@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>86c9c82</code>. What is described
+  <code>e3b5a95</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -359,11 +359,15 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="particle">
     <td><a href="/vaft/develop/reference/formula/particle/">particle</a></td>
-    <td><code>vaft.formula.particle</code></td><td>7</td><td>Single-particle motion in magnetic and electric fields.</td>
+    <td><code>vaft.formula.particle</code></td><td>8</td><td>Single-particle motion in magnetic and electric fields.</td>
   </tr>
   <tr id="geometry">
     <td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td>
     <td><code>vaft.formula.geometry</code></td><td>7</td><td>Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.</td>
+  </tr>
+  <tr id="ripple">
+    <td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td>
+    <td><code>vaft.formula.ripple</code></td><td>6</td><td>Toroidal-field ripple from a finite number of TF coils, and its orbit consequences.</td>
   </tr>
   </tbody>
 </table>
@@ -426,7 +430,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 275 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 282 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1008,6 +1012,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="larmor_radius particle"><td><a href="/vaft/develop/reference/formula/particle/#larmor_radius"><code>larmor_radius</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Larmor (gyro) radius of a charged particle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="parallel_speed_from_mu particle"><td><a href="/vaft/develop/reference/formula/particle/#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_safety_factor_from_r_B geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Safety factor of a straight cylinder standing in for a torus.
@@ -1021,6 +1027,26 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="sheared_slab_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Parallel wavenumber across a sheared slab, to first order in $x/L_s$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="slab_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Component of a wavevector along the magnetic field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gwb_stochastic_threshold ripple"><td><a href="/vaft/develop/reference/formula/ripple/#gwb_stochastic_threshold"><code>gwb_stochastic_threshold</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Goldston–White–Boozer ripple above which banana-tip motion is stochastic.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gwb_stochasticity_parameter ripple"><td><a href="/vaft/develop/reference/formula/ripple/#gwb_stochasticity_parameter"><code>gwb_stochasticity_parameter</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Ripple over its GWB threshold: stochastic banana tips where it exceeds 1.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ripple_amplitude ripple"><td><a href="/vaft/develop/reference/formula/ripple/#ripple_amplitude"><code>ripple_amplitude</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Ripple amplitude from the extreme field strengths along the toroidal angle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ripple_trapping_pitch ripple"><td><a href="/vaft/develop/reference/formula/ripple/#ripple_trapping_pitch"><code>ripple_trapping_pitch</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td><table>
+  <tbody>
+    <tr>
+      <td>Largest pitch $</td>
+      <td>v_\parallel/v</td>
+      <td>$ trapped in a ripple well of depth $\delta$.</td>
+    </tr>
+  </tbody>
+</table>
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ripple_well_parameter ripple"><td><a href="/vaft/develop/reference/formula/ripple/#ripple_well_parameter"><code>ripple_well_parameter</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Whether ripple makes local wells along a field line: $\alpha^* &lt; 1$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_ripple_field ripple"><td><a href="/vaft/develop/reference/formula/ripple/#toroidal_ripple_field"><code>toroidal_ripple_field</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Field strength on a flux surface with toroidicity and TF-coil ripple.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -1286,7 +1312,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 15:51:25 +0000"
+        "time": "2026-09-27 17:48:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
