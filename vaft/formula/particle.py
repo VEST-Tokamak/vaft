@@ -29,6 +29,7 @@ __all__ = [
     "exb_drift_velocity",
     "grad_b_drift_velocity",
     "curvature_drift_velocity",
+    "parallel_speed_from_mu",
     "boris_orbit",
 ]
 
@@ -375,6 +376,72 @@ def curvature_drift_velocity(q, m, v_par, B, R_c):
         raise ValueError("B and R_c must be non-zero")
     v_par = np.asarray(v_par, dtype=float)[..., None] if np.ndim(v_par) else float(v_par)
     return float(m) * v_par ** 2 / (q * B2) * np.cross(R_c, B) / R2
+
+
+def parallel_speed_from_mu(v, pitch_ref, B_ref, B):
+    r"""Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
+
+    $$\frac{v_\parallel}{v} = \pm\sqrt{1 - \left(1 - \xi_\mathrm{ref}^2\right)\frac{B}{B_\mathrm{ref}}}$$
+
+    Parameters
+    ----------
+    v : float
+        Speed, conserved [m/s].
+    pitch_ref : float
+        Pitch $\xi = v_\parallel/v$ where the field is ``B_ref``, in $[-1, 1]$ [-].
+    B_ref : float
+        Field strength at the reference point [T].
+    B : float or np.ndarray
+        Field strength along the orbit [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|v_\parallel|$, NaN where the particle cannot reach (it is reflected
+        before $B$) [m/s].
+
+    Raises
+    ------
+    ValueError
+        ``pitch_ref`` lies outside $[-1, 1]$ or a field is not positive.
+
+    Convention
+    ----------
+    Magnitude only: the sign is the direction of travel, which the caller
+    tracks. $\mu = mv_\perp^2/(2B)$ and $E = mv^2/2$ are the invariants;
+    a static field, no electric potential.
+
+    Physical interpretation
+    -----------------------
+    The magnetic mirror: $v_\parallel$ falls as the particle moves into
+    stronger field and vanishes where $B = B_\mathrm{ref}/(1 - \xi_\mathrm{ref}^2)$,
+    the bounce point of a trapped particle.
+
+    Assumptions
+    -----------
+    Adiabatic motion: $\mu$ conserved, field varying slowly over a gyro-orbit.
+
+    See Also
+    --------
+    vaft.diagram.trapped_and_passing_orbits : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
+           3rd ed., Springer (2016), Sec. 2.3.3.
+    """
+    xi = float(pitch_ref)
+    B_ref = float(B_ref)
+    B = np.asarray(B, dtype=float)
+    if not -1.0 <= xi <= 1.0:
+        raise ValueError(f"pitch_ref must lie in [-1, 1], not {pitch_ref!r}")
+    if B_ref <= 0.0 or np.any(B <= 0.0):
+        raise ValueError("fields must be positive")
+    arg = 1.0 - (1.0 - xi * xi) * B / B_ref
+    # a bounce point computed from its own mirror ratio lands within round-off of zero
+    arg = np.where(np.abs(arg) < 1e-12, 0.0, arg)
+    result = float(v) * np.sqrt(np.where(arg >= 0.0, arg, np.nan))
+    return float(result) if np.ndim(result) == 0 else result
 
 
 def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps) -> Tuple[np.ndarray, np.ndarray]:

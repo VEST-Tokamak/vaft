@@ -24,7 +24,9 @@ the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
-``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``.
+``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
+toroidicity and ripple: ``trapped_and_passing_orbits``, ``toroidal_field_ripple``,
+``ripple_well_formation`` and ``stochastic_ripple_orbit``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -70,6 +72,10 @@ __all__ = [
     "poloidal_angle_comparison",
     "unwrapped_flux_surface",
     "field_line_pitch",
+    "trapped_and_passing_orbits",
+    "toroidal_field_ripple",
+    "ripple_well_formation",
+    "stochastic_ripple_orbit",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -105,6 +111,10 @@ _LOCATIONS = {
     "poloidal_angle_comparison": "._tokamak_geometry",
     "unwrapped_flux_surface": "._tokamak_geometry",
     "field_line_pitch": "._tokamak_geometry",
+    "trapped_and_passing_orbits": "._ripple",
+    "toroidal_field_ripple": "._ripple",
+    "ripple_well_formation": "._ripple",
+    "stochastic_ripple_orbit": "._ripple",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
