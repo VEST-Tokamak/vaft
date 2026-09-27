@@ -299,7 +299,7 @@ vaft.diagram.stochastic_ripple_orbit()
 | --- | --- | --- |
 | `trapped_and_passing_orbits` | $\mu$ and energy conservation in $B \propto 1/R$: small pitches bounce as bananas, large ones pass | `parallel_speed_from_mu`, `vacuum_toroidal_field` |
 | `toroidal_field_ripple` | $N_\mathrm{TF}$ coils corrugate $B(\phi)$: maximal under a coil, minimal between | `toroidal_ripple_field`, `ripple_amplitude` |
-| `ripple_well_formation` | Along a field line the ripple makes local wells where $\alpha^* < 1$, near the midplanes | `ripple_well_parameter`, `ripple_trapping_pitch` |
+| `ripple_well_formation` | Along a field line the ripple makes local wells where $\alpha^* \lesssim 1$, near the midplanes (to first order in $\epsilon$) | `ripple_well_parameter` |
 | `stochastic_ripple_orbit` | Ripple kicks at banana tips decorrelate above $\delta_\mathrm{GWB}$. Drawn as the standard map with $K \sim \delta/\delta_\mathrm{GWB}$ | `gwb_stochastic_threshold`, `gwb_stochasticity_parameter` |
 
 These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the

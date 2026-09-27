@@ -41,7 +41,7 @@ def test_the_continuous_coil_limit_is_axisymmetric():
 
 
 @pytest.mark.parametrize("theta", [0.3, 0.8, 1.4])
-def test_wells_along_the_field_line_appear_exactly_below_alpha_star_one(theta):
+def test_alpha_star_is_the_ratio_of_ripple_to_toroidal_slope(theta):
     eps, q, n = 0.25, 2.0, 16
     delta_c = eps * abs(np.sin(theta)) / (n * q)  # alpha* = 1 here
     assert ripple_well_parameter(eps, theta, q, delta_c, n) == pytest.approx(1.0)
@@ -85,6 +85,8 @@ def test_the_gwb_threshold_falls_with_gyroradius_shear_and_coil_count():
     assert gwb_stochastic_threshold(**{**base, "rho": 0.04}) < d0
     assert gwb_stochastic_threshold(**{**base, "dq_dr": 8.0}) < d0
     assert gwb_stochastic_threshold(**{**base, "epsilon": 0.3}) > d0
+    assert gwb_stochastic_threshold(**{**base, "n_tf": 32}) < d0
+    assert gwb_stochastic_threshold(**{**base, "q": 3.0}) < d0
     assert gwb_stochasticity_parameter(2 * d0, **base) == pytest.approx(2.0)
     for bad in ({"rho": 0.0}, {"dq_dr": -1.0}, {"n_tf": 0}):
         with pytest.raises(ValueError):

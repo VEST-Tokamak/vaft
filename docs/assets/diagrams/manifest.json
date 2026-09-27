@@ -152,8 +152,8 @@
     },
     "ripple_well_formation.svg": {
       "call": "vaft.diagram.ripple_well_formation()",
-      "source_sha256": "dde15bc20c5d7bda93ebe2c1d88ba61d45e91f5ab439d11b28b56383232dae69",
-      "svg_sha256": "9eaa4d9dac04451b0130f7f33515839f4fb8037ab35b27454f5e814de0992913"
+      "source_sha256": "d13c5b24c86ab925d67a02b43b9e56c7254933361c02f20c0214824c0e2863b2",
+      "svg_sha256": "9b837fe3849fe8cd86777fa5572ef2cf822e2a001030b4c699faac0837e260bb"
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",
@@ -172,8 +172,8 @@
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",
-      "source_sha256": "bb14b4fbbc0031fcce5dc754a2c2a56d35e23da7cc4821795b77ebe7347e99f5",
-      "svg_sha256": "4bc448077c46a4f6761ae8ff6f85434c88e710d53988ef01cab08c968cabab83"
+      "source_sha256": "4c2c700f73816715ba819f8e37b7ae83c1bc67e5a1af40fd4c0df110b3939732",
+      "svg_sha256": "625ec5254d9d328c62da72d1a0def9337a42a9e17c220fb289c9dc199276e23c"
     },
     "tearing_layer_matching.svg": {
       "call": "vaft.diagram.tearing_layer_matching()",
@@ -207,8 +207,8 @@
     },
     "toroidal_field_ripple.svg": {
       "call": "vaft.diagram.toroidal_field_ripple()",
-      "source_sha256": "a19fa8b00258cf1ddd48f191c032118305bdae7992a0722aae583d35fd604fe6",
-      "svg_sha256": "08b2b54105a9681bdedb0c9e48b0a97de7c2f350132cf0c6777afefcdbfd0c9b"
+      "source_sha256": "6a37a4e29f195be4bdd3af667ff10bf0a89d95d63f0fc9924dc080f99102d1a3",
+      "svg_sha256": "ddeee64f46a71e74bcac483866e94d42905016de960574befb3a435538c6b077"
     },
     "toroidal_harmonic_phase.svg": {
       "call": "vaft.diagram.toroidal_harmonic_phase()",
@@ -217,8 +217,8 @@
     },
     "trapped_and_passing_orbits.svg": {
       "call": "vaft.diagram.trapped_and_passing_orbits()",
-      "source_sha256": "d7d39facc3f7fb43d40b2ee4469842c44feaeb4b301a7e3a943bfe992ca93b3e",
-      "svg_sha256": "80cbfa7472342eeb1c82080c8f8f5922d4cda2cd5d27ae0e8de8c96010fb5dfb"
+      "source_sha256": "b2121fc7685c05b0975f163f7fd5037bc73368d6785039c9a4531a7ac872ff2a",
+      "svg_sha256": "3ef35fc6963e0ba0832ef68af71dffdd0371d28be282e957c87b69b3198c6ed5"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",

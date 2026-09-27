@@ -163,6 +163,10 @@ def ripple_amplitude(B_max, B_min):
     How deep the toroidal corrugation is at one point; it rises steeply with
     $R$ towards the coil legs.
 
+    See Also
+    --------
+    vaft.diagram.toroidal_field_ripple : the canonical diagram of this relation.
+
     References
     ----------
     .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2471, Ch. 5
@@ -220,7 +224,10 @@ def ripple_well_parameter(epsilon, theta, q, delta, n_tf):
     Assumptions
     -----------
     Large aspect ratio, circular surfaces, $\phi = q\theta$ along the line;
-    a local criterion, not a 3-D field analysis.
+    a local criterion, not a 3-D field analysis. It is first order in
+    $\epsilon$: for the multiplicative ``toroidal_ripple_field`` the ripple
+    slope carries a factor $1 - \epsilon\cos\theta$, and wells form where
+    $\alpha^* < 1 - \epsilon\cos\theta$.
 
     See Also
     --------
@@ -329,8 +336,9 @@ def gwb_stochastic_threshold(epsilon, q, dq_dr, rho, n_tf):
     Each bounce the ripple kicks the banana tip radially by an amount $\propto\delta$;
     when the kick shifts the tip's toroidal precession phase by more than about
     a radian between bounces, successive kicks decorrelate and the tips random-walk
-    out. Faster (larger $\rho$), low-shear and outer ($\epsilon$) orbits go
-    stochastic at smaller ripple.
+    out. Larger $\rho$ (faster particles), stronger shear $q'$ and higher $q$
+    lower the threshold; $\epsilon$ alone raises it, and outer surfaces still go
+    stochastic first because $\delta$ and $q$ grow outward much faster.
 
     Assumptions
     -----------
@@ -401,6 +409,10 @@ def gwb_stochasticity_parameter(delta, epsilon, q, dq_dr, rho, n_tf):
     -----------------------
     A regime flag: $S_\mathrm{GWB} > 1$ marks where trapped fast particles of
     that gyroradius lose their orbits to ripple stochasticity.
+
+    See Also
+    --------
+    vaft.diagram.stochastic_ripple_orbit : the canonical diagram of this relation.
 
     References
     ----------

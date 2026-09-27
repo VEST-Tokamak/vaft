@@ -23,6 +23,14 @@ def test_the_small_pitch_orbit_bounces_and_the_large_one_passes():
     # the banana: the two legs differ in radius by the sign of v_par
     assert np.ptp(passing["theta"]) == pytest.approx(2 * math.pi, rel=1e-3)
     assert trapped["v_par"].min() < 0 < trapped["v_par"].max()
+    # the two legs sit at different radii, and the drawn bounce markers are the tips
+    r = np.hypot(trapped["R"] - 3.0, trapped["Z"])
+    assert np.ptp(r) > 0.1
+    d = vaft.diagram.trapped_and_passing_orbits()
+    tips = [((trapped["R"][i] - 3.0) * 2.4, trapped["Z"][i] * 2.4)
+            for i in (int(np.argmax(trapped["theta"])), int(np.argmin(trapped["theta"])))]
+    markers = [m.at for m in d.scene.role("bounce_point")]
+    assert np.allclose(sorted(markers), sorted(tips))
 
 
 def test_the_rippled_field_peaks_under_the_coils():
@@ -41,11 +49,12 @@ def test_wells_sit_inside_the_alpha_star_bands():
     p = chart.parameters
     minima = p["minima"]
     assert len(minima) > 0
-    alpha = ripple_well_parameter(p["epsilon"], minima, p["q"], p["delta"], p["n_tf"])
-    # every local minimum is where alpha* < 1, to the first order in epsilon the criterion is good for
-    assert np.all(alpha < 1 + p["epsilon"])
-    for a0, a1 in p["bands"]:
-        assert ripple_well_parameter(p["epsilon"], 0.5 * (a0 + a1), p["q"], p["delta"], p["n_tf"]) < 1
+    # for the multiplicative field the local criterion is alpha* < 1 - eps cos(theta); every drawn
+    # well lies inside a shaded band
+    for m in minima:
+        assert any(a0 - 0.01 <= m <= a1 + 0.01 for a0, a1 in p["bands"]), m
+    local = ripple_well_parameter(p["epsilon"], minima, p["q"], p["delta"], p["n_tf"]) / (1 - p["epsilon"] * np.cos(minima))
+    assert np.all(local < 1.02)
     # and none in the middle, where the smooth slope wins
     assert not np.any((minima > 1.2) & (minima < 1.9))
 

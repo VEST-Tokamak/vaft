@@ -106,23 +106,28 @@ def trapped_and_passing_orbits(*, labels: bool = True) -> Diagram:
         o = orbits[name]
         items.append(Polyline.of(np.stack([o["R"] - _R0, o["Z"]], -1) * _CM, style, role=f"orbit_{name}",
                                  closed=not o["trapped"]))
-    tb = orbits["trapped"]["bounce_theta"]
-    for sign in (1, -1):
-        items.append(Marker(((_R_ORBIT * math.cos(tb)) * _CM, sign * _R_ORBIT * math.sin(tb) * _CM), "o", "opoint",
-                            role="bounce_point"))
+    # the bounce points are the banana's own tips, where v_par = 0
+    t = orbits["trapped"]
+    for i in (int(np.argmax(t["theta"])), int(np.argmin(t["theta"]))):
+        items.append(Marker(((t["R"][i] - _R0) * _CM, t["Z"][i] * _CM), "o", "opoint", role="bounce_point"))
     if labels:
         top = _A * _CM
         items += [
             Label((-top - 0.2, 0.0), "HFS\\\\ strong $B$", "small label,align=center", anchor="east", role="hfs"),
             Label((top + 0.2, 0.0), "LFS\\\\ weak $B$", "small label,align=center", anchor="west", role="lfs"),
-            Label((0.95 * top, 0.75 * top), "trapped\\\\ (banana)", "small label,align=center", anchor="south west",
+            Polyline.of([((t["R"][int(np.argmax(t["theta"]))] - _R0) * _CM, t["Z"][int(np.argmax(t["theta"]))] * _CM),
+                         (0.75 * top, 1.05 * top)], "leader line", role="orbit_trapped"),
+            Label((0.75 * top + 0.05, 1.05 * top), "trapped (banana), light", "small label", anchor="south west",
                   role="orbit_trapped"),
-            Label((-0.8 * top, 0.78 * top), "passing", "small label", anchor="south east", role="orbit_passing"),
-            Label((0.0, -top - 0.35),
+            Polyline.of([((orbits["passing"]["R"].min() - _R0) * _CM, -0.1),
+                         (-0.75 * top, -1.05 * top)], "leader line", role="orbit_passing"),
+            Label((-0.75 * top - 0.05, -1.05 * top), "passing, dark", "small label", anchor="north east",
+                  role="orbit_passing"),
+            Label((0.0, -top - 0.75),
                   "$\\mu = \\dfrac{mv_\\perp^2}{2B}$, $\\ E = \\tfrac12 mv_\\parallel^2 + \\mu B$ conserved; "
                   "trapped if $|v_\\parallel/v| < \\sqrt{2\\epsilon/(1 + \\epsilon)}$ outboard",
                   "formula box", anchor="north", role="equations"),
-            _note("Guiding-centre paths; the banana width is exaggerated", 0.0, -top - 1.4),
+            _note("Guiding-centre paths; the banana width is exaggerated", 0.0, -top - 1.8),
         ]
     model = {"orbits": orbits, "epsilon": epsilon, "boundary_pitch": boundary_pitch}
     return Diagram("trapped_and_passing_orbits", Scene(tuple(items)), model=model)
@@ -172,8 +177,8 @@ def toroidal_field_ripple(n_tf: int = 16, *, labels: bool = True) -> Diagram:
     if labels:
         items += [
             Label((0.0, 0.0), f"$N_\\mathrm{{TF}} = {n_tf}$", "label", anchor="center", role="coil"),
-            Label((offset + 0.3 * CHART_WIDTH, 0.6 * 0.72 * CHART_HEIGHT), "ticks: coil positions", "small label",
-                  anchor="south", role="coil"),
+            Label((offset + 0.3 * CHART_WIDTH, -0.3 * CHART_HEIGHT - 0.35), "ticks under the axis: coil positions",
+                  "small label", anchor="north", role="coil"),
             Label((offset + 0.3 * CHART_WIDTH, -0.3 * CHART_HEIGHT - 1.3),
                   f"$\\displaystyle {formula_equation(toroidal_ripple_field)}$", "formula box", anchor="north",
                   role="equations"),
@@ -201,7 +206,8 @@ def ripple_well_formation(*, labels: bool = True) -> Diagram:
     eps, q, n, delta = 0.25, 2.0, 16, 0.006
     theta = np.linspace(0.0, math.pi, 4001)
     B = toroidal_ripple_field(1.0, eps, theta, delta, n, q * theta)
-    alpha = ripple_well_parameter(eps, theta, q, delta, n)
+    # alpha* is first order; for this multiplicative field wells form where alpha* < 1 - eps cos(theta)
+    alpha = ripple_well_parameter(eps, theta, q, delta, n) / (1.0 - eps * np.cos(theta))
     minima = np.flatnonzero((B[1:-1] < B[:-2]) & (B[1:-1] < B[2:])) + 1
     chart = Chart(x_range=(0.0, math.pi), y_range=(0.7, 1.3))
     chart.curves["B"] = np.stack([theta, B], -1)
@@ -232,7 +238,8 @@ def ripple_well_formation(*, labels: bool = True) -> Diagram:
         items.append(Marker(tuple(chart.to_cm(np.array([theta[i], B[i]]))), "o", "opoint", role="ripple_well"))
     if labels:
         items += [
-            Label((0.25, CHART_HEIGHT - 0.1), "shaded: $\\alpha^* < 1$, local wells (dots)", "small label",
+            Label((0.25, CHART_HEIGHT - 0.1), "shaded: $\\alpha^* < 1 - \\epsilon\\cos\\theta$, local wells (dots)",
+                  "small label",
                   anchor="north west", role="ripple_well_region"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(ripple_well_parameter)}$",
                   "formula box", anchor="north", role="equations"),
@@ -293,9 +300,9 @@ def stochastic_ripple_orbit(*, labels: bool = True) -> Diagram:
     items: List = []
     if labels:
         items += [
-            Label((CHART_WIDTH - 0.2, CHART_HEIGHT - 0.1), "$K = 2.5 > 1$: stochastic, tips random-walk",
+            Label((CHART_WIDTH - 0.2, CHART_HEIGHT - 0.1), "dark, $K = 2.5 > 1$: stochastic, tips random-walk",
                   "small label", anchor="north east", role="stochastic"),
-            Label((CHART_WIDTH - 0.2, CHART_HEIGHT - 0.6), "$K = 0.3 < 1$: regular, tips oscillate",
+            Label((CHART_WIDTH - 0.2, CHART_HEIGHT - 0.6), "light, $K = 0.3 < 1$: regular, tips oscillate",
                   "small label", anchor="north east", role="regular"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(gwb_stochastic_threshold)}$",
                   "formula box", anchor="north", role="equations"),
