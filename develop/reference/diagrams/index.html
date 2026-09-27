@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b34033e</code>. What is described
+  <code>86c9c82</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -752,6 +752,107 @@ explains each representation.</p>
   </tbody>
 </table>
 
+<h2 id="tokamak-geometry-and-flux-coordinates">Tokamak geometry and flux coordinates</h2>
+
+<p>The parent geometry that the cylindrical and slab reductions start from. Surfaces are
+<code class="language-plaintext highlighter-rouge">miller_surface</code>, the shift is <code class="language-plaintext highlighter-rouge">shafranov_shift_from_r_a_R0_beta_p_li</code>, the field is
+<code class="language-plaintext highlighter-rouge">vacuum_toroidal_field</code>, and $\theta^*$ is <code class="language-plaintext highlighter-rouge">straight_field_line_angle</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">tokamak_torus</span><span class="p">(</span><span class="n">projection</span><span class="o">=</span><span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># "poloidal"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">flux_surfaces</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="sh">"</span><span class="s">circular</span><span class="sh">"</span><span class="p">)</span>       <span class="c1"># "shifted"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">shaping_family</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hfs_lfs_field</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">safety_factor_winding</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">flux_coordinates</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">poloidal_angle_comparison</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">unwrapped_flux_surface</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">field_line_pitch</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/tokamak_torus_3d.svg" alt="torus" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/tokamak_torus_poloidal.svg" alt="cross-section" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/flux_surfaces_circular.svg" alt="concentric" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/flux_surfaces_shifted.svg" alt="Shafranov shift" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/hfs_lfs_field.svg" alt="HFS/LFS" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/safety_factor_winding.svg" alt="safety factor" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/flux_coordinates.svg" alt="flux coordinates" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/poloidal_angle_comparison.svg" alt="theta vs theta*" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/field_line_pitch.svg" alt="field-line pitch" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/shaping_family.svg" alt="shaping" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/unwrapped_flux_surface.svg" alt="unwrapped surface" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tokamak_torus</code></td>
+      <td>$R_0$, $a$, $\phi$ (counter-clockwise from above) and $\theta$ (from the outboard midplane), with $R = R_0 + r\cos\theta$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flux_surfaces</code></td>
+      <td>Concentric surfaces, then the Shafranov shift: $\Delta(r)$ is zero at the edge and largest on axis, so the magnetic axis sits outside the geometric axis</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shaping_family</code></td>
+      <td>Circular, $\kappa$, $\delta$, and both. Positive triangularity pulls the top in to $R_0 - \delta r$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hfs_lfs_field</code></td>
+      <td>$B_\phi = B_0R_0/R$ is stronger on the inboard (high-field) side</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">field_line_pitch</code></td>
+      <td>$\mathbf B = B_\phi\hat{\boldsymbol\phi} + B_\theta\hat{\boldsymbol\theta}$ at a point of a field line, with $B_\theta/B_\phi = r/(qR)$ so that $\mathbf B$ lies along the line</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">safety_factor_winding</code></td>
+      <td>$q$ toroidal turns per poloidal turn, counted at one cross-section</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flux_coordinates</code></td>
+      <td>$(\psi, \theta, \phi)$, with $+\phi$ into the page when $R$ is to the right and $Z$ is up</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">poloidal_angle_comparison</code></td>
+      <td>On a D shape, equal steps of $\theta^*$ are not rays of the geometric angle</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">unwrapped_flux_surface</code></td>
+      <td>A field line is straight, $d\phi/d\theta^* = q$, in straight-field-line coordinates, and not in the parametrisation angle $\theta$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The field line on a torus, its cylindrical and slab reductions, and the geometry/ordering map are in
+the geometric-approximations section above. The toroidal → cylindrical → slab bridge is
+<code class="language-plaintext highlighter-rouge">geometry_ordering_map</code> together with <code class="language-plaintext highlighter-rouge">field_line_geometry</code>.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -884,7 +985,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1002,7 +1103,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 15:38:00 +0000"
+        "time": "2026-09-27 15:51:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
