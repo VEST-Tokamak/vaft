@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -240,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>6be8415</code>. What is described
+  <code>b34033e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -619,6 +625,133 @@ page, notebook or slide. None takes an equilibrium, shot or solver output: the c
 values of $\Delta’$ (RDCON, STRIDE) belong to <code class="language-plaintext highlighter-rouge">vaft.plot</code>, and they are not the RDCON $D_R$ or the
 Modified Rutherford terms. The object these lead to is <code class="language-plaintext highlighter-rouge">magnetic_island</code>.</p>
 
+<h2 id="3-d-perturbation-harmonics">3-D perturbation harmonics</h2>
+
+<p>How a linear 3-D perturbation is written as complex Fourier harmonics, and what the complex numbers
+mean. Each diagram is one concept and needs no equilibrium, shot or GPEC output.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">normal_field_component</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">complex_harmonic</span><span class="p">(</span><span class="n">amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="mf">1.05</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">toroidal_harmonic_phase</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">harmonic_real_space_projection</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="mf">1.05</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">complex_field_superposition</span><span class="p">(</span><span class="n">case</span><span class="o">=</span><span class="sh">"</span><span class="s">screening</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "amplification", "phase_shift"
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/normal_field_component.svg" alt="normal component" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/complex_harmonic.svg" alt="complex harmonic" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/toroidal_harmonic_phase.svg" alt="toroidal phase" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/complex_field_superposition.svg" alt="superposition" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/harmonic_real_space_projection.svg" alt="real-space projection" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">normal_field_component</code></td>
+      <td>$\delta B_n = \delta\mathbf B\cdot\hat{\mathbf n}$ is the part of a perturbation that crosses a magnetic surface. It is geometric only, with no code-specific normalisation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">complex_harmonic</code></td>
+      <td>One harmonic is $\hat b = b_R + i\,b_I = A e^{i\alpha}$. $b_R$ and $b_I$ are the cosine and sine quadratures of one pattern, not two fields</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">toroidal_harmonic_phase</code></td>
+      <td>Moving the toroidal origin by $\Delta\phi$ turns $\hat b$ by $-n\Delta\phi$. $\lvert\hat b\rvert$ is invariant; $b_R$ and $b_I$ are not</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">harmonic_real_space_projection</code></td>
+      <td>The physical field is real, $\delta b = \mathrm{Re}[\hat b\,e^{i(m\theta - n\phi)}]$ (<code class="language-plaintext highlighter-rouge">vaft.formula.helical_harmonic</code>): stripes of slope $n/m$ on the unwrapped $(\phi, \theta)$ plane</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">complex_field_superposition</code></td>
+      <td>External and plasma-response fields add as complex numbers, so screening, amplification and phase shift all come from one vector sum</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The phase convention is <code class="language-plaintext highlighter-rouge">helical_phase</code>’s $\xi = m\theta - n\phi$, with both mode numbers positive and
+the helicity in the minus sign. <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> stores each complex quantity as a real/imaginary pair
+(<code class="language-plaintext highlighter-rouge">i = 0</code> real, <code class="language-plaintext highlighter-rouge">i = 1</code> imaginary) and rebuilds it as <code class="language-plaintext highlighter-rouge">real + 1j * imag</code>, deciding no convention. For
+GPEC’s spectral outputs that pair is the $(b_R, b_I)$ of <code class="language-plaintext highlighter-rouge">complex_harmonic</code>, and it becomes a field only
+through the real-space reconstruction. Two sources differ:</p>
+
+<ul>
+  <li>the <code class="language-plaintext highlighter-rouge">*_fun</code> quantities (<code class="language-plaintext highlighter-rouge">b_n_fun</code>, <code class="language-plaintext highlighter-rouge">xi_n_fun</code>) are already real-space in $\theta$, and GPEC writes
+them as $(\mathrm{Re}, -h\,\mathrm{Im})$ with its helicity $h$;</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.toroidal_mode_decomposition</code> returns the conjugate, $\hat b = 2\,\overline{C_n}$.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">helical_harmonic</code>’s Convention section states both. Amplitudes, phases and responses in these
+figures are schematic.</p>
+
+<h2 id="collision-processes">Collision processes</h2>
+
+<p>A classification of the interactions in a fusion plasma, built from the concept-diagram primitives.
+Coulomb collisions between charged particles relax the distribution. Atomic processes change charge
+states and bound electrons. Nuclear reactions change nuclei.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">collision_processes</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/collision_processes.svg" alt="collision processes" /></p>
+
+<p>The diagram contains no numbers except the D–T alpha energy, which is <code class="language-plaintext highlighter-rouge">vaft.formula.constants.E_ALPHA</code>. Collision frequencies, the
+Coulomb logarithm and collisionality regimes are left to formula-backed diagrams (#1111).</p>
+
+<h2 id="geometric-approximations">Geometric approximations</h2>
+
+<p>How slab, cylindrical and toroidal models relate, keeping geometry and ordering on separate axes. The
+physics is in <code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code>. <a href="/vaft/develop/reference/geometric-approximations/">Geometric approximations</a>
+explains each representation.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">geometry_ordering_map</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">field_line_geometry</span><span class="p">(</span><span class="n">geometry</span><span class="o">=</span><span class="sh">"</span><span class="s">toroidal</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "cylindrical", "slab"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">mode_number_mapping</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">geometry_ordering_map</code></td>
+      <td>Geometries are columns and orderings are bands. Each reduction arrow names what it keeps or drops</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">field_line_geometry</code></td>
+      <td>The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mode_number_mapping</code></td>
+      <td>The cylinder’s $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of <code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code> is its tangent there</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -751,7 +884,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -869,7 +1002,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 14:10:43 +0000"
+        "time": "2026-09-27 15:38:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -1,103 +1,158 @@
 {
   "diagrams": {
+    "collision_processes.svg": {
+      "call": "vaft.diagram.collision_processes()",
+      "source_sha256": "0bbca53fd99574852e8aaed52e63df7752f787a338ec1a23bb568f65ecdcac1b",
+      "svg_sha256": "2018d7136aa463a4c588956a11f2794ff2f453b7b7c7e8caba2feb159f9845b7"
+    },
+    "complex_field_superposition.svg": {
+      "call": "vaft.diagram.complex_field_superposition()",
+      "source_sha256": "e81ada2db5864a1aed8ee89a96562a2bfb70e2740a32737181c8bf562473bfcf",
+      "svg_sha256": "04a1ef9f14677fccbfb18657e869ff561dff318466ab30071f1fe36c580b7405"
+    },
+    "complex_harmonic.svg": {
+      "call": "vaft.diagram.complex_harmonic()",
+      "source_sha256": "25b550093341cf971b96c8bf96b33dd6cb77cb9ea4c10cd19c645f10ca28d7da",
+      "svg_sha256": "54b84c15ca711177b40c69b23089b309ebd6301bb79c4a7b027c0b37cb4337b5"
+    },
     "curvature_drift.svg": {
       "call": "vaft.diagram.curvature_drift()",
-      "source_sha256": "6f41097e458d1ba4b7194a4a4b5ee89bc86b52f9690c830e66c4e124f116e3ae",
+      "source_sha256": "8fce291fdfe6278624e8bd50464134a6932e29680096d6a3bd78f3b2910cb796",
       "svg_sha256": "c9840d98246a1c9d1566ca4eb5f41d502ba1075e5e1bc6258b2ab5d8a0c1e686"
     },
     "curvature_drift_poloidal.svg": {
       "call": "vaft.diagram.curvature_drift(projection='poloidal')",
-      "source_sha256": "14d0e32dddeac3c030798633b3b503118c2d559418d3093bd939dd7a63d7aff4",
+      "source_sha256": "010fbfa6f6f26ef7d37c5fe41217f12a852cd7b3b68af6e948e62015c2b789b4",
       "svg_sha256": "8317b7514b02b92f609354fdaaf8506b94a9f6b1c31b5548907aa147320c4bd9"
     },
     "curvature_drift_top.svg": {
       "call": "vaft.diagram.curvature_drift(projection='top')",
-      "source_sha256": "ee970b3f564ca0874f3bc1e4a99d69f8361066f778003cee8b77eb62181345ef",
+      "source_sha256": "b16ff743bd90cafda7f0322cd4e020b870b377b7252dac48d78da2ce23754824",
       "svg_sha256": "163e4ab644211324218e377b80ee570ed6db4c95c732c1526950ac74fbd09c22"
     },
     "delta_prime.svg": {
       "call": "vaft.diagram.delta_prime()",
-      "source_sha256": "70a45bfbc336b682689c56b890bfb40a3cb09b1dcfcc6c55c5aa178eb780b7ed",
+      "source_sha256": "8b28f9d90c27cc184067b80833b20abb8f707f4933d92fedff163d2322307000",
       "svg_sha256": "7128129e4d5a613237908e8d7343dd5e066546f4d88345e61b78139a8995bb21"
     },
     "exb_drift.svg": {
       "call": "vaft.diagram.exb_drift()",
-      "source_sha256": "418bc2036a0c5e69c59a8c901eb4edd73ae18675abb5043a049542723927b7a1",
+      "source_sha256": "f7e6a4a26afd804719e02f026f146ac783378b250ec45adfaf670ebf6163fc21",
       "svg_sha256": "4dc159078bed97355a8076a67ca827de6d7b5f2da3b76e8f0ce55cca5cb697aa"
     },
     "exb_drift_3d.svg": {
       "call": "vaft.diagram.exb_drift(projection='3d')",
-      "source_sha256": "5df1402b4d481275fa045128c182bf37cf81f6a764cc5d25355d1bebab676101",
+      "source_sha256": "e477a1fdb7d87225068f96be60e6f2294c7d0b60b60290e40e4d9b7cf3e49f0f",
       "svg_sha256": "da81ae4036e416c412d9a681cd55f337dc6cddddef7420cdf704a47107c6581d"
+    },
+    "field_line_geometry_cylindrical.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
+      "source_sha256": "6d5dff82bd6c40281f2cbcd35a7829bf7b56515dd7cdd6d91b04c4251283f2da",
+      "svg_sha256": "c3f6b57749b7648083c708a829e7483968ad4cfd2079f6e865ba133c322ec9dd"
+    },
+    "field_line_geometry_slab.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='slab')",
+      "source_sha256": "74cfdde061f62e1e5179546303177fc02829aab99cfc6adfb51594fd31aeba9f",
+      "svg_sha256": "12806b440fd589479cdea3ed83e08668f71d8a7765b4726533891cbd70969884"
+    },
+    "field_line_geometry_toroidal.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='toroidal')",
+      "source_sha256": "0c35bb2c02141bc59ce09f14f871133518c0545adaf6115b631f3f6c5a454db1",
+      "svg_sha256": "d7dd3c33fa85b316e74d4707c7c17465a69acca13b09c164537f79b2823125a7"
+    },
+    "geometry_ordering_map.svg": {
+      "call": "vaft.diagram.geometry_ordering_map()",
+      "source_sha256": "4e51e0a3e34d500afccadd684642bd46aa29c812c1688f67ebc5df29936bb52a",
+      "svg_sha256": "5c3e2c6deed75562618f5f3d3950503ae0a5ec3135a63e1f436a3f61da7bab78"
+    },
+    "harmonic_real_space_projection.svg": {
+      "call": "vaft.diagram.harmonic_real_space_projection()",
+      "source_sha256": "cf4dd578da9f40ccb8b2acf720f95c5617a0a14f5f02f4385566654aecde4293",
+      "svg_sha256": "649b1ff1740c4dd04e598aab90c99682ca17812b70c6372a4ecbe1d8911c5791"
     },
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
-      "source_sha256": "37a318a5fe7cc3cabe9a320c20245788513f6a53c80c6c367064e15022c457f7",
+      "source_sha256": "3bf090ee2030404f943555cda7e95989a025ab185388549b1f265c4c72e5baa5",
       "svg_sha256": "a698afc97f6b20f0d3f66b095f6bed229fbeb01021df9bd90f40fdcea097d31c"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
-      "source_sha256": "57af669966f0b5e61907af67b42d2c0a648e5a764c2576d35a7adb65351ced0b",
+      "source_sha256": "5a2b707e6563e58a989a4050776a367a8e7cd5608a1b729e026f9a16156737fa",
       "svg_sha256": "bbdab57d56d7f6439a68142bd31165838d64f812643953706141f92cd6f55ac6"
     },
     "magnetic_island_poloidal.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='poloidal')",
-      "source_sha256": "38a02b59f239e947555a3cdf1bce4d6a48f93543c6c9a7d85dff1db17d01f080",
+      "source_sha256": "d92944464669c31fb78ba4ef82aa0a2f095ca59741b1e0e7258457e7a258f8ef",
       "svg_sha256": "b0a768f6ce5003a6705dfd65b5e8b7b8d4a3fa18ad82da83d53c6ec7d1450e6d"
     },
     "magnetic_island_top.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='top')",
-      "source_sha256": "052b7e77c699f75bfffb69bf2716cf77c4eaea3dbb522af79f553be54a5c3d6f",
+      "source_sha256": "b989f126f151e4095d64a892dddb1be1c1bc3703cfe4c3eb3174038e12fc579f",
       "svg_sha256": "a85413e10890cda20091d79abcbc12f6f7c79ecb7f76798e82013a61fe49671b"
     },
     "magnetization_current.svg": {
       "call": "vaft.diagram.magnetization_current()",
-      "source_sha256": "cf3515c54d4b07cc4e7a9391400c968042fa3a5564b8507acb6a76a1eafdf518",
+      "source_sha256": "e76c291445668e449b0f0754203c8c4648a829fe4b84428466fdb12c5ac7e9f7",
       "svg_sha256": "cea5621b7e9a84a555e5e0a87b4d06d993081b9b97d0415aa68c5c8f91992ddf"
     },
     "magnetization_current_3d.svg": {
       "call": "vaft.diagram.magnetization_current(projection='3d')",
-      "source_sha256": "615173e2947e2396ab7c938d13f46458b9b5d52a87e20869fabaf6b23dd9e193",
+      "source_sha256": "bc9859a1c80e90a68deea481a8ed5f93c057c53c571ae815c028ae2f3315b21d",
       "svg_sha256": "ff6a13c097d183498914c1251fb5dc56332c086cfe5d6ad162cd567fad6b4a99"
+    },
+    "mode_number_mapping.svg": {
+      "call": "vaft.diagram.mode_number_mapping()",
+      "source_sha256": "43b9ba50a1d5776040772a628a1d2e17ac817533fe1dc83665cc535c24ddcff6",
+      "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
+    },
+    "normal_field_component.svg": {
+      "call": "vaft.diagram.normal_field_component()",
+      "source_sha256": "721327fdec56de8f80717b467a78683fe133f6a1bd7c17d8a6d4b8979eee7c80",
+      "svg_sha256": "4f4aa9871de375ea1409a827ca5c3d9e392ddfbfb17c046cdb00e03132f689d8"
     },
     "peeling_ballooning.svg": {
       "call": "vaft.diagram.peeling_ballooning()",
-      "source_sha256": "4dffe299584c5cac57b821b59c21f31f0eca2ffc89cfc494cd2a7fbdbdfbc84c",
+      "source_sha256": "d70c2544df960ba82ebad3968b4d436bb54b8bf73e0c87aa3dc597cd657e3fe4",
       "svg_sha256": "a36f3330565597a89b5eb9031e7cc14b8240a690f8990f04da7c6345051b3eb0"
     },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
-      "source_sha256": "9a94a8781fa12234ff44b0cabe3529c3cf9a0eea7ca85f7c61bc46f92014ff13",
+      "source_sha256": "c17657d89cbf81a95a25ea32a1c9d297574579fdb4f818dc0bcd7af512763093",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",
-      "source_sha256": "770e0e17c6827d23ab5e56b5a89037daabb34534d156d266228d6b5e49536028",
+      "source_sha256": "bbfb6cfa6b68c1028784d53b4c0a3ff1b5daf6701ab2342ddd3a8accf865e0a1",
       "svg_sha256": "ece2d46cc1eb78bcc8ca0c83beefa2a1ed89438fb0aaffd5ae92e3dbf0320858"
     },
     "tearing_layer_matching.svg": {
       "call": "vaft.diagram.tearing_layer_matching()",
-      "source_sha256": "828e730d1b49eab64091bbad398d39333d252583453ff4c8a75bef041ec7f79c",
+      "source_sha256": "d9144d68b1abed733a273c66edf94a64e168633f66b0623a44f47d63cf2e767a",
       "svg_sha256": "9a89f7cf85ef1452bfb9f7c577b277e4ce0282c60bf1e49a4428d1dc445a107d"
     },
     "toroidal_drift.svg": {
       "call": "vaft.diagram.toroidal_drift()",
-      "source_sha256": "f052e61c187754dd2f4fad00cbc06f901d92a411dd582c7366997c7861ad8de9",
+      "source_sha256": "8e0b4b49745a74e1555a7492454c7aadc0c6279658ce2c8ecd054d159e9721a8",
       "svg_sha256": "6be69fa88b624a29c6375438e094cd0c904bef8a36787099106902d012a73907"
     },
     "toroidal_drift_poloidal.svg": {
       "call": "vaft.diagram.toroidal_drift(projection='poloidal')",
-      "source_sha256": "55d7c62a89be9af3f8d83b6b83f58de42b1e53f1f962a869d38dab1b887bb026",
+      "source_sha256": "4ca17cab148d033a0cd656123c5a86ba017387b92d531d04f9dd3264f2054bee",
       "svg_sha256": "6e8cc15d3a1a39e2a85caed5ef44e5a6c6f340cf329b4b1ebda4fcee6ddee442"
     },
     "toroidal_drift_top.svg": {
       "call": "vaft.diagram.toroidal_drift(projection='top')",
-      "source_sha256": "abc54b9a7959a123ef52acc141727a447796936ed090a377453df979a626d170",
+      "source_sha256": "9798971936e962176ab98a995e1e5b3a6d82c31d75302fcd28217a7e759464ad",
       "svg_sha256": "55bf4f58c5e3f2db85319e4aaa2d8c3eb07e091bc8f81fc596417f088e907982"
+    },
+    "toroidal_harmonic_phase.svg": {
+      "call": "vaft.diagram.toroidal_harmonic_phase()",
+      "source_sha256": "5f7a76291d46be7e6ce7223c00f75efa1cacf845c615c0c2bee1ead980ad2aad",
+      "svg_sha256": "1afb5b281efd0effd7c1daa980622f72485c64529b4f9a7bfc65cbaa459509ba"
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",
-      "source_sha256": "f39eeab59714700a3d2de17da581306b40778dff53eb104ea4549a0ddd3fee92",
+      "source_sha256": "d51cbbcd38c7ffa5bfa99bda1d78ac4ac90fd5531b93934e9b541f8510fd65a3",
       "svg_sha256": "279a677a497f0eb052ed17b9c8148eb6a13359d5f2fb34c66803fc1c46fde83b"
     }
   },
