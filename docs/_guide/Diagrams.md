@@ -383,6 +383,39 @@ vaft.diagram.sfl_fourier_convergence()
 * **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
   taxonomy, independently of which angle is chosen.
 
+## Clebsch labels and the ballooning representation
+
+These figures go from straight-field-line coordinates to the local, field-aligned and ballooning
+descriptions that high-$n$ stability and turbulence models use. The formulas are
+`field_line_label`, `s_alpha_curvature_drive` and `s_alpha_ballooning_solution` in
+`vaft.formula.stability`, on the circular $s$–$\alpha$ model.
+
+```python
+vaft.diagram.clebsch_field_line_label(q=2.5)
+vaft.diagram.ballooning_curvature_drive()
+vaft.diagram.ballooning_newcomb_test()
+vaft.diagram.ballooning_harmonic_envelope(n=20)
+vaft.diagram.ballooning_workflow()
+```
+
+| | |
+| --- | --- |
+| ![Clebsch]({{ '/assets/diagrams/clebsch_field_line_label.svg' | relative_url }}) | ![curvature]({{ '/assets/diagrams/ballooning_curvature_drive.svg' | relative_url }}) |
+| ![Newcomb test]({{ '/assets/diagrams/ballooning_newcomb_test.svg' | relative_url }}) | ![harmonics]({{ '/assets/diagrams/ballooning_harmonic_envelope.svg' | relative_url }}) |
+
+![workflow]({{ '/assets/diagrams/ballooning_workflow.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `clebsch_field_line_label` | A field line is where $\psi$ = const meets $\alpha = \phi - q\theta$ = const. In `helical_phase`'s left-handed $(\psi, \theta, \phi)$, with $\psi$ rising outward and $\mathbf B$ along $+\phi$, $\mathbf B \propto \nabla\psi\times\nabla\alpha$. Right-handed coordinates give the Connor–Hastie–Taylor form $\nabla\alpha\times\nabla\psi$ |
+| `ballooning_curvature_drive` | Normal curvature $\cos\theta > 0$ (bad, outboard, shaded) once per $2\pi$ period of the covering space, and the total drive $K = \cos\theta + \Lambda\sin\theta$. Its outer lobes come from the geodesic term, which grows with the local shear. Also shown with $\theta_0$ |
+| `ballooning_newcomb_test` | Newcomb's test on the marginal solution $F(\theta)$: it stays positive (stable), crosses zero (unstable), or is positive again beyond $\alpha_2$ (second stability). These are not localised eigenfunctions |
+| `ballooning_harmonic_envelope` | $a_m = \hat F(m - nq)$ for a stated model envelope: many coupled harmonics around $nq$. Their sum oscillates at $m \approx nq$ under the envelope, localised outboard |
+| `ballooning_workflow` | Straight-field-line coordinates → field-line label → field-aligned → ballooning / flux tube, and the infinite-$n$ path. A finite-$n$ global calculation keeps what that path drops |
+
+The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).
+The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
