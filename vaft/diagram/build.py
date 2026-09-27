@@ -71,6 +71,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # guiding-centre invariants and toroidal symmetry
     **{f"{name}.svg": (name, {}) for name in ("guiding_center_invariants", "canonical_toroidal_momentum",
                                               "toroidal_symmetry_breaking")},
+    # straight-field-line coordinates
+    **{f"{name}.svg": (name, {}) for name in ("sfl_coordinate_grids", "sfl_coordinate_taxonomy",
+                                              "sfl_fourier_convergence")},
 }
 
 

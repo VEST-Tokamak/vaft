@@ -952,9 +952,102 @@ def straight_field_line_angle(theta, jacobian, R):
     return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]
 
 
+def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0.0, power_b=0.0, power_r=2.0):
+    r"""Straight-field-line poloidal angle of the generalised family: PEST, Boozer, Hamada, equal-arc.
+
+    $$\theta_\mathrm{sfl}(\theta) = \theta_0 + 2\pi\,
+    \frac{\int_{\theta_0}^{\theta} \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}
+         {\oint \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}$$
+
+    Parameters
+    ----------
+    theta : np.ndarray
+        Poloidal angle of the surface's own parametrisation, strictly
+        increasing and spanning exactly one period, both ends included [rad].
+    jacobian : np.ndarray
+        Jacobian of the $(r, \theta, \phi)$ coordinates at each ``theta``, as
+        in ``straight_field_line_angle`` [arb].
+    R : np.ndarray
+        Major radius at each ``theta`` [m].
+    B_p : np.ndarray
+        Poloidal field strength at each ``theta``; only its variation matters [T].
+    B : np.ndarray
+        Total field strength at each ``theta``; only its variation matters [T].
+    power_bp : float
+        $p_{Bp}$ [-].
+    power_b : float
+        $p_B$ [-].
+    power_r : float
+        $p_R$ [-].
+
+    Returns
+    -------
+    np.ndarray
+        The straight-field-line angle at each ``theta``, from ``theta[0]`` to
+        ``theta[0] + 2 pi`` [rad].
+
+    Raises
+    ------
+    ValueError
+        As ``straight_field_line_angle``, or a field is not positive.
+
+    Convention
+    ----------
+    The target coordinates have Jacobian
+    $\mathcal{J}_\mathrm{sfl} \propto R^{p_R}/(B_p^{\,p_{Bp}}B^{\,p_B})$, the
+    DCON/GPEC generalised family: PEST $(0, 0, 2)$, Boozer $(0, 2, 0)$,
+    Hamada $(0, 0, 0)$, equal-arc $(1, 0, 0)$ for
+    $(p_{Bp}, p_B, p_R)$. Since $\mathbf B\cdot\nabla\theta_\mathrm{sfl} \propto
+    1/\mathcal J_\mathrm{sfl}$ whatever toroidal angle is paired with it,
+    $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
+    poloidal angle is fully set here. Every member except PEST also shifts the
+    toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- which this
+    function does not compute. The defaults give PEST, equal to
+    ``straight_field_line_angle``.
+
+    Physical interpretation
+    -----------------------
+    Straightness does not fix the coordinates: every member of the family
+    makes field lines straight, and the powers say what else is made simple --
+    the geometric $\phi$ (PEST), $|B|$ in the Jacobian (Boozer), a flux-function
+    Jacobian that also straightens current lines (Hamada), or uniform
+    poloidal arc sampling (equal-arc).
+
+    Assumptions
+    -----------
+    Axisymmetric nested flux surfaces; the fields are those on the surface
+    at the same points.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoid rule, as ``straight_field_line_angle``.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON), Sec. II.
+    .. [2] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    """
+    theta = np.asarray(theta, dtype=float)
+    B_p = np.asarray(B_p, dtype=float)
+    B = np.asarray(B, dtype=float)
+    if B_p.shape != theta.shape or B.shape != theta.shape:
+        raise ValueError("B_p and B must have the shape of theta")
+    if np.any(B_p <= 0.0) or np.any(B <= 0.0):
+        raise ValueError("B_p and B must be positive")
+    R = np.asarray(R, dtype=float)
+    # the PEST angle of a re-weighted Jacobian: J R^-pR Bp^pBp B^pB = (J R^{2-pR} Bp^pBp B^pB) / R^2
+    weighted = np.asarray(jacobian, dtype=float) * R ** (2.0 - float(power_r)) * B_p ** float(power_bp) \
+        * B ** float(power_b)
+    return straight_field_line_angle(theta, weighted, R)
+
+
 # ------------------------------------------------------------------
 # Current Density
 # ------------------------------------------------------------------
+
 
 def current_density_from_B(B: Union[float, np.ndarray],
                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:

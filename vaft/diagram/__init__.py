@@ -79,6 +79,9 @@ __all__ = [
     "guiding_center_invariants",
     "canonical_toroidal_momentum",
     "toroidal_symmetry_breaking",
+    "sfl_coordinate_grids",
+    "sfl_coordinate_taxonomy",
+    "sfl_fourier_convergence",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -121,6 +124,9 @@ _LOCATIONS = {
     "guiding_center_invariants": "._guiding_center",
     "canonical_toroidal_momentum": "._guiding_center",
     "toroidal_symmetry_breaking": "._guiding_center",
+    "sfl_coordinate_grids": "._sfl_coordinates",
+    "sfl_coordinate_taxonomy": "._sfl_coordinates",
+    "sfl_fourier_convergence": "._sfl_coordinates",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
