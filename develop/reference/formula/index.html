@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1c0d92c</code>. What is described
+  <code>eefdfd1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -281,7 +281,20 @@ numerical notes, references), and these pages are generated from those docstring
 <span class="nf">print</span><span class="p">(</span><span class="n">F</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">greenwald_density</span><span class="sh">"</span><span class="p">))</span>          <span class="c1"># one formula, rendered
 </span><span class="n">F</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="sh">"</span><span class="s">Sauter</span><span class="sh">"</span><span class="p">)</span>                              <span class="c1"># every formula whose text mentions it
 </span><span class="n">F</span><span class="p">.</span><span class="nf">list_formulas</span><span class="p">(</span><span class="n">category</span><span class="o">=</span><span class="sh">"</span><span class="s">stability</span><span class="sh">"</span><span class="p">)</span>           <span class="c1"># imports only that submodule
+</span><span class="n">F</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">greenwald_density</span><span class="sh">"</span><span class="p">).</span><span class="n">definition</span>      <span class="c1"># its $$...$$ equation, from the docstring
 </span></code></pre></div></div>
+
+<p>In Jupyter the same entry renders as a Markdown card with typeset equations when it is a cell’s
+last expression, and <code class="language-plaintext highlighter-rouge">F.show</code> renders only the parts a notebook needs, in the order given, so a
+tutorial shows the docstring’s equation instead of restating it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">F</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">greenwald_density</span><span class="sh">"</span><span class="p">)</span>                 <span class="c1"># the whole card
+</span><span class="n">F</span><span class="p">.</span><span class="nf">show</span><span class="p">(</span><span class="sh">"</span><span class="s">greenwald_density</span><span class="sh">"</span><span class="p">,</span> <span class="n">sections</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">definition</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">convention</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">validity</span><span class="sh">"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>A part is <code class="language-plaintext highlighter-rouge">signature</code>, <code class="language-plaintext highlighter-rouge">summary</code>, <code class="language-plaintext highlighter-rouge">definition</code>, <code class="language-plaintext highlighter-rouge">description</code>, <code class="language-plaintext highlighter-rouge">parameters</code>, <code class="language-plaintext highlighter-rouge">returns</code>, <code class="language-plaintext highlighter-rouge">raises</code>,
+<code class="language-plaintext highlighter-rouge">references</code> or a docstring section (<code class="language-plaintext highlighter-rouge">convention</code>, <code class="language-plaintext highlighter-rouge">validity</code>, …).  Asking for one the formula
+does not document raises <code class="language-plaintext highlighter-rouge">ValueError</code>; <code class="language-plaintext highlighter-rouge">print(...)</code> keeps the terminal text.</p>
 
 <p>The discovery layer is loaded on first use only; <code class="language-plaintext highlighter-rouge">import vaft.formula.stability</code> never touches it.</p>
 
@@ -1243,7 +1256,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 13:16:07 +0000"
+        "time": "2026-09-27 13:33:58 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
