@@ -45,6 +45,7 @@ __all__ = [
     "beta_tor_from_beta_pol",
     "c_s_from_Te_Ti_mi",
     "collisionality_from_n_T_B_R",
+    "delta_prime_from_outer_derivatives",
     "empirical_li_qa",
     "greenwald_density",
     "greenwald_fraction",
@@ -1263,6 +1264,67 @@ def island_separatrix_half_width(xi, width):
         raise ValueError(f"width must be positive, not {width!r}")
     return 0.5 * width * np.abs(np.cos(0.5 * np.asarray(xi, dtype=float)))
 
+
+
+def delta_prime_from_outer_derivatives(psi_s, dpsi_dr_minus, dpsi_dr_plus):
+    r"""Tearing stability index from the outer solution's derivatives at the rational surface.
+
+    $$\Delta' = \frac{1}{\tilde\psi(r_s)}\left(\left.\frac{d\tilde\psi}{dr}\right|_{r_s^+}
+      - \left.\frac{d\tilde\psi}{dr}\right|_{r_s^-}\right)$$
+
+    Parameters
+    ----------
+    psi_s : float or np.ndarray
+        Perturbed poloidal flux of the outer solution at the rational
+        surface, where both sides meet [Wb].
+    dpsi_dr_minus : float or np.ndarray
+        Radial derivative of the inner-side outer solution as $r \to r_s^-$ [Wb/m].
+    dpsi_dr_plus : float or np.ndarray
+        Radial derivative of the outer-side outer solution as $r \to r_s^+$ [Wb/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta'$, the jump in the logarithmic derivative [1/m].
+
+    Raises
+    ------
+    ValueError
+        ``psi_s`` is zero or not finite.
+
+    Convention
+    ----------
+    $r$ increases outward, so the jump is the outer-side derivative minus
+    the inner-side one. $\Delta' > 0$ is the classical tearing drive; the
+    index is unchanged by the normalisation of $\tilde\psi$, and $r\Delta'$
+    is its dimensionless form. Any flux unit works if the derivatives share
+    it.
+
+    Physical interpretation
+    -----------------------
+    The free energy the ideal outer region offers a reconnecting layer at
+    $r_s$: the two outer solutions are continuous there but their slopes
+    are not, and only non-ideal physics in a thin layer can bridge the jump.
+
+    Assumptions
+    -----------
+    The outer solutions are those of ideal, marginally stable MHD, and the
+    layer is thin compared with $r_s$ (constant-$\psi$). This is the
+    definition only; it solves no outer equation.
+
+    References
+    ----------
+    .. [1] H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6
+           (1963) 459.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.8.
+    """
+    psi_s = np.asarray(psi_s, dtype=float)
+    if not (np.all(np.isfinite(psi_s)) and np.all(psi_s != 0.0)):
+        raise ValueError(f"psi_s must be finite and non-zero, not {psi_s!r}")
+    jump = np.asarray(dpsi_dr_plus, dtype=float) - np.asarray(dpsi_dr_minus, dtype=float)
+    result = jump / psi_s
+    return float(result) if result.ndim == 0 else result
 
 
 # ------------------------------------------------------------------

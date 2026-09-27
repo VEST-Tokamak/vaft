@@ -30,6 +30,7 @@ from vaft.formula.particle import (
     larmor_radius,
 )
 
+from ._equations import formula_equation
 from ._projection import camera, project
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
@@ -101,25 +102,6 @@ _EQUATIONS = {
     "toroidal_drift": (grad_b_drift_velocity, curvature_drift_velocity, exb_drift_velocity),
 }
 _EQUATION_LINE_HEIGHT = 0.95  # cm per displayed equation in the box
-
-
-def formula_equation(function) -> str:
-    """The defining equation of a ``vaft.formula`` function, as its catalog entry gives it.
-
-    The figures show exactly the first of ``FormulaSpec.definitions``, so an
-    equation on a diagram cannot drift from the one the formula documents,
-    the reference page shows and ``vaft.formula.show`` renders.
-    """
-    from vaft.formula.catalog import CATEGORIES, describe
-
-    package, _, category = getattr(function, "__module__", "").rpartition(".")
-    name = getattr(function, "__name__", repr(function))
-    if package != "vaft.formula" or category not in CATEGORIES:
-        raise ValueError(f"{name} is not a vaft.formula function, so it documents no equation")
-    definitions = describe(f"{category}.{name}").definitions
-    if not definitions:
-        raise ValueError(f"{name} documents no $$...$$ equation")
-    return " ".join(definitions[0].split())
 
 
 def _with_equations(scene: Scene, family: str) -> Scene:

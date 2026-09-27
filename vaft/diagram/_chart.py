@@ -62,7 +62,9 @@ def clip(xy: np.ndarray, chart: Chart) -> List[np.ndarray]:
 
 def render_chart(chart: Chart, *, x_label: str, y_label: str, curve_styles: Dict[str, str],
                   region_text: Dict[str, str], x_ticks: Sequence[float] = (), y_ticks: Sequence[float] = (),
-                  note: str = "", star: str = "") -> Scene:
+                  note: str = "", star: str = "", x_tick_text: Sequence[str] = (),
+                  y_tick_text: Sequence[str] = ()) -> Scene:
+    """The chart's scene; ``x_tick_text``/``y_tick_text`` replace the numbers under the ticks."""
     items: List = []
     W, H = CHART_WIDTH, CHART_HEIGHT
     for name, style in curve_styles.items():
@@ -79,14 +81,18 @@ def render_chart(chart: Chart, *, x_label: str, y_label: str, curve_styles: Dict
         Label((W * 0.62, -x_gap), x_label, "xlabel", anchor="north", role="axes"),
         Label((-y_gap, H * 0.62), y_label, "ylabel", anchor="south", role="axes"),
     ]
-    for x in x_ticks:
+    if (x_tick_text and len(x_tick_text) != len(x_ticks)) or (y_tick_text and len(y_tick_text) != len(y_ticks)):
+        raise ValueError("tick text needs one entry per tick")
+    for i, x in enumerate(x_ticks):
         cx = float(chart.to_cm(np.array([x, chart.y_range[0]]))[0])
+        text = x_tick_text[i] if x_tick_text else f"${x:g}$"
         items += [Polyline.of([(cx, 0.0), (cx, -0.12)], "tick", role="ticks"),
-                  Label((cx, -0.18), f"${x:g}$", "ticklabel", anchor="north", role="ticks")]
-    for y in y_ticks:
+                  Label((cx, -0.18), text, "ticklabel", anchor="north", role="ticks")]
+    for i, y in enumerate(y_ticks):
         cy = float(chart.to_cm(np.array([chart.x_range[0], y]))[1])
+        text = y_tick_text[i] if y_tick_text else f"${y:g}$"
         items += [Polyline.of([(0.0, cy), (-0.12, cy)], "tick", role="ticks"),
-                  Label((-0.18, cy), f"${y:g}$", "ticklabel", anchor="east", role="ticks")]
+                  Label((-0.18, cy), text, "ticklabel", anchor="east", role="ticks")]
     for name, text in region_text.items():
         items.append(Label(tuple(chart.to_cm(chart.labels[name])), text, "region", role=f"region_{name}"))
     if note:

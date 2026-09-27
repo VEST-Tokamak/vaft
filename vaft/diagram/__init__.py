@@ -15,7 +15,9 @@ Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill`` and
 ``troyon``; single-particle motion: ``exb_drift``, ``curvature_drift``,
-``magnetization_current`` and ``toroidal_drift``.
+``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
+of the island: ``rational_surface``, ``delta_prime`` and
+``tearing_layer_matching``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -40,6 +42,9 @@ __all__ = [
     "curvature_drift",
     "magnetization_current",
     "toroidal_drift",
+    "rational_surface",
+    "delta_prime",
+    "tearing_layer_matching",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -54,6 +59,9 @@ _LOCATIONS = {
     "curvature_drift": "._particle_motion",
     "magnetization_current": "._particle_motion",
     "toroidal_drift": "._particle_motion",
+    "rational_surface": "._tearing",
+    "delta_prime": "._tearing",
+    "tearing_layer_matching": "._tearing",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

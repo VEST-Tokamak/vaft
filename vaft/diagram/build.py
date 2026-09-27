@@ -46,6 +46,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}_{projection}.svg": (name, {"projection": projection}) for name, projection in (
         ("exb_drift", "3d"), ("curvature_drift", "poloidal"), ("curvature_drift", "top"),
         ("magnetization_current", "3d"), ("toroidal_drift", "poloidal"), ("toroidal_drift", "top"))},
+    # tearing physics, one concept per diagram
+    **{f"{name}.svg": (name, {}) for name in ("rational_surface", "delta_prime", "tearing_layer_matching")},
 }
 
 
