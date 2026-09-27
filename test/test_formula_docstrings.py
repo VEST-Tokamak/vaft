@@ -120,6 +120,10 @@ CONVENTION_SENSITIVE = frozenset({
     "gwb_stochastic_threshold",
     "gwb_stochasticity_parameter",
     "parallel_speed_from_mu",
+    "magnetic_moment",
+    "canonical_toroidal_momentum",
+    "guiding_center_toroidal_momentum",
+    "bounce_harmonic_detuning",
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",
     "sheared_slab_field",

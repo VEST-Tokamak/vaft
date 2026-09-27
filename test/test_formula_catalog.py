@@ -92,7 +92,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
-        "particle": 8,  # +gyration_offset (#1145 review)
+        "particle": 12,  # +gyration_offset (#1145 review)
         "geometry": 7,  # slab / cylinder / local reduction (#1062)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
     }

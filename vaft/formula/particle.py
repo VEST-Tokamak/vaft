@@ -30,6 +30,10 @@ __all__ = [
     "grad_b_drift_velocity",
     "curvature_drift_velocity",
     "parallel_speed_from_mu",
+    "magnetic_moment",
+    "canonical_toroidal_momentum",
+    "guiding_center_toroidal_momentum",
+    "bounce_harmonic_detuning",
     "boris_orbit",
 ]
 
@@ -441,6 +445,245 @@ def parallel_speed_from_mu(v, pitch_ref, B_ref, B):
     # a bounce point computed from its own mirror ratio lands within round-off of zero
     arg = np.where(np.abs(arg) < 1e-12, 0.0, arg)
     result = float(v) * np.sqrt(np.where(arg >= 0.0, arg, np.nan))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def magnetic_moment(m, v_perp, B):
+    r"""Magnetic moment of a gyrating particle, the first adiabatic invariant.
+
+    $$\mu = \frac{m v_\perp^2}{2B}$$
+
+    Parameters
+    ----------
+    m : float
+        Particle mass [kg].
+    v_perp : float or np.ndarray
+        Speed perpendicular to $\mathbf B$ [m/s].
+    B : float or np.ndarray
+        Field strength at the guiding centre [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\mu$, non-negative [J/T].
+
+    Raises
+    ------
+    ValueError
+        ``m`` or ``B`` is not positive.
+
+    Convention
+    ----------
+    Independent of the charge sign; ``v_perp`` enters squared, so its sign is
+    irrelevant. With $E = \tfrac12 mv_\parallel^2 + \mu B$ in a static field it
+    gives the mirror relation of ``parallel_speed_from_mu``.
+
+    Physical interpretation
+    -----------------------
+    The gyro-orbit's magnetic dipole moment, equivalently its gyro-action
+    $J_\perp = (2m/|q|)\mu$ up to a constant: the invariant of the fastest
+    motion, which is why $v_\perp^2$ tracks $B$ along a field line.
+
+    Assumptions
+    -----------
+    Conserved only under the adiabatic ordering: the field changes little over
+    a gyro-period and a Larmor radius. It is defined for any inputs; its
+    conservation is not implied.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
+           3rd ed., Springer (2016), Sec. 2.3.3.
+    """
+    m = float(m)
+    B = np.asarray(B, dtype=float)
+    if m <= 0.0 or np.any(B <= 0.0):
+        raise ValueError("m and B must be positive")
+    result = 0.5 * m * np.asarray(v_perp, dtype=float) ** 2 / B
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def canonical_toroidal_momentum(q, m, R, v_phi, A_phi):
+    r"""Canonical toroidal angular momentum of a particle in an axisymmetric field.
+
+    $$P_\phi = m R v_\phi + q R A_\phi$$
+
+    Parameters
+    ----------
+    q : float
+        Signed particle charge [C].
+    m : float
+        Particle mass [kg].
+    R : float or np.ndarray
+        Major radius of the particle [m].
+    v_phi : float or np.ndarray
+        Physical toroidal velocity component $\hat{\boldsymbol\phi}\cdot\mathbf v$ [m/s].
+    A_phi : float or np.ndarray
+        Physical toroidal component of the vector potential [T m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $P_\phi = \partial\mathcal L/\partial\dot\phi$ [kg m^2/s].
+
+    Raises
+    ------
+    ValueError
+        ``m`` is not positive or ``R`` is negative.
+
+    Convention
+    ----------
+    Cylindrical $(R, \phi, Z)$ right-handed, $\phi$ counter-clockwise seen
+    from above (the IMAS $\phi$). ``v_phi`` and ``A_phi`` are *physical*
+    components; $RA_\phi$ is the covariant one, which equals the poloidal flux
+    per radian $\psi$ (see ``guiding_center_toroidal_momentum``). The full
+    particle form: it includes the gyration in $v_\phi$.
+
+    Physical interpretation
+    -----------------------
+    The momentum conjugate to $\phi$. Where $\partial\mathcal L/\partial\phi = 0$
+    (axisymmetry) it is exactly conserved, which ties the particle's toroidal
+    velocity to its flux-surface position.
+
+    Assumptions
+    -----------
+    A static or axisymmetric field; the Lagrangian
+    $\mathcal L = \tfrac12 mv^2 + q\mathbf A\cdot\mathbf v - q\Phi$.
+
+    References
+    ----------
+    .. [1] R. B. White, *The Theory of Toroidally Confined Plasmas*, 3rd ed.,
+           Imperial College Press (2014), Ch. 3.
+    """
+    m = float(m)
+    R = np.asarray(R, dtype=float)
+    if m <= 0.0 or np.any(R < 0.0):
+        raise ValueError("m must be positive and R non-negative")
+    result = m * R * np.asarray(v_phi, dtype=float) + float(q) * R * np.asarray(A_phi, dtype=float)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def guiding_center_toroidal_momentum(q, m, v_par, R, b_phi, psi_per_radian):
+    r"""Canonical toroidal momentum of a guiding centre, flux plus mechanical parts.
+
+    $$P_{\phi,\mathrm{gc}} = q\psi + m v_\parallel R\, b_\phi$$
+
+    Parameters
+    ----------
+    q : float
+        Signed particle charge [C].
+    m : float
+        Particle mass [kg].
+    v_par : float or np.ndarray
+        Signed parallel velocity, positive along $\mathbf B$ [m/s].
+    R : float or np.ndarray
+        Major radius of the guiding centre [m].
+    b_phi : float or np.ndarray
+        Toroidal component of the unit vector $\mathbf b = \mathbf B/B$ [-].
+    psi_per_radian : float or np.ndarray
+        Poloidal flux per radian at the guiding centre, $\psi = RA_\phi$ [Wb/rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $P_{\phi,\mathrm{gc}}$ [kg m^2/s].
+
+    Raises
+    ------
+    ValueError
+        ``m`` is not positive or ``R`` is negative.
+
+    Convention
+    ----------
+    $\psi$ is **per radian** and is the covariant $RA_\phi$ with the IMAS
+    $\phi$: its sign follows the plasma current and field directions. A COCOS
+    flux in Wb (the whole-turn flux of COCOS 11-18, which IMAS uses) must be
+    divided by $2\pi$ and given the sign that makes $\psi = RA_\phi$ -- see
+    ``vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor``. $b_\phi v_\parallel$ is
+    the toroidal velocity of the guiding centre; $mRb_\phi v_\parallel = mIv_\parallel/B$
+    with $I = RB_\phi$.
+
+    Physical interpretation
+    -----------------------
+    Conserved in axisymmetry, so a change of $v_\parallel$ along the orbit is paid
+    for by a change of $\psi$: $\Delta\psi = -(m/q)\Delta(v_\parallel Rb_\phi)$.
+    That is the finite orbit width -- the global view of what the grad-B and
+    curvature drifts do locally.
+
+    Assumptions
+    -----------
+    Lowest-order guiding-centre theory: the gyration averaged out, drift
+    velocity small against $v_\parallel$ in the mechanical term.
+
+    References
+    ----------
+    .. [1] R. B. White, *The Theory of Toroidally Confined Plasmas*, 3rd ed.,
+           Imperial College Press (2014), Ch. 3.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    """
+    m = float(m)
+    R = np.asarray(R, dtype=float)
+    if m <= 0.0 or np.any(R < 0.0):
+        raise ValueError("m must be positive and R non-negative")
+    result = (float(q) * np.asarray(psi_per_radian, dtype=float)
+              + m * np.asarray(v_par, dtype=float) * R * np.asarray(b_phi, dtype=float))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def bounce_harmonic_detuning(omega_b, omega_exb, omega_magnetic=0.0, *, l=1, n=1):
+    r"""Frequency mismatch of a trapped orbit with a toroidal-$n$ perturbation at bounce harmonic $\ell$.
+
+    $$\Delta\omega_\mathrm{BH} = \ell\,\omega_b - n\,\omega_E - n\,\omega_B$$
+
+    Parameters
+    ----------
+    omega_b : float or np.ndarray
+        Bounce frequency of the trapped orbit [rad/s].
+    omega_exb : float or np.ndarray
+        Toroidal $E\times B$ precession frequency [rad/s].
+    omega_magnetic : float or np.ndarray
+        Toroidal magnetic (grad-B and curvature) precession frequency [rad/s].
+    l : int
+        Bounce harmonic, any integer including 0 [-].
+    n : int
+        Toroidal mode number of the perturbation [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta\omega_\mathrm{BH}$; zero at the resonance [rad/s].
+
+    Raises
+    ------
+    ValueError
+        ``l`` or ``n`` is not an integer.
+
+    Convention
+    ----------
+    The temporal resonance of Park, Boozer and Menard: a static perturbation
+    $\propto e^{in\phi}$ seen by an orbit precessing toroidally at
+    $\omega_E + \omega_B$ and bouncing at $\omega_b$. $\ell = 0$ is the
+    precession resonance. It is not the *spatial* resonance $m = nq$ of a
+    field line; the two are separate conditions.
+
+    Physical interpretation
+    -----------------------
+    Where it vanishes the orbit sees a stationary phase of the perturbation
+    each bounce, so the change of $P_\phi$ adds up secularly instead of
+    averaging out -- the orbit-level origin of non-resonant transport and NTV,
+    which themselves need the kinetic response of the whole distribution.
+
+    References
+    ----------
+    .. [1] J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102
+           (2009) 065002.
+    """
+    for name, value in (("l", l), ("n", n)):
+        if isinstance(value, bool) or int(value) != value:
+            raise ValueError(f"{name} must be an integer, not {value!r}")
+    result = (int(l) * np.asarray(omega_b, dtype=float) - int(n) * np.asarray(omega_exb, dtype=float)
+              - int(n) * np.asarray(omega_magnetic, dtype=float))
     return float(result) if np.ndim(result) == 0 else result
 
 
