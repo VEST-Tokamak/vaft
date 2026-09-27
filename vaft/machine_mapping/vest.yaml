@@ -1221,6 +1221,57 @@
         # that enter through the `profiles` file, not machine description, and
         # writing them as static machine metadata is exactly the conflation
         # issue #490 section 5 warns against.
+
+  # EC launcher geometry (issue #266), consumed by
+  # vaft.machine_mapping.ec_launchers. Power stays in `diagnostics:` (#165).
+  #
+  # Source: the EC officer's `MID 6KW ECH ASSY.stp` (Inventor 2026 AP214
+  # export, 2026-09-21, sha256 a4f7b9dd...711c), reduced by
+  # validation/ec_launcher_cad_266/extract_launcher_geometry.py. The assembly
+  # carries the vessel section (`MIDDLE SHIELD PART`: an r = 800 mm cylinder,
+  # z = +-587 mm, radial r = 82.6 mm port holes at z = -360 / 0 / +360 mm), so
+  # the machine axis is recovered from the CAD rather than assumed.
+  #
+  # The line has no horn or mirror: WR340 -> WR284 -> quartz window -> open
+  # CF10 tube of bore 158.4 mm. The launch plane is the tube's plasma-facing
+  # end, whose centre on the port axis is R = 0.8021 m (the tube's end cut is
+  # recessed ~2 mm behind the r = 800 mm wall there). The bore axis is
+  # radial to 0.005 mm and normal to the machine axis to 1e-5, so k = -e_R and
+  # both IMAS steering angles are zero.
+  #
+  # PROVISIONAL, pending the EC officer (issue #266 comment 2026-09-27):
+  #   - z: the shield's local +Y (which is the CAD machine axis) is taken as
+  #     up and the shield centre as the midplane; either being wrong changes
+  #     z, and the first flips its sign. Lower tier agrees with the port name
+  #     5ML10.
+  #   - phi: the CAD has no toroidal datum; it comes from the port map.
+  #   - era: this installation is assumed for every shot with ECH power
+  #     recorded (fields 27/28 from ~29500); an earlier launcher is not known.
+  # Mode, O-mode fraction, spot and phase are deliberately absent. The TE10
+  # E-field is vertical (WR340 broad wall toroidal, 86.4 mm), recorded below as
+  # hardware polarization only: the O/X split depends on the local field pitch.
+  ec_launchers:
+    beams:
+      ech_6kw:
+        # Name, identifier and the 2.45 GHz magnetron frequency (MKS
+        # TM066/SM1280) live in the module beside the power mapping.
+        port: 5ML10
+        revisions:
+          - from_shot: 29500
+            geometry_status: provisional
+            source: MID 6KW ECH ASSY.stp (sha256 a4f7b9ddcafa987eb958c46ce374633cf5501c28792eb3b42db1cb86b693711c)
+            launch_plane: port tube plasma-facing end
+            launching_position: {r: 0.8021, z: -0.360}   # m; phi from `port`
+            # Unit propagation direction (k_R, k_phi, k_Z) at the launch point.
+            direction: [-1.0, 0.0, 0.0]
+            # TE10 E-field direction (e_R, e_phi, e_Z); provenance only, no
+            # IMAS node carries it.
+            polarization: [0.0, 0.0, 1.0]
+            # Upstream stations on the same axis (on-axis R), provenance only.
+            stations:
+              quartz_window_r: [0.873, 0.883]
+              wr284_end_r: 0.893
+              waveguide: WR340 (86.36 x 43.18 mm) -> WR284
   langmuir_probes:
     mid:
       source:
@@ -2174,11 +2225,12 @@ diagnostic_registry:
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: in_maintenance
-    # 6 kW 2.45 GHz line only (fields 27/28, issue #165); launching position,
-    # mode and steering remain unmapped (issue #266).
+    # 6 kW 2.45 GHz line only (fields 27/28, issue #165). Launching position
+    # and steering are mapped from the EC officer's CAD, provisionally (see
+    # `0: ec_launchers`, issue #266); mode stays unmapped.
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.ec_launchers, entrypoint: ec_launchers}
-    quantities: {static: [frequency, launching_position, mode], measured: [forward_power, reversed_power], derived: []}
+    quantities: {static: [frequency, launching_position, steering_angle, mode], measured: [forward_power, reflected_power], derived: []}
   nbi:
     name: Neutral beam injection
     family: heating_current_drive
