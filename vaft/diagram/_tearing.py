@@ -68,6 +68,35 @@ def _schematic_q(q_s: float) -> Tuple[float, float]:
     return min(1.0, 0.6 * q_s), max(3.5, 1.4 * q_s)
 
 
+#: size of the "q(r_s) = m/n" label, generously estimated [cm]
+LEVEL_LABEL_SIZE = (2.4, 0.6)
+
+
+def label_box(at, anchor: str, size=LEVEL_LABEL_SIZE) -> Tuple[float, float, float, float]:
+    """``(x0, y0, x1, y1)`` of a label of ``size`` placed at ``at`` with a compass ``anchor``."""
+    w, h = size
+    x, y = at
+    x0 = x - w if "east" in anchor else (x if "west" in anchor else x - w / 2)
+    y0 = y - h if "north" in anchor else (y if "south" in anchor else y - h / 2)
+    return x0, y0, x0 + w, y0 + h
+
+
+def _level_label_place(chart: Chart):
+    """Where the level label clears the q curve: above-left, below-right or above-right of the crossing."""
+    q_s, r_s = chart.parameters["q_s"], chart.parameters["r_s"]
+    lx, ly = (float(v) for v in chart.to_cm(np.array([r_s, q_s])))
+    right = float(chart.to_cm(np.array([1.08, q_s]))[0])
+    curve = chart.to_cm(chart.curves["q_profile"])
+    for at, anchor in (((0.25, ly + 0.15), "south west"), ((lx + 0.35, ly - 0.15), "north west"),
+                       ((right, ly + 0.15), "south east")):
+        x0, y0, x1, y1 = label_box(at, anchor)
+        inside = (curve[:, 0] > x0) & (curve[:, 0] < x1) & (curve[:, 1] > y0) & (curve[:, 1] < y1)
+        clear_of_ticks = y0 > 0.3 or anchor.startswith("south")  # a label below the level must clear the x ticks
+        if clear_of_ticks and x1 < CHART_WIDTH + 0.6 and not inside.any():
+            return at, anchor
+    raise RuntimeError(f"no clear place for the q(r_s) label at m/n = {q_s:g}")
+
+
 def rational_surface(m: int = 2, n: int = 1, *, labels: bool = True) -> Diagram:
     r"""Where a helical perturbation resonates: the rational surface $q(r_s) = m/n$.
 
@@ -92,21 +121,26 @@ def rational_surface(m: int = 2, n: int = 1, *, labels: bool = True) -> Diagram:
     chart.curves["rational_level"] = np.array([[0.0, q_s], [1.08, q_s]])
     chart.curves["rational_surface"] = np.array([[r_s, 0.0], [r_s, q_s]])
     chart.points["crossing"] = (r_s, q_s)
-    chart.labels.update({"pitch": (0.3, q_s + 0.16 * qa)})
     chart.parameters.update({"m": m, "n": n, "q_s": q_s, "q0": q0, "qa": qa, "r_s": r_s})
+    # the y tick sits at q_s / (1.15 q_a); keep the axis title clear of it
+    tick_height = q_s / chart.y_range[1]
     scene = render_chart(
         chart, x_label="$r$", y_label="$q$",
         curve_styles={"q_profile": "outer solution", "rational_level": "approx", "rational_surface": "rational"},
-        region_text={"pitch": "field-line pitch\\\\ $=$ helicity"} if labels else {},
+        region_text={},
         note="Schematic monotonic $q(r)$; not an equilibrium profile" if labels else "",
         x_ticks=(r_s, 1.0), x_tick_text=("$r_s$", "$a$"), y_ticks=(q_s,), y_tick_text=(f"${m}/{n}$",),
+        y_label_at=0.25 if tick_height > 0.45 else 0.62,
     )
     crossing = Marker(tuple(chart.to_cm(chart.points["crossing"])), "o", "opoint", role="rational_surface")
     items = [crossing]
     if labels:
-        end = chart.to_cm(np.array([1.08, q_s]))
-        items.append(Label((float(end[0]) - 0.1, float(end[1]) + 0.35),
-                           "$q(r_s) = m/n$", "label", anchor="south east", role="rational_level"))
+        at, anchor = _level_label_place(chart)
+        items.append(Label(at, "$q(r_s) = m/n$", "label", anchor=anchor, role="rational_level"))
+        # q < q_a * 0.3 + q_0 over the left third, so the top-left corner stays empty
+        items.append(Label((0.25, CHART_HEIGHT - 0.1), "field-line pitch $=$ helicity", "label",
+                           anchor="north west", role="region_pitch"))
+        chart.parameters["level_label_anchor"] = anchor
     return Diagram("rational_surface", scene + Scene(tuple(items)), model=chart)
 
 
@@ -133,7 +167,8 @@ def _outer_branches(sign: str, n: int = 121) -> Dict[str, np.ndarray]:
     r_right = np.linspace(_R_S, 1.0, n)
     left = np.stack([r_left, A * r_left + B * r_left**2], axis=-1)
     right = np.stack([r_right, C * (1.0 - r_right) + D * (1.0 - r_right) ** 2], axis=-1)
-    assert left[:, 1].min() >= -1e-12 and right[:, 1].min() >= -1e-12  # a positive eigenfunction
+    if left[:, 1].min() < -1e-12 or right[:, 1].min() < -1e-12:
+        raise RuntimeError("the schematic outer solution went negative; _SLOPE is too large")
     return {"outer_left": left, "outer_right": right,
             "slopes": np.array([slope_minus, slope_plus]),
             "left_coefficients": np.array([A, B]), "right_coefficients": np.array([C, D])}
@@ -154,6 +189,8 @@ def delta_prime(sign: str = "positive", *, labels: bool = True) -> Diagram:
     ``delta_prime_from_outer_derivatives`` from the drawn slopes. Only the
     sign is meaningful: this is not a stability calculation.
     """
+    if not isinstance(sign, str):
+        raise ValueError(f"sign must be one of {tuple(_SIGNS)}, not {sign!r}")
     branches = _outer_branches(sign)
     labels = _check_labels(labels)
     slope_minus, slope_plus = branches["slopes"]
@@ -164,21 +201,26 @@ def delta_prime(sign: str = "positive", *, labels: bool = True) -> Diagram:
                          "rational_surface": np.array([[_R_S, 0.0], [_R_S, 1.3]])})
     chart.points["psi_s"] = (_R_S, _PSI_S)
     relation = {"positive": ">", "zero": "=", "negative": "<"}[sign]
-    chart.labels["delta_prime"] = (_R_S, 1.46)
     chart.parameters.update({"sign": sign, "r_s": _R_S, "psi_s": _PSI_S, "dpsi_dr_minus": slope_minus,
                              "dpsi_dr_plus": slope_plus, "delta_prime": value})
     scene = render_chart(
         chart, x_label="$r$", y_label="$\\tilde\\psi$",
         curve_styles={"rational_surface": "rational", "slope_left": "slope minus", "slope_right": "slope plus",
                       "outer_left": "outer solution", "outer_right": "outer solution"},
-        region_text={"delta_prime": f"$\\Delta' {relation} 0$"} if labels else {},
+        region_text={},
         x_ticks=(_R_S, 1.0), x_tick_text=("$r_s$", "$a$"),
     )
     items = [Marker(tuple(chart.to_cm(chart.points["psi_s"])), "o", "opoint", role="psi_s")]
     if labels:
-        for key, text, anchor, dx in (("slope_left", "$\\tilde\\psi'(r_s^-)$", "east", -0.05),
-                                      ("slope_right", "$\\tilde\\psi'(r_s^+)$", "west", 0.05)):
-            end = chart.to_cm(chart.curves[key][0 if dx < 0 else 1])
+        top = chart.to_cm(np.array([_R_S, 1.46]))
+        items.append(Label(tuple(top), f"$\\Delta' {relation} 0$", "region", role="delta_prime"))
+        for key, text, default in (("slope_left", "$\\tilde\\psi'(r_s^-)$", 0),
+                                   ("slope_right", "$\\tilde\\psi'(r_s^+)$", 1)):
+            ends = chart.curves[key]
+            # the upper end is clear of the outer curve, which lies under both tangents' tops
+            index = default if ends[0, 1] == ends[1, 1] else int(np.argmax(ends[:, 1]))
+            end = chart.to_cm(ends[index])
+            dx, anchor = (-0.05, "east") if index == 0 else (0.05, "west")
             items.append(Label((float(end[0]) + dx, float(end[1])), text, "label", anchor=anchor, role=key))
     scene = scene + Scene(tuple(items))
     if labels:

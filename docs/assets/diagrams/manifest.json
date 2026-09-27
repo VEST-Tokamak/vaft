@@ -17,8 +17,8 @@
     },
     "delta_prime.svg": {
       "call": "vaft.diagram.delta_prime()",
-      "source_sha256": "752dea345d51bf73b241be242a6d4c69bc6a48b34fe06c47057453eafd1689f8",
-      "svg_sha256": "c7f51da7c6247377b6a0890a48a71ae7ff3611cc71b7f0897acfafb0f3db8e4e"
+      "source_sha256": "70a45bfbc336b682689c56b890bfb40a3cb09b1dcfcc6c55c5aa178eb780b7ed",
+      "svg_sha256": "7128129e4d5a613237908e8d7343dd5e066546f4d88345e61b78139a8995bb21"
     },
     "exb_drift.svg": {
       "call": "vaft.diagram.exb_drift()",
@@ -67,8 +67,8 @@
     },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
-      "source_sha256": "de8866ff1b9141774e46a752703858ad2fd8ae728f60b01051041b12e8eb201d",
-      "svg_sha256": "e9ceae126f60ccaa428484aa0a115681f1bc9317dff093f04bf97e357f8a3bb3"
+      "source_sha256": "9a94a8781fa12234ff44b0cabe3529c3cf9a0eea7ca85f7c61bc46f92014ff13",
+      "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",

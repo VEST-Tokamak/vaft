@@ -47,6 +47,18 @@ def test_the_q_profile_crosses_m_over_n_once_at_r_s(m, n):
     assert np.allclose(marker.at, chart.to_cm(np.array([r_s, m / n])))
 
 
+@pytest.mark.parametrize("m, n", [(2, 1), (3, 1), (5, 2), (1, 1), (1, 10), (11, 10), (50, 1), (1, 11)])
+def test_the_labels_stay_clear_of_the_q_curve(m, n):
+    d = vaft.diagram.rational_surface(m, n)
+    curve = d.model.to_cm(d.model.curves["q_profile"])
+    (level,) = [it for it in d.scene.role("rational_level") if hasattr(it, "text")]
+    (pitch,) = d.scene.role("region_pitch")
+    for label, size in ((level, _tearing.LEVEL_LABEL_SIZE), (pitch, (4.3, 0.6))):
+        x0, y0, x1, y1 = _tearing.label_box(label.at, label.anchor, size)
+        inside = (curve[:, 0] > x0) & (curve[:, 0] < x1) & (curve[:, 1] > y0) & (curve[:, 1] < y1)
+        assert not inside.any(), (m, n, label.text)
+
+
 @pytest.mark.parametrize("m, n", [(0, 1), (2, 0), (-1, 1), (2.0, 1), (True, 1), (4, 2)])
 def test_mode_numbers_are_positive_integers_in_lowest_terms(m, n):
     with pytest.raises(ValueError):
@@ -86,6 +98,21 @@ def test_zero_removes_the_jump():
     assert p["dpsi_dr_minus"] == p["dpsi_dr_plus"] and p["delta_prime"] == 0.0
 
 
+@pytest.mark.parametrize("sign, text", [("positive", ">"), ("zero", "="), ("negative", "<")])
+def test_the_sign_label_carries_the_delta_prime_role(sign, text):
+    (label,) = vaft.diagram.delta_prime(sign).scene.role("delta_prime")
+    assert f"\\Delta' {text} 0" in label.text
+
+
+@pytest.mark.parametrize("sign", ["positive", "negative"])
+def test_the_tangent_labels_sit_at_the_upper_end_clear_of_the_curve(sign):
+    d = vaft.diagram.delta_prime(sign)
+    for role in ("slope_left", "slope_right"):
+        (label,) = [it for it in d.scene.role(role) if hasattr(it, "text")]
+        top = d.model.to_cm(d.model.curves[role][np.argmax(d.model.curves[role][:, 1])])
+        assert abs(label.at[0] - top[0]) < 0.1 and label.at[1] == pytest.approx(top[1])
+
+
 def test_the_figure_shows_the_formulas_own_definition():
     from vaft.diagram._equations import formula_equation
 
@@ -96,7 +123,7 @@ def test_the_figure_shows_the_formulas_own_definition():
 
 
 def test_delta_prime_takes_only_a_sign():
-    for bad in ("large", 1.0, "Positive"):
+    for bad in ("large", 1.0, "Positive", ["positive"]):
         with pytest.raises(ValueError, match="sign"):
             vaft.diagram.delta_prime(bad)
 
@@ -123,11 +150,13 @@ def test_the_layer_solution_matches_value_and_slope_at_both_edges():
     left, right, inner = chart.curves["outer_left"], chart.curves["outer_right"], chart.curves["inner_solution"]
     assert inner[0] == pytest.approx(left[-1]) and inner[-1] == pytest.approx(right[0])
 
-    def slope(c, i, j):
-        return (c[j, 1] - c[i, 1]) / (c[j, 0] - c[i, 0])
-
-    assert slope(inner, 0, 1) == pytest.approx(slope(left, -2, -1), abs=0.05)
-    assert slope(inner, -2, -1) == pytest.approx(slope(right, 0, 1), abs=0.05)
+    # the drawn curves are exact polynomials: fit them and differentiate at the edges
+    lo, hi = chart.parameters["layer_edges"]
+    d_inner = np.polyder(np.polyfit(inner[:, 0], inner[:, 1], 3))
+    d_left = np.polyder(np.polyfit(left[-5:, 0], left[-5:, 1], 2))
+    d_right = np.polyder(np.polyfit(right[:5, 0], right[:5, 1], 2))
+    assert np.polyval(d_inner, lo) == pytest.approx(np.polyval(d_left, lo), abs=1e-6)
+    assert np.polyval(d_inner, hi) == pytest.approx(np.polyval(d_right, hi), abs=1e-6)
 
 
 def test_the_matching_arrows_run_from_the_outer_regions_to_the_layer_edges():
@@ -146,7 +175,7 @@ def test_the_matching_arrows_run_from_the_outer_regions_to_the_layer_edges():
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_every_tearing_diagram_is_deterministic_lazy_and_labelled_schematic(name):
+def test_every_tearing_diagram_is_deterministic_exported_and_labelled_schematic(name):
     fn = getattr(vaft.diagram, name)
     assert fn().tikz == fn().tikz
     assert name in vaft.diagram.__all__

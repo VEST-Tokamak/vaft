@@ -1308,9 +1308,12 @@ def delta_prime_from_outer_derivatives(psi_s, dpsi_dr_minus, dpsi_dr_plus):
 
     Assumptions
     -----------
-    The outer solutions are those of ideal, marginally stable MHD, and the
-    layer is thin compared with $r_s$ (constant-$\psi$). This is the
-    definition only; it solves no outer equation.
+    $\tilde\psi$ is continuous across $r_s$ with a jump only in its
+    derivative, the outer solutions being those of ideal, marginally stable
+    MHD. Nothing else is needed for the definition, which solves no outer
+    equation. What makes $\Delta'$ the quantity a layer matches is separate:
+    a layer thin compared with $r_s$ and, for the constant-$\psi$ regime,
+    $\Delta'\delta \ll 1$ across its width $\delta$.
 
     References
     ----------
