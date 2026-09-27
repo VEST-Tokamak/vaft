@@ -156,6 +156,47 @@ The index drawn here is the definition, not a stability result: no outer equatio
 values of $\Delta'$ (RDCON, STRIDE) belong to `vaft.plot`, and they are not the RDCON $D_R$ or the
 Modified Rutherford terms. The object these lead to is `magnetic_island`.
 
+## 3-D perturbation harmonics
+
+How a linear 3-D perturbation is written as complex Fourier harmonics, and what the complex numbers
+mean. Each diagram is one concept and needs no equilibrium, shot or GPEC output.
+
+```python
+vaft.diagram.normal_field_component()
+vaft.diagram.complex_harmonic(amplitude=1.0, phase=1.05)
+vaft.diagram.toroidal_harmonic_phase(n=1)
+vaft.diagram.harmonic_real_space_projection(m=2, n=1, phase=1.05)
+vaft.diagram.complex_field_superposition(case="screening")   # "amplification", "phase_shift"
+```
+
+| | |
+| --- | --- |
+| ![normal component]({{ '/assets/diagrams/normal_field_component.svg' | relative_url }}) | ![complex harmonic]({{ '/assets/diagrams/complex_harmonic.svg' | relative_url }}) |
+| ![toroidal phase]({{ '/assets/diagrams/toroidal_harmonic_phase.svg' | relative_url }}) | ![superposition]({{ '/assets/diagrams/complex_field_superposition.svg' | relative_url }}) |
+
+![real-space projection]({{ '/assets/diagrams/harmonic_real_space_projection.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `normal_field_component` | $\delta B_n = \delta\mathbf B\cdot\hat{\mathbf n}$ is the part of a perturbation that crosses a magnetic surface. It is geometric only, with no code-specific normalisation |
+| `complex_harmonic` | One harmonic is $\hat b = b_R + i\,b_I = A e^{i\alpha}$. $b_R$ and $b_I$ are the cosine and sine quadratures of one pattern, not two fields |
+| `toroidal_harmonic_phase` | Moving the toroidal origin by $\Delta\phi$ turns $\hat b$ by $-n\Delta\phi$. $\lvert\hat b\rvert$ is invariant; $b_R$ and $b_I$ are not |
+| `harmonic_real_space_projection` | The physical field is real, $\delta b = \mathrm{Re}[\hat b\,e^{i(m\theta - n\phi)}]$ (`vaft.formula.helical_harmonic`): stripes of slope $n/m$ on the unwrapped $(\phi, \theta)$ plane |
+| `complex_field_superposition` | External and plasma-response fields add as complex numbers, so screening, amplification and phase shift all come from one vector sum |
+
+The phase convention is `helical_phase`'s $\xi = m\theta - n\phi$, with both mode numbers positive and
+the helicity in the minus sign. `vaft.code.gpec` stores each complex quantity as a real/imaginary pair
+(`i = 0` real, `i = 1` imaginary) and rebuilds it as `real + 1j * imag`, deciding no convention. For
+GPEC's spectral outputs that pair is the $(b_R, b_I)$ of `complex_harmonic`, and it becomes a field only
+through the real-space reconstruction. Two sources differ:
+
+* the `*_fun` quantities (`b_n_fun`, `xi_n_fun`) are already real-space in $\theta$, and GPEC writes
+  them as $(\mathrm{Re}, -h\,\mathrm{Im})$ with its helicity $h$;
+* `vaft.process.toroidal_mode_decomposition` returns the conjugate, $\hat b = 2\,\overline{C_n}$.
+
+`helical_harmonic`'s Convention section states both. Amplitudes, phases and responses in these
+figures are schematic.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

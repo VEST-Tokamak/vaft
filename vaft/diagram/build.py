@@ -48,6 +48,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         ("magnetization_current", "3d"), ("toroidal_drift", "poloidal"), ("toroidal_drift", "top"))},
     # tearing physics, one concept per diagram
     **{f"{name}.svg": (name, {}) for name in ("rational_surface", "delta_prime", "tearing_layer_matching")},
+    # 3-D perturbation harmonics
+    **{f"{name}.svg": (name, {}) for name in ("normal_field_component", "complex_harmonic",
+                                              "toroidal_harmonic_phase", "harmonic_real_space_projection",
+                                              "complex_field_superposition")},
 }
 
 

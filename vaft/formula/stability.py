@@ -49,6 +49,7 @@ __all__ = [
     "empirical_li_qa",
     "greenwald_density",
     "greenwald_fraction",
+    "helical_harmonic",
     "helical_phase",
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
@@ -1143,6 +1144,75 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
     return (int(m_pol) * np.asarray(theta, dtype=float)
             - int(n_tor) * np.asarray(phi, dtype=float)
             - np.asarray(phase, dtype=float))
+
+
+def helical_harmonic(b_hat, theta, phi, m_pol, n_tor):
+    r"""The real perturbation carried by one complex $m/n$ Fourier coefficient.
+
+    $$\delta b = \mathrm{Re}\left[\hat b\,e^{i(m\theta - n\phi)}\right]
+      = b_R\cos\xi - b_I\sin\xi$$
+
+    Parameters
+    ----------
+    b_hat : complex or np.ndarray
+        Complex harmonic coefficient $\hat b = b_R + i\,b_I$ [B].
+    theta : float or np.ndarray
+        Poloidal angle [rad].
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    m_pol : int
+        Poloidal mode number [-].
+    n_tor : int
+        Toroidal mode number [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        The physical, real perturbation at $(\theta, \phi)$, in the unit of
+        ``b_hat`` [B].
+
+    Raises
+    ------
+    ValueError
+        ``m_pol`` or ``n_tor`` is not a positive mode number.
+
+    Convention
+    ----------
+    The phase is ``helical_phase`` with $\phi_0 = 0$, $\xi = m\theta - n\phi$:
+    both mode numbers positive, the helicity in the minus sign, and
+    $\hat b$ carrying the amplitude $|\hat b|$ and the phase
+    $\arg\hat b$ of the pattern. A crest ($\delta b = |\hat b|$) sits where
+    $\xi = -\arg\hat b$. A coefficient taken with the kernel
+    $e^{-in\phi}$ over a real pattern -- ``toroidal_mode_decomposition``'s
+    $C_n$, for which $A\cos(n\phi + \delta)$ gives $(A/2)e^{+i\delta}$ --
+    is the conjugate of this one: $\hat b = 2\,\overline{C_n}$. GPEC's
+    spectral output matches $e^{-in\phi}$ as written here, while its
+    real-space $\theta$-functions (``*_fun``) are stored as
+    $(\mathrm{Re}, -h\,\mathrm{Im})$ with the helicity $h$ (see
+    ``vaft.machine_mapping.conventions``). A stored pair is converted by the
+    rule of its source, never reinterpreted.
+
+    Physical interpretation
+    -----------------------
+    A magnetic perturbation is real. Its complex coefficient is bookkeeping:
+    $b_R$ and $b_I$ are the cosine and sine quadratures of one pattern, not
+    two fields, and only $|\hat b|$ and phases relative to a stated
+    origin are independent of the reference.
+
+    Assumptions
+    -----------
+    One harmonic; a field with several is the sum of this over $m$ (and $n$).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.2.
+    .. [2] J.-K. Park and N. C. Logan, Phys. Plasmas 24 (2017) 032505
+           (GPEC).
+    """
+    xi = helical_phase(theta, phi, m_pol, n_tor)
+    result = np.real(np.asarray(b_hat, dtype=complex) * np.exp(1j * xi))
+    return float(result) if np.ndim(result) == 0 else result
 
 
 def island_pendulum_hamiltonian(x, xi, width):

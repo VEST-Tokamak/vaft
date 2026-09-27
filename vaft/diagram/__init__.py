@@ -17,7 +17,9 @@ island model) and the stability / operational-space charts
 ``troyon``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
-``tearing_layer_matching``.
+``tearing_layer_matching``; 3-D perturbation harmonics:
+``normal_field_component``, ``complex_harmonic``, ``toroidal_harmonic_phase``,
+``harmonic_real_space_projection`` and ``complex_field_superposition``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -45,6 +47,11 @@ __all__ = [
     "rational_surface",
     "delta_prime",
     "tearing_layer_matching",
+    "normal_field_component",
+    "complex_harmonic",
+    "toroidal_harmonic_phase",
+    "harmonic_real_space_projection",
+    "complex_field_superposition",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -62,6 +69,11 @@ _LOCATIONS = {
     "rational_surface": "._tearing",
     "delta_prime": "._tearing",
     "tearing_layer_matching": "._tearing",
+    "normal_field_component": "._harmonic",
+    "complex_harmonic": "._harmonic",
+    "toroidal_harmonic_phase": "._harmonic",
+    "harmonic_real_space_projection": "._harmonic",
+    "complex_field_superposition": "._harmonic",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
