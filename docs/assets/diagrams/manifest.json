@@ -45,6 +45,26 @@
       "source_sha256": "e477a1fdb7d87225068f96be60e6f2294c7d0b60b60290e40e4d9b7cf3e49f0f",
       "svg_sha256": "da81ae4036e416c412d9a681cd55f337dc6cddddef7420cdf704a47107c6581d"
     },
+    "field_line_geometry_cylindrical.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
+      "source_sha256": "6d5dff82bd6c40281f2cbcd35a7829bf7b56515dd7cdd6d91b04c4251283f2da",
+      "svg_sha256": "c3f6b57749b7648083c708a829e7483968ad4cfd2079f6e865ba133c322ec9dd"
+    },
+    "field_line_geometry_slab.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='slab')",
+      "source_sha256": "74cfdde061f62e1e5179546303177fc02829aab99cfc6adfb51594fd31aeba9f",
+      "svg_sha256": "12806b440fd589479cdea3ed83e08668f71d8a7765b4726533891cbd70969884"
+    },
+    "field_line_geometry_toroidal.svg": {
+      "call": "vaft.diagram.field_line_geometry(geometry='toroidal')",
+      "source_sha256": "0c35bb2c02141bc59ce09f14f871133518c0545adaf6115b631f3f6c5a454db1",
+      "svg_sha256": "d7dd3c33fa85b316e74d4707c7c17465a69acca13b09c164537f79b2823125a7"
+    },
+    "geometry_ordering_map.svg": {
+      "call": "vaft.diagram.geometry_ordering_map()",
+      "source_sha256": "4e51e0a3e34d500afccadd684642bd46aa29c812c1688f67ebc5df29936bb52a",
+      "svg_sha256": "5c3e2c6deed75562618f5f3d3950503ae0a5ec3135a63e1f436a3f61da7bab78"
+    },
     "harmonic_real_space_projection.svg": {
       "call": "vaft.diagram.harmonic_real_space_projection()",
       "source_sha256": "cf4dd578da9f40ccb8b2acf720f95c5617a0a14f5f02f4385566654aecde4293",
@@ -79,6 +99,11 @@
       "call": "vaft.diagram.magnetization_current(projection='3d')",
       "source_sha256": "bc9859a1c80e90a68deea481a8ed5f93c057c53c571ae815c028ae2f3315b21d",
       "svg_sha256": "ff6a13c097d183498914c1251fb5dc56332c086cfe5d6ad162cd567fad6b4a99"
+    },
+    "mode_number_mapping.svg": {
+      "call": "vaft.diagram.mode_number_mapping()",
+      "source_sha256": "43b9ba50a1d5776040772a628a1d2e17ac817533fe1dc83665cc535c24ddcff6",
+      "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
     },
     "normal_field_component.svg": {
       "call": "vaft.diagram.normal_field_component()",

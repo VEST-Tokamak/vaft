@@ -111,6 +111,14 @@ CONVENTION_SENSITIVE = frozenset({
     "delta_prime_from_outer_derivatives",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
+    # geometric approximations: Fourier sign, slab orientation, signed shear length
+    "slab_parallel_wavenumber",
+    "sheared_slab_field",
+    "sheared_slab_parallel_wavenumber",
+    "shear_length_from_q_R0_s",
+    "cylindrical_safety_factor_from_r_B",
+    "cylindrical_parallel_wavenumber",
+    "local_slab_from_cylinder",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",

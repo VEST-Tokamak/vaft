@@ -54,6 +54,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                               "complex_field_superposition")},
     # concept diagrams
     "collision_processes.svg": ("collision_processes", {}),
+    # geometric approximations
+    "geometry_ordering_map.svg": ("geometry_ordering_map", {}),
+    **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
+       for g in ("toroidal", "cylindrical", "slab")},
+    "mode_number_mapping.svg": ("mode_number_mapping", {}),
 }
 
 

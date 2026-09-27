@@ -212,6 +212,24 @@ vaft.diagram.collision_processes()
 The diagram contains no numbers except the D–T alpha energy, which is `vaft.formula.constants.E_ALPHA`. Collision frequencies, the
 Coulomb logarithm and collisionality regimes are left to formula-backed diagrams (#1111).
 
+## Geometric approximations
+
+How slab, cylindrical and toroidal models relate, keeping geometry and ordering on separate axes. The
+physics is in `vaft.formula.geometry`. [Geometric approximations]({{ '/reference/geometric-approximations/' | relative_url }})
+explains each representation.
+
+```python
+vaft.diagram.geometry_ordering_map()
+vaft.diagram.field_line_geometry(geometry="toroidal")   # "cylindrical", "slab"
+vaft.diagram.mode_number_mapping(m=2, n=1)
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `geometry_ordering_map` | Geometries are columns and orderings are bands. Each reduction arrow names what it keeps or drops |
+| `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
+| `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

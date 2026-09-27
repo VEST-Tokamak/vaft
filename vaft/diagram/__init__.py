@@ -20,7 +20,8 @@ of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
 ``normal_field_component``, ``complex_harmonic``, ``toroidal_harmonic_phase``,
 ``harmonic_real_space_projection`` and ``complex_field_superposition``;
-the classification ``collision_processes``.
+the classification ``collision_processes``; geometric approximations:
+``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -54,6 +55,9 @@ __all__ = [
     "harmonic_real_space_projection",
     "complex_field_superposition",
     "collision_processes",
+    "geometry_ordering_map",
+    "field_line_geometry",
+    "mode_number_mapping",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -77,6 +81,9 @@ _LOCATIONS = {
     "harmonic_real_space_projection": "._harmonic",
     "complex_field_superposition": "._harmonic",
     "collision_processes": "._collision",
+    "geometry_ordering_map": "._geometry",
+    "field_line_geometry": "._geometry",
+    "mode_number_mapping": "._geometry",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
