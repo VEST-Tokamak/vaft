@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>eefdfd1</code>. What is described
+  <code>a05a020</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -561,6 +561,64 @@ no second copy of any equation.</p>
 <p>The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
 default) so that both orbits are visible; the figures state this.</p>
 
+<h2 id="tearing-physics">Tearing physics</h2>
+
+<p>The ideas upstream of an island, <strong>one concept per diagram</strong>, so each can be used on its own in a
+page, notebook or slide. None takes an equilibrium, shot or solver output: the curves are schematic.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">rational_surface</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">delta_prime</span><span class="p">(</span><span class="n">sign</span><span class="o">=</span><span class="sh">"</span><span class="s">positive</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "positive", "zero" or "negative"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">tearing_layer_matching</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/rational_surface.svg" alt="rational surface" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/delta_prime.svg" alt="Delta prime" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/tearing_layer_matching.svg" alt="layer matching" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Question</th>
+      <th>What is schematic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rational_surface</code></td>
+      <td>Where does a perturbation resonate with the field-line pitch, $q(r_s) = m/n$?</td>
+      <td>The monotonic $q(r)$; it is not an equilibrium profile</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">delta_prime</code></td>
+      <td>What does the tearing stability index measure?</td>
+      <td>The outer solutions: quadratics that vanish on the axis and at the edge. Their slopes at $r_s$ go through <code class="language-plaintext highlighter-rouge">vaft.formula.delta_prime_from_outer_derivatives</code>, and only the sign of $\Delta’$ is meaningful</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tearing_layer_matching</code></td>
+      <td>Why are the ideal outer regions and the non-ideal inner layer solved separately?</td>
+      <td>The layer width and the layer solution, which only joins the outer solutions in value and slope</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The index drawn here is the definition, not a stability result: no outer equation is solved. Solver
+values of $\Delta’$ (RDCON, STRIDE) belong to <code class="language-plaintext highlighter-rouge">vaft.plot</code>, and they are not the RDCON $D_R$ or the
+Modified Rutherford terms. The object these lead to is <code class="language-plaintext highlighter-rouge">magnetic_island</code>.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -693,7 +751,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -811,7 +869,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 13:33:58 +0000"
+        "time": "2026-09-27 13:55:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

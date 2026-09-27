@@ -240,7 +240,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>eefdfd1</code>. What is described
+  <code>a05a020</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -271,7 +271,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.stability</code>:
-<strong>26</strong> public functions. Each entry is what
+<strong>27</strong> public functions. Each entry is what
 <code>vaft.formula.describe("stability.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -302,7 +302,7 @@ limits, and transport parameters.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 26 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 27 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="ballooning_alpha_from_p_B_R"><td><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>Normalised pressure gradient $\alpha$ of the $s$-$\alpha$ ballooning model.
@@ -320,6 +320,8 @@ limits, and transport parameters.</p>
   <tr data-ref-row="c_s_from_Te_Ti_mi"><td><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a></td><td>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="collisionality_from_n_T_B_R"><td><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a></td><td>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="delta_prime_from_outer_derivatives"><td><a href="#delta_prime_from_outer_derivatives"><code>delta_prime_from_outer_derivatives</code></a></td><td>Tearing stability index from the outer solution’s derivatives at the rational surface.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="empirical_li_qa"><td><a href="#empirical_li_qa"><code>empirical_li_qa</code></a></td><td>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
@@ -368,7 +370,7 @@ limits, and transport parameters.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L312" title="vaft/formula/stability.py, line 312">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L313" title="vaft/formula/stability.py, line 313">source</a>
 </header>
     <pre class="ref-signature"><code>ballooning_alpha_from_p_B_R(p, B, R, q)</code></pre>
 
@@ -438,7 +440,7 @@ ends), sign-sensitive to the direction of <code class="language-plaintext highli
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ballooning_stability_criterion"><code>ballooning_stability_criterion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L366" title="vaft/formula/stability.py, line 366">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L367" title="vaft/formula/stability.py, line 367">source</a>
 </header>
     <pre class="ref-signature"><code>ballooning_stability_criterion(alpha, s)</code></pre>
 
@@ -496,7 +498,7 @@ uncited coefficient (read from the diagram).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_N_from_beta_a_B0_Ip"><code>beta_N_from_beta_a_B0_Ip</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L84" title="vaft/formula/stability.py, line 84">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L85" title="vaft/formula/stability.py, line 85">source</a>
 </header>
     <pre class="ref-signature"><code>beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)</code></pre>
 
@@ -561,7 +563,7 @@ means an ideal-MHD beta limit rather than a machine-specific one.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_pol_from_beta_tor"><code>beta_pol_from_beta_tor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L132" title="vaft/formula/stability.py, line 132">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L133" title="vaft/formula/stability.py, line 133">source</a>
 </header>
     <pre class="ref-signature"><code>beta_pol_from_beta_tor(beta_tor, q_95, epsilon)</code></pre>
 
@@ -625,7 +627,7 @@ the same factor.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_stability_boundary"><code>beta_stability_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L662" title="vaft/formula/stability.py, line 662">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L663" title="vaft/formula/stability.py, line 663">source</a>
 </header>
     <pre class="ref-signature"><code>beta_stability_boundary(beta_N, q_95)</code></pre>
 
@@ -676,7 +678,7 @@ the fraction convention.  Tracked in #350.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L181" title="vaft/formula/stability.py, line 181">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L182" title="vaft/formula/stability.py, line 182">source</a>
 </header>
     <pre class="ref-signature"><code>beta_tor_from_beta_pol(beta_pol, q_95, epsilon)</code></pre>
 
@@ -736,7 +738,7 @@ the fraction convention.  Tracked in #350.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L832" title="vaft/formula/stability.py, line 832">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L833" title="vaft/formula/stability.py, line 833">source</a>
 </header>
     <pre class="ref-signature"><code>c_s_from_Te_Ti_mi(T_e_keV, T_i_keV, m_i=1.67262192e-27)</code></pre>
 
@@ -790,7 +792,7 @@ $\sqrt{(T_e + 3T_i)/(T_e + T_i)}$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L750" title="vaft/formula/stability.py, line 750">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L751" title="vaft/formula/stability.py, line 751">source</a>
 </header>
     <pre class="ref-signature"><code>collisionality_from_n_T_B_R(n_e, T_e_keV, B_t, R0)</code></pre>
 
@@ -849,11 +851,91 @@ Tracked in #353.</p>
 
   </section>
 
+  <section class="ref-entry" id="delta_prime_from_outer_derivatives">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#delta_prime_from_outer_derivatives"><code>delta_prime_from_outer_derivatives</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1269" title="vaft/formula/stability.py, line 1269">source</a>
+</header>
+    <pre class="ref-signature"><code>delta_prime_from_outer_derivatives(psi_s, dpsi_dr_minus, dpsi_dr_plus)</code></pre>
+
+    <p>Tearing stability index from the outer solution’s derivatives at the rational surface.</p>
+
+\[\Delta' = \frac{1}{\tilde\psi(r_s)}\left(\left.\frac{d\tilde\psi}{dr}\right|_{r_s^+}
+  - \left.\frac{d\tilde\psi}{dr}\right|_{r_s^-}\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb</td><td><p>Perturbed poloidal flux of the outer solution at the rational surface, where both sides meet.</p>
+</td></tr>
+  <tr><td><code>dpsi_dr_minus</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb/m</td><td><p>Radial derivative of the inner-side outer solution as $r \to r_s^-$.</p>
+</td></tr>
+  <tr><td><code>dpsi_dr_plus</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb/m</td><td><p>Radial derivative of the outer-side outer solution as $r \to r_s^+$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>$\Delta’$, the jump in the logarithmic derivative.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$r$ increases outward, so the jump is the outer-side derivative minus
+the inner-side one. $\Delta’ &gt; 0$ is the classical tearing drive; the
+index is unchanged by the normalisation of $\tilde\psi$, and $r\Delta’$
+is its dimensionless form. Any flux unit works if the derivatives share
+it.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">psi_s</code> is zero or not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The free energy the ideal outer region offers a reconnecting layer at
+$r_s$: the two outer solutions are continuous there but their slopes
+are not, and only non-ideal physics in a thin layer can bridge the jump.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>$\tilde\psi$ is continuous across $r_s$ with a jump only in its
+derivative, the outer solutions being those of ideal, marginally stable
+MHD. Nothing else is needed for the definition, which solves no outer
+equation. What makes $\Delta’$ the quantity a layer matches is separate:
+a layer thin compared with $r_s$ and, for the constant-$\psi$ regime,
+$\Delta’\delta \ll 1$ across its width $\delta$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="empirical_li_qa">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#empirical_li_qa"><code>empirical_li_qa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L228" title="vaft/formula/stability.py, line 228">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L229" title="vaft/formula/stability.py, line 229">source</a>
 </header>
     <pre class="ref-signature"><code>empirical_li_qa()</code></pre>
 
@@ -911,7 +993,7 @@ and different $l_i$ ranges, so use only as a qualitative boundary.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greenwald_density"><code>greenwald_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L501" title="vaft/formula/stability.py, line 501">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L502" title="vaft/formula/stability.py, line 502">source</a>
 </header>
     <pre class="ref-signature"><code>greenwald_density(I_p, a)</code></pre>
 
@@ -982,7 +1064,7 @@ routinely exceed it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greenwald_fraction"><code>greenwald_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L552" title="vaft/formula/stability.py, line 552">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L553" title="vaft/formula/stability.py, line 553">source</a>
 </header>
     <pre class="ref-signature"><code>greenwald_fraction(n_e, n_G)</code></pre>
 
@@ -1032,7 +1114,7 @@ lower fraction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#helical_phase"><code>helical_phase</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1080" title="vaft/formula/stability.py, line 1080">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1081" title="vaft/formula/stability.py, line 1081">source</a>
 </header>
     <pre class="ref-signature"><code>helical_phase(theta, phi, m_pol, n_tor, phase=0.0)</code></pre>
 
@@ -1115,7 +1197,7 @@ each and a fixed-$\theta$ trace shows $n$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#island_pendulum_hamiltonian"><code>island_pendulum_hamiltonian</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1147" title="vaft/formula/stability.py, line 1147">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1148" title="vaft/formula/stability.py, line 1148">source</a>
 </header>
     <pre class="ref-signature"><code>island_pendulum_hamiltonian(x, xi, width)</code></pre>
 
@@ -1199,7 +1281,7 @@ parameter near one) are outside it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#island_separatrix_half_width"><code>island_separatrix_half_width</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1213" title="vaft/formula/stability.py, line 1213">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1214" title="vaft/formula/stability.py, line 1214">source</a>
 </header>
     <pre class="ref-signature"><code>island_separatrix_half_width(xi, width)</code></pre>
 
@@ -1271,7 +1353,7 @@ section closes into $m$ lobes.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L925" title="vaft/formula/stability.py, line 925">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L926" title="vaft/formula/stability.py, line 926">source</a>
 </header>
     <pre class="ref-signature"><code>island_width_from_resonant_flux(Phi_res, area, q, dq_dpsi_norm, m_pol, chi1)</code></pre>
 
@@ -1357,7 +1439,7 @@ phase, which this width does not report.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#kink_stability_criterion"><code>kink_stability_criterion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L413" title="vaft/formula/stability.py, line 413">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L414" title="vaft/formula/stability.py, line 414">source</a>
 </header>
     <pre class="ref-signature"><code>kink_stability_criterion(q_95, beta_N)</code></pre>
 
@@ -1414,7 +1496,7 @@ estimate for a physical limit.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#li_from_qa_empirical"><code>li_from_qa_empirical</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L272" title="vaft/formula/stability.py, line 272">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L273" title="vaft/formula/stability.py, line 273">source</a>
 </header>
     <pre class="ref-signature"><code>li_from_qa_empirical(qa)</code></pre>
 
@@ -1466,7 +1548,7 @@ held constant (no extrapolation).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_stability_margins"><code>plasma_stability_margins</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L699" title="vaft/formula/stability.py, line 699">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L700" title="vaft/formula/stability.py, line 700">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_stability_margins(beta_N, q_95, n_e, n_G)</code></pre>
 
@@ -1528,7 +1610,7 @@ $q_{95} = 2$ is the empirical operational boundary [1].</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#power_limit_from_beta"><code>power_limit_from_beta</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L587" title="vaft/formula/stability.py, line 587">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L588" title="vaft/formula/stability.py, line 588">source</a>
 </header>
     <pre class="ref-signature"><code>power_limit_from_beta(beta_N, B0, V)</code></pre>
 
@@ -1578,7 +1660,7 @@ for compatibility.  Tracked in #362.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#power_limit_from_q"><code>power_limit_from_q</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L623" title="vaft/formula/stability.py, line 623">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L624" title="vaft/formula/stability.py, line 624">source</a>
 </header>
     <pre class="ref-signature"><code>power_limit_from_q(q_95, I_p, R0)</code></pre>
 
@@ -1627,7 +1709,7 @@ no derivation or source is recorded.  Kept for compatibility.  Tracked in
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resonant_flux_from_delta"><code>resonant_flux_from_delta</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1003" title="vaft/formula/stability.py, line 1003">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1004" title="vaft/formula/stability.py, line 1004">source</a>
 </header>
     <pre class="ref-signature"><code>resonant_flux_from_delta(delta, geometric_factor, n_tor)</code></pre>
 
@@ -1717,7 +1799,7 @@ than that has to build the inductance rather than measure $G$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L874" title="vaft/formula/stability.py, line 874">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L875" title="vaft/formula/stability.py, line 875">source</a>
 </header>
     <pre class="ref-signature"><code>rhostar_from_Te_a_Bt(Te_eV, a_minor, B_t)</code></pre>
 
@@ -1778,7 +1860,7 @@ dead <code class="language-plaintext highlighter-rouge">m_e</code> parameter is 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1278" title="vaft/formula/stability.py, line 1278">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1343" title="vaft/formula/stability.py, line 1343">source</a>
 </header>
     <pre class="ref-signature"><code>s_alpha_ballooning_stable(s, alpha, theta_max=125.66370614359172, step=0.02)</code></pre>
 
@@ -1873,7 +1955,7 @@ about 0.012 at $s = 0.1$ and 0.002 at $s = 1$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L1374" title="vaft/formula/stability.py, line 1374">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L1439" title="vaft/formula/stability.py, line 1439">source</a>
 </header>
     <pre class="ref-signature"><code>s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=0.001)</code></pre>
 
@@ -1954,7 +2036,7 @@ the scan spacing (very small $s$) can be missed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L455" title="vaft/formula/stability.py, line 455">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L456" title="vaft/formula/stability.py, line 456">source</a>
 </header>
     <pre class="ref-signature"><code>sawtooth_stability_criterion(q_0, beta_pol)</code></pre>
 
@@ -2010,7 +2092,7 @@ negative threshold for $q_0 &gt; 1$, where sawteeth do not occur.  Tracked in
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/eefdfd1202df7eada1085cf0bde7ea6ea50dfecf/vaft/formula/stability.py#L797" title="vaft/formula/stability.py, line 797">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/a05a0201ba2cb5d2a90d07d0fd5b8d31ac3a5b7a/vaft/formula/stability.py#L798" title="vaft/formula/stability.py, line 798">source</a>
 </header>
     <pre class="ref-signature"><code>v_alfven_from_B_n_mi(B, n, m_i=1.67262192e-27)</code></pre>
 
@@ -2276,7 +2358,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 13:33:58 +0000"
+        "time": "2026-09-27 13:55:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
