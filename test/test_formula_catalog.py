@@ -69,7 +69,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
-        "equilibrium": 90,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073)
+        "equilibrium": 91,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073)
         "virial": 33,
         "stability": 28,
         "green": 16,

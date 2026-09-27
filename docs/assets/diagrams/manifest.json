@@ -175,6 +175,21 @@
       "source_sha256": "233b528a3c8f0a1300b077219f3a5c31c163695667b48d85d12a450a9dcae90f",
       "svg_sha256": "9b7a1f7fc38b23a680e596c7e2e22c0fa26e8f35d11c77c19808cc751ec27fc5"
     },
+    "sfl_coordinate_grids.svg": {
+      "call": "vaft.diagram.sfl_coordinate_grids()",
+      "source_sha256": "be5d96b011d4dcc2c9b257e021a36241c5cb2ef7d35eb9aa48ba413b65f23d73",
+      "svg_sha256": "23a8a8b560526d9bcbd82df85da8db033e61668ce14da75fc571b22f90ebf691"
+    },
+    "sfl_coordinate_taxonomy.svg": {
+      "call": "vaft.diagram.sfl_coordinate_taxonomy()",
+      "source_sha256": "4c7b23b1f1940be25805802eceb8d794b0809b7e8610d581f1929f8ffb62ccfb",
+      "svg_sha256": "17223c087640a5cb0dda3c7472cfc08e713db47885cfcb3413459ad79fc4b293"
+    },
+    "sfl_fourier_convergence.svg": {
+      "call": "vaft.diagram.sfl_fourier_convergence()",
+      "source_sha256": "1a2251cc4812d53cb7b3babf0f843b538d25f3ead4d4727e7ca593549ce96f31",
+      "svg_sha256": "907bcf12dc910216814e4510f56b260d4b00a730c96d5f6ce17ad7caacb9de2d"
+    },
     "shaping_family.svg": {
       "call": "vaft.diagram.shaping_family()",
       "source_sha256": "30aa1e8ebec656c8514d396cf00ec255f2bac0eb32ff6098cdc5652fd847e01d",

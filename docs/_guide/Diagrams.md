@@ -342,6 +342,44 @@ vaft.diagram.toroidal_symmetry_breaking()
 * The drift of one orbit's $P_\phi$ is not NTV. Torque and transport are #1111's, and need the kinetic
   response of the whole distribution.
 
+## Straight-field-line coordinates
+
+Straight field lines are a condition, not a coordinate system. The freedom the condition leaves is what
+PEST, Boozer, Hamada and equal-arc fix in different ways. All four are members of one generalised
+family, $\mathcal{J} \propto R^{p_R}/(B_p^{p_{Bp}}B^{p_B})$ (`vaft.formula.generalized_straight_field_line_angle`,
+as in DCON/GPEC). The unwrapped picture of a straight field line is `unwrapped_flux_surface`.
+Clebsch, field-aligned and ballooning coordinates are #1075's.
+
+```python
+vaft.diagram.sfl_coordinate_grids()
+vaft.diagram.sfl_coordinate_taxonomy()
+vaft.diagram.sfl_fourier_convergence()
+```
+
+![grids]({{ '/assets/diagrams/sfl_coordinate_grids.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![taxonomy]({{ '/assets/diagrams/sfl_coordinate_taxonomy.svg' | relative_url }}) | ![spectra]({{ '/assets/diagrams/sfl_fourier_convergence.svg' | relative_url }}) |
+
+| Coordinate | $(p_{Bp}, p_B, p_R)$ | Geometric $\phi$ kept | Also simplified | Typical use |
+| --- | --- | --- | --- | --- |
+| PEST | $(0, 0, 2)$ | yes | the toroidal angle | classical MHD stability |
+| Boozer | $(0, 2, 0)$ | no ($\zeta = \phi + \nu$) | $\mathcal{J} \propto B^{-2}$, the $B$ spectrum | orbits, neoclassical, 3-D |
+| Hamada | $(0, 0, 0)$ | no | flux-function Jacobian; current lines straight too | MHD stability |
+| equal-arc | $(1, 0, 0)$ | formulation-dependent | uniform poloidal sampling | numerical representation |
+
+* **Same equilibrium, different grids.** All four panels of `sfl_coordinate_grids` share one
+  equilibrium: $R_0/a = 1.7$, $\kappa = 2$, $\delta = 0.45$. The surfaces are identical and only the
+  angle changes. A test checks this.
+* **Different Fourier costs.** In `sfl_fourier_convergence`, one outboard-localised perturbation needs
+  anywhere from about 9 to more than 25 poloidal harmonics, depending on the angle it is expanded in.
+  This is why stability runs in different coordinates can differ in harmonic content for the same
+  plasma.
+* **Boozer ≈ PEST here.** The two nearly coincide at this $B_p \ll B_\phi$, where $B^2 \propto R^{-2}$.
+* **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
+  taxonomy, independently of which angle is chosen.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
