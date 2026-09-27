@@ -788,6 +788,77 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
 
 
+def shafranov_shift_from_r_a_R0_beta_p_li(r, a, R0, beta_p, l_i):
+    r"""Large-aspect-ratio Shafranov shift of a circular surface relative to the boundary.
+
+    $$\Delta(r) - \Delta(a) = \frac{a^2 - r^2}{2R_0}\left(\beta_p + \frac{l_i}{2}\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius of the surface, in $[0, a]$ [m].
+    a : float
+        Minor radius of the boundary [m].
+    R0 : float
+        Major radius of the boundary centre [m].
+    beta_p : float
+        Poloidal beta, taken constant across the surfaces [-].
+    l_i : float
+        Internal inductance, taken constant across the surfaces [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Outward shift of the surface centre beyond the boundary's, largest on
+        the magnetic axis [m].
+
+    Raises
+    ------
+    ValueError
+        ``a`` or ``R0`` is not positive, or ``r`` lies outside $[0, a]$.
+
+    Convention
+    ----------
+    Positive outward (towards larger $R$), measured from the centre of the
+    boundary, which is the geometric axis. It integrates Wesson's
+    $d\Delta/dr = -(r/R_0)(\beta_p + l_i/2)$ with $\beta_p$ and $l_i$
+    held at their global values; profile-resolved $\beta_p(r)$ and $l_i(r)$
+    would need the integral itself.
+
+    Physical interpretation
+    -----------------------
+    Pressure (the $\beta_p$ term) and the hoop force of the plasma current --
+    the poloidal field is stronger, so its pressure higher, on the inboard side
+    (the $l_i/2$ term) -- push the inner surfaces outward, so the
+    magnetic axis sits outside the geometric axis by
+    $a^2(\beta_p + l_i/2)/(2R_0)$ and the surfaces crowd on the low-field side.
+
+    Assumptions
+    -----------
+    Circular surfaces, large aspect ratio $a/R_0 \ll 1$, a shift small
+    against $a$, and radially uniform $\beta_p + l_i/2$.
+
+    Validity
+    --------
+    Accurate to $O(\epsilon)$; at tight aspect ratio (spherical tokamaks)
+    the shift and the shaping it couples to need a Grad--Shafranov solution.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] V. D. Shafranov, Rev. Plasma Phys. 2 (1966) 103.
+    """
+    a, R0 = float(a), float(R0)
+    if not (a > 0.0 and R0 > 0.0):
+        raise ValueError(f"a and R0 must be positive, not {a!r} and {R0!r}")
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0) or np.any(r > a * (1.0 + 1e-12)):
+        raise ValueError("r must be finite and lie in [0, a]")
+    result = (a * a - r * r) / (2.0 * R0) * (float(beta_p) + 0.5 * float(l_i))
+    return float(result) if np.ndim(result) == 0 else result
+
+
 def straight_field_line_angle(theta, jacobian, R):
     r"""Straight-field-line (PEST) poloidal angle on one flux surface.
 
