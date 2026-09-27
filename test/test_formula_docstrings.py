@@ -105,6 +105,7 @@ CONVENTION_SENSITIVE = frozenset({
     "confinement_time_from_engineering_parameters",
     # local island topology: helicity sign and full-vs-half width
     "helical_phase",
+    "helical_harmonic",
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
     "delta_prime_from_outer_derivatives",
