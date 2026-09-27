@@ -393,7 +393,7 @@ descriptions that high-$n$ stability and turbulence models use. The formulas are
 ```python
 vaft.diagram.clebsch_field_line_label(q=2.5)
 vaft.diagram.ballooning_curvature_drive()
-vaft.diagram.ballooning_eigenfunction()
+vaft.diagram.ballooning_newcomb_test()
 vaft.diagram.ballooning_harmonic_envelope(n=20)
 vaft.diagram.ballooning_workflow()
 ```
@@ -401,16 +401,16 @@ vaft.diagram.ballooning_workflow()
 | | |
 | --- | --- |
 | ![Clebsch]({{ '/assets/diagrams/clebsch_field_line_label.svg' | relative_url }}) | ![curvature]({{ '/assets/diagrams/ballooning_curvature_drive.svg' | relative_url }}) |
-| ![eigenfunction]({{ '/assets/diagrams/ballooning_eigenfunction.svg' | relative_url }}) | ![harmonics]({{ '/assets/diagrams/ballooning_harmonic_envelope.svg' | relative_url }}) |
+| ![Newcomb test]({{ '/assets/diagrams/ballooning_newcomb_test.svg' | relative_url }}) | ![harmonics]({{ '/assets/diagrams/ballooning_harmonic_envelope.svg' | relative_url }}) |
 
 ![workflow]({{ '/assets/diagrams/ballooning_workflow.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
-| `clebsch_field_line_label` | A field line is where $\psi$ = const meets $\alpha = \phi - q\theta$ = const. With $\psi$ rising outward and $\mathbf B$ along $+\phi$, $\mathbf B \propto \nabla\psi\times\nabla\alpha$; the opposite orientation flips it |
-| `ballooning_curvature_drive` | $K = \cos\theta + \Lambda\sin\theta$ along the extended angle, bad on the outboard crossings. Shown over several $2\pi$ periods (the covering space), and with $\theta_0$ |
-| `ballooning_eigenfunction` | Newcomb's test: $F(\theta)$ stays positive (stable), crosses zero (unstable), or is positive again beyond $\alpha_2$ (second stability) |
-| `ballooning_harmonic_envelope` | $a_m = \hat F(m - nq)$: many coupled harmonics around $nq$ whose sum is localised outboard, i.e. the mode balloons |
+| `clebsch_field_line_label` | A field line is where $\psi$ = const meets $\alpha = \phi - q\theta$ = const. In `helical_phase`'s left-handed $(\psi, \theta, \phi)$, with $\psi$ rising outward and $\mathbf B$ along $+\phi$, $\mathbf B \propto \nabla\psi\times\nabla\alpha$. Right-handed coordinates give the Connor–Hastie–Taylor form $\nabla\alpha\times\nabla\psi$ |
+| `ballooning_curvature_drive` | Normal curvature $\cos\theta > 0$ (bad, outboard, shaded) once per $2\pi$ period of the covering space, and the total drive $K = \cos\theta + \Lambda\sin\theta$. Its outer lobes come from the geodesic term, which grows with the local shear. Also shown with $\theta_0$ |
+| `ballooning_newcomb_test` | Newcomb's test on the marginal solution $F(\theta)$: it stays positive (stable), crosses zero (unstable), or is positive again beyond $\alpha_2$ (second stability). These are not localised eigenfunctions |
+| `ballooning_harmonic_envelope` | $a_m = \hat F(m - nq)$ for a stated model envelope: many coupled harmonics around $nq$. Their sum oscillates at $m \approx nq$ under the envelope, localised outboard |
 | `ballooning_workflow` | Straight-field-line coordinates → field-line label → field-aligned → ballooning / flux tube, and the infinite-$n$ path. A finite-$n$ global calculation keeps what that path drops |
 
 The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).

@@ -63,16 +63,20 @@ def test_the_clebsch_field_is_along_the_line_and_grad_alpha_across_it():
         np.testing.assert_allclose(line["label"], line["alpha"])  # each drawn line has one label
 
 
-def test_bad_curvature_bands_sit_on_the_outboard_crossings():
+def test_bad_normal_curvature_is_shaded_once_per_period_around_the_outboard_crossings():
     chart = vaft.diagram.ballooning_curvature_drive().model
     bands = chart.parameters["bad_bands"]
     for k in (-2, 0, 2):
-        assert any(b0 <= k * np.pi <= b1 for b0, b1 in bands), k
-    assert not any(b0 <= np.pi <= b1 for b0, b1 in bands)
+        (band,) = [b for b in bands if b[0] <= k * np.pi <= b[1]]
+        assert band[1] - band[0] == pytest.approx(np.pi, abs=0.02)  # cos(theta) > 0 spans half a period
+        assert 0.5 * (band[0] + band[1]) == pytest.approx(k * np.pi, abs=0.02)
+    # the drive K is positive beyond them too: the geodesic lobes grow with |theta|
+    theta, K = chart.curves["drive"].T
+    assert theta[np.argmax(K)] > 2 * np.pi or theta[np.argmax(K)] < -2 * np.pi
 
 
-def test_the_eigenfunction_cases_are_on_the_right_sides_of_the_boundaries():
-    chart = vaft.diagram.ballooning_eigenfunction().model
+def test_the_newcomb_cases_are_on_the_right_sides_of_the_boundaries():
+    chart = vaft.diagram.ballooning_newcomb_test().model
     p = chart.parameters
     a1, a2 = p["alpha1"], p["alpha2"]
     cases = p["alpha"]
@@ -90,6 +94,11 @@ def test_the_harmonics_centre_on_nq_and_the_mode_balloons_outboard():
     assert np.count_nonzero(amps > 0.1 * amps.max()) >= 3  # many harmonics coupled
     grid, field = p["field"].T
     assert abs(grid[np.argmax(np.abs(field))]) < 0.3  # localised at the outboard midplane
+    # and it oscillates at m ~ nq under the envelope, not at the envelope's own scale
+    centre = np.abs(grid) < 0.5
+    crossings = np.count_nonzero(np.diff(np.sign(field[centre])) != 0)
+    assert crossings > 20 * p["q"] * 1.0 / np.pi * 0.8
+    assert np.max(np.abs(field[np.abs(grid) > 2.5])) < 0.05
     with pytest.raises(ValueError):
         vaft.diagram.ballooning_harmonic_envelope(2)
 
@@ -101,7 +110,7 @@ def test_the_workflow_names_the_hierarchy_and_the_global_alternative():
     assert d.scene.role("node:global_mhd")
 
 
-@pytest.mark.parametrize("name", ["clebsch_field_line_label", "ballooning_curvature_drive", "ballooning_eigenfunction",
+@pytest.mark.parametrize("name", ["clebsch_field_line_label", "ballooning_curvature_drive", "ballooning_newcomb_test",
                                   "ballooning_harmonic_envelope", "ballooning_workflow"])
 def test_every_ballooning_diagram_is_deterministic_and_exported(name):
     fn = getattr(vaft.diagram, name)

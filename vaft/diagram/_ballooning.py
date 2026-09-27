@@ -7,13 +7,12 @@
 ``ballooning_curvature_drive``
     good and bad curvature along the extended angle, its $2\\pi$ covering
     periods, and what $\\theta_0$ does;
-``ballooning_eigenfunction``
+``ballooning_newcomb_test``
     Newcomb's test on the extended angle for stable, unstable and
     second-stable $(s, \\alpha)$;
 ``ballooning_harmonic_envelope``
-    many coupled poloidal harmonics $m \\approx nq$ whose envelope is the
-    Fourier transform of the ballooning function -- a mode localised on the
-    outboard side;
+    many coupled poloidal harmonics $m \\approx nq$ whose amplitudes are the
+    Fourier transform of an envelope along the field line (a stated model);
 ``ballooning_workflow``
     from global harmonics to the infinite-$n$ equation on each surface, and
     how that differs from a finite-$n$ global calculation.
@@ -76,9 +75,13 @@ def clebsch_field_line_label(q: float = 2.5, *, labels: bool = True) -> Diagram:
     labels $\alpha = \phi - q\theta$ (``field_line_label``), each followed
     over one toroidal transit. At a point of one line the two gradients --
     $\nabla\psi$ normal to the surface, $\nabla\alpha$ in it across the lines
-    -- and $\mathbf B \propto \nabla\psi\times\nabla\alpha$ along the line (the
-    order follows from $\alpha = \phi - q\theta$ with $\psi$ rising outward and
-    $\mathbf B$ along $+\phi$; the other orientation flips it).
+    -- and $\mathbf B \propto \nabla\psi\times\nabla\alpha$ along the line. That
+    order holds for ``helical_phase``'s angles ($\theta$ counter-clockwise from
+    the outboard midplane, $\phi$ counter-clockwise from above, so
+    $(\psi, \theta, \phi)$ is left-handed) with $\psi$ rising outward and
+    $\mathbf B$ along $+\phi$, $+\theta$; in right-handed coordinates (e.g.
+    $\theta$ clockwise) it is $\nabla\alpha\times\nabla\psi$, the
+    Connor--Hastie--Taylor form.
     """
     try:
         q = float(q)
@@ -154,14 +157,30 @@ def _below(items) -> float:
 # ---------------------------------------------------------------------------
 
 
-def ballooning_curvature_drive(*, labels: bool = True) -> Diagram:
-    r"""Good and bad curvature along the field line, on the extended angle.
+def _bands(x: np.ndarray, mask: np.ndarray):
+    """Contiguous ``(x0, x1)`` intervals where ``mask`` is true."""
+    out, i = [], 0
+    while i < len(mask):
+        if mask[i]:
+            j = i
+            while j + 1 < len(mask) and mask[j + 1]:
+                j += 1
+            out.append((float(x[i]), float(x[j])))
+            i = j + 1
+        else:
+            i += 1
+    return out
 
-    $K(\theta) = \cos\theta + \Lambda\sin\theta$ from
-    ``s_alpha_curvature_drive`` for $s = 1$, $\alpha = 0.4$: positive (bad,
-    shaded) around the outboard crossings $\theta = 2\pi k$, negative inboard.
-    The extended angle runs over many $2\pi$ periods -- the covering space
-    on which a ballooning mode is localised; the dashed curve is the same
+
+def ballooning_curvature_drive(*, labels: bool = True) -> Diagram:
+    r"""Normal curvature and the total ballooning drive along the extended angle.
+
+    Shaded: the normal curvature $\cos\theta > 0$ -- bad, on the outboard
+    side, once per $2\pi$ period of the covering space. Solid: the drive
+    $K = \cos\theta + \Lambda\sin\theta$ of ``s_alpha_curvature_drive`` at
+    $s = 1$, $\alpha = 0.4$; beyond the first period its positive lobes come
+    from the geodesic term $\Lambda\sin\theta$, which grows with $|\theta|$
+    through the local shear, not from the outboard position. Dashed: the same
     drive with the ballooning angle $\theta_0 = \pi/3$.
     """
     labels = _check_labels(labels)
@@ -173,31 +192,26 @@ def ballooning_curvature_drive(*, labels: bool = True) -> Diagram:
     chart = Chart(x_range=(float(theta[0]), float(theta[-1])), y_range=(-1.1 * top, 1.1 * top))
     chart.curves.update({"drive": np.stack([theta, K], -1), "drive_theta0": np.stack([theta, K0], -1),
                          "zero": np.array([[theta[0], 0.0], [theta[-1], 0.0]])})
-    bad = K > 0
-    edges = np.flatnonzero(np.diff(bad.astype(int)))
-    starts = ([0] if bad[0] else []) + [e + 1 for e in edges if bad[e + 1]]
-    bands = []
-    for s0 in starts:
-        s1 = s0
-        while s1 + 1 < len(bad) and bad[s1 + 1]:
-            s1 += 1
-        bands.append((float(theta[s0]), float(theta[s1])))
-    chart.parameters.update({"s": s, "alpha": a, "theta0": th0, "bad_bands": bands})
+    bad = _bands(theta, np.cos(theta) > 0)
+    chart.parameters.update({"s": s, "alpha": a, "theta0": th0, "bad_bands": bad,
+                             "drive_bands": _bands(theta, K > 0)})
     ticks = tuple(k * math.pi for k in range(-2, 3, 2))
     scene = render_chart(chart, x_label="extended angle $\\theta$", y_label="$K(\\theta)$",
                          curve_styles={"zero": "approx", "drive_theta0": "approx", "drive": "boundary"},
                          region_text={}, x_ticks=ticks, x_tick_text=("$-2\\pi$", "$0$", "$2\\pi$"))
     items: List = []
-    for b0, b1 in bands:
+    for b0, b1 in bad:
         x0, x1 = chart.to_cm(np.array([[b0, 0.0], [b1, 0.0]]))[:, 0]
         items.append(Polyline.of([(x0, 0.0), (x1, 0.0), (x1, CHART_HEIGHT), (x0, CHART_HEIGHT)], "layer",
                                  role="bad_curvature", closed=True))
     items += list(scene.items)
     if labels:
         items += [
-            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.1), "shaded: $K > 0$,\\\\ bad curvature (outboard)",
-                  "small label,align=left", anchor="north west", role="bad_curvature"),
-            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 1.2), "dashed: the same\\\\ with $\\theta_0 = \\pi/3$",
+            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.1), "shaded: $\\cos\\theta > 0$,\\\\ bad normal curvature\\\\ "
+                  "(outboard, each period)", "small label,align=left", anchor="north west", role="bad_curvature"),
+            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 1.8), "solid: total drive $K$;\\\\ its outer lobes are the\\\\ "
+                  "geodesic term $\\Lambda\\sin\\theta$", "small label,align=left", anchor="north west", role="drive"),
+            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 3.5), "dashed: $K$ with\\\\ $\\theta_0 = \\pi/3$",
                   "small label,align=left", anchor="north west", role="theta0"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(s_alpha_curvature_drive)}$",
                   "formula box", anchor="north", role="equations"),
@@ -208,18 +222,20 @@ def ballooning_curvature_drive(*, labels: bool = True) -> Diagram:
 
 
 # ---------------------------------------------------------------------------
-# eigenfunction
+# Newcomb test
 # ---------------------------------------------------------------------------
 
 
-def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
+def ballooning_newcomb_test(*, labels: bool = True) -> Diagram:
     r"""Newcomb's test on the extended angle: stable, unstable and second stable.
 
-    The even solution $F(\theta)$ of the marginal $s$-$\alpha$ equation
-    (``s_alpha_ballooning_solution``) at $s = 1$ for three pressure
-    gradients: below the first boundary it stays positive, between the
-    boundaries it crosses zero (unstable), beyond the second
-    (``s_alpha_marginal_alpha``) it is positive again.
+    The even marginal ($\omega^2 = 0$) solution $F(\theta)$, $F(0) = 1$, of the
+    $s$-$\alpha$ equation (``s_alpha_ballooning_solution``) at $s = 1$ for three
+    pressure gradients: below the first boundary it stays positive, between
+    the boundaries it crosses zero (unstable), beyond the second
+    (``s_alpha_marginal_alpha``) it is positive again. These are marginal
+    solutions, not localised eigenfunctions: a stable $F$ grows without
+    decaying, and only the sign change carries the verdict.
     """
     labels = _check_labels(labels)
     alpha1, alpha2 = _boundaries(_S)
@@ -227,16 +243,19 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
     curves = {}
     for name, a in cases.items():
         theta, F = s_alpha_ballooning_solution(_S, a, theta_max=6.0 * math.pi)
-        curves[name] = np.stack([theta, F / np.max(np.abs(F))], -1)
-    chart = Chart(x_range=(0.0, 6.0 * math.pi), y_range=(-1.1, 1.1))
+        # arsinh keeps the sign -- the zero crossing is the verdict -- and compresses the growth
+        curves[name] = np.stack([theta, np.arcsinh(F)], -1)
+    lo = min(float(c[:, 1].min()) for c in curves.values())
+    hi = max(float(c[:, 1].max()) for c in curves.values())
+    chart = Chart(x_range=(0.0, 6.0 * math.pi), y_range=(min(lo, 0.0) - 0.1 * (hi - lo), hi + 0.1 * (hi - lo)))
     chart.curves.update(curves)
     chart.curves["zero"] = np.array([[0.0, 0.0], [6.0 * math.pi, 0.0]])
     chart.parameters.update({"s": _S, "alpha": cases, "alpha1": alpha1, "alpha2": alpha2})
-    scene = render_chart(chart, x_label="extended angle $\\theta$", y_label="$F/\\max|F|$",
+    scene = render_chart(chart, x_label="extended angle $\\theta$", y_label="$\\mathrm{arsinh}\\,F(\\theta)$",
                          curve_styles={"zero": "approx", "stable": "orbit ion", "second_stable": "boundary",
                                        "unstable": "orbit electron"},
                          region_text={}, x_ticks=(0.0, 2 * math.pi, 4 * math.pi, 6 * math.pi),
-                         x_tick_text=("$0$", "$2\\pi$", "$4\\pi$", "$6\\pi$"), y_ticks=(-1.0, 0.0, 1.0))
+                         x_tick_text=("$0$", "$2\\pi$", "$4\\pi$", "$6\\pi$"), y_ticks=(0.0,))
     items: List = []
     if labels:
         items += [
@@ -249,64 +268,65 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
                   anchor="north west", role="second_stable"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(s_alpha_ballooning_solution)}$",
                   "formula box", anchor="north", role="equations"),
-            _note(f"$s = {_S:g}$: boundaries at $\\alpha_1 = {alpha1:.2f}$, $\\alpha_2 = {alpha2:.2f}$",
-                  CHART_WIDTH / 2, -2.9),
+            _note(f"$s = {_S:g}$: boundaries at $\\alpha_1 = {alpha1:.2f}$, $\\alpha_2 = {alpha2:.2f}$; marginal "
+                  "solutions -- a zero crossing means unstable", CHART_WIDTH / 2, -2.9),
         ]
-    return Diagram("ballooning_eigenfunction", scene + Scene(tuple(items)), model=chart)
+    return Diagram("ballooning_newcomb_test", scene + Scene(tuple(items)), model=chart)
 
 
 # ---------------------------------------------------------------------------
 # harmonics and envelope
 # ---------------------------------------------------------------------------
 
+#: width of the model ballooning envelope along the extended angle [rad]
+_ENVELOPE_WIDTH = 0.8
+
 
 def ballooning_harmonic_envelope(n: int = 20, *, labels: bool = True) -> Diagram:
     r"""A ballooning mode is many coupled harmonics $m \approx nq$ under one envelope.
 
     The ballooning transform writes the poloidal harmonics on a surface as
-    $a_m = \hat F(m - nq)$, the Fourier transform of the envelope $F(\theta)$
-    on the extended angle. Taking the stable $F$ of
-    ``ballooning_eigenfunction`` windowed to one period, the bars are
-    $|a_m|$ for toroidal mode number $n$ and $q = 2.3$; their sum
-    $\sum_m a_m e^{im\theta}$ (right) is localised around the outboard
-    midplane -- the mode balloons.
+    $a_m = \hat F(m - nq)$, the Fourier transform of the envelope $F$ on the
+    extended angle. With a model envelope localised at the outboard midplane
+    (a Gaussian of width 0.8 rad, stated, not solved), the bars are $|a_m|$
+    for toroidal mode number $n$ and $q = 2.3$. Right: their sum
+    $\mathrm{Re}\sum_m a_m e^{im\theta}$ -- fast oscillation at $m \approx nq$
+    whose amplitude follows the envelope, the ballooning structure.
     """
     if isinstance(n, bool) or not isinstance(n, (int, np.integer)) or not 5 <= n <= 60:
         raise ValueError(f"n must be an integer from 5 to 60, not {n!r}")
     labels = _check_labels(labels)
     q = 2.3
-    alpha1, _ = _boundaries(_S)
-    theta, F = s_alpha_ballooning_solution(_S, 0.5 * alpha1, theta_max=math.pi)
-    eta = np.concatenate([-theta[::-1], theta[1:]])
-    env = np.concatenate([F[::-1], F[1:]]) * np.cos(0.5 * eta) ** 2  # windowed to one period
+    eta = np.linspace(-4.0 * math.pi, 4.0 * math.pi, 8001)
+    env = np.exp(-0.5 * (eta / _ENVELOPE_WIDTH) ** 2)
     m0 = n * q
-    m = np.arange(int(m0) - 12, int(m0) + 14)
-    amps = np.array([abs(np.trapezoid(env * np.exp(1j * (mm - m0) * eta), eta)) for mm in m]) / (2.0 * math.pi)
-    grid = np.linspace(-math.pi, math.pi, 721)
-    field = np.real(sum(a * np.exp(1j * mm * grid) for a, mm in zip(amps, m)) * np.exp(-1j * m0 * grid))
+    m = np.arange(int(m0) - 8, int(m0) + 10)
+    amps = np.array([np.trapezoid(env * np.exp(-1j * (mm - m0) * eta), eta).real for mm in m]) / (2.0 * math.pi)
+    grid = np.linspace(-math.pi, math.pi, 2401)
+    field = np.real(sum(a * np.exp(1j * mm * grid) for a, mm in zip(amps, m)))
     field = field / np.max(np.abs(field))
     # left: the spectrum
-    chart = Chart(x_range=(float(m[0]) - 0.5, float(m[-1]) + 0.5), y_range=(0.0, 1.15 * float(amps.max())))
+    chart = Chart(x_range=(float(m[0]) - 0.5, float(m[-1]) + 0.5), y_range=(0.0, 1.15 * float(np.abs(amps).max())))
     for mm, a in zip(m, amps):
-        chart.curves[f"bar_{mm}"] = np.array([[mm, 0.0], [mm, a]])
-    chart.parameters.update({"n": n, "q": q, "m": m, "amplitudes": amps})
-    ticks = (float(round(m0)),)
+        chart.curves[f"bar_{mm}"] = np.array([[mm, 0.0], [mm, abs(a)]])
+    chart.parameters.update({"n": n, "q": q, "m": m, "amplitudes": amps, "envelope_width": _ENVELOPE_WIDTH})
     scene = render_chart(chart, x_label="poloidal harmonic $m$", y_label="$|a_m|$",
                          curve_styles={f"bar_{mm}": "component imag" for mm in m}, region_text={},
-                         x_ticks=ticks, x_tick_text=(f"$nq = {m0:g}$",))
-    items: List = [it.__class__(it.points, it.style, "harmonic", it.closed) if isinstance(it, Polyline)
+                         x_ticks=(float(round(m0)),), x_tick_text=(f"$nq = {m0:g}$",))
+    items: List = [Polyline(it.points, it.style, "harmonic", it.closed) if isinstance(it, Polyline)
                    and it.role.startswith("bar_") else it for it in scene.items]
-    # right: the envelope of the summed field around the poloidal angle
     right = Chart(x_range=(-math.pi, math.pi), y_range=(-1.1, 1.1))
     right.curves["field"] = np.stack([grid, field], -1)
-    sub = render_chart(right, x_label="$\\theta$", y_label="", curve_styles={"field": "boundary"}, region_text={},
-                       x_ticks=(-math.pi, 0.0, math.pi), x_tick_text=("$-\\pi$", "$0$", "$\\pi$"))
+    right.curves["envelope"] = np.stack([grid, np.exp(-0.5 * (grid / _ENVELOPE_WIDTH) ** 2)], -1)
+    sub = render_chart(right, x_label="$\\theta$", y_label="", curve_styles={"envelope": "approx", "field": "orbit ion"},
+                       region_text={}, x_ticks=(-math.pi, 0.0, math.pi), x_tick_text=("$-\\pi$", "$0$", "$\\pi$"))
     items += list(sub.transformed(scale=0.6, offset=(CHART_WIDTH + 2.0, 0.2 * CHART_HEIGHT)).items)
     if labels:
         items += [
             Label((CHART_WIDTH + 2.0 + 0.3 * CHART_WIDTH, 0.2 * CHART_HEIGHT + 0.62 * CHART_HEIGHT),
-                  "$\\sum_m a_m e^{im\\theta}$: localised outboard", "small label", anchor="south", role="field"),
-            _note(f"$n = {n}$, $q = {q:g}$; $a_m = \\hat F(m - nq)$ from the stable $F$ of the eigenfunction figure",
+                  "$\\mathrm{Re}\\sum_m a_m e^{im\\theta}$ and its envelope (dashed)", "small label", anchor="south",
+                  role="field"),
+            _note(f"$n = {n}$, $q = {q:g}$; $a_m = \\hat F(m - nq)$ of a model Gaussian envelope $F$ (not solved)",
                   0.5 * (CHART_WIDTH + 2.0 + 0.6 * CHART_WIDTH), -1.5),
         ]
     chart.parameters["field"] = np.stack([grid, field], -1)
@@ -332,11 +352,11 @@ def ballooning_workflow(*, labels: bool = True) -> Diagram:
     W, H = 4.0, 1.35
     items: List = []
     items += band(-1.0, 25.4, 2.0, 4.4, "coordinate genealogy", role="band:coordinates")
-    items += band(-1.0, 25.4, -1.2, 1.2, "infinite-$n$ ballooning (BALOO-style)", role="band:ballooning")
+    items += band(-1.0, 25.4, -1.2, 1.45, "infinite-$n$ ballooning (BALOO-style)", role="band:ballooning")
     top = [("sfl", "straight-field-line\\\\ $(\\psi, \\theta, \\phi)$"), ("label", "field-line label\\\\ $\\alpha = \\phi - q\\theta$"),
            ("aligned", "field-aligned\\\\ $(\\psi, \\alpha, \\theta)$"), ("tube", "ballooning / flux tube\\\\ local, extended $\\theta$")]
     mid = [("global", "global harmonics\\\\ $m, n$ coupled"), ("transform", "$n \\to \\infty$: transform\\\\ onto extended $\\theta$, $\\theta_0$"),
-           ("ode", "1-D ODE per surface\\\\ $F(\\theta)$"), ("test", "Newcomb / eigenvalue\\\\ $\\to (s, \\alpha)$ verdict")]
+           ("ode", "1-D ODE per surface\\\\ $F(\\theta)$"), ("test", "Newcomb / eigenvalue\\\\ stable or not, critical $\\alpha$")]
     nodes = {}
     for row, y in ((top, 3.1), (mid, 0.0)):
         for i, (key, text) in enumerate(row):
@@ -346,8 +366,8 @@ def ballooning_workflow(*, labels: bool = True) -> Diagram:
         for (k1, _), (k2, _) in zip(row, row[1:]):
             items.append(connector(nodes[k1], nodes[k2], role=f"edge:{k1}->{k2}"))
     items.append(connector(nodes["tube"], nodes["ode"], role="edge:tube->ode"))
-    glob = box(12.2, -2.9, 12.0, 1.4, "finite-$n$ global MHD (DCON, GPEC): keeps the radial coupling of harmonics and the "
-               "wall; ballooning drops both and is exact only as $n \\to \\infty$", role="node:global_mhd", latex=True)
+    glob = box(12.2, -2.9, 12.0, 1.4, "finite-$n$ global MHD (DCON, GPEC): keeps the global radial structure and the wall; "
+               "ballooning is local to one surface, leading order in $1/n$", role="node:global_mhd", latex=True)
     items += list(glob.items)
     if labels:
         items.append(_note("See s\\_alpha\\_ballooning for the resulting $(s, \\alpha)$ diagram and "

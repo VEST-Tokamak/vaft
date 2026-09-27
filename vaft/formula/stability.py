@@ -1531,9 +1531,12 @@ def field_line_label(phi, theta, q):
     Convention
     ----------
     Along a field line $d\phi/d\theta = q$, so $\alpha$ is constant. With
-    $\psi$ rising outward and $\mathbf B$ along $+\phi$, $+\theta$ the Clebsch
-    form is $\mathbf B \propto \nabla\psi\times\nabla\alpha$; the opposite
-    orientation (COCOS) gives $\nabla\alpha\times\nabla\psi$.
+    ``helical_phase``'s angles ($\theta$ counter-clockwise from the outboard
+    midplane, $\phi$ counter-clockwise from above: $(\psi, \theta, \phi)$
+    left-handed), $\psi$ rising outward and $\mathbf B$ along $+\phi$,
+    $+\theta$, the Clebsch form is $\mathbf B \propto \nabla\psi\times\nabla\alpha$;
+    in right-handed coordinates (e.g. $\theta$ clockwise) it is
+    $\nabla\alpha\times\nabla\psi$, the Connor--Hastie--Taylor form.
     For a rational $q = m/n$ it relates to ``helical_phase`` by
     $\alpha = -\xi/n$ ($\phi_0 = 0$): lines of one $\alpha$ are lines of one
     helical phase.
@@ -1631,7 +1634,8 @@ def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_S
     Returns
     -------
     theta : np.ndarray
-        Extended angle from 0 to ``theta_max`` [rad].
+        Extended angle from 0 in steps of ``step``, to the first step at or
+        beyond ``theta_max`` [rad].
     F : np.ndarray
         The solution; it is even, so $F(-\theta) = F(\theta)$ [-].
 
@@ -1649,8 +1653,10 @@ def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_S
 
     Physical interpretation
     -----------------------
-    The ballooning envelope along the field line on the extended angle: a
-    zero crossing means a localised perturbation can release energy.
+    The marginal ($\omega^2 = 0$) solution along the field line on the
+    extended angle -- not a localised eigenfunction: a stable $F$ grows
+    without decaying. A zero crossing means a localised perturbation can
+    release energy.
 
     Assumptions
     -----------

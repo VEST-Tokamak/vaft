@@ -2,23 +2,23 @@
   "diagrams": {
     "ballooning_curvature_drive.svg": {
       "call": "vaft.diagram.ballooning_curvature_drive()",
-      "source_sha256": "1e4addb6497662d284b7bd8fcf12ca4271de11343acd08f0ba098289659fd83c",
-      "svg_sha256": "02af6d1efa6675e852bc5b186b953989bf148971269cc74e451e9d90bd292456"
-    },
-    "ballooning_eigenfunction.svg": {
-      "call": "vaft.diagram.ballooning_eigenfunction()",
-      "source_sha256": "60b033a59bb0e4367302920c0e02754019c7d42be40d0bb48ef46029c37e7d84",
-      "svg_sha256": "39ca7349a7a2e11f497cb6858e0426a07c24e119aea0173ef108e556a354ca94"
+      "source_sha256": "aa510487b605f02eb25a84698321e3583896af361396be86d3ea1844d09064b2",
+      "svg_sha256": "0736ef937bdfba58cfda3b5f8575260c7c80a3541b8d5cac312c32a0255d8d0e"
     },
     "ballooning_harmonic_envelope.svg": {
       "call": "vaft.diagram.ballooning_harmonic_envelope()",
-      "source_sha256": "5d2830290c9af42b7cab33e4be90faf100dc069fc0153daeba349ccbbadbe1d8",
-      "svg_sha256": "88e6449439d1b6f1fedaef6df83f6a3bbacd892cd17213c88ffaf4969e1c9029"
+      "source_sha256": "07f5d26e7490be187c83fd61891b8b8d5e211572373f1602f52a62967e5a06ac",
+      "svg_sha256": "3213912f52780218bc1d624210107906e3d7ba05f15d912f62b37af1f801ed5a"
+    },
+    "ballooning_newcomb_test.svg": {
+      "call": "vaft.diagram.ballooning_newcomb_test()",
+      "source_sha256": "05395eec61ee42a25a068fcb570b056a98d9abd5a75227b8ec53c25a739ffef5",
+      "svg_sha256": "6cc53255ce8f8d062929c9b937d25dfde8653d7eba9c774216ad378caa630e8f"
     },
     "ballooning_workflow.svg": {
       "call": "vaft.diagram.ballooning_workflow()",
-      "source_sha256": "70e479a0389c1b1e90b5ff510a1f568e8b1f291796ad1c4869c7e4513f839078",
-      "svg_sha256": "675757b7885277699264ab2d9577dfad32eec60f9bc52ded9de9ffcbc0b7f914"
+      "source_sha256": "2e5218ef8e2d4e3e660646784e5e848f36768a35443798a16a585e0748377c57",
+      "svg_sha256": "ebe617934f0f61b8ca3c06cd8ceb2011ea7b6d8c355aa0f47d0047b60d0609ae"
     },
     "canonical_toroidal_momentum.svg": {
       "call": "vaft.diagram.canonical_toroidal_momentum()",

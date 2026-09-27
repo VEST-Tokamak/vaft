@@ -76,7 +76,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                               "sfl_fourier_convergence")},
     # Clebsch labels, field-aligned and ballooning representations
     **{f"{name}.svg": (name, {}) for name in ("clebsch_field_line_label", "ballooning_curvature_drive",
-                                              "ballooning_eigenfunction", "ballooning_harmonic_envelope",
+                                              "ballooning_newcomb_test", "ballooning_harmonic_envelope",
                                               "ballooning_workflow")},
 }
 
