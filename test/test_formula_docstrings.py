@@ -111,6 +111,7 @@ CONVENTION_SENSITIVE = frozenset({
     "delta_prime_from_outer_derivatives",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
+    "shafranov_shift_from_r_a_R0_beta_p_li",
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",
     "sheared_slab_field",

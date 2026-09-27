@@ -230,6 +230,53 @@ vaft.diagram.mode_number_mapping(m=2, n=1)
 | `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
 
+## Tokamak geometry and flux coordinates
+
+The parent geometry that the cylindrical and slab reductions start from. Surfaces are
+`miller_surface`, the shift is `shafranov_shift_from_r_a_R0_beta_p_li`, the field is
+`vacuum_toroidal_field`, and $\theta^*$ is `straight_field_line_angle`.
+
+```python
+vaft.diagram.tokamak_torus(projection="3d")        # "poloidal"
+vaft.diagram.flux_surfaces(shape="circular")       # "shifted"
+vaft.diagram.shaping_family()
+vaft.diagram.hfs_lfs_field()
+vaft.diagram.safety_factor_winding(q=3)
+vaft.diagram.flux_coordinates()
+vaft.diagram.poloidal_angle_comparison()
+vaft.diagram.unwrapped_flux_surface(q=2.5)
+vaft.diagram.field_line_pitch(q=1.0)
+```
+
+| | |
+| --- | --- |
+| ![torus]({{ '/assets/diagrams/tokamak_torus_3d.svg' | relative_url }}) | ![cross-section]({{ '/assets/diagrams/tokamak_torus_poloidal.svg' | relative_url }}) |
+| ![concentric]({{ '/assets/diagrams/flux_surfaces_circular.svg' | relative_url }}) | ![Shafranov shift]({{ '/assets/diagrams/flux_surfaces_shifted.svg' | relative_url }}) |
+| ![HFS/LFS]({{ '/assets/diagrams/hfs_lfs_field.svg' | relative_url }}) | ![safety factor]({{ '/assets/diagrams/safety_factor_winding.svg' | relative_url }}) |
+| ![flux coordinates]({{ '/assets/diagrams/flux_coordinates.svg' | relative_url }}) | ![theta vs theta*]({{ '/assets/diagrams/poloidal_angle_comparison.svg' | relative_url }}) |
+
+![field-line pitch]({{ '/assets/diagrams/field_line_pitch.svg' | relative_url }})
+
+![shaping]({{ '/assets/diagrams/shaping_family.svg' | relative_url }})
+
+![unwrapped surface]({{ '/assets/diagrams/unwrapped_flux_surface.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `tokamak_torus` | $R_0$, $a$, $\phi$ (counter-clockwise from above) and $\theta$ (from the outboard midplane), with $R = R_0 + r\cos\theta$ |
+| `flux_surfaces` | Concentric surfaces, then the Shafranov shift: $\Delta(r)$ is zero at the edge and largest on axis, so the magnetic axis sits outside the geometric axis |
+| `shaping_family` | Circular, $\kappa$, $\delta$, and both. Positive triangularity pulls the top in to $R_0 - \delta r$ |
+| `hfs_lfs_field` | $B_\phi = B_0R_0/R$ is stronger on the inboard (high-field) side |
+| `field_line_pitch` | $\mathbf B = B_\phi\hat{\boldsymbol\phi} + B_\theta\hat{\boldsymbol\theta}$ at a point of a field line, with $B_\theta/B_\phi = r/(qR)$ so that $\mathbf B$ lies along the line |
+| `safety_factor_winding` | $q$ toroidal turns per poloidal turn, counted at one cross-section |
+| `flux_coordinates` | $(\psi, \theta, \phi)$, with $+\phi$ into the page when $R$ is to the right and $Z$ is up |
+| `poloidal_angle_comparison` | On a D shape, equal steps of $\theta^*$ are not rays of the geometric angle |
+| `unwrapped_flux_surface` | A field line is straight, $d\phi/d\theta^* = q$, in straight-field-line coordinates, and not in the parametrisation angle $\theta$ |
+
+The field line on a torus, its cylindrical and slab reductions, and the geometry/ordering map are in
+the geometric-approximations section above. The toroidal → cylindrical → slab bridge is
+`geometry_ordering_map` together with `field_line_geometry`.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

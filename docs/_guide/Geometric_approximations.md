@@ -18,6 +18,10 @@ torus, and it carries a few coefficients over from the real equilibrium. This pa
 reductions using the literature's names. The formulas are in
 [`vaft.formula.geometry`]({{ '/reference/formula/geometry/' | relative_url }}).
 
+The toroidal parent geometry itself (flux surfaces, the Shafranov shift, shaping, $q$ as a winding
+number, and $\theta$ versus $\theta^*$) is drawn in the tokamak-geometry section of
+[Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
+
 ## Two axes, not one hierarchy
 
 *Geometry* says what space the model lives in: slab, cylindrical or toroidal. *Ordering* says which

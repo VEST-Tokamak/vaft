@@ -21,7 +21,10 @@ of the island: ``rational_surface``, ``delta_prime`` and
 ``normal_field_component``, ``complex_harmonic``, ``toroidal_harmonic_phase``,
 ``harmonic_real_space_projection`` and ``complex_field_superposition``;
 the classification ``collision_processes``; geometric approximations:
-``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``.
+``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``;
+tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
+``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
+``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -58,6 +61,15 @@ __all__ = [
     "geometry_ordering_map",
     "field_line_geometry",
     "mode_number_mapping",
+    "tokamak_torus",
+    "flux_surfaces",
+    "shaping_family",
+    "hfs_lfs_field",
+    "safety_factor_winding",
+    "flux_coordinates",
+    "poloidal_angle_comparison",
+    "unwrapped_flux_surface",
+    "field_line_pitch",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -84,6 +96,15 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "tokamak_torus": "._tokamak_geometry",
+    "flux_surfaces": "._tokamak_geometry",
+    "shaping_family": "._tokamak_geometry",
+    "hfs_lfs_field": "._tokamak_geometry",
+    "safety_factor_winding": "._tokamak_geometry",
+    "flux_coordinates": "._tokamak_geometry",
+    "poloidal_angle_comparison": "._tokamak_geometry",
+    "unwrapped_flux_surface": "._tokamak_geometry",
+    "field_line_pitch": "._tokamak_geometry",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
