@@ -329,9 +329,11 @@ def test_the_iconvr2_stopping_criterion_is_the_metric_with_content(efit_ods):
 
 def test_a_run_that_exhausts_its_iterations_did_not_stop_on_the_criterion(efit_ods):
     # MXITER=100 runs 101 outer passes; with NXITER=1 an exhausted slice has
-    # 101 steps -- exactly what the #171 scan's exhausted slices show.
+    # 101 steps -- exactly what the #171 scan's exhausted slices show -- and an
+    # increment it could not have stopped on.
     ods = _with_afile(efit_ods)
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 101
+    ods["equilibrium.code.parameters.time_slice.0.aeqdsk.terror"] = 0.5
     block = convergence_metrics(ods, time_slice=0)["iterations"]
     assert block["hit_cap"] is True
     assert block["stopped_on_criterion"] is False
@@ -363,25 +365,43 @@ def test_iteration_cap_is_detected():
     # cap; the cap is 101 (MXITER + 1 passes of one step each).
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 100
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is False
+    # 101 is the cap or a silent stop on the last pass; with the increment at
+    # 1e-6, below ERROR, the silent stop was open, so the count cannot say.
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 101
+    assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is None
+    # Above ERROR (and ERRMIN), no early exit was open: it ran out.
+    ods["equilibrium.time_slice.0.convergence.grad_shafranov_deviation_value"] = 0.05
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is True
 
 
 @pytest.mark.parametrize(
-    "steps, expected",
-    [(58, False), (100, False), (145, None), (300, None), (301, True)],
+    "steps, final_error, expected",
+    [
+        (58, 1e-6, False), (100, 0.5, False),
+        # Stopped-looking increments: the count cannot say.
+        (145, 1e-6, None), (301, 1e-6, None),
+        # Between ERROR (1e-5) and ERRMIN (1e-2): the chi-square exit was open
+        # before the last pass, but only the silent one on it.
+        (145, 1e-3, None), (301, 1e-3, True),
+        (145, 0.5, True), (301, 0.5, True),
+    ],
 )
-def test_the_cap_is_read_against_the_cumulative_counter_when_nxiter_exceeds_one(steps, expected):
+def test_the_cap_is_read_against_the_cumulative_counter_when_nxiter_exceeds_one(
+    steps, final_error, expected
+):
     """#1038: `len(cerror)` counts inner steps, MXITER caps outer passes.
 
     At NXITER=3, MXITER=100 a capped slice has 101..301 steps and an uncapped
-    one at most 300; the #171 scan has uncapped slices at 58 and 145 steps
-    and capped ones up to 301. In between the count cannot say, and the
-    metric must not guess.
+    one at most 300 -- or 301, stopping silently on the last pass, as one
+    #171 scan slice does. The increment it ended on is what rules the stops
+    out; without that, the metric must not guess.
     """
     ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
     ods["equilibrium.code.parameters.time_slice.0.in1.nxiter"] = -3
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = steps
+    ods["equilibrium.time_slice.0.convergence.grad_shafranov_deviation_value"] = final_error
+    # Elongated past ELOMIN, so the chi-square exit's elongation door is shut.
+    ods["equilibrium.code.parameters.time_slice.0.aeqdsk.elong"] = 1.5
     block = convergence_metrics(ods, time_slice=0)["iterations"]
     assert block["inner_iterations"] == 3
     assert block["hit_cap"] is expected
@@ -393,11 +413,42 @@ def test_the_cap_is_read_against_the_cumulative_counter_when_nxiter_exceeds_one(
 def test_iteration_cap_reached_edge_cases():
     from vaft.omas.efit_quality import iteration_cap_reached
 
-    assert iteration_cap_reached(26, 25, 1)[0] is True
+    ran_out = dict(final_error=0.5, error=1e-5, errmin=1e-2, elongation=1.5, elomin=0.9)
+    assert iteration_cap_reached(26, 25, 1, **ran_out)[0] is True
+    # Without the increment, even the NXITER=1 maximum proves nothing.
+    assert iteration_cap_reached(26, 25, 1)[0] is None
     assert iteration_cap_reached(25, 25, 1)[0] is False
     assert iteration_cap_reached(float("nan"), 25, 1)[0] is None
-    assert iteration_cap_reached(200, 25, float("nan"))[0] is None
-    assert iteration_cap_reached(26, 25, 1, iconvr=3)[0] is None
+    assert iteration_cap_reached(200, 25, float("nan"), **ran_out)[0] is None
+    assert iteration_cap_reached(26, 25, 1, iconvr=3, **ran_out)[0] is None
+
+
+def test_the_elongation_door_of_the_chi_square_exit_keeps_the_cap_open():
+    """response_matrix.F90 lets iconvr=2 stop with any increment when the
+    boundary elongation is at or below ELOMIN and FWTDLC <= 0."""
+    from vaft.omas.efit_quality import iteration_cap_reached
+
+    base = dict(final_error=0.5, error=1e-5, errmin=1e-2, elomin=0.9)
+    # Before the last pass (NXITER=3, 150 steps): the door decides.
+    assert iteration_cap_reached(150, 100, 3, elongation=0.8, fwtdlc=0.0, **base)[0] is None
+    assert iteration_cap_reached(150, 100, 3, **base)[0] is None  # not known
+    assert iteration_cap_reached(150, 100, 3, elongation=0.8, fwtdlc=1.0, **base)[0] is True
+    assert iteration_cap_reached(150, 100, 3, elongation=1.5, **base)[0] is True
+    # On the last pass the chi-square exit is not tested at all.
+    assert iteration_cap_reached(301, 100, 3, elongation=0.8, fwtdlc=0.0, **base)[0] is True
+    # An exit threshold equal to the increment is still a possible stop (<=).
+    assert iteration_cap_reached(301, 100, 3, final_error=1e-5, error=1e-5)[0] is None
+
+
+def test_an_ods_without_namelists_does_not_assume_efits_nxiter():
+    # EFIT's default NXITER=1 holds where a namelist was read and left it
+    # unset; with no in1/out1 at all the run's NXITER is unknown.
+    ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
+    del ods["equilibrium.code.parameters.time_slice.0"]["in1"]
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 150
+    ods["equilibrium.time_slice.0.convergence.grad_shafranov_deviation_value"] = 0.5
+    block = convergence_metrics(ods, time_slice=0)["iterations"]
+    assert block["hit_cap"] is None and "NXITER is not known" in block["hit_cap_basis"]
 
 
 def _with_afile(ods):

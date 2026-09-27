@@ -134,6 +134,8 @@ def summarize(slices: Sequence[dict[str, Any]], seed_study) -> dict[str, Any]:
     produced = [item for item in slices if item["afile"]]
     stopped = sum(1 for item in slices if item.get("iconvr") == 2)
     exhausted = sum(1 for item in slices if item["exit_path"] == "iterations_exhausted")
+    # fit.F90's silent criterion exit, counted as exhausted before #1038.
+    silent = sum(1 for item in slices if item["exit_path"] == "no_exit_message")
     iterations = [item["iterations_n"] for item in slices if item.get("iterations_n")]
     chi = [item["afile"]["chisq"] for item in produced if np.isfinite(item["afile"]["chisq"])]
     gs = [item["gs_error"] for item in slices if item.get("gs_error") is not None]
@@ -148,6 +150,7 @@ def summarize(slices: Sequence[dict[str, Any]], seed_study) -> dict[str, Any]:
         "collapsed": counts.get("collapsed", 0),
         "stopped_on_criterion": stopped,
         "hit_iteration_cap": exhausted,
+        "stopped_without_exit_message": silent,
         "iterations_median": float(np.median(iterations)) if iterations else None,
         "chi_squared_median": float(np.median(chi)) if chi else None,
         "gs_error_median": float(np.median(gs)) if gs else None,
