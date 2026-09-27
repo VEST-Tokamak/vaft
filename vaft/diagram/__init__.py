@@ -76,6 +76,9 @@ __all__ = [
     "toroidal_field_ripple",
     "ripple_well_formation",
     "stochastic_ripple_orbit",
+    "guiding_center_invariants",
+    "canonical_toroidal_momentum",
+    "toroidal_symmetry_breaking",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -115,6 +118,9 @@ _LOCATIONS = {
     "toroidal_field_ripple": "._ripple",
     "ripple_well_formation": "._ripple",
     "stochastic_ripple_orbit": "._ripple",
+    "guiding_center_invariants": "._guiding_center",
+    "canonical_toroidal_momentum": "._guiding_center",
+    "toroidal_symmetry_breaking": "._guiding_center",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

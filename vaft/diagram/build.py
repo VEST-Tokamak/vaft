@@ -68,6 +68,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # toroidicity and TF ripple
     **{f"{name}.svg": (name, {}) for name in ("trapped_and_passing_orbits", "toroidal_field_ripple",
                                               "ripple_well_formation", "stochastic_ripple_orbit")},
+    # guiding-centre invariants and toroidal symmetry
+    **{f"{name}.svg": (name, {}) for name in ("guiding_center_invariants", "canonical_toroidal_momentum",
+                                              "toroidal_symmetry_breaking")},
 }
 
 

@@ -305,6 +305,43 @@ vaft.diagram.stochastic_ripple_orbit()
 These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the
 quantitative check. Low-$n$ error fields, NTV and locking are separate topics.
 
+## Guiding-centre invariants and toroidal symmetry
+
+This is the global view of the orbit physics that `curvature_drift` and `toroidal_drift` show locally.
+The grad-B and curvature drifts say why a guiding centre moves at each instant. Conservation of
+$P_\phi$ constrains the whole orbit in an axisymmetric field. These are the same physics seen two
+ways, not competing explanations.
+
+```python
+vaft.diagram.guiding_center_invariants()
+vaft.diagram.canonical_toroidal_momentum(phase=0.45)
+vaft.diagram.toroidal_symmetry_breaking()
+```
+
+| | |
+| --- | --- |
+| ![invariants]({{ '/assets/diagrams/guiding_center_invariants.svg' | relative_url }}) | ![P_phi]({{ '/assets/diagrams/canonical_toroidal_momentum.svg' | relative_url }}) |
+
+![symmetry breaking]({{ '/assets/diagrams/toroidal_symmetry_breaking.svg' | relative_url }})
+
+| Diagram | Concept | Formula |
+| --- | --- | --- |
+| `guiding_center_invariants` | Gyration, bounce and toroidal drift, with invariants $\mu$, $J_\parallel = \oint p_\parallel\,dl$ and $P_\phi$, valid for $\Omega_c \gg \omega_b \gg \omega_d$ | `magnetic_moment` |
+| `canonical_toroidal_momentum` | A banana built from $\mu$ and $P_\phi$ conservation. From the bounce tip, $\Delta(q\psi)$ and $\Delta(mv_\parallel Rb_\phi)$ cancel, so $\psi$ moves with $v_\parallel$: this is the orbit width. `phase` is the state a future animation steps | `guiding_center_toroidal_momentum`, `parallel_speed_from_mu` |
+| `toroidal_symmetry_breaking` | A 3-D field changes $P_\phi$. Away from resonance the change oscillates; where $\Delta\omega_\mathrm{BH} = 0$ it is secular | `bounce_harmonic_detuning` |
+
+**Conventions.**
+* $P_\phi = mRv_\phi + qRA_\phi$ (`canonical_toroidal_momentum`) uses physical components and the
+  IMAS $\phi$.
+* The guiding-centre form uses $\psi = RA_\phi$ in **Wb per radian**, largest on the axis for a current
+  along $+\phi$. `psi_per_radian_from_cocos` converts a stored flux: $-\psi/2\pi$ for COCOS 11
+  (IMAS DD3) and $+\psi/2\pi$ for COCOS 17 (DD4). Used as stored, the flux has the wrong sign or a
+  $2\pi$ error.
+* $J_\parallel$ is documented but deliberately not a numerical helper: its bounce interval and
+  orientation depend on the orbit.
+* The drift of one orbit's $P_\phi$ is not NTV. Torque and transport are #1111's, and need the kinetic
+  response of the whole distribution.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

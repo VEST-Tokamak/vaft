@@ -1,5 +1,10 @@
 {
   "diagrams": {
+    "canonical_toroidal_momentum.svg": {
+      "call": "vaft.diagram.canonical_toroidal_momentum()",
+      "source_sha256": "c582b680226b495b7f463eb07d7c427482153e3d6395f169d49870c9f3030724",
+      "svg_sha256": "c0fb3d448e51bb963b2872ca0f4fde6d291a4db25a9f461e2477a0c76a0c8a91"
+    },
     "collision_processes.svg": {
       "call": "vaft.diagram.collision_processes()",
       "source_sha256": "91d30b28dcab83f54f218f4d9b72264b22a5756f6ca21f0501a30a4afdb6a410",
@@ -84,6 +89,11 @@
       "call": "vaft.diagram.geometry_ordering_map()",
       "source_sha256": "c6e87f6a7f60d70e9ac33d265552cce1ee424dff1f84cc5fa3e80be58a9ac014",
       "svg_sha256": "5c3e2c6deed75562618f5f3d3950503ae0a5ec3135a63e1f436a3f61da7bab78"
+    },
+    "guiding_center_invariants.svg": {
+      "call": "vaft.diagram.guiding_center_invariants()",
+      "source_sha256": "f15fab29132914e5cb0c60b29fb19015f1b386a08cf9e6a48056619fb5090426",
+      "svg_sha256": "98fe623f0af07b50ef2c39152133644ad71cd15785bc0cd79b1242dca453cca5"
     },
     "harmonic_real_space_projection.svg": {
       "call": "vaft.diagram.harmonic_real_space_projection()",
@@ -214,6 +224,11 @@
       "call": "vaft.diagram.toroidal_harmonic_phase()",
       "source_sha256": "3e9f43676330fd3fc7c6b7170690c9af730b2f911fda60cab78ce10dfa467e9c",
       "svg_sha256": "1afb5b281efd0effd7c1daa980622f72485c64529b4f9a7bfc65cbaa459509ba"
+    },
+    "toroidal_symmetry_breaking.svg": {
+      "call": "vaft.diagram.toroidal_symmetry_breaking()",
+      "source_sha256": "98b5974dc80cc4767baf48c90def1ab29a8acac63518cceb31842e73401b613b",
+      "svg_sha256": "ce9c1e7782751e5e58628a52d1b5746ddd8cc1737f9cffca54febc22436d5928"
     },
     "trapped_and_passing_orbits.svg": {
       "call": "vaft.diagram.trapped_and_passing_orbits()",
