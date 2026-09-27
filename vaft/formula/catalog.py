@@ -71,7 +71,7 @@ __all__ = [
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -220,8 +220,12 @@ class FormulaSpec:
             if isinstance(sections, str):
                 raise TypeError("sections is a list of part names, not one string")
             parts = [part.strip().lower().replace("_", " ") for part in sections]
-            if "description" in parts and "definition" in parts:
-                parts.remove("definition")
+            if not parts:
+                raise ValueError("sections is empty; pass None for the whole card")
+            parts = ["returns" if part == "yields" else part for part in parts]
+            if "description" in parts:
+                parts = [part for part in parts if part != "definition"]
+            parts = list(dict.fromkeys(parts))  # each part once, first request wins
         return "\n\n".join(self._markdown_part(part) for part in parts)
 
     def _repr_markdown_(self) -> str:
@@ -251,7 +255,16 @@ class FormulaSpec:
                 if on
             ]
             head = f"**`{self.qualname}{self.signature}`**"
-            return head + (f" &nbsp;*{' · '.join(flags)}*" if flags else "")
+            head += f" &nbsp;*{' · '.join(flags)}*" if flags else ""
+            notes = []
+            if self.aliases:
+                notes.append("Also exported as " + ", ".join(f"`{alias}`" for alias in self.aliases) + ".")
+            if self.shadowed_by:
+                notes.append(
+                    f"`vaft.formula.{self.name}` resolves to the `{self.shadowed_by}` copy; "
+                    f"reach this one as `vaft.formula.{self.category}.{self.name}`."
+                )
+            return head + ("\n\n" + " ".join(notes) if notes else "")
         if part == "summary":
             return strip_roles(self.summary)
         if part == "definition":
@@ -273,7 +286,10 @@ class FormulaSpec:
             lines = ["**References**", ""]
             lines += [f"- [{ref.label}] {_one_line(ref.text)}" for ref in self.references]
             return "\n".join(lines)
-        return f"**{titles[part]}**\n\n{strip_roles(self.section(titles[part]))}"
+        text = strip_roles(self.section(titles[part]))
+        if titles[part] == "Examples":  # doctest prompts are not Markdown
+            text = f"```python\n{text}\n```"
+        return f"**{titles[part]}**\n\n{text}"
 
     def _has(self, part: str) -> bool:
         return bool(

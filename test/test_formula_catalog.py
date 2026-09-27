@@ -424,6 +424,30 @@ def test_asking_for_what_a_formula_lacks_or_does_not_exist_fails():
         spec.to_markdown(["equation"])
     with pytest.raises(TypeError):
         spec.to_markdown("definition")
+    with pytest.raises(ValueError, match="empty"):
+        spec.to_markdown([])
+
+
+def test_a_part_asked_twice_renders_once():
+    spec = catalog.describe("greenwald_density")
+    assert spec.to_markdown(["definition", "definition"]) == spec.definition
+    assert spec.to_markdown(["description", "definition", "definition"]) == spec.to_markdown(["description"])
+
+
+def test_the_card_carries_the_alias_and_shadowing_notes_the_page_shows():
+    aliased = [spec for spec in catalog.list_formulas() if spec.aliases]
+    shadowed = [spec for spec in catalog.list_formulas() if spec.shadowed_by]
+    assert aliased and shadowed
+    for spec in aliased:
+        assert all(f"`{alias}`" in spec.to_markdown(["signature"]) for alias in spec.aliases), spec.qualname
+    for spec in shadowed:
+        assert f"resolves to the `{spec.shadowed_by}` copy" in spec.to_markdown(), spec.qualname
+
+
+def test_examples_render_as_code():
+    for spec in catalog.list_formulas():
+        if spec.section("Examples"):
+            assert "**Examples**\n\n```python\n" in spec.to_markdown(), spec.qualname
 
 
 def test_the_terminal_text_is_not_markdown():
