@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>80dfd03</code>. What is described
+  <code>1169cd8</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -327,7 +327,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="stability">
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>28</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>31</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr id="green">
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -430,7 +430,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 288 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 291 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -744,6 +744,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="empirical_li_qa stability"><td><a href="/vaft/develop/reference/formula/stability/#empirical_li_qa"><code>empirical_li_qa</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="field_line_label stability"><td><a href="/vaft/develop/reference/formula/stability/#field_line_label"><code>field_line_label</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Clebsch field-line label on a flux surface in straight-field-line coordinates.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="greenwald_density stability"><td><a href="/vaft/develop/reference/formula/stability/#greenwald_density"><code>greenwald_density</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Greenwald density limit $n_G$.
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="greenwald_fraction stability"><td><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Greenwald fraction $f_G = n_e/n_G$.
@@ -772,7 +774,11 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="rhostar_from_Te_a_Bt stability"><td><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Normalised electron gyroradius $\rho_e/a$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_ballooning_solution stability"><td><a href="/vaft/develop/reference/formula/stability/#s_alpha_ballooning_solution"><code>s_alpha_ballooning_solution</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>The even solution $F(\theta)$ of the marginal $s$-$\alpha$ ballooning equation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="s_alpha_ballooning_stable stability"><td><a href="/vaft/develop/reference/formula/stability/#s_alpha_ballooning_stable"><code>s_alpha_ballooning_stable</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Ideal ballooning stability of the circular $s$-$\alpha$ model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_curvature_drive stability"><td><a href="/vaft/develop/reference/formula/stability/#s_alpha_curvature_drive"><code>s_alpha_curvature_drive</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Normal-curvature drive of the $s$-$\alpha$ ballooning equation along the extended angle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="s_alpha_marginal_alpha stability"><td><a href="/vaft/develop/reference/formula/stability/#s_alpha_marginal_alpha"><code>s_alpha_marginal_alpha</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>First and second ballooning stability boundaries of the $s$-$\alpha$ model.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1324,7 +1330,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-27 18:51:04 +0000"
+        "time": "2026-09-27 19:25:47 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
