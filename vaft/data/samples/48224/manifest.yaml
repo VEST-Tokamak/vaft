@@ -70,12 +70,13 @@ equilibria:
     chease:
       format: geqdsk
       path: ../../kineticEfit/g048224.00300.chease
-      sha256: 9316e0004845cc7479a412fa8f4d07b6a0d5cd820837e2587cc5ca16409a5c39
+      sha256: 53f9cd7343a19e09cea6f54a27c9fe942f7ac2a44d2387cdd583af3dc3410f8a
       role: CHEASE refinement (header COCOS=02, 513 x 513) of the earlier kinetic
-        EFIT kineticEfit/g048224.00300.kinetic_efit, not of efit_kinetic above. The
-        header declares COCOS 2 but its signs identify COCOS 7/8, so the conversion
-        leaves it unlabelled; its psi is shifted to zero on the boundary and Ip is
-        negative.
+        EFIT kineticEfit/g048224.00300.kinetic_efit, not of efit_kinetic above,
+        made by vaft.code.chease with its defaults (NS = NT = 150, target_psin
+        0.993, output_cocos=input; issue 885). That EFIT file already carries CHEASE's
+        COCOS-2 signs, so nothing is re-signed and the header is true; Ip is
+        positive.
   conventions:
   - psi and the psi maps are in Wb (read_geqdsk().to_omas()).
   - constraints.flux_loop.* measured/reconstructed/measured_error_upper are in Wb
