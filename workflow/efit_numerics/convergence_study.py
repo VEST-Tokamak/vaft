@@ -348,8 +348,10 @@ def compare(record: Mapping[str, Any], reference: Mapping[str, Any]) -> dict[str
 #: The exits that are EFIT stopping on its own criterion: the chi-square exit
 #: it announces, and the silent one an inner loop's first step takes when the
 #: increment falls below ERROR (``go to 2020`` in fit.F90). Before #1038 the
-#: parser reported the second as ``iterations_exhausted``, so NXITER > 1 runs,
-#: where it is common, lost slices here that had in fact stopped.
+#: parser reported the second as ``iterations_exhausted``. This study's stored
+#: runs have none (its NXITER > 1 losses are ``bound`` errors), but a rerun
+#: must not drop one. Scope: a free-boundary, non-vacuum run -- a vacuum or
+#: fixed-boundary slice also ends with no exit line.
 CRITERION_EXITS = ("iconvr=2", "no_exit_message")
 
 
