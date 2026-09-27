@@ -52,6 +52,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("normal_field_component", "complex_harmonic",
                                               "toroidal_harmonic_phase", "harmonic_real_space_projection",
                                               "complex_field_superposition")},
+    # concept diagrams
+    "collision_processes.svg": ("collision_processes", {}),
 }
 
 
