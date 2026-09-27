@@ -37,8 +37,30 @@ def test_the_reader_is_importable_from_the_package():
 
     assert package.parse_slices is parse_slices
     assert set(EFIT_LOG_PATTERNS) == {
-        "iteration", "iconvr", "failed", "failure", "solver_error", "solver_warning",
+        "iteration", "iconvr", "exhausted", "failed", "failure", "solver_error",
+        "solver_warning",
     }
+
+
+EXHAUSTED = """\
+ r=  0 t=   320 it=  1 chi2=1.0E+02 zm= 0.0E+00 err=1.0E+00 dz= 0.0E+00
+ r=  0 t=   320 it= 26 chi2=9.0E+01 zm= 0.0E+00 err=5.0E-02 dz= 0.0E+00
+WARNING in fit at r=  0, t=   320: not converged, reached max iterations
+ r=  0 t=   321 it=  1 chi2=1.0E+02 zm= 0.0E+00 err=1.0E+00 dz= 0.0E+00
+ r=  0 t=   321 it=145 chi2=3.4E-09 zm= 0.0E+00 err=9.6E-06 dz= 0.0E+00
+INFO in efit at r=  0, t=   321: Done processing
+"""
+
+
+def test_only_efits_own_line_says_the_cap_was_reached():
+    # #1038: fit.F90 prints the warning only when the outer loop ran all its
+    # passes. The second slice printed nothing and left through the silent
+    # `go to 2020` (increment below ERROR on an inner loop's first step) --
+    # a stop on EFIT's criterion, which this parser used to call exhausted.
+    capped, silent = parse_slices(EXHAUSTED)
+    assert capped["exit_path"] == "iterations_exhausted"
+    assert capped["warnings"] == []
+    assert silent["exit_path"] == "no_exit_message"
 
 
 def test_the_workflow_name_still_resolves_to_the_same_function():

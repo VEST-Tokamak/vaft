@@ -8,6 +8,7 @@ The grammar (#77)::
 
     raw/{shot}/
     legacy/{diagnostic}/{shot}/
+    legacy/{diagnostic}/{artifact}                        diagnostic-scoped, no shot
     omas/static/{machine_version}/
     omas/{stage}/{shot}/                                  diagnostics, eddy, impa, ...
     omas/{stage}/{family}/{shot}/                         efit, chease, mhd_linear, gpec_ideal
@@ -97,6 +98,9 @@ class OMASStage(str, Enum):
     # IDS in one source without the second replacing the first, so they are
     # separated here and given distinct destinations in STAGE_REPLICATION.
     CAMERA_VISIBLE_FLUCTUATION = "camera_visible_fluctuation"
+    # The operation ShotLog: planned timing read from the monthly workbooks
+    # archived under legacy/shotlog, published as pulse_schedule (#995).
+    SHOTLOG = "shotlog"
 
 
 class GPECCode(str, Enum):
@@ -479,12 +483,24 @@ class FileDB:
             _absent(code, "code", domain_value)
             _absent(mode, "mode", domain_value)
             diagnostic = _component(subdomain, "legacy diagnostic")
-            path = (
-                self.root
-                / domain_value
-                / diagnostic
-                / str(_positive_integer(shot, "shot"))
-            )
+            if shot is None:
+                # Diagnostic-scoped holdings that belong to no single shot --
+                # the ShotLog's monthly workbooks cover hundreds (#995). Only an
+                # artifact class may stand in for the shot: it can never be
+                # mistaken for one, because a shot directory is always digits.
+                if artifact_value is None:
+                    raise FileDBPathError(
+                        "legacy paths without a shot must name an artifact "
+                        "class, e.g. legacy/shotlog/input"
+                    )
+                path = self.root / domain_value / diagnostic
+            else:
+                path = (
+                    self.root
+                    / domain_value
+                    / diagnostic
+                    / str(_positive_integer(shot, "shot"))
+                )
 
         elif domain_value == FileDBDomain.OMAS.value:
             _absent(code, "code", domain_value)
@@ -567,10 +583,15 @@ class FileDB:
     def legacy(
         self,
         diagnostic: str,
-        shot: int | str,
+        shot: int | str | None,
         *,
         artifact: str | ArtifactClass | None = None,
     ) -> Path:
+        """Return ``legacy/{diagnostic}/{shot}[/{artifact}]``.
+
+        ``shot=None`` resolves the diagnostic-scoped
+        ``legacy/{diagnostic}/{artifact}`` and then requires ``artifact``.
+        """
         return self.resolve(
             "legacy", subdomain=diagnostic, shot=shot, artifact=artifact
         )

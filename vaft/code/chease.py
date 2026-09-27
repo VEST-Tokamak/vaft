@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from typing import Any, Mapping, Optional, Sequence
+import warnings
 
 import numpy as np
 
@@ -27,22 +28,128 @@ CHEASE_HOME_EXECUTABLE = Path("bin/chease")
 CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 
 
+#: What each supported ``CHEASEConfig.output`` asks CHEASE for, as its
+#: ``NIDEAL`` mapping selector.
+#:
+#: The adapter's contract is GEQDSK in, GEQDSK out (#516): VAFT reads a
+#: g-file, writes CHEASE's native ``EXPEQ`` from it (``NEQDSK=0`` -- the
+#: boundary, ``p'`` and ``FF'``, not the g-file itself), and reads the COCOS-2
+#: EQDSK CHEASE writes back.  ``NIDEAL=6`` is that EQDSK mapping in upstream
+#: CHEASE and upstream's own default (``preset.f90``).  Other mappings --
+#: ``NIDEAL=9`` for the GENE/ORB5 ``ogyropsi.h5`` output, the MARS or PEST
+#: families -- produce files this adapter does not read, so they are not
+#: offered here; each needs its own named output and reader when it is wanted.
+CHEASE_OUTPUT_NIDEAL: Mapping[str, int] = {"geqdsk": 6}
+
+
+@dataclass(frozen=True)
+class BoundaryContourPolicy:
+    """How to choose among several flux contours at the same ``target_psin``.
+
+    A limited equilibrium has one contour at ``target_psin`` and no choice to
+    make.  A diverted one does: near the separatrix ``find_contours`` returns
+    the core surface *and* the open divertor legs, and the leg can be returned
+    first.  Handing a leg to CHEASE as the plasma boundary produces a
+    degenerate geometry -- a tiny area, sometimes a negative minor radius --
+    which CHEASE reports as a solver failure far from its cause.
+
+    So the candidates are scored rather than indexed.  The base score is the
+    enclosed polygon area; :attr:`axis_bonus` and :attr:`closed_bonus` are
+    added to a contour that encloses the magnetic axis and to one whose ends
+    meet, and :attr:`positive_r_fraction` sets how much of a contour must sit
+    at ``R > 0`` to be a plasma boundary at all.  The bonuses dominate the
+    area term for any tokamak-sized equilibrium, so they act as an ordering:
+    encloses-the-axis beats closed beats large.
+
+    Attributes
+    ----------
+    axis_bonus : float
+        Added when the contour encloses ``(RMAXIS, ZMAXIS)`` [-].
+    closed_bonus : float
+        Added when the contour's first and last points meet, within 5 % of its
+        own span [-].
+    positive_r_fraction : float
+        The fraction of a contour's points that must have ``R > 0`` [-].
+    positive_r_rule : str
+        What failing that fraction does.  ``"reject"`` drops the contour, so a
+        set in which every candidate fails falls back to the g-file's stored
+        ``RBBBS``/``ZBBBS`` boundary.  ``"penalize"`` subtracts
+        :attr:`positive_r_penalty` instead, so the least-bad candidate is
+        still returned.
+    positive_r_penalty : float
+        Subtracted under ``"penalize"`` [-].
+
+    Applicability
+    -------------
+    Machine-independent.  Any reconstruction whose ``target_psin`` surface is
+    close enough to a separatrix for the divertor legs to appear as contours of
+    their own, which is every diverted equilibrium near the edge and no limited
+    one.
+    """
+
+    axis_bonus: float = 100.0
+    closed_bonus: float = 10.0
+    positive_r_fraction: float = 0.95
+    positive_r_rule: str = "reject"
+    positive_r_penalty: float = 100.0
+
+    def __post_init__(self) -> None:
+        if self.positive_r_rule not in ("reject", "penalize"):
+            raise ValueError(
+                "BoundaryContourPolicy.positive_r_rule must be 'reject' or "
+                f"'penalize', got {self.positive_r_rule!r}"
+            )
+        if not 0.0 <= float(self.positive_r_fraction) <= 1.0:
+            raise ValueError(
+                "BoundaryContourPolicy.positive_r_fraction is a fraction of a "
+                f"contour's points, so it lies in [0, 1]; got {self.positive_r_fraction!r}"
+            )
+
+
+#: The policy used when a caller names none: the axis/closed bonuses with
+#: ``R > 0`` as a rejection rule.  This is the behaviour the adapter already
+#: had, kept as the default so no existing case changes.
+DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
+
+#: The variant in which ``R > 0`` is a penalty rather than a rejection, so a
+#: set in which every candidate fails still yields the least-bad contour
+#: instead of falling back to the stored boundary.
+PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
-    """Runtime and numerical configuration for CHEASE refinement."""
+    """Runtime and numerical configuration for CHEASE refinement.
+
+    ``output`` names what the refinement produces; the only supported value is
+    ``"geqdsk"`` (see :data:`CHEASE_OUTPUT_NIDEAL`).  ``nideal`` is a
+    deprecated raw override of CHEASE's ``NIDEAL`` selector, kept for CHEASE
+    forks whose numbering differs from upstream -- the VEST ``jsk95`` revision
+    runs with 11, which upstream rejects -- and it warns when set.
+    """
 
     executable: Optional[str] = None
     workdir: Path | str = Path(".")
     target_psin: float = 0.993
     relax: float = 0.5
-    # Upstream CHEASE validates this range (`cotrol.f90`: 0 to 10) and quits
-    # in `cotrol` on anything outside it, before any equilibrium work. 6 is
-    # upstream's own default (`preset.f90:104`) and the value every VAFT caller
-    # that actually runs CHEASE already passed by hand. The VEST `jsk95`
-    # workflow uses 11, which only its own CHEASE revision accepts; pass
-    # `nideal=11` explicitly for it.
-    nideal: int = 6
+    output: str = "geqdsk"
+    # Deprecated: a raw NIDEAL for a non-upstream CHEASE build. Upstream
+    # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
+    # equilibrium work, which is how the old default of 11 failed (#717).
+    nideal: Optional[int] = None
+    #: Size of the R-Z box CHEASE writes its EQDSK on (``NRBOX = NZBOX``).  This
+    #: is the *output* grid only: the equilibrium is solved on the ``ns`` x
+    #: ``nt`` finite-element mesh and interpolated onto it.
     nw: int = 513
+    #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
+    #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
+    #: takes the default for the resolved ``NIDEAL``; see
+    #: :func:`_chease_mesh_params`.  ``ns``/``nt`` set the local force balance
+    #: of the result, which the output grid ``nw`` cannot improve (#885).
+    ns: Optional[int] = None
+    nt: Optional[int] = None
+    npsi: Optional[int] = None
+    nchi: Optional[int] = None
     epslon_exponent: int = 10  # emits EPSLON=1.0E-{exp}
 
     #: Normalized poloidal flux at which CHEASE is told to match q.
@@ -58,7 +165,14 @@ class CHEASEConfig:
     edge_zero: bool = True  # zero positive edge pprime, flatten FF' inward
     boundary_smoothing: str = "fft"  # "fft" (smooth_bnd) | "arclength" | "none"
     boundary_fft_num: int = 128  # smooth_bnd nf
+    #: How the ``target_psin`` contour is chosen when the equilibrium offers
+    #: more than one -- see :class:`BoundaryContourPolicy`.  Diverted
+    #: equilibria are the case that needs it.
+    boundary_contour_policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY
     auto_cocos: bool = True
+    # "input": the refined g-file comes back in the source's orientation -- its
+    # sign pattern, and its COCOS index (per-radian twin, as a g-file stores
+    # psi) in the CASE header, or no index when the source's is not pinned.
     output_cocos: str = "input"
     preserve_boundary_limiter: bool = True
     create_plot: bool = True
@@ -67,6 +181,94 @@ class CHEASEConfig:
     args: Sequence[str] = ()
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+
+    def __post_init__(self) -> None:
+        if self.output not in CHEASE_OUTPUT_NIDEAL:
+            raise ValueError(
+                f"CHEASEConfig.output={self.output!r} is not supported; the "
+                f"adapter reads {sorted(CHEASE_OUTPUT_NIDEAL)}. Other CHEASE "
+                "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
+                "refinement contract (#516)"
+            )
+        for key in ("ns", "nt", "npsi", "nchi"):
+            value = getattr(self, key)
+            if value is not None and int(value) < 2:
+                raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
+        if self.nideal is not None:
+            warnings.warn(
+                f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
+                f"output={self.output!r} selects "
+                f"({CHEASE_OUTPUT_NIDEAL[self.output]}). The raw override is "
+                "deprecated and exists only for CHEASE forks with their own "
+                "numbering; drop it for upstream CHEASE (#516)",
+                FutureWarning,
+                stacklevel=3,
+            )
+
+    @property
+    def resolved_mesh(self) -> dict[str, int]:
+        """The solver mesh written to the namelist: the NIDEAL default, overridden
+        by whichever of ``ns``/``nt``/``npsi``/``nchi`` are set."""
+        mesh = _chease_mesh_params(self.resolved_nideal)
+        for key in ("ns", "nt", "npsi", "nchi"):
+            value = getattr(self, key)
+            if value is not None:
+                mesh[key] = int(value)
+        return mesh
+
+    @property
+    def resolved_nideal(self) -> int:
+        """The ``NIDEAL`` written to the namelist."""
+        return int(self.nideal) if self.nideal is not None else CHEASE_OUTPUT_NIDEAL[self.output]
+
+
+@dataclass(frozen=True)
+class CHEASEMaterializedInput:
+    """What one ``EXPEQ``/namelist pair hands CHEASE, before normalization.
+
+    ``EXPEQ`` carries the boundary and the ``p'``/``FF'`` profiles in CHEASE's
+    own normalization (``R0``, ``B0``, ``mu0``) and in the COCOS-02 sign pattern
+    CHEASE reads.  This record keeps the same content in physical units and in
+    the *source* g-file's sign convention, so it can be laid over the source
+    profiles directly: any difference is then preprocessing -- resampling onto
+    CHEASE's grid, edge conditioning, the boundary choice -- and not the solve.
+    ``sign_transform`` holds the factors that took the source into CHEASE's
+    pattern; ``p'`` and ``FF'`` flip with ``sign_transform["psi"]``.
+    """
+
+    #: Boundary before smoothing: the traced ``target_psin`` contour, or
+    #: ``RBBBS/ZBBBS`` when ``target_psin`` is 0 or at least 1 [m].
+    raw_boundary: np.ndarray
+    #: Boundary written to ``EXPEQ``, after ``boundary_smoothing`` [m].
+    boundary: np.ndarray
+    #: Normalized poloidal flux of the profile samples (CHEASE writes its
+    #: square root) [-].
+    psi_norm: np.ndarray
+    #: Pressure resampled onto ``psi_norm``; only its edge value enters EXPEQ [Pa].
+    pressure: np.ndarray
+    #: ``p'`` and ``FF'`` resampled onto ``psi_norm``, before edge conditioning,
+    #: in the source convention [Pa/(Wb/rad)], [T^2 m^2/(Wb/rad)].
+    pprime_resampled: np.ndarray
+    ffprime_resampled: np.ndarray
+    #: ``p'`` and ``FF'`` as written to EXPEQ, in physical units and the source
+    #: convention [Pa/(Wb/rad)], [T^2 m^2/(Wb/rad)].
+    pprime: np.ndarray
+    ffprime: np.ndarray
+    #: Samples edge conditioning (``edge_zero``) changed [-].
+    edge_modified: np.ndarray
+    #: The psi_N at which q is constrained, after any edge-conditioning nudge;
+    #: ``None`` when CHEASE constrains q on axis instead [-].
+    q_constraint_psi_norm: Optional[float]
+    #: The q value CHEASE is asked to match there, in CHEASE's sign [-].
+    qspec: float
+    #: The same surface on CHEASE's radial mesh, ``sqrt(psi_N)`` [-].
+    csspec: float
+    #: Source-to-CHEASE sign factors (``psi``, ``bcentr``, ``current``,
+    #: ``fpol``, ``q``) [-].
+    sign_transform: Mapping[str, int]
+    #: The scalar namelist/EXPEQ parameters (``ASPCT``, ``R0EXP``, ``B0EXP``,
+    #: ``CURRT`` ...) [-].
+    parameters: Mapping[str, float]
 
 
 @dataclass
@@ -81,6 +283,9 @@ class CHEASEInputs:
     geqdsk: Any = None
     files: tuple[Path, ...] = ()
     manifests: tuple[Path, ...] = ()
+    #: The content of ``expeq`` in physical units; see
+    #: :class:`CHEASEMaterializedInput`.
+    materialized: Optional[CHEASEMaterializedInput] = None
 
 
 @dataclass
@@ -99,6 +304,9 @@ class CHEASEResult:
     comparison: Mapping[str, float] = field(default_factory=dict)
     stdout: str = ""
     stderr: str = ""
+    #: What this run handed CHEASE, when it came through :func:`run_chease`;
+    #: see :class:`CHEASEMaterializedInput`.
+    materialized: Optional["CHEASEMaterializedInput"] = None
 
     @property
     def ok(self) -> bool:
@@ -307,6 +515,54 @@ def _force_geqdsk_signs(
     return item, before, after, transform
 
 
+def _source_orientation(geqdsk: Any) -> tuple[int | None, str]:
+    """The per-radian COCOS index (1-8) that shares the CHEASE source's orientation.
+
+    The source's own index is its declaration when its signs do not contradict
+    it, else the single index its signs identify; ``None`` when neither pins
+    one. A weber index (11-18) is returned as its per-radian twin, because the
+    two differ only in the flux's ``2*pi`` and a g-file stores psi per radian.
+    The second value says how the index was found, or why it was not.
+    """
+    try:
+        from vaft.process.equilibrium import as_equilibrium
+
+        convention = as_equilibrium(geqdsk).convention
+    except Exception as error:  # identification is provenance, never a failure
+        return None, f"source convention not identified: {error}"
+    if convention.cocos is not None and not convention.contradicted:
+        index, how = int(convention.cocos), "declared by the source"
+    elif len(convention.identified) == 1:
+        index, how = int(convention.identified[0]), "identified from the source's signs"
+    else:
+        return None, (f"source convention not pinned (signs allow {convention.identified})"
+                      if convention.identified else "source convention not pinned")
+    return (index - 10 if index > 10 else index), how
+
+
+def _declare_source_convention(refined: Any, source: Any) -> tuple[Any, dict[str, Any]]:
+    """Finish ``output_cocos="input"``: declare the orientation the re-signed file is in.
+
+    :func:`_force_geqdsk_signs` gives CHEASE's COCOS-2 output the source's sign
+    pattern but leaves CHEASE's ``COCOS=02`` CASE token in place. COCOS 1 and 2
+    -- and 11 and 12 -- share every sign and differ only in the toroidal
+    direction, so a re-signed file still declaring 2 reads back with its
+    current and field reversed and nothing in its signs says so. The token is
+    replaced by the source's orientation as a per-radian index, the storage
+    every g-file reader (``to_omas`` included) assumes, or removed when the
+    source's index is not pinned: no declaration beats a wrong one. psi itself
+    is left per radian, as CHEASE wrote it.
+    """
+    import re
+
+    item = _copy_geqdsk(refined)
+    index, how = _source_orientation(source)
+    stamp = re.search(r"(\d{8})", str(item.mapping.get("CASE", "")))
+    label = f"FROM CHEASE, COCOS={index:02d}" if index is not None else "FROM CHEASE"
+    item["CASE"] = f"{label}, SI UNITS {stamp.group(1) if stamp else ''}".strip()[:48]
+    return item, {"declared_cocos": index, "how": how, "case": item["CASE"]}
+
+
 def _profile(values: Any, size: int = NCHEASE) -> np.ndarray:
     arr = np.asarray(values, dtype=float).reshape(-1)
     if arr.size == 0:
@@ -346,12 +602,55 @@ def _contains_axis(rz: np.ndarray, axis: tuple[float, float]) -> bool:
         return False
 
 
-def _target_boundary(geqdsk: Any, target_psin: float) -> np.ndarray:
+def score_boundary_contour(
+    rz: np.ndarray,
+    axis: tuple[float, float],
+    policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY,
+) -> Optional[tuple[float, float]]:
+    """Score one candidate boundary contour, or ``None`` if *policy* rejects it.
+
+    Returns ``(score, area)``: the score orders the candidates and the area
+    breaks a tie between two that score alike.  See
+    :class:`BoundaryContourPolicy` for what the score is made of.
+    """
+    rz = np.asarray(rz, dtype=float)
+    if rz.shape[0] < 4 or not np.all(np.isfinite(rz)):
+        return None
+    positive_r = float(np.mean(rz[:, 0] > 0.0))
+    penalty = 0.0
+    if positive_r < float(policy.positive_r_fraction):
+        if policy.positive_r_rule == "reject":
+            return None
+        penalty = float(policy.positive_r_penalty)
+    span = max(np.ptp(rz[:, 0]), np.ptp(rz[:, 1]), 1.0e-12)
+    closed = np.linalg.norm(rz[0] - rz[-1]) <= max(1.0e-3, 0.05 * span)
+    area = _polygon_area(rz)
+    score = area - penalty
+    if _contains_axis(rz, axis):
+        score += float(policy.axis_bonus)
+    if closed:
+        score += float(policy.closed_bonus)
+    return score, area
+
+
+def _stored_boundary(geqdsk: Any) -> Optional[np.ndarray]:
+    r = np.asarray(geqdsk["RBBBS"], dtype=float)
+    z = np.asarray(geqdsk["ZBBBS"], dtype=float)
+    if r.size and z.size:
+        count = min(r.size, z.size)
+        return np.column_stack([r[:count], z[:count]])
+    return None
+
+
+def _target_boundary(
+    geqdsk: Any,
+    target_psin: float,
+    policy: BoundaryContourPolicy = DEFAULT_BOUNDARY_CONTOUR_POLICY,
+) -> np.ndarray:
     if target_psin <= 0.0 or target_psin >= 1.0:
-        r = np.asarray(geqdsk["RBBBS"], dtype=float)
-        z = np.asarray(geqdsk["ZBBBS"], dtype=float)
-        if r.size and z.size:
-            return np.column_stack([r[: min(r.size, z.size)], z[: min(r.size, z.size)]])
+        stored = _stored_boundary(geqdsk)
+        if stored is not None:
+            return stored
 
     try:
         from skimage import measure
@@ -378,19 +677,15 @@ def _target_boundary(geqdsk: Any, target_psin: float) -> np.ndarray:
                 np.interp(row, np.arange(z_grid.size), z_grid),
             ]
         )
-        if not np.all(np.isfinite(rz)) or np.mean(rz[:, 0] > 0.0) < 0.95:
+        scored = score_boundary_contour(rz, axis, policy)
+        if scored is None:
             continue
-        span = max(np.ptp(rz[:, 0]), np.ptp(rz[:, 1]), 1.0e-12)
-        closed = np.linalg.norm(rz[0] - rz[-1]) <= max(1.0e-3, 0.05 * span)
-        area = _polygon_area(rz)
-        score = area + (100.0 if _contains_axis(rz, axis) else 0.0) + (10.0 if closed else 0.0)
-        candidates.append((score, area, rz))
+        candidates.append((scored[0], scored[1], rz))
 
     if not candidates:
-        r = np.asarray(geqdsk["RBBBS"], dtype=float)
-        z = np.asarray(geqdsk["ZBBBS"], dtype=float)
-        if r.size and z.size:
-            return np.column_stack([r[: min(r.size, z.size)], z[: min(r.size, z.size)]])
+        stored = _stored_boundary(geqdsk)
+        if stored is not None:
+            return stored
         raise ValueError(f"No usable target boundary contour found at psin={target_psin}")
 
     candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
@@ -530,19 +825,43 @@ def _edge_zero_profiles(
 
 
 def _chease_mesh_params(nideal: int) -> dict[str, int]:
+    """Default solver mesh for a NIDEAL; ``CHEASEConfig.ns`` etc. override it.
+
+    The GEQDSK default (NIDEAL 6) was ``NS = NT = 50``, inherited from the
+    donor.  Measured on the packaged 39915 and 48224 g-files at ``nw = 513``
+    (#885), the median relative Grad-Shafranov residual of the written EQDSK
+    falls 5.5/4.0% -> 2.9/2.0% -> 1.2/1.0% -> 0.47/0.41% for NS = NT = 50, 100,
+    150, 200, at 7, 11, 22 and 45 s a solve.  q0, q95, li_3, beta_p and Ip are
+    converged to 1e-4 already at 50; the mesh sets the *local* force balance a
+    downstream stability code reads, and ``NPSI``/``NCHI`` (200/100 against
+    300/256) change neither.  150 brings the residual within about twice the
+    EFIT input's own (0.6% on 39915, on EFIT's 129 grid) for three times the
+    cost; written on that same 129 grid, the NS = 150 solution's is 0.38%,
+    below the input's.  A residual measured on a finer box is larger, since the
+    interpolated element-scale curvature shows more, so compare at equal grids.
+    The NIDEAL 8
+    and 10 tables belong to the forks that use them and are left alone.
+    """
     if nideal == 8:
         return {"ns": 100, "nt": 100, "npsi": 300, "nchi": 512, "negp": 0, "ner": 2}
     if nideal == 10:
         return {"ns": 100, "nt": 100, "npsi": 200, "nchi": 200, "negp": 0, "ner": 0}
-    return {"ns": 50, "nt": 50, "npsi": 200, "nchi": 100, "negp": 0, "ner": 2}
+    return {"ns": 150, "nt": 150, "npsi": 200, "nchi": 100, "negp": 0, "ner": 2}
 
 
-def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, float]:
+def _expeq_payload(geqdsk: Any, config: CHEASEConfig) -> dict[str, Any]:
+    """Everything ``_write_expeq`` writes, computed once.
+
+    ``geqdsk`` is the working g-file, already in CHEASE's sign pattern.
+    """
     for key in ("NW", "NH", "PSIRZ", "PPRIME", "FFPRIM", "PRES", "FPOL", "QPSI"):
         if key not in geqdsk:
             raise ValueError(f"GEQDSK is missing required CHEASE input field {key!r}")
 
-    rz = _resolve_boundary(_target_boundary(geqdsk, config.target_psin), config)
+    raw_rz = np.asarray(
+        _target_boundary(geqdsk, config.target_psin, config.boundary_contour_policy), dtype=float
+    )
+    rz = _resolve_boundary(raw_rz, config)
     rcen = float((np.nanmax(rz[:, 0]) + np.nanmin(rz[:, 0])) * 0.5)
     zcen = float(rz[int(np.nanargmax(rz[:, 0])), 1])
     amin = float((np.nanmax(rz[:, 0]) - np.nanmin(rz[:, 0])) * 0.5)
@@ -567,9 +886,10 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         raise ValueError("Invalid CHEASE normalization: B0EXP is zero")
 
     psin = np.linspace(0.0, 1.0, NCHEASE)
-    pprime = _profile(geqdsk["PPRIME"], NCHEASE)
+    pprime_resampled = _profile(geqdsk["PPRIME"], NCHEASE)
     pressure = _profile(geqdsk["PRES"], NCHEASE)
-    ffprim = _profile(geqdsk["FFPRIM"], NCHEASE)
+    ffprim_resampled = _profile(geqdsk["FFPRIM"], NCHEASE)
+    pprime, ffprim = pprime_resampled, ffprim_resampled
 
     # The flux surface q is matched on, in psi_norm. Edge-zeroing may nudge it
     # outward, exactly as the donor's chease_params/make_chease_expeq does.
@@ -591,25 +911,6 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
     edge_pressure = MU0 * float(np.asarray(geqdsk["PRES"], dtype=float).reshape(-1)[-1]) / (b0exp**2)
     current = abs(MU0 * float(geqdsk["CURRENT"]) / rcen / b0exp)
 
-    with path.open("w", encoding="utf-8") as f:
-        f.write(f"{aspct:.12g}\n")
-        f.write(f"{zcen:.12g}\n")
-        f.write(f"{edge_pressure:.12g}\n")
-        f.write(f"{len(rz):d}\n")
-        for r_val, z_val in rz:
-            f.write(f"{r_val / rcen:.12g} {z_val / rcen:.12g}\n")
-        f.write(f"{NCHEASE:d}\n")
-        f.write("1 0\n")
-        for value in np.sqrt(psin):
-            f.write(f"{value:.12g}\n")
-        for value in pp_input:
-            f.write(f"{value:.12g}\n")
-        for value in ff_input:
-            f.write(f"{value:.12g}\n")
-        f.write(f"{rcen:.12g}, R0 [M]\n")
-        f.write(f"{b0exp:.12g}, B_T [T]\n")
-        f.write(f"{current:.12g}, TOTAL CURRENT\n")
-
     q = np.asarray(geqdsk["QPSI"], dtype=float).reshape(-1)
     sign_q = np.sign(float(geqdsk["CURRENT"])) * np.sign(float(geqdsk["BCENTR"]))
     if config.q_constraint_psi_norm is not None and config.ncscal == 1 and q.size >= 4:
@@ -622,11 +923,13 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         q_at = float(q_of_psi_norm(constraint_psi_norm))
         qval = q_at * sign_q
         csspec = _csspec_from_psi_norm(constraint_psi_norm)
+        q_surface: Optional[float] = constraint_psi_norm
     else:
         # No flux-surface constraint: CHEASE matches q on axis (CSSPEC = 0).
         qval = float(q[0] * sign_q) if q.size else 1.0
         csspec = 0.0
-    return {
+        q_surface = None
+    params = {
         "ASPCT": aspct,
         "R0EXP": rcen,
         "B0EXP": b0exp,
@@ -640,10 +943,73 @@ def _write_expeq(geqdsk: Any, path: Path, config: CHEASEConfig) -> dict[str, flo
         "SIGNB0XP": 1.0,
         "SIGNIPXP": 1.0,
     }
+    return {
+        "raw_rz": raw_rz, "rz": rz, "rcen": rcen, "zcen": zcen, "aspct": aspct,
+        "psin": psin, "pressure": pressure,
+        "pprime_resampled": pprime_resampled, "ffprim_resampled": ffprim_resampled,
+        "pprime": pprime, "ffprim": ffprim,
+        "pp_input": pp_input, "ff_input": ff_input,
+        "edge_pressure": edge_pressure, "b0exp": b0exp, "current": current,
+        "params": params, "q_surface": q_surface,
+    }
+
+
+def _write_expeq(
+    geqdsk: Any, path: Path, config: CHEASEConfig, payload: Optional[Mapping[str, Any]] = None
+) -> dict[str, float]:
+    payload = payload if payload is not None else _expeq_payload(geqdsk, config)
+    rz = payload["rz"]
+    rcen = payload["rcen"]
+    with path.open("w", encoding="utf-8") as f:
+        f.write(f"{payload['aspct']:.12g}\n")
+        f.write(f"{payload['zcen']:.12g}\n")
+        f.write(f"{payload['edge_pressure']:.12g}\n")
+        f.write(f"{len(rz):d}\n")
+        for r_val, z_val in rz:
+            f.write(f"{r_val / rcen:.12g} {z_val / rcen:.12g}\n")
+        f.write(f"{NCHEASE:d}\n")
+        f.write("1 0\n")
+        for value in np.sqrt(payload["psin"]):
+            f.write(f"{value:.12g}\n")
+        for value in payload["pp_input"]:
+            f.write(f"{value:.12g}\n")
+        for value in payload["ff_input"]:
+            f.write(f"{value:.12g}\n")
+        f.write(f"{rcen:.12g}, R0 [M]\n")
+        f.write(f"{payload['b0exp']:.12g}, B_T [T]\n")
+        f.write(f"{payload['current']:.12g}, TOTAL CURRENT\n")
+    return dict(payload["params"])
+
+
+def _materialized_input(
+    payload: Mapping[str, Any], config: CHEASEConfig, transform: Mapping[str, int]
+) -> CHEASEMaterializedInput:
+    """Re-express an EXPEQ payload in the source g-file's sign convention."""
+    psi_sign = int(transform.get("psi", 1))
+    params = payload["params"]
+    return CHEASEMaterializedInput(
+        raw_boundary=np.asarray(payload["raw_rz"], dtype=float).copy(),
+        boundary=np.asarray(payload["rz"], dtype=float).copy(),
+        psi_norm=np.asarray(payload["psin"], dtype=float).copy(),
+        pressure=np.asarray(payload["pressure"], dtype=float).copy(),
+        pprime_resampled=psi_sign * np.asarray(payload["pprime_resampled"], dtype=float),
+        ffprime_resampled=psi_sign * np.asarray(payload["ffprim_resampled"], dtype=float),
+        pprime=psi_sign * np.asarray(payload["pprime"], dtype=float),
+        ffprime=psi_sign * np.asarray(payload["ffprim"], dtype=float),
+        edge_modified=(
+            (np.asarray(payload["pprime"]) != np.asarray(payload["pprime_resampled"]))
+            | (np.asarray(payload["ffprim"]) != np.asarray(payload["ffprim_resampled"]))
+        ),
+        q_constraint_psi_norm=payload["q_surface"],
+        qspec=float(params["QSPEC"]),
+        csspec=float(params["CSSPEC"]),
+        sign_transform=dict(transform),
+        parameters=dict(params),
+    )
 
 
 def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[str]:
-    mesh = _chease_mesh_params(config.nideal)
+    mesh = config.resolved_mesh
     width = 0.05
     lines = [
         "*************************\n",
@@ -654,6 +1020,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "! --- CHEASE input file option\n",
         "NOPT=0,\n",
         "NSURF=6,\n",
+        # EXPEQ is written by _write_expeq, not handed over as a g-file.
         "NEQDSK=0\n",
         "TENSBND=    -0.1,\n",
         "NSYM=0,\n",
@@ -702,7 +1069,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         f"NCSCAL={int(config.ncscal)},\n",
         f"CSSPEC={float(params.get('CSSPEC', 0.0)):.6f},\n",
         f"NEGP={mesh['negp']}, NER={mesh['ner']},\n",
-        f"NIDEAL={int(config.nideal)},\n",
+        f"NIDEAL={config.resolved_nideal},\n",
         f"NMESHA=1, NPOIDA=2, SOLPDA=.20,APLACE= {1.0 - 0.5 * width:4.3f}, 1.000,\n",
         f"                               AWIDTH= {0.9 * width:4.3f}, 0.003,\n",
         f"NMESHC=1, NPOIDC=3, SOLPDC=.20,CPLACE=0.000, {1.0 - 0.5 * width:4.3f}, 1.00,\n",
@@ -798,6 +1165,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
             )
         )
     else:
+        transform = {"psi": 1, "bcentr": 1, "current": 1, "fpol": 1, "q": 1}
         manifests.append(
             _write_json(
                 workdir / "chease_cocos_transform.json",
@@ -806,7 +1174,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
                     "source_equilibrium": str(getattr(original, "source", "") or ""),
                     "input_signs": input_info.as_dict(),
                     "chease_input_signs": input_info.as_dict(),
-                    "transform_to_chease_input": {"psi": 1, "bcentr": 1, "current": 1, "fpol": 1, "q": 1},
+                    "transform_to_chease_input": transform,
                 },
             )
         )
@@ -821,8 +1189,33 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
     write_geqdsk(working, input_geqdsk)
     expeq = workdir / "EXPEQ"
     namelist = workdir / "chease_namelist"
-    params = _write_expeq(working, expeq, config)
+    payload = _expeq_payload(working, config)
+    params = _write_expeq(working, expeq, config, payload)
     _write_namelist(namelist, config, params)
+    materialized = _materialized_input(payload, config, transform)
+    manifests.append(
+        _write_json(
+            workdir / "chease_input_manifest.json",
+            {
+                "output": config.output,
+                "nideal": config.resolved_nideal,
+                "neqdsk": 0,
+                "mesh": config.resolved_mesh,
+                "output_grid": int(config.nw),
+                "target_psin": float(config.target_psin),
+                "boundary_smoothing": str(config.boundary_smoothing),
+                "raw_boundary_points": int(materialized.raw_boundary.shape[0]),
+                "expeq_boundary_points": int(materialized.boundary.shape[0]),
+                "edge_zero": bool(config.edge_zero),
+                "edge_modified_samples": int(np.count_nonzero(materialized.edge_modified)),
+                "q_constraint_psi_norm_requested": config.q_constraint_psi_norm,
+                "q_constraint_psi_norm_used": materialized.q_constraint_psi_norm,
+                "qspec": materialized.qspec,
+                "csspec": materialized.csspec,
+                "parameters": {key: float(value) for key, value in params.items()},
+            },
+        )
+    )
 
     return CHEASEInputs(
         workdir=workdir,
@@ -833,6 +1226,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
         geqdsk=original,
         files=(source_geqdsk, input_geqdsk, expeq, namelist),
         manifests=tuple(manifests),
+        materialized=materialized,
     )
 
 
@@ -1151,6 +1545,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         refined = read_geqdsk(refined_target)
         if str(config.output_cocos).lower().replace("-", "_") in {"input", "preserve_input", "source"}:
             refined, before, after, transform = _force_geqdsk_signs(refined, **_desired_signs_from_info(_geqdsk_sign_info(inputs.geqdsk)))
+            refined, declared = _declare_source_convention(refined, inputs.geqdsk)
             _write_json(
                 refined_target.with_suffix(refined_target.suffix + ".cocos_export.json"),
                 {
@@ -1158,6 +1553,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
                     "before_export_signs": before.as_dict(),
                     "after_export_signs": after.as_dict(),
                     "transform": transform,
+                    "source_convention": declared,
                 },
             )
         if config.preserve_boundary_limiter:
@@ -1169,6 +1565,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         write_geqdsk(refined, refined_target)
 
     result = collect_chease_outputs(inputs.workdir, config, source=inputs.source)
+    result.materialized = inputs.materialized
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
@@ -1280,8 +1677,10 @@ def refine_equilibrium(source: Any, config: CHEASEConfig | None = None) -> CHEAS
 
 
 __all__ = [
+    "CHEASE_OUTPUT_NIDEAL",
     "CHEASEConfig",
     "CHEASEInputs",
+    "CHEASEMaterializedInput",
     "CHEASEResult",
     "CodeConfig",
     "CodeInputs",

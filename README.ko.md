@@ -201,7 +201,7 @@ pip install vaft
 가장 최근에 공개된 릴리스를 설치합니다. `develop`의 미공개 변경 사항이 필요하면 소스에서
 설치하세요.
 
-**지원 Python 버전**: 3.10 -- 3.13
+**지원 Python 버전**: 3.10 -- 3.14
 **기본 수치 연산 스택**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
 외부 코드 설치 루트와 VAFT 런타임 경로는 프로세스 환경 변수로 설정합니다.
@@ -292,6 +292,7 @@ vaft/
 | [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb) | 토카막 전력 수지 및 복사 성분 분해 |
 | [verification_and_validation](notebooks/verification_and_validation.ipynb) | 검증 및 유효성 확인 예제 |
 | [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb) | 연 X선 신호 분석 |
+| [analytic_island_model_and_synthetic_response_model](notebooks/analytic_island_model_and_synthetic_response_model.ipynb) | 평형 위에 놓은 해석적 자기섬과 합성 연 X선 응답 |
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb) | CHEASE를 이용한 평형 정교화 |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb) | TES를 이용한 순방향 평형 재구성 |
 | [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb) | TokaMaker(Open FUSION Toolkit)를 이용한 순방향 자유경계 평형 계산 |

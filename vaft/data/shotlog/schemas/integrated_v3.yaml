@@ -1,0 +1,53 @@
+# VEST ShotLog schema `integrated_v3` (ported from VEST_ShotLog docs/schemas, #995).
+schema_id: integrated_v3
+version: 1.0.0
+status: supported
+detection:
+  required_headers:
+  - C (mF)
+  - NBI
+  - Gas Injection
+  - Remark
+  minimum_score: 1.0
+fields:
+- path: shots[].planned_configuration.magnetic.tf
+  type: value_record
+  required: false
+  meaning_ko: TF 설정값
+  aliases:
+  - TF
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+- path: shots[].planned_configuration.heating_and_current_drive.nbi
+  type: value_record
+  required: false
+  meaning_ko: NBI 설정 블록의 첫 구조화 값
+  aliases:
+  - NBI
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+- path: shots[].planned_configuration.gas_injection.program
+  type: value_record
+  required: false
+  meaning_ko: 가스 주입 프로그램
+  aliases:
+  - Gas Injection
+  unit: null
+  parsing: trigger_range
+  validation:
+    allow_range: true
+- path: shots[].observed_outcome.plasma_current.peak
+  type: value_record
+  required: false
+  meaning_ko: 기록된 최대 플라즈마 전류
+  aliases:
+  - Ip (kA)
+  - Ip(kA)
+  unit: kA
+  parsing: scalar_or_expression
+  validation:
+    minimum: 0

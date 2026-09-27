@@ -620,6 +620,68 @@ names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_
 `VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
 
+### In-process memory guard
+
+`ResourceRequest.memory_mb` only asks a scheduler for memory, and `LocalBackend` ignores it. When a
+long Python loop outgrows its allocation, the kernel's or Slurm's OOM killer ends the process with no
+traceback and no status record. `vaft.code.resources` (#1146) lets the loop notice first and stop at a
+point of its own choosing:
+
+```python
+from vaft.code import MemoryBudget, MemoryBudgetExceeded, memory_budget, peak_rss_mb, rss_mb
+
+budget = memory_budget()                    # MemoryBudgetInfo(limit_mb, source, candidates, ...)
+with MemoryBudget(budget, fraction=0.9, interval_s=0.5) as guard:   # or limit_mb=None to resolve on entry
+    for item in range(3):
+        try:
+            guard.check(label=item)         # raises above 0.9 x limit_mb
+        except MemoryBudgetExceeded as error:
+            print(f"stopping at {error.label}: {error.rss_mb:.0f} MiB")
+            break
+print(guard.peak_mb, rss_mb(), peak_rss_mb())
+```
+
+| Name | Role |
+| --- | --- |
+| `rss_mb()`, `peak_rss_mb()` | current and process-lifetime peak resident set size, MiB |
+| `memory_budget(environ=None)` | the effective limit: the **minimum** of the sources below, with the one that set it |
+| `MemoryBudgetInfo` | `limit_mb` (`None` when nothing reports a limit), `source`, every `candidates` value; `as_dict()` for status files |
+| `MemoryBudget(limit_mb=None, fraction=0.9, *, on_exceed="raise", interval_s=None)` | context manager; `limit_mb` is MiB or a `MemoryBudgetInfo`; `check(label)`, `peak_mb`, `start_interval()` and `interval_peak_mb` (the peak of one loop item), `exceeded`, `as_dict()` |
+| `MemoryBudgetExceeded` | a `MemoryError` (so an `except RuntimeError` around one item does not swallow it; code that catches `MemoryError` to fall back to a chunked path will, so re-raise it there); picklable across a process pool; `rss_mb` (the memory in use observed), `threshold_mb`, `limit_mb`, `label`, `source`, `peak_mb` |
+| `cgroup_usage_mb(directory, kind)` | a cgroup's non-reclaimable usage (`anon` + `shmem`; v1 `total_rss` + `total_shmem`), MiB |
+
+**Sources**, all in MiB (2**20 bytes, which is what Slurm means by MB):
+
+| `source` | Value |
+| --- | --- |
+| `slurm_mem_per_node` | `SLURM_MEM_PER_NODE` |
+| `slurm_mem_per_cpu` | `SLURM_MEM_PER_CPU` × `SLURM_CPUS_ON_NODE` |
+| `cgroup_v2` | `memory.max`, the smallest from the process's cgroup up to the root, since Slurm puts the limit on the job cgroup and runs the process in a step below it |
+| `cgroup_v1` | `memory/…/memory.limit_in_bytes`, likewise; the unlimited sentinel is ignored |
+| `env` | `VAFT_MEMORY_BUDGET_MB`; it can lower the budget, never raise it past another source |
+| `mem_available` | this process's RSS plus `MemAvailable` at call time (psutil, or `vm_stat` on macOS, off Linux): what the process could grow to; other processes may take it first |
+
+`RLIMIT_AS` is not a source: it limits address space, which numpy reserves far ahead of what it
+touches, so `MemoryError` arrives at that limit with RSS far below it and no RSS guard can see it.
+
+**The guard.** `limit_mb=None` resolves the budget with `memory_budget()` on entry. When nothing
+reports a limit, the guard only records `peak_mb`. `check()` compares the memory in use with
+`fraction × limit_mb`: this process's RSS, or, when a cgroup set the limit, the larger of that and the
+cgroup's non-reclaimable usage, because the cgroup's limit also counts child processes, sibling tasks
+and tmpfs (page cache is left out: the kernel drops it before the OOM killer runs). Entering a guard
+again starts afresh. With `interval_s`, a daemon thread also samples RSS; a crossing it sees sets a
+flag, and the next `check()` raises even if RSS has fallen since, so a single large numpy call between
+two checks is still caught. The thread never raises into the caller. Leaving the block never raises
+either: a crossing that no `check()` reported stays in `exceeded`. `on_exceed="warn"` issues one
+`ResourceWarning` and records the event instead of raising. `peak_mb` is the largest RSS the guard
+saw, a lower bound on the true peak inside the block; `peak_rss_mb()` is the process's lifetime peak.
+
+**Platforms.** Linux reads `VmRSS`/`VmHWM` from `/proc/self/status`. macOS reads the current RSS with
+`task_info` and the peak with `getrusage`, whose `ru_maxrss` is in bytes there and in KiB on Linux.
+Windows reads `GetProcessMemoryInfo`. `psutil` is used when it is installed and no native reading is
+available, and `ps -o rss=` is the last resort; psutil is never required. The guard stops the Python
+process only; it does not limit `LocalBackend` children (see #1016).
+
 # `vaft.data`
 
 Portable file formats and the packaged sample files.

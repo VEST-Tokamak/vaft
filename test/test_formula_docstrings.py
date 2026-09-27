@@ -87,6 +87,8 @@ CONVENTION_SENSITIVE = frozenset({
     "shear_from_r_q",
     "surface_poloidal_flux_from_psi_boundary",
     "straight_field_line_angle",
+    "miller_surface",
+    "vacuum_toroidal_field",
     "loop_voltage_from_total_flux",
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",
@@ -110,6 +112,7 @@ CONVENTION_SENSITIVE = frozenset({
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",
+    "gyration_offset",
     "exb_drift_velocity",
     "grad_b_drift_velocity",
     "curvature_drift_velocity",

@@ -5,6 +5,7 @@ import pytest
 
 from vaft.formula.particle import (
     boris_orbit,
+    gyration_offset,
     curvature_drift_velocity,
     exb_drift_velocity,
     grad_b_drift_velocity,
@@ -110,3 +111,15 @@ def test_drift_formulas_reject_bad_input():
         boris_orbit(1.0, 1.0, [0, 0, 0], [1, 0, 0], ZERO, ZERO, -1.0, 10)
     with pytest.raises(ValueError):
         larmor_radius(0.0, 1.0, 1.0, 1.0)
+
+
+@pytest.mark.parametrize("q", [1.0, -1.0])
+def test_gyration_offset_places_the_guiding_centre_at_the_orbit_centre(q):
+    B, v = np.array([0.0, 0.0, 1.5]), np.array([0.8, 0.0, 0.0])
+    dt, n = _periods(q, 1.0, 1.5, 1, 2000)
+    x, _ = boris_orbit(q, 1.0, [0, 0, 0], v, ZERO, _uniform(B), dt, n)
+    offset = gyration_offset(q, 1.0, B, v)
+    assert np.allclose(x[:-1].mean(axis=0)[:2], -offset[:2], atol=2e-3)
+    assert np.linalg.norm(offset) == pytest.approx(larmor_radius(q, 1.0, 0.8, 1.5))
+    with pytest.raises(ValueError):
+        gyration_offset(0.0, 1.0, B, v)

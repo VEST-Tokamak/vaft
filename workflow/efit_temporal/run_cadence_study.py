@@ -52,7 +52,7 @@ import numpy as np
 import vaft
 import vaft.omas
 from vaft.database.composition import compose_stage_products
-from vaft.code.efit import generate_constraints_ods
+from vaft.code.efit import generate_constraints_ods, parse_iteration_history
 from vaft.code.efit.config import EFITScientificConfig
 from vaft.code.efit.slice_name import split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
@@ -86,46 +86,31 @@ def slice_times(start: float, end: float, cadence_s: float) -> np.ndarray:
     return np.round(times / DIAGNOSTIC_DT) * DIAGNOSTIC_DT
 
 
-_ITERATION = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*([0-9.E+-]+).*?err=\s*([0-9.E+-]+)")
 _DONE = re.compile(r"Done processing")
 
 
 def iterations_from_log(text: str) -> list[dict[str, Any]]:
-    """Per-slice iteration count, last chi2 and last GS error from EFIT's terminal log.
+    """Per-slice iteration count, last chi2 and last increment from EFIT's terminal log.
 
-    The local build is linked without NetCDF and writes no m-file, so the
-    solver's own progress lines are the record: one ``it=`` line per outer
-    iteration, in k-file order, with the counter restarting at 1 on every
-    slice (EFIT prints the time in whole milliseconds only, so the counter,
-    not the time, delimits the slices).  A boundary-finder error between two
-    blocks is attributed to the block it follows.
+    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in time
+    order. The counter restarting at 1 delimits the slices, and a ``bound``
+    error naming a time no slice has yet opens one -- a slice that collapsed
+    before its first Picard step is a block with ``iterations_n == 0``, not an
+    error charged to the slice before it.
+
+    A slice that printed neither a step nor an error (one below the current
+    cut, say) has no block at all, so pairing these blocks with the k-files
+    by position still assumes every k-file printed something.
     """
-    blocks: list[dict[str, Any]] = []
-    current: list[tuple[int, float, float]] = []
-
-    def flush() -> None:
-        if current:
-            blocks.append({
-                "iterations_n": max(it for it, _c, _e in current),
-                "chi2_log": current[-1][1],
-                "gs_error_log": current[-1][2],
-                "bound_error": False,
-            })
-
-    for line in text.splitlines():
-        found = _ITERATION.search(line)
-        if found:
-            if int(found.group(2)) == 1:
-                flush()
-                current = []
-            current.append((int(found.group(2)), float(found.group(3)), float(found.group(4))))
-            continue
-        if "ERROR in bound" in line and current:
-            flush()
-            blocks[-1]["bound_error"] = True
-            current = []
-    flush()
-    return blocks
+    return [
+        {
+            "iterations_n": item.iterations_n,
+            "chi2_log": float(item.chi2[-1]) if item.iterations else None,
+            "gs_error_log": float(item.error[-1]) if item.iterations else None,
+            "bound_error": any(error["routine"] == "bound" for error in item.solver_errors),
+        }
+        for item in parse_iteration_history(text).slices
+    ]
 
 
 def _key_us(name: str) -> int:

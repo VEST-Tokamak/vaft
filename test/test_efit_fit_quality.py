@@ -328,8 +328,10 @@ def test_the_iconvr2_stopping_criterion_is_the_metric_with_content(efit_ods):
 
 
 def test_a_run_that_exhausts_its_iterations_did_not_stop_on_the_criterion(efit_ods):
+    # MXITER=100 runs 101 outer passes; with NXITER=1 an exhausted slice has
+    # 101 steps -- exactly what the #171 scan's exhausted slices show.
     ods = _with_afile(efit_ods)
-    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 100
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 101
     block = convergence_metrics(ods, time_slice=0)["iterations"]
     assert block["hit_cap"] is True
     assert block["stopped_on_criterion"] is False
@@ -357,8 +359,45 @@ def test_a_non_iconvr2_run_is_judged_against_error_not_errmin():
 def test_iteration_cap_is_detected():
     ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is False
+    # 100 steps at MXITER=100 is a stop at the start of the last pass, not the
+    # cap; the cap is 101 (MXITER + 1 passes of one step each).
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 100
+    assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is False
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = 101
     assert convergence_metrics(ods, time_slice=0)["iterations"]["hit_cap"] is True
+
+
+@pytest.mark.parametrize(
+    "steps, expected",
+    [(58, False), (100, False), (145, None), (300, None), (301, True)],
+)
+def test_the_cap_is_read_against_the_cumulative_counter_when_nxiter_exceeds_one(steps, expected):
+    """#1038: `len(cerror)` counts inner steps, MXITER caps outer passes.
+
+    At NXITER=3, MXITER=100 a capped slice has 101..301 steps and an uncapped
+    one at most 300; the #171 scan has uncapped slices at 58 and 145 steps
+    and capped ones up to 301. In between the count cannot say, and the
+    metric must not guess.
+    """
+    ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
+    ods["equilibrium.code.parameters.time_slice.0.in1.nxiter"] = -3
+    ods["equilibrium.time_slice.0.convergence.iterations_n"] = steps
+    block = convergence_metrics(ods, time_slice=0)["iterations"]
+    assert block["inner_iterations"] == 3
+    assert block["hit_cap"] is expected
+    if expected is None:
+        assert "the log's exit line decides" in block["hit_cap_basis"]
+        assert block["stopped_on_criterion"] is None
+
+
+def test_iteration_cap_reached_edge_cases():
+    from vaft.omas.efit_quality import iteration_cap_reached
+
+    assert iteration_cap_reached(26, 25, 1)[0] is True
+    assert iteration_cap_reached(25, 25, 1)[0] is False
+    assert iteration_cap_reached(float("nan"), 25, 1)[0] is None
+    assert iteration_cap_reached(200, 25, float("nan"))[0] is None
+    assert iteration_cap_reached(26, 25, 1, iconvr=3)[0] is None
 
 
 def _with_afile(ods):

@@ -708,6 +708,86 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 # ------------------------------------------------------------------
 
 
+def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0):
+    r"""Major radius and height of a Miller-parametrised flux surface.
+
+    $$R = R_0 + \Delta + r\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right),
+    \qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor-radius label of the surface [m].
+    theta : float or np.ndarray
+        Poloidal parametrisation angle [rad].
+    R0 : float
+        Major radius of the reference axis [m].
+    kappa : float or np.ndarray
+        Elongation of the surface [-].
+    delta : float or np.ndarray
+        Triangularity of the surface, in $(-1, 1)$ [-].
+    shift : float or np.ndarray
+        Shafranov shift of the surface centre along $R$ [m].
+    squareness : float or np.ndarray
+        Squareness $\zeta$, in $(-1/2, 1/2)$ [-].
+    Z0 : float or np.ndarray
+        Height of the surface centre [m].
+
+    Returns
+    -------
+    R : float or np.ndarray
+        Major radius of the surface point [m].
+    Z : float or np.ndarray
+        Height of the surface point above the midplane [m].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is negative or not finite, ``kappa`` is not positive, ``delta``
+        lies outside $(-1, 1)$, or ``squareness`` outside $(-1/2, 1/2)$.
+
+    Convention
+    ----------
+    $\theta$ runs from the outboard midplane towards the top. ``delta`` is
+    the surface's own triangularity: a family of nested surfaces passes its
+    radial profile (VAFT's schematics use $\delta(r) = \delta_a r/a$).
+    ``theta`` is the parametrisation angle, not a straight-field-line angle
+    (see ``straight_field_line_angle``). ``squareness = 0`` and ``Z0 = 0``
+    reproduce the five-parameter surface exactly; the process layer's
+    ``evaluate_miller`` evaluates this same function.
+
+    Physical interpretation
+    -----------------------
+    The top and bottom of the surface sit at $R_0 + \Delta - \delta r$: a
+    positive triangularity pulls them inward, making the D shape; the
+    outboard midplane stays at $R_0 + \Delta + r$.
+
+    Assumptions
+    -----------
+    Up-down symmetric surfaces described by three shape parameters.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5, 973 (1998).
+    """
+    kappa = np.asarray(kappa, dtype=float)
+    delta = np.asarray(delta, dtype=float)
+    squareness = np.asarray(squareness, dtype=float)
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0):
+        raise ValueError("r must be finite and non-negative")
+    if np.any(kappa <= 0.0):
+        raise ValueError("kappa must be positive")
+    if np.any(np.abs(delta) >= 1.0):
+        raise ValueError("delta must lie in (-1, 1)")
+    if np.any(np.abs(squareness) >= 0.5):
+        raise ValueError("squareness must lie in (-1/2, 1/2): beyond it the surface doubles back on itself")
+    theta = np.asarray(theta, dtype=float)
+    R = R0 + np.asarray(shift, dtype=float) + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
+
+
 def straight_field_line_angle(theta, jacobian, R):
     r"""Straight-field-line (PEST) poloidal angle on one flux surface.
 
@@ -1032,6 +1112,59 @@ def bootstrap_current_fraction(n_e: float,
 # ------------------------------------------------------------------
 # Magnetic Field $B$
 # ------------------------------------------------------------------
+
+
+def vacuum_toroidal_field(B0, R0, R):
+    r"""Vacuum toroidal field of a set of toroidal-field coils.
+
+    $$B_\phi(R) = \frac{B_0 R_0}{R}$$
+
+    Parameters
+    ----------
+    B0 : float or np.ndarray
+        Toroidal field at the reference radius $R_0$ [T].
+    R0 : float or np.ndarray
+        Reference major radius [m].
+    R : float or np.ndarray
+        Major radius at which the field is wanted [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Toroidal field, with the sign of ``B0`` [T].
+
+    Raises
+    ------
+    ValueError
+        ``R`` or ``R0`` is not positive.
+
+    Convention
+    ----------
+    Signed: $B_\phi$ carries the sign of ``B0`` along $+\hat\phi$
+    (counter-clockwise seen from above). $R B_\phi$ is the constant $F$ of
+    a vacuum region.
+
+    Physical interpretation
+    -----------------------
+    Ampère's law around the torus: the coil current linked by a circle of
+    radius $R$ is the same for every $R$ inside the coils, so the field falls
+    as $1/R$ -- stronger on the high-field (inboard) side, and the origin of
+    the grad-B and curvature drifts.
+
+    Assumptions
+    -----------
+    Axisymmetric coils (no ripple), no plasma current or diamagnetism.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+    """
+    R = np.asarray(R, dtype=float)
+    R0 = np.asarray(R0, dtype=float)
+    if np.any(R <= 0.0) or np.any(R0 <= 0.0):
+        raise ValueError("R and R0 must be positive")
+    return np.asarray(B0, dtype=float) * R0 / R
 
 
 def poloidal_field_magnitude(b_r: np.ndarray, b_z: np.ndarray) -> np.ndarray:

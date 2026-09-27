@@ -760,6 +760,118 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
     assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
 
 
+@pytest.mark.parametrize("convention", [11, 1, 2, 13, 17])
+def test_solovev_plasma_current_agrees_with_amperes_law(convention):
+    """#966: the exported ``ip`` is the current the exported field encloses,
+    along the convention's own toroidal direction, and carries the sign Sauter
+    Eq. 23 ties to the flux and pressure gradients."""
+    from vaft.data.cocos import cocos_spec
+    from vaft.formula.constants import MU0
+    from vaft.process.equilibrium import equilibrium_field_on_grid, solovev_to_equilibrium
+    from scipy.interpolate import RectBivariateSpline
+
+    eq = solovev_to_equilibrium(_classic_solovev(), np.linspace(0.55, 1.4, 129),
+                                np.linspace(-0.55, 0.55, 129), convention=convention)
+    spec = cocos_spec(convention)
+    b_r, b_z, _ = equilibrium_field_on_grid(eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, cocos=convention)
+    fr, fz = RectBivariateSpline(eq.r, eq.z, b_r), RectBivariateSpline(eq.r, eq.z, b_z)
+    r = np.append(eq.lcfs.r, eq.lcfs.r[0])
+    z = np.append(eq.lcfs.z, eq.lcfs.z[0])
+    rm, zm = 0.5 * (r[1:] + r[:-1]), 0.5 * (z[1:] + z[:-1])
+    circulation = float(np.sum(fr.ev(rm, zm) * np.diff(r) + fz.ev(rm, zm) * np.diff(z)))
+    orientation = np.sign(np.sum(r[:-1] * z[1:] - r[1:] * z[:-1]))
+    # A counter-clockwise (R, Z) loop has normal -e_phi when (R, phi, Z) is
+    # right-handed and +e_phi when it is not.
+    enclosed = -spec.sigma_rpz * orientation * circulation / MU0
+    assert eq.ip == pytest.approx(enclosed, rel=5e-3)
+    sigma_ip = int(np.sign(eq.ip))
+    dpsi = np.sign(eq.psi_boundary - eq.psi_axis)
+    assert dpsi == spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=1)
+    assert np.sign(eq.pprime[0]) == spec.expected_sign("pprime", sigma_ip=sigma_ip, sigma_b0=1)
+
+
+# ---------------------------------------------------------------------------
+# compare_contours (#885)
+# ---------------------------------------------------------------------------
+
+def _circle(radius, count, *, start=0.0, reverse=False, centre=(1.0, 0.0)):
+    theta = start + np.linspace(0.0, 2 * np.pi, count, endpoint=False)
+    if reverse:
+        theta = theta[::-1]
+    return centre[0] + radius * np.cos(theta), centre[1] + radius * np.sin(theta)
+
+
+def test_concentric_circles_are_their_radial_gap_apart():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 400), *_circle(0.31, 157))
+    # Point-to-segment, so only the chord sag of the coarser polygon remains:
+    # 0.31 * (1 - cos(pi/157)) = 6.2e-5 m, 0.6% of the 1 cm gap.
+    sag = 0.31 * (1 - np.cos(np.pi / 157))
+    assert abs(result["rms"] - 0.01) <= sag
+    assert abs(result["max"] - 0.01) <= sag
+    assert result["length_reference"] == pytest.approx(2 * np.pi * 0.30, rel=1e-4)
+
+
+def test_the_separation_ignores_start_point_orientation_and_closure():
+    from vaft.process.equilibrium import compare_contours
+
+    r0, z0 = _circle(0.32, 200, centre=(1.0, 0.05))
+    base = compare_contours(*_circle(0.3, 200), r0, z0)
+    # The same vertices, started elsewhere, run backwards and closed explicitly.
+    r, z = np.roll(r0, 57)[::-1], np.roll(z0, 57)[::-1]
+    moved = compare_contours(*_circle(0.3, 200), np.r_[r, r[0]], np.r_[z, z[0]])
+    for key in ("rms", "mean", "max", "length_other"):
+        assert moved[key] == pytest.approx(base[key], rel=1e-9)
+
+
+def test_a_one_sided_bump_is_seen_from_one_side_only():
+    """The Hausdorff distance is the larger of the two directed maxima."""
+    from vaft.process.equilibrium import compare_contours
+
+    r, z = _circle(0.3, 720)
+    theta = np.linspace(0.0, 2 * np.pi, 720, endpoint=False)
+    bump = 0.05 * np.exp(-((theta - np.pi / 2) / 0.1) ** 2)
+    rb = 1.0 + (0.3 + bump) * np.cos(theta)
+    zb = (0.3 + bump) * np.sin(theta)
+    result = compare_contours(r, z, rb, zb)
+    assert result["max_other"] == pytest.approx(0.05, rel=1e-2)
+    # The circle's top is nearer the bump's flank than its tip.
+    assert result["max_reference"] < 0.8 * result["max_other"]
+    assert result["max"] == result["max_other"]
+
+
+def test_uneven_sampling_does_not_weight_the_average():
+    """A contour sampled densely on one side must not pull the RMS that way."""
+    from vaft.process.equilibrium import compare_contours
+
+    # A circle 1 cm outside a reference on the right half, 3 cm on the left.
+    theta = np.linspace(0.0, 2 * np.pi, 2000, endpoint=False)
+    radius = np.where(np.cos(theta) > 0, 0.31, 0.33)
+    r_out, z_out = 1.0 + radius * np.cos(theta), radius * np.sin(theta)
+    even = compare_contours(*_circle(0.30, 400), r_out, z_out)
+    # The same reference, with 20x the vertices on its right half.
+    dense = np.r_[np.linspace(-np.pi / 2, np.pi / 2, 2000, endpoint=False),
+                  np.linspace(np.pi / 2, 3 * np.pi / 2, 100, endpoint=False)]
+    skewed = compare_contours(1.0 + 0.3 * np.cos(dense), 0.3 * np.sin(dense), r_out, z_out)
+    assert skewed["rms"] == pytest.approx(even["rms"], rel=2e-2)
+    assert skewed["mean"] == pytest.approx(even["mean"], rel=2e-2)
+
+
+def test_a_large_pair_of_contours_is_processed_in_blocks():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 6000), *_circle(0.31, 6000))
+    assert result["max"] == pytest.approx(0.01, rel=1e-3)
+
+
+def test_a_contour_needs_three_points():
+    from vaft.process.equilibrium import compare_contours
+
+    with pytest.raises(ValueError, match="three points"):
+        compare_contours([1.0, 1.1], [0.0, 0.1], *_circle(0.3, 10))
+
+
 # ---------------------------------------------------------------------------
 # find_stationary_points (#220)
 # ---------------------------------------------------------------------------

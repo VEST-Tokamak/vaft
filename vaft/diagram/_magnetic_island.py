@@ -42,7 +42,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from vaft.formula.equilibrium import straight_field_line_angle
+from vaft.formula.equilibrium import miller_surface, straight_field_line_angle
 from vaft.formula.stability import (
     helical_phase,
     island_pendulum_hamiltonian,
@@ -208,8 +208,9 @@ class IslandModel:
         both shaping parameters are at their defaults.
         """
         r, theta = np.broadcast_arrays(np.asarray(r, dtype=float), np.asarray(theta, dtype=float))
-        shift = np.arcsin(self.triangularity * r) * np.sin(theta)
-        return np.stack([r * np.cos(theta + shift), self.elongation * r * np.sin(theta)], axis=-1)
+        # the formula's R with the axis at the origin is R - R0 itself
+        dR, Z = miller_surface(r, theta, 0.0, self.elongation, self.triangularity * r)
+        return np.stack([dR, Z], axis=-1)
 
     def cartesian(self, r, theta, phi) -> np.ndarray:
         """``(X, Y, Z)`` of torus points, shape ``(..., 3)``."""
@@ -227,11 +228,9 @@ class IslandModel:
         R, Z = np.broadcast_arrays(np.asarray(R, dtype=float), np.asarray(Z, dtype=float))
         s = Z / (self.elongation * r)
         inside = np.abs(s) < 1.0
-        s = np.clip(s, -1.0, 1.0)
-        theta1 = np.arcsin(s)
-        a = np.arcsin(self.triangularity * r) * s
-        R1 = self.major_radius + r * np.cos(theta1 + a)
-        R2 = self.major_radius + r * np.cos(np.pi - theta1 + a)
+        theta1 = np.arcsin(np.clip(s, -1.0, 1.0))
+        R1, _ = miller_surface(r, theta1, self.major_radius, self.elongation, self.triangularity * r)
+        R2, _ = miller_surface(r, np.pi - theta1, self.major_radius, self.elongation, self.triangularity * r)
         return inside & (R > np.minimum(R1, R2)) & (R < np.maximum(R1, R2))
 
     def locus(self, kind: str, phi) -> Tuple[np.ndarray, np.ndarray]:

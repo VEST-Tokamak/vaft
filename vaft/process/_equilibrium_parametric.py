@@ -1031,9 +1031,10 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
         raise ValueError("Miller geometry requires r>0, kappa>0, and abs(delta)<1")
     if abs(surface.zeta) >= 0.5:
         raise ValueError("Miller geometry requires abs(zeta)<0.5; beyond that the parameterization doubles back on itself")
-    angle = theta + np.arcsin(surface.delta) * np.sin(theta)
-    vertical = theta + surface.zeta * np.sin(2.0 * theta)
-    return surface.r0 + surface.r * np.cos(angle), surface.z0 + surface.kappa * surface.r * np.sin(vertical)
+    from vaft.formula.equilibrium import miller_surface
+
+    return miller_surface(surface.r, theta, surface.r0, surface.kappa, surface.delta,
+                          squareness=surface.zeta, Z0=surface.z0)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:
@@ -1471,6 +1472,13 @@ def evaluate_solovev(
     is :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11), which has ``sigma = +1``;
     passing ``cocos=None`` retains the historical fallback ``sigma = -1``
     (the COCOS 2/3/6/7 orientation family).
+
+    ``j_phi`` is the component along the convention's own toroidal unit
+    vector, ``-sigma_Bp (R dp/dpsi + F dF/dpsi / (mu0 R))`` per Sauter Eq. 12,
+    which is what Ampere's law gives on the returned field; the historical
+    fallback takes the right-handed member of its family (COCOS 3/7,
+    ``sigma_Bp = -1``). Before #966 the sign was dropped, so a COCOS 11
+    model reported the current opposite to its own field.
     :func:`solovev_to_equilibrium` is where this is reconciled with a declared
     convention, scaling the flux by 2*pi for full-weber conventions and
     transforming signs appropriately. Pressure and the squared poloidal
@@ -1504,11 +1512,15 @@ def evaluate_solovev(
 
     if resolved_cocos is None:
         k_sign = -1.0
+        # The historical orientation: k = -1 with (R, phi, Z) right-handed,
+        # the COCOS 3/7 member of the family, so sigma_Bp = -1.
+        sigma_bp = -1.0
     else:
         if resolved_cocos not in range(1, 19) or resolved_cocos in (9, 10):
             raise ValueError(f"cocos must be a valid COCOS index in 1..8 or 11..18, got {resolved_cocos}")
         spec = cocos_spec(int(resolved_cocos))
         k_sign = float(spec.sigma_rpz * spec.sigma_bp)
+        sigma_bp = float(spec.sigma_bp)
 
     psi, dpsi_dr, dpsi_dz, _ = _solovev_components(model, r, z)
     rr = np.asarray(r, dtype=float)
@@ -1520,7 +1532,9 @@ def evaluate_solovev(
         "psi": psi, "dpsi_dr": dpsi_dr, "dpsi_dz": dpsi_dz,
         "b_r": k_sign*dpsi_dz/rr, "b_z": -k_sign*dpsi_dr/rr, "b_phi": f/rr,
         "pressure": pressure, "f": f,
-        "j_phi": rr*model.pprime + model.ffprime/(MU0*rr),
+        # Ampere on the field above: mu0 j_phi = sigma_RphiZ (dB_R/dZ - dB_Z/dR)
+        # = sigma_Bp Delta*psi / R, i.e. Sauter Eq. 12 per radian.
+        "j_phi": -sigma_bp*(rr*model.pprime + model.ffprime/(MU0*rr)),
         "grad_shafranov_source": -MU0*rr**2*model.pprime-model.ffprime,
     }
 

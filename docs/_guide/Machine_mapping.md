@@ -86,6 +86,7 @@ above is what the production pipeline uses, and it is unambiguous — prefer it 
 | `thomson_scattering` | `thomson_scattering.py` | `thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)` |
 | `charge_exchange` | `charge_exchange.py` | `charge_exchange(ods, shotnumber, options='ces', data_root=None, mat_file=None)` |
 | `soft_x_rays` | `soft_x_rays.py` | `soft_x_rays(ods, shot, daq_label, **kwargs)` |
+| `pulse_schedule` | `pulse_schedule.py` | `pulse_schedule(ods, shot, data_root=None)` |
 | `dataset_description` | `dataset_description.py` | `dataset_description(ods, source, options=None)` |
 | `pf_passive` | `pf_passive.py` | `pf_passive(ods, source=None, options=None)` |
 | `em_coupling` | `em_coupling.py` | `em_coupling(ods, source=None, options=None)` |
@@ -98,6 +99,10 @@ Note the argument shapes differ, and deliberately so — they follow the data so
   `(ods, shot, tstart, tend, dt)`: they resample DAQ traces onto a uniform window you choose.
 * **File-backed diagnostics** (`thomson_scattering`, `charge_exchange`, `soft_x_rays`) take a shot plus a
   file/root override: their timebase comes from the exported file, not from you.
+* **`pulse_schedule`** reads the per-shot ShotLog record FileDB keeps under `legacy/shotlog/{shot}/`
+  (`python -m vaft.cli shotlog extract`) and writes the operators' planned triggers as
+  `pulse_schedule.event(:)` on the DAQ clock. They are what was *set*, not measured; each event's
+  provenance names the workbook, sheet and cell it came from.
 * **Reference-ODS diagnostics** (`pf_passive`, `em_coupling`) take a `source` path to a reference ODS.
 
 `equilibrium` and `pf_plasma` exist as modules but their mapping functions raise `NotImplementedError` —
@@ -294,9 +299,9 @@ configured label the product lacks is `absent` while an unconfigured one simply 
 optical feature notes what the mapper did to its channel (`resampled`, `native_rate_hz`, `time_shift_s` for
 the fast filterscope) and whether the channel's digitizer clipped inside the window (`railed`, judged on the
 raw maximum against `spectrometer_uv.CHANNEL_RAIL_LEVEL`; `None` for a channel with no documented rail). The
-diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): VEST's stored flux
-is negative-going, so a paramagnetic shot would come back positive. `ip_ramp_end` is reserved and never
-required.
+diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): the stored flux
+is positive for a paramagnetic plasma (#1196), so a diamagnetic shot would come back negative. `ip_ramp_end`
+is reserved and never required.
 
 ```python
 from vaft.omas.plasma_features import plasma_features

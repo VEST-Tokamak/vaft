@@ -80,6 +80,8 @@ DEFINITIONAL = frozenset({
     "find_time_match_index",
     "normalize_atomic_symbol",
     "integrate_emissivity_profile",
+    # line_of_sight (#886): a sparse matrix product
+    "project_emissivity",
     # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
     "build_dataset",
     "calibrate_threshold",
@@ -97,6 +99,12 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
+    # map -> island -> emissivity -> chord integral
+    "straight_field_line_map",
+    "magnetic_island_topology",
+    "build_line_integral_operator",
+    "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
     # magnetics / electromagnetics / fluctuation (#418)
@@ -205,6 +213,8 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    # soft_x_rays (#886): prescribed island -> synthetic chord signal
+    "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
     "combined_operators",
     "project",
@@ -237,7 +247,18 @@ CONVENTION_SENSITIVE = frozenset({
     "shielded_field",
     "lab_to_straight_field_line",
     "straight_field_line_tables",
+    # #886: the PEST angle's origin and direction, the island's width and
+    # helicity, |q| resonance, the chord grid's cell convention
+    "straight_field_line_angle_on_grid",
+    "straight_field_line_map",
+    "equilibrium_safety_factor",
+    "resolve_rational_surface",
+    "magnetic_island_topology",
+    "island_emissivity",
+    "build_line_integral_operator",
+    "clip_segment_to_polygon",
     "cocos_field_scales",
+    "identify_flux_exponent_from_q",
     "resonant_delta",
     "resonant_geometric_factor",
     "align_surfaces_by_q",
@@ -259,6 +280,21 @@ CONVENTION_SENSITIVE = frozenset({
     "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
+    # field_line_topology (#1099): the node order a FLARE mesh lays its values
+    # out in, the direction normalized flux increases, the angle alphaS is
+    # measured from, and that the proxy is a density whose measure -- never
+    # whose factor -- is the cell area.
+    "toroidal_surface_cell_areas",
+    "toroidal_surface_node_areas",
+    "upstream_flux_weight",
+    "incidence_factor",
+    "connection_length_weight",
+    "footprint_heat_load_proxy",
+    "footprint_incident_total",
+    "reduce_traced_directions",
+    "target_incident_fractions",
+    # perturbation (D-06): which reconstruction a stored harmonic belongs to.
+    "toroidal_phase_audit",
 
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
@@ -342,6 +378,7 @@ CONVENTION_SENSITIVE = frozenset({
     "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "check_equilibrium_requirements",
+    "compare_contours",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
     "convert_cocos",

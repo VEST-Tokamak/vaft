@@ -1,0 +1,45 @@
+# VEST ShotLog schema `legacy_v1` (ported from VEST_ShotLog docs/schemas, #995).
+schema_id: legacy_v1
+version: 1.0.0
+status: supported
+detection:
+  required_headers:
+  - TF
+  - PF
+  - SW1
+  - C1
+  - gas
+  minimum_score: 1.0
+fields:
+- path: shots[].planned_configuration.magnetic.tf
+  type: value_record
+  required: false
+  meaning_ko: 토로이달 자기장 전원 설정값. 원본에 단위가 없으면 단위를 채우지 않는다.
+  aliases:
+  - TF
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+- path: shots[].planned_configuration.gas_injection.program
+  type: value_record
+  required: false
+  meaning_ko: 가스 주입 조건 원문과 파생 가능한 시간 범위
+  aliases:
+  - gas
+  - Gas Injection
+  unit: null
+  parsing: trigger_range
+  validation:
+    allow_range: true
+- path: shots[].planned_configuration.heating_and_current_drive.ech_line_1
+  type: value_record
+  required: false
+  meaning_ko: 첫 번째 ECH 계통 설정
+  aliases:
+  - upper & lower 3kW
+  - 'ECH Line #1'
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true

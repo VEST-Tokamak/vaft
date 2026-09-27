@@ -91,6 +91,7 @@ __all__ = [
     "fit_quality_metrics",
     "fitted_mask",
     "ip_chi_squared_record",
+    "iteration_cap_reached",
     "normalizable_mask",
     "normalized_residuals",
     "run_test_z",
@@ -658,6 +659,45 @@ def _bilinear(
     )
 
 
+
+def iteration_cap_reached(
+    iterations: float, mxiter: float, nxiter: float, iconvr: float = 2.0
+) -> tuple[bool | None, str]:
+    """Whether a slice used all of EFIT's outer passes, from its step count.
+
+    ``iterations`` is ``len(cerror)``: EFIT's cumulative ``nitera``, counted
+    inside the inner loop (``fit.F90``). ``MXITER`` caps the *outer* loop,
+    which runs ``MXITER + 1`` passes; each pass takes one to ``NXITER`` inner
+    steps (the inner loop leaves early on the increment) and the last pass
+    takes exactly one. So a slice that reached the cap has at least
+    ``MXITER + 1`` steps, and one that stopped earlier -- at the start of a
+    pass, on the chi-square criterion -- at most ``NXITER * MXITER``.
+
+    With ``NXITER = 1`` the two ranges meet and the count decides: 101 steps
+    at ``MXITER = 100`` is the cap (as the #171 scan's exhausted slices show),
+    100 is a stop on the criterion. With ``NXITER > 1`` a count between them
+    is either, and the answer is ``None`` rather than a guess; EFIT's log
+    (``not converged, reached max iterations``) is what settles it
+    (:func:`vaft.code.efit.parse_slices`). ``ICONVR = 3`` runs a single pass,
+    to which ``MXITER`` does not apply.
+    """
+    if not (np.isfinite(iterations) and np.isfinite(mxiter) and mxiter > 0):
+        return None, "no iteration count or cap"
+    if iconvr == 3:
+        return None, "iconvr=3 runs one outer pass; MXITER does not cap it"
+    inner = int(nxiter) if np.isfinite(nxiter) and nxiter >= 1 else None
+    if iterations <= mxiter:
+        return False, "fewer steps than MXITER + 1, the fewest a capped run takes"
+    if inner is None:
+        return None, "NXITER is not known, so the count cannot be read against MXITER"
+    if iterations > inner * mxiter:
+        return True, "more steps than NXITER * MXITER, the most an uncapped run takes"
+    return None, (
+        f"{int(iterations)} steps lies between MXITER + 1 = {int(mxiter) + 1} and "
+        f"NXITER * MXITER = {inner * int(mxiter)}, where a capped and an uncapped "
+        "run can both end; the log's exit line decides"
+    )
+
 def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     """Numerical-convergence metrics for one slice, from EFIT-native output."""
     root = f"equilibrium.time_slice.{time_slice}"
@@ -856,19 +896,23 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     )
     cap, cap_source = _setting("mxiter")
     cap = abs(cap)
-    hit_cap = bool(
-        np.isfinite(iterations) and np.isfinite(cap) and cap and iterations >= cap
-    )
+    hit_cap, hit_cap_basis = iteration_cap_reached(iterations, cap, abs(nxiter), iconvr)
     iteration_block = {
         "iterations": iterations,
         "iteration_cap": cap,
         "iteration_cap_source": cap_source,
+        "inner_iterations": abs(nxiter),
+        "inner_iterations_source": nxiter_source,
         "minimum_iterations": EFIT_MINITE,
+        # True/False where the count decides it, None where it cannot.
         "hit_cap": hit_cap,
+        "hit_cap_basis": hit_cap_basis,
         # True when the solve left through the iconvr==2 criterion rather than
         # running out of iterations. This is the convergence question that has
         # content for this configuration.
-        "stopped_on_criterion": bool(
+        "stopped_on_criterion": None
+        if hit_cap is None
+        else bool(
             np.isfinite(iterations)
             and iterations >= EFIT_MINITE
             and not hit_cap
@@ -1063,6 +1107,12 @@ def efit_quality_metrics(ods: Any) -> dict[str, Any]:
             "slices_with_final_error": len(reached),
             "slices_hitting_iteration_cap": sum(
                 1 for entry in slices if entry["convergence"]["iterations"]["hit_cap"]
+            ),
+            # NXITER > 1 leaves some counts undecidable from the m-file alone.
+            "slices_with_undetermined_iteration_cap": sum(
+                1
+                for entry in slices
+                if entry["convergence"]["iterations"]["hit_cap"] is None
             ),
             "slices_stopped_on_criterion": sum(
                 1

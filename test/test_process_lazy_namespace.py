@@ -81,6 +81,8 @@ REMOVED: dict[str, tuple[str, str]] = {
     # Retired by #420: VEST policy that lived in generic process modules. The
     # third kind, "policy", means the *name* is gone on purpose and the value
     # is resolved from vest.yaml by the module named.
+    # The fourth kind, "retired", means the name is gone and nothing replaces
+    # it: the module named no longer binds it.
     'DEFAULT_IMPURITY_FRACTIONS': ('vaft.machine_mapping.core_profiles', 'policy'),
     'DEFAULT_LINE_RADIATION_SPECIES': ('vaft.machine_mapping.core_profiles', 'policy'),
     'TI_TE_RATIO_VEST': ('vaft.machine_mapping.core_profiles', 'policy'),
@@ -92,7 +94,9 @@ REMOVED: dict[str, tuple[str, str]] = {
     'IntSlider': ('ipywidgets', 'attr'),
     'List': ('typing', 'attr'),
     'MU0': ('vaft.formula', 'attr'),
-    'NUMBA_AVAILABLE': ('vaft.process.electromagnetics', 'attr'),
+    # electromagnetics only probed whether numba imported; nothing used it.
+    # numba is now the optional `accel` extra (#1007/#1013).
+    'NUMBA_AVAILABLE': ('vaft.process.electromagnetics', 'retired'),
     'ODC': ('omas', 'attr'),
     'ODS': ('omas', 'attr'),
     'ODX': ('omas', 'attr'),
@@ -370,6 +374,8 @@ def test_each_dropped_name_is_reachable_where_the_map_says_it_is(name):
         assert module.__name__ == where
     elif kind == "policy":
         assert hasattr(module, "vest_core_profiles_policy"), f"{where} is not the policy resolver"
+    elif kind == "retired":
+        assert not hasattr(module, name), f"{where} still binds retired {name!r}"
     else:
         assert hasattr(module, name), f"{where} does not provide {name!r}"
 

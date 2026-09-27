@@ -1,0 +1,71 @@
+name: Python compatibility
+
+# Python 3.14 is the canonical interpreter. package-ci.yml runs the scientific
+# validation on it for every PR and every push to develop. This workflow checks
+# the *other* declared interpreters, and only where it cannot add PR latency:
+# after a change lands on main, or on request (#1008).
+#
+# Each leg proves that the package resolves, installs, imports, answers its CLI
+# and passes the curated core selection. It does not run the full scientific
+# suite; that stays canonical-only.
+#
+# Older interpreters may resolve older NumPy/SciPy/pandas releases, which is the
+# declared policy (#1012). A failure here is therefore a compatibility finding
+# for #1009, not a reason to hold every interpreter to the newest stack.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    name: compat (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    # 3.15 is a pre-release, and imas-core ships no cp315 wheel yet (#1009).
+    # Until both are resolved, this leg reports without failing the workflow.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+        experimental: [false]
+        include:
+          - python: "3.15"
+            experimental: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+          cache: pip
+
+      - name: Install vaft with dev dependencies
+        # 3.15 stays outside requires-python until #1009 declares it. Installing
+        # anyway is how that leg finds what still blocks it.
+        run: |
+          if [ "${{ matrix.experimental }}" = "true" ]; then
+            python -m pip install -e ".[dev]" --ignore-requires-python
+          else
+            python -m pip install -e ".[dev]"
+          fi
+
+      - name: Record the resolved stack
+        run: python -m pip freeze | grep -iE "^(numpy|scipy|pandas|matplotlib|h5py|omas|imas|statsmodels|pyyaml)" || true
+
+      - name: Import and CLI smoke
+        run: |
+          python -c "import vaft, vaft.process, vaft.formula; print(vaft.__version__)"
+          vaft --help > /dev/null
+
+      - name: Run the core selection
+        run: python -m pytest -q -m "core and not perf"

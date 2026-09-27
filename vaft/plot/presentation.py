@@ -365,11 +365,14 @@ class Presentation:
         A theme alone never changes geometry.  Width is the format's; height
         follows the view kind's geometry policy and is held below the
         format's ceiling.  A view whose coordinates must keep their ratio --
-        an R-Z machine, an image -- is the exception both ways: when the
-        ceiling binds, the width shrinks with it, so the canvas follows the
-        axes rather than framing it in margin; the format's width is then a
-        maximum.  ``colorbar`` says whether a field map draws one, which
-        takes part of the width the axes would have had.
+        an R-Z machine, an image -- is the exception both ways: the format's
+        width and ceiling are then maxima.  An image narrows with the
+        ceiling here; an R-Z view keeps the width and is only started here:
+        what its labels, title and colorbar really take is known once it is
+        laid out, so :func:`presented` sizes and places it afterwards
+        (:func:`_fit_canvas`).
+        ``colorbar`` says whether a field map draws one, which takes part of
+        the width the axes would have had.
         """
         if self.format is None:
             return fallback
@@ -386,7 +389,7 @@ class Presentation:
             # coordinate scaling then fixes the axes height from that width.
             draws_colorbar = _has_colorbar(model) if colorbar is None else bool(colorbar)
             usable = _RZ_AXES_FRACTION_WITH_COLORBAR if draws_colorbar else _RZ_AXES_FRACTION
-            return _snug(width, ratio, usable, ceiling)
+            return _snug(width, ratio, usable, ceiling, narrow=False)
         if policy.kind == "native":
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
         # grid: one width whatever the column count; the rows add height,
@@ -467,20 +470,144 @@ class Presentation:
         return stack
 
 
-def _snug(width: float, ratio: float, usable: float, ceiling: float) -> tuple[float, float]:
-    """A canvas that fits axes of ``ratio`` (height/width) and nothing more.
+def _snug(
+    width: float, ratio: float, usable: float, ceiling: float, *, narrow: bool = True,
+) -> tuple[float, float]:
+    """A canvas that fits axes of ``ratio`` (height/width), estimated.
 
     The axes takes ``usable`` of the width and ``_RZ_AXES_HEIGHT_FRACTION``
     of the height; when the height that implies exceeds the ceiling, the
     width comes down with it so the axes still fills the canvas.  A canvas
     is never narrower than a third of its height, so a very tall machine
     keeps room for its labels.
+
+    ``narrow=False`` keeps the format's width when the ceiling binds: an
+    R-Z view is then fitted from its laid-out figure (:func:`_fit_canvas`),
+    because what labels, a title and a colorbar take is a cost in inches
+    that a fixed share cannot estimate -- narrowing on the estimate left a
+    tall machine's axes filling half its canvas beside a full-height
+    colorbar.
     """
     height = width * usable * ratio / _RZ_AXES_HEIGHT_FRACTION
     if height > ceiling:
         height = ceiling
-        width = max(height * _RZ_AXES_HEIGHT_FRACTION / ratio / usable, height / 3.0)
+        if narrow:
+            width = max(height * _RZ_AXES_HEIGHT_FRACTION / ratio / usable, height / 3.0)
     return (width, max(height, 0.3 * width))
+
+
+#: A fit that moves no side by more than this (inches) is converged.
+_FIT_TOLERANCE_IN = 0.01
+
+#: The narrowest a fitted R-Z axes may be drawn; below it the fit is skipped.
+_FIT_MIN_AXES_IN = 0.5
+
+
+def _fit_canvas(
+    figure: Any, axes: Any, pad: float | None, *, max_width: float, ceiling: float,
+    passes: int = 3,
+) -> None:
+    """Size the canvas to an equal-scaled axes and place it, and its colorbar, snugly.
+
+    ``tight_layout`` cannot do this: an equal-scaled axes is drawn smaller
+    than the slot the layout gives it, the layout measures the labels
+    against the drawn box, and the margin it leaves is then wrong on the
+    side the axes did not fill (labels off the canvas, or a colorbar
+    standing taller than the map).  So what surrounds the drawn axes is
+    measured side by side -- its own tick labels, axis labels and title,
+    and each axes standing to its right (a colorbar: its offset, strip and
+    tick labels) -- the axes gets the largest size for which its own ratio
+    plus that surround fits inside ``max_width`` x ``ceiling``, and every
+    axes is placed explicitly on the canvas that implies, the map's slot
+    equal to its drawn box.  A second pass re-measures, since tick labels
+    can change with the axes size.  Anything else -- no equal-scaled axes,
+    several, or another axes that is not beside it on the right -- is left
+    as the layout drew it.
+    """
+    fixed = [axis for axis in _axes_of(axes) if axis.get_aspect() != "auto"]
+    if len(fixed) != 1:
+        return
+    axis = fixed[0]
+    pad_in = (pad or 0.0) * float(_rc_font_pt()) / 72.0
+    for _ in range(passes):
+        renderer = _renderer_of(figure)
+        if renderer is None:
+            return
+        axis.apply_aspect()
+        dpi = figure.dpi
+        width, height = figure.get_size_inches()
+        drawn = axis.get_window_extent(renderer)
+        slot = axis.get_position(original=True)
+        slot_x1 = slot.x1 * width
+        slot_y0, slot_h = slot.y0 * height, slot.height * height
+        tight = axis.get_tightbbox(renderer)
+        if any(artist.get_visible() for artist in (*figure.texts, *figure.legends)):
+            return  # a figure-level title or legend: not measured here
+        x0, y0, x1, y1 = (drawn.x0 / dpi, drawn.y0 / dpi, drawn.x1 / dpi, drawn.y1 / dpi)
+        if x1 - x0 <= 0.0 or y1 - y0 <= 0.0:
+            return
+        left = x0 - tight.x0 / dpi
+        bottom = y0 - tight.y0 / dpi
+        top = tight.y1 / dpi - y1
+        right = tight.x1 / dpi - x1
+        beside = []
+        for other in figure.axes:
+            if other is axis or not other.get_visible():
+                continue
+            box = other.get_position()
+            ox0, ox1 = box.x0 * width, box.x1 * width
+            if ox0 < slot_x1 - _FIT_TOLERANCE_IN:
+                return  # not beside the map on the right: leave the layout alone
+            oy0, oy1 = box.y0 * height, box.y1 * height
+            otight = other.get_tightbbox(renderer)
+            offset = ox0 - slot_x1
+            # Relative to the slot the layout gave the map, which the fitted
+            # map fills: a colorbar spanning the slot then spans the map.
+            frac_y0 = (oy0 - slot_y0) / slot_h
+            frac_h = (oy1 - oy0) / slot_h
+            beside.append((other, offset, ox1 - ox0, frac_y0, frac_h))
+            right = max(right, offset + (ox1 - ox0) + max(otight.x1 / dpi - ox1, 0.0))
+            top = max(top, otight.y1 / dpi - oy1)
+            bottom = max(bottom, oy0 - otight.y0 / dpi)
+        left, bottom, top, right = (max(v, 0.0) + pad_in for v in (left, bottom, top, right))
+        ratio = (y1 - y0) / (x1 - x0)
+        axes_w = min(max_width - left - right, (ceiling - bottom - top) / ratio)
+        if axes_w < _FIT_MIN_AXES_IN:
+            return
+        axes_h = axes_w * ratio
+        fitted = (left + axes_w + right, bottom + axes_h + top)
+        moved = max(abs(fitted[0] - width), abs(fitted[1] - height),
+                    abs(axes_w - (x1 - x0)), abs(axes_h - (y1 - y0)))
+        # forward=True resizes a GUI window too; otherwise showing it resets
+        # the canvas to the window size and rescales the placement below.
+        figure.set_size_inches(*fitted, forward=True)
+        fw, fh = fitted
+        axis.set_position([left / fw, bottom / fh, axes_w / fw, axes_h / fh])
+        for other, offset, strip, frac_y0, frac_h in beside:
+            other.set_position([
+                (left + axes_w + offset) / fw, (bottom + frac_y0 * axes_h) / fh,
+                strip / fw, frac_h * axes_h / fh,
+            ])
+        if moved < _FIT_TOLERANCE_IN:
+            return
+
+
+def _rc_font_pt() -> float:
+    import matplotlib
+    from matplotlib.font_manager import FontProperties
+
+    return FontProperties(size=matplotlib.rcParams["font.size"]).get_size_in_points()
+
+
+def _renderer_of(figure: Any) -> Any:
+    get = getattr(figure.canvas, "get_renderer", None)
+    if get is not None:
+        try:
+            return get()
+        except Exception:  # pragma: no cover - a canvas without an Agg renderer
+            pass
+    private = getattr(figure, "_get_renderer", None)
+    return private() if private is not None else None
 
 
 def _has_colorbar(model: Any) -> bool:
@@ -712,6 +839,18 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                     from .style import finalize
 
                     finalize(figure, axes, show=False, tight_layout=True, pad=presentation.pad)
+                    # Only an R-Z view the machine or the field grid sizes is
+                    # fitted: a boundary alone keeps the fallback ratio, so the
+                    # canvas does not follow the plasma from shot to shot, and
+                    # an image keeps its estimated canvas (an animation is
+                    # saved by the renderer, before anything here runs).
+                    policy = GEOMETRY.get(type(model).__name__)
+                    if policy is not None and policy.kind == "extent" and rz_extent(model) is not None:
+                        _fit_canvas(
+                            figure, axes, presentation.pad,
+                            max_width=presentation.format.width_in,
+                            ceiling=presentation.format.max_height_in,
+                        )
                 # An animation written to save_path= is saved instead of shown.
                 if show and kwargs.get("save_path") is None:
                     import matplotlib.pyplot as plt

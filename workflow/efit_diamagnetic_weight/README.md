@@ -1,5 +1,17 @@
 # Is the diamagnetic constraint reachable, and is the pressure real? (#386)
 
+> **Superseded in part by #1196 (2026-09-22).** Every run recorded here fed EFIT
+> a diamagnetic flux carrying an extra minus sign from the mapper port: a
+> diamagnetic-signed DFLUX (e.g. `-1.4275e-3` Wb) against a plasma whose loop
+> and whose reconstruction are both paramagnetic (`cdflux` `+1.88e-3` Wb). So
+> the weighted rungs pushed EFIT toward the wrong answer, and the collapse at
+> high weight, the "no usable band" conclusion and the "~90x" pressure deficit
+> below may all be artifacts of that sign. With the sign corrected the loop
+> implies beta_p ~ 0.17 against the reconstruction's 0.034 on 39915 (a factor
+> of ~5, not ~90). The ladder needs rerunning on corrected inputs before any
+> conclusion here about weighting is used; the measurements of what EFIT did
+> with the inputs it was given stand.
+
 #649 stopped two ill-conditioned virial checks from gating acceptance and the
 yield went from 0 of 31 to 30 of 77. That makes this the moment of maximum risk
 of reading "more slices pass" as "the reconstructions are good". #386 records
@@ -218,7 +230,8 @@ slices are vacuum. Vacuum solutions pass the acceptance gate trivially.
 So between inert and collapse there is **no usable band**, and the transition
 takes less than one decade. The diamagnetic constraint cannot be made to
 constrain a VEST reconstruction by weighting. **The pressure deficit of #386 is
-not a weighting problem.**
+not a weighting problem.** (Both statements were made on sign-reversed DFLUX;
+see the #1196 note at the top.)
 
 A mechanism worth testing rather than asserting: the row is confined to the
 FF' columns (`response_matrix.F90:2192-2196` writes only
@@ -232,6 +245,12 @@ in between — which is what this ladder measures.
 The signed measurement reached `DFLUX` on **18 of 18, 11 of 11 and 32 of 32**
 compared slices. #385's convention holds on 41524 and 41672, which the
 packaged-sample regression never covered.
+
+These runs predate #1196. The stored measurement they read still carried an
+extra minus sign added by the mapper port (the donor has none), so every
+measured value in this README has the opposite sign under the corrected
+convention: the `-1.4275e-3` Wb above is `+1.4275e-3`, paramagnetic, the same
+sign as `cdflux`. The k-file pass-through this section checks is unaffected.
 
 ### Against Thomson
 

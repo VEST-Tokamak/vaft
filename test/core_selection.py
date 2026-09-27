@@ -93,7 +93,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_spectrogram_methods.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
+    # The in-process memory guard beside it: fake cgroup trees and env only.
     "test_code_execution.py",
+    "test_code_resources.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
@@ -108,6 +110,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
+    "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
@@ -134,6 +137,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_readme_consistency.py",
+    # Diagram physics: every drawn O-point, drift and field is the formula's.
+    # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
+    "test_diagram_infrastructure.py",
+    "test_diagram_magnetic_island.py",
+    "test_diagram_particle_motion.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

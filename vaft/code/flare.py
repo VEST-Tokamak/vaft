@@ -193,7 +193,8 @@ def flare_equilibrium_scales(
             if len(families) > 1:
                 missing.append(
                     "whether psi is in weber or weber per radian, which needs "
-                    "an LCFS to measure the Ampere ratio against"
+                    "either an LCFS and ip, for the Ampere ratio, or a q "
+                    "profile its own psi map reproduces"
                 )
             raise ValueError(
                 f"the equilibrium identifies as COCOS {list(candidates)}, and "
