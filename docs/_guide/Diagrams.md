@@ -197,6 +197,21 @@ through the real-space reconstruction. Two sources differ:
 `helical_harmonic`'s Convention section states both. Amplitudes, phases and responses in these
 figures are schematic.
 
+## Collision processes
+
+A classification of the interactions in a fusion plasma, built from the concept-diagram primitives.
+Coulomb collisions between charged particles relax the distribution. Atomic processes change charge
+states and bound electrons. Nuclear reactions change nuclei.
+
+```python
+vaft.diagram.collision_processes()
+```
+
+![collision processes]({{ '/assets/diagrams/collision_processes.svg' | relative_url }})
+
+The diagram contains no numbers except the D–T alpha energy, which is `vaft.formula.constants.E_ALPHA`. Collision frequencies, the
+Coulomb logarithm and collisionality regimes are left to formula-backed diagrams (#1111).
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
