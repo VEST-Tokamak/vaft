@@ -25,6 +25,10 @@ three layers split the work:
 A diagram never restates an equation. It calls the formula function, so the picture and the
 [formula reference]({{ site.baseurl }}/reference/formula/) cannot drift apart.
 
+This page explains the diagrams family by family. The complete list -- every builder, every committed
+SVG and the exact call that draws it -- is the generated
+[diagram gallery]({{ site.baseurl }}/reference/diagram/).
+
 ## Magnetic island
 
 ```python
