@@ -290,6 +290,12 @@ def _rising_current():
     return compose_analytic_profile("g", unit="", axis_value=0.1, separatrix_value=1.0)
 
 
+def _near_flat():
+    from vaft.process.profile import compose_analytic_profile
+
+    return compose_analytic_profile("g", unit="", axis_value=1.0, separatrix_value=1.0 - 1e-4)
+
+
 @pytest.mark.parametrize("change, message", [
     (lambda: dict(pressure_profile=_hmode_pressure(), pressure_beta=3.0), "both a generalized-parabolic pressure"),
     (lambda: dict(pressure_profile=_hmode_pressure(), pressure_alpha=2.0), "both a generalized-parabolic pressure"),
@@ -297,7 +303,10 @@ def _rising_current():
     (lambda: dict(pressure_profile=_hollow_pressure()), "rises outward"),
     (lambda: dict(pressure_profile=np.ones(5)), "must be an AnalyticProfile"),
     (lambda: dict(current_profile=_itb_state()), "current_profile must be an AnalyticProfile"),
-    (lambda: dict(current_profile=_rising_current()), "must fall from axis to separatrix"),
+    (lambda: dict(current_profile=_rising_current()), "does not fall outward anywhere"),
+    (lambda: dict(current_profile=_hollow_pressure()), "current_profile rises outward"),
+    (lambda: dict(current_profile=_near_flat()), "falls by only"),
+    (lambda: dict(pressure_profile=_near_flat()), "falls by only"),
     (lambda: dict(pressure_profile=_hmode_pressure(), pressure_fraction=0.0), "would be discarded"),
 ])
 def test_inconsistent_profile_sources_are_refused(change, message):
@@ -316,6 +325,7 @@ def test_a_barrier_pressure_profile_is_achieved_through_chease(tmp_path, make_pr
     assert result.ok, result.reason
     # The state tolerance is 0.02 in normalized pressure; CHEASE tracks the shape far closer.
     assert result.residuals["pressure_shape"] < 0.005
+    assert abs(result.residuals["pprime_peak"]) < 0.05 and abs(result.residuals["pprime_peak_location"]) < 0.01
     solved = result.achieved_profiles
     x = solved["psi_n"]
     near = np.abs(x - barrier) < 0.15
@@ -324,3 +334,49 @@ def test_a_barrier_pressure_profile_is_achieved_through_chease(tmp_path, make_pr
     requested = np.interp(x, result.source_profiles["psi_n"], result.source_profiles["pprime_norm"])
     assert solved["pprime_norm"][near].min() == pytest.approx(requested[near].min(), rel=0.05)
     assert solved["q"][-1] > solved["q"][0] > 0 and result.achieved["q95"] > result.achieved["q0"]
+
+
+def test_a_hollow_current_profile_would_reverse_the_core_current():
+    """The refusal guards the real precondition: FF' of one sign, not just g(0) > g(1)."""
+    from vaft.process.profile import evaluate_analytic_profile
+
+    g = _hollow_pressure()
+    assert evaluate_analytic_profile(g, 0.0) > evaluate_analytic_profile(g, 1.0)     # ends alone would pass
+    assert np.any(evaluate_analytic_profile(g, np.linspace(0, 1, 201), derivative=True) > 0)
+    result = synthesize_equilibrium_from_0d(dataclasses.replace(VEST, current_profile=g))
+    assert result.status == "invalid_source_model" and "rises outward" in result.reason
+
+
+def test_a_missing_executable_is_a_state_not_an_exception(tmp_path, monkeypatch):
+    from vaft.code.chease import CHEASEConfig
+
+    for name in ("CHEASE", "CHEASEHOME", "CHEASE_EXEC_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    result = synthesize_equilibrium_from_0d(VEST, config=CHEASEConfig(workdir=tmp_path))
+    assert result.status == "non_converged" and "no CHEASE executable" in result.reason and not result.ok
+
+
+@needs_chease
+def test_a_pedestal_too_narrow_for_the_mesh_is_not_reached(tmp_path):
+    """Width 0.01: the pressure shape still passes, but the lost p' peak is reported."""
+    from vaft.code.chease import CHEASEConfig
+    from vaft.process.profile import analytic_hmode_state
+
+    spec = dataclasses.replace(VEST, pressure_fraction=0.3,
+                               pressure_profile=analytic_hmode_state(pedestal_width=0.01, pedestal_position=0.98))
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.residuals["pressure_shape"] < 0.02                  # invisible to the shape residual
+    assert result.residuals["pprime_peak"] < -0.1
+    assert result.status == "constraint_not_reached" and "steepest p'" in result.reason
+
+
+@needs_chease
+def test_an_unreadable_achieved_pressure_is_named(tmp_path, monkeypatch):
+    import vaft.code.chease_synthesis as module
+    from vaft.code.chease import CHEASEConfig
+
+    monkeypatch.setattr(module, "_achieved_profiles", lambda solved: {})
+    spec = dataclasses.replace(VEST, pressure_profile=_hmode_pressure())
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.status == "invalid_equilibrium" and "could not be read" in result.reason
+    assert "nan" not in result.reason
