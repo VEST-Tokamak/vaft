@@ -57,7 +57,7 @@ workflow/**/*.log
 /vaft/data/vfit/
 /sample_equilibrium_global_history.xlsx
 
-# HSDS credentials (written by `hsconfigure`; never commit a real one)
+# HSDS credentials (written by `vaft hsds configure`; never commit a real one)
 .hscfg
 **/.hscfg
 

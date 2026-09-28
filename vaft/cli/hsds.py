@@ -45,11 +45,15 @@ def _prompt_secret(label: str, configured: bool, reader: Callable[[str], str]) -
 def configure(
     arguments: argparse.Namespace,
     *,
-    ask: Callable[[str], str] = input,
-    ask_secret: Callable[[str], str] = getpass.getpass,
+    ask: Callable[[str], str] | None = None,
+    ask_secret: Callable[[str], str] | None = None,
     stdin: Iterable[str] | None = None,
     out=None,
 ) -> int:
+    # Resolved per call, not bound at import, so the secret prompt is always
+    # whatever getpass.getpass is now (and tests can see that it is used).
+    ask = ask if ask is not None else input
+    ask_secret = ask_secret if ask_secret is not None else getpass.getpass
     out = out if out is not None else sys.stdout
     path = Path(arguments.config).expanduser() if arguments.config else hscfg.default_path()
     current = hscfg.read_values(path)
