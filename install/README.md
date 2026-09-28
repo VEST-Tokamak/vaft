@@ -401,6 +401,8 @@ Need DCON/GPEC? Linux/macOS -> bash install/install_gpec.sh --source PATH
                 Windows     -> install_gpec_windows.ps1 -BuildDependencies
 Need EFIT/EFUND? Linux/macOS -> bash install/install_efit.sh --source PATH --accept-efit-users-agreement
                 Windows     -> install_efit_windows.ps1 -AcceptEfitUsersAgreement
+Need GENRAY?    Linux/macOS -> bash install/install_genray.sh --source PATH
+                Windows     -> not supported (see Per-code notes)
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -437,6 +439,7 @@ missing, they never run a package manager:
 | --- | --- |
 | CHEASE | `gfortran make git` |
 | GPEC | `gfortran gcc make git libnetcdff-dev liblapack-dev libblas-dev` |
+| GENRAY | `gfortran make git libnetcdff-dev` (macOS: `brew install gcc netcdf-fortran`) |
 
 Three things about the Linux build worth knowing before they bite:
 
@@ -990,6 +993,36 @@ namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes`
 one you point at a binary you brought. There is no `install_tes_*.sh` and no
 `check_tes.py`, and adding either would imply an obtainable source that is not
 there.
+
+### GENRAY
+
+**Open source (https://github.com/compxco/genray); clone it yourself.**
+`install/install_genray.sh --source PATH` builds the committed revision in a
+temporary directory (it exports `git archive HEAD`, so no source file is touched
+and uncommitted changes are not built), installs `bin/xgenray` into
+`<source>/vaft-install` (an untracked directory; `--prefix` moves it), and
+runs `install/check_genray.py`. The checker reruns upstream's own EC regression
+case (`00_Genray_Regression_Tests/ci-tests/test-EC-ITER-Centra-CD`) and compares
+power, driven current and ray end points with upstream's `gold-genray.nc`.
+Export `GENRAYHOME` to the prefix it prints.
+
+Two build choices worth knowing:
+
+* **No PGPLOT.** Upstream links `-lpgplot -lX11` for its diagnostic plots. VAFT
+  reads `genray.nc` only, so the build links `install/genray/pgplot_stub.f`
+  (empty routines) instead. The rays and the netCDF file are unchanged.
+* **`-Wl,-noinhibit-exec` is dropped.** Upstream's makefiles pass it, and with it
+  GNU ld writes an executable even when symbols are unresolved. The installer
+  clears it, so a missing routine fails the build.
+
+`vaft.code.genray` turns `ec_launchers + equilibrium + core_profiles` into a
+GENRAY case (`prepare_genray_inputs`), runs it (`run_genray`, or `run` for all
+three steps), and maps the rays into IMAS `waves` (`genray_to_waves`). The wave
+mode is required and is never inferred. Launched power and Zeff come from the
+ODS or must be passed. A fitted Te that reaches zero at the separatrix is refused
+unless you pass `minimum_temperature_ev`. GENRAY exits 0 on some input errors, so
+`GENRAYResult.ok` also requires a `genray.nc`. Native Windows is not supported:
+upstream ships no Windows build that VAFT has verified.
 
 ### TRANSP
 

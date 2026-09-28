@@ -221,5 +221,41 @@ def test_the_unit_is_shown_and_the_values_carry_it():
     amps = RECIPES["coil_3d_spectrum_current"].builder(ods, unit="A")
     kiloamps = RECIPES["coil_3d_spectrum_current"].builder(ods, unit="kA")
 
-    assert "[A]" in amps.y_label and "[kA]" in kiloamps.y_label
+    assert amps.y_unit == "A" and kiloamps.y_unit == "kA"
     np.testing.assert_allclose(kiloamps.series[0].y, amps.series[0].y * 1e-3)
+
+
+@pytest.mark.parametrize("recipe", ["coil_3d_profile_current", "coil_3d_spectrum_current"])
+def test_the_axis_names_its_unit_once(recipe):
+    """The renderer appends ``y_unit``; a unit also written into ``y_label``
+    reads ``[A] [A]`` on the axis."""
+    from vaft.plot.style import axis_label
+
+    ods, _ = _coil_ods(lambda phi, t: 1000.0 * np.cos(2.0 * phi))
+    model = RECIPES[recipe].builder(ods, unit="kA")
+
+    assert axis_label(model.y_label, model.y_unit).count("[") == 1
+
+
+@pytest.mark.parametrize("recipe", ["coil_3d_profile_current", "coil_3d_spectrum_current"])
+def test_discrete_sectors_and_harmonics_are_drawn_as_markers(recipe):
+    """A line through six sector currents, or through integer mode numbers,
+    asserts values between them that no coil carries."""
+    ods, _ = _coil_ods(lambda phi, t: 1000.0 * np.cos(2.0 * phi))
+    (series,) = RECIPES[recipe].builder(ods).series
+
+    assert series.style.get("marker") and series.style.get("linestyle") == "none"
+
+
+def test_the_public_plot_accepts_the_modes_the_recipe_reads():
+    """``modes`` was read by the builder but missing from the option schema, so
+    the public wrapper refused the one option that shows the alias step."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import vaft
+
+    ods, _ = _coil_ods(lambda phi, t: 1000.0 * np.cos(phi))
+    figure, _axes = vaft.omas.plot_coil_3d_spectrum_current(ods, modes=range(0, 8))
+    plt.close(figure)

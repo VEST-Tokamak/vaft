@@ -71,7 +71,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # conversions: 84 + 3 = 87.
         "equilibrium": 91,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074)
         "virial": 33,
-        "stability": 32,
+        "stability": 34,  # +shear Alfven frequency, magnetosonic speeds (#1063)
         "green": 16,
         "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
         "statistics": 22,
@@ -93,7 +93,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
         "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
-        "geometry": 9,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072)
+        "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
