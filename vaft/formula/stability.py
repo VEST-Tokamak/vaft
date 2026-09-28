@@ -891,7 +891,7 @@ def kadomtsev_mixing_radius(r, q):
     Returns
     -------
     float
-        $r_\mathrm{mix}$, in the unit of ``r``.
+        $r_\mathrm{mix}$, in the unit of ``r`` [m or -].
 
     Raises
     ------
