@@ -46,6 +46,9 @@ _SDIST_ONLY_DATA_FILES = {
     "wheel_samples/39915/imas.nc",
 }
 _ALLOWED_DATA_SUFFIXES = {
+    # Code, not data: the public-database readers ship; the databases they
+    # read are fetched at run time and never shipped (#1205).
+    "public/": (".py",),
     "geometry/": (".yaml", ".csv"),
     "gpec/": (".in", ".dat"),
     "legacy/": (".txt", ".yaml"),
@@ -59,6 +62,8 @@ REQUIRED_FILES = {
     "vaft/data/gpec/gpec.in",
     "vaft/data/legacy/diagnostic-trigger-settings.yaml",
     "vaft/data/legacy/sql_table.txt",
+    # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
+    "vaft/data/public/__init__.py",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 
