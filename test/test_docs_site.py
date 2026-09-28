@@ -180,3 +180,30 @@ def test_no_tooling_is_published(site):
         for unwanted in ("Gemfile", "package.json", "playwright.config.js", "build.py",
                          "generators.yml", "scripts", "README.md"):
             assert not (destination / unwanted).exists(), f"{track} published {unwanted}"
+
+
+@pytest.mark.parametrize("page, entry, message", [
+    ("reference/plot/index.html", "plasma_current_time",
+     "plot plasma_current_time is in the catalog but not rendered on /vaft/develop/reference/plot/"),
+    ("reference/diagram/index.html", "hugill",
+     "diagram hugill is in the catalog but not rendered on /vaft/develop/reference/diagram/"),
+    ("reference/formula/stability/index.html", "greenwald_density",
+     "formula greenwald_density is in the catalog but not rendered on /vaft/develop/reference/formula/stability/"),
+])
+def test_a_catalog_entry_missing_from_its_rendered_page_is_caught(site, tmp_path, page, entry, message):
+    """validate_docs.rb reads the built HTML, so a page that drops an entry fails the build."""
+    source, builds = site
+    destination, baseurl = builds["development"]
+    if not (source / "_data" / "plot_catalog.yml").is_file():
+        pytest.skip("this branch does not generate the plot and diagram catalogs")
+    mutated = tmp_path / "site"
+    shutil.copytree(destination, mutated)
+    html = (mutated / page).read_text(encoding="utf-8")
+    marker = f'id="{entry}" data-catalog='
+    assert marker in html
+    (mutated / page).write_text(html.replace(marker, f'id="{entry}-removed" data-catalog='), encoding="utf-8")
+    result = _validate(source, mutated, baseurl)
+    assert result.returncode != 0
+    output = result.stderr + result.stdout
+    assert message in output, output
+    assert f"{entry}-removed is rendered on" in output
