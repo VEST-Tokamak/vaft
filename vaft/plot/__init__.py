@@ -215,6 +215,7 @@ from .renderers.geometry import (
     coil_3d_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
+    machine_geometry3d,
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,

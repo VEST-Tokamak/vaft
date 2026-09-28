@@ -29,6 +29,7 @@ __all__ = [
     "draw_geometry_layer",
     "equilibrium_geometry_boundary",
     "equilibrium_geometry_topview",
+    "machine_geometry3d",
     "machine_geometry_poloidal",
     "machine_geometry_topview",
     "magnetics_geometry_poloidal",
@@ -489,6 +490,30 @@ def coil_3d_geometry3d(
     model: Geometry3DLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """3D validation view of the non-axisymmetric coil filaments."""
+    return render_geometry_3d_layers(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="machine", view="geometry3d", model=Geometry3DLayers,
+    subject="machine",
+    description="Composed 3D machine scene: wall and plasma-boundary cuts at four "
+                "toroidal angles, PF coil rings, non-axisymmetric coils, and every "
+                "diagnostic channel that stores r, phi and z.",
+    ids=("wall", "pf_active", "coils_non_axisymmetric", "equilibrium", "magnetics",
+         "thomson_scattering", "charge_exchange", "langmuir_probes", "barometry",
+         "interferometer", "soft_x_rays", "bolometer", "spectrometer_uv"),
+    required_paths=(),
+    optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.r",
+                    "equilibrium.time_slice.{i}.boundary.outline.r",
+                    "magnetics.b_field_pol_probe.{i}.position.phi",
+                    "soft_x_rays.channel.{i}.line_of_sight.first_point.phi"),
+)
+def machine_geometry3d(
+    model: Geometry3DLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Composed 3D machine scene."""
     return render_geometry_3d_layers(model, ax=ax, show=show, **style)
 
 

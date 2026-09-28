@@ -40,6 +40,7 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.machine_mapping.conventions import cylindrical_to_cartesian
 from vaft.plot.intent import palette
 from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
@@ -4480,21 +4481,32 @@ def _coil_set_color(set_label: str, seen_sets: dict[str, str]) -> str:
     return seen_sets[set_label]
 
 
+def _coil_group(set_label: str, label: str) -> str:
+    """``coils_non_axisymmetric/<set>/<coil>``; ``/`` inside a name is not a level."""
+    parts = [part.replace("/", "-") for part in (set_label, label)]
+    if parts[0] == parts[1]:
+        parts = parts[:1]
+    return "/".join(["coils_non_axisymmetric", *parts])
+
+
 def _build_coils_non_axisymmetric_3d(ods: Any, **_: Any) -> Geometry3DLayers:
     """Every non-axisymmetric coil filament as a 3D polyline."""
     layers = []
     seen_sets: dict[str, str] = {}
     for label, radius, phi, height in _coil_filament_paths(ods):
-        # One legend entry (and one color) per coil set, not per sector.
+        # One legend entry (and one color) per coil set, not per sector; the
+        # sector keeps its identity in ``group``.
         set_label = label.rsplit(" sector", 1)[0]
         first_of_set = set_label not in seen_sets
+        x, y, z = cylindrical_to_cartesian(radius, phi, height)
         layers.append(
             Geometry3DLayer(
-                x=radius * np.cos(phi),
-                y=radius * np.sin(phi),
-                z=height,
+                x=x,
+                y=y,
+                z=z,
                 label=set_label if first_of_set else "",
                 style={"color": _coil_set_color(set_label, seen_sets)},
+                group=_coil_group(set_label, label),
             )
         )
     return Geometry3DLayers(
@@ -4522,6 +4534,162 @@ def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
         x_label="x [m]",
         y_label="y [m]",
         title="Non-axisymmetric 3D Coils (top view)",
+    )
+
+
+#: Toroidal angles [rad] at which an axisymmetric outline (wall, plasma
+#: boundary) is drawn in the 3-D machine scene: a wireframe, not a surface.
+_MACHINE_3D_CUTS = tuple(np.deg2rad([0.0, 90.0, 180.0, 270.0]))
+_MACHINE_3D_RING = np.linspace(0.0, 2.0 * np.pi, 181)
+
+
+def _toroidal_ring_3d(radius: float, height: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return cylindrical_to_cartesian(radius, _MACHINE_3D_RING, height)
+
+
+def _outline_cuts_3d(
+    r: np.ndarray, z: np.ndarray, *, label: str, group: str, style: Mapping[str, Any]
+) -> list[Geometry3DLayer]:
+    """A closed poloidal outline at every :data:`_MACHINE_3D_CUTS` angle."""
+    r = np.append(r, r[0])
+    z = np.append(z, z[0])
+    layers = []
+    for position, phi in enumerate(_MACHINE_3D_CUTS):
+        x, y, height = cylindrical_to_cartesian(r, phi, z)
+        layers.append(Geometry3DLayer(
+            x=x, y=y, z=height, label=label if position == 0 else "", style=style,
+            group=f"{group}/phi={np.rad2deg(phi):.0f}deg",
+        ))
+    return layers
+
+
+def _cylindrical_position(ods: Any, base: str) -> tuple[float, float, float] | None:
+    """``(r, phi, z)`` stored under ``base``; ``None`` when any of the three is missing.
+
+    The 3-D scene places a channel only where the data state all three
+    coordinates -- a missing height is not assumed to be the midplane.
+    """
+    planar = _toroidal_position(ods, base)
+    if planar is None:
+        return None
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    height = _get(ods, f"{prefix}.z")
+    try:
+        height = float(np.asarray(height, dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not np.isfinite(height):
+        return None
+    return planar[0], planar[1], height
+
+
+def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
+    """:data:`_TOPVIEW_DIAGNOSTICS` in machine Cartesian coordinates, one group per family."""
+    layers: list[Geometry3DLayer] = []
+    for container, label, kind, style in _TOPVIEW_DIAGNOSTICS:
+        count = _count(ods, container)
+        if not count:
+            continue
+        group = f"diagnostics/{container}"
+        first_label = True
+        if kind in ("segments", "rings"):
+            for index in range(count):
+                if kind == "segments":
+                    base = f"{container}.{index}.line_of_sight"
+                    ends = [_cylindrical_position(ods, f"{base}.{point}")
+                            for point in ("first_point", "second_point")]
+                    if None in ends:
+                        continue
+                    r, phi, z = (np.array(values) for values in zip(*ends))
+                    x, y, height = cylindrical_to_cartesian(r, phi, z)
+                else:
+                    position = _cylindrical_position(ods, f"{container}.{index}.position")
+                    if position is None:
+                        continue
+                    x, y, height = _toroidal_ring_3d(position[0], position[2])
+                layers.append(Geometry3DLayer(
+                    x=x, y=y, z=height, label=label if first_label else "", style=style,
+                    group=f"{group}/{index}",
+                ))
+                first_label = False
+            continue
+        positions = [_cylindrical_position(ods, f"{container}.{index}.position") for index in range(count)]
+        positions = [position for position in positions if position is not None]
+        if positions:
+            r, phi, z = (np.array(values) for values in zip(*positions))
+            x, y, height = cylindrical_to_cartesian(r, phi, z)
+            layers.append(Geometry3DLayer(
+                x=x, y=y, z=height, kind="points", label=label, style=style, group=group,
+            ))
+    return layers
+
+
+def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DLayers:
+    """Compose the machine in 3-D: wall and plasma cuts, coils, diagnostics.
+
+    Axisymmetric parts are a wireframe -- the poloidal outline at four
+    toroidal angles plus toroidal rings -- because :class:`Geometry3DLayers`
+    carries points and polylines, not surfaces.  Diagnostics appear only
+    where the ODS stores ``r``, ``phi`` and ``z``.
+    """
+    layers: list[Geometry3DLayer] = []
+    wall_style = {"color": "feature:wall", "lw": 1.0}
+    for index, outline in enumerate(_wall_layers(ods)):
+        r, z = np.asarray(outline.r, dtype=float), np.asarray(outline.z, dtype=float)
+        group = f"machine/wall/limiter {index}"
+        layers.extend(_outline_cuts_3d(r, z, label="Limiter" if index == 0 else "",
+                                       group=group, style=wall_style))
+        for where, position in (("outboard", int(np.argmax(r))), ("inboard", int(np.argmin(r)))):
+            x, y, height = _toroidal_ring_3d(r[position], z[position])
+            layers.append(Geometry3DLayer(x=x, y=y, z=height, style=wall_style,
+                                          group=f"{group}/{where} ring"))
+    labelled_pf = False
+    for index in range(_count(ods, "pf_active.coil")):
+        outlines = _element_outlines(ods, f"pf_active.coil.{index}")
+        if not outlines:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
+        # One ring per spatially separate group: an up/down pair is two rings.
+        for part, (r_group, z_group) in enumerate(_element_groups(outlines)):
+            x, y, height = _toroidal_ring_3d(float(r_group.mean()), float(z_group.mean()))
+            layers.append(Geometry3DLayer(
+                x=x, y=y, z=height, label="" if labelled_pf else "PF coils",
+                style={"color": "feature:coil", "lw": 1.2},
+                group=f"machine/pf_active/{str(name).replace('/', '-')}/{part}",
+            ))
+            labelled_pf = True
+    if _count(ods, "coils_non_axisymmetric.coil"):
+        try:
+            coils = _build_coils_non_axisymmetric_3d(ods)
+        except ValueError:
+            coils = None
+        if coils is not None:
+            layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
+    boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    if boundary_r is not None and boundary_z is not None and boundary_r.size == boundary_z.size > 2:
+        layers.extend(_outline_cuts_3d(
+            boundary_r, boundary_z, label="Plasma boundary", group="equilibrium/boundary",
+            style={"color": "feature:boundary", "lw": 1.0, "linestyle": "--"},
+        ))
+    layers.extend(_diagnostic_layers_3d(ods))
+    if not layers:
+        raise ValueError(
+            "none of the machine geometry IDS (wall, pf_active, coils_non_axisymmetric, "
+            "equilibrium boundary, diagnostics with r/phi/z) are present"
+        )
+    return Geometry3DLayers(layers=tuple(layers), title="Machine Geometry (3D)")
+
+
+def _machine_3d_reads() -> tuple[str, ...]:
+    """What :func:`_build_machine_3d` reads: the top-view positions plus their heights."""
+    reads = list(_topview_reads())
+    reads += [read[: -len(".r")] + ".z" for read in reads if read.endswith(".r")]
+    return (
+        *_WALL_LIMITER_READS, *_PF_COIL_READS, *_COIL_3D_READS,
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
+        *reads,
     )
 
 
@@ -4857,6 +5025,12 @@ RECIPES["coil_3d_geometry3d"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_3d,
     description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
     reads=_COIL_3D_READS,
+    backend=NEUTRAL,
+)
+RECIPES["machine_geometry3d"] = CallableRecipe(
+    builder=_build_machine_3d,
+    description="Wall and plasma-boundary cuts, PF rings, 3D coils and diagnostics in machine Cartesian coordinates.",
+    reads=_machine_3d_reads(),
     backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry_topview"] = CallableRecipe(

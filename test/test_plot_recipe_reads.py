@@ -35,7 +35,7 @@ NEUTRAL = frozenset({
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
     "soft_x_rays_geometry_lines_of_sight", "coil_3d_geometry3d", "coil_3d_geometry_topview",
     "pf_coil_geometry_poloidal", "passive_structure_geometry_poloidal", "machine_geometry_poloidal",
-    "equilibrium_geometry_topview", "machine_geometry_topview",
+    "equilibrium_geometry_topview", "machine_geometry_topview", "machine_geometry3d",
     "electron_temperature_field", "electron_density_field",
     "camera_visible_animation_frames", "camera_visible_spectrogram",
     "limiter_current_time", "mirnov_spatial_phase", "diagnostics_spectrum_coherence",

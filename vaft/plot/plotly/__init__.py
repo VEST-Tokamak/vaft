@@ -8,15 +8,16 @@ Matplotlib, and Plotly itself is imported only when a figure is asked for.
 
 :data:`PLOTLY_MODELS` lists the model kinds covered; a spec whose model is
 not among them is refused by :func:`vaft.plot.backends.renderer_for`.
-Geometry, 3-D geometry, images, animations, power spectra and the camera
-overlays are not covered in this first slice.
+3-D machine-coordinate geometry (:class:`~vaft.plot.models.Geometry3DLayers`)
+is drawn as ``Scatter3d`` scenes (issue #1087); 2-D geometry, images,
+animations, power spectra and the camera overlays are not covered yet.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, NamedTuple
 
-from ..models import Field2D, LineSeries, Panels, Profile1D, Spectrogram, TextPanel
+from ..models import Field2D, Geometry3DLayers, LineSeries, Panels, Profile1D, Spectrogram, TextPanel
 
 __all__ = ["PLOTLY_MODELS", "PlotlyRenderer", "renderer_for_model", "require_plotly"]
 
@@ -41,7 +42,7 @@ def require_plotly() -> Any:
 
 
 def _table() -> dict[type, PlotlyRenderer]:
-    from . import fields, lines, panels, profiles, spectrograms, text
+    from . import fields, geometry, lines, panels, profiles, spectrograms, text
 
     return {
         LineSeries: PlotlyRenderer(lines.render_line_series, lines.add_line_series),
@@ -50,6 +51,7 @@ def _table() -> dict[type, PlotlyRenderer]:
         Spectrogram: PlotlyRenderer(spectrograms.render_spectrogram, spectrograms.add_spectrogram),
         TextPanel: PlotlyRenderer(text.render_text_panel, text.add_text_panel),
         Panels: PlotlyRenderer(panels.render_panels, panels.add_panels),
+        Geometry3DLayers: PlotlyRenderer(geometry.render_geometry_3d_layers, geometry.add_geometry_3d_layers),
     }
 
 

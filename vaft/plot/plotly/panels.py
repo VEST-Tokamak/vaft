@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import Panels
+from ..models import Geometry3DLayers, Panels
 from . import PLOTLY_MODELS, require_plotly
 
 __all__ = ["add_panels", "render_panels"]
@@ -23,8 +23,11 @@ def _cells(model: Panels) -> list[tuple[int, int, int, int]]:
 
 def _specs(model: Panels, cells: list[tuple[int, int, int, int]]) -> list[list[Any]]:
     specs: list[list[Any]] = [[None] * model.ncols for _ in range(model.nrows)]
-    for row, col, rowspan, colspan in cells:
+    for (row, col, rowspan, colspan), member in zip(cells, model.models):
         specs[row][col] = {"rowspan": rowspan, "colspan": colspan}
+        if isinstance(member, Geometry3DLayers):
+            # A 3-D member needs a scene cell, not x/y axes.
+            specs[row][col]["type"] = "scene"
     return specs
 
 
