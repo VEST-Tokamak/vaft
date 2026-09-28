@@ -163,6 +163,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
+    # Operational boundaries (#1067): every published limit is called and
+    # checked against its source's numbers and its permitted side. Pure NumPy.
+    "test_formula_boundaries.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
