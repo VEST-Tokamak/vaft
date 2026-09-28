@@ -761,8 +761,11 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ``indentation = 0``; the process layer's ``evaluate_miller`` evaluates
     this same function. The indentation term
     $g(\theta) = \sin^2\theta\cos\theta$ vanishes at the outboard and
-    inboard midplanes and at the top and bottom, so it leaves the minor radius,
-    the elongation and the triangularity where they were.
+    inboard midplanes and at the top and bottom, so $r$, $\kappa$ and
+    $\delta$ keep their cardinal-point definitions; the geometric elongation
+    and triangularity of the whole contour do move with $b$. Nothing keeps
+    $R$ positive: a large $b$ on a small major radius can push the inboard
+    shoulders through the axis, as a large $r$ always could.
 
     Physical interpretation
     -----------------------
@@ -780,8 +783,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ----------
     .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
            R. E. Waltz, Phys. Plasmas 5, 973 (1998).
-    .. [2] The indentation term and its bean-onset criterion follow VAFT issue
-           #941, for the bean-shaped plasmas of PBX/PBX-M.
+    .. [2] The indentation term and its bean-onset criterion are VAFT's own
+           (issue #941), for the bean-shaped plasmas of PBX/PBX-M.
     """
     kappa = np.asarray(kappa, dtype=float)
     delta = np.asarray(delta, dtype=float)

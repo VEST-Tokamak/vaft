@@ -98,3 +98,35 @@ def test_indentation_is_opt_in():
     assert default.surface.indentation == 0.0
     assert not default.accepted                       # a bean is not five-parameter Miller-like
     assert fit_miller_surface(bean, indentation=True).accepted
+
+
+def test_default_fit_is_unchanged_by_the_indentation_work():
+    """Pinned from origin/develop before #941 (bit-identical there on macOS)."""
+    rng = np.random.default_rng(7)
+    theta = np.linspace(0, 2*np.pi, 300, endpoint=False)
+    r, z = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32), theta)
+    r = r + 1e-3*rng.standard_normal(r.size); z = z + 1e-3*rng.standard_normal(z.size)
+    s = fit_miller_surface((r, z)).surface
+    expected = (0.21998494211178976, 0.8997816786170715, -0.030157138796743203, 1.700347712135167, 0.31878788793594054)
+    np.testing.assert_allclose((s.r, s.r0, s.z0, s.kappa, s.delta), expected, rtol=1e-9)
+    assert s.zeta == 0.0 and s.indentation == 0.0
+
+
+def test_bean_residuals_are_orthogonal_to_the_fitted_curve():
+    """A wrong g' or g'' in the Newton projection would tilt these away from the normal."""
+    rng = np.random.default_rng(3)
+    truth = _surface(indentation=0.5)
+    r, z = evaluate_miller(truth, THETA)
+    r = r + 5e-4*rng.standard_normal(r.size); z = z + 5e-4*rng.standard_normal(z.size)
+    fit = fit_miller_surface((r, z), indentation=True)
+    dense = np.linspace(0, 2*np.pi, 200000, endpoint=False)
+    curve = np.column_stack(evaluate_miller(fit.surface, dense))
+    tangent = np.gradient(curve, axis=0)
+    tangent /= np.linalg.norm(tangent, axis=1)[:, None]
+    from scipy.spatial import cKDTree
+    index = cKDTree(curve).query(fit.reconstructed.points)[1]
+    residual = fit.contour.points - fit.reconstructed.points
+    length = np.linalg.norm(residual, axis=1)
+    keep = length > 1e-4
+    cosine = np.abs(np.sum(residual[keep]*tangent[index[keep]], axis=1)) / length[keep]
+    assert np.max(cosine) < 0.02

@@ -1113,7 +1113,8 @@ def fit_miller_surface(
     4. Score with a symmetric distance: contour-to-model and model-to-contour,
        giving a root-mean-square, a maximum, and a Hausdorff distance.
     5. Reject, in order, a surface too near the boundary, a surface near an
-       X-point, a residual over the threshold, or a solve that did not converge.
+       X-point, a fitted indentation that makes the surface cross itself, a
+       residual over the threshold, or a solve that did not converge.
 
     Defaults
     --------
@@ -1121,7 +1122,9 @@ def fit_miller_surface(
     physical constant: two percent of the minor radius is where a fitted surface
     stops being a useful stand-in for the traced one.  The parameter bounds,
     elongation in 0.05 to 10 and triangularity within 0.999, are numerical
-    conveniences that keep the solve inside the parameterization's own domain.
+    conveniences that keep the solve inside the parameterization's own domain;
+    so is the indentation box of -0.95 to 2, whose delta-dependent lower limit
+    is enforced after the solve instead.
 
     Convention
     ----------
@@ -1211,16 +1214,18 @@ def fit_miller_surface(
             # The indentation g = sin^2 cos enters R, with g' = sin (3 cos^2 - 1)
             # and g'' = cos (9 cos^2 - 7); leaving it out of R' and R'' would
             # break the orthogonal projection the same way as for squareness.
-            sin_t, cos_t = np.sin(local_theta), np.cos(local_theta)
-            g = sin_t**2*cos_t
-            g_prime = sin_t*(3*cos_t**2-1)
-            g_second = cos_t*(9*cos_t**2-7)
-            points = np.column_stack((params[0]+params[2]*(np.cos(angle)+bean*g), params[1]+params[3]*params[2]*np.sin(vertical)))
-            first = np.column_stack((-params[2]*(np.sin(angle)*angle_prime-bean*g_prime), params[3]*params[2]*np.cos(vertical)*vertical_prime))
+            points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(vertical)))
+            first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(vertical)*vertical_prime))
             second = np.column_stack((
-                -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second-bean*g_second),
+                -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second),
                 params[3]*params[2]*(np.cos(vertical)*vertical_second-np.sin(vertical)*vertical_prime**2),
             ))
+            if bean != 0.0:
+                # Added separately so a fit without indentation is the old fit to the bit.
+                sin_t, cos_t = np.sin(local_theta), np.cos(local_theta)
+                points[:, 0] += params[2]*bean*sin_t**2*cos_t
+                first[:, 0] += params[2]*bean*sin_t*(3*cos_t**2-1)
+                second[:, 0] += params[2]*bean*cos_t*(9*cos_t**2-7)
             delta_points = points-observed_points
             numerator = np.sum(delta_points*first, axis=1)
             denominator = np.sum(first*first+delta_points*second, axis=1)
