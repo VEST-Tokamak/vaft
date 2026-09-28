@@ -12,6 +12,8 @@ global-exclude *.py[cod]
 global-exclude ._*
 
 include vaft/data/*.py
+# Public-database readers; the databases themselves are fetched, never shipped.
+include vaft/data/public/*.py
 include vaft/data/geometry/Coil_info.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
