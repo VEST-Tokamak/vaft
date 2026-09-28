@@ -40,6 +40,7 @@ _SUBMODULES = {
     "ripple": ".ripple",
     "disruption": ".disruption",
     "waves": ".waves",
+    "vde": ".vde",
     "pwi": ".pwi",
 }
 
@@ -68,6 +69,7 @@ _IMPORT_ORDER = (
     "ripple",
     "disruption",
     "waves",
+    "vde",
     "pwi",
 )
 
