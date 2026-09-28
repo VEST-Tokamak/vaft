@@ -97,6 +97,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "waves": 6,  # cold-plasma frequencies, Stix parameters, n^2 roots, CMA, regime (#1113)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

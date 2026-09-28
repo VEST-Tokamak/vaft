@@ -708,6 +708,41 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram
+
+Each diagram is drawn from the cold-plasma equations in `vaft.formula.waves`:
+- `plasma_frequency`;
+- `stix_parameters`, giving $R, L, S, D, P$ with the signed cyclotron frequency, so $\Omega_e < 0$;
+- `cold_plasma_refractive_index_squared`, the two roots of $An^4 - Bn^2 + C = 0$;
+- `perpendicular_refractive_index_squared`, giving $n_O^2 = P$ and $n_X^2 = RL/S$;
+- `cma_coordinates`, giving $X = \omega_{pe}^2/\omega^2$ and $Y = |\Omega_e|/\omega$;
+- `propagation_regime`, which classifies propagating, evanescent, cutoff and resonance.
+
+Boundaries are zeros or poles of the Stix parameters, located by bracketing the formulas; no closed form
+is typed into a drawing. The $\pm$ roots are algebraic branches, not mode names, so O/X and R/L are named
+only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons only, ions immobile:
+the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
+scope.
+
+```python
+vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
+vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
+vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
+vaft.diagram.profile_propagation()                            # layers along an example midplane
+```
+
+| | |
+| --- | --- |
+| ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
+| ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `o_mode_cutoff` | Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$ |
+| `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
+| `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
+| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$ for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

@@ -123,6 +123,10 @@ __all__ = [
     "spectroscopy_transitions",
     "spectroscopy_energy_levels",
     "spectroscopy_spectrum",
+    "o_mode_cutoff",
+    "x_mode_dispersion",
+    "cma_diagram",
+    "profile_propagation",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -209,6 +213,10 @@ _LOCATIONS = {
     "spectroscopy_transitions": "._spectroscopy",
     "spectroscopy_energy_levels": "._spectroscopy",
     "spectroscopy_spectrum": "._spectroscopy",
+    "o_mode_cutoff": "._cold_plasma_waves",
+    "x_mode_dispersion": "._cold_plasma_waves",
+    "cma_diagram": "._cold_plasma_waves",
+    "profile_propagation": "._cold_plasma_waves",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

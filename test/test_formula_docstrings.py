@@ -70,6 +70,13 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
+    "plasma_frequency",
+    "stix_parameters",
+    "cold_plasma_refractive_index_squared",
+    "perpendicular_refractive_index_squared",
+    "cma_coordinates",
+    "propagation_regime",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
