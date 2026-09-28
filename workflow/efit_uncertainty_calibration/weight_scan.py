@@ -13,9 +13,20 @@ comparison only.
 
 Stage 1 (``--stage 1``): three bases x five diamagnetic sigma, probe and loop
 sigma held near the calibration's best point.  Stage 2 grids probe x loop x
-diamagnetic sigma over the region stage 1 passes (``--settings`` JSON).
+diamagnetic sigma (kept for reproducibility).  Stage 3, the study's rule:
+basis x diamagnetic sigma x Ip sigma are gridded, and in each cell the probe
+and loop sigma are solved for self-consistently -- ``m <- m sqrt(median
+chi2r)`` per family over the admissible slices until the medians sit in the
+calibration band -- instead of being gridded.
 
-    python workflow/efit_uncertainty_calibration/weight_scan.py --stage 1 \
+Slices run in parallel (``--workers``, default 24): one task per slice, its
+constraints built once and its settings run in turn.  Workers cannot share
+the running initialization baseline, so the cold-start contract is enforced
+when their records are merged (``check_fingerprints``).  EFIT's own MPI would
+split the slices of one call; with one slice per call the process pool is the
+same parallelism without coupling the runs.
+
+    python workflow/efit_uncertainty_calibration/weight_scan.py --stage 3 --workers 24 \
         --output /scratch/weights --table /scratch/weights/weight_scan.json
 """
 
@@ -25,6 +36,7 @@ import argparse
 import copy
 import importlib.util
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -241,107 +253,266 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
     return out, baseline
 
 
+# --------------------------------------------------------------------------
+# Stage 3: probe and loop sigma found self-consistently, not gridded
+# --------------------------------------------------------------------------
+
+#: The axes that need a judgement; probe and loop sigma are solved for.
+#: Ip sigma 5 %, 20 %, 50 % (x1, x4, x10): in the ramp-up the closed-surface
+#: current can be 30-80 % of the measured Ip.
+STAGE3_BASES = ((1, 1), (2, 1), (1, 2))
+STAGE3_DIA = (16, 64, None)
+STAGE3_IP = (1.0, 4.0, 10.0)
+STAGE3_START = {"probe": 4.0, "loop": 1.0}
+STAGE3_ROUNDS = 4
+MULTIPLIER_CLAMP = (0.5, 64.0)
+
+
+def _round3(value: float) -> float:
+    return float(f"{value:.3g}")
+
+
+def next_multipliers(current: Mapping[str, float], medians: Mapping[str, float],
+                     clamp: Sequence[float] = MULTIPLIER_CLAMP) -> dict[str, float]:
+    """One self-consistency step: ``m <- m * sqrt(median chi2r)`` per family.
+
+    A family's reduced chi-square scales as ``1/m**2`` at fixed residuals, so
+    this sends it to 1 in one step when the residuals do not move and in a
+    few when they do.  A family with no finite median keeps its multiplier.
+    Rounded to three significant figures so names stay stable across rounds.
+    """
+    low, high = clamp
+    out = {}
+    for family, m in current.items():
+        chi = medians.get(family, float("nan"))
+        step = m * math.sqrt(chi) if chi is not None and math.isfinite(chi) and chi > 0 else m
+        out[family] = _round3(min(max(step, low), high))
+    return out
+
+
+def stage3_cells() -> list[dict[str, Any]]:
+    """The gridded axes; each cell carries its own probe/loop multipliers."""
+    return [
+        {"basis": list(basis), "dia": dia, "ip": ip, "floor": STAGE1_FLOOR}
+        for basis in STAGE3_BASES for dia in STAGE3_DIA for ip in STAGE3_IP
+    ]
+
+
+def cell_setting(cell: Mapping[str, Any], multipliers: Mapping[str, float]) -> dict[str, Any]:
+    probe, loop = multipliers["probe"], multipliers["loop"]
+    return {
+        "name": setting_name(cell["basis"], probe, loop, cell["dia"], cell["floor"], cell["ip"]),
+        "basis": list(cell["basis"]), "probe": probe, "loop": loop, "dia": cell["dia"],
+        "ip": cell["ip"], "floor": cell["floor"],
+    }
+
+
+def check_fingerprints(records: Sequence[Mapping[str, Any]]) -> str | None:
+    """Every non-reference record started from one initial state, or raise.
+
+    Workers cannot share a running baseline, so the cold-start contract is
+    checked when their records are merged.
+    """
+    seen = {r.get("fingerprint") for r in records
+            if r.get("setting") != "routine" and "error" not in r and r.get("fingerprint")}
+    if len(seen) > 1:
+        raise RuntimeError(f"runs started from {len(seen)} different initial states: {sorted(seen)}")
+    return next(iter(seen), None)
+
+
+# --------------------------------------------------------------------------
+# Running: one task per slice, slices in parallel
+# --------------------------------------------------------------------------
+
+_CONTEXT: dict[str, Any] = {}
+
+
+def _context(efit_home: str | None) -> dict[str, Any]:
+    """Modules and paths a worker needs, loaded once per process."""
+    if _CONTEXT:
+        return _CONTEXT
+    if efit_home:
+        os.environ["EFITHOME"] = str(Path(efit_home).expanduser())
+    study = calibration._module(calibration.CONVERGENCE_STUDY, "convergence_study")
+    from vaft.code.efit.toolchain import resolve_toolchain
+    from vaft.data.resources import data_path
+
+    resolved = resolve_toolchain()
+    reference = json.loads(calibration.REFERENCE_SET.read_text(encoding="utf-8"))
+    _CONTEXT.update(
+        study=study,
+        seed_study=study._module(study.SEED_STUDY, "seed_basin"),
+        wrapper=study._module(
+            REPOSITORY / "workflow" / "automatic_pipeline_1_routine_data_processing" / "generate_constraints_ods.py",
+            "generate_constraints_ods_wrapper",
+        ),
+        thomson_check=_module(REPOSITORY / "workflow" / "efit_diamagnetic_weight" / "thomson_pressure_check.py",
+                              "thomson_pressure_check"),
+        resolved=resolved,
+        efit=resolved.get("efit"),
+        tables=str(Path(data_path("efit")).resolve()) + "/",
+        products={int(i["shot"]): Path(data_path(i["files"]["product"]["path"])) for i in reference["shots"]
+                  if i["files"]["product"] and i["files"]["product"]["exists"]},
+        diagnostics={},
+    )
+    return _CONTEXT
+
+
+def process_slice(task: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Every setting on one (shot, time) slice; resumable from its checkpoint."""
+    ctx = _context(task["efit_home"])
+    study, shot, time = ctx["study"], int(task["shot"]), float(task["time"])
+    settings, output = task["settings"], Path(task["output"])
+    tag = f"t{round(time * 1e6):07d}"
+    checkpoint = output / f"shot_{shot}" / tag / "records.json"
+    names = [s["name"] for s in settings]
+    if checkpoint.is_file():
+        saved = json.loads(checkpoint.read_text())
+        if saved.get("settings") == names:
+            return saved["records"]
+    if shot not in ctx["diagnostics"]:
+        ctx["diagnostics"][shot] = ctx["thomson_check"].thomson_diagnostics(shot)
+    try:
+        built, chosen = study.prepare_constraints(
+            shot, ctx["products"][shot], [time], workdir=output / f"shot_{shot}" / tag / "constraints",
+            tables=ctx["tables"], tstep=0.001, average_window=0.0005, seed_study=ctx["seed_study"],
+        )
+    except Exception as error:
+        print(f"{shot}@{tag}: constraints failed: {error!r}", flush=True)
+        return []
+    records, baseline = [], None
+    for setting in settings:
+        try:
+            record, baseline = run_slice(study, built, shot=shot, chosen=chosen, setting=setting, output=output,
+                                         efit=str(ctx["efit"]), diagnostics=ctx["diagnostics"][shot],
+                                         thomson_check=ctx["thomson_check"], baseline=baseline)
+        except RuntimeError:
+            raise  # a refused initialization is a contract violation, not a slice result
+        except Exception as error:
+            record = {"setting": setting["name"], "shot": shot, "time_ms": round(time * 1e3), "error": repr(error)}
+        for key in ("round",):
+            if key in task:
+                record[key] = task[key]
+        records.append(record)
+        good = (record.get("evaluation") or {}).get("good")
+        print(f"{shot}@{record['time_ms']} {setting['name']}: {record.get('exit_path')} good={good}", flush=True)
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint.write_text(json.dumps({"settings": names, "baseline": baseline, "records": records},
+                                     default=study._json_default))
+    return records
+
+
+def slice_times(shots: Sequence[int], times_ms: set[int] | None, efit_home: str | None) -> list[tuple[int, float]]:
+    ctx = _context(efit_home)
+    out = []
+    for shot in shots:
+        ods = ctx["seed_study"].load_product(ctx["products"][shot])
+        times, _ = ctx["wrapper"]._select_times(ods, "auto", 0.001, None, None)
+        out.extend((shot, float(t)) for t in times if times_ms is None or round(float(t) * 1e3) in times_ms)
+    return out
+
+
+def run_all(slices, settings, output: Path, *, workers: int, efit_home: str | None, extra=None) -> list[dict[str, Any]]:
+    """Every setting on every slice, ``workers`` slices at a time."""
+    tasks = [{"shot": shot, "time": time, "settings": settings, "output": str(output), "efit_home": efit_home,
+              **(extra or {})} for shot, time in slices]
+    if workers <= 1:
+        results = [process_slice(task) for task in tasks]
+    else:
+        import multiprocessing
+        from concurrent.futures import ProcessPoolExecutor
+
+        with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("fork")) as pool:
+            results = list(pool.map(process_slice, tasks))
+    return [record for batch in results for record in batch]
+
+
+def _write(table: Path, payload: Mapping[str, Any], study) -> None:
+    table.parent.mkdir(parents=True, exist_ok=True)
+    table.write_text(json.dumps(payload, indent=1, default=study._json_default) + "\n")
+    print(f"wrote {table}", flush=True)
+
+
+def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None) -> dict[str, Any]:
+    """Probe/loop multipliers per cell by self-consistency, all cells a round at a time."""
+    cells = stage3_cells()
+    state = [{"cell": c, "multipliers": dict(STAGE3_START), "done": False, "history": []} for c in cells]
+    records: list[dict[str, Any]] = []
+    for round_index in range(STAGE3_ROUNDS):
+        active = [s for s in state if not s["done"]]
+        if not active:
+            break
+        settings = ([{"name": "routine", "routine": True}] if round_index == 0 else []) + [
+            cell_setting(s["cell"], s["multipliers"]) for s in active
+        ]
+        batch = run_all(slices, settings, output / f"round{round_index}", workers=workers,
+                        efit_home=efit_home, extra={"round": round_index})
+        check_fingerprints(records + batch)
+        records.extend(batch)
+        for s in active:
+            name = cell_setting(s["cell"], s["multipliers"])["name"]
+            calibration_now = criteria.setting_calibration([r for r in batch if r.get("setting") == name
+                                                            and "error" not in r])
+            medians = {f: v["median_reduced_chi2"] for f, v in calibration_now["families"].items()}
+            s["history"].append({"round": round_index, "setting": name, "multipliers": dict(s["multipliers"]),
+                                 "calibration": calibration_now})
+            if calibration_now["calibrated"]:
+                s["done"] = True
+            else:
+                s["multipliers"] = next_multipliers(s["multipliers"], medians)
+            print(f"round {round_index} {name}: {medians} -> {s['multipliers']} done={s['done']}", flush=True)
+    return {"cells": state, "records": records}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--table", required=True, type=Path)
     parser.add_argument("--stage", type=int, default=1)
-    parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 2)")
+    parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 1/2 only)")
     parser.add_argument("--shots", default="39915,41524,41672")
     parser.add_argument("--times", default=None, help="comma-separated ms subset (smoke runs)")
+    parser.add_argument("--workers", type=int, default=24, help="slices run at once (1 = serial)")
     parser.add_argument("--efit-home", default=None)
     args = parser.parse_args(argv)
 
-    if args.efit_home:
-        os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
-    study = calibration._module(calibration.CONVERGENCE_STUDY, "convergence_study")
-    seed_study = study._module(study.SEED_STUDY, "seed_basin")
-    wrapper = study._module(
-        REPOSITORY / "workflow" / "automatic_pipeline_1_routine_data_processing" / "generate_constraints_ods.py",
-        "generate_constraints_ods_wrapper",
-    )
-    thomson_check = _module(REPOSITORY / "workflow" / "efit_diamagnetic_weight" / "thomson_pressure_check.py",
-                            "thomson_pressure_check")
-    from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
-    from vaft.data.resources import data_path
-
-    resolved = resolve_toolchain()
-    efit = resolved.get("efit")
-    if efit is None:
+    ctx = _context(args.efit_home)
+    if ctx["efit"] is None:
         print("no efit executable: set EFITHOME", file=sys.stderr)
         return 2
-    if args.settings:
-        settings = json.loads(args.settings.read_text())
-    else:
-        settings = {1: stage1_settings, 2: stage2_settings}[args.stage]()
-    tables = str(Path(data_path("efit")).resolve()) + "/"
-    reference = json.loads(calibration.REFERENCE_SET.read_text(encoding="utf-8"))
-    products = {int(i["shot"]): i["files"]["product"]["path"] for i in reference["shots"]
-                if i["files"]["product"] and i["files"]["product"]["exists"]}
+    from vaft.code.efit.toolchain import toolchain_identities
+
     output = args.output.expanduser()
     output.mkdir(parents=True, exist_ok=True)
+    times_ms = {int(t) for t in args.times.split(",")} if args.times else None
+    slices = slice_times([int(s) for s in args.shots.split(",")], times_ms, args.efit_home)
+    print(f"{len(slices)} slices, {args.workers} workers", flush=True)
 
-    baseline: str | None = None
-    records: list[dict[str, Any]] = []
-    for shot in [int(s) for s in args.shots.split(",")]:
-        product = Path(data_path(products[shot]))
-        ods = seed_study.load_product(product)
-        times, _ = wrapper._select_times(ods, "auto", 0.001, None, None)
-        if args.times:
-            wanted = {int(t) for t in args.times.split(",")}
-            times = [t for t in times if round(float(t) * 1e3) in wanted]
-        diagnostics = thomson_check.thomson_diagnostics(shot)
-        for time in times:
-            tag = f"t{round(float(time) * 1e6):07d}"
-            checkpoint = output / f"shot_{shot}" / tag / "records.json"
-            if checkpoint.is_file():
-                saved = json.loads(checkpoint.read_text())
-                if saved.get("settings") == [s["name"] for s in settings]:
-                    records.extend(saved["records"])
-                    baseline = saved.get("baseline") or baseline
-                    print(f"{shot}@{tag}: resumed", flush=True)
-                    continue
-            try:
-                built, chosen = study.prepare_constraints(
-                    shot, product, [time], workdir=output / f"shot_{shot}" / tag / "constraints", tables=tables,
-                    tstep=0.001, average_window=0.0005, seed_study=seed_study,
-                )
-            except Exception as error:
-                print(f"{shot}@{tag}: constraints failed: {error!r}", flush=True)
-                continue
-            slice_records = []
-            for setting in settings:
-                try:
-                    record, baseline = run_slice(study, built, shot=shot, chosen=chosen, setting=setting,
-                                                 output=output, efit=str(efit), diagnostics=diagnostics,
-                                                 thomson_check=thomson_check, baseline=baseline)
-                except RuntimeError:
-                    raise  # a refused initialization is a contract violation, not a slice result
-                except Exception as error:
-                    record = {"setting": setting["name"], "shot": shot, "time_ms": round(float(time) * 1e3),
-                              "error": repr(error)}
-                slice_records.append(record)
-                good = (record.get("evaluation") or {}).get("good")
-                print(f"{shot}@{record['time_ms']} {setting['name']}: {record.get('exit_path')} good={good}", flush=True)
-            checkpoint.parent.mkdir(parents=True, exist_ok=True)
-            checkpoint.write_text(json.dumps({"settings": [s["name"] for s in settings], "baseline": baseline,
-                                              "records": slice_records}, default=study._json_default))
-            records.extend(slice_records)
-
-    summary = criteria.summarize([r for r in records if "error" not in r])
-    payload = {
+    payload: dict[str, Any] = {
         "schema_version": SCHEMA, "stage": args.stage,
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "toolchain": toolchain_identities(resolved), "tables": tables,
-        "criteria": criteria.CRITERIA, "settings": settings,
-        "initialization_fingerprint": baseline, "summary": summary, "records": records,
+        "toolchain": toolchain_identities(ctx["resolved"]), "tables": ctx["tables"],
+        "criteria": criteria.CRITERIA, "workers": args.workers,
     }
-    table = args.table.expanduser()
-    table.parent.mkdir(parents=True, exist_ok=True)
-    table.write_text(json.dumps(payload, indent=1, default=study._json_default) + "\n")
-    print(f"wrote {table}")
-    for row in sorted(summary, key=lambda r: -criteria.good_fraction(r)):
-        print(f"{row['setting']:48s} good {row['good']}/{row['slices']}")
+    if args.stage == 3:
+        result = run_stage3(slices, output, workers=args.workers, efit_home=args.efit_home)
+        records = result["records"]
+        payload.update(cells=result["cells"])
+    else:
+        settings = (json.loads(args.settings.read_text()) if args.settings
+                    else {1: stage1_settings, 2: stage2_settings}[args.stage]())
+        records = run_all(slices, settings, output, workers=args.workers, efit_home=args.efit_home)
+        payload.update(settings=settings)
+    payload.update(
+        initialization_fingerprint=check_fingerprints(records),
+        summary=criteria.summarize([r for r in records if "error" not in r]),
+        records=records,
+    )
+    _write(args.table.expanduser(), payload, ctx["study"])
+    for row in sorted(payload["summary"], key=lambda r: -criteria.good_fraction(r)):
+        cal = row["calibration"]
+        chis = "/".join(f"{v['median_reduced_chi2']:.2f}" for v in cal["families"].values())
+        print(f"{row['setting']:60s} good {row['good']}/{row['slices']} chi2r {chis} calibrated={cal['calibrated']}")
     return 0
 
 

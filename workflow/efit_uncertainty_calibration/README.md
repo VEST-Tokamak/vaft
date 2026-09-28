@@ -76,3 +76,65 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
 1. **Decouple the families.** Run a 2-D probe × loop ladder, or a loop σ fixed near ×1–×2 while the probes scan. Both the probe and the loop χ²r can only reach [0.5, 5] if they are widened independently.
 2. **Treat 41672 @ 342's `findax` failure as a separate defect,** with the same class as the 46091 `bound` failures. Also report the range over the other 8 slices, stated as such.
 3. **The 5–9 cm displacement from the legacy-weight branch** is the headline for #924 and for downstream consumers. It needs to be measured against the routine (2,2) products, and checked against an independent boundary measurement (for example a camera or limiter contact), before any production σ is adopted.
+
+## Weight study with the diamagnetic flux fitted: the study's rules (stage 2 onward)
+
+`weight_scan.py` runs every constraint time of 39915, 41524 and 41672 (89 slices) under each setting and judges each slice with `criteria.py`. The diamagnetic flux became fittable once #1196 corrected its sign. These rules were adopted on 2026-09-28 and are the rules the study reports against.
+
+### Per slice
+
+1. **Admissible.** This is a veto: a slice that fails it is not a reconstruction, whatever its χ². It must meet all of:
+   - converged, with p ≥ 0 everywhere;
+   - βp > 0 and W > 0;
+   - q95 > 2;
+   - **0.3 ≤ Ip_MHD / Ip_measured ≤ 1.03**. In the ramp-up the current on closed flux surfaces can be only 30–80 % of the Rogowski's Ip. An earlier convergence study that lowered the Ip input showed it. So the reconstruction may fall well short of the measurement but not exceed it. This band is to be revisited on the results.
+2. **Measurement.** Each family is judged against the σ EFIT fitted with.
+   - **Probes and flux loops:** reduced χ² in [0.5, 2].
+   - **Ip and the diamagnetic flux:** one channel each, judged by **|z| ≤ 2**. A single channel's χ² is one z². Even with the right σ it lands in [0.5, 2] only 32 % of the time, and two such families together only 10 %.
+   - **PF currents:** reported, not graded. They are fitted against a 10⁻⁴ relative σ.
+   - A family the setting holds inactive is not graded.
+3. **Virial.** |ln(βp from the pressure integral / βp from the pair_13 closure)| ≤ ln 2.
+   - pair_13 is the RT-free closure. The others are ill-conditioned at VEST's aspect ratio (#649).
+   - The slice is **indeterminate**, not failed, when the pair_13 denominator is below 0.1 or when either βp is ≤ 0. The admissibility veto catches the second case.
+4. **Grad–Shafranov.** Relative residual ≤ 0.05. The threshold is provisional.
+5. **Thomson.** This applies only where Thomson samples lie in the slice window, which today means 39915 at 308–317 ms.
+   - Thomson measures electrons, so p_e is a lower bound on the total pressure. Three times p_e bounds any credible ion and impurity share.
+   - The band is therefore **p_e ≤ p_recon ≤ 3 p_e**, i.e. ln(Σp_e / Σp_recon) ∈ [−ln 3, 0].
+
+A slice is **good** when it is admissible and no other criterion fails. A criterion that cannot be evaluated on a slice is reported and never counted against it.
+
+### Per setting: the σ is calibrated, not gridded
+
+**Stage 3 (`--stage 3`) grids only the axes that need a judgement:**
+- profile basis (1,1), (2,1), (1,2);
+- diamagnetic σ ×16, ×64 or off, relative to its stored 3 %. At ×1–×4 EFIT does not solve;
+- Ip σ ×1, ×4, ×10, i.e. 5 %, 20 %, 50 %.
+
+**The probe and loop σ are solved for in each cell:**
+- Start at probe ×4 and loop ×1, with a 2 % floor.
+- After each sweep, update m ← m·√(median χ²r) per family. The median is over the admissible slices, or over the converged ones if none is admissible.
+- Stop when both medians lie in **[0.8, 1.25]**, or after four rounds.
+- At fixed residuals χ²r scales as 1/m², so one step suffices; a few are needed when the fit moves.
+
+The record keeps every round.
+
+### How it runs
+
+- **Parallelism.** Slices run in parallel (`--workers`, 24 on vestserver, which leaves 8 of 32 cores to the HSDS pipeline).
+  - Each task is one slice: its constraints are built once, then its settings run in turn. The per-slice checkpoint makes a run resumable.
+  - The cold-start contract still holds. Every non-reference run must start from one initialization fingerprint. Workers cannot share the running baseline, so the fingerprints are checked when the records are merged, and a disagreement aborts the run.
+- **What was measured, and what was ruled out.** Stage 2 took ~9 s per run on one core, and ~97 % of it was EFIT.
+  - EFIT's MPI splits the time slices of one call. With one slice per call, a process pool gives the same parallelism without coupling runs.
+  - Moving to Python 3.14 would change the ~4 % spent in Python, not the EFIT.
+
+### Stages 1 and 2, as run
+
+**Stage 1** (2026-09-28, 1,424 runs):
+- **Setup:** three bases × diamagnetic σ ×1/×4/×16/×64/off, probe ×16 and loop ×2.
+- **Result:** no good slice under the old rules.
+- **What it showed:**
+  - The diamagnetic row is unsolvable at ×1–×4.
+  - Probe χ²r was about 0.1 and loop χ²r about 0.3, so both σ were too wide.
+  - The routine reconstruction is admissible but 2–4.5× below p_e on the Thomson slices.
+
+**Stage 2** (probe × loop × diamagnetic × Ip σ, 49 settings) was stopped after 478 of 4,361 runs. It still used the per-slice chi-square band on single channels.

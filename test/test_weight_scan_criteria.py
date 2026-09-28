@@ -35,8 +35,8 @@ def _good_record(**overrides):
         "setting": "s", "converged": True, "pressure_min": 0.0, "ip_measured": 80.0e3,
         "scalars": {"betap": 0.2, "wmhd": 150.0, "q95": 6.0, "ipmhd": 80.5e3},
         "fit": {"probe_n": 60, "probe_reduced_chi2": 1.0, "loop_n": 11, "loop_reduced_chi2": 0.8,
-                "ip_n": 1, "ip_reduced_chi2": 0.3 + 0.4, "pf_n": 16, "pf_reduced_chi2": 50.0,
-                "dia_n": 1, "dia_reduced_chi2": 1.2},
+                "ip_n": 1, "ip_chi2": 0.7, "ip_reduced_chi2": 0.7, "pf_n": 16, "pf_reduced_chi2": 50.0,
+                "dia_n": 1, "dia_chi2": 1.2, "dia_reduced_chi2": 1.2},
         "virial": {"beta_p_integral": 0.2, "beta_p_pair_13": 0.25, "denominator_pair_13": 1.7},
         "gs": {"whole": 0.005},
         "thomson": {"log_ratio": math.log(1 / 2.0)},
@@ -134,3 +134,73 @@ def test_stage2_grids_probe_loop_dia_basis_and_both_ip_sigmas(scan):
     assert len(two_percent) == 24 and all("_ip_x0.4_" in s["name"] for s in two_percent)
     # 5 % / 0.4 = 2 %: a multiplier below one narrows the sigma.
     assert scan.uncertainty_scales(two_percent[0])["plasma_current"] == pytest.approx(2.5)
+
+
+# --- the study rules adopted 2026-09-28 ---------------------------------------
+
+def test_single_channel_families_are_judged_by_z_not_by_a_chi2_band(criteria):
+    """One channel's chi-square is one z**2: z = 0.3 is a perfectly good fit that
+    the old (0.5, 2) band on chi2r = 0.09 would have failed."""
+    record = _good_record()
+    record["fit"] = dict(record["fit"], ip_chi2=0.09, ip_reduced_chi2=0.09, dia_chi2=3.9, dia_reduced_chi2=3.9)
+    verdict = criteria.measurement(record)
+    assert verdict["status"] == "pass"
+    assert verdict["families"]["ip"]["z"] == pytest.approx(0.3)
+    record["fit"] = dict(record["fit"], dia_chi2=4.41, dia_reduced_chi2=4.41)
+    verdict = criteria.measurement(record)
+    assert verdict["status"] == "fail" and verdict["reasons"] == ["dia |z| 2.1"]
+
+
+@pytest.mark.parametrize("ratio, status", [(0.5, "pass"), (0.3, "pass"), (1.03, "pass"), (0.25, "fail"), (1.05, "fail")])
+def test_the_ip_ratio_band_admits_a_ramp_up_closed_surface_current_below_the_rogowski(criteria, ratio, status):
+    scalars = {"betap": 0.2, "wmhd": 150.0, "q95": 6.0, "ipmhd": ratio * 80.0e3}
+    assert criteria.admissible(_good_record(scalars=scalars))["status"] == status
+
+
+def test_setting_calibration_is_the_median_over_admissible_slices(criteria):
+    records = [_good_record(), _good_record(), _good_record(pressure_min=-1.0)]
+    records[0]["fit"] = dict(records[0]["fit"], probe_reduced_chi2=0.9, loop_reduced_chi2=1.1)
+    records[1]["fit"] = dict(records[1]["fit"], probe_reduced_chi2=1.1, loop_reduced_chi2=1.2)
+    records[2]["fit"] = dict(records[2]["fit"], probe_reduced_chi2=50.0, loop_reduced_chi2=50.0)
+    result = criteria.setting_calibration(records)
+    assert result["over"] == "admissible" and result["slices"] == 2
+    assert result["families"]["probe"]["median_reduced_chi2"] == pytest.approx(1.0)
+    assert result["calibrated"]
+    none_admissible = [_good_record(pressure_min=-1.0)]
+    assert criteria.setting_calibration(none_admissible)["over"] == "converged"
+
+
+def test_next_multipliers_reaches_the_band_on_a_one_over_m_squared_model(scan, criteria):
+    true_scale = {"probe": 5.3, "loop": 0.8}   # the multiplier that would give chi2r = 1
+    multipliers = dict(scan.STAGE3_START)
+    low, high = criteria.CRITERIA["calibration_band"]
+    for round_index in range(3):
+        medians = {f: (true_scale[f] / m) ** 2 for f, m in multipliers.items()}
+        if all(low <= v <= high for v in medians.values()):
+            break
+        multipliers = scan.next_multipliers(multipliers, medians)
+    medians = {f: (true_scale[f] / m) ** 2 for f, m in multipliers.items()}
+    assert all(low <= v <= high for v in medians.values()) and round_index <= 2
+
+
+def test_next_multipliers_clamps_and_keeps_a_family_without_a_median(scan):
+    out = scan.next_multipliers({"probe": 60.0, "loop": 1.0}, {"probe": 100.0, "loop": float("nan")})
+    assert out == {"probe": 64.0, "loop": 1.0}
+
+
+def test_stage3_grids_basis_dia_and_ip_and_solves_probe_and_loop(scan):
+    cells = scan.stage3_cells()
+    assert len(cells) == 3 * 3 * 3 == 27
+    ip_sigmas = sorted({0.05 * c["ip"] for c in cells})
+    assert ip_sigmas == pytest.approx([0.05, 0.20, 0.50])
+    setting = scan.cell_setting(cells[0], scan.STAGE3_START)
+    assert setting["probe"] == 4.0 and setting["loop"] == 1.0
+    assert scan.uncertainty_scales(setting)["plasma_current"] == pytest.approx(1.0 / cells[0]["ip"])
+
+
+def test_merging_refuses_records_from_different_initial_states(scan):
+    same = [{"setting": "a", "fingerprint": "x"}, {"setting": "b", "fingerprint": "x"},
+            {"setting": "routine", "fingerprint": "legacy"}]
+    assert scan.check_fingerprints(same) == "x"
+    with pytest.raises(RuntimeError, match="different initial states"):
+        scan.check_fingerprints(same + [{"setting": "c", "fingerprint": "y"}])
