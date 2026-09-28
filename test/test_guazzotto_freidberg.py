@@ -3,17 +3,19 @@
 L. Guazzotto and J. P. Freidberg, J. Plasma Phys. 87, 905870303 (2021).
 Table 4 publishes, for nine configurations at q0 = 1, the eigenvalue alpha and
 beta_T, beta_P, l_i, q95, q*. The implementation reproduces them to the
-printed precision with three documented exceptions, each pinned here so a
+printed precision with two documented exceptions, each pinned here so a
 change of reading shows up:
 
 * "Elongated D": Table 1 and Fig. 3 give delta = 0.4, but the whole Table 4
   row (alpha 1.96, beta_T 0.0084, beta_P 0.27, l_i 0.85, q95 3.84, q* 2.90) is
   reproduced by delta = 0.6; delta = 0.4 gives alpha = 1.9206.
 * "Inverse D": every column but l_i matches; the paper prints 0.97, the
-  solution gives 0.866.
-* Divertor q*: the paper's "kappa95" is not defined; with the elongation of
-  the psi = 0.05 surface q* is 5-12 % above the table while every other
-  column of those rows matches.
+  solution gives 0.866 (a direct 2 int B_p^2 dV/(mu0^2 I^2 R0) agrees), most
+  likely a misprint of 0.87.
+
+The divertor q* uses kappa95 = height of the psi = 0.05 surface over the full
+width 2a, which the paper leaves undefined; that reading reproduces all four
+published divertor values to 0.3 %.
 """
 
 from __future__ import annotations
@@ -47,8 +49,7 @@ TABLE = {
     "single_null_high_beta": ((SN, 0.25, 1.8, 0.6, 2.1, 0.8, 2.1), (0.018, 2.16, 1.00, 6.17, 3.71, 2.09)),
 }
 #: Published values this implementation does not reproduce, and why (see the module docstring).
-KNOWN_TABLE_DISCREPANCIES = {("inverse_d", "li"), ("double_null", "q_star"), ("double_null_spherical", "q_star"),
-                             ("single_null", "q_star"), ("single_null_high_beta", "q_star")}
+KNOWN_TABLE_DISCREPANCIES = {("inverse_d", "li")}
 
 
 def _solve(topology, eps, kappa, delta, kappa_x, delta_x, nu):
@@ -68,8 +69,12 @@ def test_table_4_is_reproduced(solved, name):
     for key, value in published.items():
         if (name, key) in KNOWN_TABLE_DISCREPANCIES:
             continue
-        # The table prints two or three significant figures.
-        assert got[key] == pytest.approx(value, rel=0.035, abs=6e-4), (name, key, got[key], value)
+        if key == "alpha":
+            # Printed to two decimals; tight enough that a neighbouring root cannot pass.
+            assert abs(got[key] - value) <= 0.006, (name, got[key], value)
+        else:
+            # The table prints two or three significant figures.
+            assert got[key] == pytest.approx(value, rel=0.035, abs=6e-4), (name, key, got[key], value)
 
 
 def test_the_elongated_d_inputs_of_table_1_give_a_different_row():
@@ -78,12 +83,30 @@ def test_the_elongated_d_inputs_of_table_1_give_a_different_row():
     assert guazzotto_freidberg_parameters(model)["q95"] == pytest.approx(3.44, abs=0.02)   # not the table's 3.84
 
 
-def test_known_discrepancies_stay_where_they_are(solved):
+def test_known_discrepancy_stays_where_it_is(solved):
     assert guazzotto_freidberg_parameters(solved["inverse_d"])["li"] == pytest.approx(0.866, abs=0.005)
-    for name, (_, published) in TABLE.items():
-        if (name, "q_star") in KNOWN_TABLE_DISCREPANCIES:
-            ratio = guazzotto_freidberg_parameters(solved[name])["q_star"]/published[4]
-            assert 1.04 < ratio < 1.15, (name, ratio)
+
+
+def test_beta0_and_q0_are_one_relation(solved):
+    model = solved["double_null"]
+    implied = guazzotto_freidberg_parameters(model, beta0=0.02)
+    assert implied["beta0"] == pytest.approx(0.02)
+    assert guazzotto_freidberg_parameters(model, q0=implied["q0"])["beta0"] == pytest.approx(0.02, rel=1e-9)
+
+
+def test_force_free_limit_is_finite():
+    model = solve_guazzotto_freidberg(LIMITED, inverse_aspect_ratio=0.33, nu=0.0, elongation=1.6, triangularity=0.3)
+    par = guazzotto_freidberg_parameters(model, q0=1.0)
+    assert par["beta0"] == 0.0 and par["beta_p"] == 0.0 and np.isfinite(par["q95"]) and par["delta_b_over_b0"] > 0
+    eq = guazzotto_freidberg_to_equilibrium(model, major_radius=1.0, toroidal_field=1.0)
+    assert np.isfinite(eq.ip) and eq.ip > 0 and np.all(eq.pressure == 0)
+    with pytest.raises(ValueError, match="force-free"):
+        guazzotto_freidberg_parameters(model, beta0=0.01)
+
+
+def test_spherical_export_stays_inside_the_series_convergence(solved):
+    eq = guazzotto_freidberg_to_equilibrium(solved["double_null_spherical"], major_radius=1.0, toroidal_field=1.0)
+    assert np.nanmax(np.abs(eq.psi)) < 5*abs(eq.psi_axis)
 
 
 @pytest.mark.parametrize("name", sorted(TABLE))

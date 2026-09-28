@@ -372,15 +372,29 @@ def evaluate_guazzotto_freidberg(model: GuazzottoFreidbergEquilibrium, x: Any, y
             "psi_yy": values["yy"], "psi_xy": values["xy"], "gs_residual": residual}
 
 
-def _beta0_from_q0(model: GuazzottoFreidbergEquilibrium, q0: float) -> float:
-    """Eq. (6.12), inverted: the axis toroidal beta that gives a safety factor q0 on axis."""
-    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+def _axis_curvature(model: GuazzottoFreidbergEquilibrium) -> tuple[float, float]:
+    """``r`` and ``psi_xx psi_yy`` on the magnetic axis, the pieces of Eq. (6.12)."""
+    eps = model.inverse_aspect_ratio
     at_axis = evaluate_guazzotto_freidberg(model, *model.magnetic_axis)
-    r_axis = 1 + eps**2 + 2*eps*model.magnetic_axis[0]
-    denominator = q0**2*(r_axis**2*float(at_axis["psi_xx"]*at_axis["psi_yy"])) - (1 + eps**2)*(1 - nu)*eps**2*alpha**2
+    return 1 + eps**2 + 2*eps*model.magnetic_axis[0], float(at_axis["psi_xx"]*at_axis["psi_yy"])
+
+
+def _beta_ratio_from_q0(model: GuazzottoFreidbergEquilibrium, q0: float) -> float:
+    """Eq. (6.12), inverted, as ``beta0/nu``, which stays finite as nu -> 0."""
+    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+    r_axis, curvature = _axis_curvature(model)
+    denominator = q0**2*r_axis**2*curvature - (1 + eps**2)*(1 - nu)*eps**2*alpha**2
     if denominator <= 0:
         raise ValueError(f"q0={q0} is not reachable for this equilibrium: Eq. (6.12) gives a non-positive beta0")
-    return float(nu*eps**2*alpha**2/denominator)
+    return float(eps**2*alpha**2/denominator)
+
+
+def _q0_from_beta_ratio(model: GuazzottoFreidbergEquilibrium, ratio: float) -> float:
+    """Eq. (6.12), forward: q0 = F/(R0 B0) (nu/beta0)**0.5 eps alpha/(r (psi_xx psi_yy)**0.5) on the axis."""
+    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+    r_axis, curvature = _axis_curvature(model)
+    delta_b = ratio*(1 + eps**2)*(1 - nu)/2
+    return float(np.sqrt(1 + 2*delta_b)/np.sqrt(ratio)*eps*alpha/(r_axis*np.sqrt(curvature)))
 
 
 def _plasma_region(model: GuazzottoFreidbergEquilibrium, resolution: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Any]:
@@ -389,7 +403,8 @@ def _plasma_region(model: GuazzottoFreidbergEquilibrium, resolution: int) -> tup
     from contourpy import contour_generator
 
     height = max(v for v in (model.elongation, model.x_point_elongation) if v is not None)*1.03
-    xs = np.linspace(-1.03, 1.03, int(resolution))
+    x_edge = min(1.03, 0.999*(1 + model.inverse_aspect_ratio**2)/(2*model.inverse_aspect_ratio))
+    xs = np.linspace(-x_edge, x_edge, int(resolution))
     ys = np.linspace(-height, height, int(resolution*height))
     X, Y = np.meshgrid(xs, ys, indexing="ij")
     psi = _psi_on_grid(model, xs, ys)
@@ -418,7 +433,7 @@ def guazzotto_freidberg_parameters(
         A solved equilibrium [-].
     q0 : float or None, optional
         Safety factor on the magnetic axis, converted to ``beta0`` by
-        Eq. (6.12); ignored when *beta0* is given [-].
+        Eq. (6.12); when *beta0* is given, the q0 it implies is reported instead [-].
     beta0 : float or None, optional
         Toroidal beta on axis, ``2 mu0 p0/B0**2`` [-].
     resolution : int, optional
@@ -456,9 +471,11 @@ def guazzotto_freidberg_parameters(
     Convention
     ----------
     ``beta_p`` is the paper's volume-averaged form, Eq. (6.7), not the IMAS
-    DD definition.  For a diverted equilibrium ``q_star`` uses the elongation
-    of the ``psi = 0.05`` surface, since the paper's "kappa95" is not defined
-    further; for a limited one it uses the input elongation.
+    DD definition.  For a diverted equilibrium ``q_star`` uses ``kappa95``,
+    the height of the ``psi = 0.05`` surface over the full plasma width
+    ``2a`` -- the reading that reproduces the published values -- and for a
+    limited one the input elongation.  With ``nu = 0`` (force free) ``beta0``
+    is zero and only *q0* can fix the normalization.
 
     Applicability
     -------------
@@ -466,25 +483,34 @@ def guazzotto_freidberg_parameters(
 
     Limitations
     -----------
-    The divertor ``q_star`` values in the paper's Table 4 are 5-12 percent
-    below what this elongation gives, while every other published quantity
-    of those rows is reproduced; the paper's definition of kappa95 is
-    unknown.  Integrals are on a Cartesian grid masked by the surface, so they
+    Integrals are on a Cartesian grid masked by the surface, so they
     carry an error of order the cell size.
 
     Provenance
     ----------
     .. [1] Guazzotto and Freidberg (2021), Section 6, Eqs. (6.3)-(6.12).
     """
+    parameters, _ = _parameters_and_current(model, q0=q0, beta0=beta0, resolution=resolution)
+    return parameters
+
+
+def _parameters_and_current(model, *, q0, beta0, resolution):
+    """Section 6 parameters and the weighted current integral of Eq. (6.8)."""
     import matplotlib.path as mpath
     from contourpy import contour_generator
 
+    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
     if beta0 is None:
         if q0 is None:
             raise ValueError("give q0 or beta0")
-        beta0 = _beta0_from_q0(model, float(q0))
-    beta0 = float(beta0)
-    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+        ratio = _beta_ratio_from_q0(model, float(q0))      # beta0/nu
+        q0_value = float(q0)
+    else:
+        if nu == 0:
+            raise ValueError("a force-free equilibrium (nu = 0) has beta0 = 0; give q0 instead")
+        ratio = float(beta0)/nu
+        q0_value = _q0_from_beta_ratio(model, ratio)
+    beta_axis = nu*ratio
     eps_hat = 2*eps/(1 + eps**2)
     xs, ys, psi, inside, _ = _plasma_region(model, resolution)
     X = xs[:, None]*np.ones((1, ys.size))
@@ -494,28 +520,33 @@ def guazzotto_freidberg_parameters(
     i2 = np.sum(psi**2*inside)*cell
     iw = np.sum(weight*psi*inside)*cell
     iw2 = np.sum(weight*psi**2*inside)*cell
-    delta_b = beta0*(1 + eps**2)*(1 - nu)/(2*nu) if nu > 0 else float("inf")
+    delta_b = ratio*(1 + eps**2)*(1 - nu)/2                            # Eq. (6.4) with beta0 = nu*ratio
     lines = contour_generator(xs, ys, psi.T).lines(0.05)
-    surface95 = max((line for line in lines if mpath.Path(line).contains_point(model.magnetic_axis)), key=len)
+    closing = [line for line in lines if mpath.Path(line).contains_point(model.magnetic_axis)]
+    if not closing:
+        raise ValueError("the psi = 0.05 surface does not close around the magnetic axis on the evaluation grid")
+    surface95 = max(closing, key=len)
     xc, yc = surface95[:, 0], surface95[:, 1]
     if not np.allclose(surface95[0], surface95[-1]):
         xc, yc = np.r_[xc, xc[0]], np.r_[yc, yc[0]]
     R = np.sqrt(1 + eps**2 + 2*eps*xc); Z = eps*yc                       # in units of R0
-    kappa95 = float(np.ptp(Z)/np.ptp(R))
+    # The height of the 95 % surface over the full plasma width 2a: the
+    # published divertor q* values are reproduced with this, to 0.3 %.
+    kappa95 = float(np.ptp(Z)/(2*eps))
     kappa_q = model.elongation if model.topology == "limited" else kappa95
-    q_star = np.pi*eps/alpha*np.sqrt(nu/beta0)*(1 + kappa_q**2)/iw
-    psi0 = eps/alpha*np.sqrt(beta0/nu)                                   # in units of B0 R0**2
+    q_star = np.pi*eps/alpha/np.sqrt(ratio)*(1 + kappa_q**2)/iw
+    psi0 = eps/alpha*np.sqrt(ratio)                                      # in units of B0 R0**2
     field = evaluate_guazzotto_freidberg(model, 0.5*(xc[1:] + xc[:-1]), 0.5*(yc[1:] + yc[:-1]))
     r_mid = 0.5*(R[1:] + R[:-1])
     b_pol = psi0/eps*np.sqrt(field["psi_x"]**2 + field["psi_y"]**2/r_mid**2)
     f95 = np.sqrt(1 + 2*delta_b*0.05**2)
     q95 = f95/(2*np.pi)*np.sum(np.hypot(np.diff(R), np.diff(Z))/(r_mid**2*b_pol))
-    q0_value = float(q0) if q0 is not None else float("nan")
-    return {
-        "alpha": alpha, "beta0": beta0, "q0": q0_value, "delta_b_over_b0": float(delta_b),
-        "beta_t": float(beta0*i2/area), "beta_p": float(nu*i2/iw2), "li": float(4*np.pi/alpha**2*iw2/iw**2),
+    parameters = {
+        "alpha": alpha, "beta0": float(beta_axis), "q0": q0_value, "delta_b_over_b0": float(delta_b),
+        "beta_t": float(beta_axis*i2/area), "beta_p": float(nu*i2/iw2), "li": float(4*np.pi/alpha**2*iw2/iw**2),
         "q_star": float(q_star), "kappa_q_star": float(kappa_q), "q95": float(q95),
     }
+    return parameters, float(iw)
 
 
 def guazzotto_freidberg_to_equilibrium(
@@ -594,16 +625,20 @@ def guazzotto_freidberg_to_equilibrium(
         raise ValueError("major_radius and toroidal_field must be positive")
     if convention not in range(1, 19) or convention in (9, 10):
         raise ValueError("convention must be a COCOS index in the range 1..18 (excluding 9 and 10)")
-    parameters = guazzotto_freidberg_parameters(model, q0=q0, beta0=beta0, resolution=400)
+    parameters, iw = _parameters_and_current(model, q0=q0, beta0=beta0, resolution=400)
     beta_axis = parameters["beta0"]
     eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
     r0, b0 = float(major_radius), float(toroidal_field)
     minor = eps*r0
     p0 = beta_axis*b0**2/(2*MU0)
     delta_b = parameters["delta_b_over_b0"]
-    psi0 = eps*b0*r0**2/alpha*np.sqrt(beta_axis/nu)                     # Wb/rad, Eq. (6.5)
+    ratio = beta_axis/nu if nu > 0 else _beta_ratio_from_q0(model, parameters["q0"])
+    psi0 = eps*b0*r0**2/alpha*np.sqrt(ratio)                             # Wb/rad, Eq. (6.5)
     height = max(v for v in (model.elongation, model.x_point_elongation) if v is not None)*minor
-    r_min = r0*np.sqrt(max(1 + eps**2 - 2*eps*1.15, 1e-6)); r_max = r0*np.sqrt(1 + eps**2 + 2*eps*1.15)
+    # The radial series converges only for |x| < 1/eps_hat (R = 0 is a
+    # singular point), so the grid stops short of that.
+    x_edge = min(1.15, 0.999*(1 + eps**2)/(2*eps))
+    r_min = r0*np.sqrt(max(1 + eps**2 - 2*eps*x_edge, 1e-6)); r_max = r0*np.sqrt(1 + eps**2 + 2*eps*x_edge)
     r = np.linspace(r_min, r_max, int(resolution))
     z = np.linspace(-1.2*height, 1.2*height, int(np.ceil(resolution*2.4*height/(r_max - r_min))) | 1)
     psi_n = _psi_on_grid(model, (r**2/r0**2 - 1 - eps**2)/(2*eps), z/minor)
@@ -620,11 +655,7 @@ def guazzotto_freidberg_to_equilibrium(
     f = r0*b0*np.sqrt(1 + 2*delta_b*psi_1d_n**2)
     pprime = 2*p0*psi_1d_n/stored
     ffprime = (r0*b0)**2*2*delta_b*psi_1d_n/stored
-    xs_eval, ys_eval, psi_eval, inside, _ = _plasma_region(model, 400)
-    X = xs_eval[:, None]*np.ones((1, ys_eval.size))
-    eps_hat = 2*eps/(1 + eps**2)
-    iw = np.sum((1 + nu*eps_hat*X)/(1 + eps_hat*X)*psi_eval*inside)*(xs_eval[1] - xs_eval[0])*(ys_eval[1] - ys_eval[0])
-    ip = float(eps*b0*r0*alpha*np.sqrt(beta_axis/nu)*iw/MU0)             # Eq. (6.8)
+    ip = float(eps*b0*r0*alpha*np.sqrt(ratio)*iw/MU0)                    # Eq. (6.8)
     conv_11 = _detect_convention(explicit=11, bt0=b0, ip=ip, q=None, psi_1d=stored*psi_1d_n,
                                  source="analytic Guazzotto-Freidberg")
     eq_11 = EquilibriumData(
