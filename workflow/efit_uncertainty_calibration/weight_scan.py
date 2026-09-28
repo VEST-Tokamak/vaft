@@ -215,6 +215,8 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
         target = calibration.chi_squared_target(
             calibration.fitted_constraint_count(built, families=fitted_families(setting))
         )
+        if setting.get("psi_exit"):
+            target = PSI_EXIT_SAICON
         case = {
             "grid": study.ROUTINE_GRID, "table": study.PACKAGED, "inner_iterations": 1,
             "error_minimum": 1.0e-4, "max_iterations": calibration.MAX_ITERATIONS,
@@ -267,6 +269,19 @@ STAGE3_START = {"probe": 4.0, "loop": 1.0}
 STAGE3_ROUNDS = 4
 MULTIPLIER_CLAMP = (0.5, 64.0)
 
+# Stage 4: the fit stops on psi convergence alone (study rule, 2026-09-28).
+# Stage 3 let SAICON = N + 3 sqrt(2N) gate EFIT's exit: at a calibrated sigma
+# most slices fit the probes at chi2r ~ 7, so they ran all 514 iterations with
+# psi converged to ~2e-8 and were reported unconverged -- and the median that
+# set sigma came only from the few that fitted.  With SAICON out of reach the
+# exit is ERRMIN plus a chi-square stall; chi-square is judged by the criteria.
+# The diamagnetic and Ip sigma axes moved nothing in stage 3 and are fixed.
+PSI_EXIT_SAICON = 1.0e10
+STAGE4_DIA = 16
+STAGE4_IP = 4.0
+STAGE4_START = {"probe": 8.0, "loop": 2.0}
+STAGE4_ROUNDS = 6
+
 
 def _round3(value: float) -> float:
     return float(f"{value:.3g}")
@@ -298,13 +313,20 @@ def stage3_cells() -> list[dict[str, Any]]:
     ]
 
 
+def stage4_cells() -> list[dict[str, Any]]:
+    """The three bases at diamagnetic x16 and Ip 20 %, stopping on psi convergence."""
+    return [{"basis": list(basis), "dia": STAGE4_DIA, "ip": STAGE4_IP, "floor": STAGE1_FLOOR, "psi_exit": True}
+            for basis in STAGE3_BASES]
+
+
 def cell_setting(cell: Mapping[str, Any], multipliers: Mapping[str, float]) -> dict[str, Any]:
     probe, loop = multipliers["probe"], multipliers["loop"]
-    return {
-        "name": setting_name(cell["basis"], probe, loop, cell["dia"], cell["floor"], cell["ip"]),
-        "basis": list(cell["basis"]), "probe": probe, "loop": loop, "dia": cell["dia"],
-        "ip": cell["ip"], "floor": cell["floor"],
-    }
+    name = setting_name(cell["basis"], probe, loop, cell["dia"], cell["floor"], cell["ip"])
+    setting = {"name": name, "basis": list(cell["basis"]), "probe": probe, "loop": loop, "dia": cell["dia"],
+               "ip": cell["ip"], "floor": cell["floor"]}
+    if cell.get("psi_exit"):
+        setting.update(name=name + "_psiexit", psi_exit=True)
+    return setting
 
 
 def check_fingerprints(records: Sequence[Mapping[str, Any]]) -> str | None:
@@ -433,12 +455,13 @@ def _write(table: Path, payload: Mapping[str, Any], study) -> None:
     print(f"wrote {table}", flush=True)
 
 
-def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None) -> dict[str, Any]:
+def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None, stage: int = 3) -> dict[str, Any]:
     """Probe/loop multipliers per cell by self-consistency, all cells a round at a time."""
-    cells = stage3_cells()
-    state = [{"cell": c, "multipliers": dict(STAGE3_START), "done": False, "history": []} for c in cells]
+    cells, start, rounds = ((stage4_cells(), STAGE4_START, STAGE4_ROUNDS) if stage == 4
+                            else (stage3_cells(), STAGE3_START, STAGE3_ROUNDS))
+    state = [{"cell": c, "multipliers": dict(start), "done": False, "history": []} for c in cells]
     records: list[dict[str, Any]] = []
-    for round_index in range(STAGE3_ROUNDS):
+    for round_index in range(rounds):
         active = [s for s in state if not s["done"]]
         if not active:
             break
@@ -470,6 +493,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--table", required=True, type=Path)
     parser.add_argument("--stage", type=int, default=1)
     parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 1/2 only)")
+    # --stage 3: self-consistent sigma, SAICON-gated exit; --stage 4: the same on psi convergence alone
     parser.add_argument("--shots", default="39915,41524,41672")
     parser.add_argument("--times", default=None, help="comma-separated ms subset (smoke runs)")
     parser.add_argument("--workers", type=int, default=24, help="slices run at once (1 = serial)")
@@ -494,8 +518,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "toolchain": toolchain_identities(ctx["resolved"]), "tables": ctx["tables"],
         "criteria": criteria.CRITERIA, "workers": args.workers,
     }
-    if args.stage == 3:
-        result = run_stage3(slices, output, workers=args.workers, efit_home=args.efit_home)
+    if args.stage in (3, 4):
+        result = run_stage3(slices, output, workers=args.workers, efit_home=args.efit_home, stage=args.stage)
         records = result["records"]
         payload.update(cells=result["cells"])
     else:
