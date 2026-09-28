@@ -270,10 +270,25 @@
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
     },
+    "neoclassical_collisionality.svg": {
+      "call": "vaft.diagram.neoclassical_collisionality()",
+      "source_sha256": "941c9b09f1f58ae89a033a82210258c97aecd7ce4e231ee22f4126cf418152c7",
+      "svg_sha256": "cc64b30ef5e5889b94cc3ef518ad644a04b835428fb6fd3ab9fd9de882a90c9b"
+    },
     "normal_field_component.svg": {
       "call": "vaft.diagram.normal_field_component()",
       "source_sha256": "74665ff0fbd487dfcc80515d8a119fa281250d8c38c33a34a8bdb596e3ed8cbe",
       "svg_sha256": "4f4aa9871de375ea1409a827ca5c3d9e392ddfbfb17c046cdb00e03132f689d8"
+    },
+    "ntv_collisionality.svg": {
+      "call": "vaft.diagram.ntv_collisionality()",
+      "source_sha256": "8612ac64bdf9beb697629f48d0c09910a8d34d886be70209dcb3c1164757adfd",
+      "svg_sha256": "2322ef794de3c5cafc28cb1f28d93afc8b774dec9eb766a911a9fe33e7840ffc"
+    },
+    "ntv_precession_regimes.svg": {
+      "call": "vaft.diagram.ntv_precession_regimes()",
+      "source_sha256": "3ddb9eb01950fc3f9e7040f1f32cb71c5aa007ad823e3ada5804746fda1deccb",
+      "svg_sha256": "1cd82da7aa1c2db70633e205f0668834eb9af57c01520a258266a1fc4df0431a"
     },
     "peeling_ballooning.svg": {
       "call": "vaft.diagram.peeling_ballooning()",

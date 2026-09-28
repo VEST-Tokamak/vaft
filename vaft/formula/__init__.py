@@ -39,6 +39,7 @@ _SUBMODULES = {
     "geometry": ".geometry",
     "ripple": ".ripple",
     "disruption": ".disruption",
+    "ntv": ".ntv",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -65,6 +66,7 @@ _IMPORT_ORDER = (
     "geometry",
     "ripple",
     "disruption",
+    "ntv",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

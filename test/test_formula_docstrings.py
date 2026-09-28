@@ -70,6 +70,16 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    "transit_frequency",
+    "deeply_trapped_bounce_frequency",
+    "trapped_particle_effective_collision_frequency",
+    "banana_width",
+    "collisions_per_transit",
+    "neoclassical_regime_boundaries",
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    "ntv_precession_frequency",
+    "nonambipolar_torque_density",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

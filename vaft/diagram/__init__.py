@@ -123,6 +123,9 @@ __all__ = [
     "spectroscopy_transitions",
     "spectroscopy_energy_levels",
     "spectroscopy_spectrum",
+    "neoclassical_collisionality",
+    "ntv_collisionality",
+    "ntv_precession_regimes",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -209,6 +212,9 @@ _LOCATIONS = {
     "spectroscopy_transitions": "._spectroscopy",
     "spectroscopy_energy_levels": "._spectroscopy",
     "spectroscopy_spectrum": "._spectroscopy",
+    "neoclassical_collisionality": "._transport_regimes",
+    "ntv_collisionality": "._transport_regimes",
+    "ntv_precession_regimes": "._transport_regimes",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
