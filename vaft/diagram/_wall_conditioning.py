@@ -20,7 +20,7 @@ Every method is a transition $S^{(0)}_\\mathrm{wall} \\to S^{(1)}_\\mathrm{wall}
 reduced and semantic: species are examples, and no temperature, precursor,
 pressure or thickness is drawn unless the caller supplies it -- a number only
 with its source. What the conditioned wall then does under the plasma is the
-plasma-wall interaction of #1047.
+plasma-wall interaction (``plasma_wall_interaction_*``, #1047).
 """
 
 from __future__ import annotations

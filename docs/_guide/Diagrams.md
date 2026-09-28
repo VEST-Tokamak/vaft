@@ -764,8 +764,8 @@ and a wall-surface primitive:
 
 Species are examples. No temperature, precursor, pressure or thickness is built in. A temperature (in K
 or °C) or a thickness is drawn only when the caller passes it together with its source. The sequence
-ends in plasma operation; how the conditioned wall responds then is the plasma-wall interaction of
-issue 1047.
+ends in plasma operation; how the conditioned wall responds then is the [plasma-wall
+interaction](#plasma-wall-interaction) section.
 
 ```python
 vaft.diagram.wall_conditioning_baking()        # temperature=, temperature_unit="K"|"degC", temperature_source=
