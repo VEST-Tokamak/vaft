@@ -477,6 +477,11 @@ vaft.diagram.cylindrical_tearing_outer(m=2, n=1)
 | `plasma_vacuum_wall` | One harmonic matched across plasma, vacuum ($Ar^m + Br^{-m}$) and an ideal wall |
 | `cylindrical_tearing_outer` | The outer solutions at $r_s$ and their $\Delta'$, for the outer, ideal problem. The inner layer at $r_s$ is `slab_parity` |
 
+From the cylinder to the slab: `mode_number_mapping` expands $k_\parallel(r)$ about $r_s$ into the local
+slab of `local_slab_from_cylinder`, and `resonant_layer_matching` couples several such layers.
+The screw-pinch field line itself is `field_line_geometry("cylindrical")`, and the cylinder-vs-torus harmonic
+picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic_coupling`.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

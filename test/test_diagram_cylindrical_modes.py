@@ -50,12 +50,21 @@ def test_every_rational_surface_sits_where_q_is_m_over_n(n):
 def test_the_mode_shapes_have_their_m():
     m = vaft.diagram.cylindrical_mode_morphology().model
     for mm, pts in m["shapes"].items():
-        if mm == 1:
-            continue
-        cx = 0.5 * (pts[:, 0].max() + pts[:, 0].min())
-        r = np.hypot(pts[:, 0] - cx, pts[:, 1])
-        spec = np.abs(np.fft.rfft(r[:-1] - r[:-1].mean()))
-        assert int(np.argmax(spec)) == mm
+        r = np.hypot(pts[:-1, 0] - m["centres"][mm], pts[:-1, 1])
+        spec = np.abs(np.fft.rfft(r - r.mean()))
+        assert int(np.argmax(spec)) == mm, mm
+    # m = 1 is the rigid shift eps * a
+    pts = m["shapes"][1]
+    assert 0.5 * (pts[:, 0].max() + pts[:, 0].min()) - m["centres"][1] == pytest.approx(m["epsilon"] * m["a"])
+
+
+def test_the_external_kink_is_drawn_where_it_is_relevant():
+    # q_a = 2.5 sits just below m/n = 3 and no q = 3 surface is inside: the external-kink window
+    chart = vaft.diagram.internal_external_kink().model
+    q_a = chart.parameters["q_a"]
+    x, xi = chart.curves["external"].T
+    np.testing.assert_allclose(xi, x**2)
+    assert 3 - 1 < q_a < 3
 
 
 def test_the_internal_kink_stops_at_q_equal_one():
@@ -74,6 +83,11 @@ def test_the_vacuum_solution_meets_the_plasma_and_vanishes_on_the_wall(m):
     p = chart.parameters
     plasma, wall = chart.curves["plasma"], chart.curves["vacuum_wall"]
     assert plasma[-1, 1] == pytest.approx(wall[0, 1])
+    # no cusp at the edge: the slopes match too
+    slope_in = (plasma[-1, 1] - plasma[-2, 1]) / (plasma[-1, 0] - plasma[-2, 0])
+    slope_out = (wall[1, 1] - wall[0, 1]) / (wall[1, 0] - wall[0, 0])
+    assert slope_in == pytest.approx(slope_out, rel=0.05)
+    assert plasma[0, 1] == pytest.approx(0.0, abs=1e-12)
     assert wall[-1, 1] == pytest.approx(0.0, abs=1e-12)
     r = wall[:, 0]
     np.testing.assert_allclose(wall[:, 1], p["A"] * r**m + p["B"] * r ** (-m))

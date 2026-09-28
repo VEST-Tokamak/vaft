@@ -91,8 +91,10 @@ def current_to_q_profile(nu: float = _NU, q_a: float = _QA, *, labels: bool = Tr
         chart.curves[key] = np.stack([x, y], -1)
         charts[key] = chart
         sub = render_chart(chart, x_label="$r/a$", y_label=label, curve_styles={key: "boundary"}, region_text={},
-                           x_ticks=(0.0, 1.0), y_ticks=((1.0,) if key != "q" else (q[0], q_a)),
-                           y_tick_text=(("$1$",) if key != "q" else (f"${q[0]:.2g}$", f"${q_a:g}$")))
+                           x_ticks=(0.0, 1.0),
+                           y_ticks=((1.0,) if key != "q" else ((q_a,) if nu == 0 else (q[0], q_a))),
+                           y_tick_text=(("$1$",) if key != "q" else
+                                        ((f"${q_a:g}$",) if nu == 0 else (f"${q[0]:.2g}$", f"${q_a:g}$"))))
         items += list(sub.transformed(scale=0.55, offset=(i * 7.0, 0.0)).items)
     if labels:
         for i, text in enumerate(("current", "Ampère: enclosed current", "safety factor")):
@@ -168,11 +170,12 @@ def cylindrical_mode_morphology(*, labels: bool = True) -> Diagram:
         items += [Polyline.of(np.stack([z, sign * r0], -1), "lcfs", role="mode:0"),
                   Polyline.of(np.stack([z, np.full_like(z, sign * a)], -1), "approx", role="unperturbed")]
     t = np.linspace(0.0, 2.0 * math.pi, 241)
-    shapes = {}
+    shapes, centres = {}, {}
     for k, m in enumerate((1, 2, 3)):
         cx = 7.8 + 3.4 * k
+        centres[m] = cx
         if m == 1:
-            pts = np.stack([cx + eps * 1.6 * a + a * np.cos(t), a * np.sin(t)], -1)
+            pts = np.stack([cx + eps * a + a * np.cos(t), a * np.sin(t)], -1)
         else:
             r = a * (1.0 + eps * np.cos(m * t))
             pts = np.stack([cx + r * np.cos(t), r * np.sin(t)], -1)
@@ -185,9 +188,11 @@ def cylindrical_mode_morphology(*, labels: bool = True) -> Diagram:
         for text, x in (("$m = 0$: sausage (side view)", 2.5), ("$m = 1$: kink", 7.8), ("$m = 2$", 11.2),
                         ("$m = 3$", 14.6)):
             items.append(Label((x, -a - 0.6), text, "small label", anchor="north", role="title"))
-        items.append(_note("Boundary $r = a[1 + \\epsilon\\cos m\\theta]$; $m = 1$ is a rigid shift to first order; "
-                           "dashed: unperturbed", 8.0, -a - 1.3))
-    return Diagram("cylindrical_mode_morphology", Scene(tuple(items)), model={"shapes": shapes, "sausage": r0})
+        items.append(_note("$m \\ge 1$: boundary $r = a[1 + \\epsilon\\cos m\\theta]$, $m = 1$ drawn as the shift "
+                           "$\\epsilon a$ it is to first order; $m = 0$: $r = a[1 + \\epsilon\\cos kz]$; dashed: "
+                           "unperturbed", 8.0, -a - 1.3))
+    return Diagram("cylindrical_mode_morphology", Scene(tuple(items)),
+                   model={"shapes": shapes, "centres": centres, "epsilon": eps, "a": a, "sausage": r0})
 
 
 def internal_external_kink(*, labels: bool = True) -> Diagram:
@@ -196,16 +201,18 @@ def internal_external_kink(*, labels: bool = True) -> Diagram:
     Left, schematic radial displacements: the $m = 1$ internal kink is a
     rigid shift of the core inside the $q = 1$ radius $r_1$ of a profile with
     $q_0 < 1$ (``peaked_current_safety_factor``, $\nu = 2$, $q_a = 2.5$); an
-    $m = 2$ external kink grows as $r^{m-1}$ up to the edge, where it moves
-    the boundary. Right, the matching cross-sections. The Kruskal--Shafranov
-    $q_a \lesssim m/n$ is the rough heuristic, not an exact boundary.
+    $m = 3$ external kink -- $q_a$ just below $m/n$, no $q = 3$ surface inside --
+    grows as $r^{m-1}$ up to the edge, where it moves the boundary. Right, the
+    matching cross-sections. Kruskal--Shafranov ($q_a < 1$ for $m = 1$; roughly
+    $m - 1 < nq_a < m$ for an external $m$ on a flat current) is a heuristic,
+    not an exact boundary.
     """
     labels = _check_labels(labels)
     nu, q_a = 2.0, 2.5
     r1 = _root(lambda xx: float(peaked_current_safety_factor(xx, q_a, nu)) - 1.0, 0.0, 1.0)
     x = np.linspace(0.0, 1.0, 401)
     internal = 0.5 * (1.0 - np.tanh((x - r1) / 0.02))
-    external = x ** (2 - 1)
+    external = x ** (3 - 1)  # m = 3: q_a = 2.5 < 3 with no q = 3 surface inside, the external-kink window
     chart = Chart(x_range=(0.0, 1.08), y_range=(0.0, 1.15))
     chart.curves.update({"internal": np.stack([x, internal], -1), "external": np.stack([x, external], -1),
                          "q1": np.array([[r1, 0.0], [r1, 1.1]])})
@@ -223,10 +230,12 @@ def internal_external_kink(*, labels: bool = True) -> Diagram:
         if name == "internal":
             items += [Polyline.of(np.stack([cx + R * np.cos(t), cy + R * np.sin(t)], -1), "lcfs",
                                   role="boundary:internal", closed=True),
-                      Polyline.of(np.stack([cx + 0.25 + R * r1 * np.cos(t), cy + R * r1 * np.sin(t)], -1),
+                      Polyline.of(np.stack([cx + R * r1 * np.cos(t), cy + R * r1 * np.sin(t)], -1),
+                                  "approx", role="unperturbed", closed=True),
+                      Polyline.of(np.stack([cx + 0.4 + R * r1 * np.cos(t), cy + R * r1 * np.sin(t)], -1),
                                   "orbit ion", role="core:internal", closed=True)]
         else:
-            r = R * (1.0 + 0.15 * np.cos(2 * t))
+            r = R * (1.0 + 0.12 * np.cos(3 * t))
             items.append(Polyline.of(np.stack([cx + r * np.cos(t), cy + r * np.sin(t)], -1), "lcfs",
                                      role="boundary:external", closed=True))
         if labels:
@@ -235,9 +244,10 @@ def internal_external_kink(*, labels: bool = True) -> Diagram:
         items += [
             Label((CHART_WIDTH + 0.5, CHART_HEIGHT), "light: $m = 1$ internal, inside $q = 1$", "small label",
                   anchor="south west", role="internal"),
-            Label((CHART_WIDTH + 0.5, CHART_HEIGHT + 0.45), "dark: $m = 2$ external, $\\propto r^{m-1}$ to the edge",
+            Label((CHART_WIDTH + 0.5, CHART_HEIGHT + 0.45), "dark: $m = 3$ external, $\\propto r^{m-1}$ to the edge",
                   "small label", anchor="south west", role="external"),
-            _note("Schematic displacements; Kruskal--Shafranov, roughly $q_a < m/n$, is a heuristic, not a boundary",
+            _note("Schematic; $q_a = 2.5$: KS $q_a < 1$ for $m = 1$, external $m$ unstable roughly for "
+                  "$m - 1 < nq_a < m$ (here $m = 3$)",
                   0.5 * (CHART_WIDTH + 7.0), -1.45),
         ]
     return Diagram("internal_external_kink", Scene(tuple(items)), model=chart)
@@ -251,8 +261,8 @@ def internal_external_kink(*, labels: bool = True) -> Diagram:
 def plasma_vacuum_wall(m: int = 2, *, labels: bool = True) -> Diagram:
     r"""One harmonic across plasma, vacuum and an ideal conducting wall.
 
-    Schematic $\psi_m(r)$: regular inside the plasma ($\propto r^m$), the vacuum
-    solution $Ar^m + Br^{-m}$ outside matched to it at $r = a$, and
+    Schematic $\psi_m(r)$: regular inside the plasma ($c_1r^m + c_2r^{m+2}$), the vacuum solution $Ar^m + Br^{-m}$ outside, matched to it in value
+    and slope at $r = a$ (no edge surface current), and
     $\psi_m(b) = 0$ on an ideal wall at $r = b = 1.6a$; dashed, the same with
     no wall ($\propto r^{-m}$). The problems of external kinks, resistive wall
     modes and tearing outer regions all match such pieces.
@@ -264,14 +274,18 @@ def plasma_vacuum_wall(m: int = 2, *, labels: bool = True) -> Diagram:
     r_in = np.linspace(0.0, a, 201)
     r_out = np.linspace(a, b, 121)
     r_free = np.linspace(a, 2.2, 161)
-    inside = (r_in / a) ** m
     A, B = np.linalg.solve([[a ** m, a ** -m], [b ** m, b ** -m]], [1.0, 0.0])
     wall = A * r_out ** m + B * r_out ** -m
+    # interior regular at the axis (~ r^m) and matched to the vacuum in value and slope at a: no
+    # surface current at the edge, so no kink in psi there
+    slope_a = m * A * a ** (m - 1) - m * B * a ** (-m - 1)
+    c = np.linalg.solve([[a ** m, a ** (m + 2)], [m * a ** (m - 1), (m + 2) * a ** (m + 1)]], [1.0, slope_a])
+    inside = c[0] * r_in ** m + c[1] * r_in ** (m + 2)
     free = (r_free / a) ** -m
-    chart = Chart(x_range=(0.0, 2.3), y_range=(0.0, 1.2))
+    chart = Chart(x_range=(0.0, 2.3), y_range=(0.0, 1.1 * float(inside.max())))
     chart.curves.update({"plasma": np.stack([r_in, inside], -1), "vacuum_wall": np.stack([r_out, wall], -1),
                          "vacuum_free": np.stack([r_free, free], -1)})
-    chart.parameters.update({"m": m, "a": a, "b": b, "A": A, "B": B})
+    chart.parameters.update({"m": m, "a": a, "b": b, "A": A, "B": B, "interior": c})
     scene = render_chart(chart, x_label="$r$", y_label="$\\psi_m$",
                          curve_styles={"vacuum_free": "approx", "plasma": "boundary", "vacuum_wall": "boundary"},
                          region_text={}, x_ticks=(a, b), x_tick_text=("$a$", "$b$"))
@@ -285,10 +299,10 @@ def plasma_vacuum_wall(m: int = 2, *, labels: bool = True) -> Diagram:
     items += list(scene.items)
     if labels:
         items += [
-            Label((0.5 * x_a, CHART_HEIGHT - 0.1), "plasma", "small label", anchor="north", role="region:plasma"),
-            Label((0.5 * (x_a + x_b), CHART_HEIGHT - 0.1), "vacuum", "small label", anchor="north",
+            Label((0.5 * x_a, CHART_HEIGHT + 0.1), "plasma", "small label", anchor="south", role="region:plasma"),
+            Label((0.5 * (x_a + x_b), CHART_HEIGHT + 0.1), "vacuum", "small label", anchor="south",
                   role="region:vacuum"),
-            Label((x_b + 0.25, CHART_HEIGHT - 0.1), "ideal wall", "small label", anchor="north west",
+            Label((x_b + 0.25, CHART_HEIGHT + 0.1), "ideal wall", "small label", anchor="south west",
                   role="region:wall"),
             _note(f"Schematic $m = {m}$; dashed: no wall, $\\psi_m \\propto r^{{-m}}$", CHART_WIDTH / 2, -1.45),
         ]
@@ -329,7 +343,7 @@ def cylindrical_tearing_outer(m: int = 2, n: int = 1, *, labels: bool = True) ->
     chart.curves.update({"outer_left": np.stack([r_left, left], -1), "outer_right": np.stack([r_right, right], -1)})
     chart.parameters.update({"m": m, "n": n, "r_s": rs, "b": b, "dpsi_dr_minus": s_minus, "dpsi_dr_plus": s_plus,
                              "delta_prime": value})
-    scene = render_chart(chart, x_label="$r/a$", y_label="$\\psi_m$",
+    scene = render_chart(chart, x_label="$r/a$", y_label="$\\tilde\\psi_m$",
                          curve_styles={"outer_left": "outer solution", "outer_right": "outer solution"},
                          region_text={}, x_ticks=(rs, 1.0, b), x_tick_text=("$r_s$", "$a$", "$b$"))
     xs = float(chart.to_cm(np.array([rs, 0.0]))[0])
@@ -344,8 +358,9 @@ def cylindrical_tearing_outer(m: int = 2, n: int = 1, *, labels: bool = True) ->
         items += [
             Label((xs, CHART_HEIGHT + 0.1), "inner layer $\\to$ slab\\_parity", "small label", anchor="south",
                   role="inner_layer"),
-            Label((0.3 * xs, CHART_HEIGHT - 0.1), f"outer, ideal\\\\ $\\Delta' {'>' if value > 0 else '<'} 0$",
-                  "small label,align=center", anchor="north", role="delta_prime"),
+            Label((0.3 * xs, CHART_HEIGHT - 0.1), "outer, ideal", "small label", anchor="north", role="outer"),
+            Label((0.5 * (xs + x_b), CHART_HEIGHT - 0.1), f"outer, ideal; $\\Delta' {'>' if value > 0 else '<'} 0$",
+                  "small label", anchor="north", role="delta_prime"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(delta_prime_from_outer_derivatives)}$",
                   "formula box", anchor="north", role="equations"),
             _note(f"$m/n = {m}/{n}$ at $r_s = {rs:.2f}a$; schematic outer solutions, ideal wall at $b = {b:g}a$",

@@ -495,10 +495,12 @@ def peaked_current_safety_factor(x, q_a, nu):
     q_a, nu = float(q_a), float(nu)
     if np.any(x < 0.0) or np.any(x > 1.0 + 1e-12):
         raise ValueError("x must lie in [0, 1]")
+    x = np.minimum(x, 1.0)
     if q_a <= 0.0 or nu < 0.0:
         raise ValueError(f"q_a must be positive and nu non-negative, not {q_a!r} and {nu!r}")
     x2 = x * x
-    denom = 1.0 - (1.0 - x2) ** (nu + 1.0)
+    with np.errstate(divide="ignore"):  # x = 1: log1p(-1) = -inf, expm1(-inf) = -1, denom = 1
+        denom = -np.expm1((nu + 1.0) * np.log1p(-x2))  # 1 - (1 - x^2)^(nu+1), exact at small x
     with np.errstate(invalid="ignore", divide="ignore"):
         result = np.where(x2 > 1e-12, q_a * x2 / np.where(denom > 0.0, denom, 1.0), q_a / (nu + 1.0))
     return float(result) if np.ndim(result) == 0 else result
