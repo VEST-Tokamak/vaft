@@ -95,6 +95,17 @@ __all__ = [
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
     "strip_electron_only_pressure",
+    # analytic confinement-regime plasma states (#1045), from ._analytic_plasma_state
+    "analytic_hmode_itb_state",
+    "analytic_hmode_state",
+    "analytic_itb_state",
+    "analytic_lmode_state",
+    "compose_analytic_profile",
+    "compose_plasma_state",
+    "evaluate_analytic_profile",
+    "evaluate_plasma_state",
+    "project_flux_function",
+    "project_plasma_state",
 ]
 
 
@@ -3417,4 +3428,21 @@ def pedestal_top(
             coefficients=coefficients,
             span=(float(x_fit.min()), float(x_fit.max())),
         ),
+    )
+
+
+# Analytic L-/H-mode/ITB plasma states (#1045) are implemented separately and
+# re-exported here, their stable public import location.  The absolute
+# fallback serves tools that load this file directly by path.
+try:  # pragma: no branch - normal package import takes this path
+    from ._analytic_plasma_state import (  # noqa: E402,F401
+        analytic_hmode_itb_state, analytic_hmode_state, analytic_itb_state, analytic_lmode_state,
+        compose_analytic_profile, compose_plasma_state, evaluate_analytic_profile,
+        evaluate_plasma_state, project_flux_function, project_plasma_state,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._analytic_plasma_state import (  # noqa: E402,F401
+        analytic_hmode_itb_state, analytic_hmode_state, analytic_itb_state, analytic_lmode_state,
+        compose_analytic_profile, compose_plasma_state, evaluate_analytic_profile,
+        evaluate_plasma_state, project_flux_function, project_plasma_state,
     )
