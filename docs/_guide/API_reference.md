@@ -532,14 +532,56 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | Name | Role |
 | --- | --- |
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
-| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
+| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
 | `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `resolve_backend` | the protocol, the local and Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`) |
 | `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
 
-A timeout is returned (`timed_out=True`), not raised; each adapter maps it to the timeout result it
-already documented. A program the operating system refuses to start raises `ExecutableNotLaunchable`;
-a missing working directory stays a `FileNotFoundError`.
+A timeout is returned (`timed_out=True`), not raised. A program the operating system refuses to
+start raises `ExecutableNotLaunchable`; a missing working directory stays a `FileNotFoundError`.
+A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree
+(#1016); the interrupt and the signal are then raised again rather than turned into a result.
+
+**Timeout results (#1016).** Every adapter below returns its own result object on a timeout; none
+raises. The result says:
+
+| Field | On a timeout |
+| --- | --- |
+| `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
+| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
+| `returncode` | `None` |
+| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout) |
+| `timed_out` | `True` for either timeout kind (a property) |
+
+The reason is the last line of `stderr`, or of the log for codes that write one, worded
+`"<code> timed out after N s of running"` or `"<code> was cancelled after waiting N s in the scheduler
+queue (it never started)"`.
+
+| Adapter | Timeout result | Notes |
+| --- | --- | --- |
+| CHEASE `run_chease`, `refine_equilibrium` | `CHEASEResult` | nothing is collected; `chease.log` holds the partial output and the reason |
+| `scan_chease` | the case keeps its `CHEASEResult` | `case.error` names the limit; the scan goes on (`keep_going`) |
+| GACODE `run_gacode` | `GACODERun` | unpacks as `(returncode, log)` as before, with `returncode=None`; `.runtime_status`, `.elapsed_s` |
+| NEO `run_neo`, TGLF `run_tglf` | `NEOResult`, `TGLFResult` | `check=True` (the default) raises `NEOExecutionError`/`TGLFExecutionError` naming the limit, as for any failure; `check=False` returns it |
+| NUBEAM `run_nubeam`, `run_nubeam_case` | `NUBEAMResult` | a stopped INIT, STEP or Plasma State stage; `generate_plasma_state` returns a path, so there it raises `NUBEAMExecutionError` |
+| FLARE `run_flare` | `FlareResult` | |
+| TES `run_tes`, `scan_tes` | `TESResult` | outputs are still collected, as before |
+| NICE `run_nice` | `NiceResult` | `termination_reason` is the reason; the manifest records `process_runtime_status` |
+| GENRAY `run_genray` | `GENRAYResult` | |
+| EFIT, EFUND, GPEC suite | unchanged for now | see "Previous behaviour"; they move after 2026-10-06 |
+
+Previous behaviour (0.7.x), kept for reference:
+
+| Adapter | What a timeout produced |
+| --- | --- |
+| TES | `returncode=124` |
+| EFIT | `status="failed"`, `runtime_status="timeout"` |
+| EFUND | `failed`, `returncode=None` |
+| GPEC suite | `GPECModuleRun`: `completed` if its core outputs verify, else `failed`/`None` |
+| `scan_chease` | an error string per case (`"TimeoutExpired: ..."`, `result=None`) |
+| NICE, GENRAY | `returncode=124` |
+| CHEASE, GACODE (NEO, TGLF), NUBEAM, FLARE | raised `subprocess.TimeoutExpired` |
+
 Every adapter that runs a subprocess goes through the backend, and each has a `backend` field:
 EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM, FLARE and NICE. `CodeConfig`
 carries the field too. EFIT and EFUND declare one thread per task (`threads_per_task=1`), which sets
@@ -590,7 +632,9 @@ Slurm differently, so test each such code on a real cluster before relying on it
   this on the node: from `SLURM_JOB_END_TIME` where Slurm sets it, otherwise from the runtime
   compared with the requested walltime, less one minute for the prolog.
 - `max_wait` caps the total time the backend blocks, including time in the queue. After that the
-  job is cancelled, and the reason is written to `stderr` or appended to the log.
+  job is cancelled, and the reason is written to `stderr` or appended to the log. A job cancelled
+  before its program started reports `runtime_status="queue_timeout"`; one cancelled while running,
+  `"timeout"`.
 
 **Other outcomes.**
 

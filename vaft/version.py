@@ -5,6 +5,21 @@ __version__ = "0.7.1"
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# unreleased
+# - Changed (#1016): a timeout is a result, not an exception, for CHEASE
+#   (run_chease, refine_equilibrium, scan_chease), GACODE (run_gacode, NEO,
+#   TGLF), NUBEAM, FLARE, TES, NICE and GENRAY. The result has
+#   status="failed", runtime_status="timeout" (or "queue_timeout" for a
+#   Slurm job cancelled by max_wait before it started), returncode=None and
+#   elapsed_s. CHEASE, GACODE, NUBEAM and FLARE used to raise
+#   subprocess.TimeoutExpired; TES, NICE and GENRAY returned 124;
+#   scan_chease kept an error string. run_gacode returns a GACODERun that
+#   still unpacks as (returncode, log); run_neo/run_tglf with check=True raise
+#   their own error naming the limit. EFIT, EFUND and the GPEC suite are
+#   unchanged until after 2026-10-06. Table in docs/_guide/API_reference.md.
+# - Changed (#1016): a local launch stops the program's whole process tree on
+#   a timeout, Ctrl-C or SIGTERM/SIGHUP to Python; the program stays in the
+#   caller's process group, and each launch carries VAFT_PROCESS_TREE (#1274).
 # 0.7.1
 # - bug-fix release: the verified findings of the 0.7.0 cold review that
 #   shipped as known issues (#920), one commit each with a failing-before
