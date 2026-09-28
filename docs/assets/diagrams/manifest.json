@@ -182,8 +182,8 @@
     },
     "island_formation.svg": {
       "call": "vaft.diagram.island_formation()",
-      "source_sha256": "c46ee2a6107ff7b8206d5a8522b9a458689aea34a149a1f21ca919f6c533797a",
-      "svg_sha256": "559609eaada5da96bce79c3c6fdbe60f6db3ce83f4a53b667e1554c462f0c072"
+      "source_sha256": "16475bace5d3139f6b5658c343beeb1423e9408e6babfd56b0753b9749bca711",
+      "svg_sha256": "38059f5ad985c79139a9c0b3ffd53fc3e72aa6107bd464cc67afde16e1c73adc"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",

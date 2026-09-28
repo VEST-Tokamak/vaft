@@ -468,7 +468,9 @@ def island_formation(*, labels: bool = True) -> Diagram:
         width = 4.0 * math.sqrt(amp / shear)
         widths.append(width)
         if amp > 0.0:
-            lines = _contours(Z, xs, ys, [amp])
+            # a hair inside the saddle value: exactly at it the X-points sit on grid nodes and a last-bit
+            # difference in cos(k_y y) decides how contourpy joins the lines, platform by platform
+            lines = _contours(Z, xs, ys, [amp * (1.0 - 1e-6)])
             separatrices.append(lines)
             for line in lines:
                 items.append(Polyline.of(cm(line), "separatrix", role=f"separatrix:{i}"))
