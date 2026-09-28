@@ -45,25 +45,29 @@ def test_critical_momentum_diverges_at_Ec_and_falls_with_field():
 
 
 def test_the_avalanche_needs_Ec_and_is_linear_above():
-    E_c, tau = 0.1, 1e-3
-    assert avalanche_growth_rate(0.05, E_c, 1.0, tau, 15.0) == 0.0
-    g = [avalanche_growth_rate(E, E_c, 1.0, tau, 15.0) for E in (0.2, 0.3)]
+    E_c = 0.1
+    tau = relativistic_collision_time(1e20, 15.0) * connor_hastie_critical_field(1e20, 15.0) / E_c
+    assert avalanche_growth_rate(0.05, E_c, 1.0, 15.0) == 0.0
+    g = [avalanche_growth_rate(E, E_c, 1.0, 15.0) for E in (0.2, 0.3)]
     assert g[1] == pytest.approx(2 * g[0])
     assert g[0] == pytest.approx(1 / (tau * 15.0) * math.sqrt(math.pi / 18.0))
+    # more ion charge scatters more: slower avalanche at the same field
+    assert avalanche_growth_rate(0.3, E_c, 5.0, 15.0) < avalanche_growth_rate(0.3, E_c, 1.0, 15.0)
 
 
-def test_the_avalanche_efolds_equal_the_time_integral_of_the_rate():
-    # an L/R current quench, E >> E_c: integrate gamma_av (E/E_c) and compare
-    L, R0, I0, tau_cq, Z, lnL, n_e = 3e-6, 1.7, 1e6, 5e-3, 1.0, 15.0, 5e19
-    t = np.linspace(0, 20 * tau_cq, 200001)
-    I = current_quench_current(t, I0, tau_cq)
-    E = inductive_parallel_electric_field(L, np.gradient(I, t), R0)
-    E_c = connor_hastie_critical_field(n_e, lnL)
-    rate = E / E_c / (relativistic_collision_time(n_e, lnL) * lnL) * math.sqrt(math.pi / (3 * (Z + 5)))
-    integral = np.trapezoid(rate, t)
-    assert avalanche_efolds_from_current_drop(I0 - I[-1], L, R0, Z, lnL) == pytest.approx(integral, rel=1e-4)
+def test_the_avalanche_efolds_are_the_rosenbluth_putvinski_current_scaling():
+    # with L_p = mu0 R0 X: N = 2 X dI / (I_A ln Lambda) sqrt(pi / 3(Z + 5)), I_A = 4 pi eps0 m_e c^3 / e ~ 17 kA
+    from vaft.formula.constants import MU0
+
+    R0, a, l_i, Z, lnL, dI = 6.2, 2.0, 0.8, 1.0, 15.0, 15e6
+    X = math.log(8 * R0 / a) - 2 + l_i / 2
+    I_A = 4 * math.pi * EPS0 * ME * C_LIGHT**3 / QE
+    assert I_A == pytest.approx(17.05e3, rel=1e-3)
+    expected = 2 * X * dI / (I_A * lnL) * math.sqrt(math.pi / (3 * (Z + 5)))
+    assert avalanche_efolds_from_current_drop(dI, MU0 * R0 * X, R0, Z, lnL) == pytest.approx(expected, rel=1e-6)
+    assert expected > 20  # tens of e-folds at reactor current
     with pytest.raises(ValueError):
-        avalanche_efolds_from_current_drop(-1.0, L, R0, Z, lnL)
+        avalanche_efolds_from_current_drop(-1.0, 1e-6, R0, Z, lnL)
 
 
 def test_a_decaying_current_induces_a_field_along_it():
@@ -71,13 +75,29 @@ def test_a_decaying_current_induces_a_field_along_it():
     assert inductive_parallel_electric_field(2e-6, 1e8, 1.0) < 0
 
 
-def test_dreicer_is_exponentially_small_at_small_field_and_zero_without_field():
-    n, T, Z, lnL = 5e19, 100.0, 1.0, 12.0
+def test_dreicer_rises_with_field_falls_with_charge_and_needs_its_prefactor():
+    n, T, lnL = 5e19, 100.0, 12.0
     E_D = dreicer_field(n, T, lnL)
-    small, larger = (dreicer_generation_rate(n, T, f * E_D, Z, lnL) for f in (0.02, 0.05))
-    assert 0.0 < small < 1e-4 * larger  # exp(-E_D/4E) dominates: about 2e-5 here
-    assert dreicer_generation_rate(n, T, 0.0, Z, lnL) == 0.0
-    assert dreicer_generation_rate(n, T, 0.05 * E_D, Z, lnL, prefactor=0.35) == pytest.approx(0.35 * larger)
+    rates = [dreicer_generation_rate(n, T, f * E_D, 1.0, lnL, prefactor=1.0) for f in (0.02, 0.04, 0.08)]
+    assert 0.0 < rates[0] < rates[1] < rates[2]
+    assert rates[0] / rates[1] < 0.1  # doubling E from 2 % to 4 % of E_D: exponentially sensitive
+    assert dreicer_generation_rate(n, T, 0.05 * E_D, 3.0, lnL, prefactor=1.0) < dreicer_generation_rate(
+        n, T, 0.05 * E_D, 1.0, lnL, prefactor=1.0)
+    assert dreicer_generation_rate(n, T, 0.0, 1.0, lnL, prefactor=1.0) == 0.0
+    assert dreicer_generation_rate(n, T, 0.05 * E_D, 1.0, lnL, prefactor=0.35) == pytest.approx(
+        0.35 * dreicer_generation_rate(n, T, 0.05 * E_D, 1.0, lnL, prefactor=1.0))
+    with pytest.raises(TypeError):
+        dreicer_generation_rate(n, T, 0.05 * E_D, 1.0, lnL)  # no hidden prefactor
+
+
+def test_the_dreicer_exponent_at_one_point_by_hand():
+    # the exponent at E = E_D/25, Z = 1: -25/4 - sqrt(2*25), and the power (25)^(6/16)
+    n, T, lnL = 1e19, 50.0, 13.0
+    E_D = dreicer_field(n, T, lnL)
+    v_te = math.sqrt(2 * QE * T / ME)
+    nu = n * QE**4 * lnL / (4 * math.pi * EPS0**2 * ME**2 * v_te**3)
+    by_hand = n * nu * 25 ** (6 / 16) * math.exp(-25 / 4 - math.sqrt(50))
+    assert dreicer_generation_rate(n, T, E_D / 25, 1.0, lnL, prefactor=1.0) == pytest.approx(by_hand, rel=1e-12)
 
 
 def test_the_quench_models_start_and_end_where_they_should():

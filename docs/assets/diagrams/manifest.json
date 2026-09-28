@@ -97,18 +97,18 @@
     },
     "disruption_causal_chain.svg": {
       "call": "vaft.diagram.disruption_causal_chain()",
-      "source_sha256": "6b431f01a0369f4e5bff4d7c85463fc4f318112320b5a2b2aaa95e0637d7c67a",
-      "svg_sha256": "ac06d2b047f541cb7184b55b66e0066dd0a8849426e89aa1db48d79ccfedf251"
+      "source_sha256": "efb9557234c8f419021ae32efa837defec56bcb61f9f9368f74aa4fde63200b4",
+      "svg_sha256": "c5fa2b88a60e554fa041f36da58ec6b456a6efe1b7941c76fd975926d4e34dfc"
     },
     "disruption_energy_pathways.svg": {
       "call": "vaft.diagram.disruption_energy_pathways()",
-      "source_sha256": "df177d71c0fb107218dfc3cd8209ea47e11f03a1fb4a93820c3f746b05ac309e",
-      "svg_sha256": "9ef57d98547d2278fc3bf2be9464bb2b5189b0423052f5756513627b56f9b931"
+      "source_sha256": "a98e0a88749781fb3ce41b172441b5e65f6822ae8c9eb3eb3f33071f8fca6d26",
+      "svg_sha256": "b6bdb3126cc5b8d62f55308d10f3d4225d1bfc01ca5fd3fa58232d52263fb1b1"
     },
     "disruption_timeline.svg": {
       "call": "vaft.diagram.disruption_timeline()",
-      "source_sha256": "4ad113d8de05aa8825a8d9873f13be9505e38fb884939a4b58aba23d8abf60c7",
-      "svg_sha256": "159995fc463102fb0ace51e090812c08672b59a7c358885e6779da81dab58e88"
+      "source_sha256": "5a8c26c3b187bd03b6fdccb8dac525bd448eb53d3f72fbf511880779ddd667a3",
+      "svg_sha256": "87249df7ecbdb12d7bc54e7a48a3f5f92583d42fa7917dd106f8c9a02fb817cd"
     },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
@@ -307,8 +307,8 @@
     },
     "runaway_generation.svg": {
       "call": "vaft.diagram.runaway_generation()",
-      "source_sha256": "801d7cd22d2fbc468a5028e0cc538db5640a2121f820049a51d3518b83543025",
-      "svg_sha256": "0d2f9e2a400af1c450fa730cb6ab1fd83c8d68dc1b61a22fc15e7fd4ec11ba23"
+      "source_sha256": "d2ee24eb470e0abf69ba14f08f1c37101d9cb6fd62d6c9256af7b021b28c6aec",
+      "svg_sha256": "b1dec1da01cb4fee2a9a2df1581e5bd43079baa94aef52d44ba9c89f079ce396"
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",

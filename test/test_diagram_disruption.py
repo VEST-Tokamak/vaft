@@ -29,25 +29,29 @@ def test_the_reference_model_goes_through_the_disruption_sequence():
     assert np.all(np.diff(m["I_p"]) <= 1e-6 * p["I_0"])
 
 
-def test_the_runaway_gain_stays_below_the_avalanche_upper_bound():
+def test_the_model_reports_its_seed_and_avalanche_honestly():
     m = dz.reference_model()
     p = m["params"]
+    # at 1 MA the avalanche gives a few e-folds, bounded by the Rosenbluth-Putvinski estimate for this drop
     efolds = avalanche_efolds_from_current_drop(p["I_0"] - m["I_p"][-1], m["L_p"], p["R0"], p["Z_eff"],
                                                 p["ln_Lambda_rel"])
-    seed = np.trapezoid(m["dreicer"], m["t"]) * m["area"] * 1.602176634e-19 * 299792458.0
-    assert m["I_RE"][-1] <= seed * np.exp(efolds) * 1.01
+    assert 1.0 < m["avalanche_gain"] < np.exp(efolds)
+    assert m["I_RE"][-1] == pytest.approx(m["seed_current"] * m["avalanche_gain"])
+    assert m["seed_current"] < 0.2 * m["I_RE"][-1]  # the avalanche does most of the work, even at 1 MA
+    # the cached model cannot be corrupted by a caller
+    with pytest.raises(ValueError):
+        m["I_p"][0] = 0.0
 
 
-def test_the_generation_chart_orders_the_regimes():
+def test_the_generation_chart_keeps_dreicer_inside_its_validity():
     m = vaft.diagram.runaway_generation().model
-    x = np.log10(m["E_D"] / m["E_c"])
-    assert x > 3
-    below = m["x"] < 0
-    assert np.all(m["avalanche"][below] == 0.0)
-    # near E_D the Dreicer rate per electron overtakes the avalanche rate per runaway, far below it does not
-    assert m["dreicer"][-1] > m["avalanche"][-1] or m["dreicer"][-1] > 1e-3
-    mid = np.argmin(np.abs(m["x"] - 1.0))
-    assert m["dreicer"][mid] < 1e-12 * m["avalanche"][mid]
+    assert np.log10(m["E_D"] / m["E_c"]) > 3
+    assert np.all(m["avalanche"][m["x"] < 0] == 0.0)
+    assert m["dreicer_drawn"].max() <= np.log10(0.1 * m["E_D"] / m["E_c"]) + 1e-9
+    # the avalanche rate grows linearly in E - E_c
+    above = m["x"] > 0.5
+    ratio = m["avalanche"][above] / (10 ** m["x"][above] - 1)
+    np.testing.assert_allclose(ratio, ratio[0], rtol=1e-9)
 
 
 @pytest.mark.parametrize("name", ["disruption_timeline", "disruption_causal_chain", "runaway_generation",

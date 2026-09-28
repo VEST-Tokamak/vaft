@@ -39,6 +39,7 @@ from vaft.formula.disruption import (
     thermal_quench_temperature,
 )
 from vaft.formula.equilibrium import spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+from vaft.formula.constants import C_LIGHT, QE
 from vaft.formula.startup import (
     plasma_inductance_circular_from_R0_a_li,
     plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa,
@@ -75,7 +76,9 @@ def reference_model(t_end: float = 20e-3, steps: int = 8000) -> dict:
     of the total current's decay; runaways
     $dn_\\mathrm{RE}/dt = S_\\mathrm{Dreicer} + \\gamma_\\mathrm{av}n_\\mathrm{RE}$,
     carrying $I_\\mathrm{RE} = ecn_\\mathrm{RE}A$. Explicit Euler; the step
-    resolves the quench, the L/R time and the avalanche.
+    resolves the quench, the L/R time and the avalanche. Once the ohmic
+    current is gone $E$ is zero and the plateau is frozen: the model has no
+    $E \approx E_c$ self-consistency, no runaway loss.
     """
     p = REFERENCE
     L_p = float(plasma_inductance_circular_from_R0_a_li(p["R0"], p["a"], p["l_i"], p["kappa"]))
@@ -92,17 +95,26 @@ def reference_model(t_end: float = 20e-3, steps: int = 8000) -> dict:
         R_p = float(plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(eta, p["R0"], p["a"], p["kappa"]))
         dI_total_dt = -R_p * I_ohm / L_p
         E = float(inductive_parallel_electric_field(L_p, dI_total_dt, p["R0"]))
-        S = float(dreicer_generation_rate(p["n_e"], T, E, p["Z_eff"], p["ln_Lambda_th"]))
-        g = float(avalanche_growth_rate(E, E_c, p["Z_eff"], tau_c, p["ln_Lambda_rel"]))
+        S = float(dreicer_generation_rate(p["n_e"], T, E, p["Z_eff"], p["ln_Lambda_th"], prefactor=1.0))
+        g = float(avalanche_growth_rate(E, E_c, p["Z_eff"], p["ln_Lambda_rel"]))
         I_RE = float(runaway_current_from_density(n_RE, area))
         for key, v in (("T_e", T), ("eta", eta), ("E", E), ("I_p", I_ohm + I_RE), ("I_RE", I_RE), ("n_RE", n_RE),
                        ("dreicer", S), ("gamma", g)):
             out[key][i] = v
         n_new = n_RE + (S + g * n_RE) * dt
         dI_RE = float(runaway_current_from_density(n_new, area)) - I_RE
-        I_ohm = max(I_ohm + dI_total_dt * dt - dI_RE, 0.0)
+        I_ohm_new = I_ohm + dI_total_dt * dt - dI_RE
+        if I_ohm_new < -1e-9 * p["I_0"]:
+            raise RuntimeError("the runaways outgrew the ohmic current in one step: reduce the step")
+        I_ohm = max(I_ohm_new, 0.0)
         n_RE = n_new
-    out.update({"t": t, "L_p": L_p, "area": area, "E_c": E_c, "tau_c": tau_c, "params": dict(p)})
+    area_c = float(QE * C_LIGHT * area)
+    seed = float(np.trapezoid(out["dreicer"], t)) * area_c  # current of the primary (Dreicer) runaways alone
+    out.update({"t": t, "L_p": L_p, "area": area, "E_c": E_c, "tau_c": tau_c, "params": dict(p),
+                "seed_current": seed, "avalanche_gain": float(out["I_RE"][-1] / seed) if seed > 0 else math.inf})
+    for v in out.values():
+        if isinstance(v, np.ndarray):
+            v.setflags(write=False)  # cached: callers must not be able to corrupt it
     return out
 
 
@@ -123,11 +135,13 @@ def disruption_timeline(*, labels: bool = True) -> Diagram:
     the plasma and runaway currents; $\log_{10}(E_\parallel/E_c)$ with $E_c$
     from ``connor_hastie_critical_field``; and the resistivity
     (``spitzer_resistivity_from_T_e_Z_eff_ln_Lambda``). The current decays by
-    L/R with $R_p$ rising as the plasma cools, the induced field reaches
-    thousands of $E_c$, a Dreicer seed is multiplied by the avalanche and a
-    runaway plateau carries part of the current (``reference_model``;
-    $R_0 = 1.7$ m, $a = 0.5$ m, 1 MA, $5\times10^{19}$ m$^{-3}$). Schematic
-    in scale: no universal waveform or timescale is implied.
+    L/R with $R_p$ rising as the plasma cools, the induced field reaches about
+    $10^3E_c$ (and $E/E_D \approx 2\,\%$), a Dreicer seed of a few kA forms
+    and the avalanche multiplies it a few e-folds -- at 1 MA only a few; at
+    reactor currents tens -- until a runaway plateau carries part of the
+    current (``reference_model``; $R_0 = 1.7$ m, $a = 0.5$ m, 1 MA,
+    $5\times10^{19}$ m$^{-3}$). Illustrative magnitudes, not to scale for any
+    machine: no universal waveform or timescale is implied.
     """
     labels = _check_labels(labels)
     m = reference_model()
@@ -149,20 +163,22 @@ def disruption_timeline(*, labels: bool = True) -> Diagram:
         if key == "I":
             chart.curves["I_p"] = np.stack([t_ms, m["I_p"] / p["I_0"]], -1)
             chart.curves["I_RE"] = np.stack([t_ms, m["I_RE"] / p["I_0"]], -1)
-            styles = {"I_p": "boundary", "I_RE": "trough"}
+            styles = {"I_p": "boundary", "I_RE": "crest"}
         else:
             chart.curves[key] = np.stack([t_ms, y], -1)
             styles = {key: style}
         if key == "E":
             chart.curves["E_c"] = np.array([[x_range[0], 0.0], [x_range[1], 0.0]])
-            styles["E_c"] = "approx"
+            styles["E_c"] = "rational"
+        y_ticks = {"E": (0.0, 3.0), "eta": (0.0, 5.0), "T_e": (0.0, 1.0), "I": (0.0, 1.0)}[key]
         scene = render_chart(chart, x_label="$t$ [ms]" if k == len(panels) - 1 else "", y_label="",
                              curve_styles=styles, region_text={},
-                             x_ticks=(0.0, 10.0, 20.0) if k == len(panels) - 1 else ())
+                             x_ticks=(0.0, 10.0, 20.0) if k == len(panels) - 1 else (), y_ticks=y_ticks,
+                             y_tick_text=tuple(f"${v:g}$" for v in y_ticks))
         offset = (0.0, (len(panels) - 1 - k) * (height + 0.5))
         items += _squash(scene, height / CHART_HEIGHT, offset)
         if labels:
-            items.append(Label((-0.25, offset[1] + 0.5 * height), ylabel, "small label", anchor="east",
+            items.append(Label((-0.75, offset[1] + 0.5 * height), ylabel, "small label", anchor="east",
                                role=f"panel:{key}"))
     total_h = len(panels) * (height + 0.5) - 0.5
     # stage boundaries across all panels
@@ -177,15 +193,18 @@ def disruption_timeline(*, labels: bool = True) -> Diagram:
     if labels:
         items += [
             Label((0.1, total_h + 0.1), "pre", "small label", anchor="south west", role="stage:pre"),
-            Label((CHART_WIDTH + 0.4, total_h - 0.2), "red: $T_e$\\\\ heavy: $I_p$\\\\ red, lower: $I_\\mathrm{RE}$\\\\ "
-                  "dashed: $E = E_c$", "small label,align=left", anchor="north west", role="legend"),
+            Label((CHART_WIDTH + 0.4, total_h - 0.2), "red: $T_e$\\\\ heavy: $I_p$\\\\ blue: $I_\\mathrm{RE}$\\\\ "
+                  "blue dashed: $E = E_c$\\\\ grey dashed: stage starts\\\\ "
+                  f"Dreicer seed {m['seed_current'] / 1e3:.1f} kA, avalanche $\\times{m['avalanche_gain']:.0f}$",
+                  "small label,align=left", anchor="north west", role="legend"),
             Label((CHART_WIDTH / 2, -1.25), f"$\\displaystyle {formula_equation(inductive_parallel_electric_field)}$",
                   "formula box", anchor="north", role="equations"),
-            _note("0-D reference model: prescribed $T_e(t)$, Spitzer $\\eta$, L/R circuit, Dreicer seed + "
-                  "avalanche; no transport, radiation or vessel. Schematic in scale", CHART_WIDTH / 2 + 1.0, -2.4),
+            _note("0-D reference model: prescribed $T_e$, Spitzer $\\eta$, L/R, Dreicer + avalanche; "
+                  "no transport, radiation or vessel. Illustrative magnitudes", CHART_WIDTH / 2, -2.4),
         ]
     model = {"time": m["t"], "edges": edges, "peak_E_over_Ec": float(np.max(m["E"] / m["E_c"])),
-             "I_RE_final": float(m["I_RE"][-1]), "reference": m}
+             "I_RE_final": float(m["I_RE"][-1]), "seed_current": m["seed_current"],
+             "avalanche_gain": m["avalanche_gain"], "reference": m}
     return Diagram("disruption_timeline", Scene(tuple(items)), model=model)
 
 
@@ -225,8 +244,9 @@ def disruption_causal_chain(*, labels: bool = True) -> Diagram:
     steps = [
         ("MHD / loss of confinement", "", "start"),
         ("thermal quench: $T_e$ drops", "thermal\\_quench\\_temperature", "tq"),
-        ("resistivity rises, $\\eta \\propto Z_\\mathrm{eff}\\ln\\Lambda\\,T_e^{-3/2}$", "spitzer\\_resistivity", "eta"),
-        ("current quench: $I_p$ decays, $\\tau = L_p/R_p$", "lr\\_time\\_from\\_L\\_R", "cq"),
+        ("resistivity rises, $\\eta \\propto T_e^{-3/2}$", "spitzer\\_resistivity\\_from\\_T\\_e\\_Z\\_eff\\_ln\\_Lambda",
+         "eta"),
+        ("current quench, $\\tau = L_p/R_p$", "lr\\_time\\_from\\_L\\_R", "cq"),
         ("induced $E_\\parallel = -L_p\\dot I_p/(2\\pi R_0)$", "inductive\\_parallel\\_electric\\_field", "E"),
         ("$E_\\parallel > E_c$: runaways possible", "connor\\_hastie\\_critical\\_field", "Ec"),
         ("seed: Dreicer, hot tail", "dreicer\\_generation\\_rate", "seed"),
@@ -239,7 +259,7 @@ def disruption_causal_chain(*, labels: bool = True) -> Diagram:
         col, row = i % 3, i // 3
         x = 2.6 + 5.4 * col if row % 2 == 0 else 2.6 + 5.4 * (2 - col)
         y = -2.4 * row
-        b = box(x, y, 4.8, 1.3, text + (f"\\\\ {{\\scriptsize\\texttt{{{fn}}}}}" if (fn and labels) else ""),
+        b = box(x, y, 5.0, 1.3, text + (f"\\\\ {{\\scriptsize\\texttt{{{fn}}}}}" if (fn and labels) else ""),
                 role=f"step:{role}", latex=True)
         boxes.append(b)
         items += list(b.items)
@@ -270,12 +290,13 @@ def runaway_generation(*, labels: bool = True) -> Diagram:
     E_D = float(dreicer_field(n_e, T_e, lnt))
     x = np.linspace(-0.5, math.log10(E_D / E_c) + 0.1, 400)
     E = E_c * 10.0**x
-    aval = avalanche_growth_rate(E, E_c, Z, tau_c, lnr) * tau_c
-    dre = dreicer_generation_rate(n_e, T_e, E, Z, lnt) * tau_c / n_e
+    aval = avalanche_growth_rate(E, E_c, Z, lnr) * tau_c
+    dre = dreicer_generation_rate(n_e, T_e, E, Z, lnt, prefactor=1.0) * tau_c / n_e
+    valid = E <= 0.1 * E_D  # the asymptotic Dreicer formula's own range
     floor = -12.0
     chart = Chart(x_range=(float(x[0]), float(x[-1])), y_range=(floor, 1.0))
     keep_a = aval > 10.0**floor
-    keep_d = dre > 10.0**floor
+    keep_d = (dre > 10.0**floor) & valid
     chart.curves.update({"avalanche": np.stack([x[keep_a], np.log10(aval[keep_a])], -1),
                          "dreicer": np.stack([x[keep_d], np.log10(dre[keep_d])], -1)})
     xd = math.log10(E_D / E_c)
@@ -285,8 +306,11 @@ def runaway_generation(*, labels: bool = True) -> Diagram:
                          y_tick_text=(f"${floor:g}$", "$0$"))
     items: List = []
     x_c = float(chart.to_cm(np.array([0.0, 0.0]))[0])
+    x_v = float(chart.to_cm(np.array([math.log10(0.1 * E_D / E_c), 0.0]))[0])
     items.append(Polyline.of([(0.0, 0.0), (x_c, 0.0), (x_c, CHART_HEIGHT), (0.0, CHART_HEIGHT)], "concept band",
                              role="regime:none", closed=True))
+    items.append(Polyline.of([(x_v, 0.0), (CHART_WIDTH, 0.0), (CHART_WIDTH, CHART_HEIGHT), (x_v, CHART_HEIGHT)],
+                             "concept band", role="regime:dreicer_invalid", closed=True))
     items += list(scene.items)
     if labels:
         items += [
@@ -294,19 +318,20 @@ def runaway_generation(*, labels: bool = True) -> Diagram:
                   role="regime:none"),
             Label((0.42 * CHART_WIDTH, 0.55 * CHART_HEIGHT), "avalanche\\\\ multiplies a seed", "small label,align=center",
                   anchor="north", role="regime:avalanche"),
-            Label((CHART_WIDTH - 0.1, 0.6 * CHART_HEIGHT), "Dreicer:\\\\ the tail\\\\ runs away",
-                  "small label,align=right", anchor="east", role="regime:dreicer"),
+            Label((0.5 * (x_v + CHART_WIDTH), 0.35 * CHART_HEIGHT), "$E > 0.1E_D$:\\\\ asymptotic\\\\ Dreicer\\\\ "
+                  "invalid", "small label,align=center", anchor="center", role="regime:dreicer_invalid"),
             Label((CHART_WIDTH + 0.4, CHART_HEIGHT), "blue: $\\gamma_\\mathrm{av}\\tau_c$ (avalanche, per runaway)"
                   "\\\\ red: $S_D\\tau_c/n_e$ (Dreicer, per electron)\\\\ "
                   f"$T_e = {T_e:g}$ eV, $E_D/E_c = {E_D / E_c:.0f}$", "small label,align=left",
                   anchor="north west", role="legend"),
             Label((CHART_WIDTH / 2, -1.45), f"$\\displaystyle {formula_equation(avalanche_growth_rate)}$",
                   "formula box", anchor="north", role="equations"),
-            _note("Avalanche is per existing runaway, Dreicer per thermal electron: a seed is needed below "
-                  "a few per cent of $E_D$. Hot-tail seeding not drawn", CHART_WIDTH / 2 + 1.5, -2.7),
+            _note("Different normalisations -- per existing runaway vs per thermal electron -- so the curves' "
+                  "magnitudes are not compared. Hot-tail seeding not drawn", CHART_WIDTH / 2 + 1.5, -2.7),
         ]
     return Diagram("runaway_generation", Scene(tuple(items)),
-                   model={"E_c": E_c, "E_D": E_D, "tau_c": tau_c, "x": x, "avalanche": aval, "dreicer": dre})
+                   model={"E_c": E_c, "E_D": E_D, "tau_c": tau_c, "x": x, "avalanche": aval, "dreicer": dre,
+                          "dreicer_drawn": x[keep_d]})
 
 
 def disruption_energy_pathways(*, labels: bool = True) -> Diagram:
@@ -322,27 +347,31 @@ def disruption_energy_pathways(*, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     items: List = []
-    w_th = box(2.5, 0.0, 4.6, 1.2, "thermal energy $W_\\mathrm{th}$\\\\ (released in the thermal quench)", role="pool:thermal",
+    w_th = box(2.5, 0.0, 4.6, 1.5, "thermal energy $W_\\mathrm{th}$\\\\ (released in the thermal quench)", role="pool:thermal",
                latex=True)
-    w_mag = box(2.5, -4.2, 4.6, 1.2, "magnetic energy $\\tfrac12L_pI_p^2$\\\\ (released in the current quench)",
+    w_mag = box(2.5, -5.4, 4.6, 1.5, "magnetic energy $\\tfrac12L_pI_p^2$\\\\ (released in the current quench)",
                 role="pool:magnetic", latex=True)
     sinks = {
-        "conduction": box(9.9, 1.0, 6.0, 1.0, "conduction and convection to the wall", role="sink:conduction",
+        "conduction": box(9.9, 1.0, 6.0, 1.0, "conduction, convection to the wall", role="sink:conduction",
                           latex=True),
         "radiation": box(9.9, -1.0, 6.0, 1.0, "radiation (impurities)", role="sink:radiation", latex=True),
         "ohmic": box(9.9, -3.0, 6.0, 1.0, "ohmic heating of the cold plasma", role="sink:ohmic", latex=True),
         "vessel": box(9.9, -4.6, 6.0, 1.0, "induced currents in vessel and coils", role="sink:vessel", latex=True),
         "runaway": box(9.9, -6.2, 6.0, 1.0, "runaway kinetic energy $\\to$ local wall damage", role="sink:runaway",
                        latex=True),
+        "halo": box(9.9, -7.8, 6.0, 1.0, "halo currents in the wall (VDE) $\\to$ forces", role="sink:halo",
+                    latex=True),
     }
     for b in (w_th, w_mag, *sinks.values()):
         items += list(b.items)
     edges = [(w_th, sinks["conduction"]), (w_th, sinks["radiation"]), (w_mag, sinks["ohmic"]),
-             (w_mag, sinks["vessel"]), (w_mag, sinks["runaway"]), (sinks["ohmic"], sinks["radiation"])]
+             (w_mag, sinks["vessel"]), (w_mag, sinks["runaway"]), (w_mag, sinks["halo"]),
+             (sinks["ohmic"], sinks["radiation"])]
     for a, b in edges:
         items.append(connector(a, b, role="edge"))
     if labels:
         items.append(_note("Two pools on two timescales; magnetic energy can exceed the thermal one in a "
-                           "disruption, and runaways concentrate part of it on the wall", 6.0, -7.3))
+                           "disruption, and runaways concentrate part of it on the wall; halo currents are issue 1042",
+                           6.0, -8.8))
     return Diagram("disruption_energy_pathways", Scene(tuple(items)),
                    model={"pools": ("thermal", "magnetic"), "sinks": tuple(sinks)})

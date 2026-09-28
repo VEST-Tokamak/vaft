@@ -286,8 +286,9 @@ def dreicer_field(n_e, T_e, ln_Lambda):
     -----------------------
     A field $E \gtrsim E_D$ accelerates the bulk; well below it only the
     tail beyond the critical velocity runs away, at the exponentially small
-    Dreicer rate. At a few eV after a thermal quench $E_D$ is enormous, which
-    is why hot-tail and avalanche usually matter more than Dreicer there.
+    Dreicer rate. Which seed matters depends on the case: the rate is
+    negligible below a few per cent of $E_D$, but a fast current quench can
+    reach $E/E_D \approx 0.01$-$0.02$ at a few eV, where it is not.
 
     References
     ----------
@@ -373,7 +374,7 @@ def relativistic_collision_time(n_e, ln_Lambda):
     return _out(ME * C_LIGHT / (QE * connor_hastie_critical_field(n_e, ln_Lambda)))
 
 
-def dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor=1.0):
+def dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor):
     r"""Dreicer (primary) runaway generation rate, Connor--Hastie asymptotic form.
 
     $$\frac{dn_\mathrm{RE}}{dt} = C\,n_e\nu_{ee}\left(\frac{E_D}{E}\right)^{\frac{3(1+Z)}{16}}
@@ -392,9 +393,10 @@ def dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor=1.0):
         Effective ion charge, positive [-].
     ln_Lambda : float
         Thermal Coulomb logarithm, positive [-].
-    prefactor : float, optional
-        The order-unity $C$ of the asymptotic formula (fits to kinetic
-        solutions put it between about 0.3 and 1) [-].
+    prefactor : float
+        The order-unity $C$ of the asymptotic formula, required: fits to
+        kinetic solutions put it between about 0.3 and 1, so there is no
+        canonical default [-].
 
     Returns
     -------
@@ -414,11 +416,16 @@ def dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor=1.0):
     Assumptions
     -----------
     Steady state, $E \ll E_D$ (the asymptotic regime), non-relativistic
-    thermal electrons, no hot tail; unreliable above $E/E_D \approx 0.1$.
+    thermal electrons -- the relativistic correction factor
+    $\exp[-(T_e/m_ec^2)(E_D^2/8E^2 + \ldots)]$ of Connor & Hastie is dropped --
+    a classical fully ionised plasma (no partial screening), no hot tail;
+    unreliable above $E/E_D \approx 0.1$.
 
     References
     ----------
-    .. [1] J. W. Connor and R. J. Hastie, Nucl. Fusion 15 (1975) 415.
+    .. [1] J. W. Connor and R. J. Hastie, Nucl. Fusion 15 (1975) 415, Eq. (62).
+    .. [2] L. Hesslow et al., Nucl. Fusion 59 (2019) 084004, Eq. (4) (the
+           form written here).
     """
     n_e = _positive(n_e, "n_e")
     T_e = _positive(T_e, "T_e")
@@ -434,10 +441,11 @@ def dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor=1.0):
     return _out(np.where(np.isfinite(rate), rate, 0.0))
 
 
-def avalanche_growth_rate(E, E_c, Z_eff, tau_c, ln_Lambda):
+def avalanche_growth_rate(E, E_c, Z_eff, ln_Lambda):
     r"""Rosenbluth--Putvinski avalanche (secondary) growth rate of the runaway density.
 
     $$\gamma_\mathrm{av} = \frac{E/E_c - 1}{\tau_c\ln\Lambda}\sqrt{\frac{\pi}{3(Z_\mathrm{eff} + 5)}},\qquad
+      \tau_c = \frac{m_ec}{eE_c},\qquad
       \frac{dn_\mathrm{RE}}{dt} = \gamma_\mathrm{av}\,n_\mathrm{RE}$$
 
     Parameters
@@ -448,8 +456,6 @@ def avalanche_growth_rate(E, E_c, Z_eff, tau_c, ln_Lambda):
         Critical field, positive [V/m].
     Z_eff : float
         Effective ion charge, positive [-].
-    tau_c : float
-        Relativistic collision time (``relativistic_collision_time``), positive [s].
     ln_Lambda : float
         Relativistic Coulomb logarithm, positive [-].
 
@@ -461,21 +467,28 @@ def avalanche_growth_rate(E, E_c, Z_eff, tau_c, ln_Lambda):
     Raises
     ------
     ValueError
-        ``E_c``, ``Z_eff``, ``tau_c`` or ``ln_Lambda`` is not positive.
+        ``E_c``, ``Z_eff`` or ``ln_Lambda`` is not positive.
+
+    Convention
+    ----------
+    $\tau_c$ is derived from $E_c$ (``relativistic_collision_time``), so the
+    two cannot be passed inconsistently.
 
     Physical interpretation
     -----------------------
     Close collisions of existing runaways knock thermal electrons above
     $p_c$: exponential growth from any seed, independent of $T_e$. Over a
     whole current quench it multiplies a seed by
-    ``avalanche_efolds_from_current_drop`` e-folds, which is why a tiny
-    Dreicer or hot-tail seed can carry most of the current afterwards.
+    ``avalanche_efolds_from_current_drop`` e-folds -- a few per MA, so a
+    handful at 1 MA but tens at reactor currents, where a tiny seed can end up
+    carrying most of the current.
 
     Assumptions
     -----------
-    $E \gg E_c$ asymptote of Rosenbluth & Putvinski with a complete-screening
-    $Z_\mathrm{eff}$; partial screening of impurities and radiation are not
-    included. The rate is clipped at zero below $E_c$.
+    The $E \gg E_c$ asymptote of Rosenbluth & Putvinski for a classical,
+    fully ionised plasma: not valid with high-$Z$ impurities or partial
+    screening, which raise the rate, nor with radiation losses. The rate is
+    clipped at zero below $E_c$.
 
     References
     ----------
@@ -483,8 +496,8 @@ def avalanche_growth_rate(E, E_c, Z_eff, tau_c, ln_Lambda):
     """
     E_c = _positive(E_c, "E_c")
     Z = _positive(Z_eff, "Z_eff")
-    tau_c = _positive(tau_c, "tau_c")
     ln_Lambda = _positive(ln_Lambda, "ln_Lambda")
+    tau_c = ME * C_LIGHT / (QE * E_c)
     excess = np.maximum(np.asarray(E, dtype=float) / E_c - 1.0, 0.0)
     return _out(excess / (tau_c * ln_Lambda) * np.sqrt(np.pi / (3.0 * (Z + 5.0))))
 
