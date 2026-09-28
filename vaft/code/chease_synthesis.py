@@ -8,25 +8,32 @@ that and nothing more:
   into a Miller LCFS;
 * **sources** -- the *shapes* of ``p'(psi_N)`` and ``FF'(psi_N)`` as
   generalized-parabolic kernels, plus ``pressure_fraction``, the share of the
-  on-axis Grad-Shafranov source carried by the pressure term;
+  on-axis Grad-Shafranov source carried by the pressure term; or, for either
+  source, a #1045 barrier profile (edge pedestal, ITB, or both) whose analytic
+  ``psi_N`` derivative is the shape (#1166 scope B);
 * **normalization** -- the one quantity CHEASE can impose: the plasma current
   (``NCSCAL = 2``) *or* the safety factor at ``psi_N = 0.95`` (``NCSCAL = 1``).
 
 Everything else -- q0, the other of Ip / q95, beta_p, beta_N, l_i, the
 Shafranov shift -- is an *achieved* output, measured on the solved equilibrium
-and reported next to the request, never imposed.
+and reported next to the request, never imposed.  A steep pedestal ``p'`` on
+a fixed boundary is likewise a *source prescription*: nothing here predicts a
+pedestal, its width or its stability.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 import numpy as np
 from scipy.constants import mu_0 as MU0
 
 from .chease import CHEASEConfig, CHEASEResult, refine_equilibrium
+
+if TYPE_CHECKING:
+    from vaft.data.analytic_plasma_state import AnalyticPlasmaState, AnalyticProfile
 
 #: CHEASE's normalization modes, by the target they impose.
 SUPPORTED_TARGETS = {"plasma_current": 2, "q95": 1}
@@ -35,6 +42,27 @@ SUPPORTED_TARGETS = {"plasma_current": 2, "q95": 1}
 STATUSES = ("success", "invalid_geometry", "invalid_source_model", "unsupported_target",
             "non_converged", "invalid_equilibrium", "constraint_not_reached", "boundary_mismatch",
             "timeout")
+
+#: The generalized-parabolic exponents' defaults; a barrier profile replaces
+#: them, so a non-default value next to one is a contradiction.
+_DEFAULT_PRESSURE_EXPONENTS = (1.0, 2.0)
+_DEFAULT_CURRENT_EXPONENTS = (1.0, 1.0)
+
+#: Samples on which a barrier profile's gradient is checked for sign.
+_PROFILE_CHECK_GRID = np.linspace(0.0, 1.0, 20001)
+
+#: Profile resolution of the CHEASE input when a barrier profile is a source:
+#: CHEASE resamples it linearly, and 257 points keep a 0.05-wide pedestal's
+#: p' peak within about 1 % of the analytic one.
+_PROFILE_RESOLUTION = 257
+
+#: Smallest net axis-to-separatrix drop of a barrier profile, relative to its
+#: level ``max(|g(0)|, |g(1)|)``: the shape is ``-g'/drop``, so a drop below
+#: this is a near-flat profile whose shape is set by 1/drop amplification.
+_MIN_RELATIVE_DROP = 1e-3
+
+#: Barrier p' peak checks, used when the pressure profile has barrier steps.
+_PEAK_GRID = np.linspace(0.0, 1.0, 20001)
 
 
 @dataclass(frozen=True)
@@ -46,6 +74,37 @@ class ZeroDimensionalEquilibriumSpec:
     psi_N**current_alpha)**current_beta``, so ``pressure_fraction`` is the share
     of the on-axis source ``mu0 R0**2 p' + FF'`` carried by the pressure.  Their
     common amplitude is not an input: CHEASE sets it to meet the target.
+
+    Barrier-profile sources (#1166 scope B).  ``pressure_profile`` -- an
+    :class:`~vaft.data.AnalyticProfile` (e.g. from
+    :func:`vaft.process.profile.compose_analytic_profile`) or an
+    :class:`~vaft.data.AnalyticPlasmaState`, whose ``p_total`` is used --
+    replaces the generalized-parabolic ``p'`` kernel by ``-dp/dpsi_N``, the
+    profile's analytic derivative.  ``current_profile`` does the same for
+    ``FF'``: it is a profile ``g(psi_N)`` in the role of ``F**2/2`` above its
+    edge value, and the ``FF'`` shape is ``-dg/dpsi_N``, so a pedestal step in
+    ``g`` is an edge-current bump of the tanh step's ``sech**2`` shape,
+    centred on the step and of the step's full width.  When either profile is
+    given, both shapes are scaled to unit integral over ``psi_N`` before the
+    split, and ``pressure_fraction`` is the pressure's share of the
+    ``psi_N``-*integrated* source ``int (mu0 R0**2 p' + FF') dpsi_N`` rather
+    than of the on-axis one (a profile's gradient may vanish on axis).
+
+    **This changes what ``pressure_fraction`` means even for the source that
+    stays generalized-parabolic**: with only a ``current_profile``, the
+    unchanged pressure kernel is split on the integrated basis too, so at
+    ``pressure_fraction = 0.5`` and the default kernels the *on-axis* pressure
+    share is 0.667, not 0.5.  Compare a profile case with a kernel-only case
+    through the achieved descriptors, not through ``pressure_fraction``.
+
+    A barrier profile must not rise outward anywhere (the pressure, because
+    the CHEASE input carries ``p'`` of one sign; ``g``, because a rising
+    ``g`` is a reversed current), and its net drop must be at least 1e-3 of
+    its level.  Only
+    the shape survives: the profile's unit, absolute level and separatrix
+    value are dropped, since CHEASE rescales the amplitude to the target and
+    a constant pressure does not enter the Grad-Shafranov equation.  Leaving
+    both unset reproduces the generalized-parabolic model exactly.
     """
 
     major_radius: float
@@ -61,6 +120,8 @@ class ZeroDimensionalEquilibriumSpec:
     pressure_beta: float = 2.0
     current_alpha: float = 1.0
     current_beta: float = 1.0
+    pressure_profile: "AnalyticProfile | AnalyticPlasmaState | None" = None
+    current_profile: "AnalyticProfile | None" = None
 
 
 @dataclass
@@ -79,6 +140,7 @@ class SyntheticEquilibriumResult:
     chease: Optional[CHEASEResult] = None
     refined_geqdsk: Optional[Path] = None
     refined_ods: Any = None
+    achieved_profiles: Mapping[str, np.ndarray] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -97,7 +159,79 @@ def _validate(spec: ZeroDimensionalEquilibriumSpec) -> tuple[str, str] | None:
     for name in ("pressure_alpha", "pressure_beta", "current_alpha", "current_beta"):
         if not getattr(spec, name) > 0:
             return "invalid_source_model", f"{name} must be positive"
+    return _validate_profiles(spec)
+
+
+def _validate_profiles(spec: ZeroDimensionalEquilibriumSpec) -> tuple[str, str] | None:
+    from vaft.data.analytic_plasma_state import AnalyticPlasmaState, AnalyticProfile
+
+    pressure, current = spec.pressure_profile, spec.current_profile
+    if pressure is not None:
+        if not isinstance(pressure, (AnalyticProfile, AnalyticPlasmaState)):
+            return ("invalid_source_model", "pressure_profile must be an AnalyticProfile or an "
+                    f"AnalyticPlasmaState, got {type(pressure).__name__}")
+        if spec.pressure_fraction == 0:
+            return ("invalid_source_model", "a pressure_profile with pressure_fraction = 0 would be "
+                    "discarded; give a positive pressure_fraction or drop the profile")
+        if (spec.pressure_alpha, spec.pressure_beta) != _DEFAULT_PRESSURE_EXPONENTS:
+            return ("invalid_source_model", "both a generalized-parabolic pressure shape (pressure_alpha, "
+                    "pressure_beta) and a pressure_profile were given; the profile replaces the kernel, "
+                    "so give one or the other")
+        problem = _monotone_drop("pressure_profile", pressure, "the CHEASE input carries p' of one sign "
+                                 "only, so the pressure must not increase outward")
+        if problem is not None:
+            return problem
+    if current is not None:
+        if not isinstance(current, AnalyticProfile):
+            return ("invalid_source_model", "current_profile must be an AnalyticProfile, got "
+                    f"{type(current).__name__}")
+        if (spec.current_alpha, spec.current_beta) != _DEFAULT_CURRENT_EXPONENTS:
+            return ("invalid_source_model", "both a generalized-parabolic current shape (current_alpha, "
+                    "current_beta) and a current_profile were given; the profile replaces the kernel, "
+                    "so give one or the other")
+        problem = _monotone_drop("current_profile", current, "FF' = -dg/dpsi_N would change sign, a "
+                                 "reversed current the CHEASE input passes through unchecked")
+        if problem is not None:
+            return problem
     return None
+
+
+def _monotone_drop(name: str, profile: Any, why: str) -> tuple[str, str] | None:
+    """Refuse a profile that rises outward anywhere, or whose net drop is too small to normalize by."""
+    drive = -np.asarray(_profile_value(profile, _PROFILE_CHECK_GRID, derivative=True))
+    ends = np.asarray(_profile_value(profile, np.array([0.0, 1.0])))
+    if not (np.all(np.isfinite(drive)) and np.all(np.isfinite(ends))) or not drive.max() > 0:
+        return "invalid_source_model", f"{name} does not fall outward anywhere, so it drives no source"
+    if drive.min() < -1e-9*drive.max():
+        where = float(_PROFILE_CHECK_GRID[np.argmin(drive)])
+        return "invalid_source_model", f"{name} rises outward near psi_N = {where:.3f}; {why}"
+    drop, level = float(ends[0] - ends[1]), float(np.max(np.abs(ends)))
+    if drop < _MIN_RELATIVE_DROP*level:
+        return ("invalid_source_model", f"{name} falls by only {drop:.3g} from axis to separatrix, below "
+                f"{_MIN_RELATIVE_DROP:g} of its level {level:.3g}; its shape -g'/drop would be conditioned "
+                "by the 1/drop amplification rather than by the profile")
+    return None
+
+
+def _profile_value(profile: Any, psi_n: np.ndarray, *, derivative: bool = False) -> np.ndarray:
+    """A barrier profile, or its ``psi_N`` derivative; ``p_total`` for a plasma state."""
+    from vaft.data.analytic_plasma_state import AnalyticPlasmaState
+    from vaft.process.profile import evaluate_analytic_profile, evaluate_plasma_state
+
+    if isinstance(profile, AnalyticPlasmaState):
+        return np.asarray(evaluate_plasma_state(
+            profile, psi_n, "dp_total_dpsi_norm" if derivative else "p_total"), dtype=float)
+    return np.asarray(evaluate_analytic_profile(profile, psi_n, derivative=derivative), dtype=float)
+
+
+def _has_barriers(profile: Any) -> bool:
+    """Does a pressure profile (or any channel of a plasma state) carry a pedestal or ITB step?"""
+    channels = profile.profiles.values() if hasattr(profile, "profiles") else (profile,)
+    return any(channel.barriers for channel in channels)
+
+
+def _uses_profiles(spec: ZeroDimensionalEquilibriumSpec) -> bool:
+    return spec.pressure_profile is not None or spec.current_profile is not None
 
 
 def construct_boundary(spec: ZeroDimensionalEquilibriumSpec, points: int = 256):
@@ -114,9 +248,62 @@ def construct_boundary(spec: ZeroDimensionalEquilibriumSpec, points: int = 256):
 def _source_shapes(spec: ZeroDimensionalEquilibriumSpec, psi_n: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     from vaft.formula.equilibrium import generalized_parabolic_profile
 
-    pp = spec.pressure_fraction*generalized_parabolic_profile(psi_n, alpha=spec.pressure_alpha, beta=spec.pressure_beta)
-    ff = (1 - spec.pressure_fraction)*generalized_parabolic_profile(psi_n, alpha=spec.current_alpha, beta=spec.current_beta)
-    return pp, ff
+    if not _uses_profiles(spec):
+        pp = spec.pressure_fraction*generalized_parabolic_profile(psi_n, alpha=spec.pressure_alpha, beta=spec.pressure_beta)
+        ff = (1 - spec.pressure_fraction)*generalized_parabolic_profile(psi_n, alpha=spec.current_alpha, beta=spec.current_beta)
+        return pp, ff
+    pp = _unit_shape(spec.pressure_profile, spec.pressure_alpha, spec.pressure_beta, psi_n)
+    ff = _unit_shape(spec.current_profile, spec.current_alpha, spec.current_beta, psi_n)
+    return spec.pressure_fraction*pp, (1 - spec.pressure_fraction)*ff
+
+
+def _unit_shape(profile: Any, alpha: float, beta: float, psi_n: np.ndarray) -> np.ndarray:
+    """A source shape of unit integral over ``psi_N``: ``-g'/(g(0) - g(1))`` or the scaled kernel."""
+    from scipy.special import beta as beta_function
+
+    from vaft.formula.equilibrium import generalized_parabolic_profile
+
+    if profile is None:
+        # int_0^1 (1 - x**a)**b dx = B(1/a, b + 1)/a.
+        integral = beta_function(1.0/alpha, beta + 1.0)/alpha
+        return generalized_parabolic_profile(psi_n, alpha=alpha, beta=beta)/integral
+    ends = _profile_value(profile, np.array([0.0, 1.0]))
+    return -_profile_value(profile, psi_n, derivative=True)/float(ends[0] - ends[1])
+
+
+def requested_pressure_shape(spec: ZeroDimensionalEquilibriumSpec, psi_n) -> tuple[np.ndarray, np.ndarray]:
+    """The pressure a specification asks for, normalized: ``(p - p(1))/(p(0) - p(1))`` and its ``psi_N`` gradient.
+
+    The amplitude of ``p`` is not an input -- CHEASE sets it -- so this is the
+    requested pressure *shape*, one on axis and zero at the boundary, to be
+    compared with the achieved one in
+    :attr:`SyntheticEquilibriumResult.achieved_profiles`.
+
+    Parameters
+    ----------
+    spec : ZeroDimensionalEquilibriumSpec
+        The request [-].
+    psi_n : array_like
+        Normalized poloidal flux in ``[0, 1]`` [-].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The normalized pressure and ``d/dpsi_N`` of it (negative for a
+        pressure falling outward), on *psi_n* [-].
+    """
+    x = np.asarray(psi_n, dtype=float)
+    if spec.pressure_profile is not None:
+        ends = _profile_value(spec.pressure_profile, np.array([0.0, 1.0]))
+        drop = float(ends[0] - ends[1])
+        return ((_profile_value(spec.pressure_profile, x) - ends[1])/drop,
+                _profile_value(spec.pressure_profile, x, derivative=True)/drop)
+    from scipy.integrate import cumulative_trapezoid
+
+    fine = np.linspace(0.0, 1.0, 20001)
+    shape = _unit_shape(None, spec.pressure_alpha, spec.pressure_beta, fine)
+    outward = cumulative_trapezoid(shape[::-1], dx=fine[1], initial=0.0)[::-1]   # int_x^1 shape
+    return np.interp(x, fine, outward/outward[0]), -_unit_shape(None, spec.pressure_alpha, spec.pressure_beta, x)
 
 
 def build_input_equilibrium(spec: ZeroDimensionalEquilibriumSpec, *, q95: float | None = None, resolution: int = 129):
@@ -125,6 +312,9 @@ def build_input_equilibrium(spec: ZeroDimensionalEquilibriumSpec, *, q95: float 
     Only the boundary, ``p'``, ``FF'``, ``F`` at the edge, the current and --
     for a q95 target -- ``q(0.95)`` reach CHEASE; the flux map is a smooth
     placeholder of the right sign and span, since CHEASE solves its own.
+    With a barrier-profile source, ``p'`` and ``FF'`` are that profile's
+    analytic ``psi_N`` derivative sampled on the ``resolution`` points, so
+    choose enough points to resolve its narrowest layer.
     """
     from vaft.data.equilibrium import EquilibriumData
     from vaft.process._equilibrium_parametric import _detect_convention
@@ -184,7 +374,8 @@ def _native_output(result: CHEASEResult) -> Path | None:
 def synthesize_equilibrium_from_0d(
     spec: ZeroDimensionalEquilibriumSpec, *, target: str = "plasma_current", q95: float | None = None,
     config: CHEASEConfig | None = None, current_tolerance: float = 0.01, q95_tolerance: float = 0.02,
-    boundary_tolerance: float = 0.02,
+    boundary_tolerance: float = 0.02, pressure_shape_tolerance: float = 0.02,
+    pprime_peak_tolerance: float = 0.1, pprime_peak_location_tolerance: float = 0.01,
 ) -> SyntheticEquilibriumResult:
     """Solve a fixed-boundary CHEASE equilibrium from 0D descriptors and source shapes.
 
@@ -215,6 +406,22 @@ def synthesize_equilibrium_from_0d(
         Largest miss of the solved shape against the request: relative for the
         elongation and the radii, absolute for the triangularities, and in
         minor radii for the vertical position [-].
+    pressure_shape_tolerance : float, optional
+        Largest miss of the achieved normalized pressure
+        ``(p - p(1))/(p(0) - p(1))`` against the requested one, anywhere in
+        ``psi_N``; enforced only when the spec carries a ``pressure_profile``,
+        whose shape is then part of the request.  The miss is always reported
+        as ``residuals["pressure_shape"]`` [-].
+    pprime_peak_tolerance : float, optional
+        Largest relative miss of the steepest achieved ``|p'|`` against the
+        steepest requested one (both normalized as above), reported as
+        ``residuals["pprime_peak"]``; enforced when the ``pressure_profile``
+        has barrier steps, whose gradient the pressure-shape residual cannot
+        see [-].
+    pprime_peak_location_tolerance : float, optional
+        Largest offset in ``psi_N`` of that steepest achieved gradient from the
+        requested one, reported as ``residuals["pprime_peak_location"]`` and
+        enforced with *pprime_peak_tolerance* [-].
 
     Returns
     -------
@@ -223,8 +430,11 @@ def synthesize_equilibrium_from_0d(
         request, the achieved descriptors -- magnitudes, in CHEASE's
         orientation, with the refined output's signs checked against the
         request -- their residuals, the constructed boundary, the source
-        shapes, the CHEASE run, and the refined g-file and ODS.  Without a
-        *config*, CHEASE runs in a fresh temporary directory [-].
+        shapes and the requested normalized pressure (``pressure_norm``,
+        ``pprime_norm``), the achieved profiles on the solved ``psi_N``
+        (``pressure_norm``, ``pprime_norm``, ``|q|``), the CHEASE run, and the
+        refined g-file and ODS.  Without a *config*, CHEASE runs in a fresh
+        temporary directory [-].
     """
     requested = {
         "major_radius": spec.major_radius, "minor_radius": spec.minor_radius, "elongation": spec.elongation,
@@ -244,7 +454,8 @@ def synthesize_equilibrium_from_0d(
     if problem is not None:
         return SyntheticEquilibriumResult(problem[0], problem[1], spec, target, requested)
     try:
-        equilibrium = build_input_equilibrium(spec, q95=q95)
+        equilibrium = build_input_equilibrium(
+            spec, q95=q95, **({"resolution": _PROFILE_RESOLUTION} if _uses_profiles(spec) else {}))
     except ValueError as error:
         return SyntheticEquilibriumResult("invalid_source_model", str(error), spec, target, requested)
     from vaft.data.eqdsk import from_equilibrium, read_geqdsk
@@ -252,6 +463,7 @@ def synthesize_equilibrium_from_0d(
 
     psi_n = np.linspace(0.0, 1.0, 101)
     pp_shape, ff_shape = _source_shapes(spec, psi_n)
+    pressure_norm, pprime_norm = requested_pressure_shape(spec, psi_n)
     settings = dict(vars(config)) if config is not None else {}
     if config is None or Path(config.workdir) == Path("."):
         import tempfile
@@ -261,10 +473,20 @@ def synthesize_equilibrium_from_0d(
     settings.update(target_psin=1.0, ncscal=SUPPORTED_TARGETS[target],
                     q_constraint_psi_norm=0.95 if target == "q95" else None,
                     edge_zero=False, preserve_boundary_limiter=False)
-    run = refine_equilibrium(from_equilibrium(equilibrium), CHEASEConfig(**settings))
+    try:
+        run = refine_equilibrium(from_equilibrium(equilibrium), CHEASEConfig(**settings))
+    except FileNotFoundError:
+        from .chease import find_chease_executable
+
+        if find_chease_executable(CHEASEConfig(**settings)) is not None:
+            raise
+        return SyntheticEquilibriumResult(
+            "non_converged", "no CHEASE executable (set CHEASE, CHEASEHOME or CHEASE_EXEC_DIR); nothing was solved",
+            spec, target, requested, boundary=equilibrium.lcfs)
     result = SyntheticEquilibriumResult(
         "success", None, spec, target, requested, boundary=equilibrium.lcfs,
-        source_profiles={"psi_n": psi_n, "pprime_shape": pp_shape, "ffprime_shape": ff_shape},
+        source_profiles={"psi_n": psi_n, "pprime_shape": pp_shape, "ffprime_shape": ff_shape,
+                         "pressure_norm": pressure_norm, "pprime_norm": pprime_norm},
         chease=run, refined_geqdsk=run.refined_geqdsk, refined_ods=run.refined_ods,
     )
     if run.timed_out:
@@ -312,6 +534,15 @@ def synthesize_equilibrium_from_0d(
             residuals[name] = achieved[name] - spec.triangularity
     if "geometric_center_z" in achieved:
         residuals["vertical_position"] = (achieved["geometric_center_z"] - spec.vertical_position)/spec.minor_radius
+    profiles = _achieved_profiles(solved)
+    if profiles:
+        result.achieved_profiles = profiles
+        residuals["pressure_shape"] = float(np.max(np.abs(
+            np.interp(psi_n, profiles["psi_n"], profiles["pressure_norm"]) - pressure_norm)))
+        _, fine_pprime = requested_pressure_shape(spec, _PEAK_GRID)
+        want, got = int(np.argmin(fine_pprime)), int(np.argmin(profiles["pprime_norm"]))
+        residuals["pprime_peak"] = float(profiles["pprime_norm"][got]/fine_pprime[want] - 1)
+        residuals["pprime_peak_location"] = float(profiles["psi_n"][got] - _PEAK_GRID[want])
     result.achieved, result.residuals = achieved, residuals
 
     problems: list[tuple[str, str]] = []
@@ -330,10 +561,41 @@ def synthesize_equilibrium_from_0d(
                        "triangularity_lower", "vertical_position") if abs(residuals.get(n, 0.0)) > boundary_tolerance]
     if off:
         problems.append(("boundary_mismatch", "the solved boundary departs from the request in " + ", ".join(off)))
+    if spec.pressure_profile is not None and not profiles:
+        problems.append(("invalid_equilibrium", "the achieved pressure profile could not be read from the solved "
+                         "equilibrium (missing arrays, or no pressure drop), so the requested pressure_profile "
+                         "cannot be checked"))
+    elif spec.pressure_profile is not None:
+        if not residuals["pressure_shape"] <= pressure_shape_tolerance:
+            problems.append(("constraint_not_reached", "the achieved normalized pressure departs from the "
+                             f"requested profile by {residuals['pressure_shape']:.3g}"))
+        if _has_barriers(spec.pressure_profile) and not (
+                abs(residuals["pprime_peak"]) <= pprime_peak_tolerance
+                and abs(residuals["pprime_peak_location"]) <= pprime_peak_location_tolerance):
+            problems.append(("constraint_not_reached", "the barrier's steepest p' is not reproduced: peak off by "
+                             f"{residuals['pprime_peak']:.3g} (relative), at psi_N offset "
+                             f"{residuals['pprime_peak_location']:.3g}; the solve does not resolve the barrier"))
     if problems:
         result.status = problems[0][0]
         result.reason = "; ".join(reason for _, reason in problems)
     return result
+
+
+def _achieved_profiles(solved: Any) -> dict[str, np.ndarray]:
+    """Normalized pressure, its gradient and |q| on the solved ``psi_N``; empty when unreadable."""
+    try:
+        psi = np.asarray(solved.psi_1d, dtype=float)
+        pressure = np.asarray(solved.pressure, dtype=float)
+        pprime = np.asarray(solved.pprime, dtype=float)
+        q = np.abs(np.asarray(solved.q, dtype=float))
+    except (AttributeError, TypeError):
+        return {}
+    span = float(solved.psi_boundary - solved.psi_axis)
+    drop = float(pressure[0] - pressure[-1])
+    if psi.size < 2 or span == 0 or drop == 0:
+        return {}
+    return {"psi_n": (psi - solved.psi_axis)/span, "pressure_norm": (pressure - pressure[-1])/drop,
+            "pprime_norm": pprime*span/drop, "q": q}
 
 
 def _inside(contour: Any, point: tuple[float, float]) -> bool:
@@ -354,5 +616,5 @@ def _signs_match(ods: Any, spec: ZeroDimensionalEquilibriumSpec) -> bool | None:
 
 __all__ = [
     "STATUSES", "SUPPORTED_TARGETS", "SyntheticEquilibriumResult", "ZeroDimensionalEquilibriumSpec",
-    "build_input_equilibrium", "construct_boundary", "synthesize_equilibrium_from_0d",
+    "build_input_equilibrium", "construct_boundary", "requested_pressure_shape", "synthesize_equilibrium_from_0d",
 ]
