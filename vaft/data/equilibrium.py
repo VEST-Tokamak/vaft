@@ -295,6 +295,38 @@ SOLOVEV_CONSTRAINT_KINDS = (
 
 
 @dataclass(frozen=True)
+class GuazzottoFreidbergEquilibrium:
+    """An analytic Guazzotto-Freidberg (2021, Part 1) equilibrium in normalized form (#1148).
+
+    ``psi(x, y) = sum_j coefficients[j] * Y_j(h_n y) * X_j(x)`` solves
+    ``(1 + eps_hat x) psi_xx + psi_yy/(1 + eps**2) = -alpha**2 (1 + eps_hat nu x) psi``
+    with ``psi = 1`` on the magnetic axis and ``0`` on the plasma surface, in
+    ``R = R0 sqrt(1 + eps**2 + 2 eps x)``, ``Z = a y``.  Pressure and ``F**2``
+    are quadratic in psi, so p, p' and J_phi vanish on the surface.  The
+    eigenvalue ``alpha`` fixes the flux on axis once ``R0``, ``B0`` and ``beta0``
+    (or ``q0``) are chosen; see :func:`guazzotto_freidberg_to_equilibrium`.
+    """
+
+    topology: str
+    inverse_aspect_ratio: float
+    nu: float
+    alpha: float
+    coefficients: np.ndarray
+    separation_h: np.ndarray
+    separation_k: np.ndarray
+    magnetic_axis: tuple[float, float]
+    elongation: float | None = None
+    triangularity: float | None = None
+    x_point_elongation: float | None = None
+    x_point_triangularity: float | None = None
+    eigen_residual: float = 0.0
+    condition_number: float = float("nan")
+    series_terms: int = 250
+    status: str = "converged"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class SolovevConstraint:
     """One linear condition on psi at a point: ``kind`` of psi equals ``value``.
 
@@ -424,5 +456,5 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
+    "ValidationReport", "XPoint", "GuazzottoFreidbergEquilibrium", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]
