@@ -111,6 +111,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
                                               "island_formation", "shear_alfven_wave",
                                               "fast_magnetosonic_wave", "mhd_wave_family")},
+    # spectroscopy and ionization concepts (#1046)
+    "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
+    **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
+       for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
+    "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
+    "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
 }
 
 

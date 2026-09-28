@@ -119,6 +119,10 @@ __all__ = [
     "shear_alfven_wave",
     "fast_magnetosonic_wave",
     "mhd_wave_family",
+    "spectroscopy_ionization_stages",
+    "spectroscopy_transitions",
+    "spectroscopy_energy_levels",
+    "spectroscopy_spectrum",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -201,6 +205,10 @@ _LOCATIONS = {
     "shear_alfven_wave": "._mhd_waves",
     "fast_magnetosonic_wave": "._mhd_waves",
     "mhd_wave_family": "._mhd_waves",
+    "spectroscopy_ionization_stages": "._spectroscopy",
+    "spectroscopy_transitions": "._spectroscopy",
+    "spectroscopy_energy_levels": "._spectroscopy",
+    "spectroscopy_spectrum": "._spectroscopy",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
