@@ -55,6 +55,8 @@ __all__ = [
     "shear_length_from_q_R0_s",
     "cylindrical_safety_factor_from_r_B",
     "cylindrical_parallel_wavenumber",
+    "cylindrical_poloidal_field",
+    "peaked_current_safety_factor",
     "local_slab_from_cylinder",
 ]
 
@@ -393,6 +395,114 @@ def cylindrical_parallel_wavenumber(m_pol, n_tor, q, R0):
     if np.any(q == 0.0):
         raise ValueError("q must be non-zero")
     result = (m - n * q) / (q * float(R0))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def cylindrical_poloidal_field(r, I_enclosed):
+    r"""Poloidal field of a straight current column by Ampère's law.
+
+    $$B_\theta(r) = \frac{\mu_0 I(r)}{2\pi r}$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius, positive [m].
+    I_enclosed : float or np.ndarray
+        Axial current inside radius $r$ [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        $B_\theta$ [T].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not positive.
+
+    Convention
+    ----------
+    $B_\theta$ has the sign of the enclosed current along $+z$, right-handed
+    about it. Exact for a cylindrically symmetric current distribution.
+
+    Physical interpretation
+    -----------------------
+    Only the current inside $r$ sets the field at $r$: a centrally peaked
+    current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
+    shapes $q(r)$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    r = np.asarray(r, dtype=float)
+    if np.any(r <= 0.0):
+        raise ValueError("r must be positive")
+    from .constants import MU0
+
+    result = MU0 * np.asarray(I_enclosed, dtype=float) / (2.0 * np.pi * r)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def peaked_current_safety_factor(x, q_a, nu):
+    r"""Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
+
+    $$q(x) = \frac{q_a\,x^2}{1 - (1 - x^2)^{\nu + 1}},\qquad q(0) = \frac{q_a}{\nu + 1}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Normalised minor radius $r/a$, in $[0, 1]$ [-].
+    q_a : float
+        Edge safety factor $q(a)$ [-].
+    nu : float
+        Current peaking exponent, non-negative; $\nu = 0$ is a flat current [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q(x)$, rising from $q_a/(\nu + 1)$ on axis to $q_a$ at the edge [-].
+
+    Raises
+    ------
+    ValueError
+        ``x`` lies outside $[0, 1]$, ``q_a`` is not positive or ``nu`` is negative.
+
+    Convention
+    ----------
+    The enclosed current is $I(x) = I_a[1 - (1 - x^2)^{\nu+1}]$; with
+    ``cylindrical_poloidal_field`` and ``cylindrical_safety_factor_from_r_B``
+    this is $q = rB_z/(R_0B_\theta)$. The axis value is the limit $x \to 0$.
+
+    Physical interpretation
+    -----------------------
+    The more peaked the current (larger $\nu$), the lower $q$ on axis and the
+    stronger the shear outside: $q_a/q_0 = \nu + 1$ is fixed by the peaking
+    alone.
+
+    Assumptions
+    -----------
+    Cylinder, large aspect ratio, the standard model profile; not a
+    reconstructed equilibrium.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3 and 6.8 (the profile used for tearing and kink examples).
+    """
+    x = np.asarray(x, dtype=float)
+    q_a, nu = float(q_a), float(nu)
+    if np.any(x < 0.0) or np.any(x > 1.0 + 1e-12):
+        raise ValueError("x must lie in [0, 1]")
+    x = np.minimum(x, 1.0)
+    if q_a <= 0.0 or nu < 0.0:
+        raise ValueError(f"q_a must be positive and nu non-negative, not {q_a!r} and {nu!r}")
+    x2 = x * x
+    with np.errstate(divide="ignore"):  # x = 1: log1p(-1) = -inf, expm1(-inf) = -1, denom = 1
+        denom = -np.expm1((nu + 1.0) * np.log1p(-x2))  # 1 - (1 - x^2)^(nu+1), exact at small x
+    with np.errstate(invalid="ignore", divide="ignore"):
+        result = np.where(x2 > 1e-12, q_a * x2 / np.where(denom > 0.0, denom, 1.0), q_a / (nu + 1.0))
     return float(result) if np.ndim(result) == 0 else result
 
 

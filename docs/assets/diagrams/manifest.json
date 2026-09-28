@@ -45,6 +45,11 @@
       "source_sha256": "a5dbf32c338e46c982dd778e8e2176679b8ac9426f7142574b60ca0710b29aa0",
       "svg_sha256": "54b84c15ca711177b40c69b23089b309ebd6301bb79c4a7b027c0b37cb4337b5"
     },
+    "current_to_q_profile.svg": {
+      "call": "vaft.diagram.current_to_q_profile()",
+      "source_sha256": "e2acda190087eb299d51ab998649e90d0d8da2f4787cac1eed2743c90f3ddb81",
+      "svg_sha256": "35da50dbd60ad71a7fa5bae3513db8447c93775e19e4f7337565c5488e1d5712"
+    },
     "curvature_drift.svg": {
       "call": "vaft.diagram.curvature_drift()",
       "source_sha256": "287194a5c74d19031b87636d367292cd418080c6a2e4199eedd90057b8ff6ff8",
@@ -59,6 +64,21 @@
       "call": "vaft.diagram.curvature_drift(projection='top')",
       "source_sha256": "0b28937b11489c702e00b2d85f1f511e528f93c61f9263878a5d4ceaa1634125",
       "svg_sha256": "163e4ab644211324218e377b80ee570ed6db4c95c732c1526950ac74fbd09c22"
+    },
+    "cylindrical_mode_morphology.svg": {
+      "call": "vaft.diagram.cylindrical_mode_morphology()",
+      "source_sha256": "76302af345fa2d743129dd9b6e181d9cd149ca1702de94111d8f04a6bb05ab98",
+      "svg_sha256": "7a5fd152ad1d9d95150e20a7d70ab0544cf3d9034416ee2eca85936798f53f15"
+    },
+    "cylindrical_rational_surfaces.svg": {
+      "call": "vaft.diagram.cylindrical_rational_surfaces()",
+      "source_sha256": "e88d884b736c23f696da2ecb12557bb20a30dddae508a8e08e5b03a47886c001",
+      "svg_sha256": "7e05e09bc444d43698f21e42fe005b451cb52ed9dd3b321a5217109606582753"
+    },
+    "cylindrical_tearing_outer.svg": {
+      "call": "vaft.diagram.cylindrical_tearing_outer()",
+      "source_sha256": "00496d938bcea961a6e408f18e7a5c1906cf7ae17a029ae0c6367ddf41424011",
+      "svg_sha256": "90a87c9598de870a11f1f3f1ac916ca7e3b0fdf2be4e1dc0d71b69a834080b18"
     },
     "delta_prime.svg": {
       "call": "vaft.diagram.delta_prime()",
@@ -135,6 +155,11 @@
       "source_sha256": "d05ce35409b16c3d2f8843920a361f58ad56e36f85e571584d5f82afc4a111e7",
       "svg_sha256": "a698afc97f6b20f0d3f66b095f6bed229fbeb01021df9bd90f40fdcea097d31c"
     },
+    "internal_external_kink.svg": {
+      "call": "vaft.diagram.internal_external_kink()",
+      "source_sha256": "0d558686352d55f3bcc755a02bb10af45de927f8dc5ce8cef889284eec8e3898",
+      "svg_sha256": "d0deec6c87af2d16d6d962517bd5075814743677f0437e87aebbc416d63e73bd"
+    },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
       "source_sha256": "ae1a86f3527c2232dccf0d1ce59c9f6254bb024ec9478a3e2f2d1abea61c4f7d",
@@ -174,6 +199,11 @@
       "call": "vaft.diagram.peeling_ballooning()",
       "source_sha256": "f200c16306293399accaa59e1dfcf6f2fac07f3aa0ccd4d029dccddbbc5a5c60",
       "svg_sha256": "a36f3330565597a89b5eb9031e7cc14b8240a690f8990f04da7c6345051b3eb0"
+    },
+    "plasma_vacuum_wall.svg": {
+      "call": "vaft.diagram.plasma_vacuum_wall()",
+      "source_sha256": "4cf36832d82994e30fd27464fdccb9115f797a3abbf84797c8050750b297c3e9",
+      "svg_sha256": "b7955ebbca3cd3f447d431f86cd98a8591b28d7d926e0f39bcebc02a86986fcc"
     },
     "poloidal_angle_comparison.svg": {
       "call": "vaft.diagram.poloidal_angle_comparison()",
