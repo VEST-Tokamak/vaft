@@ -164,12 +164,13 @@ def _grid():
     return r, z
 
 
-def _solve_sources(pprime, ffprime, r=None, z=None):
+def _solve_sources(pprime, ffprime, r=None, z=None, bt_sign=1.0):
     reference, target, wall = _reference()
     r0, z0 = _grid()
     model = solve_solovev_constraints(
         solovev_shape_constraints(**target), basis="cerfon_freidberg_even", rref=target["major_radius"],
-        f_boundary=float(reference["BCENTR"] * reference["RCENTR"]), pprime=pprime, ffprime=ffprime)
+        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]), f_sign=int(bt_sign),
+        pprime=pprime, ffprime=ffprime)
     return model, solovev_to_equilibrium(model, r0 if r is None else r, z0 if z is None else z, limiter=wall)
 
 
@@ -223,18 +224,39 @@ def test_baseline_field_is_positive_and_the_baseline_is_paramagnetic():
 def test_fixed_ip_scan_holds_the_current():
     reference, _, _ = _reference()
     ip = abs(float(reference["CURRENT"]))
-    for lam in (0.0, 1.0, 2.5, 3.5):
+    for lam in (0.0, 1.0, 2.5, 3.4):
         _, eq = _solve_fixed_ip(lam)
         assert eq.ip == pytest.approx(ip, rel=1e-8), lam
 
 
 def test_sign_convention_on_clearly_paramagnetic_and_diamagnetic_points():
     low_model, low = _solve_fixed_ip(0.5)
-    high_model, high = _solve_fixed_ip(3.5)
+    # lambda_p = 3.4: on this coarse grid j_phi first reverses near 3.43 (3.52 on the notebook's finer grid).
+    high_model, high = _solve_fixed_ip(3.4)
     # Paramagnetic: B_phi raised inside the plasma, F_axis > F_boundary, Delta Phi_tor > 0.
     assert _delta_phi_tor(low_model, low) > 5e-4 and low.f[0] > low.f[-1]
-    # Diamagnetic: the reverse, and still a valid state (single-signed j_phi) at lambda_p = 3.5.
+    # Diamagnetic: the reverse, and still a valid state (single-signed j_phi).
     assert _delta_phi_tor(high_model, high) < -1e-4 and high.f[0] < high.f[-1]
+    from matplotlib.path import Path
+
+    rm, zm = np.meshgrid(high.r, high.z, indexing="ij")
+    inside = Path(np.column_stack([high.lcfs.r, high.lcfs.z])).contains_points(
+        np.column_stack([rm.ravel(), zm.ravel()])).reshape(rm.shape)
+    j_phi = evaluate_solovev(high_model, rm, zm)["j_phi"][inside]
+    assert j_phi.min() * j_phi.max() > 0
+
+
+def test_delta_phi_tor_keeps_its_paramagnetic_positive_meaning_when_the_field_is_reversed():
+    pp0, ff0 = _baseline_sources()
+    forward_model, forward = _solve_sources(pp0, ff0)
+    reversed_model, reversed_eq = _solve_sources(pp0, ff0, bt_sign=-1.0)
+    assert reversed_model.f_boundary < 0
+    # psi depends on FF' only, so the reversed baseline is the same plasma with B_phi -> -B_phi ...
+    assert _delta_phi_tor(reversed_model, reversed_eq) == pytest.approx(_delta_phi_tor(forward_model, forward), rel=1e-9)
+    assert _delta_phi_tor(reversed_model, reversed_eq) > 0
+    # ... while F itself changes sign and |F| still rises toward the axis: paramagnetic in either orientation.
+    assert reversed_eq.f[0] < 0 and forward.f[0] > 0
+    assert abs(reversed_eq.f[0]) > abs(reversed_eq.f[-1])
 
 
 def test_zero_crossing_is_bracketed_and_sits_where_ffprime_vanishes():
@@ -248,7 +270,8 @@ def test_zero_crossing_is_bracketed_and_sits_where_ffprime_vanishes():
     _, ff0 = _baseline_sources()
     assert abs(model.ffprime) < 1e-4 * abs(ff0)
     beta_p_zero = derive_global_descriptors(eq, rational_q=())["beta_p_boundary_average"].value
-    # Found, not assumed: the low-aspect-ratio VEST-like geometry puts it clearly above 1.
+    # The root confirms the identity Delta Phi_tor = 0 <=> FF' = 0 (checked above); its beta_p is that of the
+    # pure-p' state, which the low-aspect-ratio VEST-like geometry puts clearly above the large-aspect-ratio 1.
     assert 1.08 < beta_p_zero < 1.16
 
 
