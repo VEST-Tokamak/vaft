@@ -385,7 +385,11 @@ def solve_guazzotto_freidberg(
             return float(values["psi"]) - target
 
         low = alpha_range[0]
-        trial = np.linspace(low, alpha, 121)[:-1]
+        # psi_J(axis) -> +inf as alpha -> alpha0 from below, so the last
+        # bracket ends just under alpha0; the gap to the root shrinks with f_J,
+        # and a geometric tail keeps a small pedestal's root inside a bracket.
+        tail = alpha - (alpha - low)*np.geomspace(1/120, 1e-10, 25)
+        trial = np.unique(np.r_[np.linspace(low, alpha, 121)[:-1], tail])
         signs = np.array([mismatch(a) for a in trial])
         crossing = [i for i in range(trial.size - 1)
                     if np.isfinite(signs[i]) and np.isfinite(signs[i+1]) and signs[i] < 0 <= signs[i+1]]
@@ -706,7 +710,7 @@ def _surface_field_ratio(model, surface, psi_a: float, surface_pressure) -> tupl
         return float(np.sum(np.sqrt(np.maximum(base + (1 - delta**2)*geometric, 0.0))*dl)) - target
 
     upper = float(np.sqrt(1 + np.min(base/geometric)))
-    if excess(upper) > 0:
+    if excess(upper) > 0 or excess(1e-9) < 0:
         raise ValueError("no exterior field ratio Delta_B reproduces the requested bootstrap fraction (Eq. 6.3)")
     return float(brentq(excess, 1e-9, upper, xtol=1e-12)), inside
 

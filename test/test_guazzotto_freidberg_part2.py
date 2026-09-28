@@ -157,3 +157,10 @@ def test_invalid_part_2_inputs_are_refused(kwargs, match):
     with pytest.raises(ValueError, match=match):
         solve_guazzotto_freidberg("limited", inverse_aspect_ratio=0.33, nu=0.5, elongation=1.6, triangularity=0.3,
                                   **kwargs)
+
+
+def test_a_bootstrap_fraction_out_of_reach_is_an_explicit_failure():
+    model = solve_guazzotto_freidberg("limited", inverse_aspect_ratio=0.33, nu=0.5, elongation=1.6, triangularity=0.3,
+                                      bootstrap_fraction=0.97)
+    with pytest.raises(ValueError, match="Eq. 6.3"):
+        guazzotto_freidberg_parameters(model)
