@@ -414,6 +414,7 @@ CONVENTION_SENSITIVE = frozenset({
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
     "solovev_example",
+    "solovev_shape_constraints",
     "miller_surfaces",
     "connection_length_map",
     "ejiri_mirror_geometry",
