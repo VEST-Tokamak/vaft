@@ -84,7 +84,7 @@ def shear_alfven_wave(*, labels: bool = True) -> Diagram:
         samples.append((zz, dv, dB))
         if abs(dv) > 1e-9:
             items.append(Arrow((zz, base_v), (zz, base_v + scale_v * dv), "drift", role="delta_v"))
-            items.append(Arrow((zz, base_b), (zz, base_b + scale_b * dB), "field vector", role="delta_B"))
+            items.append(Arrow((zz, base_b), (zz, base_b + scale_b * dB), "drift ion", role="delta_B"))
     base = -(n_lines + 1) / 2 * dy - 0.4
     items += [Arrow((0.0, base), (2.0, base), "vector", role="B0"),
               Arrow((L - 2.0, base), (L, base), "exb", role="k")]
@@ -95,7 +95,7 @@ def shear_alfven_wave(*, labels: bool = True) -> Diagram:
             Label((L + 0.2, y_top + 0.3), "red: $\\delta v_y$", "small label", anchor="west", role="legend"),
             Label((L + 0.2, -y_top - 0.3), "blue: $\\delta B_y = -(B_0/v_A)\\,\\delta v_y$", "small label",
                   anchor="west", role="legend"),
-            Label((L + 0.2, 0.0), "$y$ up, $z$ across;\\\\ $\\mathbf{k}$ in the $x$-$z$ plane",
+            Label((L + 0.2, 0.0), "$y$ up, $z$ across, $x$ into the page;\\\\ $\\mathbf{k}$ in the $x$-$z$ plane",
                   "small label,align=left", anchor="west", role="axes"),
             Label((0.5 * L, y_top + 1.4), "shear Alfv\\'en wave: field-line bending, $|\\mathbf{B}|$ unchanged",
                   "label", anchor="south", role="title"),
@@ -200,8 +200,8 @@ def mhd_wave_family(*, labels: bool = True) -> Diagram:
             Label((0.1, 1.3 * S), "$\\perp\\mathbf{B}_0$", "small label", anchor="west", role="axes"),
             Label((S * float(f50) * math.cos(t) + 0.15, S * float(f50) * math.sin(t) + 0.1), "fast",
                   "small label", anchor="south west", role="fast"),
-            Label((S * _VA * math.cos(t) ** 2 + 0.1, S * _VA * math.cos(t) * math.sin(t)), "shear Alfv\\'en",
-                  "small label", anchor="west", role="alfven"),
+            Label((S * 0.5 * _VA + 0.1, S * 0.55 * _VA), "shear Alfv\\'en", "small label", anchor="south west",
+                  role="alfven"),
             Label((S * float(s50) * math.cos(t) + 0.05, S * float(s50) * math.sin(t) - 0.05), "slow",
                   "small label", anchor="north west", role="slow"),
             Label((0.0, -1.3 * S - 0.3), f"phase speed $\\omega/k$ at angle $\\theta$ to $\\mathbf{{B}}_0$; "

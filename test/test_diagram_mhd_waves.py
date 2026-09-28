@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import vaft.diagram
-from vaft.diagram._scene import Label
+from vaft.diagram._scene import Arrow, Label
 from vaft.formula.stability import magnetosonic_phase_speeds, shear_alfven_frequency
 
 
@@ -36,14 +36,27 @@ def test_the_shear_alfven_frequency_is_k_parallel_v_A():
         shear_alfven_frequency(1.0, -1.0)
 
 
-def test_the_shear_alfven_wave_bends_without_compressing():
-    m = vaft.diagram.shear_alfven_wave().model
+def _arrows(diagram, role):
+    return [a for a in diagram.scene.items if isinstance(a, Arrow) and a.role == role]
+
+
+def test_the_shear_alfven_arrows_are_walen_antiparallel_and_on_the_bending():
+    d = vaft.diagram.shear_alfven_wave()
+    m = d.model
     assert m["omega"] == pytest.approx(float(shear_alfven_frequency(m["k"], 1.0)))
-    lines = m["lines"]
-    spacing = np.diff([line[:, 1] for line in lines], axis=0)
-    np.testing.assert_allclose(spacing, spacing[0, 0])  # equal spacing: |B| unchanged at first order
-    for _, dv, dB in m["samples"]:
-        assert dB == pytest.approx(-dv / 1.0, abs=1e-12)  # delta B = -(B0/v_A) delta v, B0 = v_A = 1
+    dv, dB = _arrows(d, "delta_v"), _arrows(d, "delta_B")
+    assert len(dv) == len(dB) >= 4
+    for a, b in zip(dv, dB):
+        assert a.start[0] == b.start[0]
+        # delta v = d(xi)/dt of xi0 cos(kz - wt): positive where the line is about to rise
+        z = a.start[0]
+        assert np.sign(a.end[1] - a.start[1]) == np.sign(math.sin(m["k"] * z))
+        # delta B = -(B0/v_A) delta v: antiparallel, and along the local tilt dy/dz of the drawn line
+        assert np.sign(b.end[1] - b.start[1]) == -np.sign(a.end[1] - a.start[1])
+        line = m["lines"][0]
+        i = int(np.argmin(np.abs(line[:, 0] - z)))
+        tilt = (line[i + 1, 1] - line[i - 1, 1]) / (line[i + 1, 0] - line[i - 1, 0])
+        assert np.sign(tilt) == np.sign(b.end[1] - b.start[1])
 
 
 def test_the_fast_wave_compresses_the_field_lines():
@@ -52,6 +65,18 @@ def test_the_fast_wave_compresses_the_field_lines():
     assert m["v_fast"] == pytest.approx(float(fast)) and m["v_slow"] == pytest.approx(0.0, abs=1e-12)
     gaps = np.diff(m["positions"])
     assert gaps.max() / gaps.min() > 1.3  # visibly bunched and spread
+    # the red (compressed) bands hold the tightest gap, the grey (rarefied) the widest
+    d = vaft.diagram.fast_magnetosonic_wave()
+    def inside(role, x):
+        return any(min(p[1] for p in it.points) <= x <= max(p[1] for p in it.points)
+                   for it in d.scene.role(role))
+    mids = 0.5 * (m["positions"][1:] + m["positions"][:-1])
+    assert inside("compressed", mids[np.argmin(gaps)]) and inside("rarefied", mids[np.argmax(gaps)])
+    # the velocity arrows are in phase with the compression (wave along +k)
+    for a in _arrows(d, "delta_v"):
+        compressed = inside("compressed", a.start[1])
+        if compressed:
+            assert a.end[1] > a.start[1]
 
 
 def test_the_wave_family_orders_the_branches():

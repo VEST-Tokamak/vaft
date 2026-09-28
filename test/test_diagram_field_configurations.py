@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import vaft.diagram
-from vaft.diagram._scene import Label
+from vaft.diagram._scene import Arrow, Label
 from vaft.formula.constants import MU0
 from vaft.formula.geometry import (
     harris_sheet_current_density,
@@ -61,7 +61,7 @@ def test_the_sheets_carry_the_formula_fields(kind):
     m = vaft.diagram.slab_field_configuration(kind).model
     x, field = m["x"], m["field"]
     if kind == "sheared":
-        np.testing.assert_allclose(field, sheared_slab_field(x, 1.0, 1.2)[:, 1:])
+        np.testing.assert_allclose(field, sheared_slab_field(x, 1.0, 3.0)[:, 1:])
     if kind in ("reversed", "guide"):
         np.testing.assert_allclose(field[:, 0], harris_sheet_field(x, 1.0, 1.0))
         np.testing.assert_allclose(field[:, 0], -field[::-1, 0])  # B_y odd
@@ -85,7 +85,7 @@ def test_an_unknown_configuration_is_refused():
 def test_the_current_sheet_lines_are_at_equal_flux_steps(guide):
     m = vaft.diagram.current_sheet(guide_field=guide).model
     xs = sorted(x for x, _ in m["field_lines"] if x > 0)
-    flux = np.log(np.cosh(np.array(xs)))  # A_z / (B0 a)
+    flux = np.log(np.cosh(np.array(xs)))  # psi / (B0 a), psi = -A_z
     np.testing.assert_allclose(np.diff(flux), np.diff(flux)[0], rtol=1e-9)
     for x, b_y in m["field_lines"]:
         assert b_y == pytest.approx(float(harris_sheet_field(x, 1.0, 1.0)))
@@ -109,23 +109,66 @@ def test_reconnection_separates_upstream_from_reconnected_flux():
             assert np.all(sign * psi > 0)
 
 
-def test_the_island_grows_with_the_tearing_amplitude():
+def test_the_drawn_island_has_the_stated_width():
     m = vaft.diagram.island_formation().model
     amps, widths = m["amplitudes"], m["widths"]
-    assert amps[0] == 0.0 and widths[0] == 0.0
-    assert list(widths) == sorted(widths)
-    for a, w in zip(amps, widths):
-        assert w == pytest.approx(4 * math.sqrt(a))
+    assert amps[0] == 0.0 and widths[0] == 0.0 and list(widths) == sorted(widths)
+    # measured on the drawn separatrix, not recomputed: its full x-extent at the O-point
+    for lines, w in zip(m["separatrices"], widths[1:]):
+        extent = max(np.abs(line[:, 1]).max() for line in lines)
+        assert 2 * extent == pytest.approx(w, rel=0.02)
 
 
-@pytest.mark.parametrize("name", ["slab_field_configuration", "current_sheet", "harris_sheet", "x_point",
-                                  "magnetic_reconnection", "island_formation"])
-def test_every_configuration_diagram_is_deterministic_and_exported(name):
+def _arrow_dirs(diagram, role):
+    return [(np.array(a.start), np.array(a.end) - np.array(a.start)) for a in diagram.scene.items
+            if isinstance(a, Arrow) and a.role == role]
+
+
+@pytest.mark.parametrize("name", ["x_point", "magnetic_reconnection"])
+def test_the_field_arrows_follow_z_cross_grad_psi(name):
+    d = getattr(vaft.diagram, name)()
+    stretch = d.model.get("stretch", 1.0) if isinstance(d.model, dict) else 1.0
+    arrows = _arrow_dirs(d, "field_direction")
+    assert arrows
+    for (u, v), t in arrows:
+        x, y = v, u / stretch  # drawn: y across (stretched), x up
+        b_screen = np.array([x, y / stretch])  # (B_y, B_x) = B'(x, y), with the stretch of the drawing
+        assert np.dot(t, b_screen) > 0
+
+
+@pytest.mark.parametrize("kind", ["uniform", "sheared", "reversed", "guide"])
+def test_the_sheet_arrows_point_along_the_field(kind):
+    from vaft.diagram._field_configurations import _OBL
+
+    d = vaft.diagram.slab_field_configuration(kind)
+    fields = dict(zip(d.model["x"], d.model["field"]))
+    for x_level, (b_y, b_z) in fields.items():
+        drawn = [a for a in d.scene.items if isinstance(a, Arrow) and a.role == f"B:{x_level:g}"]
+        if math.hypot(b_y, b_z) == 0.0:
+            assert not drawn
+            continue
+        (arrow,) = drawn
+        t = np.subtract(arrow.end, arrow.start)
+        expected = np.array([b_z + _OBL[0] * b_y, _OBL[1] * b_y])
+        np.testing.assert_allclose(t / np.linalg.norm(t), expected / np.linalg.norm(expected), atol=1e-9)
+
+
+@pytest.mark.parametrize("name, kwargs", [("slab_field_configuration", {"kind": k})
+                                          for k in ("uniform", "sheared", "reversed", "guide")]
+                         + [("current_sheet", {"guide_field": g}) for g in (False, True)]
+                         + [(n, {}) for n in ("harris_sheet", "x_point", "magnetic_reconnection", "island_formation")])
+def test_every_configuration_diagram_is_deterministic_and_exported(name, kwargs):
     fn = getattr(vaft.diagram, name)
-    assert fn().tikz == fn().tikz
+    assert fn(**kwargs).tikz == fn(**kwargs).tikz
     assert name in vaft.diagram.__all__
     n_labels = lambda d: sum(isinstance(i, Label) for i in d.scene.items)  # noqa: E731
-    assert fn().scene.role("equations") or fn().scene.role("note")
-    assert n_labels(fn(labels=False)) < n_labels(fn())
+    assert fn(**kwargs).scene.role("equations")
+    assert not fn(**kwargs, labels=False).scene.role("equations")
+    assert n_labels(fn(**kwargs, labels=False)) < n_labels(fn(**kwargs))
     with pytest.raises(ValueError):
-        fn(labels="yes")
+        fn(**kwargs, labels="yes")
+
+
+def test_the_guide_field_is_drawn_not_only_written():
+    assert vaft.diagram.current_sheet(guide_field=True).scene.role("guide_field")
+    assert not vaft.diagram.current_sheet().scene.role("guide_field")

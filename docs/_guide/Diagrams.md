@@ -516,7 +516,7 @@ vaft.diagram.mhd_wave_family()
 
 | Diagram | Concept |
 | --- | --- |
-| `slab_field_configuration` | The field on stacked $x$ = const sheets. Uniform; sheared, where the direction rotates and $\lvert\mathbf B\rvert$ stays fixed; reversed, where $B_y(-x) = -B_y(x)$ with a null at $x = 0$; and reversed with a guide field $B_g$, which rotates with no null. Shear and reversal are different things |
+| `slab_field_configuration` | The field on stacked $x$ = const sheets. Uniform; sheared, where the direction rotates and $\lvert\mathbf B\rvert = B_0$ to first order in $x/L_s$; reversed, where $B_y(-x) = -B_y(x)$ with a null at $x = 0$; and reversed with a guide field $B_g$, which rotates with no null. Shear and reversal are different things |
 | `current_sheet` | The reversing Harris field seen along the current, with lines at equal flux spacing (spacing $\propto 1/\lvert B_y\rvert$), the sheet of thickness $2a$, its normal, and $\otimes J_z$. With `guide_field=True`, $B_g\hat{\mathbf z}$ removes the null and leaves $J_z$ unchanged |
 | `harris_sheet` | $B_y = B_0\tanh(x/a)$ and $J_z = (B_0/\mu_0a)\,\mathrm{sech}^2(x/a)$ on one chart: the reversal and the localized current are the same layer |
 | `x_point` | The current-free null $\psi = B'(x^2 - y^2)/2$: four branches and two separatrices at right angles. Geometry only |

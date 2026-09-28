@@ -22,7 +22,8 @@
 All in the slab frame of ``vaft.formula.geometry``: $x$ the sheet normal
 (radial), $y$ the reconnecting (binormal) direction, $z$ the current and
 guide-field direction; drawn with $x$ up and $y$ across, so $z$ points into
-the page.
+the page -- except ``slab_field_configuration``, which draws $x$ up, $z$ across
+and $y$ out of the page, obliquely.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ KINDS = ("uniform", "sheared", "reversed", "guide")
 #: sheet half-thickness a and asymptotic field B0 of the drawn Harris sheet; guide field B_g
 _A, _B0, _BG = 1.0, 1.0, 0.8
 #: shear length of the drawn sheared slab, in units of a
-_LS = 1.2
+_LS = 3.0
 
 
 def _check_labels(labels) -> bool:
@@ -109,8 +110,8 @@ def slab_field_configuration(kind: str = "sheared", *, labels: bool = True) -> D
     Five sheets at $x/a = -1, -\tfrac12, 0, \tfrac12, 1$, each carrying field
     lines along its $(B_y, B_z)$ and an arrow whose length is $|\mathbf B|$:
     ``uniform`` $\mathbf B = B_0\hat{\mathbf z}$; ``sheared``
-    ``sheared_slab_field`` ($L_s = 1.2a$), the direction rotates while
-    $|\mathbf B| \simeq B_0$; ``reversed`` ``harris_sheet_field``, the
+    ``sheared_slab_field`` ($L_s = 3a$), the direction rotates while
+    $|\mathbf B| = B_0$ to first order in $x/L_s$ (5 % more at $x = a$); ``reversed`` ``harris_sheet_field``, the
     direction flips and $|\mathbf B| = 0$ at $x = 0$; ``guide`` the same plus
     $B_g\hat{\mathbf z}$ ($B_g = 0.8B_0$), rotating through the sheet without a
     null. Shear is a rotation of the field; reversal is a change of sign of
@@ -147,7 +148,7 @@ def slab_field_configuration(kind: str = "sheared", *, labels: bool = True) -> D
     if labels:
         for x_level in levels:
             text = {1.0: "$x = a$", -1.0: "$x = -a$", 0.0: "$x = 0$"}.get(float(x_level), f"$x = {x_level:g}a$")
-            items.append(Label(tuple(_screen(x_level, 0.0, _LZ) + np.array([0.25, 0.0])), text, "small label",
+            items.append(Label(tuple(_screen(x_level, 0.5 * _LY, _LZ) + np.array([0.25, 0.0])), text, "small label",
                                anchor="west", role="x_level"))
         # the triad: x up, z along the sheets, y receding
         o = np.array([-1.2 + _OBL[0] * _LY, -1.0 * _SPACING + 0.9])
@@ -157,7 +158,7 @@ def slab_field_configuration(kind: str = "sheared", *, labels: bool = True) -> D
                   Label(tuple(o + [0.0, 0.95]), "$x$", "small label", anchor="south", role="triad"),
                   Label(tuple(o + [0.95, 0.0]), "$z$", "small label", anchor="west", role="triad"),
                   Label(tuple(o + 1.7 * np.array(_OBL)), "$y$", "small label", anchor="north east", role="triad")]
-        title = {"uniform": "uniform field", "sheared": "magnetic shear: direction rotates, $|\\mathbf{B}|$ fixed",
+        title = {"uniform": "uniform field", "sheared": "magnetic shear: direction rotates, $|\\mathbf{B}| \\simeq B_0$",
                  "reversed": "field reversal: $B_y(-x) = -B_y(x)$, null at $x = 0$",
                  "guide": "reversal with a guide field: rotation, no null"}[kind]
         top = 1.0 * _SPACING + max(0.0, _OBL[1] * _LY)
@@ -188,8 +189,9 @@ def slab_field_configuration(kind: str = "sheared", *, labels: bool = True) -> D
 def current_sheet(guide_field: bool = False, *, labels: bool = True) -> Diagram:
     r"""A current sheet seen along the current: reversing field, sheet, normal, thickness, $J_z$.
 
-    Field lines of ``harris_sheet_field`` at equal steps of the flux
-    $A_z(x) = B_0a\ln\cosh(x/a)$, so their spacing shows $|B_y|$: dense
+    Field lines of ``harris_sheet_field`` at equal steps of the flux function
+    $\psi(x) = B_0a\ln\cosh(x/a)$ ($\mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi$,
+    $\psi = -A_z$), so their spacing shows $|B_y|$: dense
     outside, none at the centre. $x$ up is the sheet normal, $y$ across the
     reconnecting direction, $z$ into the page, so the current
     $J_z = \mu_0^{-1}dB_y/dx$ (``harris_sheet_current_density``) of $B_0 > 0$
@@ -202,7 +204,7 @@ def current_sheet(guide_field: bool = False, *, labels: bool = True) -> Diagram:
     labels = _check_labels(labels)
     W, sy = 10.0, 1.0  # sheet length [cm], cm per a
     x_max = 3.0
-    flux = lambda x: _B0 * _A * np.log(np.cosh(x / _A))  # noqa: E731 -- A_z of the Harris field
+    flux = lambda x: _B0 * _A * np.log(np.cosh(x / _A))  # noqa: E731 -- psi = -A_z of the Harris field
     steps = np.linspace(0.0, float(flux(x_max)), 8)[1:]
     xs = [_A * math.acosh(math.exp(s / (_B0 * _A))) for s in steps]
     items: List = []
@@ -221,6 +223,10 @@ def current_sheet(guide_field: bool = False, *, labels: bool = True) -> Diagram:
             lines.append((sign * x, b_y))
     for y in np.linspace(0.8, W - 0.8, 6):
         items.append(Label((float(y), 0.0), "$\\otimes$", "legend symbol", role="current"))
+    if guide_field:  # B_g along z, into the page like J_z but everywhere: small crossed markers upstream
+        for y in np.linspace(1.4, W - 1.4, 4):
+            for x in (1.9, -1.9):
+                items.append(Label((float(y), x * sy), "$\\otimes$", "charge small", role="guide_field"))
     J0 = float(harris_sheet_current_density(0.0, _B0, _A))
     if labels:
         right = W + 0.3
@@ -238,7 +244,7 @@ def current_sheet(guide_field: bool = False, *, labels: bool = True) -> Diagram:
                   role="title"),
         ]
         if guide_field:
-            items.append(Label((0.5 * W, -x_max * sy - 0.9), f"guide field $\\otimes\\,B_g = {_BG:g}B_0$ everywhere: "
+            items.append(Label((0.5 * W, -x_max * sy - 0.9), f"small $\\otimes$: guide field $B_g = {_BG:g}B_0$ everywhere: "
                                "$|\\mathbf{B}| = (B_y^2 + B_g^2)^{1/2} \\ge B_g$, no null; $J_z$ unchanged",
                                "small label", anchor="north", role="guide"))
         items.append(Label((0.5 * W, -x_max * sy - (1.55 if guide_field else 1.0)),
@@ -267,7 +273,7 @@ def harris_sheet(*, labels: bool = True) -> Diagram:
     chart.parameters.update({"B0": _B0, "a": _A})
     scene = render_chart(chart, x_label="$x/a$", y_label="normalised",
                          curve_styles={"zero": "approx", "B_y": "component imag", "J_z": "component real"},
-                         region_text={}, x_ticks=(-1.0, 0.0, 1.0), x_tick_text=("$-a$", "$0$", "$a$"),
+                         region_text={}, x_ticks=(-1.0, 0.0, 1.0), x_tick_text=("$-1$", "$0$", "$1$"),
                          y_ticks=(-1.0, 0.0, 1.0), y_tick_text=("$-1$", "$0$", "$1$"))
     items = list(scene.items)
     if labels:
@@ -403,13 +409,17 @@ def magnetic_reconnection(*, labels: bool = True) -> Diagram:
                   role="upstream_field"),
             Label((-Ly, -Lx - 0.35), "upstream field, $-B_y$", "small label", anchor="north west",
                   role="upstream_field"),
-            Label((Ly + 0.1, 1.0), "reconnected field (blue)", "small label", anchor="west",
+            Label((0.15, 0.12), "X", "small label", anchor="south west", role="x_point"),
+            Label((Ly + 0.6, 1.0), "reconnected field (blue)", "small label", anchor="west",
                   role="reconnected_field"),
             Label((Ly + 0.1, Ly / stretch), "separatrix (dashed)", "small label", anchor="west", role="separatrix"),
-            Label((0.0, -Lx - 1.3), "shaded: diffusion region / current sheet, $\\otimes J_z$ into the page",
+            Label((0.0, -Lx - 1.3), "shaded: diffusion region, inside the current sheet ($\\otimes J_z$ into "
+                  "the page); X: the X-point",
                   "small label", anchor="north", role="diffusion_region"),
+            Label((0.0, -Lx - 1.85), f"$\\displaystyle {formula_equation(x_point_flux)}$, $y \\to y/{stretch:g}$",
+                  "formula box", anchor="north", role="equations"),
             _note("Model-neutral: no Sweet--Parker, Petschek, Hall or kinetic assumption; field lines from the "
-                  "stretched X-point flux, regions and flows drawn", 0.0, -Lx - 1.9),
+                  "stretched X-point flux, regions and flows drawn", 0.0, -Lx - 3.0),
         ]
     return Diagram("magnetic_reconnection", Scene(tuple(items)),
                    model={"stretch": stretch, "upstream": upstream, "reconnected": reconnected})
@@ -442,7 +452,7 @@ def island_formation(*, labels: bool = True) -> Diagram:
     xs = np.linspace(-1.0, 1.0, 161)
     Y, X = np.meshgrid(ys, xs)
     items: List = []
-    widths = []
+    widths, separatrices = [], []
     for i, amp in enumerate(_STAGES):
         x0 = i * (W + gap)
 
@@ -458,7 +468,9 @@ def island_formation(*, labels: bool = True) -> Diagram:
         width = 4.0 * math.sqrt(amp / shear)
         widths.append(width)
         if amp > 0.0:
-            for line in _contours(Z, xs, ys, [amp]):
+            lines = _contours(Z, xs, ys, [amp])
+            separatrices.append(lines)
+            for line in lines:
                 items.append(Polyline.of(cm(line), "separatrix", role=f"separatrix:{i}"))
             for yy in (0.0, wavelength, 2.0 * wavelength):
                 items.append(Marker(tuple(cm((yy, 0.0))), "x", "xpoint", role=f"x_point:{i}"))
@@ -468,7 +480,7 @@ def island_formation(*, labels: bool = True) -> Diagram:
             items.append(Arrow((x0 - gap + 0.25, 0.0), (x0 - 0.25, 0.0), "connector", role="stage"))
         if labels:
             title = ("$\\psi_0 = 0$: sheared field", "small $\\psi_0$: X- and O-points",
-                     "island, $w = 4\\sqrt{\\psi_0/B'}$")[i]
+                     "island, $w = 4\\sqrt{\\psi_0/B_s'}$")[i]
             items.append(Label((x0 + 0.5 * W, Hh + 0.2), title, "small label", anchor="south", role="title"))
         if labels and i == 2:
             yo = cm((1.5 * wavelength, 0.0))
@@ -477,10 +489,11 @@ def island_formation(*, labels: bool = True) -> Diagram:
                       Label((float(yo[0]) + 0.4, 0.12), "$w$", "small label", anchor="west", role="width")]
     if labels:
         items += [
-            Label((-0.15, 0.0), "$x = 0$", "small label", anchor="east", role="resonant_surface"),
+            Label((-0.15, 0.0), "$x = 0$ ($r_s$)", "small label", anchor="east", role="resonant_surface"),
             Label((1.5 * W + gap, -Hh - 0.3), f"$\\displaystyle {formula_equation(slab_perturbed_flux)}$",
                   "formula box", anchor="north", role="equations"),
-            _note("Resonant surface $k_\\parallel = 0$ locally, $q(r_s) = m/n$ globally; the growth "
-                  "($\\Delta'$, layer, Rutherford) is not drawn", 1.5 * W + gap, -Hh - 1.5),
+            _note("Tearing form $\\Psi_T$ drawn. Resonant surface $k_\\parallel = 0$ locally, $q(r_s) = m/n$ "
+                  "globally; the growth ($\\Delta'$, layer, Rutherford) is not drawn", 1.5 * W + gap, -Hh - 1.5),
         ]
-    return Diagram("island_formation", Scene(tuple(items)), model={"amplitudes": _STAGES, "widths": widths})
+    return Diagram("island_formation", Scene(tuple(items)), model={"amplitudes": _STAGES, "widths": widths,
+                                                                 "separatrices": separatrices})
