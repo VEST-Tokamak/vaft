@@ -323,6 +323,47 @@ combination, and `vaft.plot.plot_plasma_state_projection` draws a projected quan
 **not** an equilibrium: projecting it onto a geometry leaves that geometry solved for its own
 sources. See `notebooks/analytic_plasma_state_presets.ipynb`.
 
+### Synthetic kinetic profiles from an equilibrium
+
+`generate_synthetic_kinetic_profiles` (#122) generalizes both directions above: it takes an
+equilibrium (GEQDSK, ODS or `EquilibriumData`) and a `SyntheticKineticSpec` of declared
+assumptions, and returns `n_e`, `T_e`, `T_i`, the main-ion and impurity densities and the pressures
+on the equilibrium's `psi_norm` grid, with `rho_tor_norm` derived from its `q`. The fidelity ladder
+is explicit in the records (`vaft.data`): Level 0 `SqrtPressureSplit` (the `core_profiles_from_eq`
+closure above, bit for bit), Level 1 `ProfileSpec` with an `AnalyticProfile` (the #1045
+composition) or a `TabulatedProfile`, Level 2 a `ScalarTarget` (axis, separatrix, line or volume
+average, Greenwald fraction), a peaking factor, `T_i/T_e` or `p_e/p`, and Level 3 a
+`GradientProfile` of prescribed `a/L`. The composition is a hydrogenic main ion plus at most one
+impurity at uniform `Z_eff`.
+
+```python
+from vaft.data import (Composition, ProfileSpec, ScalarTarget, SyntheticKineticSpec,
+                       TemperatureAssumption)
+from vaft.data.resources import sample_geqdsk
+from vaft.process.profile import (compose_analytic_profile, generate_synthetic_kinetic_profiles,
+                                  write_synthetic_core_profiles)
+
+shape = compose_analytic_profile("n_e", axis_value=1.0, separatrix_value=0.2, core_beta=1.5)
+spec = SyntheticKineticSpec(
+    n_e=ProfileSpec(shape, ScalarTarget("greenwald_fraction", 0.3), peaking_factor=1.6),
+    temperature=TemperatureAssumption(ti_over_te=0.5),
+    composition=Composition("D", "C", z_eff=2.0),
+    pressure_constraint="equilibrium", closure="temperature",   # solve T_e so p_kin = p_eq
+)
+result = generate_synthetic_kinetic_profiles(sample_geqdsk(), spec, time=0.319)
+result.status, [(t.name, t.requested, t.achieved) for t in result.targets]
+ods = write_synthetic_core_profiles(result)                      # refused unless status == "success"
+```
+
+`pressure_constraint="equilibrium"` makes `p_kin = p_eq` locally and names the solved variable
+(`closure="temperature"`, `"density"` or `"sqrt_split"`); `"thermal_energy"` matches only
+`W = 3/2 ∫ p dV` and reports the local mismatch; `"kinetic"` keeps the profiles and reports it.
+Every target is recomputed from the final arrays, a contradictory request (a prescribed `T_e` with a
+closure that solves `T_e`) raises `SyntheticProfileError` with a status, and an incompatible one
+returns `pressure_closure_failed`. The profiles are assumptions, never measured or
+transport-predicted, and the slice says so. See
+`notebooks/synthetic_kinetic_profiles_from_equilibrium.ipynb`.
+
 ## Plotting
 
 Each stage has a canonical plot, reached through the `vaft.omas.plot_*` adapters. They draw what the ODS

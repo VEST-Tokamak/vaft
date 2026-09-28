@@ -106,6 +106,10 @@ __all__ = [
     "evaluate_plasma_state",
     "project_flux_function",
     "project_plasma_state",
+    # synthetic kinetic profiles from an equilibrium (#122), from ._synthetic_kinetic_profiles
+    "generate_synthetic_kinetic_profiles",
+    "spec_from_plasma_state",
+    "write_synthetic_core_profiles",
 ]
 
 
@@ -3445,4 +3449,15 @@ except ImportError:  # direct ``spec_from_file_location`` loading
         analytic_hmode_itb_state, analytic_hmode_state, analytic_itb_state, analytic_lmode_state,
         compose_analytic_profile, compose_plasma_state, evaluate_analytic_profile,
         evaluate_plasma_state, project_flux_function, project_plasma_state,
+    )
+
+# Synthetic kinetic profiles from an equilibrium (#122), fidelity Levels 0-3,
+# built on the #1045 primitives above.
+try:  # pragma: no branch - normal package import takes this path
+    from ._synthetic_kinetic_profiles import (  # noqa: E402,F401
+        generate_synthetic_kinetic_profiles, spec_from_plasma_state, write_synthetic_core_profiles,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._synthetic_kinetic_profiles import (  # noqa: E402,F401
+        generate_synthetic_kinetic_profiles, spec_from_plasma_state, write_synthetic_core_profiles,
     )

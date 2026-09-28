@@ -29,6 +29,7 @@ EQUILIBRIUM_NOTEBOOKS = (
     "analytic_solovev_equilibrium.ipynb",
     "analytic_guazzotto_freidberg_equilibrium.ipynb",
     "analytic_plasma_state_presets.ipynb",
+    "synthetic_kinetic_profiles_from_equilibrium.ipynb",
     "compact_equilibrium_representation.ipynb",
     "edge_and_boundary_representation.ipynb",
 )
