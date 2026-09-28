@@ -683,7 +683,11 @@ unless it is computed by a `vaft.formula.pwi` relation from inputs the caller su
 - `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
 
 Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
-target dark.
+target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
+`wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
+plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
+IMAS's recycling *energy* coefficient covers all recycling channels, so it is not the prompt-reflection
+$R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation energy of W, as a stated input.
 
 ```python
 vaft.diagram.plasma_wall_interaction_processes(projectile="D", target="W")

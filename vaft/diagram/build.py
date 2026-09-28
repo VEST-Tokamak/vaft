@@ -115,6 +115,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
                                               "plasma_wall_interaction_recycling",
                                               "plasma_wall_interaction_energy_partition")},
+    # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
+    # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
     "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
 }
 

@@ -187,8 +187,8 @@ def recycling_coefficient(Gamma_reflected, Gamma_reemitted, Gamma_incident):
     """
     Gamma_reflected = np.asarray(Gamma_reflected, dtype=float)
     Gamma_reemitted = np.asarray(Gamma_reemitted, dtype=float)
-    if np.any(Gamma_reflected < 0.0) or np.any(Gamma_reemitted < 0.0):
-        raise ValueError("returned fluxes must be non-negative")
+    if np.any(~(Gamma_reflected >= 0.0)) or np.any(~(Gamma_reemitted >= 0.0)):
+        raise ValueError("returned fluxes must be non-negative and finite")
     Gamma_incident = _positive(Gamma_incident, "Gamma_incident")
     return _out((Gamma_reflected + Gamma_reemitted) / Gamma_incident)
 
@@ -206,9 +206,9 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     E_s : float or np.ndarray
         Surface binding energy of the target (usually its sublimation
         energy), supplied by the caller, positive [eV].
-    m_1 : float
+    m_1 : float or np.ndarray
         Projectile mass, positive [kg or u].
-    m_2 : float
+    m_2 : float or np.ndarray
         Target-atom mass, positive, same unit [kg or u].
 
     Returns
@@ -226,14 +226,17 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     A named empirical model (Bohdansky 1984), not a table: $E_s$ is an
     input and no material data are built in. Fits of Eckstein and others
     differ by tens of per cent near threshold; use tabulated thresholds for
-    quantitative work.
+    quantitative work. The two branches do not join exactly: at
+    $m_1/m_2 = 0.2$ the light branch gives $4.05E_s$ and the heavy one
+    $4.20E_s$, a 4 % step.
 
     Physical interpretation
     -----------------------
-    For light projectiles the first collision can give at most $\gamma E$
-    (``binary_collision_energy_transfer_factor``), and the recoil must turn
-    back out of the surface: hence $E_s/\gamma(1 - \gamma)$, far above $E_s$
-    for D on W.
+    A light projectile cannot sputter by a forward cascade: it is backscattered
+    by a deeper target atom, keeping $(1 - \gamma)E$, and on its way out
+    strikes a surface atom from below, giving it up to $\gamma(1 - \gamma)E$
+    (``binary_collision_energy_transfer_factor`` for $\gamma$). That must
+    exceed $E_s$: hence $E_s/\gamma(1 - \gamma)$, far above $E_s$ for D on W.
 
     References
     ----------
@@ -241,10 +244,10 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
            J. Bohdansky, Nucl. Instrum. Methods B 2 (1984) 587.
     """
     E_s = _positive(E_s, "E_s")
-    m_1 = float(_positive(m_1, "m_1"))
-    m_2 = float(_positive(m_2, "m_2"))
+    m_1 = _positive(m_1, "m_1")
+    m_2 = _positive(m_2, "m_2")
     ratio = m_1 / m_2
-    if ratio <= 0.2:
-        gamma = 4.0 * m_1 * m_2 / (m_1 + m_2) ** 2
-        return _out(E_s / (gamma * (1.0 - gamma)))
-    return _out(8.0 * E_s * ratio**0.4)
+    gamma = 4.0 * m_1 * m_2 / (m_1 + m_2) ** 2
+    with np.errstate(divide="ignore"):
+        light = E_s / (gamma * (1.0 - gamma))  # gamma = 1 (equal masses) only reaches the heavy branch
+    return _out(np.where(ratio <= 0.2, light, 8.0 * E_s * ratio**0.4))

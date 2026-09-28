@@ -80,3 +80,41 @@ def test_every_pwi_diagram_is_deterministic_and_exported(name):
     assert fn().scene.role("note") and not fn(labels=False).scene.role("note")
     with pytest.raises(ValueError):
         fn(labels="yes")
+
+
+def test_the_bohdansky_branches_meet_within_their_documented_step_and_take_arrays():
+    lo = sputtering_threshold_bohdansky(1.0, 0.2 * (1 - 1e-12), 1.0)
+    hi = sputtering_threshold_bohdansky(1.0, 0.2 * (1 + 1e-12), 1.0)
+    assert lo == pytest.approx(4.05, abs=0.01) and hi == pytest.approx(4.20, abs=0.01)
+    both = sputtering_threshold_bohdansky(8.68, [2.014, 183.84], 183.84)
+    assert both[0] == pytest.approx(sputtering_threshold_bohdansky(8.68, 2.014, 183.84))
+    assert both[1] == pytest.approx(8 * 8.68)
+
+
+def test_nan_fluxes_are_refused():
+    with pytest.raises(ValueError):
+        recycling_coefficient(float("nan"), 0.5, 1.0)
+
+
+def test_the_threshold_label_appears_only_with_a_binding_energy():
+    def label_text(d):
+        return " ".join(i.text for i in d.scene.items if isinstance(i, Label) and i.role == "kinematics")
+
+    assert "needs $E_s$" in label_text(vaft.diagram.plasma_wall_interaction_sputtering())
+    assert "= 212$ eV" in label_text(vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68))
+
+
+def test_species_mapping_and_refusals():
+    assert vaft.diagram.plasma_wall_interaction_processes("T", "Be").model["projectile"] == "T"
+    for bad in ("Cu", "D2"):
+        with pytest.raises(ValueError):
+            vaft.diagram.plasma_wall_interaction_sputtering(bad, "W")
+
+
+def test_the_quantities_name_their_imas_paths():
+    from omas import omas_info_node
+
+    m = vaft.diagram.plasma_wall_interaction_recycling().model
+    for path in m["imas"].values():
+        node = path.replace("[:]", ".:")
+        assert omas_info_node(node).get("documentation"), path

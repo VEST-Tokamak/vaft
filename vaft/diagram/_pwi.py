@@ -42,9 +42,24 @@ from ._equations import formula_equation
 from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
-#: atomic masses [u] of the species the diagrams know by name (for the kinematic factor only)
+#: standard atomic weights [u] (IUPAC 2021, abridged; D and T their nuclide masses) of the species the
+#: diagrams know by name -- constants for the kinematic factor, not surface-response data
 MASS_U = {"H": 1.008, "D": 2.014, "T": 3.016, "He": 4.003, "Li": 6.94, "Be": 9.012, "B": 10.81, "C": 12.011,
           "N": 14.007, "O": 15.999, "Ne": 20.18, "Ar": 39.95, "Fe": 55.85, "Mo": 95.95, "W": 183.84}
+
+
+#: where each drawn quantity lives in IMAS (``wall.global_quantities.neutral[:]``). The IMAS "recycling energy
+#: coefficient" is energy returned per incident energy by all recycling channels -- not the prompt-reflection
+#: R_E of these diagrams, which is one part of it.
+IMAS_WALL_PATHS = {
+    "recycling": "wall.global_quantities.neutral[:].recycling_particles_coefficient",
+    "recycling_energy": "wall.global_quantities.neutral[:].recycling_energy_coefficient",
+    "incident_flux": "wall.global_quantities.neutral[:].particle_flux_from_plasma",
+    "returned_flux": "wall.global_quantities.neutral[:].particle_flux_from_wall",
+    "retention": "wall.global_quantities.neutral[:].wall_inventory",
+    "sputtering_physical": "wall.global_quantities.neutral[:].incident_species[:].sputtering_physical_coefficient",
+    "sputtering_chemical": "wall.global_quantities.neutral[:].incident_species[:].sputtering_chemical_coefficient",
+}
 
 
 def _check_labels(labels) -> bool:
@@ -95,7 +110,7 @@ def plasma_wall_interaction_processes(projectile="D", target="W", *, labels: boo
     outcomes = {
         "reflection": ((8.8, 3.6), True),
         "sputtering": ((11.0, 2.2), False),
-        "re-emission": ((1.2, 1.9), True),
+        "re-emission": ((0.9, 1.3), True),
     }
     items.append(Arrow((hit[0] + 0.1, 0.1), outcomes["reflection"][0], "drift ion", role="outcome:reflection"))
     items.append(Arrow((hit[0] + 0.6, 0.05), outcomes["sputtering"][0], "vector", role="outcome:sputtering"))
@@ -104,7 +119,8 @@ def plasma_wall_interaction_processes(projectile="D", target="W", *, labels: boo
     # implantation: the ion comes to rest inside; some diffuses back and leaves as a molecule
     items.append(Polyline.of([hit, (5.4, -0.6), (5.1, -1.1)], "orbit ion", role="implantation"))
     items.append(_atom(5.1, -1.1, True, "implanted"))
-    items.append(Polyline.of([(4.2, -0.9), (3.6, -0.4), (3.3, -0.05)], "orbit ion", role="diffusion_back"))
+    items.append(Polyline.of([(5.1, -1.1), (4.2, -0.9), (3.6, -0.4), (3.3, -0.05)], "orbit ion",
+                             role="diffusion_back"))
     items.append(Arrow((3.3, 0.05), outcomes["re-emission"][0], "connector", role="outcome:re-emission"))
     for dx in (0.0, 0.22):
         items.append(_atom(outcomes["re-emission"][0][0] - 0.1 + dx, outcomes["re-emission"][0][1] + 0.15, True,
@@ -116,18 +132,18 @@ def plasma_wall_interaction_processes(projectile="D", target="W", *, labels: boo
             Label((8.9, 3.7), f"reflection: fast {p}$^0$", "small label", anchor="south", role="reflection"),
             Label((11.1, 2.4), f"sputtering:\\\\ {t} atom (target)", "small label,align=center", anchor="south",
                   role="sputtering"),
-            Label((1.1, 2.15), f"re-emission:\\\\ thermal {p}$_2$", "small label,align=center", anchor="south",
+            Label((0.6, 1.5), f"re-emission:\\\\ thermal {p}$_2$", "small label,align=right", anchor="south east",
                   role="re-emission"),
             Label((4.95, -1.2), "implantation /\\\\ retention", "small label,align=right", anchor="north east",
                   role="retention"),
             Label((6.55, -1.7), "heat", "small label", anchor="west", role="heat"),
             Label((0.2, -0.3), f"wall: {t}", "small label", anchor="north west", role="wall"),
-            _note(f"Blue: projectile {p}, dark: target {t}. Recycling = reflection + re-emission; retention is what "
-                  "neither returns. No coefficients drawn", 6.0, -2.5),
+            _note(f"Blue: projectile {p}, dark: target {t}. Recycling = reflection + re-emission; retention is "
+                  "the rest", 6.0, -2.5),
         ]
     return Diagram("plasma_wall_interaction_processes", Scene(tuple(items)),
                    model={"projectile": p, "target": t, "outcomes": ("reflection", "implantation", "re-emission",
-                                                                     "sputtering", "heat")})
+                                                                     "sputtering", "heat"), "imas": IMAS_WALL_PATHS})
 
 
 def plasma_wall_interaction_reflection(projectile="D", target="W", *, labels: bool = True) -> Diagram:
@@ -163,7 +179,7 @@ def plasma_wall_interaction_reflection(projectile="D", target="W", *, labels: bo
             Label((end[0] + 0.1, end[1]), "reflected: $E_\\mathrm{refl} < E_\\mathrm{in}$", "small label",
                   anchor="west", role="reflected"),
             Label((hit[0] - 0.55, 1.2), "$\\theta_\\mathrm{in}$", "small label", anchor="south", role="angle:in"),
-            Label((hit[0] + 0.45, 1.15), "$\\theta_\\mathrm{refl}$", "small label", anchor="south", role="angle:out"),
+            Label((hit[0] + 0.75, 1.0), "$\\theta_\\mathrm{refl}$", "small label", anchor="south west", role="angle:out"),
             Label((hit[0], 3.25), "normal", "small label", anchor="south", role="normal"),
             Label((0.2, -0.3), f"target {t}", "small label", anchor="north west", role="wall"),
             Label((5.0, -1.6), f"$\\displaystyle {formula_equation(mean_reflected_energy_fraction)}$", "formula box",
@@ -177,14 +193,17 @@ def plasma_wall_interaction_reflection(projectile="D", target="W", *, labels: bo
 
 def plasma_wall_interaction_sputtering(projectile="D", target="W", surface_binding_energy: Optional[float] = None, *,
                                        labels: bool = True) -> Diagram:
-    r"""Physical sputtering: a collision cascade ejects a target atom; a light projectile has a high threshold.
+    r"""Physical sputtering by a light projectile: backscatter from below ejects a surface atom.
 
-    The projectile enters a lattice of target atoms, recoils cascade, and a
-    surface atom receives outward momentum above its binding energy and
-    leaves. One elastic collision gives at most $\gamma E$
-    (``binary_collision_energy_transfer_factor``, computed for the pair); the
-    threshold is drawn only if ``surface_binding_energy`` is given, from
-    Bohdansky's fit (``sputtering_threshold_bohdansky``). No yield is drawn.
+    For a light projectile (D on W) the route near threshold is: the
+    projectile penetrates, is backscattered by a deeper target atom keeping
+    $(1 - \gamma)E$, and on its way out strikes a surface atom from below,
+    giving it up to $\gamma(1 - \gamma)E$; if that exceeds the surface
+    binding energy the atom leaves. Hence Bohdansky's threshold
+    $E_s/\gamma(1 - \gamma)$, with $\gamma$ from
+    ``binary_collision_energy_transfer_factor`` for the pair; the threshold is
+    drawn only if ``surface_binding_energy`` is given
+    (``sputtering_threshold_bohdansky``). No yield is drawn.
     """
     labels = _check_labels(labels)
     p, t = _species(projectile), _species(target)
@@ -196,32 +215,39 @@ def plasma_wall_interaction_sputtering(projectile="D", target="W", surface_bindi
         E_th = float(sputtering_threshold_bohdansky(surface_binding_energy, MASS_U[p], MASS_U[t]))
     items: List = _wall(0.0, 10.0, 2.4)
     lattice = [(0.7 + 0.8 * i + (0.4 if j % 2 else 0.0), -0.35 - 0.6 * j) for j in range(4) for i in range(11)]
+    deep = (5.1, -1.55)        # the target atom that backscatters the projectile
+    surface_atom = (5.9, -0.35)  # the surface atom it strikes from below on the way out
     for k, (x, y) in enumerate(lattice):
         items.append(_atom(x, y, False, f"lattice:{k}"))
-    path = [(3.2, 2.6), (4.4, -0.35), (4.9, -1.1), (5.6, -1.6)]
-    items.append(Polyline.of(path, "orbit ion", role="projectile_path"))
-    items.append(Arrow(path[0], (3.7, 1.35), "drift ion", role="incident"))
-    cascade = [((4.4, -0.35), (5.2, -0.95)), ((5.2, -0.95), (6.0, -0.35)), ((6.0, -0.35), (6.3, 0.0))]
-    for a, b in cascade:
-        items.append(Arrow(a, b, "vector", role="recoil"))
-    items.append(Arrow((6.3, 0.05), (7.6, 2.0), "vector", role="sputtered"))
-    items.append(_atom(7.7, 2.15, False, "sputtered_atom"))
+    path_in = [(3.6, 2.4), (4.3, 0.0), (5.0, -1.4)]
+    path_out = [(5.0, -1.4), (5.55, -0.75), (5.85, -0.45)]
+    items += [Arrow(path_in[0], (3.95, 1.2), "drift ion", role="incident"),
+              Polyline.of(path_in, "orbit ion", role="projectile_in"),
+              Polyline.of(path_out, "orbit ion", role="projectile_backscattered"),
+              _atom(*deep, False, "backscatterer"),
+              Arrow((6.0, -0.25), (7.4, 1.9), "vector", role="sputtered"),
+              _atom(7.5, 2.05, False, "sputtered_atom")]
     if labels:
         items += [
-            Label((3.1, 2.7), f"{p}$^+$", "small label", anchor="south", role="incident"),
-            Label((7.8, 2.2), f"sputtered {t}", "small label", anchor="west", role="sputtered"),
-            Label((6.4, 0.15), "recoil cascade", "small label", anchor="south west", role="recoil"),
-            Label((10.3, 1.4), f"{p} on {t}: $\\gamma = {gamma:.3f}$\\\\ at most $\\gamma E$ per collision"
+            Label((3.5, 2.5), f"{p}$^+$, $E$", "small label", anchor="south", role="incident"),
+            Label((7.6, 2.1), f"sputtered {t}", "small label", anchor="west", role="sputtered"),
+            Polyline.of([deep, (2.0, -2.9)], "leader line", role="backscatter"),
+            Label((2.0, -2.95), f"backscattered by a deep {t}: keeps $(1-\\gamma)E$", "small label", anchor="north",
+                  role="backscatter"),
+            Polyline.of([surface_atom, (10.3, -0.7)], "leader line", role="transfer"),
+            Label((10.35, -0.7), "hits a surface atom from below:\\\\ gives up to $\\gamma(1-\\gamma)E$",
+                  "small label,align=left", anchor="west", role="transfer"),
+            Label((10.3, 1.4), f"{p} on {t}: $\\gamma = {gamma:.3f}$"
                   + (f"\\\\ $E_\\mathrm{{th}} = {E_th:.0f}$ eV for $E_s = {surface_binding_energy:g}$ eV" if E_th else
                      "\\\\ $E_\\mathrm{th}$: needs $E_s$ (not assumed)"), "small label,align=left",
                   anchor="north west", role="kinematics"),
-            Label((5.0, -2.8), f"$\\displaystyle {formula_equation(binary_collision_energy_transfer_factor)}$",
+            Label((6.5, -3.6), f"$\\displaystyle {formula_equation(sputtering_threshold_bohdansky)}$",
                   "formula box", anchor="north", role="equations"),
-            _note("Physical sputtering only (no chemical erosion); yields and thresholds are material data -- "
-                  "a threshold is shown only for a supplied $E_s$ (Bohdansky fit)", 5.0, -4.0),
+            _note("Physical sputtering by a light projectile near threshold (no chemical erosion); yields and "
+                  "thresholds are material data -- a threshold only for a supplied $E_s$", 6.5, -5.8),
         ]
     return Diagram("plasma_wall_interaction_sputtering", Scene(tuple(items)),
-                   model={"projectile": p, "target": t, "gamma": gamma, "threshold_eV": E_th})
+                   model={"projectile": p, "target": t, "gamma": gamma, "threshold_eV": E_th, "imas": IMAS_WALL_PATHS})
 
 
 def plasma_wall_interaction_recycling(*, labels: bool = True) -> Diagram:
@@ -231,16 +257,17 @@ def plasma_wall_interaction_recycling(*, labels: bool = True) -> Diagram:
     part; the implanted part is either re-emitted later (diffusion,
     recombination, desorption) or retained as wall inventory. Recycling is
     reflection plus re-emission (``recycling_coefficient``); retention is the
-    rest; a saturated or outgassing wall can return more than it receives.
+    rest; a wall releasing an earlier inventory returns more than it
+    receives ($R > 1$), a saturated one about as much ($R \\to 1$).
     """
     labels = _check_labels(labels)
     items: List = []
     incident = box(1.8, 0.0, 3.0, 1.1, "incident flux $\\Gamma_\\mathrm{in}$", role="flux:incident", latex=True)
     reflected = box(7.0, 1.6, 4.2, 1.3, "reflected (prompt, fast)\\\\ $\\Gamma_\\mathrm{refl}$", role="flux:reflected",
-                    latex=True)
+                    latex=True, style="concept leaf")
     implanted = box(7.0, -1.2, 4.2, 1.1, "implanted", role="flux:implanted", latex=True)
     reemitted = box(12.6, -0.2, 4.6, 1.3, "re-emitted: later, thermal\\\\ $\\Gamma_\\mathrm{re\\text{-}em}$",
-                    role="flux:reemitted", latex=True)
+                    role="flux:reemitted", latex=True, style="concept leaf")
     retained = box(12.6, -2.4, 4.6, 1.1, "retained: wall inventory", role="flux:retained", latex=True)
     for b in (incident, reflected, implanted, reemitted, retained):
         items += list(b.items)
@@ -248,51 +275,72 @@ def plasma_wall_interaction_recycling(*, labels: bool = True) -> Diagram:
         items.append(connector(a, b, role="edge"))
     if labels:
         items += [
-            Label((12.6, 1.6), "back to the plasma: recycling", "small label", anchor="south", role="recycling"),
-            Polyline.of([(9.2, 1.6), (10.0, 1.6), (10.0, 0.45)], "leader line", role="recycling"),
+            Label((12.6, 1.6), "white boxes: back to the plasma\\\\ = recycling", "small label,align=center",
+                  anchor="center", role="recycling"),
             Label((7.0, -3.2), f"$\\displaystyle {formula_equation(recycling_coefficient)}$", "formula box",
                   anchor="north", role="equations"),
             _note("Reflection is prompt, re-emission delayed; recycling counts both, retention neither. Atoms "
                   "counted: a D$_2$ molecule is two", 7.0, -4.6),
         ]
     return Diagram("plasma_wall_interaction_recycling", Scene(tuple(items)),
-                   model={"returned": ("reflected", "re-emitted"), "kept": ("retained",)})
+                   model={"returned": ("reflected", "re-emitted"), "kept": ("retained",), "imas": IMAS_WALL_PATHS})
 
 
 def plasma_wall_interaction_energy_partition(*, labels: bool = True) -> Diagram:
     r"""Particle balance and energy balance, side by side: not the same bookkeeping.
 
-    Left, where the particles go: reflected ($R_N$), re-emitted, retained.
-    Right, where the energy goes: carried off by reflected particles ($R_E$),
-    deposited as heat in the wall, the potential (ionization and molecular
-    binding) energy released at the surface on recombination, and a small
-    part carried by sputtered atoms. A surface can return most particles while
-    keeping most of their energy, $R_E/R_N < 1$
+    Left, where the projectile particles go: reflected ($R_N$), re-emitted,
+    retained. Right, the power to the surface: its inputs -- ion kinetic
+    energy including what the sheath adds, the potential energy released when
+    the ion recombines (and atoms form molecules), and the electrons' heat
+    across the sheath -- and its outputs: carried off by reflected particles
+    ($R_E$ of the ion kinetic energy), by sputtered atoms and by thermal
+    re-emission, with the remainder deposited as heat. A surface can return
+    most particles while keeping most of their energy, $R_E/R_N < 1$
     (``mean_reflected_energy_fraction``).
     """
     labels = _check_labels(labels)
     items: List = []
-    pb = box(2.5, 0.0, 4.2, 1.1, "particle balance\\\\ per incident particle", role="balance:particles", latex=True)
-    eb = box(11.0, 0.0, 4.2, 1.1, "energy balance\\\\ per incident energy", role="balance:energy", latex=True)
-    parts_p = ["reflected, $R_N$", "re-emitted (delayed)", "retained"]
-    parts_e = ["carried off by reflected particles, $R_E$", "deposited as heat",
-               "potential energy released (recombination)", "carried by sputtered atoms"]
+    pb = box(2.5, 0.0, 4.2, 1.1, "projectile particles\\\\ per incident ion", role="balance:particles", latex=True)
+    eb = box(11.5, 0.0, 5.0, 1.1, "power to the surface\\\\ per incident ion", role="balance:energy", latex=True)
     items += list(pb.items) + list(eb.items)
-    for k, text in enumerate(parts_p):
-        b = box(2.5, -1.6 - 1.25 * k, 4.2, 0.95, text, role=f"particles:{k}", latex=True, style="concept leaf")
+    parts_p = ["reflected, $R_N$", "re-emitted (later)", "retained"]
+    inputs = ["ion kinetic energy, incl. sheath gain", "potential energy: recombination", "electron heat across the sheath"]
+    outputs = ["carried off by reflected particles, $R_E$", "carried off by sputtered atoms",
+               "thermal re-emission (small)", "the remainder: heat in the wall"]
+
+    def column(x, y0, texts, role, width):
+        boxes = []
+        for k, text in enumerate(texts):
+            b = box(x, y0 - 1.1 * k, width, 0.85, text, role=f"{role}:{k}", latex=True, style="concept leaf")
+            boxes.append(b)
+        return boxes
+
+    left = column(2.5, -1.6, parts_p, "particles", 4.2)
+    ins = column(9.0, -1.9, inputs, "energy_in", 5.2)
+    outs = column(14.9, -1.9, outputs, "energy_out", 6.2)
+    for b in left + ins + outs:
         items += list(b.items)
-        items.append(connector(pb, b, role="edge")) if k == 0 else None
-    for k, text in enumerate(parts_e):
-        b = box(11.0, -1.6 - 1.25 * k, 6.4, 0.95, text, role=f"energy:{k}", latex=True, style="concept leaf")
-        items += list(b.items)
-        items.append(connector(eb, b, role="edge")) if k == 0 else None
+    # a spine from each header to its leaves, so every leaf is connected
+    for head, leaves, x_spine in ((pb, left, 0.2), (eb, ins, 6.2), (eb, outs, 18.2)):
+        y_top = head.y - 0.55 if head is pb else -0.9
+        items.append(Polyline.of([(x_spine, y_top), (x_spine, leaves[-1].y)], "connector line", role="spine"))
+        for leaf in leaves:
+            edge = leaf.x - leaf.width / 2 if x_spine < leaf.x else leaf.x + leaf.width / 2
+            items.append(Arrow((x_spine, leaf.y), (edge, leaf.y), "connector", role="edge"))
+    items.append(Polyline.of([(6.2, -0.9), (18.2, -0.9)], "connector line", role="spine"))
+    items.append(Polyline.of([(eb.x, -0.55), (eb.x, -0.9)], "connector line", role="spine"))
+    items.append(Polyline.of([(pb.x - 2.1, -0.55), (0.2, -0.55)], "connector line", role="spine"))
     if labels:
         items += [
-            Label((6.5, 0.9), "$\\neq$", "legend symbol", role="not_equal"),
-            Label((6.5, -6.7), f"$\\displaystyle {formula_equation(mean_reflected_energy_fraction)}$",
+            Label((9.0, -1.35), "inputs", "small label", anchor="south", role="group"),
+            Label((14.9, -1.35), "outputs", "small label", anchor="south", role="group"),
+            Label((6.7, 0.0), "$\\neq$", "legend symbol", role="not_equal"),
+            Label((9.0, -6.3), f"$\\displaystyle {formula_equation(mean_reflected_energy_fraction)}$",
                   "formula box", anchor="north", role="equations"),
-            _note("Fractions are data for a projectile, target, energy and angle; none is drawn. Reflection "
-                  "returns particles more readily than energy", 6.5, -8.0),
+            _note("No fractions drawn: they are data per projectile, target, energy and angle. The potential energy "
+                  "is an input on top of the kinetic energy; most of it ends as heat", 9.0, -7.6),
         ]
     return Diagram("plasma_wall_interaction_energy_partition", Scene(tuple(items)),
-                   model={"particles": tuple(parts_p), "energy": tuple(parts_e)})
+                   model={"particles": tuple(parts_p), "energy_in": tuple(inputs), "energy_out": tuple(outputs),
+                          "imas": IMAS_WALL_PATHS})
