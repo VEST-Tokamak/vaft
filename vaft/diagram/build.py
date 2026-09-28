@@ -82,6 +82,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
     **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
                                               "resonant_layer_matching")},
+    # disruption physics: the quench sequence, causal chain, runaway generation, energy paths (#1041)
+    **{f"{name}.svg": (name, {}) for name in ("disruption_timeline", "disruption_causal_chain",
+                                              "runaway_generation", "disruption_energy_pathways")},
     # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
     **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
                                               "fixed_vs_free_boundary_equilibrium",

@@ -95,6 +95,21 @@
       "source_sha256": "65f4220484f2b8cb70931180960653831ca70cdd65ae5c75881064d012d3b753",
       "svg_sha256": "7128129e4d5a613237908e8d7343dd5e066546f4d88345e61b78139a8995bb21"
     },
+    "disruption_causal_chain.svg": {
+      "call": "vaft.diagram.disruption_causal_chain()",
+      "source_sha256": "6b431f01a0369f4e5bff4d7c85463fc4f318112320b5a2b2aaa95e0637d7c67a",
+      "svg_sha256": "ac06d2b047f541cb7184b55b66e0066dd0a8849426e89aa1db48d79ccfedf251"
+    },
+    "disruption_energy_pathways.svg": {
+      "call": "vaft.diagram.disruption_energy_pathways()",
+      "source_sha256": "df177d71c0fb107218dfc3cd8209ea47e11f03a1fb4a93820c3f746b05ac309e",
+      "svg_sha256": "9ef57d98547d2278fc3bf2be9464bb2b5189b0423052f5756513627b56f9b931"
+    },
+    "disruption_timeline.svg": {
+      "call": "vaft.diagram.disruption_timeline()",
+      "source_sha256": "4ad113d8de05aa8825a8d9873f13be9505e38fb884939a4b58aba23d8abf60c7",
+      "svg_sha256": "159995fc463102fb0ace51e090812c08672b59a7c358885e6779da81dab58e88"
+    },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
       "source_sha256": "13d016c01cc7d752585078cacfeb7edc0667abde252b218371f9331b1e299a53",
@@ -289,6 +304,11 @@
       "call": "vaft.diagram.ripple_well_formation()",
       "source_sha256": "d13c5b24c86ab925d67a02b43b9e56c7254933361c02f20c0214824c0e2863b2",
       "svg_sha256": "9b837fe3849fe8cd86777fa5572ef2cf822e2a001030b4c699faac0837e260bb"
+    },
+    "runaway_generation.svg": {
+      "call": "vaft.diagram.runaway_generation()",
+      "source_sha256": "801d7cd22d2fbc468a5028e0cc538db5640a2121f820049a51d3518b83543025",
+      "svg_sha256": "0d2f9e2a400af1c450fa730cb6ab1fd83c8d68dc1b61a22fc15e7fd4ec11ba23"
     },
     "s_alpha_ballooning.svg": {
       "call": "vaft.diagram.s_alpha_ballooning()",

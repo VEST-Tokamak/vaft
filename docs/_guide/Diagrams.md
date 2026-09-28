@@ -576,6 +576,42 @@ vaft.diagram.poloidal_flux_source_decomposition()
 | `equilibrium_problem_taxonomy` | Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms |
 | `poloidal_flux_source_decomposition` | $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn |
 
+## Disruption physics: quench sequence, runaways and energy paths
+
+The chain from loss of confinement to a runaway plateau, each link a relation in the new
+`vaft.formula.disruption` category or an existing one:
+- `thermal_quench_temperature`, `current_quench_current` and `inductive_parallel_electric_field`;
+- `connor_hastie_critical_field`, `dreicer_field`, `runaway_critical_momentum` and
+  `relativistic_collision_time`;
+- `dreicer_generation_rate`, `avalanche_growth_rate`, `avalanche_efolds_from_current_drop` and
+  `runaway_current_from_density`;
+- the Spitzer resistivity, and the `startup` plasma resistance, inductance and L/R time.
+
+Detecting a disruption in data stays in `vaft.process.transients`. Simulating one belongs to kinetic or
+integrated codes.
+
+```python
+vaft.diagram.disruption_timeline()
+vaft.diagram.disruption_causal_chain()
+vaft.diagram.runaway_generation()
+vaft.diagram.disruption_energy_pathways()
+```
+
+![timeline]({{ '/assets/diagrams/disruption_timeline.svg' | relative_url }})
+
+![causal chain]({{ '/assets/diagrams/disruption_causal_chain.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![runaway generation]({{ '/assets/diagrams/runaway_generation.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/disruption_energy_pathways.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel$ of thousands of $E_c$, and a Dreicer seed plus the avalanche build a runaway plateau. It is schematic in scale: no universal waveform |
+| `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
+| `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. Nothing runs away below $E_c$, and a seed is needed well below $E_D$. Hot-tail seeding is not drawn |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, and runaway kinetic energy |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
