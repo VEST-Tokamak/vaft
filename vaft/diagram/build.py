@@ -117,6 +117,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # wall conditioning as wall-state transitions (#1051)
+    "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
+    **{f"wall_conditioning_gdc_{gas.lower()}.svg": ("wall_conditioning_gdc", {"gas": gas}) for gas in ("D2", "He")},
+    "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
+    "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
 }
 
 

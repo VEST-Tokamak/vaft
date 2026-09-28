@@ -515,6 +515,31 @@
       "source_sha256": "db59b6a03bcdfa545074ae6eb79fad80004ac5b8d6f4d956162ae1e9e974b09d",
       "svg_sha256": "da25a78cbc4c4ec0ff6deedff96eb665f4652bff69187e03bf12ee8f8e5f3a9a"
     },
+    "wall_conditioning_baking.svg": {
+      "call": "vaft.diagram.wall_conditioning_baking()",
+      "source_sha256": "bef6c044f73f2c48ec8e3032f040132e62b2f0b14a2637d2815808b04042ce23",
+      "svg_sha256": "24dce897b2fb3a77bdffc0068b56e3f34a448a0cb64128425637158777e6ab88"
+    },
+    "wall_conditioning_boronization.svg": {
+      "call": "vaft.diagram.wall_conditioning_boronization()",
+      "source_sha256": "caf91fbe4eefc94f5de57eeda14030d7dae4bb008bd924bd28266f4892bbc74e",
+      "svg_sha256": "d8d8f5f132a5f6a1de21da84940829338f071238a3d3647cef2c0965a90e6548"
+    },
+    "wall_conditioning_gdc_d2.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='D2')",
+      "source_sha256": "2fb9e73fd73b94145a034e796452efb25274de73019e9bbea164bc938edf17d4",
+      "svg_sha256": "969c2b85c28a5e5fdb83ddfa3d716d35e08723f43842e9868904758542e91e1e"
+    },
+    "wall_conditioning_gdc_he.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='He')",
+      "source_sha256": "493fafe3815f29d57f7ab83222f0469df752479791d5b45dc11bfb13852222a8",
+      "svg_sha256": "dafa47f853297e50906bc421ec8bc5cb8ef0aa3db40aac4929583e2b7c79c686"
+    },
+    "wall_conditioning_sequence.svg": {
+      "call": "vaft.diagram.wall_conditioning_sequence()",
+      "source_sha256": "2e6980010ce8bcf66307ef81907087db2e27d1cac9790a03585372c4e75c610c",
+      "svg_sha256": "50decccca3ef91f5f7ff5491c1dfe88e34648354ab361bb63d190cbada62d315"
+    },
     "x_point.svg": {
       "call": "vaft.diagram.x_point()",
       "source_sha256": "a618ab1a42bd5608293d695dbcfe053310ff9cf61a5007c702b089285a3b1dbe",
