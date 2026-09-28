@@ -25,6 +25,10 @@ three layers split the work:
 A diagram never restates an equation. It calls the formula function, so the picture and the
 [formula reference]({{ site.baseurl }}/reference/formula/) cannot drift apart.
 
+This page explains the diagrams family by family. The complete list -- every builder, every committed
+SVG and the exact call that draws it -- is the generated
+[diagram gallery]({{ site.baseurl }}/reference/diagram/).
+
 ## Magnetic island
 
 ```python
@@ -531,6 +535,46 @@ then to the cylindrical and toroidal tearing mode (`delta_prime`, `resonant_laye
 $q(r_s) = m/n$ globally is $k_\parallel = 0$ locally (`mode_number_mapping`). The uniform-slab shear
 Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$ vary. Toroidal coupling
 (`poloidal_harmonic_coupling`) then opens the gaps of the TAE and EAE. Those are not computed here.
+
+## The Grad–Shafranov problem: regions, boundaries and problem classes
+
+The axisymmetric field is $\mathbf B = R^{-1}\nabla\psi\times\hat{\boldsymbol\phi} + F(\psi)R^{-1}\hat{\boldsymbol\phi}$,
+with $\psi$ the poloidal flux per radian and $F = RB_\phi$ the poloidal-current function. Its components are
+`radial_magnetic_field_from_psi` and `vertical_magnetic_field_from_psi` (COCOS-aware); in vacuum $F$ is constant, and
+$B_\phi = F/R$ is `vacuum_toroidal_field`. One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
+source. `vaft.formula.grad_shafranov_source` gives the Ampère form $\Delta^*\psi = -\mu_0RJ_\phi$,
+which holds in every region. `toroidal_current_density_from_p_prime_ff_prime` gives the plasma current
+that force balance allows, $J_\phi = Rp' + FF'/(\mu_0R)$. On a grid, the operator is
+`vaft.process.equilibrium.grad_shafranov_operator`. The flux maps are a toy: prescribed ring currents
+and three coils superposed through `green_psi_exact`. The topology (axis, X-point, limiter contact, LCFS)
+is then found from the total flux, as a free-boundary code finds it. A production solver would also make
+the plasma current consistent with $p'$ and $FF'$.
+
+```python
+vaft.diagram.grad_shafranov_domain_decomposition()
+vaft.diagram.fixed_vs_free_boundary_equilibrium()
+vaft.diagram.limiter_and_diverted_topologies()
+vaft.diagram.equilibrium_problem_taxonomy()
+vaft.diagram.poloidal_flux_source_decomposition()
+```
+
+![domains]({{ '/assets/diagrams/grad_shafranov_domain_decomposition.svg' | relative_url }})
+
+![fixed vs free]({{ '/assets/diagrams/fixed_vs_free_boundary_equilibrium.svg' | relative_url }})
+
+![topologies]({{ '/assets/diagrams/limiter_and_diverted_topologies.svg' | relative_url }})
+
+![taxonomy]({{ '/assets/diagrams/equilibrium_problem_taxonomy.svg' | relative_url }})
+
+![sources]({{ '/assets/diagrams/poloidal_flux_source_decomposition.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `grad_shafranov_domain_decomposition` | Same $\psi$, different $J_\phi$. The plasma source comes from force balance. The vacuum is homogeneous, $\Delta^*\psi = 0$: Laplace-type, but not $\nabla^2$. A coil carries its prescribed current. All of this sits inside the computational boundary |
+| `fixed_vs_free_boundary_equilibrium` | The boundary is an input (LCFS and $\psi_b$ given, only the inside solved) or it is part of the solution (coils and sources given, $\psi$ everywhere, LCFS read from the topology) |
+| `limiter_and_diverted_topologies` | Limited: the LCFS is the surface through the limiter tip. Diverted: the separatrix through the X-point ($\nabla\psi = 0$), with SOL and private flux. The boundary is the larger of $\psi_\mathrm{lim}$ and $\psi_X$ |
+| `equilibrium_problem_taxonomy` | Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms |
+| `poloidal_flux_source_decomposition` | $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn |
 
 ## Using the committed assets
 
