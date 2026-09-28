@@ -305,6 +305,11 @@ def next_multipliers(current: Mapping[str, float], medians: Mapping[str, float],
     return out
 
 
+def backoff_multipliers(previous: Mapping[str, float], current: Mapping[str, float]) -> dict[str, float]:
+    """The geometric midpoint of two rounds' multipliers, for a round in which nothing converged."""
+    return {f: _round3(math.sqrt(previous[f] * current[f])) for f in current}
+
+
 def stage3_cells() -> list[dict[str, Any]]:
     """The gridded axes; each cell carries its own probe/loop multipliers."""
     return [
@@ -481,6 +486,13 @@ def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None, sta
                                  "calibration": calibration_now})
             if calibration_now["calibrated"]:
                 s["done"] = True
+            elif not any(v is not None and math.isfinite(v) for v in medians.values()):
+                # Nothing converged at these multipliers (a loose fit loses the
+                # boundary in `bound`): step back halfway to the last round's.
+                if len(s["history"]) < 2:
+                    s["done"] = True
+                else:
+                    s["multipliers"] = backoff_multipliers(s["history"][-2]["multipliers"], s["multipliers"])
             else:
                 s["multipliers"] = next_multipliers(s["multipliers"], medians)
             print(f"round {round_index} {name}: {medians} -> {s['multipliers']} done={s['done']}", flush=True)

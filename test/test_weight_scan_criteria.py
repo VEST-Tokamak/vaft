@@ -198,6 +198,11 @@ def test_stage3_grids_basis_dia_and_ip_and_solves_probe_and_loop(scan):
     assert scan.uncertainty_scales(setting)["plasma_current"] == pytest.approx(1.0 / cells[0]["ip"])
 
 
+def test_backoff_steps_halfway_back_in_log(scan):
+    assert scan.backoff_multipliers({"probe": 8.0, "loop": 2.0}, {"probe": 12.9, "loop": 3.18}) == {
+        "probe": 10.2, "loop": 2.52}
+
+
 def test_merging_refuses_records_from_different_initial_states(scan):
     same = [{"setting": "a", "fingerprint": "x"}, {"setting": "b", "fingerprint": "x"},
             {"setting": "routine", "fingerprint": "legacy"}]
