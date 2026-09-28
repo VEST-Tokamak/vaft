@@ -101,14 +101,19 @@ def test_indentation_is_opt_in():
 
 
 def test_default_fit_is_unchanged_by_the_indentation_work():
-    """Pinned from origin/develop before #941 (bit-identical there on macOS)."""
+    """Pinned from origin/develop before #941.
+
+    Bit-identical to develop on the same machine (checked when #941 was
+    written); across platforms the optimizer's arithmetic moves the last
+    digits by ~3e-9, so the pin is 1e-7 -- far below any algorithmic change.
+    """
     rng = np.random.default_rng(7)
     theta = np.linspace(0, 2*np.pi, 300, endpoint=False)
     r, z = evaluate_miller(MillerSurface(0.22, 0.9, -0.03, 1.7, 0.32), theta)
     r = r + 1e-3*rng.standard_normal(r.size); z = z + 1e-3*rng.standard_normal(z.size)
     s = fit_miller_surface((r, z)).surface
     expected = (0.21998494211178976, 0.8997816786170715, -0.030157138796743203, 1.700347712135167, 0.31878788793594054)
-    np.testing.assert_allclose((s.r, s.r0, s.z0, s.kappa, s.delta), expected, rtol=1e-9)
+    np.testing.assert_allclose((s.r, s.r0, s.z0, s.kappa, s.delta), expected, rtol=1e-7)
     assert s.zeta == 0.0 and s.indentation == 0.0
 
 
