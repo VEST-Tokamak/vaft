@@ -129,8 +129,6 @@ def _specs() -> tuple[OptionSpec, ...]:
         # Read by a builder, so offered by the schema: before they were listed
         # validate_options refused them and no adapter could pass them on
         # (cold review plot G7).
-        OptionSpec("modes", description="toroidal mode numbers of a coil-current spectrum; "
-                                        "past the resolved band they alias and are labelled so"),
         OptionSpec("min_wall_authority", "float",
                    description="wall-current authority below which a vacuum residual is not drawn"),
         OptionSpec("show_uncertainty", "bool", description="draw the stored uncertainty of a verification"),
