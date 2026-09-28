@@ -73,22 +73,51 @@ def test_angular_momentum_rate_follows_the_tangency_radius_sign():
         injected_toroidal_angular_momentum_rate(1e20, 0.0, 0.3, v)
 
 
-def test_process_conserves_particles_and_power():
-    alpha = 2.5 * np.clip(1.0 - (2.0 * S / 1.2 - 1.0) ** 2, 0.0, None)
-    r = neutral_beam_attenuation_along_path(S, alpha, beam_power=1.5e6, beam_energy_eV=2.5e4)
-    assert r.absorbed_neutral_fraction + r.shine_through_fraction == pytest.approx(1.0)
-    assert np.trapezoid(r.birth_fraction_density, S) == pytest.approx(r.absorbed_neutral_fraction, abs=1e-5)
-    assert r.absorbed_beam_power + r.shine_through_power == pytest.approx(1.5e6)
-    assert np.trapezoid(r.power_birth_profile, S) == pytest.approx(r.absorbed_beam_power, rel=1e-5)
-    assert np.trapezoid(r.birth_rate_density, S) == pytest.approx(r.particle_rate * r.absorbed_neutral_fraction,
-                                                                   rel=1e-5)
-    assert r.survival_fraction[0] == 1.0 and np.all(np.diff(r.survival_fraction) <= 0)
+def test_process_conserves_particles_and_power_on_any_grid():
+    for n in (3, 5, 1201):
+        s = np.linspace(0.0, 1.0, n)
+        alpha = np.full(n, 5.0)  # alpha * ds up to 2.5: a grid far too coarse for the point density
+        r = neutral_beam_attenuation_along_path(s, alpha, beam_power=1.5e6, beam_energy_eV=2.5e4)
+        width = np.diff(s)
+        assert r.birth_fraction_per_cell.sum() + r.shine_through_fraction == pytest.approx(1.0, abs=1e-14)
+        assert np.sum(r.power_birth_profile * width) + r.shine_through_power == pytest.approx(1.5e6, rel=1e-14)
+        assert np.sum(r.birth_rate_density * width) == pytest.approx(r.particle_rate * r.absorbed_neutral_fraction,
+                                                                     rel=1e-14)
+        assert np.all(r.birth_fraction_per_cell >= 0.0)
+        assert r.survival_fraction[0] == 1.0 and np.all(np.diff(r.survival_fraction) <= 0)
+    # on a fine grid the cell density converges to the formula's point density at the cell centres
+    s = np.linspace(0.0, 1.2, 1201)
+    alpha = 2.5 * np.clip(1.0 - (2.0 * s / 1.2 - 1.0) ** 2, 0.0, None)
+    r = neutral_beam_attenuation_along_path(s, alpha)
+    point = np.interp(r.cell_centers, s, beam_birth_probability_density(s, alpha))
+    np.testing.assert_allclose(r.birth_fraction_density, point, atol=2e-5)
 
 
-def test_process_without_power_has_no_bookkeeping_and_needs_both():
-    r = neutral_beam_attenuation_along_path(S, np.ones_like(S))
+def test_process_without_power_has_no_bookkeeping_and_refuses_bad_input():
+    s = np.linspace(0.0, 1.0, 11)
+    r = neutral_beam_attenuation_along_path(s, np.ones_like(s))
     assert r.particle_rate is None and r.power_birth_profile is None
     with pytest.raises(ValueError, match="both"):
-        neutral_beam_attenuation_along_path(S, np.ones_like(S), beam_power=1e6)
+        neutral_beam_attenuation_along_path(s, np.ones_like(s), beam_power=1e6)
     with pytest.raises(ValueError):
-        neutral_beam_attenuation_along_path(S, np.ones((2, S.size)))
+        neutral_beam_attenuation_along_path(s, np.ones((2, s.size)))
+    for power in (-1.0, np.nan, np.inf):
+        with pytest.raises(ValueError):
+            neutral_beam_attenuation_along_path(s, np.ones_like(s), beam_power=power, beam_energy_eV=2e4)
+    with pytest.raises(ValueError):
+        neutral_beam_attenuation_along_path(s, np.full_like(s, np.nan))
+
+
+def test_formula_refusals():
+    with pytest.raises(ValueError):
+        neutral_beam_optical_depth(S, 1.0)  # a scalar alpha is not a profile
+    with pytest.raises(ValueError):
+        neutral_survival_fraction_from_optical_depth(np.inf)
+    with pytest.raises(ValueError):
+        beam_particle_rate_from_power_energy(1e6, np.nan)
+    with pytest.raises(ValueError):
+        injected_toroidal_angular_momentum_rate(1e20, 3.3e-27, np.inf, 1e6)
+    with pytest.raises(ValueError):
+        injected_toroidal_angular_momentum_rate(1e20, 3.3e-27, 0.3, -1.0)
+    assert np.all(beam_birth_probability_density(S, np.full_like(S, 2.0)) >= 0.0)
+    assert isinstance(neutral_survival_fraction_from_optical_depth(0.5), float)

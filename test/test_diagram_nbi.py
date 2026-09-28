@@ -17,9 +17,12 @@ def test_losses_branch_at_the_stage_where_they_happen():
     roles = {getattr(i, "role", "") for i in diagram.scene.items}
     assert {"shine_through", "prompt_loss", "delayed_loss", "thermalisation"} <= roles
     # the main path is one chain from injection to thermalisation
-    chain = ["injection", "ionisation", "birth", "confined", "slowing", "ions", "thermal"]
+    chain = ["injection", "ionisation", "birth", "confined", "slowing", "thermal"]
     for a, b in zip(chain, chain[1:]):
         assert (a, b) in diagram.model["edges"]
+    # thermalisation is the end of slowing down, not a product of one heating channel
+    assert ("ions", "thermal") not in diagram.model["edges"]
+    assert all(("slowing", c) in diagram.model["edges"] for c in ("electrons", "ions", "momentum"))
     arrows = [i for i in diagram.scene.items if isinstance(i, Arrow)]
     assert len(arrows) == len(diagram.model["edges"])
 

@@ -37,7 +37,7 @@ from ._scene import Label, Marker, Scene
 LOSS_CHANNELS = {
     "shine_through": "neutral",
     "prompt_loss": "first orbit after ionisation",
-    "delayed_loss": "after confined-orbit evolution",
+    "delayed_loss": "after confined-orbit evolution: orbit, transport or charge-exchange loss",
 }
 
 
@@ -70,17 +70,18 @@ def nbi_particle_lifecycle(*, labels: bool = True) -> Diagram:
         "electrons": box(-4.9, 1.8, 3.6, h, t("electron heating"), role="electron_heating"),
         "ions": box(0.0, 1.8, 3.6, h, t("ion heating"), role="ion_heating"),
         "momentum": box(4.9, 1.8, 3.6, h, t("momentum and current drive"), role="momentum_current"),
-        "thermal": box(0.0, 0.2, w, h, t("thermalisation: joins the bulk plasma"), role="thermalisation"),
+        "thermal": box(-5.4, 3.6, 3.8, h, t("thermalisation: joins the bulk"), role="thermalisation"),
         "shine_through": box(6.1, 10.0, lw, h, t("shine-through: lost while still neutral, to the wall"),
                              style="concept leaf", role="shine_through"),
         "prompt_loss": box(6.1, 6.8, lw, h, t("prompt orbit loss: lost on the first orbit after ionisation"),
                            style="concept leaf", role="prompt_loss"),
-        "delayed_loss": box(6.1, 5.2, lw, h, t("delayed loss: after confined-orbit evolution"),
+        "delayed_loss": box(6.1, 5.2, lw, h, t("delayed loss: orbit or transport loss, or charge-exchange "
+                                                "re-neutralisation"),
                             style="concept leaf", role="delayed_loss"),
     }
     edges = [("injection", "ionisation"), ("ionisation", "birth"), ("birth", "confined"),
              ("confined", "slowing"), ("slowing", "electrons"), ("slowing", "ions"), ("slowing", "momentum"),
-             ("ions", "thermal"), ("injection", "shine_through"), ("birth", "prompt_loss"),
+             ("slowing", "thermal"), ("injection", "shine_through"), ("birth", "prompt_loss"),
              ("confined", "delayed_loss")]
     items: List = []
     for node in nodes.values():
@@ -88,7 +89,7 @@ def nbi_particle_lifecycle(*, labels: bool = True) -> Diagram:
     for a, b in edges:
         items.append(connector(nodes[a], nodes[b], role=f"{a}->{b}"))
     if labels:
-        items.append(Label((0.3, -0.9), "shine-through fraction: $e^{-\\tau_\\mathrm{exit}}$ "
+        items.append(Label((0.3, 0.7), "shine-through fraction: $e^{-\\tau_\\mathrm{exit}}$ "
                            "(\\texttt{shine\\_through\\_fraction}); orbits: the particle-motion diagrams",
                            "note", anchor="north", role="note"))
     return Diagram("nbi_particle_lifecycle", Scene(tuple(items)),
@@ -136,7 +137,7 @@ def nbi_neutral_attenuation(*, labels: bool = True) -> Diagram:
     chart.parameters.update({"shine_through_fraction": shine, "tau_exit": float(tau[-1]),
                              "alpha_peak": ALPHA_PEAK, "path_length": PATH_LENGTH})
     scene = render_chart(
-        chart, x_label="path coordinate $s$ [m]", y_label="fraction",
+        chart, x_label="path coordinate $s$ [m]", y_label="$S$, $\\alpha/\\alpha_\\mathrm{max}$ [-]; $b$ [m$^{-1}$]",
         curve_styles={"alpha": "approx", "birth_density": "inner solution", "survival": "boundary"},
         region_text={"survival": "$S = e^{-\\tau}$", "birth": "$b = \\alpha S$ [m$^{-1}$]",
                      "alpha": "$\\alpha/\\alpha_\\mathrm{max}$"} if labels else {},

@@ -272,13 +272,13 @@
     },
     "nbi_neutral_attenuation.svg": {
       "call": "vaft.diagram.nbi_neutral_attenuation()",
-      "source_sha256": "8070be220f1013ca6883e9d00b7d9b5dae5b39b49506b046d02c8abe8aa7d11f",
-      "svg_sha256": "68f1791ce46923c5fa0113f7b3a4b3ff056467746bd094508e54ec50aec34ba5"
+      "source_sha256": "65b4150f5527874d3076c6afdeb3a6651baf7772bf5403bdbbfcd5d2a3f08cdc",
+      "svg_sha256": "47fd2f670074b0a3f848a865e0d3c484ac77af490b4a989562a749ce42768c37"
     },
     "nbi_particle_lifecycle.svg": {
       "call": "vaft.diagram.nbi_particle_lifecycle()",
-      "source_sha256": "e0eedc7579b2ed91806758e845a37183dd11c19d9032454a7d226aafcdcbec4c",
-      "svg_sha256": "813cceee3ebbcdfc0283be0c4ba83b5d13058a1ca5be1fea255878ce73d58fc3"
+      "source_sha256": "971f992005185562d864cd383c795d601a965ae757265acb835db560591fafa2",
+      "svg_sha256": "fc7ef311a27b68255dfa48011dd73f4033918b0cca0c7107abed5943fd7c660f"
     },
     "normal_field_component.svg": {
       "call": "vaft.diagram.normal_field_component()",

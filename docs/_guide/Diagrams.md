@@ -718,9 +718,12 @@ A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and
   `shine_through_fraction`, and `injected_toroidal_angular_momentum_rate`. The last is the ideal rate
   carried in, not the torque on the plasma.
 - **Process** (`vaft.process.nbi.neutral_beam_attenuation_along_path`): composes these along a prescribed
-  1-D path and adds the particle and power bookkeeping. $\int b\,ds + f_\mathrm{shine} = 1$ and
-  $P_\mathrm{birth} + P_\mathrm{shine} = P_\mathrm{injected}$ hold by construction. The
-  "power birth profile" is where neutrals become fast ions, not where the plasma is heated.
+  1-D path and adds the particle and power bookkeeping. Births are counted per path cell as
+  $S_i - S_{i+1}$, so $\sum_i + f_\mathrm{shine} = 1$ and $P_\mathrm{birth} + P_\mathrm{shine} =
+  P_\mathrm{injected}$ hold exactly on any grid. The "power birth profile" is where neutrals become
+  fast ions, not where the plasma is heated. The process module's docstring tabulates what this layer
+  answers and what needs a full solver; related work is #265 (VEST NBI description), #592 (NUBEAM → IMAS),
+  #1064 and #1092 (scales, orbits).
 
 The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
 built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are

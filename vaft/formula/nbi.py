@@ -61,7 +61,7 @@ def _out(result):
 def _path(s, alpha):
     s = np.asarray(s, dtype=float)
     alpha = np.asarray(alpha, dtype=float)
-    if s.ndim != 1 or s.size < 2 or alpha.shape[-1] != s.size:
+    if s.ndim != 1 or s.size < 2 or alpha.ndim < 1 or alpha.shape[-1] != s.size:
         raise ValueError("s must be 1-D with at least two points, and alpha must end with the same length")
     if not (np.all(np.isfinite(s)) and np.all(np.isfinite(alpha))):
         raise ValueError("s and alpha must be finite")
@@ -191,8 +191,9 @@ def neutral_survival_fraction_from_optical_depth(tau):
     Physical interpretation
     -----------------------
     The neutral flux at depth $\tau$ over the injected flux. Every neutral
-    lost from it has become a fast ion (or charge-exchanged into another
-    neutral this model does not follow).
+    removed from it has become a fast ion, by ionisation or by charge
+    exchange with a plasma ion; the thermal neutral that charge exchange
+    leaves behind is not followed.
 
     Assumptions
     -----------
@@ -204,8 +205,8 @@ def neutral_survival_fraction_from_optical_depth(tau):
            Sec. 5.4.
     """
     tau = np.asarray(tau, dtype=float)
-    if np.any(~(tau >= 0.0)):
-        raise ValueError("tau must be non-negative")
+    if np.any(~np.isfinite(tau)) or np.any(tau < 0.0):
+        raise ValueError("tau must be non-negative and finite")
     return _out(np.exp(-tau))
 
 
@@ -308,7 +309,8 @@ def injected_toroidal_angular_momentum_rate(Ndot_b, m, R_tan, v):
         Beam-particle mass, positive [kg].
     R_tan : float or np.ndarray
         Tangency radius of the beam line, signed: positive for injection
-        along $+\phi$ (IMAS, counter-clockwise from above) [m].
+        along $+\phi$ (counter-clockwise from above), negative for the
+        opposite direction [m].
     v : float or np.ndarray
         Beam-particle speed, non-negative [m/s].
 
@@ -327,7 +329,10 @@ def injected_toroidal_angular_momentum_rate(Ndot_b, m, R_tan, v):
     ----------
     For a straight beam $m\,\mathbf R\times\mathbf v$ about the axis is
     $mR_\mathrm{tan}v$ at every point of the line, so the tangency radius
-    carries the geometry and its sign the direction.
+    carries the geometry and its sign the direction. IMAS ``nbi`` stores an
+    unsigned ``beamlets_group.tangency_radius`` and a separate
+    ``direction`` ($\pm1$, counter-clockwise from above): pass
+    ``direction * tangency_radius``.
 
     Physical interpretation
     -----------------------
