@@ -330,6 +330,33 @@ class GuazzottoFreidbergEquilibrium:
 
 
 @dataclass(frozen=True)
+class CurrentMomentRepresentation:
+    """Toroidal current density reduced to its total, centroid and central moments (#943).
+
+    ``central_moments[(p, q)]`` is the *normalized central* moment
+    ``mu_pq = (1/I_p) * integral (R - R_c)**p (Z - Z_c)**q J_phi dA`` in
+    m**(p+q), for ``2 <= p + q <= max_order``; ``mu_10 = mu_01 = 0`` by the
+    centroid's definition and are not stored.  These describe the current
+    distribution, not the boundary: ``mu_20`` is not a minor radius and a third
+    moment is not a triangularity.
+    """
+
+    total_current: float
+    centroid_r: float
+    centroid_z: float
+    central_moments: Mapping[tuple[int, int], float]
+    max_order: int
+    current_density_source: str
+    provenance: DerivationProvenance
+
+    @property
+    def covariance(self) -> np.ndarray:
+        """The second-order tensor ``[[mu_20, mu_11], [mu_11, mu_02]]`` [m^2]."""
+        m = self.central_moments
+        return np.array([[m[(2, 0)], m[(1, 1)]], [m[(1, 1)], m[(0, 2)]]], dtype=float)
+
+
+@dataclass(frozen=True)
 class FourierSurface:
     """A closed contour as a truncated Fourier series in a uniform arc-length angle (#945).
 
@@ -562,6 +589,7 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint", "GuazzottoFreidbergEquilibrium", "GradShafranovResidualModes", "FourierFitResult",
-    "FourierSequenceResult", "FourierSurface", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
+    "ValidationReport", "XPoint", "CurrentMomentRepresentation", "GradShafranovResidualModes", "FourierFitResult",
+    "GuazzottoFreidbergEquilibrium", "FourierSequenceResult", "FourierSurface", "SOLOVEV_BASIS_SIZES",
+    "SOLOVEV_CONSTRAINT_KINDS",
 ]
