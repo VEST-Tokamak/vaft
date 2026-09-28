@@ -1,0 +1,857 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: pwi · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/disruption/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/ripple/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: pwi</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>86fe0fb</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_pwi">Formula reference: pwi</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.pwi, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.pwi</code>:
+<strong>4</strong> public functions. Each entry is what
+<code>vaft.formula.describe("pwi.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The small, exactly defined relations the plasma-wall vocabulary rests on –
+not response data. Reflection and sputtering <em>coefficients</em> depend on
+projectile, target, energy, angle and surface state, and come from tables or
+codes (TRIM/SDTrimSP, Eckstein fits); nothing here supplies them. What is
+here keeps the concepts apart: particle versus energy reflection, reflection
+versus recycling versus retention, the projectile versus the target species.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>m_1</td><td>projectile mass</td><td class="ref-unit">kg or u</td></tr>
+  <tr><td>m_2</td><td>target-atom mass</td><td class="ref-unit">kg or u</td></tr>
+  <tr><td>R_N</td><td>particle reflection coefficient</td><td class="ref-unit">-</td></tr>
+  <tr><td>R_E</td><td>energy reflection coefficient</td><td class="ref-unit">-</td></tr>
+  <tr><td>E_s</td><td>surface binding energy of the target</td><td class="ref-unit">eV</td></tr>
+  <tr><td>Gamma</td><td>particle flux density</td><td class="ref-unit">m^-2 s^-1</td></tr>
+  </tbody>
+</table></div>
+
+<p>Masses enter only as ratios, so any consistent unit works. Coefficients are
+per incident particle (<code class="language-plaintext highlighter-rouge">R_N</code>) or per unit incident energy (<code class="language-plaintext highlighter-rouge">R_E</code>), for one
+projectile-target pair, energy and angle.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="binary_collision_energy_transfer_factor"><td><a href="#binary_collision_energy_transfer_factor"><code>binary_collision_energy_transfer_factor</code></a></td><td>Largest fraction of a projectile’s energy one elastic collision can give a target atom.
+</td></tr>
+  <tr data-ref-row="mean_reflected_energy_fraction"><td><a href="#mean_reflected_energy_fraction"><code>mean_reflected_energy_fraction</code></a></td><td>Mean energy of a reflected particle, as a fraction of the incident energy.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="recycling_coefficient"><td><a href="#recycling_coefficient"><code>recycling_coefficient</code></a></td><td>Recycling coefficient: particles returned to the plasma per incident particle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sputtering_threshold_bohdansky"><td><a href="#sputtering_threshold_bohdansky"><code>sputtering_threshold_bohdansky</code></a></td><td>Physical-sputtering threshold energy, Bohdansky’s empirical fit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="binary_collision_energy_transfer_factor" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#binary_collision_energy_transfer_factor"><code>binary_collision_energy_transfer_factor</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/pwi.py#L55" title="vaft/formula/pwi.py, line 55">source</a>
+</header>
+    <pre class="ref-signature"><code>binary_collision_energy_transfer_factor(m_1, m_2)</code></pre>
+
+    <p>Largest fraction of a projectile’s energy one elastic collision can give a target atom.</p>
+
+\[\gamma = \frac{4m_1m_2}{(m_1 + m_2)^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>m_1</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg or u</td><td><p>Projectile mass, positive.</p>
+</td></tr>
+  <tr><td><code>m_2</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg or u</td><td><p>Target-atom mass, positive, same unit.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\gamma \in (0, 1]$, one for equal masses.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A mass is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A head-on elastic collision transfers $\gamma E$. A light projectile
+(D on W: $\gamma \approx 0.043$) cannot give a heavy target atom much
+energy in one collision, which is why light ions sputter heavy targets
+only well above the surface binding energy – the origin of the high
+sputtering threshold of tungsten under hydrogen.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Two-body elastic collision, target initially at rest; exact kinematics.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Eckstein, <em>Computer Simulation of Ion-Solid Interactions</em>, Springer (1991), Ch. 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mean_reflected_energy_fraction" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mean_reflected_energy_fraction"><code>mean_reflected_energy_fraction</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/pwi.py#L99" title="vaft/formula/pwi.py, line 99">source</a>
+</header>
+    <pre class="ref-signature"><code>mean_reflected_energy_fraction(R_N, R_E)</code></pre>
+
+    <p>Mean energy of a reflected particle, as a fraction of the incident energy.</p>
+
+\[\frac{\langle E_\mathrm{refl}\rangle}{E_\mathrm{in}} = \frac{R_E}{R_N}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>R_N</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Particle reflection coefficient, in (0, 1].</p>
+</td></tr>
+  <tr><td><code>R_E</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Energy reflection coefficient, in [0, R_N].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\langle E_\mathrm{refl}\rangle/E_\mathrm{in}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$R_N$ counts reflected particles per incident particle, $R_E$ reflected
+energy per incident energy; they are different quantities with different
+data, and $R_E \le R_N$ because a reflected particle leaves with at most
+its incident energy.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">R_N</code> outside (0, 1] or <code class="language-plaintext highlighter-rouge">R_E</code> outside [0, <code class="language-plaintext highlighter-rouge">R_N</code>].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Particle balance and energy balance are not the same bookkeeping: a
+surface may return most particles ($R_N$ large) while keeping most of
+their energy ($R_E/R_N$ small), and it is $R_E$, not $R_N$, that enters
+the power the wall absorbs.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Eckstein, <em>Computer Simulation of Ion-Solid Interactions</em>, Springer (1991), Ch. 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="recycling_coefficient" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#recycling_coefficient"><code>recycling_coefficient</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/pwi.py#L149" title="vaft/formula/pwi.py, line 149">source</a>
+</header>
+    <pre class="ref-signature"><code>recycling_coefficient(Gamma_reflected, Gamma_reemitted, Gamma_incident)</code></pre>
+
+    <p>Recycling coefficient: particles returned to the plasma per incident particle.</p>
+
+\[R = \frac{\Gamma_\mathrm{refl} + \Gamma_\mathrm{re\text{-}em}}{\Gamma_\mathrm{in}},\qquad
+  1 - R = \frac{\Gamma_\mathrm{retained}}{\Gamma_\mathrm{in}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Gamma_reflected</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>Promptly reflected flux (fast atoms), non-negative.</p>
+</td></tr>
+  <tr><td><code>Gamma_reemitted</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>Flux re-emitted after implantation (thermal atoms and molecules, counted as atoms), non-negative.</p>
+</td></tr>
+  <tr><td><code>Gamma_incident</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>Incident ion plus atom flux, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$R$; below one while the wall retains, above one while it releases a previous inventory.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Counts atoms: a re-emitted D$_2$ molecule is two. Reflection is the
+prompt part only; recycling includes the delayed re-emission; retention
+is what neither returns. $R$ is not bounded by one: an outgassing wall
+returns more than it receives.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A returned flux is negative or <code class="language-plaintext highlighter-rouge">Gamma_incident</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Ch. 3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sputtering_threshold_bohdansky" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sputtering_threshold_bohdansky"><code>sputtering_threshold_bohdansky</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/pwi.py#L196" title="vaft/formula/pwi.py, line 196">source</a>
+</header>
+    <pre class="ref-signature"><code>sputtering_threshold_bohdansky(E_s, m_1, m_2)</code></pre>
+
+    <p>Physical-sputtering threshold energy, Bohdansky’s empirical fit.</p>
+
+\[E_\mathrm{th} = \begin{cases}
+  \dfrac{E_s}{\gamma(1 - \gamma)}, &amp; m_1/m_2 \le 0.2 \\[1ex]
+  8E_s\left(\dfrac{m_1}{m_2}\right)^{2/5}, &amp; m_1/m_2 &gt; 0.2
+  \end{cases},\qquad \gamma = \frac{4m_1m_2}{(m_1 + m_2)^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>E_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Surface binding energy of the target (usually its sublimation energy), supplied by the caller, positive.</p>
+</td></tr>
+  <tr><td><code>m_1</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg or u</td><td><p>Projectile mass, positive.</p>
+</td></tr>
+  <tr><td><code>m_2</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg or u</td><td><p>Target-atom mass, positive, same unit.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Threshold incident energy, normal incidence.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A named empirical model (Bohdansky 1984), not a table: $E_s$ is an
+input and no material data are built in. Fits of Eckstein and others
+differ by tens of per cent near threshold; use tabulated thresholds for
+quantitative work. The two branches do not join exactly: at
+$m_1/m_2 = 0.2$ the light branch gives $4.05E_s$ and the heavy one
+$4.20E_s$, a 4 % step.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A mass or <code class="language-plaintext highlighter-rouge">E_s</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A light projectile cannot sputter by a forward cascade: it is backscattered
+by a deeper target atom, keeping $(1 - \gamma)E$, and on its way out
+strikes a surface atom from below, giving it up to $\gamma(1 - \gamma)E$
+(<code class="language-plaintext highlighter-rouge">binary_collision_energy_transfer_factor</code> for $\gamma$). That must
+exceed $E_s$: hence $E_s/\gamma(1 - \gamma)$, far above $E_s$ for D on W.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Bohdansky, J. Roth and H. L. Bay, J. Appl. Phys. 51 (1980) 2861; J. Bohdansky, Nucl. Instrum. Methods B 2 (1984) 587.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/disruption/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: disruption">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/ripple/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: ripple">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: ripple",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_ripple.md",
+            "ref": "_guide/Formula_reference_ripple.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_pwi.md",
+        "mtime": "2026-09-27 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-28 15:16:25 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

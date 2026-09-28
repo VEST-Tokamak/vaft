@@ -1,0 +1,981 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: vde · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/ripple/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/plot/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: vde</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>86fe0fb</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_vde">Formula reference: vde</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.vde, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.vde</code>:
+<strong>6</strong> public functions. Each entry is what
+<code>vaft.formula.describe("vde.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Generic, model-neutral reference quantities for a VDE – how fast the plasma
+moves, how fast a conducting wall lets it, and how much and how unevenly the
+current returns through the wall as halo current. None of them is a VDE
+model: the hot-VDE edge-current loss, the cold-VDE equilibrium-branch loss and
+analytic halo-current models are named literature models that belong in their
+own functions once one is selected (#1042). The disruption chain these
+couple to – thermal and current quench, runaways – is
+<code class="language-plaintext highlighter-rouge">vaft.formula.disruption</code>; the plain circuit time $L/R$ of a wall element is
+<code class="language-plaintext highlighter-rouge">lr_time_from_L_R</code>.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>t</td><td>time</td><td class="ref-unit">s</td></tr>
+  <tr><td>Z</td><td>vertical position of the current centroid</td><td class="ref-unit">m</td></tr>
+  <tr><td>Z0</td><td>reference vertical position</td><td class="ref-unit">m</td></tr>
+  <tr><td>sigma</td><td>wall electrical conductivity</td><td class="ref-unit">S/m</td></tr>
+  <tr><td>d</td><td>wall thickness</td><td class="ref-unit">m</td></tr>
+  <tr><td>b</td><td>wall minor radius</td><td class="ref-unit">m</td></tr>
+  <tr><td>m</td><td>poloidal mode number of the wall eddy pattern</td><td class="ref-unit">-</td></tr>
+  <tr><td>I_halo</td><td>halo current</td><td class="ref-unit">A</td></tr>
+  <tr><td>I_p0</td><td>pre-disruption plasma current</td><td class="ref-unit">A</td></tr>
+  </tbody>
+</table></div>
+
+<p>Growth rates are local: $\gamma = d\ln|Z - Z_0|/dt$ on whatever interval the
+caller passes, with no claim that the whole event is exponential. Halo
+fractions use the peak halo current over the pre-disruption plasma current,
+the ITER Physics Basis convention.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="halo_current_fraction"><td><a href="#halo_current_fraction"><code>halo_current_fraction</code></a></td><td>Halo-current fraction: peak poloidal halo current over the pre-disruption plasma current.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="thin_wall_time"><td><a href="#thin_wall_time"><code>thin_wall_time</code></a></td><td>Resistive time of a thin cylindrical wall, $\tau_w = \mu_0\sigma db$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_peaking_factor"><td><a href="#toroidal_peaking_factor"><code>toroidal_peaking_factor</code></a></td><td>Toroidal peaking factor of the halo current: maximum over the toroidal mean.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vde_growth_rate"><td><a href="#vde_growth_rate"><code>vde_growth_rate</code></a></td><td><table>
+  <tbody>
+    <tr>
+      <td>Local growth rate of a vertical displacement, $d\ln</td>
+      <td>Z - Z_0</td>
+      <td>/dt$.</td>
+    </tr>
+  </tbody>
+</table>
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vertical_velocity"><td><a href="#vertical_velocity"><code>vertical_velocity</code></a></td><td>Vertical velocity of the current centroid, $dZ/dt$.
+</td></tr>
+  <tr data-ref-row="wall_mode_decay_time"><td><a href="#wall_mode_decay_time"><code>wall_mode_decay_time</code></a></td><td>Decay time of a thin wall’s poloidal-harmonic-$m$ eddy current.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="halo_current_fraction" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#halo_current_fraction"><code>halo_current_fraction</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L240" title="vaft/formula/vde.py, line 240">source</a>
+</header>
+    <pre class="ref-signature"><code>halo_current_fraction(I_halo_peak, I_p0)</code></pre>
+
+    <p>Halo-current fraction: peak poloidal halo current over the pre-disruption plasma current.</p>
+
+\[f_\mathrm{halo} = \frac{I_\mathrm{halo}^\mathrm{peak}}{I_{p,0}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>I_halo_peak</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>Peak (toroidally integrated, poloidal) halo current, non-negative.</p>
+</td></tr>
+  <tr><td><code>I_p0</code></td><td class="ref-type">float</td><td class="ref-unit">A</td><td><p>Plasma current before the disruption, non-zero.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$f_\mathrm{halo}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Magnitudes; the ITER Physics Basis convention. A characterisation metric,
+not a halo-current model: it says nothing of the current path, the
+toroidal asymmetry (<code class="language-plaintext highlighter-rouge">toroidal_peaking_factor</code>) or the forces.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">I_halo_peak</code> is negative or <code class="language-plaintext highlighter-rouge">I_p0</code> is zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="thin_wall_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#thin_wall_time"><code>thin_wall_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L148" title="vaft/formula/vde.py, line 148">source</a>
+</header>
+    <pre class="ref-signature"><code>thin_wall_time(sigma, d, b)</code></pre>
+
+    <p>Resistive time of a thin cylindrical wall, $\tau_w = \mu_0\sigma db$.</p>
+
+\[\tau_w = \mu_0\,\sigma\,d\,b\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>sigma</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">S/m</td><td><p>Wall conductivity, positive.</p>
+</td></tr>
+  <tr><td><code>d</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Wall thickness, positive and much less than <code class="language-plaintext highlighter-rouge">b</code>.</p>
+</td></tr>
+  <tr><td><code>b</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Wall minor radius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_w$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The thin-wall time of the resistive-wall-mode literature (Freidberg). The
+eddy pattern of a poloidal harmonic $m$ decays in $\tau_w/(2m)$
+(<code class="language-plaintext highlighter-rouge">wall_mode_decay_time</code>); the vertical ($m = 1$) displacement sees
+$\tau_w/2$ as its eddy time – its growth time is that divided by the
+stability margin, not equal to it. Some resistive-wall-mode papers call
+$\mu_0\sigma db/2$ “$\tau_w$”: the definition here is explicit. A real vessel with ports, gaps and several shells has a
+spectrum of times; its circuit elements’ $L/R$ are <code class="language-plaintext highlighter-rouge">lr_time_from_L_R</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An argument is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Axisymmetric, continuous cylindrical shell, $d \ll b$ (thin wall),
+uniform conductivity.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), the resistive-wall chapter.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="toroidal_peaking_factor" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_peaking_factor"><code>toroidal_peaking_factor</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L286" title="vaft/formula/vde.py, line 286">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_peaking_factor(j_halo_phi)</code></pre>
+
+    <p>Toroidal peaking factor of the halo current: maximum over the toroidal mean.</p>
+
+\[\mathrm{TPF} = \frac{\max_\phi j_\mathrm{halo}}{\langle j_\mathrm{halo}\rangle_\phi}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>j_halo_phi</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">A or A/m^2</td><td><p>Halo current (or current density) at toroidal positions spaced uniformly around the machine, last axis toroidal, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>TPF, at least one; one for an axisymmetric halo.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The samples must be uniform in $\phi$ for the mean to be the toroidal
+average; with a few discrete sensors TPF is a lower bound on the true
+peak. The product $f_\mathrm{halo}\cdot\mathrm{TPF}$ is the usual
+design-load figure.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Fewer than two toroidal samples, a negative sample, or a zero mean.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vde_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vde_growth_rate"><code>vde_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L98" title="vaft/formula/vde.py, line 98">source</a>
+</header>
+    <pre class="ref-signature"><code>vde_growth_rate(t, Z, Z0)</code></pre>
+
+    <table>
+      <tbody>
+        <tr>
+          <td>Local growth rate of a vertical displacement, $d\ln</td>
+          <td>Z - Z_0</td>
+          <td>/dt$.</td>
+        </tr>
+      </tbody>
+    </table>
+
+\[\gamma_\mathrm{VDE}(t) = \frac{d}{dt}\ln|\Delta Z|,\qquad \Delta Z = Z - Z_0\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>t</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>Time, increasing.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Vertical centroid position on <code class="language-plaintext highlighter-rouge">t</code>.</p>
+</td></tr>
+  <tr><td><code>Z0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Reference position the displacement is measured from.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma_\mathrm{VDE}$ on <code class="language-plaintext highlighter-rouge">t</code>; NaN where $\Delta Z = 0$ and at its neighbouring samples, which the central difference reaches.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A local characterisation: constant only over an interval where the motion
+really is exponential ($\Delta Z = \Delta Z_0e^{\gamma t}$). A VDE is in
+general not one exponential – wall-limited growth, then an accelerating
+cold-VDE drift as the current decays, then wall contact.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">t</code> is not increasing or differs in length from <code class="language-plaintext highlighter-rouge">Z</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>With a conducting wall the growth is slowed from the Alfvenic ideal rate
+to a rate set by the wall eddy time (<code class="language-plaintext highlighter-rouge">wall_mode_decay_time</code>, $m = 1$)
+divided by the stability margin; $1/\gamma$ read off a measured
+displacement says which regime an interval is in.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vertical_velocity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vertical_velocity"><code>vertical_velocity</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L63" title="vaft/formula/vde.py, line 63">source</a>
+</header>
+    <pre class="ref-signature"><code>vertical_velocity(t, Z)</code></pre>
+
+    <p>Vertical velocity of the current centroid, $dZ/dt$.</p>
+
+\[v_Z = \frac{dZ}{dt}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>t</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>Time, increasing.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Vertical centroid position on <code class="language-plaintext highlighter-rouge">t</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_Z$ on <code class="language-plaintext highlighter-rouge">t</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">t</code> is not increasing or differs in length from <code class="language-plaintext highlighter-rouge">Z</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>Second-order central differences (<code class="language-plaintext highlighter-rouge">numpy.gradient</code>), one-sided at the
+ends; smooth or window a noisy $Z$ first.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="wall_mode_decay_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#wall_mode_decay_time"><code>wall_mode_decay_time</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/86fe0fb74c3b3432d600f2bb20f9d70e635ee266/vaft/formula/vde.py#L199" title="vaft/formula/vde.py, line 199">source</a>
+</header>
+    <pre class="ref-signature"><code>wall_mode_decay_time(tau_w, m)</code></pre>
+
+    <p>Decay time of a thin wall’s poloidal-harmonic-$m$ eddy current.</p>
+
+\[\tau_m = \frac{\tau_w}{2m}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>tau_w</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Thin-wall time (<code class="language-plaintext highlighter-rouge">thin_wall_time</code>), positive.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Poloidal harmonic, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_m$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">tau_w</code> is not positive or <code class="language-plaintext highlighter-rouge">m</code> is not a positive integer.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Higher harmonics have shorter current paths per unit flux and decay
+faster; a vertical displacement is the $m = 1$ pattern.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), the resistive-wall chapter.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/ripple/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: ripple">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/plot/" class="navigation navigation-next navigation-unique" aria-label="Next page: Plot reference">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Plot reference",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Plot_reference.md",
+            "ref": "_guide/Plot_reference.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_vde.md",
+        "mtime": "2026-09-27 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-28 15:16:25 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31df7e1</code>. What is described
+  <code>86fe0fb</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -347,7 +347,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="atomic">
     <td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td>
-    <td><code>vaft.formula.atomic</code></td><td>6</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
+    <td><code>vaft.formula.atomic</code></td><td>8</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
   </tr>
   <tr id="statistics">
     <td><a href="/vaft/develop/reference/formula/statistics/">statistics</a></td>
@@ -384,6 +384,14 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   <tr id="disruption">
     <td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td>
     <td><code>vaft.formula.disruption</code></td><td>11</td><td>Disruption reference relations: thermal and current quench, induced field, runaway electrons.</td>
+  </tr>
+  <tr id="vde">
+    <td><a href="/vaft/develop/reference/formula/vde/">vde</a></td>
+    <td><code>vaft.formula.vde</code></td><td>6</td><td>Vertical displacement events: local motion, wall response and halo-current descriptors.</td>
+  </tr>
+  <tr id="pwi">
+    <td><a href="/vaft/develop/reference/formula/pwi/">pwi</a></td>
+    <td><code>vaft.formula.pwi</code></td><td>4</td><td>Plasma-wall interaction: collision kinematics, reflection and recycling definitions, sputtering threshold.</td>
   </tr>
   </tbody>
 </table>
@@ -446,7 +454,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 318 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 330 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -858,6 +866,10 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="fractional_abundances atomic"><td><a href="/vaft/develop/reference/formula/atomic/#fractional_abundances"><code>fractional_abundances</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="hydrogenic_energy_level atomic"><td><a href="/vaft/develop/reference/formula/atomic/#hydrogenic_energy_level"><code>hydrogenic_energy_level</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.
+</td></tr>
+  <tr data-ref-row="hydrogenic_transition_wavelength atomic"><td><a href="/vaft/develop/reference/formula/atomic/#hydrogenic_transition_wavelength"><code>hydrogenic_transition_wavelength</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="impurity_fraction_from_effective_charge atomic"><td><a href="/vaft/develop/reference/formula/atomic/#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Impurity-to-electron density ratio that produces a given effective charge.
 </td></tr>
   <tr data-ref-row="interpolate_adf11 atomic"><td><a href="/vaft/develop/reference/formula/atomic/#interpolate_adf11"><code>interpolate_adf11</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Interpolate every charge-state block of an ADF11 table at given $(n_e, T_e)$.
@@ -1136,6 +1148,34 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="thermal_quench_temperature disruption"><td><a href="/vaft/develop/reference/formula/disruption/#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Prescribed exponential thermal quench of the electron temperature.
 </td></tr>
+  <tr data-ref-row="halo_current_fraction vde"><td><a href="/vaft/develop/reference/formula/vde/#halo_current_fraction"><code>halo_current_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Halo-current fraction: peak poloidal halo current over the pre-disruption plasma current.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="thin_wall_time vde"><td><a href="/vaft/develop/reference/formula/vde/#thin_wall_time"><code>thin_wall_time</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Resistive time of a thin cylindrical wall, $\tau_w = \mu_0\sigma db$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_peaking_factor vde"><td><a href="/vaft/develop/reference/formula/vde/#toroidal_peaking_factor"><code>toroidal_peaking_factor</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Toroidal peaking factor of the halo current: maximum over the toroidal mean.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vde_growth_rate vde"><td><a href="/vaft/develop/reference/formula/vde/#vde_growth_rate"><code>vde_growth_rate</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td><table>
+  <tbody>
+    <tr>
+      <td>Local growth rate of a vertical displacement, $d\ln</td>
+      <td>Z - Z_0</td>
+      <td>/dt$.</td>
+    </tr>
+  </tbody>
+</table>
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vertical_velocity vde"><td><a href="/vaft/develop/reference/formula/vde/#vertical_velocity"><code>vertical_velocity</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Vertical velocity of the current centroid, $dZ/dt$.
+</td></tr>
+  <tr data-ref-row="wall_mode_decay_time vde"><td><a href="/vaft/develop/reference/formula/vde/#wall_mode_decay_time"><code>wall_mode_decay_time</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Decay time of a thin wall’s poloidal-harmonic-$m$ eddy current.
+</td></tr>
+  <tr data-ref-row="binary_collision_energy_transfer_factor pwi"><td><a href="/vaft/develop/reference/formula/pwi/#binary_collision_energy_transfer_factor"><code>binary_collision_energy_transfer_factor</code></a></td><td><a href="/vaft/develop/reference/formula/pwi/">pwi</a></td><td>Largest fraction of a projectile’s energy one elastic collision can give a target atom.
+</td></tr>
+  <tr data-ref-row="mean_reflected_energy_fraction pwi"><td><a href="/vaft/develop/reference/formula/pwi/#mean_reflected_energy_fraction"><code>mean_reflected_energy_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/pwi/">pwi</a></td><td>Mean energy of a reflected particle, as a fraction of the incident energy.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="recycling_coefficient pwi"><td><a href="/vaft/develop/reference/formula/pwi/#recycling_coefficient"><code>recycling_coefficient</code></a></td><td><a href="/vaft/develop/reference/formula/pwi/">pwi</a></td><td>Recycling coefficient: particles returned to the plasma per incident particle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sputtering_threshold_bohdansky pwi"><td><a href="/vaft/develop/reference/formula/pwi/#sputtering_threshold_bohdansky"><code>sputtering_threshold_bohdansky</code></a></td><td><a href="/vaft/develop/reference/formula/pwi/">pwi</a></td><td>Physical-sputtering threshold energy, Bohdansky’s empirical fit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1400,7 +1440,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 12:48:04 +0000"
+        "time": "2026-09-28 15:16:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

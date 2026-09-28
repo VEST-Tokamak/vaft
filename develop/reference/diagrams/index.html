@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31df7e1</code>. What is described
+  <code>86fe0fb</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1655,6 +1655,222 @@ integrated codes.</p>
   </tbody>
 </table>
 
+<h2 id="vertical-displacement-events-hot-and-cold-vde-halo-currents">Vertical displacement events: hot and cold VDE, halo currents</h2>
+
+<p>A hot VDE moves a still-hot plasma into the wall, and the scraping can trigger the thermal quench. A cold
+VDE follows the quench, as the decaying current loses its centred vertical equilibrium. Wall contact then
+drives halo currents through the scrape-off layer and the wall. The model-neutral reference quantities are
+in the new <code class="language-plaintext highlighter-rouge">vaft.formula.vde</code> category:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">vertical_velocity</code> and <code class="language-plaintext highlighter-rouge">vde_growth_rate</code> (a local $d\ln\lvert\Delta Z\rvert/dt$);</li>
+  <li><code class="language-plaintext highlighter-rouge">thin_wall_time</code> and <code class="language-plaintext highlighter-rouge">wall_mode_decay_time</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">halo_current_fraction</code> and <code class="language-plaintext highlighter-rouge">toroidal_peaking_factor</code>.</li>
+</ul>
+
+<p>A wall element’s $L/R$ is <code class="language-plaintext highlighter-rouge">lr_time_from_L_R</code>. The named reduced VDE models (edge-current loss,
+filament-plus-wall, analytic halo) are not chosen yet. The disruption chain these diagrams couple to is
+<code class="language-plaintext highlighter-rouge">vaft.formula.disruption</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hot_vde_sequence</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">cold_vde_bifurcation</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_halo_current</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">vde_timescales</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/hot_vde_sequence.svg" alt="hot VDE" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/cold_vde_bifurcation.svg" alt="cold VDE" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_halo_current.svg" alt="halo" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/vde_timescales.svg" alt="timescales" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hot_vde_sequence</code></td>
+      <td>The Solov’ev plasma moved 0, 8 and 16 cm into its limiter. The limiting surface shrinks, so the edge moves inward to lower $q$ (the equilibrium’s own profile; the cylindrical estimate at fixed $I_p$ falls as $a^2$). Below, the causal chain towards the thermal quench</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cold_vde_bifurcation</code></td>
+      <td>A schematic normal form: below a critical current the centred equilibrium is lost, and the plasma follows an off-centre branch into the wall as $I_p$ decays. The real branches come from a model not chosen here</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_halo_current</code></td>
+      <td>Poloidal halo current through the scrape-off layer and the wall, toroidal eddy currents in the wall, and $\mathbf J_\mathrm{halo}\times\mathbf B_\phi$ on the floor, for one sign of $I_p$ and $B_\phi$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vde_timescales</code></td>
+      <td>$a/v_A$, the $m = 1$ wall time, and the L/R current-quench time at 5 and 20 eV for one medium-tokamak parameter set. The ordering is not universal</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="plasma-wall-interaction">Plasma-wall interaction</h2>
+
+<p>The plasma-wall vocabulary: one impact and its outcomes, reflection (particle versus energy), physical
+sputtering, recycling versus retention, and particle versus energy balance. This is level 0 of the
+issue’s enrichment, semantics only. No reflection or sputtering coefficient, yield or threshold is drawn
+unless it is computed by a <code class="language-plaintext highlighter-rouge">vaft.formula.pwi</code> relation from inputs the caller supplies:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">binary_collision_energy_transfer_factor</code>, the exact elastic kinematics;</li>
+  <li><code class="language-plaintext highlighter-rouge">mean_reflected_energy_fraction</code>, which is $R_E/R_N$;</li>
+  <li><code class="language-plaintext highlighter-rouge">recycling_coefficient</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">sputtering_threshold_bohdansky</code>, a named empirical fit that needs the surface binding energy.</li>
+</ul>
+
+<p>Projectile and target species go through <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code> and are drawn apart: projectile blue,
+target dark. Each diagram’s model names the IMAS paths of the quantities it shows, under
+<code class="language-plaintext highlighter-rouge">wall.global_quantities.neutral[:]</code>: the recycling particle and energy coefficients, the fluxes from the
+plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
+IMAS’s recycling <em>energy</em> coefficient covers all recycling channels, so it is not the prompt-reflection
+$R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation energy of W, as a stated input.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_processes</span><span class="p">(</span><span class="n">projectile</span><span class="o">=</span><span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="sh">"</span><span class="s">W</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_reflection</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_sputtering</span><span class="p">(</span><span class="n">surface_binding_energy</span><span class="o">=</span><span class="mf">8.68</span><span class="p">)</span>   <span class="c1"># threshold only if E_s given
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_recycling</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_energy_partition</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_processes.svg" alt="processes" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_reflection.svg" alt="reflection" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_sputtering.svg" alt="sputtering" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_recycling.svg" alt="recycling" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_energy_partition.svg" alt="energy" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_processes</code></td>
+      <td>Reflection (fast atom), implantation and retention, re-emission (thermal molecule), sputtering (target atom), and heat</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_reflection</code></td>
+      <td>$E_\mathrm{in}$, $E_\mathrm{refl}$, $\theta_\mathrm{in}$ and $\theta_\mathrm{refl}$ as separate quantities; $R_N$ is not $R_E$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_sputtering</code></td>
+      <td>A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_recycling</code></td>
+      <td>Prompt reflection plus delayed re-emission make recycling; retention is the rest</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_energy_partition</code></td>
+      <td>Particle balance and energy balance side by side. They are not the same bookkeeping</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="spectroscopy-and-ionization">Spectroscopy and ionization</h2>
+
+<p>Concept diagrams in the vocabulary of <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code>. <code class="language-plaintext highlighter-rouge">parse_emission_term</code> and <code class="language-plaintext highlighter-rouge">parse_line_label</code> are
+the same parsers <code class="language-plaintext highlighter-rouge">emission=</code> uses in <code class="language-plaintext highlighter-rouge">vaft.plot</code>, so a term that selects a trace selects the same diagram.
+Metadata is progressive, and nothing is fabricated:</p>
+<ul>
+  <li>level 0 is the semantic identity (stage, charge, element);</li>
+  <li>level 1 is what the data declare (the wavelength in an IMAS <code class="language-plaintext highlighter-rouge">processed_line</code> label such as <code class="language-plaintext highlighter-rouge">OI_7770</code>);</li>
+  <li>hydrogenic lines add Bohr-model levels and Rydberg vacuum wavelengths with the isotope’s reduced mass
+(<code class="language-plaintext highlighter-rouge">hydrogenic_energy_level</code> and <code class="language-plaintext highlighter-rouge">hydrogenic_transition_wavelength</code> in <code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code>). For one-electron
+systems this model is the authoritative source; each model records it under <code class="language-plaintext highlighter-rouge">source</code>;</li>
+  <li>many-electron levels and photon emissivities would need OPEN-ADAS ADF04 and ADF15. Those are extension
+points and are not loaded; ADF11 stays in <code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code>.</li>
+</ul>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">spectroscopy_ionization_stages</span><span class="p">(</span><span class="sh">"</span><span class="s">C III</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "C2+", "carbon", "CIII_1909" too
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">spectroscopy_transitions</span><span class="p">(</span><span class="sh">"</span><span class="s">H-alpha</span><span class="sh">"</span><span class="p">)</span>        <span class="c1"># "OI_7770": declared wavelength only
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">spectroscopy_energy_levels</span><span class="p">(</span><span class="sh">"</span><span class="s">D-alpha</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">spectroscopy_spectrum</span><span class="p">()</span>                    <span class="c1"># the labels VEST's spectrometer declares
+</span></code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/spectroscopy_ionization_stages.svg" alt="stages" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/spectroscopy_transitions_h_alpha.svg" alt="H-alpha" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/spectroscopy_transitions_oi_7770.svg" alt="O I" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/spectroscopy_energy_levels.svg" alt="levels" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/spectroscopy_spectrum.svg" alt="spectrum" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spectroscopy_ionization_stages</code></td>
+      <td>Every stage of an element, with the named one outlined. Stage $s$ is charge $s - 1$, and D and T are hydrogen with a mass number. Semantic only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spectroscopy_transitions</code></td>
+      <td>A hydrogen series member gets Bohr-model levels and its vacuum wavelength (an unspecified isotope is taken as protium, and the title says so). Fully stripped ions are refused, since they have no lines. Any other line gets unnamed levels, and a wavelength only if its label declares one</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spectroscopy_energy_levels</code></td>
+      <td>The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spectroscopy_spectrum</code></td>
+      <td>Declared lines, each at its label’s wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -1787,7 +2003,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1905,7 +2121,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 12:48:04 +0000"
+        "time": "2026-09-28 15:16:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
