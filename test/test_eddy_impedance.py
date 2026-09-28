@@ -137,11 +137,7 @@ def test_ensure_em_coupling_leaves_a_complete_caller_supplied_pair_alone():
     )
 
 
-def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
-    """A non-VEST ODS is refused in its own terms, not told to rename its coils (#271)."""
-    import pytest
-    from vaft.omas.process_wrapper import ensure_em_coupling
-
+def _foreign_machine(n_loops):
     ods = ODS(consistency_check=False)
     for index, name in enumerate(("EFC1", "EFC2")):
         coil = f"pf_active.coil.{index}"
@@ -152,7 +148,7 @@ def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
         ods[f"{coil}.element.0.geometry.rectangle.width"] = 0.1
         ods[f"{coil}.element.0.geometry.rectangle.height"] = 0.1
         ods[f"{coil}.element.0.turns_with_sign"] = 10.0
-    for index in range(3):
+    for index in range(n_loops):
         loop = f"pf_passive.loop.{index}"
         ods[f"{loop}.name"] = f"L{index}"
         ods[f"{loop}.element.0.geometry.rectangle.r"] = 1.5
@@ -160,10 +156,36 @@ def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
         ods[f"{loop}.element.0.geometry.rectangle.width"] = 0.01
         ods[f"{loop}.element.0.geometry.rectangle.height"] = 0.01
         ods[f"{loop}.resistance"] = 1e-3
+    return ods
 
-    with pytest.raises(ValueError) as caught:
-        ensure_em_coupling(ods)
-    message = str(caught.value)
-    assert "VEST's packaged coupling asset" in message
-    assert "supply both matrices" in message
-    assert "dataset_description" not in ods, "the shot probe must not vivify the node"
+
+def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
+    """A non-VEST ODS is refused in its own terms, not told to rename its coils (#271)."""
+    import pytest
+    from vaft.machine_mapping.em_coupling import CouplingGeometryMismatch
+    from vaft.omas.process_wrapper import ensure_em_coupling
+
+    # 950 loops pass the loop-count check, so the coil order is what refuses it
+    for n_loops, reason in ((950, "coil ordering does not match"), (3, "pf_passive carries 3 loops")):
+        ods = _foreign_machine(n_loops)
+        with pytest.raises(CouplingGeometryMismatch) as caught:
+            ensure_em_coupling(ods)
+        message = str(caught.value)
+        assert reason in message
+        assert "VEST's packaged coupling asset" in message
+        assert "supply both matrices" in message
+        assert "dataset_description" not in ods, "the shot probe must not vivify the node"
+
+
+def test_ensure_em_coupling_leaves_other_failures_in_their_own_words(monkeypatch):
+    """A corrupt asset is not a geometry mismatch; supplying matrices is not its remedy."""
+    import pytest
+    import vaft.machine_mapping.em_coupling as coupling
+    from vaft.omas.process_wrapper import ensure_em_coupling
+
+    def corrupt(*_args, **_kwargs):
+        raise ValueError("mutual_passive_passive is not finite")
+
+    monkeypatch.setattr(coupling, "em_coupling", corrupt)
+    with pytest.raises(ValueError, match="^mutual_passive_passive is not finite$"):
+        ensure_em_coupling(_foreign_machine(3))

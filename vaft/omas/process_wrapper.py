@@ -483,6 +483,7 @@ def ensure_em_coupling(ods: ODS) -> None:
     ):
         return
 
+    from vaft.machine_mapping.em_coupling import CouplingGeometryMismatch
     from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
 
     from vaft.ods_access import path_value
@@ -496,8 +497,10 @@ def ensure_em_coupling(ods: ODS) -> None:
         pass
     try:
         _map_em_coupling(ods, shot=shot)
-    except ValueError as error:
-        raise ValueError(
+    except CouplingGeometryMismatch as error:
+        # only a geometry mismatch: a corrupt asset or a bad matrix keeps its
+        # own message, since supplying matrices would not be the remedy
+        raise CouplingGeometryMismatch(
             "em_coupling.mutual_passive_passive / mutual_passive_active are missing "
             "or incomplete, and VAFT's only reconstruction -- VEST's packaged "
             "coupling asset -- does not fit this ODS's PF coils and passive loops: "
