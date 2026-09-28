@@ -23,8 +23,10 @@ from vaft.data.equilibrium import (
     SolovevFit,
 )
 
-#: Fit states: the fidelity metrics decide between the last two.
-FIT_STATUSES = ("failed", "poor_fidelity", "accepted")
+#: Fit states, in the issue's contract: no result; a result the model cannot
+#: represent at all; a valid result outside the tolerance; an accepted one.
+#: A metric that could not be evaluated is absent (or None), never False.
+FIT_STATUSES = ("failed", "not_representable", "poor_fidelity", "accepted")
 
 
 def _per_radian_factor(eq: Any) -> float:
@@ -84,9 +86,11 @@ def fit_solovev(
     SolovevFit
         The Solov'ev model (per-radian flux, ``rref`` the geometric centre),
         the fidelity metrics -- RMS and maximum flux error over the flux span,
-        RMS poloidal-field error, magnetic-axis displacement, boundary RMS and
-        maximum distance, and whether the topology matches -- the status and
-        reason, and the provenance [-].
+        RMS ``|grad psi|`` error, magnetic-axis displacement, boundary RMS and
+        maximum distance, and whether the topology matches (None when it
+        could not be classified) -- the status (``accepted``,
+        ``poor_fidelity``, ``not_representable`` when the fitted flux has no
+        closed boundary, ``failed``) and reason, and the provenance [-].
 
     Raises
     ------
@@ -113,8 +117,10 @@ def fit_solovev(
     Convention
     ----------
     The fit is done in per-radian flux, so the returned ``pprime`` and
-    ``ffprime`` are per weber per radian whatever the input convention; the
-    orientation is the record's own.  Errors are relative to the flux span
+    ``ffprime`` are per weber per radian whatever the input convention.  The
+    model carries the record's orientation, which the metrics do not depend
+    on; exporting it with :func:`solovev_to_equilibrium` needs the record's
+    COCOS as the target convention, not the default.  Errors are relative to the flux span
     ``|psi_boundary - psi_axis|`` and to the minor radius.
 
     Applicability
@@ -187,14 +193,15 @@ def fit_solovev(
     metrics: dict[str, float | bool] = {
         "psi_rms_error": float(np.sqrt(np.mean(error**2))),
         "psi_max_error": float(np.max(np.abs(error))),
-        "bp_rms_error": float(np.sqrt(np.mean((grad_fit - grad_eq)[use]**2))/bp_scale) if bp_scale > 0 else float("nan"),
+        "grad_psi_rms_error": float(np.sqrt(np.mean((grad_fit - grad_eq)[use]**2))/bp_scale) if bp_scale > 0 else float("nan"),
     }
     minor = 0.5*float(np.ptp(eq.lcfs.r))
     try:
         # The record's own wall, so limited-vs-diverted is classified alike on both.
         fitted = solovev_to_equilibrium(model, r, z, limiter=eq.limiter, convention=11)
     except ValueError as exc:
-        return SolovevFit(model, metrics, "poor_fidelity", f"the fitted flux has no closed boundary: {exc}", provenance)
+        state = "not_representable" if "closed contour" in str(exc) else "failed"
+        return SolovevFit(model, metrics, state, f"the fitted model cannot be exported on this grid: {exc}", provenance)
     if eq.magnetic_axis is not None and fitted.magnetic_axis is not None:
         metrics["axis_displacement"] = float(np.hypot(*(np.subtract(fitted.magnetic_axis, eq.magnetic_axis))))/minor
     rms, maximum = _symmetric_distance(_dense(fitted.lcfs), _dense(eq.lcfs))
@@ -203,13 +210,16 @@ def fit_solovev(
     try:
         metrics["topology_match"] = (derive_boundary_representation(fitted).topology
                                      == derive_boundary_representation(eq).topology)
-    except Exception:  # noqa: BLE001 -- topology is a diagnostic here
-        metrics["topology_match"] = False
-    fitted_ok = metrics["psi_rms_error"] <= tolerance and metrics["boundary_rms_error"] <= tolerance
+    except Exception:  # noqa: BLE001 -- not evaluated, which is not a mismatch
+        metrics["topology_match"] = None
+    fitted_ok = (metrics["psi_rms_error"] <= tolerance and metrics["boundary_rms_error"] <= tolerance
+                 and metrics.get("axis_displacement", 0.0) <= 5*tolerance
+                 and metrics["topology_match"] is not False)
     status = "accepted" if fitted_ok else "poor_fidelity"
     reason = None if fitted_ok else (
-        f"flux RMS {metrics['psi_rms_error']:.3g} and boundary RMS {metrics['boundary_rms_error']:.3g} "
-        f"(minor radii) against tolerance {tolerance:g}")
+        f"flux RMS {metrics['psi_rms_error']:.3g}, boundary RMS {metrics['boundary_rms_error']:.3g} and axis "
+        f"shift {metrics.get('axis_displacement', float('nan')):.3g} (minor radii), topology match "
+        f"{metrics['topology_match']}, against tolerance {tolerance:g}")
     return SolovevFit(model, metrics, status, reason, provenance)
 
 
@@ -239,9 +249,18 @@ def _mxh_surface(contour: Contour, harmonics: int) -> dict[str, Any]:
     theta = np.empty_like(Z)
     theta[:bottom+1] = np.pi - np.arcsin(sin_theta[:bottom+1])          # inboard, top to bottom
     theta[bottom+1:] = 2*np.pi + np.arcsin(sin_theta[bottom+1:])        # outboard, bottom to top
+    # theta_bar rises monotonically with theta around the surface, so its branch
+    # follows R's extrema, not its distance to theta: arccos from the top to
+    # the innermost point, 2 pi - arccos to the outermost, 2 pi + arccos after.
+    # Choosing by distance to theta picks the mirror branch near the midplane
+    # of a tilted surface.
     base = np.arccos(cos_bar)
-    candidates = np.stack([base, 2*np.pi - base, base + 2*np.pi, 4*np.pi - base])
-    theta_bar = candidates[np.argmin(np.abs(candidates - theta), axis=0), np.arange(theta.size)]
+    inner = int(np.argmin(R))
+    outer = inner + int(np.argmax(R[inner:]))
+    theta_bar = np.empty_like(base)
+    theta_bar[:inner+1] = base[:inner+1]
+    theta_bar[inner+1:outer+1] = 2*np.pi - base[inner+1:outer+1]
+    theta_bar[outer+1:] = 2*np.pi + base[outer+1:]
     m = np.arange(1, harmonics + 1)
     design = np.column_stack([np.ones_like(theta), *(f(k*theta) for k in m for f in (np.cos, np.sin))])
     coefficients, *_ = np.linalg.lstsq(design, theta_bar - theta, rcond=None)
@@ -310,7 +329,7 @@ def evaluate_mxh_chebyshev(representation: MXHChebyshevRepresentation, rho: Any,
 
 def fit_mxh_chebyshev(
     equilibrium: Any, *, harmonics: int = 2, radial_order: int = 4, surfaces: int = 24,
-    tolerance: float = 0.01,
+    tolerance: float = 0.01, boundary_tolerance: float = 0.02,
 ) -> MXHChebyshevRepresentation:
     """Represent an equilibrium's flux surfaces by MXH shapes with Chebyshev radial profiles.
 
@@ -332,6 +351,8 @@ def fit_mxh_chebyshev(
         Traced surfaces the profiles are fitted to [-].
     tolerance : float, optional
         Largest RMS normalized-flux error at which the fit is accepted [-].
+    boundary_tolerance : float, optional
+        Largest RMS boundary error, in minor radii, at which it is accepted [-].
 
     Returns
     -------
@@ -364,7 +385,8 @@ def fit_mxh_chebyshev(
     --------
     ``harmonics = 2`` and ``radial_order = 4`` give 9 x 5 = 45 parameters,
     inside the paper's "fewer than 100" for high fidelity; ``tolerance =
-    0.01`` matches its 1e-2 accuracy level.  Both are numerical conveniences.
+    0.01`` matches its 1e-2 accuracy level and ``boundary_tolerance = 0.02``
+    leaves room for a diverted corner.  All are numerical conveniences.
 
     Convention
     ----------
@@ -411,6 +433,12 @@ def fit_mxh_chebyshev(
     edge = _mxh_surface(eq.lcfs, harmonics)
     rows.append((1.0, edge))
     rho = np.array([row[0] for row in rows])
+    if rho.size - 1 < radial_order + 1:
+        return MXHChebyshevRepresentation(
+            r0=float(edge["r_c"]), z0=float(edge["z_c"]), harmonics=harmonics, radial_order=radial_order,
+            profiles={}, parameter_count=0, metrics={}, status="failed",
+            reason=f"only {rho.size - 1} interior surfaces closed; the radial order needs {radial_order + 1}",
+            provenance=DerivationProvenance("MXH-Chebyshev fit", source_fields=("psi", "lcfs")))
     r0, z0 = edge["r_c"], edge["z_c"]
     samples = {
         "h": np.array([p["r_c"] - r0 for _, p in rows]), "v": np.array([p["z_c"] - z0 for _, p in rows]),
@@ -456,17 +484,18 @@ def fit_mxh_chebyshev(
         "psi_n_rms_error": float(np.sqrt(np.mean(psi_error**2))),
         "psi_n_max_error": float(np.max(np.abs(psi_error))),
         "boundary_rms_error": boundary_rms/minor, "boundary_max_error": boundary_max/minor,
-        "surface_shape_rms_error": float(np.max(shape_errors)) if shape_errors else float("nan"),
+        "surface_shape_max_rms_error": float(np.max(shape_errors)) if shape_errors else float("nan"),
     }
     if eq.magnetic_axis is not None:
         axis = evaluate_mxh_chebyshev(representation, np.array([1e-6]), np.array([0.0]))
         metrics["axis_displacement"] = float(np.hypot(axis[0][0] - eq.magnetic_axis[0], axis[1][0] - eq.magnetic_axis[1]))/minor
-    accepted = metrics["psi_n_rms_error"] <= tolerance
+    accepted = metrics["psi_n_rms_error"] <= tolerance and metrics["boundary_rms_error"] <= boundary_tolerance
     return MXHChebyshevRepresentation(
         r0=representation.r0, z0=representation.z0, harmonics=harmonics, radial_order=radial_order,
         profiles=profiles, parameter_count=representation.parameter_count, metrics=metrics,
         status="accepted" if accepted else "poor_fidelity",
-        reason=None if accepted else f"psi_N RMS error {metrics['psi_n_rms_error']:.3g} exceeds {tolerance:g}",
+        reason=None if accepted else (f"psi_N RMS error {metrics['psi_n_rms_error']:.3g} (tolerance {tolerance:g}), "
+                                      f"boundary RMS {metrics['boundary_rms_error']:.3g} (tolerance {boundary_tolerance:g})"),
         provenance=provenance,
     )
 

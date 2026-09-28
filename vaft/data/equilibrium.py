@@ -377,8 +377,9 @@ class SolovevFit:
     """A Solov'ev model fitted to an existing equilibrium, with its fidelity (#1166).
 
     ``status`` is ``"accepted"``, ``"poor_fidelity"`` (a valid model that
-    misses the equilibrium by more than the tolerance) or ``"failed"`` (no
-    model; ``model`` is None).  ``metrics`` holds only what was evaluated.
+    misses the equilibrium by more than the tolerance), ``"not_representable"``
+    (the fitted flux has no closed boundary) or ``"failed"`` (no model).
+    ``metrics`` holds only what was evaluated.
     """
 
     model: "SolovevEquilibrium | None"
@@ -395,7 +396,8 @@ class MXHChebyshevRepresentation:
     ``profiles[name] = (edge_value, coefficients)`` for ``h``, ``v``,
     ``kappa``, ``a``, ``c0`` and ``c1..cM``, ``s1..sM``; each profile is
     ``edge_value + sum_l coefficients[l] (1 - rho**2) T_l(2 rho**2 - 1)`` in
-    ``rho = sqrt(psi_N)``.  ``status`` is ``"accepted"`` or ``"poor_fidelity"``.
+    ``rho = sqrt(psi_N)``.  ``status`` is ``"accepted"``, ``"poor_fidelity"``
+    or ``"failed"`` (too few closed surfaces for the radial order).
     """
 
     r0: float

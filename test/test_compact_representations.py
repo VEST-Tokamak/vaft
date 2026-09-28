@@ -46,18 +46,38 @@ def test_exact_solovev_round_trips(topology):
     assert fit.model.ffprime == pytest.approx(2*np.pi*eq.ffprime[0], rel=1e-6)
 
 
-def test_fit_is_convention_independent():
-    base = fit_solovev(solovev_example("limited"))
-    other = fit_solovev(solovev_example("limited", convention=1))       # per-radian flux, other orientation
+@pytest.mark.parametrize("convention", [1, 2, 3, 13, 17])
+def test_fit_metrics_do_not_depend_on_the_convention(convention):
+    base = fit_solovev(solovev_example("single_null"))
+    other = fit_solovev(solovev_example("single_null", convention=convention))
     assert other.status == "accepted"
     assert abs(other.model.pprime) == pytest.approx(abs(base.model.pprime), rel=1e-6)
+    for name, value in base.metrics.items():
+        if isinstance(value, float):
+            assert other.metrics[name] == pytest.approx(value, abs=1e-9), name
+        else:
+            assert other.metrics[name] == value, name
 
 
 def test_a_reconstruction_is_reported_as_poor_not_hidden(sample):
     fit = fit_solovev(sample)
     assert fit.model is not None and fit.status == "poor_fidelity" and "tolerance" in fit.reason
-    assert fit.metrics["psi_rms_error"] > 0.005 and fit.metrics["bp_rms_error"] > 0.05
+    assert fit.metrics["psi_rms_error"] > 0.005 and fit.metrics["grad_psi_rms_error"] > 0.05
     assert fit_solovev(sample, tolerance=0.2).status == "accepted"      # same fit, looser tolerance
+
+
+def test_mxh_recovers_an_exact_tilted_asymmetric_surface():
+    """A surface that is exactly MXH, tilted and up-down asymmetric, must come back exactly."""
+    from vaft.data.equilibrium import Contour
+    from vaft.process._equilibrium_compact import _mxh_surface
+
+    theta = np.linspace(0, 2*np.pi, 4000, endpoint=False) + 0.3
+    c0, c, s_ = 0.1, (0.15, 0.05), (0.4, -0.1)
+    bar = theta + c0 + sum(c[m]*np.cos((m+1)*theta) + s_[m]*np.sin((m+1)*theta) for m in range(2))
+    p = _mxh_surface(Contour(1.0 + 0.3*np.cos(bar), 0.1 + 1.6*0.3*np.sin(theta), True), 2)
+    assert p["c0"] == pytest.approx(c0, abs=2e-3)
+    np.testing.assert_allclose(p["c"], c, atol=2e-3)
+    np.testing.assert_allclose(p["s"], s_, atol=2e-3)
 
 
 def test_fitted_model_is_an_exact_grad_shafranov_solution(sample):
@@ -112,8 +132,9 @@ def test_mxh_of_an_ellipse_needs_no_distortion():
 
 
 def test_mxh_triangularity_enters_through_s1():
-    rep = fit_mxh_chebyshev(solovev_example("limited", triangularity=0.4), harmonics=2, radial_order=3)
-    assert rep.profiles["s1"][0] == pytest.approx(np.arcsin(0.4), abs=0.08)   # delta ~ sin(s1) (Xie & Li, Sec. 2.2)
+    """delta ~ sin(s1), as Miller's theta + arcsin(delta) sin(theta) gives; Xie & Li print it inverted."""
+    rep = fit_mxh_chebyshev(solovev_example("limited", triangularity=0.7), harmonics=2, radial_order=3)
+    assert rep.profiles["s1"][0] == pytest.approx(np.arcsin(0.7), abs=0.02)   # not 0.7, not sin(0.7)
 
 
 def test_up_down_asymmetry_uses_the_cosine_terms():
