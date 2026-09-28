@@ -15,7 +15,8 @@ __version__ = "0.7.1"
 #   subprocess.TimeoutExpired; TES, NICE and GENRAY returned 124;
 #   scan_chease kept an error string. run_gacode returns a GACODERun that
 #   still unpacks as (returncode, log); run_neo/run_tglf with check=True raise
-#   their own error naming the limit. EFIT, EFUND and the GPEC suite are
+#   their own error naming the limit; synthesize_equilibrium_from_0d reports
+#   status="timeout". EFIT, EFUND and the GPEC suite are
 #   unchanged until after 2026-10-06. Table in docs/_guide/API_reference.md.
 # - Changed (#1016): a local launch stops the program's whole process tree on
 #   a timeout, Ctrl-C or SIGTERM/SIGHUP to Python; the program stays in the

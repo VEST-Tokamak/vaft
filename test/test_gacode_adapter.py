@@ -693,6 +693,13 @@ def test_run_gacode_returns_its_timeout(installation, tmp_path):
     assert (returncode, log) == (None, tmp_path / "neo.log")
     assert (run.runtime_status, run.elapsed_s) == ("timeout", 3.0)
     assert log.read_text(encoding="utf-8").strip().endswith("NEO timed out after 3 s of running")
+    # Survives a process-pool round trip and a copy, attributes included.
+    import copy
+    import pickle
+
+    for clone in (pickle.loads(pickle.dumps(run)), copy.copy(run), copy.deepcopy(run)):
+        assert tuple(clone) == (None, tmp_path / "neo.log")
+        assert (clone.runtime_status, clone.elapsed_s) == ("timeout", 3.0)
 
 
 def test_a_stopped_neo_run_is_a_failed_result_or_the_checked_error(tmp_path, installation):

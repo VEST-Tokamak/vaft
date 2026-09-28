@@ -1559,7 +1559,10 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         # earlier run's or half-written, not this run's refined equilibrium.
         reason = timeout_reason("CHEASE", completed, config.timeout)
         stderr = f"{completed.stderr}\n{reason}" if completed.stderr else reason
-        log_path.write_text((completed.stdout or "") + stderr + "\n", encoding="utf-8")
+        stdout = completed.stdout or ""
+        if stdout and not stdout.endswith("\n"):
+            stdout += "\n"
+        log_path.write_text(stdout + stderr + "\n", encoding="utf-8")
         return CHEASEResult(
             returncode=None,
             workdir=Path(inputs.workdir),

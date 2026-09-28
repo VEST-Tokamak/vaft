@@ -149,8 +149,11 @@ def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[f
             f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s "
             "in the scheduler queue (it never started)"
         )
-    limit = timeout if timeout is not None else execution.elapsed_s
-    return f"{program} timed out after {limit:g} s of running"
+    # A stop well short of ``timeout`` (a scheduler's max_wait cancelling a
+    # running job) did not run for ``timeout`` seconds; say how long it did.
+    if timeout is None or execution.elapsed_s < 0.9 * timeout:
+        return f"{program} timed out after {execution.elapsed_s:.3g} s of running"
+    return f"{program} timed out after {timeout:g} s of running"
 
 
 @runtime_checkable

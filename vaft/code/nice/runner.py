@@ -131,4 +131,7 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
             if timed_out
             else f"NICE exited with status {returncode}"
         )
+        if timed_out:
+            reason = result.termination_reason
+            result.stderr = f"{stderr}\n{reason}" if stderr else reason
     return result

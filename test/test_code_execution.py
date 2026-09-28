@@ -240,6 +240,9 @@ def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
     assert timeout_reason("X", queued, 10.0) == (
         "X was cancelled after waiting 12 s in the scheduler queue (it never started)"
     )
+    # A scheduler's max_wait stopping a running job at 2 s of a 600 s walltime.
+    early = ExecutionResult(returncode=None, timed_out=True, elapsed_s=2.0)
+    assert timeout_reason("X", early, 600.0) == "X timed out after 2 s of running"
     with pytest.raises(ValueError, match="disagrees"):
         ExecutionResult(returncode=0, runtime_status="timeout")
     with pytest.raises(ValueError, match="must be one of"):

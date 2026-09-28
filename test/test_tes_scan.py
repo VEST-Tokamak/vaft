@@ -55,7 +55,9 @@ def test_run_tes_handles_timeout_gracefully(monkeypatch, tmp_path):
     result = run_tes(inputs, cfg)
     assert not result.ok
     assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
-    assert "rtes timed out after 10 s of running" in result.stderr
+    # The patched stop is instant, well short of the 10 s limit, so the reason
+    # reports the time actually run rather than claiming the limit.
+    assert "rtes timed out after " in result.stderr and "10 s" not in result.stderr
     assert "divergence detected" in result.stderr
 
 

@@ -225,6 +225,10 @@ class GACODERun(tuple):
         run.elapsed_s = elapsed_s
         return run
 
+    def __getnewargs__(self) -> tuple:
+        # copy/pickle rebuild through __new__, which needs the attributes too.
+        return (self[0], self[1], self.runtime_status, self.elapsed_s)
+
     @property
     def returncode(self) -> Optional[int]:
         return self[0]

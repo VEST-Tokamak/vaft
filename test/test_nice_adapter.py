@@ -708,6 +708,12 @@ def test_a_backend_timeout_is_a_failed_result_with_the_partial_logs(tmp_path):
     manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
     assert (manifest["process_returncode"], manifest["process_timed_out"]) == (None, True)
     assert manifest["process_runtime_status"] == "timeout"
+    assert result.stderr.endswith("NICE timed out after 5 s of running")
+    # Collected again from the directory, the stop is still a stop.
+    from vaft.code.nice import collect_nice_outputs
+
+    again = collect_nice_outputs(inputs.workdir, config)
+    assert (again.returncode, again.runtime_status, again.elapsed_s) == (None, "timeout", 5.0)
 
 
 @pytest.mark.parametrize("error", [FileNotFoundError, PermissionError])
