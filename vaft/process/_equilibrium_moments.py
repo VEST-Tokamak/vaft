@@ -242,6 +242,8 @@ def _flux_function_current(eq: Any) -> np.ndarray:
     psi_n_1d = (np.asarray(eq.psi_1d, dtype=float) - eq.psi_axis)/(eq.psi_boundary - eq.psi_axis)
     order = np.argsort(psi_n_1d)
     psi_n = np.clip((np.asarray(eq.psi, dtype=float) - eq.psi_axis)/(eq.psi_boundary - eq.psi_axis), 0.0, 1.0)
+    # anti-alias: not a time series -- flux-function profiles mapped onto the
+    # 2-D grid by their normalized flux, as update_equilibrium_profiles_2d_j_tor does.
     pprime = np.interp(psi_n, psi_n_1d[order], np.asarray(eq.pprime, dtype=float)[order])
     ffprime = np.interp(psi_n, psi_n_1d[order], np.asarray(eq.ffprime, dtype=float)[order])
     rm = np.asarray(eq.r, dtype=float)[:, None]*np.ones((1, np.asarray(eq.z).size))
