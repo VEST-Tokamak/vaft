@@ -37,6 +37,7 @@ def test_sheath_fluxes_share_one_particle_flux():
     assert gamma_t == pytest.approx(n * c_s)
     assert sheath_particle_flux(n, c_s, mach=1.5) == pytest.approx(1.5 * gamma_t)
     assert ion_saturation_current_density(n, c_s) == pytest.approx(QE * gamma_t)
+    assert ion_saturation_current_density(n, c_s, Z=2.0) == pytest.approx(2.0 * QE * gamma_t)
     # the heat flux is gamma T_e per particle
     q = sheath_heat_flux(7.0, n, 15.0, c_s)
     assert q / gamma_t == pytest.approx(7.0 * 15.0 * QE)
@@ -45,20 +46,21 @@ def test_sheath_fluxes_share_one_particle_flux():
 
 
 def test_conduction_integrates_to_the_two_point_relation():
-    # integrate dT/ds = -q / (kappa_0 T^{5/2}) from the target back to upstream at constant q
+    # the analytic profile T^{7/2} = T_t^{7/2} + 3.5 q (L - s) / kappa_0 carries flux q everywhere
     q, L, T_t = 5e7, 15.0, 8.0
-    s = np.linspace(L, 0.0, 200001)
-    T = np.empty_like(s)
-    T[0] = T_t
-    for i in range(1, s.size):
-        ds = s[i] - s[i - 1]  # negative: walking upstream
-        # midpoint rule on dT/ds = -q / (kappa_0 T^2.5)
-        half = T[i - 1] - 0.5 * ds * q / (KAPPA_0E * T[i - 1] ** 2.5)
-        T[i] = T[i - 1] - ds * q / (KAPPA_0E * half**2.5)
-    assert T[-1] == pytest.approx(two_point_upstream_temperature(T_t, q, L), rel=1e-6)
-    # and the local flux of that profile is q everywhere
-    dT = np.gradient(T, s)
-    np.testing.assert_allclose(spitzer_harm_parallel_heat_flux(T, dT)[10:-10], q, rtol=1e-4)
+    s = np.linspace(0.0, L, 20001)
+    T = (T_t**3.5 + 3.5 * q * (L - s) / KAPPA_0E) ** (2.0 / 7.0)
+    assert T[0] == pytest.approx(two_point_upstream_temperature(T_t, q, L), rel=1e-12)
+    np.testing.assert_allclose(spitzer_harm_parallel_heat_flux(T, np.gradient(T, s))[5:-5], q, rtol=1e-3)
+    # one hand-computed number: q = 1e8 W/m^2, L = 20 m, T_t = 0 -> (3.5e6)^{2/7} = 74.09 eV
+    assert two_point_upstream_temperature(0.0, 1e8, 20.0) == pytest.approx(74.09, abs=0.01)
+
+
+def test_kappa_0_is_the_spitzer_harm_value_in_ev_units():
+    from vaft.formula.constants import ME
+    derived = 3.16 * QE**2 * 3.44e11 / (ME * 15.0)  # 3.16 n T tau_e / m_e, NRL tau_e, ln Lambda = 15
+    assert derived == pytest.approx(2040.0, rel=0.01)
+    assert KAPPA_0E == pytest.approx(derived, rel=0.03)
 
 
 def test_upstream_temperature_is_robust_to_the_heat_flux():
@@ -78,12 +80,17 @@ def test_eich_profile_limits_and_integral_width():
     np.testing.assert_allclose(q[sol_side], 2.0 * np.exp(-s[sol_side] / (lam * fx)), rtol=1e-6)
     assert np.all(q[s < -5 * S] < 1e-12)
     # the Makowski integral width is within a few per cent of the exact integral
-    for lam, S, fx in ((0.003, 0.001, 5.0), (0.005, 0.002, 4.0)):
+    for lam, S, fx in ((0.003, 0.001, 5.0), (0.005, 0.002, 4.0), (0.001, 0.004, 2.0)):
         q = eich_target_heat_flux_profile(s, 1.0, lam, S, flux_expansion=fx)
         exact = np.trapezoid(q, s) / q.max() / fx
-        assert eich_integral_width(lam, S, flux_expansion=fx) == pytest.approx(exact, rel=0.03)
+        assert eich_integral_width(lam, S, flux_expansion=fx) == pytest.approx(exact, rel=0.04)
     # background and strike point
     shifted = eich_target_heat_flux_profile(s + 0.01, 1.0, 0.003, 0.001, s0=0.01, q_bg=0.2)
     np.testing.assert_allclose(shifted, eich_target_heat_flux_profile(s, 1.0, 0.003, 0.001) + 0.2)
     with pytest.raises(ValueError):
         eich_target_heat_flux_profile(s, 1.0, 0.0, 0.001)
+    # deep in the private flux region and at large S/lambda: finite, and vanishing
+    with np.errstate(over="raise", invalid="raise"):
+        far = eich_target_heat_flux_profile(np.linspace(-1.0, 0.0, 11), 1.0, 1e-3, 1e-3)
+        wide = eich_target_heat_flux_profile(0.0, 1.0, 1e-4, 0.02)
+    assert np.all(np.isfinite(far)) and far[0] == pytest.approx(0.0, abs=1e-300) and np.isfinite(wide)

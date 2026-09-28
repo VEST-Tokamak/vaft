@@ -20,8 +20,9 @@ gamma      : sheath heat-transmission coefficient              [-]
 q_par      : parallel heat-flux density                        [W/m^2]
 L_par      : parallel connection length between named endpoints [m]
 kappa_0    : Spitzer--Harm coefficient, kappa = kappa_0 T_e^{5/2} [W/(m eV^{7/2})]
-lambda_q   : upstream heat-flux decay length, mapped to the target [m]
-S          : Gaussian spreading width at the target            [m]
+lambda_q   : heat-flux decay length at the outer midplane (Eich fit); lambda_q f_x at the target [m]
+S          : Gaussian spreading width at the target, not mapped [m]
+lambda_int : integral power width, mapped to the outer midplane [m]
 
 Conventions
 -----------
@@ -107,10 +108,10 @@ def ion_sound_speed(T_e, T_i, m_i, *, Z=1.0, gamma_i=1.0):
 
     Convention
     ----------
-    Electrons isothermal. The Bohm criterion at the sheath edge is usually
-    written with $\gamma_i = 3$ (Stangeby) or 1 (isothermal ions); the choice
-    moves $c_s$ by up to $\sqrt2$ at $T_i = T_e$, so it is a keyword, not a
-    constant. ``vaft.formula.stability.c_s_from_Te_Ti_mi`` is the case
+    Electrons isothermal. Stangeby's working choice is $\gamma_i = 1$
+    (isothermal ions); $\gamma_i = 3$ is the one-dimensional adiabatic,
+    collisionless case. The choice moves $c_s$ by up to $\sqrt2$ at
+    $T_i = T_e$, so it is a keyword, not a constant. ``vaft.formula.stability.c_s_from_Te_Ti_mi`` is the case
     $Z = \gamma_i = 1$ with temperatures in keV.
 
     Physical interpretation
@@ -204,10 +205,11 @@ def ion_saturation_current_density(n_i, c_s, *, Z=1.0):
 
     Convention
     ----------
-    Sheath-edge density with Mach one. Langmuir-probe analyses often write
-    $j_\mathrm{sat} = \tfrac12 e n_\infty c_s$ with the *unperturbed* density
-    $n_\infty$ and the presheath factor $\tfrac12$ folded in; pass
-    $n_\infty/2$ for that convention (``vaft.process.langmuir``).
+    Sheath-edge density with Mach one. From the unperturbed density
+    $n_\infty$ the presheath drop is $\tfrac12$ in Stangeby's isothermal
+    fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
+    ``vaft.process.langmuir`` uses $e^{-1/2}$ with $T_i = 0$: pass
+    ``n_inf * np.exp(-0.5)`` and ``ion_sound_speed(T_e, 0, m_i)`` to match it.
 
     Physical interpretation
     -----------------------
@@ -357,9 +359,10 @@ def two_point_upstream_temperature(T_t, q_par, L_par, *, kappa_0=KAPPA_0E):
     ----------
     The integral of ``spitzer_harm_parallel_heat_flux`` at constant
     $q_\parallel$ from the target ($s = L_\parallel$) back to upstream; the
-    endpoints are the declared upstream point and the target. With
-    $q_\parallel$ deposited along the tube instead (uniform source), the
-    $\tfrac72$ becomes $\tfrac74$.
+    endpoints are the declared upstream point and the target. With a
+    uniform source from the stagnation point ($q = 0$) to the target,
+    $q_\parallel$ the target value and $L_\parallel$ measured from the
+    stagnation point, the $\tfrac72$ becomes $\tfrac74$.
 
     Physical interpretation
     -----------------------
@@ -437,12 +440,18 @@ def eich_target_heat_flux_profile(s, q0, lambda_q, S, *, s0=0.0, q_bg=0.0, flux_
     .. [1] T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
     .. [2] T. Eich et al., Nucl. Fusion 53 (2013) 093031.
     """
-    from scipy.special import erfc
+    from scipy.special import erfc, erfcx
 
     lam = _positive(lambda_q, "lambda_q") * _positive(flux_expansion, "flux_expansion")
     S = _positive(S, "S")
     x = np.asarray(s, dtype=float) - s0
-    q = 0.5 * np.asarray(q0, dtype=float) * np.exp((S / (2.0 * lam)) ** 2 - x / lam) * erfc(S / (2.0 * lam) - x / S)
+    u = S / (2.0 * lam) - x / S
+    # exp(a) erfc(u) with a = (S/2lam)^2 - x/lam = u^2 - (x/S)^2: for u >= 0 as exp(-(x/S)^2) erfcx(u), which
+    # cannot overflow in the private flux region; for u < 0 directly, where a < 0 and erfc(u) <= 2
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        shape = np.where(u >= 0.0, np.exp(-(x / S) ** 2) * erfcx(np.maximum(u, 0.0)),
+                         np.exp(np.minimum(u**2 - (x / S) ** 2, 0.0)) * erfc(np.minimum(u, 0.0)))
+    q = 0.5 * np.asarray(q0, dtype=float) * shape
     return _out(q + q_bg)
 
 
@@ -472,7 +481,8 @@ def eich_integral_width(lambda_q, S, *, flux_expansion=1.0):
 
     Convention
     ----------
-    Integral width $\int(q - q_\mathrm{bg})\,ds / q_\mathrm{peak}$; 1.64 is
+    Integral width $\int(q - q_\mathrm{bg})\,ds / (q_\mathrm{peak} f_x)$ with
+    $s$ along the target, i.e. mapped to the midplane; 1.64 is
     Makowski's fit to the exact integral of the Eich profile, accurate to a
     few per cent over the fitted range, so this is an approximation, not a
     definition.
