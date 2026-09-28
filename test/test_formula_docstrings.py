@@ -111,6 +111,7 @@ CONVENTION_SENSITIVE = frozenset({
     "delta_prime_from_outer_derivatives",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
+    "slab_perturbed_flux",
     "field_line_label",
     "s_alpha_curvature_drive",
     "s_alpha_ballooning_solution",

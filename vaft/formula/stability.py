@@ -64,6 +64,7 @@ __all__ = [
     "s_alpha_marginal_alpha",
     "rhostar_from_Te_a_Bt",
     "sawtooth_stability_criterion",
+    "slab_perturbed_flux",
     "s_alpha_ballooning_solution",
     "s_alpha_curvature_drive",
     "field_line_label",
@@ -1411,6 +1412,83 @@ def delta_prime_from_outer_derivatives(psi_s, dpsi_dr_minus, dpsi_dr_plus):
 #: Doubling the range or halving the step moves the boundaries by < 0.01.
 _S_ALPHA_THETA_MAX = 40.0 * np.pi
 _S_ALPHA_STEP = 0.02
+
+
+def slab_perturbed_flux(x, y, shear, amplitude, k_y, parity="tearing"):
+    r"""Helical flux of a sheared slab with a tearing- or twisting-parity perturbation.
+
+    $$\Psi_T = \frac{B_s'}{2}x^2 + \psi_0\cos k_y y,\qquad
+      \Psi_W = \frac{B_s'}{2}x^2 + \psi_1\,x\cos k_y y$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the rational surface [m].
+    y : float or np.ndarray
+        Binormal coordinate [m].
+    shear : float
+        $B_s' = dB_y/dx$ at the rational surface, non-zero [T/m].
+    amplitude : float
+        $\psi_0$ (tearing) or $\psi_1$ (twisting); the units follow $\Psi$ [T m or T].
+    k_y : float
+        Binormal wavenumber $m/r_s$ [1/m].
+    parity : str
+        ``"tearing"`` (even $\tilde\psi$) or ``"twisting"`` (odd $\tilde\psi$) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Psi$; field lines lie on its contours [T m].
+
+    Raises
+    ------
+    ValueError
+        ``shear`` is zero or ``parity`` is unknown.
+
+    Convention
+    ----------
+    $\mathbf B_\perp = \hat{\mathbf z}\times\nabla\Psi$ in the slab frame of
+    ``sheared_slab_field`` (with $B_y = B_s'x$), so $\delta B_x = -\partial_y\tilde\psi$.
+    Tearing parity has $\tilde\psi(-x) = \tilde\psi(x)$ and $\delta B_x(0) \ne 0$;
+    twisting parity has $\tilde\psi(-x) = -\tilde\psi(x)$ and $\delta B_x(0) = 0$.
+    $\Psi_T/B_s'$ is ``island_pendulum_hamiltonian`` with $\xi = k_yy + \pi$ and
+    full width $w = 4\sqrt{|\psi_0/B_s'|}$; the O-points sit where
+    $\cos k_yy = -\mathrm{sgn}(\psi_0/B_s')$. ``shear`` may be negative -- the
+    slab of ``local_slab_from_cylinder`` has $L_s < 0$ for positive shear.
+
+    Physical interpretation
+    -----------------------
+    Tearing parity reconnects flux across the rational surface and opens a
+    magnetic island (O- and X-points, separatrix); its displacement
+    $\xi_x = -\tilde\psi/(B_s'x)$ is odd in $x$. Twisting parity has no normal
+    field on the rational surface ($k_\parallel = 0$ there), no reconnection,
+    and an even displacement $\xi_x = -\psi_1\cos k_yy/B_s'$: the surfaces on
+    both sides, and the rational surface with them, move together.
+
+    Assumptions
+    -----------
+    Constant shear across the layer, a single helicity, the perturbation's
+    radial structure taken as its leading term at $x = 0$ ($\psi_0$, or $\psi_1x$).
+    Linear in the amplitude: contours of $\Psi_W$ close to $x = 0$ form thin
+    cells of width $O(\psi_1/B_s')$ that are an artefact of dropping the
+    $O(\psi_1^2)$ term; $\tfrac12B_s'(x + \psi_1\cos k_yy/B_s')^2$ completes it.
+
+    References
+    ----------
+    .. [1] H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6
+           (1963) 459.
+    .. [2] R. Fitzpatrick, *Plasma Physics: An Introduction*, CRC Press
+           (2014), Ch. 7.
+    """
+    shear = float(shear)
+    if shear == 0.0 or not np.isfinite(shear):
+        raise ValueError(f"shear must be finite and non-zero, not {shear!r}")
+    if parity not in ("tearing", "twisting"):
+        raise ValueError(f"parity must be 'tearing' or 'twisting', not {parity!r}")
+    x = np.asarray(x, dtype=float)
+    wave = float(amplitude) * np.cos(float(k_y) * np.asarray(y, dtype=float))
+    result = 0.5 * shear * x * x + (wave if parity == "tearing" else x * wave)
+    return float(result) if np.ndim(result) == 0 else result
 
 
 def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_ALPHA_STEP):

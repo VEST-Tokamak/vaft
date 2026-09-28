@@ -87,6 +87,10 @@ __all__ = [
     "ballooning_newcomb_test",
     "ballooning_harmonic_envelope",
     "ballooning_workflow",
+    "slab_parity",
+    "slab_parity_comparison",
+    "poloidal_harmonic_coupling",
+    "resonant_layer_matching",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -137,6 +141,10 @@ _LOCATIONS = {
     "ballooning_newcomb_test": "._ballooning",
     "ballooning_harmonic_envelope": "._ballooning",
     "ballooning_workflow": "._ballooning",
+    "slab_parity": "._slab_parity",
+    "slab_parity_comparison": "._slab_parity",
+    "poloidal_harmonic_coupling": "._slab_parity",
+    "resonant_layer_matching": "._slab_parity",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

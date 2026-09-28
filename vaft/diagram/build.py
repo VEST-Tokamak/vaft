@@ -78,6 +78,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("clebsch_field_line_label", "ballooning_curvature_drive",
                                               "ballooning_newcomb_test", "ballooning_harmonic_envelope",
                                               "ballooning_workflow")},
+    # slab resonant layers: parity and harmonic coupling
+    **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
+    **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
+                                              "resonant_layer_matching")},
 }
 
 
