@@ -1,9 +1,14 @@
-"""The core-profile 2-D maps: paired with the equilibrium by time, drawn the right way up.
+"""The core-profile 2-D maps: paired with the equilibrium by time, drawn the right way up,
+each value at its own toroidal radius.
 
 Cold review plot F5: ``profiles_1d[k]`` was mapped onto ``time_slice[k]`` by
 index, and the DD-ordered ``(R, Z)`` psi of a square grid was never transposed,
 so on the packaged 129x129 sample the Te peak sat at (0.634, -0.516) while the
 magnetic axis is at (0.427, 0.023).
+
+Issue #335: the profile, stored on rho_tor_norm, was evaluated at sqrt(psi_N)
+-- rho_pol -- so every value sat up to 0.15 in normalized radius from where it
+belongs.
 """
 
 from __future__ import annotations
@@ -91,9 +96,77 @@ def test_a_non_square_grid_is_oriented_whichever_way_it_was_stored(stored_order)
     ods[f"{base}.profiles_2d.0.psi"] = psi_rz if stored_order == "rz" else psi_rz.T
     ods[f"{base}.global_quantities.psi_axis"] = 0.0
     ods[f"{base}.global_quantities.psi_boundary"] = 0.04
+    ods[f"{base}.profiles_1d.psi"] = np.linspace(0.0, 0.04, 21)
+    ods[f"{base}.profiles_1d.q"] = np.linspace(1.0, 4.0, 21)
     _add_core_profiles(ods, [0.3])
     model = vo.extract_electron_temperature_field(ods)
     values = np.asarray(model.values)
     assert values.shape == (z.size, r.size)
     iz, ir = np.unravel_index(np.nanargmax(values), values.shape)
     assert abs(r[ir] - r0) <= np.diff(r).max() and abs(z[iz] - z0) <= np.diff(z).max()
+
+
+# --- issue #335: the toroidal radius of each cell ---------------------------
+
+PSI_N_1D = np.linspace(0.0, 1.0, 41)
+
+
+def _one_slice(profiles_1d: dict) -> ODS:
+    """A 1-D psi_N(R) plane (psi = psi_N * 0.1 Wb, Z-independent) with a linear Te(rho)."""
+    r = np.linspace(0.0, 1.2, 121)  # psi_N = r on [0, 1], outside beyond
+    z = np.linspace(-0.2, 0.2, 5)
+    ods = ODS(consistency_check=False)
+    base = "equilibrium.time_slice.0"
+    ods["equilibrium.time"] = np.asarray([0.3])
+    ods[f"{base}.time"] = 0.3
+    ods[f"{base}.profiles_2d.0.grid.dim1"] = r
+    ods[f"{base}.profiles_2d.0.grid.dim2"] = z
+    ods[f"{base}.profiles_2d.0.psi"] = np.repeat(0.1 * r[:, None], z.size, axis=1)
+    ods[f"{base}.global_quantities.psi_axis"] = 0.0
+    ods[f"{base}.global_quantities.psi_boundary"] = 0.1
+    ods[f"{base}.profiles_1d.psi"] = 0.1 * PSI_N_1D
+    for leaf, value in profiles_1d.items():
+        ods[f"{base}.profiles_1d.{leaf}"] = value
+    rho = np.linspace(0.0, 1.0, 21)
+    ods["core_profiles.ids_properties.homogeneous_time"] = 1
+    ods["core_profiles.time"] = np.asarray([0.3])
+    ods["core_profiles.profiles_1d.0.time"] = 0.3
+    ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = rho
+    ods["core_profiles.profiles_1d.0.electrons.temperature"] = 100.0 * (1.0 - rho)
+    ods["core_profiles.profiles_1d.0.electrons.density"] = 1.0e19 * (1.0 - rho)
+    return ods
+
+
+def _te_at_psi_n(ods, psi_n):
+    model = vo.extract_electron_temperature_field(ods)
+    r = np.asarray(model.r, dtype=float)
+    return float(np.asarray(model.values)[0, int(np.argmin(np.abs(r - psi_n)))])
+
+
+def test_a_stored_toroidal_coordinate_places_each_value_at_its_rho_tor():
+    # rho_tor_norm = psi_N here, so the cell at psi_N = 0.25 holds Te(rho = 0.25);
+    # the sqrt(psi_N) mapping put Te(0.5) there.
+    ods = _one_slice({"rho_tor_norm": PSI_N_1D})
+    assert _te_at_psi_n(ods, 0.25) == pytest.approx(75.0, abs=0.5)
+
+
+def test_the_sqrt_psi_proxy_is_refused_and_rho_tor_derived_from_q():
+    # q = 1 + 3 psi_N integrates to Phi ~ psi_N + 1.5 psi_N**2
+    q = 1.0 + 3.0 * PSI_N_1D
+    ods = _one_slice({"rho_tor_norm": np.sqrt(PSI_N_1D), "q": q})
+    expected_rho = np.sqrt((0.25 + 1.5 * 0.25**2) / 2.5)
+    assert _te_at_psi_n(ods, 0.25) == pytest.approx(100.0 * (1.0 - expected_rho), abs=0.5)
+    assert _te_at_psi_n(ods, 0.25) != pytest.approx(50.0, abs=2.0)  # the proxy's answer
+
+
+def test_a_slice_without_a_toroidal_coordinate_is_refused_not_drawn_at_rho_pol():
+    ods = _one_slice({"rho_tor_norm": np.sqrt(PSI_N_1D)})
+    with pytest.raises(ValueError, match="supplies no toroidal coordinate"):
+        vo.extract_electron_temperature_field(ods)
+
+
+def test_outside_the_boundary_is_blank():
+    ods = _one_slice({"rho_tor_norm": PSI_N_1D})
+    model = vo.extract_electron_temperature_field(ods)
+    r = np.asarray(model.r, dtype=float)
+    assert np.all(np.isnan(np.asarray(model.values)[:, r > 1.0 + 1e-9]))
