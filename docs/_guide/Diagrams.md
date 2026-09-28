@@ -671,6 +671,47 @@ vaft.diagram.disruption_energy_pathways()
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
 | `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
+## Plasma-wall interaction
+
+The plasma-wall vocabulary: one impact and its outcomes, reflection (particle versus energy), physical
+sputtering, recycling versus retention, and particle versus energy balance. This is level 0 of the
+issue's enrichment, semantics only. No reflection or sputtering coefficient, yield or threshold is drawn
+unless it is computed by a `vaft.formula.pwi` relation from inputs the caller supplies:
+- `binary_collision_energy_transfer_factor`, the exact elastic kinematics;
+- `mean_reflected_energy_fraction`, which is $R_E/R_N$;
+- `recycling_coefficient`;
+- `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
+
+Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
+`wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
+plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
+IMAS's recycling *energy* coefficient covers all recycling channels, so it is not the prompt-reflection
+$R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation energy of W, as a stated input.
+
+```python
+vaft.diagram.plasma_wall_interaction_processes(projectile="D", target="W")
+vaft.diagram.plasma_wall_interaction_reflection()
+vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
+vaft.diagram.plasma_wall_interaction_recycling()
+vaft.diagram.plasma_wall_interaction_energy_partition()
+```
+
+![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
+| ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `plasma_wall_interaction_processes` | Reflection (fast atom), implantation and retention, re-emission (thermal molecule), sputtering (target atom), and heat |
+| `plasma_wall_interaction_reflection` | $E_\mathrm{in}$, $E_\mathrm{refl}$, $\theta_\mathrm{in}$ and $\theta_\mathrm{refl}$ as separate quantities; $R_N$ is not $R_E$ |
+| `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
+| `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
+| `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+
 ## Spectroscopy and ionization
 
 Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
