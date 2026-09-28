@@ -237,7 +237,7 @@ def test_isolated_islands_confine_and_overlapping_ones_do_not():
     iso = vaft.diagram.stochastic_layer(regime="isolated").model
     x = iso["punctures"][..., 1]
     for k in range(2):
-        line = x[:, -2 + k]
+        line = x[:, mt._SEEDS + 4 * k]  # the O-point seed of resonance k
         assert np.ptp(line) < iso["widths"][k] * 0.6
     # overlapping: some line wanders across both resonant surfaces
     over = vaft.diagram.stochastic_layer(regime="overlapping").model
@@ -260,13 +260,37 @@ def test_the_unperturbed_manifolds_lie_on_the_separatrix_and_have_one_strike_poi
     lam_u, lam_s = sorted(np.abs(m["multipliers"]), reverse=True)
     assert lam_u > 1 > lam_s and lam_u * lam_s == pytest.approx(1.0, rel=1e-4)  # area-preserving map
     assert len(m["strike_points"]) == 1
+    # and they lie on the separatrix flux
+    from scipy.interpolate import RectBivariateSpline
+
+    eq = mt.lobe_model(0.0)["equilibrium"]
+    sp = RectBivariateSpline(eq.r, eq.z, np.asarray(eq.psi) / (2 * math.pi))
+    dpsi = abs(eq.psi_boundary - eq.psi_axis) / (2 * math.pi)
+    for branch in m["manifolds"]["unstable"] + m["manifolds"]["stable"]:
+        pts = branch[np.isfinite(branch).all(1)]
+        pts = pts[pts[:, 1] > m["target_z"]]
+        assert np.abs(sp.ev(pts[:, 0], pts[:, 1]) - m["psi_x"]).max() < 1e-4 * dpsi
+
+
+def test_the_x_point_moves_linearly_with_the_perturbation_and_its_sign_is_the_phase():
+    x0 = np.array(mt.lobe_model(0.0)["x_point"])
+    d1 = np.hypot(*(np.array(mt.lobe_model(0.01)["x_point"]) - x0))
+    d2 = np.hypot(*(np.array(mt.lobe_model(0.02)["x_point"]) - x0))
+    assert d2 / d1 == pytest.approx(2.0, rel=0.1)
+    # cos(arg + pi) = -cos(arg): phase pi is the perturbation with the other sign
+    a = np.array(mt.lobe_model(0.01, phase=math.pi)["x_point"])
+    b = np.array(mt.lobe_model(-0.01)["x_point"])
+    np.testing.assert_allclose(a, b, atol=1e-9)
 
 
 def test_the_perturbation_splits_the_manifolds_and_the_strike_point():
     m = vaft.diagram.separatrix_lobes().model
     lam_u, lam_s = sorted(np.abs(m["multipliers"]), reverse=True)
     assert lam_u * lam_s == pytest.approx(1.0, rel=1e-4)
-    assert len(m["strike_points"]) >= 3  # one strike point becomes several
+    assert len(m["strike_points"]) >= 2 and len(m["strike_points_stable"]) >= 2  # one strike point becomes several
+    for bad in ({"perturbation": True}, {"n": 0}, {"m": 2.5}):
+        with pytest.raises(ValueError):
+            vaft.diagram.separatrix_lobes(**bad)
     # unstable and stable manifolds cross away from the X-point: homoclinic points, hence lobes
     xp = np.array(m["x_point"])
 

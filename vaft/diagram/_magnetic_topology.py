@@ -14,7 +14,10 @@ $H(x, \\theta^*, \\phi) = \\int\\iota\\,dx - \\sum_k \\epsilon_k\\cos(m_k\\theta
 with $x = \\psi_N$ and $\\iota = 1/q$ from the equilibrium:
 $d\\theta^*/d\\phi = \\iota(x)$, $dx/d\\phi = -\\sum_k m_k\\epsilon_k\\sin(m_k\\theta^* - n_k\\phi)$.
 Near each resonance this is the pendulum of ``island_pendulum_hamiltonian``,
-full width $w_k = 4\\sqrt{\\epsilon_k/|\\iota'|}$ in $\\psi_N$. It explains the
+full width $w_k = 4\\sqrt{\\epsilon_k/|\\iota'|}$ in $\\psi_N$. $x = \\psi_N$ stands in for
+the toroidal-flux action (the canonical pair is $(\\theta^*, \\psi_\\mathrm{tor})$), so
+$\\epsilon$ is a model amplitude, not a physical $\\delta B$, and area in the
+section is not flux; the dynamics is area-preserving in $(\\theta^*, x)$. It explains the
 topology prescribed harmonics would produce; it is not a GPEC, MARS or
 vacuum-field trace, which belong to result plotting.
 """
@@ -83,7 +86,7 @@ def amplitudes_for_overlap(data: dict, overlap: float) -> np.ndarray:
 def field_line_map(geom, resonances, eps, x0, theta0, *, turns: int = _TURNS, steps: int = _STEPS) -> np.ndarray:
     """Poincare punctures at $\\phi = 2\\pi k$, shape (turns, lines, 2) as $(\\theta^*, x)$.
 
-    Kick-drift-kick (symplectic) steps in $\\phi$. The state is rounded to
+    Drift-kick-drift steps in $\\phi$ (a Strang composition of exact flows, so symplectic). The state is rounded to
     1e-9 after each turn: the map is chaotic where the islands overlap, and
     without the rounding a last-bit difference between platforms would grow
     into a different picture.
@@ -143,8 +146,14 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
     sigma = float(chirikov(data["x"], widths, definition="pair")[0])
     lo = max(0.05, data["x"].min() - 0.18)
     hi = min(0.93, data["x"].max() + 0.12)
-    x0 = np.concatenate([np.linspace(lo, hi, _SEEDS), data["x"]])
-    t0 = np.concatenate([np.zeros(_SEEDS), [math.pi / resonances[0][0], math.pi / resonances[1][0]]])
+    # uniform seeds, plus lines inside each island chain (from its O-point outward), so the islands show
+    island_x, island_t = [], []
+    for (m_k, _n), x_k, w_k in zip(resonances, data["x"], widths):
+        for f in (0.0, 0.12, 0.25, 0.38):
+            island_x.append(x_k + f * w_k)
+            island_t.append(math.pi / m_k)
+    x0 = np.concatenate([np.linspace(lo, hi, _SEEDS), island_x])
+    t0 = np.concatenate([np.zeros(_SEEDS), island_t])
     punctures = field_line_map(geom, resonances, eps, x0, t0)
     items: List = []
     # the section itself, unwrapped: theta* across, psi_N up
@@ -157,7 +166,9 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
                          y_ticks=tuple(float(v) for v in np.round(data["x"], 2)),
                          y_tick_text=tuple(f"${v:.2f}$" for v in data["x"]))
     items += list(scene.items)
-    cm = chart.to_cm(punctures.reshape(-1, 2))
+    flat = punctures.reshape(-1, 2)
+    flat = flat[(flat[:, 1] > lo - 0.02) & (flat[:, 1] < hi + 0.02)]  # the section's window only
+    cm = chart.to_cm(flat)
     for u, v in cm:
         items.append(Marker((float(u), float(v)), ".", "orbit electron", role="puncture"))
     # island widths of the pendulum, as brackets at the right edge
@@ -303,8 +314,8 @@ def _thin(line: np.ndarray, min_step: float) -> np.ndarray:
 
 
 @lru_cache(maxsize=8)
-def lobe_model(eps: float = 0.01, m: int = 8, n: int = 4, phase: float = 0.0, iterations: int = 26,
-               points: int = 2000) -> dict:
+def lobe_model(eps: float = 0.02, m: int = 8, n: int = 4, phase: float = 0.0, iterations: int = 26,
+               points: int = 1000) -> dict:
     """Perturbed X-point, its multipliers and its stable/unstable manifolds, for the single-null Solov'ev."""
     from vaft.process.equilibrium import solovev_example
 
@@ -329,8 +340,9 @@ def lobe_model(eps: float = 0.01, m: int = 8, n: int = 4, phase: float = 0.0, it
             seg = [np.stack([R, Z], -1)]
             for _ in range(iterations):
                 R, Z = fmap(R, Z, backward=backward)
-                # rounded every period: the map is chaotic near the X-point (see stochastic_ripple_orbit)
-                R, Z = np.round(R, 10), np.round(Z, 10)
+                # rounded every period to 10 nm: the map is chaotic near the X-point (lambda ~ 8), and a
+                # last-bit difference between platforms must die in the rounding, not grow into the drawing
+                R, Z = np.round(R, 8), np.round(Z, 8)
                 # lines are kept a little past the target so its crossing can be found, then dropped
                 inside = (R > box[0]) & (R < box[1]) & (Z > box[2] - 0.03) & (Z < box[3])
                 R, Z = np.where(inside, R, np.nan), np.where(inside, Z, np.nan)
@@ -361,16 +373,23 @@ def _runs(branch: np.ndarray, window) -> List[np.ndarray]:
     return runs
 
 
-def strike_points(branches: Sequence[np.ndarray], target_z: float, max_gap: float = 0.01) -> np.ndarray:
-    """Major radii where a manifold crosses the target plane, between neighbouring points of one piece."""
-    hits = []
+def crossing_segments(branches: Sequence[np.ndarray], target_z: float, max_gap: float = 0.01) -> List[np.ndarray]:
+    """The (2, 2) segments, between neighbouring points of one piece, that cross the target plane."""
+    out = []
     for b in branches:
         a, c = b[:-1], b[1:]
         ok = np.isfinite(a).all(1) & np.isfinite(c).all(1) & (np.hypot(*(c - a).T) < max_gap)
         cross = ok & ((a[:, 1] - target_z) * (c[:, 1] - target_z) < 0.0)
-        for p, q in zip(a[cross], c[cross]):
-            t = (target_z - p[1]) / (q[1] - p[1])
-            hits.append(p[0] + t * (q[0] - p[0]))
+        out += [np.stack([p, q]) for p, q in zip(a[cross], c[cross])]
+    return out
+
+
+def strike_points(branches: Sequence[np.ndarray], target_z: float, max_gap: float = 0.01) -> np.ndarray:
+    """Major radii where a manifold crosses the target plane, between neighbouring points of one piece."""
+    hits = []
+    for p, q in crossing_segments(branches, target_z, max_gap):
+        t = (target_z - p[1]) / (q[1] - p[1])
+        hits.append(p[0] + t * (q[0] - p[0]))
     return np.round(np.array(sorted(hits)), 6)
 
 
@@ -392,8 +411,11 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
     if equilibrium is not None:
         raise ValueError("separatrix_lobes draws the single-null Solov'ev equilibrium only, for now; pass None")
     labels = _check_labels(labels)
-    if not (isinstance(perturbation, (int, float)) and 0.0 <= perturbation <= 0.03):
+    if isinstance(perturbation, bool) or not (isinstance(perturbation, (int, float)) and 0.0 <= perturbation <= 0.03):
         raise ValueError(f"perturbation must lie in [0, 0.03], not {perturbation!r}")
+    for name, v, top in (("m", m, 16), ("n", n, 8)):
+        if isinstance(v, bool) or not isinstance(v, (int, np.integer)) or not 1 <= v <= top:
+            raise ValueError(f"{name} must be an integer from 1 to {top}, not {v!r}")
     model = lobe_model(float(perturbation), int(m), int(n), float(phase))
     eq = model["equilibrium"]
     xp = np.array(model["x_point"])
@@ -419,10 +441,40 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
                 items.append(Polyline.of(cm(_thin(run, 0.0015)), style, role=f"{name}_manifold"))
     target = np.array([[window[0], model["target_z"]], [window[1], model["target_z"]]])
     items.append(Polyline.of(cm(target), "machine", role="target"))
-    hits = strike_points(model["manifolds"]["unstable"], model["target_z"])
-    for r in hits:
-        if window[0] < r < window[1]:
-            items.append(Marker(tuple(cm([r, model["target_z"]])), "o", "opoint", role="strike_point"))
+    hits = {name: strike_points(model["manifolds"][name], model["target_z"]) for name in ("unstable", "stable")}
+    # the split is sub-millimetre: a magnified inset of the target strip around the unstable manifold's hits
+    inset = None
+    if hits["unstable"].size:
+        c = float(np.mean(hits["unstable"]))
+        span = max(0.0025, 0.7 * float(np.ptp(hits["unstable"])))
+        inset = (c - span, c + span, model["target_z"], model["target_z"] + 1.2 * span)
+        scale = 3.2 / (2 * span)  # the inset is 3.2 cm wide
+        right_edge = float(cm([window[1], 0.0])[0])
+        io = (right_edge + 0.8, 0.6)
+
+        def icm(pts):
+            pts = np.asarray(pts, dtype=float)
+            return np.stack([io[0] + scale * (pts[..., 0] - inset[0]), io[1] + scale * (pts[..., 1] - inset[2])], -1)
+
+        frame = np.array([[inset[0], inset[2]], [inset[1], inset[2]], [inset[1], inset[3]], [inset[0], inset[3]]])
+        items.append(Polyline.of(icm(frame), "inset frame", role="inset", closed=True))
+        for name, style in (("unstable", "trough"), ("stable", "crest")):
+            # the manifold's last piece before the target, linear between its two neighbouring points, clipped
+            for seg in crossing_segments(model["manifolds"][name], model["target_z"]):
+                p, q = seg if seg[0, 1] > seg[1, 1] else seg[::-1]
+                t_hit = (model["target_z"] - p[1]) / (q[1] - p[1])
+                top_z = inset[3]
+                t_top = max(0.0, (top_z - p[1]) / (q[1] - p[1])) if q[1] != p[1] else 0.0
+                a_pt, b_pt = p + t_top * (q - p), p + t_hit * (q - p)
+                if inset[0] <= b_pt[0] <= inset[1]:
+                    a_pt[0] = min(max(a_pt[0], inset[0]), inset[1])
+                    items.append(Polyline.of(icm(np.stack([a_pt, b_pt])), style, role=f"inset:{name}_manifold"))
+        items.append(Polyline.of(icm(np.array([[inset[0], inset[2]], [inset[1], inset[2]]])), "machine",
+                                 role="inset:target"))
+        for r in hits["unstable"]:
+            items.append(Marker(tuple(icm([r, model["target_z"]])), "o", "opoint", role="strike_point"))
+        # where the inset is, on the main view
+        items.append(Polyline.of(cm(frame), "inset frame", role="inset:locator", closed=True))
     items.append(Marker(tuple(cm(xp)), "x", "xpoint", role="x_point"))
     if labels:
         top = float(cm([0.0, window[3]])[1])
@@ -431,16 +483,21 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
             Label((0.5 * right, top + 0.4), f"perturbed X-point: manifolds and lobes, $\\epsilon = {perturbation:g}$, "
                   f"$m/n = {m}/{n}$", "label", anchor="south", role="title"),
             Label((right + 0.4, top), "red: unstable manifold (forward in $\\phi$)\\\\ blue: stable manifold "
-                  "(backward)\\\\ dashed: unperturbed separatrix\\\\ dots: split strike points\\\\ "
-                  f"multipliers ${model['multipliers'][0]:.2f}$, ${model['multipliers'][1]:.3f}$",
+                  "(backward)\\\\ dashed: unperturbed separatrix\\\\ "
+                  f"multipliers ${model['multipliers'][0]:.2f}$, ${model['multipliers'][1]:.3f}$\\\\ "
+                  f"target hits: unstable {hits['unstable'].size}, stable {hits['stable'].size}",
                   "small label,align=left", anchor="north west", role="legend"),
             Label(tuple(cm([xp[0] + 0.012, xp[1]]) + [0.2, 0.0]), "X", "small label", anchor="west",
                   role="x_point"),
             Label((0.5 * right, -0.3), "divertor target", "small label", anchor="north", role="target"),
+            *([Label((right + 0.8 + 1.6, 0.6 + 1.2 * 3.2 / 2 + 0.1), "inset: the target strip, $\\times"
+                     f"{(3.2 / (inset[1] - inset[0])) / _S_ZOOM:.0f}$\\\\ dots: the split strike points\\\\ "
+                     f"({hits['unstable'].size} within {1e3 * float(np.ptp(hits['unstable'])):.1f} mm)",
+                     "small label,align=center", anchor="south", role="inset")] if inset else []),
             _note("Reduced Hamiltonian model: a prescribed $\\delta\\psi$ on an exact Solov'ev single null, field "
                   "lines traced over one period $2\\pi/n$; not a specific RMP discharge", 0.5 * right + 2.0, -1.0),
         ]
     out = {"classification": "reduced_hamiltonian_model", **{k: model[k] for k in (
         "x_point", "x_point_unperturbed", "multipliers", "lambda", "target_z", "psi_x", "eps")},
-        "strike_points": hits, "manifolds": model["manifolds"]}
+        "strike_points": hits["unstable"], "strike_points_stable": hits["stable"], "manifolds": model["manifolds"]}
     return Diagram("separatrix_lobes", Scene(tuple(items)), model=out)

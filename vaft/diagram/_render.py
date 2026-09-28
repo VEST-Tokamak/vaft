@@ -73,9 +73,33 @@ def template() -> str:
     return resources.files("vaft.diagram").joinpath("templates/standalone.tex").read_text(encoding="utf-8")
 
 
+def _tikz_lines(items):
+    """One TikZ command per item, except that a run of ``"."`` markers in one style becomes few ``\\fill``.
+
+    A Poincare section has thousands of punctures; drawn one path each they
+    make a megabyte-sized SVG, as one path a fraction of that.
+    """
+    run_style, run = None, []
+    for item in items:
+        if isinstance(item, Marker) and item.kind == ".":
+            # at most 200 per path: one path of thousands of circles exhausts TeX's main memory
+            if (item.style != run_style or len(run) >= 200) and run:
+                yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+                run = []
+            run_style = item.style
+            run.append(f"{_xy(item.at)} circle[radius={_DOT_RADIUS}]")
+            continue
+        if run:
+            yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+            run_style, run = None, []
+        yield _tikz_item(item)
+    if run:
+        yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+
+
 def tikz_document(scene: Scene) -> str:
     """The complete, compilable LaTeX document for ``scene``."""
-    body = "\n".join(_tikz_item(item) for item in scene.items)
+    body = "\n".join(_tikz_lines(scene.items))
     text = template()
     slot = f"\n{_BODY_SLOT}\n"
     if text.count(slot) != 1:

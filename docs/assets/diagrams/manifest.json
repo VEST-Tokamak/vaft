@@ -267,8 +267,8 @@
     },
     "separatrix_lobes.svg": {
       "call": "vaft.diagram.separatrix_lobes()",
-      "source_sha256": "8c25130526a2d962919e51854743e133b6acaa22fc7c4c0c9b1c1183b321e6f5",
-      "svg_sha256": "506e3f16516ccfac603ac32009fa27e13683420480f64d753461bd951ca2d5c1"
+      "source_sha256": "6d1edc01b0ebb87072cf93e9aa9c9932c290661adcce3ce8959fce12b0ff4380",
+      "svg_sha256": "ba3b737eabb5e5b582c0cb82486cb6a7eecc0b552ada4030dc57dba0d1bbb1fa"
     },
     "sfl_coordinate_grids.svg": {
       "call": "vaft.diagram.sfl_coordinate_grids()",
@@ -307,18 +307,18 @@
     },
     "stochastic_layer_isolated.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='isolated')",
-      "source_sha256": "a5138889819c50405640b968c425683ddd52715042975f05d897252927326766",
-      "svg_sha256": "b254207f777adfdd14b2e2c954b46023bb71ed2eddde42773becf8c6dcf403d0"
+      "source_sha256": "60d1f9482606db51340778dd984270f2b33e4324633fa67d02afe914f7050d39",
+      "svg_sha256": "c915a2265b7b173722e451a9b340fbc8843e357bec8611dd8486e1f543719c94"
     },
     "stochastic_layer_overlapping.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='overlapping')",
-      "source_sha256": "c30a4adff66d29764fcbba64c484b6c5ec9575edf582ad816cc0fd35f202b088",
-      "svg_sha256": "76dd9e70cf893e4f28e566fc45a1fb61fbbb71fa4a65024c9e214afeb1884f40"
+      "source_sha256": "bf1061bb0e2610bf10a8def0f2722f96f105114b0290eceeb71348ab637cec48",
+      "svg_sha256": "89ab564018e538ace75ebd158399a3b7024d6b73afacc7af3326ccb6cff648f1"
     },
     "stochastic_layer_touching.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='touching')",
-      "source_sha256": "4766cb68db838da676e1a58edb425a14103a388fcc0b7eb47f850a1ce9608470",
-      "svg_sha256": "98da4d70a6235f1baa152896402a2b80d9ff9e9a5fdb6206c271eb78b9784716"
+      "source_sha256": "e0e5b6c9bdf0fb150fa8af5388ede8ac367a50ac76128888e35c7de91b37deaf",
+      "svg_sha256": "b2044805e878eb8f786143d57e2f2f9b5c932cb7e3f2ff54ab8873d74b378f30"
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",
