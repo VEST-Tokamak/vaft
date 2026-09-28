@@ -180,10 +180,20 @@
       "source_sha256": "36bb8b015c53b57253309fa8ee059c3436726c0063f6301378b4c7f71f21bdb3",
       "svg_sha256": "2780ccc9c5827ab0285aafd921a39afebb971c7d4e18c6dd6d693ce1f604d113"
     },
+    "poloidal_harmonic_coupling.svg": {
+      "call": "vaft.diagram.poloidal_harmonic_coupling()",
+      "source_sha256": "56bd2c6be7eee28ba4b1478a8e90213b28539cb79abdd0ae2316c7a905e66f62",
+      "svg_sha256": "490d2f75e1199d4e2a2bdda2f100646b82b814db593052c008c6e860e8ed04a8"
+    },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
       "source_sha256": "bc68fd92a7fb4e6d87ca66dae713923e21f3c79971acc8c56139f230af31edff",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
+    },
+    "resonant_layer_matching.svg": {
+      "call": "vaft.diagram.resonant_layer_matching()",
+      "source_sha256": "e8e58c3b1d63cdcb5b9a0e8b781c6cdb38cf568e596264807339782c802456ab",
+      "svg_sha256": "4730eb5d0dea83b7e5a32eb6167342bc2be0c633e009b4027b5a82057bd614c6"
     },
     "ripple_well_formation.svg": {
       "call": "vaft.diagram.ripple_well_formation()",
@@ -219,6 +229,21 @@
       "call": "vaft.diagram.shaping_family()",
       "source_sha256": "30aa1e8ebec656c8514d396cf00ec255f2bac0eb32ff6098cdc5652fd847e01d",
       "svg_sha256": "641920ef1aa17fe581491bb67f9032316445091646f62d16735f011c5604416d"
+    },
+    "slab_parity_comparison.svg": {
+      "call": "vaft.diagram.slab_parity_comparison()",
+      "source_sha256": "ad3853fd77c751e24d0ad0555ffceb736864ed71c9239e05bc4393972512ac08",
+      "svg_sha256": "ef0ea80a59f92378a0d1a29cf4f3d4cc13181f85fc708bb2a1f8af83fa818f00"
+    },
+    "slab_parity_tearing.svg": {
+      "call": "vaft.diagram.slab_parity(parity='tearing')",
+      "source_sha256": "748cc01ab39908fc5a1cf6ed97d08d6f84e2333732675191300d638705f5054e",
+      "svg_sha256": "539765d7d22f250b81edaed356d975d05f5f4937af2955a8ade0e1292a2be543"
+    },
+    "slab_parity_twisting.svg": {
+      "call": "vaft.diagram.slab_parity(parity='twisting')",
+      "source_sha256": "10462e4a3bbc58d75ddbe539084ac51ff6f36f59c65d926d4aeceb1b640ae982",
+      "svg_sha256": "91aed8ec3c6372688880ac2a202bdc7913e95ec170161d6255efed2531d2a1ae"
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",
