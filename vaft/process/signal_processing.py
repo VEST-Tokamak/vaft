@@ -1362,8 +1362,8 @@ def resample_to_time(
         ``values`` on ``target_time``; the time axis has ``len(target_time)``
         samples [any].
     np.ndarray of bool
-        Only with ``return_filter_mask=True``: per source sample (after any
-        ``on_unsorted="sort"`` reordering), ``True`` if no filter was needed or
+        Only with ``return_filter_mask=True`` (which requires
+        ``on_unsorted="error"``): per source sample, ``True`` if no filter was needed or
         :func:`anti_alias_filter` covered it, ``False`` if a filter was needed
         but the sample was left unfiltered or is non-finite.  It is a logical
         series: project it with ``anti_alias=False`` [-].
@@ -1448,6 +1448,10 @@ def resample_to_time(
         raise ValueError(f"extrapolate must be 'clamp', 'nan' or 'error'; got {extrapolate!r}")
     if on_unsorted not in ("error", "sort"):
         raise ValueError(f"on_unsorted must be 'error' or 'sort'; got {on_unsorted!r}")
+    if return_filter_mask and on_unsorted == "sort":
+        # Sorting collapses duplicate times, so a source-grid mask would no
+        # longer line up with the caller's samples.
+        raise ValueError("return_filter_mask requires on_unsorted='error'")
 
     times = np.asarray(source_time, dtype=float).reshape(-1)
     targets = np.asarray(target_time, dtype=float).reshape(-1)

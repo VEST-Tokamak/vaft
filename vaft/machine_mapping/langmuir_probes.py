@@ -257,6 +257,9 @@ def vfit_langmuir_probes_dynamic(
     target samples that invalidated (#915), for the stage manifest.
     """
     positions = {"mid_r": mid_r, "upper_r": upper_r}
+    # Reported only once every assembly is mapped, so a component that fails
+    # part-way does not carry counts for data that never reached the ODS.
+    unfiltered_counts: dict[str, Any] = {}
 
     # embedded[] is an IMAS array of structures and must be filled
     # contiguously: a skipped assembly (not installed / not operated for this
@@ -352,15 +355,14 @@ def vfit_langmuir_probes_dynamic(
             solver_valid = solver_fraction >= 1.0
             validity = np.where(solver_valid & (filtered_fraction >= 1.0), 0, -1).astype(int)
             quantities[key] = (data, validity)
-            if report is not None:
-                unfiltered = np.isfinite(result[source_key]) & ~filtered
-                report.setdefault(assembly["key"], {})[key] = {
-                    "runs_unfiltered": len(_finite_runs(unfiltered)),
-                    "samples_unfiltered": int(unfiltered.sum()),
-                    "target_samples_invalidated": int(
-                        np.count_nonzero(solver_valid & (filtered_fraction < 1.0))
-                    ),
-                }
+            unfiltered = np.isfinite(result[source_key]) & ~filtered
+            unfiltered_counts.setdefault(assembly["key"], {})[key] = {
+                "runs_unfiltered": len(_finite_runs(unfiltered)),
+                "samples_unfiltered": int(unfiltered.sum()),
+                "target_samples_invalidated": int(
+                    np.count_nonzero(solver_valid & (filtered_fraction < 1.0))
+                ),
+            }
 
         surface_area = probe_surface_area(
             tip_radius_m=float(era["tip_radius_mm"]) * 1e-3,
@@ -382,6 +384,9 @@ def vfit_langmuir_probes_dynamic(
         for key, (data, validity) in quantities.items():
             set_path(ods, f"{prefix}.{key}.data", data)
             set_path(ods, f"{prefix}.{key}.validity_timed", validity)
+
+    if report is not None:
+        report.update(unfiltered_counts)
 
 
 def langmuir_probes(

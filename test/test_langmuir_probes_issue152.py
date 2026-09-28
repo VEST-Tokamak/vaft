@@ -575,6 +575,47 @@ def test_samples_from_an_unfiltered_run_are_flagged_and_counted():
         assert counts["target_samples_invalidated"] == int(newly.sum())
 
 
+def test_n_e_and_t_e_are_flagged_by_their_own_filtered_runs():
+    """#915: n_e can be undefined where t_e is not, splitting a run t_e keeps
+    whole. Each quantity is flagged by its own unfiltered runs."""
+    omas = pytest.importorskip("omas")
+
+    shot = 39137
+    time = 0.24 + 4e-6 * np.arange(25_000)
+    te_finite = np.zeros(time.size, dtype=bool)
+    te_finite[2_000:6_000] = True
+    ne_finite = te_finite.copy()
+    ne_finite[2_500] = False  # n_e splits into a 500-sample run and a long one
+    solved = {
+        "time": time,
+        "vd2": np.zeros(time.size),
+        "current": np.zeros(time.size),
+        "te": np.where(te_finite, 5.0, np.nan),
+        "n_e": np.where(ne_finite, 1.0e18, np.nan),
+        "solver_ok": ne_finite,
+    }
+    report = {}
+    with patch.object(lp.raw_db, "vest_load", side_effect=_make_fake_loader(99, 100, n=time.size)), patch.object(
+        lp, "process_triple_probe", return_value=solved
+    ), pytest.warns(RuntimeWarning, match="shorter than"):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.24, 0.34, 4e-5, report=report)
+
+    target = np.asarray(ods["langmuir_probes.embedded.0.time"], dtype=float)
+    short = (target > time[2_000 + 10]) & (target < time[2_500 - 10])
+    assert short.any()
+    te_validity = np.asarray(ods["langmuir_probes.embedded.0.t_e.validity_timed"])
+    ne_validity = np.asarray(ods["langmuir_probes.embedded.0.n_e.validity_timed"])
+    assert (te_validity[short] == 0).all()
+    assert (ne_validity[short] == -1).all()
+    assert report["mid"]["t_e"]["runs_unfiltered"] == 0
+    assert report["mid"]["n_e"] == {
+        "runs_unfiltered": 1,
+        "samples_unfiltered": 500,
+        "target_samples_invalidated": int(np.count_nonzero(ne_validity != te_validity)),
+    }
+
+
 # --- the measured-position table must ship, and its absence must be audible ----
 # (cold review docs F7)
 

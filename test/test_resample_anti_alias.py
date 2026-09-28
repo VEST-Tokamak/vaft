@@ -561,3 +561,19 @@ class TestFilteredMask:
             )
         assert mask.shape == stacked.shape
         assert mask[1_000:4_000].all() and not mask[5_000:5_500].any()
+
+    def test_mask_is_refused_with_a_sorted_source(self):
+        # Sorting collapses duplicate times, so the mask could not line up.
+        source_time = _fast_grid()
+        with pytest.raises(ValueError, match="on_unsorted"):
+            resample_to_time(
+                source_time,
+                _tone(source_time, 2_000.0),
+                _slow_grid(),
+                on_unsorted="sort",
+                return_filter_mask=True,
+            )
+
+    def test_default_return_is_still_a_bare_array(self):
+        source_time = _fast_grid()
+        assert isinstance(resample_to_time(source_time, _tone(source_time, 2_000.0), _slow_grid()), np.ndarray)
