@@ -10,10 +10,14 @@ The contract every backend keeps:
 
 * ``run`` blocks until the program exits or times out.
 * A timeout is **returned**, not raised: ``timed_out=True``, ``returncode=None``
-  and whatever output was captured before the kill. Each adapter maps that to
+  and whatever output was captured before the kill. The kill stops the whole
+  process tree, not just the direct child (see :mod:`vaft.code._process_tree`). Each adapter maps that to
   its own documented timeout result (TES returns 124, EFIT marks the slice
   ``"timeout"``, ...), so moving an adapter onto a backend changes nothing its
   callers see.
+* ``KeyboardInterrupt``, ``SIGTERM`` or ``SIGHUP`` during the wait stops the
+  tree the same way and is then raised (or re-delivered) unchanged; it is never
+  turned into a result.
 * A program the operating system will not start raises
   :class:`~vaft.code._executables.ExecutableNotLaunchable`, chained to the
   ``OSError``.
@@ -32,6 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
+from . import _process_tree
 from ._executables import ExecutableNotLaunchable
 
 #: Thread-count variables the common Fortran/BLAS runtimes read.
@@ -42,6 +47,11 @@ THREAD_ENV_VARIABLES: tuple[str, ...] = (
     "VECLIB_MAXIMUM_THREADS",
     "NUMEXPR_NUM_THREADS",
 )
+
+# The stdlib's own ``subprocess.run``. Several adapter tests replace it to see or
+# refuse a launch without starting a process; while it is replaced, a local
+# launch still goes through it (see ``LocalBackend._run``).
+_STDLIB_RUN = subprocess.run
 
 
 @dataclass(frozen=True)
@@ -170,6 +180,11 @@ class LocalBackend:
     def _run(
         command: tuple[str, ...], request: ExecutionRequest, kwargs: dict[str, Any]
     ) -> ExecutionResult:
+        if subprocess.run is _STDLIB_RUN:
+            return LocalBackend._run_tree(command, request, kwargs)
+        # A test replaced ``subprocess.run`` to intercept the launch: honour it,
+        # so no real program starts. New tests use real programs or replace
+        # ``vaft.code._process_tree.ProcessTree.start`` instead.
         capture = request.log_path is None
         log_path = None if capture else Path(request.log_path)
         started = time.monotonic()
@@ -193,6 +208,70 @@ class LocalBackend:
             returncode=int(completed.returncode),
             stdout=_text(completed.stdout) if capture else "",
             stderr=_text(completed.stderr) if capture else "",
+            elapsed_s=time.monotonic() - started,
+            launcher=command,
+            log_path=log_path,
+        )
+
+
+    @staticmethod
+    def _run_tree(
+        command: tuple[str, ...], request: ExecutionRequest, kwargs: dict[str, Any]
+    ) -> ExecutionResult:
+        """Launch as a :class:`~vaft.code._process_tree.ProcessTree` (#1016).
+
+        Same result as the ``subprocess.run`` path, but a timeout, a
+        ``KeyboardInterrupt``, a ``SIGTERM`` or a ``SIGHUP`` stops the whole
+        tree. The program stays in the caller's process group, so signals sent
+        to the group (Ctrl-C, Ctrl-Z, a supervisor's ``SIGSTOP``) reach it as
+        before.
+        """
+        capture = request.log_path is None
+        log_path = None if capture else Path(request.log_path)
+        popen_kwargs = dict(kwargs)
+        timeout = popen_kwargs.pop("timeout", None)
+        stdin = popen_kwargs.pop("input", None)
+        popen_kwargs.pop("check", None)
+        if stdin is not None:
+            popen_kwargs["stdin"] = subprocess.PIPE
+        if capture:
+            popen_kwargs.update(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        started = time.monotonic()
+        tree: Optional[_process_tree.ProcessTree] = None
+        timed_out = False
+        try:
+            # The guard spans the stop as well, so a second signal during it
+            # escalates to SIGKILL instead of ending Python with a frozen tree.
+            with _process_tree.forward_termination():
+                try:
+                    tree = _process_tree.ProcessTree.start(command, **popen_kwargs)
+                except OSError as error:
+                    raise ExecutableNotLaunchable(
+                        f"cannot launch {command[0]}: {error}"
+                    ) from error
+                try:
+                    try:
+                        stdout, stderr = tree.process.communicate(stdin, timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        timed_out = True
+                        tree.terminate()
+                        stdout, stderr = tree.collect()
+                except BaseException:
+                    # KeyboardInterrupt, a forwarded signal, or one landing
+                    # during the timeout's own stop. ``terminate`` is idempotent.
+                    tree.terminate()
+                    raise
+                finally:
+                    tree.close()
+        except _process_tree.Terminated as stop:
+            # Our handler is gone again; the default disposition decides.
+            stop.redeliver()
+            raise
+        return ExecutionResult(
+            returncode=None if timed_out else int(tree.process.returncode),
+            stdout=_text(stdout) if capture else "",
+            stderr=_text(stderr) if capture else "",
+            timed_out=timed_out,
             elapsed_s=time.monotonic() - started,
             launcher=command,
             log_path=log_path,
