@@ -671,6 +671,159 @@ vaft.diagram.disruption_energy_pathways()
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
 | `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
+## Vertical displacement events: hot and cold VDE, halo currents
+
+A hot VDE moves a still-hot plasma into the wall, and the scraping can trigger the thermal quench. A cold
+VDE follows the quench, as the decaying current loses its centred vertical equilibrium. Wall contact then
+drives halo currents through the scrape-off layer and the wall. The model-neutral reference quantities are
+in the new `vaft.formula.vde` category:
+- `vertical_velocity` and `vde_growth_rate` (a local $d\ln\lvert\Delta Z\rvert/dt$);
+- `thin_wall_time` and `wall_mode_decay_time`;
+- `halo_current_fraction` and `toroidal_peaking_factor`.
+
+A wall element's $L/R$ is `lr_time_from_L_R`. The named reduced VDE models (edge-current loss,
+filament-plus-wall, analytic halo) are not chosen yet. The disruption chain these diagrams couple to is
+`vaft.formula.disruption`.
+
+```python
+vaft.diagram.hot_vde_sequence()
+vaft.diagram.cold_vde_bifurcation()
+vaft.diagram.plasma_wall_halo_current()
+vaft.diagram.vde_timescales()
+```
+
+![hot VDE]({{ '/assets/diagrams/hot_vde_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![cold VDE]({{ '/assets/diagrams/cold_vde_bifurcation.svg' | relative_url }}) | ![halo]({{ '/assets/diagrams/plasma_wall_halo_current.svg' | relative_url }}) |
+
+![timescales]({{ '/assets/diagrams/vde_timescales.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `hot_vde_sequence` | The Solov'ev plasma moved 0, 8 and 16 cm into its limiter. The limiting surface shrinks, so the edge moves inward to lower $q$ (the equilibrium's own profile; the cylindrical estimate at fixed $I_p$ falls as $a^2$). Below, the causal chain towards the thermal quench |
+| `cold_vde_bifurcation` | A schematic normal form: below a critical current the centred equilibrium is lost, and the plasma follows an off-centre branch into the wall as $I_p$ decays. The real branches come from a model not chosen here |
+| `plasma_wall_halo_current` | Poloidal halo current through the scrape-off layer and the wall, toroidal eddy currents in the wall, and $\mathbf J_\mathrm{halo}\times\mathbf B_\phi$ on the floor, for one sign of $I_p$ and $B_\phi$ |
+| `vde_timescales` | $a/v_A$, the $m = 1$ wall time, and the L/R current-quench time at 5 and 20 eV for one medium-tokamak parameter set. The ordering is not universal |
+
+## Plasma-wall interaction
+
+The plasma-wall vocabulary: one impact and its outcomes, reflection (particle versus energy), physical
+sputtering, recycling versus retention, and particle versus energy balance. This is level 0 of the
+issue's enrichment, semantics only. No reflection or sputtering coefficient, yield or threshold is drawn
+unless it is computed by a `vaft.formula.pwi` relation from inputs the caller supplies:
+- `binary_collision_energy_transfer_factor`, the exact elastic kinematics;
+- `mean_reflected_energy_fraction`, which is $R_E/R_N$;
+- `recycling_coefficient`;
+- `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
+
+Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
+`wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
+plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
+IMAS's recycling *energy* coefficient covers all recycling channels, so it is not the prompt-reflection
+$R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation energy of W, as a stated input.
+
+```python
+vaft.diagram.plasma_wall_interaction_processes(projectile="D", target="W")
+vaft.diagram.plasma_wall_interaction_reflection()
+vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
+vaft.diagram.plasma_wall_interaction_recycling()
+vaft.diagram.plasma_wall_interaction_energy_partition()
+```
+
+![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
+| ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `plasma_wall_interaction_processes` | Reflection (fast atom), implantation and retention, re-emission (thermal molecule), sputtering (target atom), and heat |
+| `plasma_wall_interaction_reflection` | $E_\mathrm{in}$, $E_\mathrm{refl}$, $\theta_\mathrm{in}$ and $\theta_\mathrm{refl}$ as separate quantities; $R_N$ is not $R_E$ |
+| `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
+| `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
+| `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+
+## Spectroscopy and ionization
+
+Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
+Metadata is progressive, and nothing is fabricated:
+- level 0 is the semantic identity (stage, charge, element);
+- level 1 is what the data declare (the wavelength in an IMAS `processed_line` label such as `OI_7770`);
+- hydrogenic lines add Bohr-model levels and Rydberg vacuum wavelengths with the isotope's reduced mass
+  (`hydrogenic_energy_level` and `hydrogenic_transition_wavelength` in `vaft.formula.atomic`). For one-electron
+  systems this model is the authoritative source; each model records it under `source`;
+- many-electron levels and photon emissivities would need OPEN-ADAS ADF04 and ADF15. Those are extension
+  points and are not loaded; ADF11 stays in `vaft.formula.atomic`.
+
+```python
+vaft.diagram.spectroscopy_ionization_stages("C III")   # "C2+", "carbon", "CIII_1909" too
+vaft.diagram.spectroscopy_transitions("H-alpha")        # "OI_7770": declared wavelength only
+vaft.diagram.spectroscopy_energy_levels("D-alpha")
+vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spectrometer declares
+```
+
+![stages]({{ '/assets/diagrams/spectroscopy_ionization_stages.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![H-alpha]({{ '/assets/diagrams/spectroscopy_transitions_h_alpha.svg' | relative_url }}) | ![O I]({{ '/assets/diagrams/spectroscopy_transitions_oi_7770.svg' | relative_url }}) |
+
+![levels]({{ '/assets/diagrams/spectroscopy_energy_levels.svg' | relative_url }})
+
+![spectrum]({{ '/assets/diagrams/spectroscopy_spectrum.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `spectroscopy_ionization_stages` | Every stage of an element, with the named one outlined. Stage $s$ is charge $s - 1$, and D and T are hydrogen with a mass number. Semantic only |
+| `spectroscopy_transitions` | A hydrogen series member gets Bohr-model levels and its vacuum wavelength (an unspecified isotope is taken as protium, and the title says so). Fully stripped ions are refused, since they have no lines. Any other line gets unnamed levels, and a wavelength only if its label declares one |
+| `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
+| `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
+
+## Wall conditioning
+
+Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
+$S^{(0)}_\mathrm{wall} \to S^{(1)}_\mathrm{wall}$ (`WALL_STATE_CHANGE` in the module), not only as
+"cleaning". The diagrams are reduced and semantic, and share one vessel with an inlet port, a pump port
+and a wall-surface primitive:
+- baking is thermal desorption only: no glow, anode, ion bombardment or coating;
+- the glow discharges share one apparatus template: gas feed, glow, anode, the wall as cathode, and ions
+  accelerated across the cathode sheath onto the whole wall. H$_2$/D$_2$ is reactive cleaning, with
+  volatile O/C products that match the feed isotope. He is ion-induced release of retained H/D, drawn
+  with its own arrow style;
+- boronization names a "B-containing precursor" unless one is passed, and leaves a B-rich layer.
+
+Species are examples. No temperature, precursor, pressure or thickness is built in. A temperature (in K
+or °C) or a thickness is drawn only when the caller passes it together with its source. The sequence
+ends in plasma operation; how the conditioned wall responds then is the [plasma-wall
+interaction](#plasma-wall-interaction) section.
+
+```python
+vaft.diagram.wall_conditioning_baking()        # temperature=, temperature_unit="K"|"degC", temperature_source=
+vaft.diagram.wall_conditioning_gdc("D2")       # "H2", "D2" or "He"
+vaft.diagram.wall_conditioning_boronization(precursor="B$_2$H$_6$")
+vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boronization"))
+```
+
+![sequence]({{ '/assets/diagrams/wall_conditioning_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![baking]({{ '/assets/diagrams/wall_conditioning_baking.svg' | relative_url }}) | ![boronization]({{ '/assets/diagrams/wall_conditioning_boronization.svg' | relative_url }}) |
+| ![D2 GDC]({{ '/assets/diagrams/wall_conditioning_gdc_deuterium.svg' | relative_url }}) | ![He GDC]({{ '/assets/diagrams/wall_conditioning_gdc_helium.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `wall_conditioning_baking` | External heat drives adsorbed water and gases off the wall into the pump |
+| `wall_conditioning_gdc` | One glow-discharge template. H$_2$/D$_2$: O and C leave as volatile products. He: He$^+$ bombardment releases retained H/D |
+| `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
+| `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

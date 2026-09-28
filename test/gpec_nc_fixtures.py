@@ -31,6 +31,7 @@ def write_control_nc(
     energy_surface=0.5,
     energy_plasma=0.75,
     chi1=1.65,
+    bt0=0.18,
     filename_mode=None,
 ):
     """Write a miniature ``gpec_control_output_n<mode>.nc``; returns its data."""
@@ -40,6 +41,23 @@ def write_control_nc(
     xi_n = (m - 0.5) * 1e-3 - 1j * m * 1e-4
     b_n_fun = np.cos(2 * np.pi * theta) * 1e-4 + 1j * np.sin(2 * np.pi * theta) * 1e-4
     phi_coil = np.stack([b_n * (index + 1.0) for index in range(len(coil_names))])
+
+    # The singular-coupling block. Shapes as GPEC writes them: the coupling
+    # matrix is (coupling mode, m), the external field it acts on is (m,), and
+    # the projection of the second onto the first is (coupling mode,).
+    coupling_modes = 2
+    c_xe = np.stack([b_n * (1.0 + 0.5 * index) for index in range(coupling_modes)])
+    phi_xe = b_n * 3.0
+    o_cphi_xe = np.array([
+        complex(np.sum(row.conj() * phi_xe)) for row in c_xe
+    ])
+    c_coil = np.stack([
+        np.array([1.0 + 0.25 * index + 0.1j] * len(coil_names))
+        for index in range(coupling_modes)
+    ])
+    phi_coile = np.stack([b_n * (0.25 * (index + 1.0)) for index in range(len(coil_names))])
+    j_surf_2 = np.outer(b_n, np.conj(b_n))
+
     strlen = 24
     name_chars = np.stack(
         [
@@ -62,6 +80,16 @@ def write_control_nc(
             ),
             "coil_name": (("coil_index", "coil_strlen"), name_chars),
             "W_e_eigenvalue": (("i", "mode"), _complex_pair(np.linspace(1.0, 2.0, m_count))),
+            "C_xe": (("i", "mode_C", "m"), _complex_pair(c_xe)),
+            "Phi_xe": (("i", "m"), _complex_pair(phi_xe), {"units": "T"}),
+            "O_CPhi_xe": (("i", "mode_C"), _complex_pair(o_cphi_xe)),
+            "C_coil": (("i", "mode_C", "coil_index"), _complex_pair(c_coil)),
+            "Phi_coile": (
+                ("i", "coil_index", "m"),
+                _complex_pair(phi_coile),
+                {"units": "Wb"},
+            ),
+            "J_surf_2": (("i", "m_prime", "m"), _complex_pair(j_surf_2)),
             "R": (("theta",), 0.4 + 0.2 * np.cos(2 * np.pi * theta), {"units": "m"}),
             "z": (("theta",), 0.3 * np.sin(2 * np.pi * theta), {"units": "m"}),
             "q_rational": (("psi_n_rational",), np.array([2.0, 3.0])),
@@ -70,6 +98,8 @@ def write_control_nc(
             "i": [0, 1],
             "m": m,
             "mode": np.arange(1, m_count + 1),
+            "mode_C": np.arange(1, coupling_modes + 1),
+            "m_prime": m,
             "theta": theta,
             "psi_n_rational": np.array([0.5, 0.8]),
             "coil_index": np.arange(len(coil_names)),
@@ -90,13 +120,19 @@ def write_control_nc(
             # so a control file without it makes the mapping withhold the
             # geometry block rather than write an incomplete one.
             "chi1": chi1,
+            # Vacuum toroidal field on axis. edge_overlap_metric divides the
+            # projection by it and refuses to default it, so a control file
+            # carrying the coupling block has to carry this too.
+            "bt0": bt0,
         },
     )
     mode_label = filename_mode if filename_mode is not None else n
     target = path / f"gpec_control_output_n{mode_label}.nc"
     ds.to_netcdf(target)
     return {"b_n": b_n, "xi_n": xi_n, "b_n_fun": b_n_fun, "phi_coil": phi_coil,
-            "chi1": chi1}
+            "chi1": chi1, "C_xe": c_xe, "Phi_xe": phi_xe, "O_CPhi_xe": o_cphi_xe,
+            "C_coil": c_coil, "Phi_coile": phi_coile, "J_surf_2": j_surf_2,
+            "bt0": bt0}
 
 
 def write_cylindrical_nc(path, *, n=1, nr=7, nz=5):

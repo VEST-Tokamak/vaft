@@ -30,6 +30,11 @@
       "source_sha256": "e0d0625ff28c29fc9643182db9641466496bcb9516b472b537c8f22e1be8b99f",
       "svg_sha256": "5b121c5c1426d6af56b4e0046a9478804761ded612ced1df09ede59d34a69d64"
     },
+    "cold_vde_bifurcation.svg": {
+      "call": "vaft.diagram.cold_vde_bifurcation()",
+      "source_sha256": "3bc4f7c6c4af95d81179c9a6483ca5be9947709c05b65d7fb22d754dac5263e9",
+      "svg_sha256": "f6267406350d9ad948829cb17f665e64ddb2b3556046e4fd1147fc812c7a8ea4"
+    },
     "collision_processes.svg": {
       "call": "vaft.diagram.collision_processes()",
       "source_sha256": "91d30b28dcab83f54f218f4d9b72264b22a5756f6ca21f0501a30a4afdb6a410",
@@ -200,6 +205,11 @@
       "source_sha256": "07716a66a3694a3fe1a0efdf5a80907701a474d50b5bcd424d92c75586965fe9",
       "svg_sha256": "f4f29e10649d62cfec43ec2bbfcc8aca796cfcea901d4ea4d92a00860aa5703e"
     },
+    "hot_vde_sequence.svg": {
+      "call": "vaft.diagram.hot_vde_sequence()",
+      "source_sha256": "431acc1f8773d062a70c6f41e3d7c3aa42d57642e457e35414cc352830045308",
+      "svg_sha256": "554f559973b3f9d224816605b07cb39ba5649fcf1bc8edadda31199962d30e10"
+    },
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
       "source_sha256": "d05ce35409b16c3d2f8843920a361f58ad56e36f85e571584d5f82afc4a111e7",
@@ -284,6 +294,36 @@
       "call": "vaft.diagram.plasma_vacuum_wall()",
       "source_sha256": "4cf36832d82994e30fd27464fdccb9115f797a3abbf84797c8050750b297c3e9",
       "svg_sha256": "b7955ebbca3cd3f447d431f86cd98a8591b28d7d926e0f39bcebc02a86986fcc"
+    },
+    "plasma_wall_halo_current.svg": {
+      "call": "vaft.diagram.plasma_wall_halo_current()",
+      "source_sha256": "c906d2244d21e1ce4e862b710a5f6835c26559204b4eb359d820be264b4db63a",
+      "svg_sha256": "389c5711632b843d65424ca843246e4f783a43f0788e278161eda2a1ccf67f88"
+    },
+    "plasma_wall_interaction_energy_partition.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_energy_partition()",
+      "source_sha256": "652ef7acaec874c25b450f708cf94375604e2db4021564fe26a641253f96f9a4",
+      "svg_sha256": "779184d8e72c4c1716ef5ad4656e9c07d487a96bee268c586cac46be70a514d2"
+    },
+    "plasma_wall_interaction_processes.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_processes()",
+      "source_sha256": "d853134fa85fe68f2273d9c8c8f4bdbc91e34b2c44850c1da42ed0c86a2975ec",
+      "svg_sha256": "0c33b9e818139c9524a0f570def50ea97aac0bf23d8bd1c7175c5c00c6b2397e"
+    },
+    "plasma_wall_interaction_recycling.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_recycling()",
+      "source_sha256": "dc94c26016a780f17071647b29b0b34227b3e7f2b693f0606d26df6cfc91ae61",
+      "svg_sha256": "2985ad251a6e9f1ec5d9331f2dbed1d24d3e708438e56eefe53d55de5ba72315"
+    },
+    "plasma_wall_interaction_reflection.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_reflection()",
+      "source_sha256": "7048e2752d671a461fb5ce5b7e7e7ffb9d1f9581884a419ef2ac3b048132ccac",
+      "svg_sha256": "ef382985146c3ad642d155b67d7286f4fe4228217d9bc3064ba01cc86ceab9e0"
+    },
+    "plasma_wall_interaction_sputtering.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)",
+      "source_sha256": "929d377ec5f1e8dd233776e5604a388253ee1bd01432c3616b6475c563ae94a7",
+      "svg_sha256": "3a5c2e92e5635e96db7c5bad337715dc71ff87532b1f428f53cbf389d2b5a906"
     },
     "poloidal_angle_comparison.svg": {
       "call": "vaft.diagram.poloidal_angle_comparison()",
@@ -410,6 +450,31 @@
       "source_sha256": "323704d498ce4fe52d9931748470618aec77ec700f36a86bd75c8261e72761c7",
       "svg_sha256": "ee078a90aa02d347c20e8c5a53bd8d8c7574ab9d97bf09795643d1cde45e7f20"
     },
+    "spectroscopy_energy_levels.svg": {
+      "call": "vaft.diagram.spectroscopy_energy_levels(term='D-alpha')",
+      "source_sha256": "085021accf7a424cdcc11fccae61937ab64c97db6350b556fb2fa01e4fc7a132",
+      "svg_sha256": "0a6a43800462c59fb23acdfa6f94613ac05700a3d45029c42939584dcc0bacbb"
+    },
+    "spectroscopy_ionization_stages.svg": {
+      "call": "vaft.diagram.spectroscopy_ionization_stages(term='C III')",
+      "source_sha256": "665e02ea501b6560237fe4c3c71491c2b36dddca00b3254b746ef0d4dd817458",
+      "svg_sha256": "90b0a8bfbbcd59cc6283d7a10c8bb963e80513d30d5ce587e92f3857df28d8c4"
+    },
+    "spectroscopy_spectrum.svg": {
+      "call": "vaft.diagram.spectroscopy_spectrum()",
+      "source_sha256": "f4881c968ee39ab42092a2e381fc400358170d5485b52f4355efca7adfe90c3c",
+      "svg_sha256": "b5edce52de8f51c3bca7c837b08245f9eea93dd2f59a726fe28b7639a842bd9f"
+    },
+    "spectroscopy_transitions_h_alpha.svg": {
+      "call": "vaft.diagram.spectroscopy_transitions(term='H-alpha')",
+      "source_sha256": "6a7e3e2dad28e7fb03808f095cea67ffc4eb3552cb8b98757bd660bb93901702",
+      "svg_sha256": "ff22deb31d6b0c36f3593028e1e85aaf7821570ca2a211a9425004ef03d2256e"
+    },
+    "spectroscopy_transitions_oi_7770.svg": {
+      "call": "vaft.diagram.spectroscopy_transitions(term='OI_7770')",
+      "source_sha256": "4412ce8803b8cca332afba5ec5639fc3807a9d0a56d58b705fb50e0e433cbe94",
+      "svg_sha256": "162a3d69d60196a4401b3a5e1ee4ffb3658faa66439ca959217fd6f6769f77f5"
+    },
     "stochastic_layer_isolated.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='isolated')",
       "source_sha256": "60d1f9482606db51340778dd984270f2b33e4324633fa67d02afe914f7050d39",
@@ -489,6 +554,36 @@
       "call": "vaft.diagram.unwrapped_flux_surface()",
       "source_sha256": "db59b6a03bcdfa545074ae6eb79fad80004ac5b8d6f4d956162ae1e9e974b09d",
       "svg_sha256": "da25a78cbc4c4ec0ff6deedff96eb665f4652bff69187e03bf12ee8f8e5f3a9a"
+    },
+    "vde_timescales.svg": {
+      "call": "vaft.diagram.vde_timescales()",
+      "source_sha256": "736b3a760e5c68f042d1caf9e98f16f96efdb1178ca24b4e03508c67475496a4",
+      "svg_sha256": "af9bde3702fafac6b6ffada2e877c6dd699510b5a092d9fba7d354a229a196d8"
+    },
+    "wall_conditioning_baking.svg": {
+      "call": "vaft.diagram.wall_conditioning_baking()",
+      "source_sha256": "e9f969eb82cfcbc9353c37aaebe29e290b497d1ce34b61a57244a4bb5f13a15f",
+      "svg_sha256": "ee8057164e7930dbc1f737af645dcc88cf2c526bb2f74f8195d2e94f3b71898b"
+    },
+    "wall_conditioning_boronization.svg": {
+      "call": "vaft.diagram.wall_conditioning_boronization()",
+      "source_sha256": "1dce2568780aad4efd2217162408cc4b92f23ae97145ee60e32edfadbb7ca94c",
+      "svg_sha256": "8969496f2b85d744ea5ead37bcb40220c70029b9f81620f216a3b6e55c503bcb"
+    },
+    "wall_conditioning_gdc_deuterium.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='D2')",
+      "source_sha256": "add2ca3f1c75eb3739a093361e1867f60ac773b17a1ec8c79a4689f19a23d7cb",
+      "svg_sha256": "23b30c8e5e3dc3a6d386ef0a66932b84a4d97182d3174ee05c0a43723d630888"
+    },
+    "wall_conditioning_gdc_helium.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='He')",
+      "source_sha256": "a22e77fe4b37161359f9c00201b9c352d063db6d5a257bc7bdf78e76e9d951d7",
+      "svg_sha256": "a2b268bef9eca70d37f1dea7fba941c26d12bf881e4bd11998587fdffed8d7a6"
+    },
+    "wall_conditioning_sequence.svg": {
+      "call": "vaft.diagram.wall_conditioning_sequence()",
+      "source_sha256": "58b21ea7aff600595111c0c104802aa4c4be9ce8b7a7855d554dda433b177ca8",
+      "svg_sha256": "185d50d596b7755b4e1c4debd14c9428c01830c007939b0f3428b73cf0db3d07"
     },
     "x_point.svg": {
       "call": "vaft.diagram.x_point()",

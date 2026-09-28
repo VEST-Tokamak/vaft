@@ -74,7 +74,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "virial": 33,
         "stability": 35,  # +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
+        "atomic": 8,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
@@ -97,6 +97,8 @@ def test_the_catalog_counts_the_known_public_surface():
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
+        "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

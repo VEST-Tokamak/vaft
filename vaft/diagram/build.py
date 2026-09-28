@@ -94,6 +94,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"stochastic_layer_{regime}.svg": ("stochastic_layer", {"regime": regime})
        for regime in ("isolated", "touching", "overlapping")},
     "separatrix_lobes.svg": ("separatrix_lobes", {}),
+    # vertical displacement events: hot/cold VDE, halo currents, timescales (#1042)
+    **{f"{name}.svg": (name, {}) for name in ("hot_vde_sequence", "cold_vde_bifurcation",
+                                              "plasma_wall_halo_current", "vde_timescales")},
     # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
     **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
                                               "fixed_vs_free_boundary_equilibrium",
@@ -111,6 +114,25 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
                                               "island_formation", "shear_alfven_wave",
                                               "fast_magnetosonic_wave", "mhd_wave_family")},
+    # plasma-wall interaction concepts (#1047)
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
+                                              "plasma_wall_interaction_recycling",
+                                              "plasma_wall_interaction_energy_partition")},
+    # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
+    # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
+    "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
+    # spectroscopy and ionization concepts (#1046)
+    "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
+    **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
+       for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
+    "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
+    "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # wall conditioning as wall-state transitions (#1051)
+    "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
+    "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
+    "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
+    "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
+    "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
 }
 
 
