@@ -246,10 +246,8 @@ def test_a_file_the_os_will_not_start_is_named_as_such(tmp_path):
         run_flare("run", FlareConfig(executable=str(driver)))
 
 
-def test_flare_declares_its_ranks_and_keeps_raising_the_stdlib_timeout(tmp_path):
-    """#671: `processes` is declared for a scheduler; a timeout still raises."""
-    import subprocess
-
+def test_flare_declares_its_ranks_and_returns_its_timeout(tmp_path):
+    """#671: `processes` is declared for a scheduler; #1016: a timeout is a result."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 
@@ -263,9 +261,12 @@ def test_flare_declares_its_ranks_and_keeps_raising_the_stdlib_timeout(tmp_path)
     assert request.resources.ntasks == 4
     assert result.stdout == "ok"
 
-    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
-    with pytest.raises(subprocess.TimeoutExpired):
-        run_flare("run", FlareConfig(executable=str(driver), workdir=tmp_path, timeout=2.0, backend=backend))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, elapsed_s=2.0))
+    result = run_flare(
+        "run", FlareConfig(executable=str(driver), workdir=tmp_path, timeout=2.0, backend=backend)
+    )
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.stderr == "FLARE run timed out after 2 s of running"
 
 
 def test_an_absent_explicit_driver_is_still_file_not_found(tmp_path):

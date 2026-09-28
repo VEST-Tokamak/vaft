@@ -321,6 +321,7 @@ def test_a_walltime_kill_is_a_timeout(tmp_path, slurm, monkeypatch):
     result = _batch().run(_python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=30))
     assert result.timed_out
     assert result.returncode is None
+    assert result.runtime_status == "timeout"
 
 
 def test_a_walltime_kill_is_a_timeout_without_accounting(tmp_path, slurm, monkeypatch):
@@ -345,8 +346,19 @@ def test_max_wait_cancels_a_job_stuck_in_the_queue(tmp_path, slurm, monkeypatch)
     result = _batch(max_wait=0.05).run(_python(_workdir(tmp_path), "pass"))
     assert result.timed_out
     assert result.returncode is None
-    assert "max_wait" in result.stderr
+    # Never started: a queue wait, not "timed out after N s" of running (#1016).
+    assert result.runtime_status == "queue_timeout"
+    assert "max_wait" in result.stderr and "never started" in result.stderr
     assert slurm("scancel") == [["scancel", result.job_id]]
+
+
+def test_max_wait_on_a_job_that_had_started_is_a_run_timeout(tmp_path, slurm):
+    result = _batch(max_wait=1.5).run(
+        _python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=600)
+    )
+    assert result.timed_out and result.returncode is None
+    assert result.runtime_status == "timeout"
+    assert "max_wait" in result.stderr and "never started" not in result.stderr
 
 
 def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch):
