@@ -48,6 +48,7 @@ EXTERNAL_CODE_WINDOWS_SCRIPTS = (
 EXTERNAL_CODE_POSIX_SCRIPTS = (
     "install_chease.sh",
     "install_efit.sh",
+    "install_genray.sh",
     "install_gpec.sh",
 )
 #: Rules that hold for an external-code installer whatever it is written in.
@@ -59,6 +60,7 @@ EXTERNAL_CODE_CHECKERS = (
     "check_chease.py",
     "check_efit.py",
     "check_gacode.py",
+    "check_genray.py",
     "check_gpec.py",
     "check_nubeam.py",
 )
@@ -154,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam")
 
 
 def test_install_directory_is_flat_and_complete():
