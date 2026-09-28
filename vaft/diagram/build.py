@@ -88,6 +88,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                "harmonics": {2: 1.0, 3: 0.3}}),
     **{f"sawtooth_{stage}.svg": ("sawtooth", {"stage": stage}) for stage in ("precursor", "reconnection",
                                                                              "post_crash")},
+    **{f"stochastic_layer_{regime}.svg": ("stochastic_layer", {"regime": regime})
+       for regime in ("isolated", "touching", "overlapping")},
+    "separatrix_lobes.svg": ("separatrix_lobes", {}),
     # cylindrical geometry: profiles, mode shapes, matching
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",

@@ -30,6 +30,7 @@ RENDER_RECIPE = "latex -> dvisvgm --no-fonts --bbox=papersize --optimize; normal
 _TOOLS = ("latex", "dvisvgm")
 _MARKER_RADIUS = 0.06  # cm, filled O-point dot
 _CROSS_HALF = 0.09  # cm, half arm of the X-point cross
+_DOT_RADIUS = 0.016  # cm, a Poincare-section puncture
 
 
 class DiagramToolchainError(RuntimeError):
@@ -54,6 +55,8 @@ def _tikz_item(item) -> str:
     if isinstance(item, Marker):
         if item.kind == "o":
             return f"\\fill[{item.style}] {_xy(item.at)} circle[radius={_MARKER_RADIUS}];"
+        if item.kind == ".":
+            return f"\\fill[{item.style}] {_xy(item.at)} circle[radius={_DOT_RADIUS}];"
         d = _num(_CROSS_HALF)
         return (f"\\draw[{item.style}] {_xy(item.at)} +(-{d},-{d}) -- +({d},{d}) "
                 f"+(-{d},{d}) -- +({d},-{d});")

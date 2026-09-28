@@ -265,6 +265,11 @@
       "source_sha256": "decd8c7be1d7e6992422311955618c18c840871223e7718a85529b5ef919ab6e",
       "svg_sha256": "ec1ccb388b0b45460d89d195909559c01f243b66d503df7cefda3cc7fd9e6c24"
     },
+    "separatrix_lobes.svg": {
+      "call": "vaft.diagram.separatrix_lobes()",
+      "source_sha256": "8c25130526a2d962919e51854743e133b6acaa22fc7c4c0c9b1c1183b321e6f5",
+      "svg_sha256": "506e3f16516ccfac603ac32009fa27e13683420480f64d753461bd951ca2d5c1"
+    },
     "sfl_coordinate_grids.svg": {
       "call": "vaft.diagram.sfl_coordinate_grids()",
       "source_sha256": "be5d96b011d4dcc2c9b257e021a36241c5cb2ef7d35eb9aa48ba413b65f23d73",
@@ -299,6 +304,21 @@
       "call": "vaft.diagram.slab_parity(parity='twisting')",
       "source_sha256": "10462e4a3bbc58d75ddbe539084ac51ff6f36f59c65d926d4aeceb1b640ae982",
       "svg_sha256": "91aed8ec3c6372688880ac2a202bdc7913e95ec170161d6255efed2531d2a1ae"
+    },
+    "stochastic_layer_isolated.svg": {
+      "call": "vaft.diagram.stochastic_layer(regime='isolated')",
+      "source_sha256": "a5138889819c50405640b968c425683ddd52715042975f05d897252927326766",
+      "svg_sha256": "b254207f777adfdd14b2e2c954b46023bb71ed2eddde42773becf8c6dcf403d0"
+    },
+    "stochastic_layer_overlapping.svg": {
+      "call": "vaft.diagram.stochastic_layer(regime='overlapping')",
+      "source_sha256": "c30a4adff66d29764fcbba64c484b6c5ec9575edf582ad816cc0fd35f202b088",
+      "svg_sha256": "76dd9e70cf893e4f28e566fc45a1fb61fbbb71fa4a65024c9e214afeb1884f40"
+    },
+    "stochastic_layer_touching.svg": {
+      "call": "vaft.diagram.stochastic_layer(regime='touching')",
+      "source_sha256": "4766cb68db838da676e1a58edb425a14103a388fcc0b7eb47f850a1ce9608470",
+      "svg_sha256": "98da4d70a6235f1baa152896402a2b80d9ff9e9a5fdb6206c271eb78b9784716"
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",

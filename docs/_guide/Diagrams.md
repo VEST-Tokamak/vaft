@@ -513,6 +513,29 @@ vaft.diagram.sawtooth(stage="precursor")   # "reconnection", "post_crash"
 | `kink_mode` | synthetic parameterization | Each surface moves along its normal by $\xi_n = A\,a\,F(\rho)\,\mathrm{Re}\sum c_m e^{i(m\theta^* - n\phi)}$, with a named envelope. `internal` is a top hat inside $q = m/n$, `global` is $\rho^{m-1}$, and `edge` is $\rho^{4m}$. Under flux freezing this is `flux_perturbation_from_normal_displacement`, $\delta\psi = -\xi_n\lvert\nabla\psi\rvert$. It is not an eigenfunction. The cylindrical reference view is `internal_external_kink` |
 | `sawtooth` | reduced model | `precursor`: the 1/1 internal kink inside $q = 1$, with nested topology kept. `reconnection`: a hot core of radius $\rho_1(1-f)$ pushed against an outer separatrix, with the X-point where they touch and the 1/1 island in the crescent between. `post_crash`: nested surfaces again, with the region inside the Kadomtsev mixing radius flattened at conserved $\int T\rho\,d\rho$ |
 
+Two reduced Hamiltonian models extend the vocabulary of `magnetic_island` to several resonances, and to the
+X-point.
+
+```python
+vaft.diagram.stochastic_layer(regime="touching")   # "isolated", "overlapping"; or overlap=, perturbations=
+vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
+```
+
+| | |
+| --- | --- |
+| ![isolated]({{ '/assets/diagrams/stochastic_layer_isolated.svg' | relative_url }}) | ![overlapping]({{ '/assets/diagrams/stochastic_layer_overlapping.svg' | relative_url }}) |
+
+![touching]({{ '/assets/diagrams/stochastic_layer_touching.svg' | relative_url }})
+
+![lobes]({{ '/assets/diagrams/separatrix_lobes.svg' | relative_url }})
+
+| Diagram | Model class | Concept |
+| --- | --- | --- |
+| `stochastic_layer` | reduced Hamiltonian | A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium's $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of `island_pendulum_hamiltonian`, width $4\sqrt{\epsilon/\lvert\iota'\rvert}$. The pair overlap $\sigma$ (`vaft.process.perturbation.chirikov`) is 0.5, 1 or 1.6. The inset shows where the section sits |
+| `separatrix_lobes` | reduced Hamiltonian | The single-null Solov'ev equilibrium plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
+
+Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
+
 The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
 $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every

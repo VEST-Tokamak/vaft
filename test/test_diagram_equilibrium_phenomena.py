@@ -167,13 +167,14 @@ def test_the_equilibrium_argument_is_checked():
 
 
 @pytest.mark.parametrize("fn, kwargs", [("kink_mode", {}), ("sawtooth", {"stage": "precursor"}),
-                                        ("sawtooth", {"stage": "reconnection"}), ("sawtooth", {"stage": "post_crash"})])
+                                        ("sawtooth", {"stage": "reconnection"}), ("sawtooth", {"stage": "post_crash"}),
+                                        ("stochastic_layer", {}), ("separatrix_lobes", {})])
 def test_every_phenomenon_diagram_is_deterministic_and_exported(fn, kwargs):
     f = getattr(vaft.diagram, fn)
     assert f(**kwargs).tikz == f(**kwargs).tikz
     assert fn in vaft.diagram.__all__
     d = f(**kwargs)
-    assert d.model["classification"] in ("synthetic_parameterization", "reduced_model")
+    assert d.model["classification"] in ("synthetic_parameterization", "reduced_model", "reduced_hamiltonian_model")
     assert d.scene.role("note") and not f(**kwargs, labels=False).scene.role("note")
     assert sum(isinstance(i, Label) for i in f(**kwargs, labels=False).scene.items) < sum(
         isinstance(i, Label) for i in d.scene.items)
@@ -210,3 +211,83 @@ def test_a_single_null_equilibrium_works_too():
         m = vaft.diagram.sawtooth(sn, stage=stage).model
         assert m["rho_1"] is not None
     assert vaft.diagram.kink_mode(sn).model["rho_s"] is not None
+
+
+# --- part 2: reduced Hamiltonian topology --------------------------------------------------------------------------
+
+from vaft.diagram import _magnetic_topology as mt  # noqa: E402
+
+
+@pytest.mark.parametrize("regime", ["isolated", "touching", "overlapping"])
+def test_the_overlap_parameter_is_the_requested_one(regime):
+    from vaft.process.perturbation import chirikov
+
+    m = vaft.diagram.stochastic_layer(regime=regime).model
+    assert m["sigma"] == pytest.approx(mt.OVERLAPS[regime])
+    assert m["sigma"] == pytest.approx(float(chirikov(m["x_resonance"], m["widths"], definition="pair")[0]))
+    np.testing.assert_allclose(m["widths"], 4 * np.sqrt(m["eps"] / m["iota_prime"]))
+    # the resonances sit where q = m/n
+    g = eg.default_equilibrium()
+    for (mm, nn), x in zip(m["resonances"], m["x_resonance"]):
+        assert float(g.q(np.sqrt(x))) == pytest.approx(mm / nn, abs=1e-6)
+
+
+def test_isolated_islands_confine_and_overlapping_ones_do_not():
+    # a line seeded on an O-point stays within its pendulum half-width when isolated
+    iso = vaft.diagram.stochastic_layer(regime="isolated").model
+    x = iso["punctures"][..., 1]
+    for k in range(2):
+        line = x[:, -2 + k]
+        assert np.ptp(line) < iso["widths"][k] * 0.6
+    # overlapping: some line wanders across both resonant surfaces
+    over = vaft.diagram.stochastic_layer(regime="overlapping").model
+    xo = over["punctures"][..., 1]
+    lo, hi = over["x_resonance"].min(), over["x_resonance"].max()
+    assert any(line.min() < lo and line.max() > hi for line in xo.T)
+    # isolated: no line crosses both
+    assert not any(line.min() < iso["x_resonance"].min() and line.max() > iso["x_resonance"].max() for line in x.T)
+
+
+def test_the_field_line_map_without_perturbation_keeps_psi():
+    g = eg.default_equilibrium()
+    p = mt.field_line_map(g, mt.RESONANCES, np.zeros(2), [0.5, 0.7], [0.0, 1.0], turns=5)
+    np.testing.assert_allclose(p[..., 1], [[0.5, 0.7]] * 5, atol=1e-12)
+
+
+def test_the_unperturbed_manifolds_lie_on_the_separatrix_and_have_one_strike_point():
+    m = vaft.diagram.separatrix_lobes(perturbation=0.0).model
+    assert m["x_point"] == pytest.approx(m["x_point_unperturbed"], abs=1e-8)
+    lam_u, lam_s = sorted(np.abs(m["multipliers"]), reverse=True)
+    assert lam_u > 1 > lam_s and lam_u * lam_s == pytest.approx(1.0, rel=1e-4)  # area-preserving map
+    assert len(m["strike_points"]) == 1
+
+
+def test_the_perturbation_splits_the_manifolds_and_the_strike_point():
+    m = vaft.diagram.separatrix_lobes().model
+    lam_u, lam_s = sorted(np.abs(m["multipliers"]), reverse=True)
+    assert lam_u * lam_s == pytest.approx(1.0, rel=1e-4)
+    assert len(m["strike_points"]) >= 3  # one strike point becomes several
+    # unstable and stable manifolds cross away from the X-point: homoclinic points, hence lobes
+    xp = np.array(m["x_point"])
+
+    def pieces(branches):
+        out = []
+        for b in branches:
+            a, c = b[:-1], b[1:]
+            ok = np.isfinite(a).all(1) & np.isfinite(c).all(1) & (np.hypot(*(c - a).T) < 0.01)
+            far = np.hypot(*(a - xp).T) > 0.02
+            out.append(np.stack([a[ok & far], c[ok & far]], 1))
+        return np.concatenate(out)
+
+    U, S = pieces(m["manifolds"]["unstable"])[::3], pieces(m["manifolds"]["stable"])[::3]
+
+    def orient(p, q, r):
+        return np.sign((q[..., 0] - p[..., 0]) * (r[..., 1] - p[..., 1]) - (q[..., 1] - p[..., 1]) * (r[..., 0] - p[..., 0]))
+
+    crossings = 0
+    for seg in U[:: max(1, len(U) // 3000)]:
+        p1, p2 = seg
+        o1 = orient(p1, p2, S[:, 0]) != orient(p1, p2, S[:, 1])
+        o2 = orient(S[:, 0], S[:, 1], p1) != orient(S[:, 0], S[:, 1], p2)
+        crossings += int(np.sum(o1 & o2))
+    assert crossings > 0
