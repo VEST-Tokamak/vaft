@@ -42,6 +42,7 @@ _IMPORT_ORDER = (
     "ripple",
     "disruption",
     "pwi",
+    "sol",
 )
 
 
