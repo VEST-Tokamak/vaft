@@ -194,7 +194,8 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
     out = {
         "setting": setting["name"], "shot": shot, "time_ms": record["time_ms"],
         "converged": converged, "exit_path": record.get("exit_path"), "outcome": record.get("outcome"),
-        "iterations": record.get("iterations_n"), "scalars": record.get("scalars") or {},
+        "iterations": record.get("iterations_n"), "solver_errors": record.get("solver_errors") or [],
+        "scalars": record.get("scalars") or {},
         "fit": record.get("fit"), "gs": {k: v for k, v in (record.get("gs") or {}).items() if k != "profile"},
         "ip_measured": float(built["equilibrium.time_slice.0.constraints.ip.measured"]),
         "dia_measured": float(built["equilibrium.time_slice.0.constraints.diamagnetic_flux.measured"])
