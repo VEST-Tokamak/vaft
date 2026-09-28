@@ -124,7 +124,8 @@ def test_pedestal_export_carries_the_edge_and_the_current():
     from matplotlib.path import Path
     from scipy.constants import mu_0
 
-    model = solve_guazzotto_freidberg("limited", inverse_aspect_ratio=0.33, nu=1.0, elongation=1.6,
+    # nu < 1 so the plasma is diamagnetic and F**2 carries its own pedestal term A2.
+    model = solve_guazzotto_freidberg("limited", inverse_aspect_ratio=0.33, nu=0.5, elongation=1.6,
                                       triangularity=0.3, current_pedestal=0.2, pressure_pedestal=0.3)
     eq = guazzotto_freidberg_to_equilibrium(model, major_radius=1.0, toroidal_field=2.0, resolution=201)
     p0 = eq.metadata["p0"]
