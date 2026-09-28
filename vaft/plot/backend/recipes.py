@@ -6890,7 +6890,7 @@ def _build_line_series(
     # limits, converted to the axis's display unit; an explicit ``x_limits``
     # (already in display units) still wins.
     x_limits = options.get("x_limits")
-    window = options.get("time_range")
+    window = _range_option(options, "time_range")
     if x_limits is None and window is not None and drawn.name == "time":
         x_limits = (float(window[0]) * x_display.scale, float(window[1]) * x_display.scale)
     model = LineSeries(
@@ -8658,8 +8658,11 @@ def _lay_out(
         raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
     if layout == "overlay":
         return model
+    # Every panel keeps the window and the scale the caller asked for: a split
+    # layout used to drop both, so x_limits/time_range/log_y worked only overlaid.
     common = dict(x_label=model.x_label, x_unit=model.x_unit, y_label=model.y_label,
-                  y_unit=model.y_unit, display=model.display)
+                  y_unit=model.y_unit, display=model.display, x_limits=model.x_limits,
+                  log_y=model.log_y)
 
     if layout == "subplots":
         # One panel per channel, in resolved order; several shots of one channel

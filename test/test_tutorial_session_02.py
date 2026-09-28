@@ -530,9 +530,12 @@ def test_the_analysis_task_is_stated_before_its_implementation(book):
 
 
 def test_the_analysis_task_passes_its_acceptance_criteria(executed):
+    """Checked against the figure and the data, not against the preset's intent."""
     printed = "".join(output.get("text", "") for output in _cell(executed, "s02-task-check").outputs)
-    assert "(the H-alpha criterion: True)" in printed
-    assert re.search(r"inboard loops selected by the preset: \d+ of \d+", printed)
-    assert "the original is untouched: True" in printed
-    low, high = map(float, re.search(r"window drawn: ([-0-9.e]+) to ([-0-9.e]+)", printed).groups())
-    assert (low, high) == pytest.approx((-5e-3, 30e-3))
+    assert re.search(r"the onset found by h_alpha\w*: True; H-alpha: True", printed), printed
+    assert "only inboard: True" in printed
+    low, high, unit = re.search(r"window drawn: ([-0-9.e]+) to ([-0-9.e]+) on an axis labelled 'Time \[(\w+)\]'",
+                                printed).groups()
+    scale = {"s": 1.0, "ms": 1e3}[unit]
+    assert (float(low), float(high)) == pytest.approx((-5e-3 * scale, 30e-3 * scale))
+    assert re.search(r"flux unit on the axis: '.*\[m?Wb\]'", printed)
