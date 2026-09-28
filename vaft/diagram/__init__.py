@@ -127,6 +127,7 @@ __all__ = [
     "branch_bifurcation",
     "basin_of_attraction",
     "grid_induced_two_cycle",
+    "branch_selection",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -217,6 +218,7 @@ _LOCATIONS = {
     "branch_bifurcation": "._iteration_dynamics",
     "basin_of_attraction": "._iteration_dynamics",
     "grid_induced_two_cycle": "._iteration_dynamics",
+    "branch_selection": "._iteration_dynamics",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

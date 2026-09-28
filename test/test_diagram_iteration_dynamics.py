@@ -26,7 +26,7 @@ def test_the_four_behaviours_are_what_their_titles_say():
     diverging = np.abs(it.iterate("divergence") - 0.5)
     assert np.all(np.diff(diverging) > 0) and diverging[-1] > 0.5
     # the drawn limit cycle is already on its period-4 orbit by the end of the panel
-    np.testing.assert_allclose(it.iterate("limit_cycle")[-4:], orbits["limit_cycle"][-4:][[0, 1, 2, 3]], atol=0.01)
+    np.testing.assert_allclose(it.iterate("limit_cycle")[-4:], orbits["limit_cycle"][-4:], atol=0.01)
 
 
 def test_every_iteration_panel_shares_one_format():
@@ -58,15 +58,33 @@ def test_branches_follow_the_normal_form_and_stability():
         assert x**3 - x == pytest.approx(lam) and abs(x) > it.FOLD_X
 
 
-def test_hysteresis_directions_are_drawn():
-    scene = vaft.diagram.branch_bifurcation().scene
-    up, = scene.role("jump_up")[:1]
-    down, = scene.role("jump_down")[:1]
-    assert isinstance(up, Arrow) and up.end[1] > up.start[1]
-    assert isinstance(down, Arrow) and down.end[1] < down.start[1]
+def test_hysteresis_directions_are_drawn_on_the_right_folds_and_branches():
+    diagram = vaft.diagram.branch_bifurcation()
+    scene, chart = diagram.scene, diagram.model
+    up = [a for a in scene.role("jump_up") if isinstance(a, Arrow)][0]
+    down = [a for a in scene.role("jump_down") if isinstance(a, Arrow)][0]
+    assert up.end[1] > up.start[1] and down.end[1] < down.start[1]
+    # the upward jump leaves the fold at the larger lambda
+    assert up.start[0] > down.start[0]
+    assert up.start == pytest.approx(tuple(chart.to_cm(np.array(chart.points["fold_lower"]))))
     increasing = [a for a in scene.role("increasing") if isinstance(a, Arrow)][0]
     decreasing = [a for a in scene.role("decreasing") if isinstance(a, Arrow)][0]
     assert increasing.end[0] > increasing.start[0] and decreasing.end[0] < decreasing.start[0]
+    # increasing runs on the lower branch, decreasing on the upper, both inside the bistable range
+    zero = chart.to_cm(np.array([0.0, 0.0]))[1]
+    assert increasing.start[1] < zero < decreasing.start[1]
+    lo, hi = (chart.to_cm(np.array([s * it.FOLD_LAMBDA, 0.0]))[0] for s in (-1, 1))
+    for arrow in (increasing, decreasing):
+        assert lo < arrow.start[0] < hi and lo < arrow.end[0] < hi
+
+
+def test_stable_and_unstable_differ_by_line_style():
+    scene = vaft.diagram.branch_bifurcation().scene
+    style = {p.role: p.style for p in scene.items if hasattr(p, "points")}
+    assert style["stable_lower"] == style["stable_upper"] == "boundary"
+    assert style["unstable"] == "approx"
+    basin = {p.role: p.style for p in vaft.diagram.basin_of_attraction().scene.items if hasattr(p, "points")}
+    assert basin["basin_boundary"] == "approx" and basin["branch_A"] == basin["branch_B"] == "boundary"
 
 
 def test_the_basin_boundary_decides_the_branch():
@@ -82,12 +100,16 @@ def test_the_basin_boundary_decides_the_branch():
 def test_numerical_cycling_is_drawn_apart_from_branch_structure():
     diagram = vaft.diagram.grid_induced_two_cycle()
     model = diagram.model
-    a, b, opt = map(np.asarray, (model["cell_A"], model["cell_B"], model["continuous_optimum"]))
-    # adjacent nodes, optimum in between and equidistant along the hop
-    assert np.linalg.norm(b - a) == pytest.approx(model["grid_spacing"])
-    assert opt[0] == pytest.approx((a[0] + b[0]) / 2)
+    a, b = np.asarray(model["cell_A"]), np.asarray(model["cell_B"])
+    from_a, from_b = np.asarray(model["optimum_from_A"]), np.asarray(model["optimum_from_B"])
+    assert np.linalg.norm(b - a) == pytest.approx(model["grid_spacing"])  # the hop is one grid cell
+    # the snap map has no fixed point: solved from A the optimum is nearer B, and from B nearer A
+    assert np.linalg.norm(from_a - b) < np.linalg.norm(from_a - a)
+    assert np.linalg.norm(from_b - a) < np.linalg.norm(from_b - b)
     hops = [h for h in diagram.scene.role("hop") if isinstance(h, Arrow)]
-    assert len(hops) == 2 and hops[0].end[0] > hops[0].start[0] and hops[1].end[0] < hops[1].start[0]
+    assert len(hops) == 2
+    ends = sorted(tuple(np.round(h.end, 1)) for h in hops)
+    assert ends[0][0] < ends[1][0]  # one hop lands at A, the other at B
     # the index alternates while the residual stays flat
     index = [m.at[1] for m in diagram.scene.role("index") if isinstance(m, Marker)]
     assert len(set(np.round(index, 6))) == 2 and all(index[i] != index[i + 1] for i in range(len(index) - 1))
@@ -97,9 +119,32 @@ def test_numerical_cycling_is_drawn_apart_from_branch_structure():
     assert not diagram.scene.role("unstable") and not diagram.scene.role("basin_boundary")
 
 
+def test_branch_selection_composes_the_two_panels_unchanged():
+    composed = vaft.diagram.branch_selection().scene
+    basin = vaft.diagram.basin_of_attraction().scene
+    grid = vaft.diagram.grid_induced_two_cycle().scene
+    assert composed.items[: len(basin.items)] == basin.items
+    assert len(composed.items) == len(basin.items) + len(grid.items) + 1
+    assert composed.role("caption")
+
+
+@pytest.mark.parametrize("name, source", [("branch_bifurcation", "fold_normal_form_equilibria"),
+                                          ("basin_of_attraction", "relaxation")])
+def test_rendering_is_stable_under_last_bit_noise(monkeypatch, name, source):
+    # x**3 and exp go through libm, whose last bit can differ between platforms; the TikZ must not
+    base = getattr(vaft.diagram, name)().tikz
+    original = getattr(it, source)
+    rng = np.random.default_rng(3)
+    for _ in range(3):
+        monkeypatch.setattr(it, source, lambda *a: (lambda r: r * (1 + 1e-15 * rng.standard_normal(np.shape(r))))(
+            original(*a)))
+        assert getattr(vaft.diagram, name)().tikz == base
+
+
 def test_labels_off_and_validation():
     for build in (vaft.diagram.iteration_behavior, vaft.diagram.branch_bifurcation,
-                  vaft.diagram.basin_of_attraction, vaft.diagram.grid_induced_two_cycle):
+                  vaft.diagram.basin_of_attraction, vaft.diagram.grid_induced_two_cycle,
+                  vaft.diagram.branch_selection):
         labelled = [i for i in build(labels=False).scene.items if isinstance(i, Label)]
         assert not [l for l in labelled if l.role not in ("axes", "ticks")]
         with pytest.raises(ValueError):

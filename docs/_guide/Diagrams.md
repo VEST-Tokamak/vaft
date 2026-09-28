@@ -729,7 +729,8 @@ second bifurcation figure.
 vaft.diagram.iteration_behavior()       # fixed point, divergence, 2-cycle, period-4 limit cycle
 vaft.diagram.branch_bifurcation()       # stable (solid) / unstable (dashed), folds, jumps, hysteresis
 vaft.diagram.basin_of_attraction()      # initial condition selects branch A or B
-vaft.diagram.grid_induced_two_cycle()   # discrete state hops between two nodes; the fit stays flat
+vaft.diagram.grid_induced_two_cycle()   # each re-solve lands nearer the other node: a one-cell hop
+vaft.diagram.branch_selection()         # the last two side by side under one caption
 ```
 
 ![iteration]({{ '/assets/diagrams/iteration_behavior.svg' | relative_url }})
@@ -738,14 +739,15 @@ vaft.diagram.grid_induced_two_cycle()   # discrete state hops between two nodes;
 | --- | --- |
 | ![bifurcation]({{ '/assets/diagrams/branch_bifurcation.svg' | relative_url }}) | ![basin]({{ '/assets/diagrams/basin_of_attraction.svg' | relative_url }}) |
 
-![grid 2-cycle]({{ '/assets/diagrams/grid_induced_two_cycle.svg' | relative_url }})
+![branch selection]({{ '/assets/diagrams/branch_selection.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
-| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (dashed) exists in every panel, but only the first iteration reaches it |
+| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (thin line) exists in every panel but is stable only in the first; guides mark the four levels of the period-4 cycle |
 | `branch_bifurcation` | Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds |
 | `basin_of_attraction` | Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch |
-| `grid_induced_two_cycle` | A numerical artifact: the optimum lies between two nodes, so the index alternates while the fit stays flat. It is not a second physical branch |
+| `grid_induced_two_cycle` | A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch |
+| `branch_selection` | `basin_of_attraction` beside `grid_induced_two_cycle`: physical branch structure against numerical cycling |
 
 ## Using the committed assets
 

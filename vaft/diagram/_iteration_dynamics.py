@@ -10,8 +10,11 @@
     the same normal form at $\\lambda = 0$: two stable solutions, and the
     initial condition decides which one a relaxation reaches;
 ``grid_induced_two_cycle``
-    a numerical artifact: a continuous optimum between two grid nodes makes
-    the discrete state hop between them while the fit hardly changes.
+    a numerical artifact: each re-solve lands nearer the other of two grid
+    nodes, so the discrete state hops between them while the fit hardly
+    changes;
+``branch_selection``
+    the last two side by side under one caption.
 
 The message: non-convergence can come from true branch structure or from
 numerical cycling, and the two have to be told apart before a
@@ -78,7 +81,13 @@ def _panel(name: str, labels: bool) -> List:
         last = pts[-1]
         items.append(Arrow(tuple(last), (last[0] + 0.35, _PH + 0.25), "vector", role=f"{name}:escape"))
     fixed = 1.0 - 1.0 / p if kind == "logistic" else 0.5
-    items.append(Polyline.of([(0.0, fixed * sy), (_PW, fixed * sy)], "approx", role=f"{name}:fixed_point"))
+    # the fixed point as a thin reference line: it is stable only in the first panel, so not "dashed = unstable"
+    items.append(Polyline.of([(0.0, fixed * sy), (_PW, fixed * sy)], "leader line", role=f"{name}:fixed_point"))
+    if name == "limit_cycle":
+        # the four levels of the cycle, so that the period is seen and not only claimed
+        for level in np.unique(np.round(iterate(name, 400)[-4:], 6)):
+            items.append(Polyline.of([(0.55 * _PW, level * sy), (_PW, level * sy)], "mesh",
+                                     role=f"{name}:cycle_level"))
     if labels:
         items += [Label((_PW / 2, _PH + 0.35), title, "small label", anchor="south", role=f"{name}:title"),
                   Label((_PW + 0.3, -0.1), "$k$", "small label", anchor="north", role="axes"),
@@ -92,8 +101,9 @@ def iteration_behavior(*, labels: bool = True) -> Diagram:
     Computed, not sketched: the logistic map $x_{k+1} = rx_k(1 - x_k)$ at
     $r = 2.8$ (convergence to $x^* = 1 - 1/r$), $3.2$ (a 2-cycle) and $3.5$
     (a period-4 cycle), and $x_{k+1} = x^* + a(x_k - x^*)$ with $a = 1.3$
-    (divergence). The dashed line is the fixed point $x^*$ in each panel --
-    it exists in all four; only in the first does the iteration reach it.
+    (divergence). The thin line is the fixed point $x^*$ in each panel --
+    it exists in all four, stable only in the first; faint guides mark the
+    four levels of the period-4 cycle.
     """
     labels = _check_labels(labels)
     items: List = []
@@ -102,7 +112,7 @@ def iteration_behavior(*, labels: bool = True) -> Diagram:
         offsets[name] = ((i % 2) * (_PW + _GAP + 0.6), (1 - i // 2) * (_PH + _GAP + 0.3))
         items += Scene(tuple(_panel(name, labels))).transformed(offset=offsets[name]).items
     if labels:
-        items.append(Label((_PW + _GAP / 2 + 0.3, -0.85), "the dashed line is the fixed point $x^*$ of each map",
+        items.append(Label((_PW + _GAP / 2 + 0.3, -0.85), "thin line: the fixed point $x^*$, stable only in the first panel",
                            "note", anchor="north", role="note"))
     return Diagram("iteration_behavior", Scene(tuple(items)),
                    model={"maps": ITERATION_MAPS, "x0": _X0, "orbits": {n: iterate(n) for n in ITERATION_MAPS},
@@ -133,7 +143,7 @@ def branch_bifurcation(*, labels: bool = True) -> Diagram:
     equilibria coexist.
     """
     labels = _check_labels(labels)
-    x = np.linspace(-1.45, 1.45, 581)
+    x = np.linspace(-1.45, 1.45, 577)
     lam = fold_normal_form_equilibria(x)
     stable = np.abs(x) > FOLD_X
     chart = Chart(x_range=(-1.0, 1.0), y_range=(-1.6, 1.6))
@@ -160,9 +170,9 @@ def branch_bifurcation(*, labels: bool = True) -> Diagram:
               Arrow(tuple(cm(np.array(chart.points["fold_upper"]))),
                     tuple(cm(np.array(chart.points["jump_down_to"]))), "drift", role="jump_down")]
     # direction of travel along the branches
-    items += [Arrow(tuple(cm(np.array([-0.6, _branch_x(-0.6, -1)]))),
-                    tuple(cm(np.array([-0.35, _branch_x(-0.35, -1)]))), "vector", role="increasing"),
-              Arrow(tuple(cm(np.array([0.6, _branch_x(0.6, 1)]))), tuple(cm(np.array([0.35, _branch_x(0.35, 1)]))),
+    items += [Arrow(tuple(cm(np.array([-0.2, _branch_x(-0.2, -1)]))),
+                    tuple(cm(np.array([0.1, _branch_x(0.1, -1)]))), "vector", role="increasing"),
+              Arrow(tuple(cm(np.array([0.2, _branch_x(0.2, 1)]))), tuple(cm(np.array([-0.1, _branch_x(-0.1, 1)]))),
                     "vector", role="decreasing")]
     bistable = [cm(np.array([-FOLD_LAMBDA, -1.4])), cm(np.array([FOLD_LAMBDA, -1.4]))]
     items.append(Arrow(tuple(bistable[0]), tuple(bistable[1]), "connector", role="bistable_range", both=True))
@@ -171,9 +181,9 @@ def branch_bifurcation(*, labels: bool = True) -> Diagram:
                         anchor="north west", role="fold"),
                   Label(tuple(cm(np.array(chart.points["fold_upper"])) + [-0.15, 0.15]), "fold", "small label",
                         anchor="south east", role="fold"),
-                  Label(tuple(cm(np.array([-0.62, _branch_x(-0.62, -1)])) + [0.0, -0.25]), "$\\lambda$ increasing",
-                        "small label", anchor="north", role="increasing"),
-                  Label(tuple(cm(np.array([0.62, _branch_x(0.62, 1)])) + [0.0, 0.25]), "$\\lambda$ decreasing",
+                  Label(tuple(cm(np.array([-0.05, _branch_x(-0.05, -1)])) + [0.0, 0.2]), "$\\lambda$ increasing",
+                        "small label", anchor="south", role="increasing"),
+                  Label(tuple(cm(np.array([0.05, _branch_x(0.05, 1)])) + [0.0, 0.2]), "$\\lambda$ decreasing",
                         "small label", anchor="south", role="decreasing"),
                   Label(tuple((bistable[0] + bistable[1]) / 2 + [0.0, 0.08]), "three equilibria", "small label",
                         anchor="south", role="bistable_range"),
@@ -213,7 +223,7 @@ def basin_of_attraction(*, labels: bool = True) -> Diagram:
     solutions; which one an iteration returns is decided by where it starts.
     """
     labels = _check_labels(labels)
-    t = np.linspace(0.0, 6.0, 241)
+    t = np.linspace(0.0, 6.0, 239)
     chart = Chart(x_range=(0.0, 6.0), y_range=(-1.6, 1.6))
     for x0 in INITIAL_CONDITIONS:
         chart.curves[f"trajectory {x0:+.2f}"] = np.stack([t, relaxation(x0, t)], axis=-1)
@@ -252,13 +262,16 @@ _NX, _NY, _DX = 6, 5, 1.0
 def grid_induced_two_cycle(*, labels: bool = True) -> Diagram:
     r"""A numerical 2-cycle: the discrete state hops between two adjacent grid nodes.
 
-    The continuous optimum (cross) lies between nodes A and B. A solver
-    that snaps the state to the grid -- a magnetic axis located on the
-    nearest node, say -- lands on A, re-solves, lands on B, and back. The
-    fit quality and the equilibrium are nearly the same on both; only the
-    discrete index alternates, so a convergence test on the state is never
-    met. On the right, the index alternates while the fit residual is flat:
-    the signature that separates this from a physical branch switch.
+    The solve depends on the discrete state it starts from -- a magnetic
+    axis located on a grid node, say. Solved from node A, the continuous
+    optimum $x^*(A)$ lands nearer B, so the state snaps to B; solved from B,
+    $x^*(B)$ lands nearer A, and the state snaps back. The node-to-node map
+    has no fixed point, so a convergence test on the state is never met,
+    while the fit and the continuous state hardly change. What separates
+    this from a physical branch switch: the hop is exactly one grid cell,
+    and the pattern changes when the grid is refined; the flat fit residual
+    on the right is the secondary cue (two symmetric physical branches can
+    also fit equally well).
     """
     labels = _check_labels(labels)
     xs, ys = np.arange(_NX) * _DX, np.arange(_NY) * _DX
@@ -268,15 +281,21 @@ def grid_induced_two_cycle(*, labels: bool = True) -> Diagram:
     for y in ys:
         items.append(Polyline.of([(xs[0], y), (xs[-1], y)], "mesh", role="grid"))
     a, b = (2.0, 2.0), (3.0, 2.0)
-    optimum = (2.5, 2.1)
+    # the optimum each re-solve finds, just past the midpoint towards the other node
+    from_a, from_b = (2.62, 2.45), (2.38, 1.55)
     items += [Marker(a, "o", "opoint", role="cell_A"), Marker(b, "o", "opoint", role="cell_B"),
-              Marker(optimum, "x", "xpoint", role="continuous_optimum"),
-              Arrow((a[0] + 0.1, a[1] + 0.35), (b[0] - 0.1, b[1] + 0.35), "drift", role="hop"),
-              Arrow((b[0] - 0.1, b[1] - 0.35), (a[0] + 0.1, a[1] - 0.35), "drift", role="hop")]
+              Marker(from_a, "x", "xpoint", role="optimum_from_A"),
+              Marker(from_b, "x", "xpoint", role="optimum_from_B"),
+              # solve (thin), then snap to the nearest node (red)
+              Arrow((a[0] + 0.08, a[1] + 0.06), (from_a[0] - 0.08, from_a[1] - 0.04), "connector", role="solve"),
+              Arrow((from_a[0] + 0.06, from_a[1] - 0.08), (b[0] - 0.05, b[1] + 0.1), "drift", role="hop"),
+              Arrow((b[0] - 0.08, b[1] - 0.06), (from_b[0] + 0.08, from_b[1] + 0.04), "connector", role="solve"),
+              Arrow((from_b[0] - 0.06, from_b[1] + 0.08), (a[0] + 0.05, a[1] - 0.1), "drift", role="hop")]
     # right: discrete index and fit residual against iteration
-    ox, w, h = xs[-1] + 1.6, 4.0, ys[-1]
+    ox, w, h = xs[-1] + 2.1, 4.0, ys[-1]
     k = np.arange(12)
-    index = np.where(k % 2 == 0, 0.62, 0.38) * h
+    levels = {"A": 0.38 * h, "B": 0.62 * h}
+    index = np.where(k % 2 == 0, levels["A"], levels["B"])
     residual = np.full(k.shape, 0.15 * h)
     kx = ox + k * w / 11
     items += [Arrow((ox, 0.0), (ox + w + 0.3, 0.0), "chart axis", role="axes"),
@@ -284,20 +303,45 @@ def grid_induced_two_cycle(*, labels: bool = True) -> Diagram:
               Polyline.of(np.stack([kx, index], axis=-1), "connector line", role="index"),
               Polyline.of(np.stack([kx, residual], axis=-1), "boundary", role="residual")]
     items += [Marker((float(x), float(y)), "o", "xpoint", role="index") for x, y in zip(kx, index)]
+    for name, y in levels.items():
+        items.append(Polyline.of([(ox, y), (ox - 0.12, y)], "tick", role="ticks"))
     if labels:
-        items += [Label((a[0], a[1] - 0.2), "A", "small label", anchor="north east", role="cell_A"),
-                  Label((b[0], b[1] - 0.2), "B", "small label", anchor="north west", role="cell_B"),
-                  Polyline.of([(optimum[0], optimum[1] + 0.12), (optimum[0], ys[-1] + 0.25)], "leader line",
-                              role="continuous_optimum"),
-                  Label((optimum[0], ys[-1] + 0.3), "continuous optimum", "small label", anchor="south",
-                        role="continuous_optimum"),
-                  Label((xs[-1] / 2, -0.35), "solver grid", "small label", anchor="north", role="grid"),
+        items += [Label((a[0] - 0.1, a[1] - 0.1), "A", "small label", anchor="north east", role="cell_A"),
+                  Label((b[0] + 0.1, b[1] + 0.1), "B", "small label", anchor="south west", role="cell_B"),
+                  Label((from_a[0] + 0.1, from_a[1] + 0.05), "$x^*(A)$", "small label", anchor="south west",
+                        role="optimum_from_A"),
+                  Label((from_b[0] - 0.1, from_b[1] - 0.05), "$x^*(B)$", "small label", anchor="north east",
+                        role="optimum_from_B"),
+                  Label((xs[-1] / 2, -0.35), "solver grid: thin = solve, red = snap to nearest node", "small label",
+                        anchor="north", role="grid"),
                   Label((ox + w + 0.3, -0.1), "iteration $k$", "small label", anchor="north", role="axes"),
-                  Label((ox + w, index[-1] + 0.95), "node index: A, B, A, ...", "small label", anchor="south east",
+                  Label((ox + w, max(levels.values()) + 0.3), "node index", "small label", anchor="south east",
                         role="index"),
-                  Label((ox + w, residual[-1] + 0.15), "fit residual: flat", "small label", anchor="south east",
-                        role="residual"),
-                  Label((ox / 2 + w / 2, -1.1), "Numerical 2-cycle: same fit, alternating discrete state -- "
-                        "not a second physical branch", "note", anchor="north", role="note")]
+                  Label((ox + w, residual[-1] + 0.15), "fit residual: nearly flat", "small label",
+                        anchor="south east", role="residual"),
+                  Label((ox / 2 + w / 2, -1.1), "Numerical 2-cycle: the state hops by one grid cell and the pattern "
+                        "changes with the grid -- not a second physical branch", "note", anchor="north",
+                        role="note")]
+        items += [Label((ox - 0.18, y), name, "ticklabel", anchor="east", role="ticks") for name, y in levels.items()]
     return Diagram("grid_induced_two_cycle", Scene(tuple(items)),
-                   model={"cell_A": a, "cell_B": b, "continuous_optimum": optimum, "grid_spacing": _DX})
+                   model={"cell_A": a, "cell_B": b, "optimum_from_A": from_a, "optimum_from_B": from_b,
+                          "grid_spacing": _DX})
+
+
+def branch_selection(*, labels: bool = True) -> Diagram:
+    r"""Physical branch selection beside numerical cycling: the two causes of non-convergence side by side.
+
+    ``basin_of_attraction`` (two physical solutions, the start decides) and
+    ``grid_induced_two_cycle`` (one solution, a discrete state that cannot
+    settle) composed under one caption. No new physics: the two panels are
+    those diagrams unchanged.
+    """
+    labels = _check_labels(labels)
+    left = basin_of_attraction(labels=labels).scene
+    right = grid_induced_two_cycle(labels=labels).scene.transformed(offset=(13.0, 0.75))
+    items = list(left.items) + list(right.items)
+    if labels:
+        items.append(Label((11.5, 8.0), "Non-convergence can arise from true branch structure (left) or from "
+                           "numerical cycling (right)", "label", anchor="south", role="caption"))
+    return Diagram("branch_selection", Scene(tuple(items)),
+                   model={"panels": ("basin_of_attraction", "grid_induced_two_cycle")})

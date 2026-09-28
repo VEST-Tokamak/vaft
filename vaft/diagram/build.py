@@ -119,7 +119,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
     # iteration behaviour, branch bifurcation and branch selection (#1093)
     **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
-                                              "grid_induced_two_cycle")},
+                                              "grid_induced_two_cycle", "branch_selection")},
 }
 
 
