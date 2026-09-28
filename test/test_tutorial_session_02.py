@@ -515,3 +515,24 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert metadata.get("session") == 2
     assert metadata.get("status") == "complete"
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
+
+
+# ---------------------------------------------------------------------------
+# #254: an analysis task, stated first and accepted on its semantics
+# ---------------------------------------------------------------------------
+
+
+def test_the_analysis_task_is_stated_before_its_implementation(book):
+    ids = [cell.id for cell in book.cells]
+    intro = _source(_cell(book, "s02-task-intro"))
+    assert "**Analysis task.**" in intro and "**Acceptance.**" in intro
+    assert ids.index("s02-task-intro") < ids.index("s02-task") < ids.index("s02-task-check")
+
+
+def test_the_analysis_task_passes_its_acceptance_criteria(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-task-check").outputs)
+    assert "(the H-alpha criterion: True)" in printed
+    assert re.search(r"inboard loops selected by the preset: \d+ of \d+", printed)
+    assert "the original is untouched: True" in printed
+    low, high = map(float, re.search(r"window drawn: ([-0-9.e]+) to ([-0-9.e]+)", printed).groups())
+    assert (low, high) == pytest.approx((-5e-3, 30e-3))

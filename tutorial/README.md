@@ -123,6 +123,33 @@ their public VAFT workflows where mature, but keep detailed theory and narrow
 research procedures there rather than copying them into this introductory
 course.
 
+## Analysis tasks
+
+Exercises state their scientific intent in words before any code, as an **Analysis task**
+(issue #254). A task is a compact specification, not a conversational prompt, and it makes clear:
+
+| element | example |
+| --- | --- |
+| input | the loaded discharge |
+| selection | the inboard flux loops |
+| reference and operation | plasma onset detected from H-alpha |
+| transformation | relative time, $t' = t - t_{\mathrm{onset}}$ |
+| window | $-5$ ms to $+30$ ms |
+| representation | one time-series plot on a common relative axis |
+
+and ends with **acceptance** criteria: the scientific facts any correct implementation must satisfy,
+for example "only inboard loops are drawn", "$t = 0$ is the H-alpha onset", "the window is the one
+asked for". Implementations are judged by those semantics, not by matching code or pixels.
+
+The convention introduces no LLM or agent dependency; it is a human-readable specification. The same
+corpus of tasks is the empirical input for a later agent/MCP interface (#188), which must reach the
+same public VAFT APIs a student uses. A task that is simple to state but needs substantial
+notebook-local code to implement is evidence of a missing VAFT API, not a reason to add
+tutorial-only logic.
+
+Session 01 uses one-call tasks; session 02 gives the first multi-step task a worked implementation
+and a printed acceptance check.
+
 ## Session 01 is different on purpose
 
 Session 01 is a beginner's walkthrough of the everyday VAFT workflow:
