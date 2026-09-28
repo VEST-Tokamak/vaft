@@ -562,6 +562,31 @@ def test_the_reduced_models_use_the_startup_formulas(book):
 
 def test_the_vessel_shields_the_ramp_and_leaves_a_tail(executed):
     printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy5").outputs)
-    removed = int(re.search(r"removes up to (\d+)%", printed).group(1))
-    tail = int(re.search(r"a tail of (\d+)%", printed).group(1))
+    removed = float(re.search(r"removes up to ([0-9.]+)%", printed).group(1))
+    tail = float(re.search(r"a tail of ([0-9.]+)%", printed).group(1))
     assert 0 < removed < 100 and 0 < tail < 100
+
+
+def test_the_vessel_shielding_matches_its_circuit(executed):
+    """The plotted voltage is the circuit's own: the tail equals the coupling times (1 - e^(-T/tau))."""
+    import math
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy5").outputs)
+    coupling = float(re.search(r"coupling g_v M / \(L_v g_c\) = ([0-9.]+)", printed).group(1))
+    tail = float(re.search(r"a tail of ([0-9.]+)%", printed).group(1)) / 100
+    assert tail == pytest.approx(coupling * (1 - math.exp(-2.0)), rel=0.02)
+
+
+def test_the_flux_closure_current_is_the_analytic_crossing(executed):
+    """mu0 I / (2 pi a) = B_stray solved for I -- not the first point of a plotting grid."""
+    import math
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy8").outputs)
+    stray = float(re.search(r"stray field ([0-9.]+) G", printed).group(1)) * 1e-4
+    radius = float(re.search(r"channel a = ([0-9.]+) m", printed).group(1))
+    closing = float(re.search(r"passes it at Ip of about ([0-9.]+) kA", printed).group(1)) * 1e3
+    assert closing == pytest.approx(2 * math.pi * radius * stray / (4e-7 * math.pi), rel=0.02)
+    assert closing < 1e3
+
+
+def test_the_penetration_crossing_is_inside_the_scan(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy6").outputs)
+    assert "tau_R passes this shot's ramp time" in printed
