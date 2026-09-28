@@ -96,6 +96,27 @@ _PARAMETRIC_EXPORTS = (
     "validate_equilibrium",
 )
 
+#: Compact representations of existing equilibria (#1166), implemented in
+#: ``._equilibrium_compact``.
+_COMPACT_EXPORTS = ("evaluate_mxh_chebyshev", "fit_mxh_chebyshev", "fit_solovev")
+
+#: The Guazzotto-Freidberg analytic family (#1148), implemented in
+#: ``._equilibrium_guazzotto_freidberg``.
+_GF_EXPORTS = (
+    "evaluate_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "solve_guazzotto_freidberg",
+)
+
+#: The current-moment API (#943), implemented in ``._equilibrium_moments``.
+_MOMENT_EXPORTS = (
+    "current_centroid",
+    "current_covariance",
+    "current_moment",
+    "derive_current_moments",
+)
+
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
     "MIN_ANNULUS_CELLS",
@@ -149,6 +170,9 @@ __all__ = [
     "virial_alpha_thin_annulus",
     "volume_average",
     *_PARAMETRIC_EXPORTS,
+    *_COMPACT_EXPORTS,
+    *_GF_EXPORTS,
+    *_MOMENT_EXPORTS,
 ]
 
 
@@ -3741,6 +3765,24 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_compact import evaluate_mxh_chebyshev, fit_mxh_chebyshev, fit_solovev  # noqa: E402,F401
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_compact import evaluate_mxh_chebyshev, fit_mxh_chebyshev, fit_solovev  # noqa: E402,F401
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_moments import *  # noqa: E402,F401,F403
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_moments import *  # noqa: E402,F401,F403
 
 
 def make_vacuum_field_interpolator(

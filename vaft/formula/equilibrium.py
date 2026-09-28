@@ -1238,6 +1238,62 @@ def toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime):
     return R * np.asarray(p_prime, dtype=float) + np.asarray(ff_prime, dtype=float) / (MU0 * R)
 
 
+def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
+    r"""Ideal (flux-frozen) perturbed flux of a displacement normal to the flux surfaces.
+
+    $$\delta\psi = -\boldsymbol\xi\cdot\nabla\psi_0 = -\xi_n\,|\nabla\psi_0|$$
+
+    Parameters
+    ----------
+    xi_n : float or np.ndarray
+        Displacement along $\hat{\mathbf n} = \nabla\psi_0/|\nabla\psi_0|$ [m].
+    grad_psi : float or np.ndarray
+        $|\nabla\psi_0|$ of the equilibrium flux, non-negative, in the unit of $\psi_0$ per metre [Wb/m or Wb/(rad m)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Eulerian flux perturbation $\delta\psi$, in the unit of $\psi_0$ [Wb or Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``grad_psi`` is negative.
+
+    Convention
+    ----------
+    $\hat{\mathbf n}$ points up the gradient of $\psi_0$, so a positive
+    $\xi_n$ moves a surface towards larger $\psi_0$ -- outward when $\psi$
+    increases from the axis (COCOS 11 with positive $I_p$, VAFT's usual ODS
+    storage), inward when it decreases (COCOS 11 with negative $I_p$, or a
+    per-radian COCOS-3 flux with positive current). Only the
+    normal component enters; a tangential displacement moves the surface
+    into itself.
+
+    Physical interpretation
+    -----------------------
+    Ideal MHD freezes the flux into the fluid, so a surface displaced by
+    $\xi_n$ carries its $\psi_0$ with it and the flux at a fixed point
+    changes by the linearised amount above. It is what turns a displacement
+    into a perturbed flux map, and back: an eigenfunction solver's
+    $\xi_n$ and its $\delta\psi$ are the same information.
+
+    Assumptions
+    -----------
+    Linear, $|\xi_n\nabla\ln|\nabla\psi_0|| \ll 1$; ideal (no reconnection),
+    so it fails in a resistive layer at a rational surface.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 8.3.
+    """
+    grad_psi = np.asarray(grad_psi, dtype=float)
+    if np.any(grad_psi < 0.0):
+        raise ValueError("grad_psi must be non-negative (it is |grad psi|)")
+    return -np.asarray(xi_n, dtype=float) * grad_psi
+
+
 def current_density_from_psi(psi: Union[float, np.ndarray],
                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.
@@ -5037,6 +5093,316 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     x_val = 5.0 + (mu_rho * (1 + a_P) - (3 * (mu_rho + 2 * mu_beta - 4 * mu_nu - 2) / 2))
     
     return x_val
+
+
+# --- Analytic 1-D profile kernels in normalized poloidal flux (#552) ----------
+
+
+#: How far outside [0, 1] a psi_N grid may stray by rounding and still be
+#: accepted (and clipped) by the bounded kernels.
+_PSI_N_ROUNDING = 1e-12
+
+
+def _profile_psi_n(psi_n, *, bounded):
+    x = np.asarray(psi_n, dtype=float)
+    if not np.all(np.isfinite(x)):
+        raise ValueError("psi_n must be finite")
+    if bounded:
+        if np.any(x < -_PSI_N_ROUNDING) or np.any(x > 1.0 + _PSI_N_ROUNDING):
+            raise ValueError("psi_n must lie in [0, 1] for a generalized-parabolic profile")
+        x = np.clip(x, 0.0, 1.0)
+    return x
+
+
+def _finite_parameters(**values):
+    for name, value in values.items():
+        if np.ndim(value) != 0:
+            raise ValueError(f"{name} must be a scalar, got an array of shape {np.shape(value)}")
+        if not np.isfinite(value):
+            raise ValueError(f"{name} must be finite, got {value!r}")
+
+
+def generalized_parabolic_profile(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0):
+    r"""Smooth core profile that falls from its axis value to its edge value.
+
+    $$f(\psi_N) = f_\mathrm{edge} + (f_\mathrm{core} - f_\mathrm{edge})\,(1 - \psi_N^{\alpha})^{\beta}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux, 0 on the magnetic axis and 1 on the boundary [-].
+    core_value : float
+        Value on the magnetic axis [any].
+    edge_value : float
+        Value on the boundary [any].
+    alpha : float
+        Radial exponent, positive; larger values flatten the core [-].
+    beta : float
+        Peaking exponent, positive; larger values peak the profile on axis [-].
+
+    Returns
+    -------
+    f : float or np.ndarray
+        Profile value, in the unit of *core_value* and *edge_value*, with the
+        shape of *psi_n* [any].
+
+    Raises
+    ------
+    ValueError
+        *psi_n* is not finite or lies outside ``[0, 1]``, a parameter is not
+        finite, or *alpha* or *beta* is not positive.
+
+    Convention
+    ----------
+    The radial coordinate is the normalized poloidal flux
+    $\psi_N = (\psi - \psi_\mathrm{axis})/(\psi_\mathrm{boundary} - \psi_\mathrm{axis})$,
+    so the shape does not depend on the flux sign or on whether the flux is
+    stored in Wb or Wb/rad. ``alpha = beta = 1`` is linear in $\psi_N$.
+
+    Physical interpretation
+    -----------------------
+    The usual smooth L-mode or core shape for pressure, density, temperature
+    or a prescribed current shape. It carries no pedestal: its gradient near
+    the edge is set by *beta* alone.
+
+    Assumptions
+    -----------
+    A monotone profile between two prescribed end values; nothing here
+    solves for them.
+
+    Limitations
+    -----------
+    The derivative is singular where an exponent is below one: at the axis
+    for ``alpha < 1`` and at the boundary for ``beta < 1`` (see
+    :func:`generalized_parabolic_profile_derivative`). Outside ``[0, 1]`` the
+    form is undefined for non-integer exponents, so it is refused rather than
+    extrapolated; a rounding excess below 1e-12 is clipped.
+    """
+    x = _profile_psi_n(psi_n, bounded=True)
+    _finite_parameters(core_value=core_value, edge_value=edge_value, alpha=alpha, beta=beta)
+    if alpha <= 0.0 or beta <= 0.0:
+        raise ValueError("alpha and beta must be positive")
+    return edge_value + (core_value - edge_value) * np.power(1.0 - np.power(x, alpha), beta)
+
+
+def generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0):
+    r"""Gradient against normalized flux of :func:`generalized_parabolic_profile`.
+
+    $$\frac{df}{d\psi_N} = -\alpha\beta\,(f_\mathrm{core} - f_\mathrm{edge})\,\psi_N^{\alpha-1}(1 - \psi_N^{\alpha})^{\beta-1}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux, in ``[0, 1]`` [-].
+    core_value : float
+        Value on the magnetic axis [any].
+    edge_value : float
+        Value on the boundary [any].
+    alpha : float
+        Radial exponent, positive [-].
+    beta : float
+        Peaking exponent, positive [-].
+
+    Returns
+    -------
+    df_dpsi_n : float or np.ndarray
+        Derivative with respect to $\psi_N$, in the profile's unit; infinite
+        at an endpoint where the form is singular [any].
+
+    Raises
+    ------
+    ValueError
+        As for :func:`generalized_parabolic_profile`.
+
+    Convention
+    ----------
+    This is $df/d\psi_N$, not $df/d\psi$. The physical gradient is
+    $df/d\psi = (df/d\psi_N)/(\psi_\mathrm{boundary} - \psi_\mathrm{axis})$
+    in whatever flux unit and sign the equilibrium carries; that conversion
+    is left to the equilibrium layer so there is one owner of it.
+
+    Physical interpretation
+    -----------------------
+    With a pressure profile this is the shape of $p'$ up to the constant flux
+    span, which is what a Grad-Shafranov source term needs.
+
+    Limitations
+    -----------
+    At ``psi_n = 0`` the value is $-\beta(f_\mathrm{core}-f_\mathrm{edge})$
+    for ``alpha = 1``, zero for ``alpha > 1`` and infinite for
+    ``alpha < 1``; at ``psi_n = 1`` it is zero for ``beta > 1``,
+    $-\alpha(f_\mathrm{core}-f_\mathrm{edge})$ for ``beta = 1`` and infinite
+    for ``beta < 1``. A flat profile (``core_value == edge_value``) has a
+    zero gradient everywhere, singular exponents included.
+
+    """
+    x = _profile_psi_n(psi_n, bounded=True)
+    _finite_parameters(core_value=core_value, edge_value=edge_value, alpha=alpha, beta=beta)
+    if alpha <= 0.0 or beta <= 0.0:
+        raise ValueError("alpha and beta must be positive")
+    amplitude = core_value - edge_value
+    if amplitude == 0.0:
+        return np.zeros_like(x)  # a flat profile, even where the shape is singular
+    with np.errstate(divide="ignore", invalid="ignore"):
+        inner = np.power(x, alpha - 1.0) if alpha != 1.0 else np.ones_like(x)
+        outer = np.power(1.0 - np.power(x, alpha), beta - 1.0) if beta != 1.0 else np.ones_like(x)
+        return -alpha * beta * amplitude * inner * outer
+
+
+def _mtanh(z, slope):
+    """Groebner's modified tanh, ``((1 + s z) e^z - e^-z)/(e^z + e^-z)``, written overflow-free."""
+    t = np.tanh(z)
+    return t + slope * z * (1.0 + t) / 2.0
+
+
+def _mtanh_derivative(z, slope):
+    t = np.tanh(z)
+    sech2 = 1.0 - t * t
+    return sech2 + slope * ((1.0 + t) + z * sech2) / 2.0
+
+
+def _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value):
+    x = _profile_psi_n(psi_n, bounded=False)
+    _finite_parameters(pedestal_height=pedestal_height, pedestal_position=pedestal_position,
+                       pedestal_width=pedestal_width, core_slope=core_slope, edge_value=edge_value)
+    if pedestal_width <= 0.0:
+        raise ValueError(f"pedestal_width must be positive, got {pedestal_width!r}")
+    return 2.0 * (pedestal_position - x) / pedestal_width
+
+
+def modified_tanh_profile(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0):
+    r"""H-mode pedestal profile: Groebner's modified hyperbolic tangent in normalized flux.
+
+    $$f(\psi_N) = f_\mathrm{edge} + \frac{h}{2}\left[1 + \mathrm{mtanh}(z, s)\right],\qquad z = \frac{2(\psi_\mathrm{sym} - \psi_N)}{\Delta}$$
+
+    $$\mathrm{mtanh}(z, s) = \frac{(1 + s z)e^{z} - e^{-z}}{e^{z} + e^{-z}}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux; values above 1 extend the form into the
+        scrape-off layer [-].
+    pedestal_height : float
+        Step from the edge value to the pedestal top, $h$ [any].
+    pedestal_position : float
+        Symmetry point $\psi_\mathrm{sym}$, the centre of the steep-gradient
+        region [-].
+    pedestal_width : float
+        Full width $\Delta$ in $\psi_N$, positive; the knee is at
+        $\psi_\mathrm{sym} - \Delta/2$ and the foot at $\psi_\mathrm{sym} + \Delta/2$ [-].
+    core_slope : float
+        Core-continuation slope $s$ of the modified tanh, in units of $z$;
+        zero is a pure tanh pedestal [-].
+    edge_value : float
+        Asymptotic value outside the pedestal, $f_\mathrm{edge}$ [any].
+
+    Returns
+    -------
+    f : float or np.ndarray
+        Profile value, in the unit of *pedestal_height* and *edge_value*, with
+        the shape of *psi_n* [any].
+
+    Raises
+    ------
+    ValueError
+        *psi_n* or a parameter is not finite, or *pedestal_width* is not positive.
+
+    Convention
+    ----------
+    VAFT adopts Groebner and Carlstrom's parameterization: their fit is
+    $Y = A\tanh(2(X_\mathrm{sym} - X)/W) + B$ with the pedestal value
+    $A + B$, the offset $B - A$ and the knee at $X_\mathrm{sym} - W/2$ [1]_.
+    Here $h = 2A$ is the step above the offset, $f_\mathrm{edge} = B - A$,
+    and $W = \Delta$ is the *full* width, so ``z = +-1`` at the knee and the
+    foot. The core term replaces their piecewise-linear slope with the
+    smooth modified tanh $(1 + s z)e^{z}$ of the same group [2]_. Other
+    codes use the half width, or put the symmetry point at the pedestal top;
+    convert before comparing. The coordinate is $\psi_N$, so the shape is
+    independent of the flux sign and its Wb or Wb/rad storage.
+
+    Physical interpretation
+    -----------------------
+    With ``core_slope = 0`` the pedestal top value is approached as
+    $f_\mathrm{edge} + h$ well inside the knee, and the steepest gradient,
+    $-h/\Delta$, sits at the symmetry point. A positive *core_slope* keeps the
+    profile rising into the core at about $h s / \Delta$ per unit $\psi_N$.
+
+    Assumptions
+    -----------
+    One pedestal, monotone across it; a separately modelled core shape can be
+    added to it (see :func:`generalized_parabolic_profile`).
+
+    Limitations
+    -----------
+    The core-slope term grows linearly in $z$ without bound, so a large
+    *core_slope* on a narrow pedestal overshoots on axis; compose with a core
+    shape instead when the axis value matters. This is a shape model: it
+    does not predict the pedestal height or width (EPED) or its bootstrap
+    current (#550).
+
+    References
+    ----------
+    .. [1] R. J. Groebner and T. N. Carlstrom, *Critical edge parameters for
+           H-mode transition in DIII-D*, Plasma Phys. Control. Fusion 40, 673
+           (1998), Fig. 1 (General Atomics report GA-A22723).
+    .. [2] R. J. Groebner et al., *Progress in quantifying the edge physics of
+           the H mode regime in DIII-D*, Nucl. Fusion 41, 1789 (2001), for the
+           modified tanh with its core slope.
+    """
+    z = _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value)
+    return edge_value + 0.5 * pedestal_height * (1.0 + _mtanh(z, core_slope))
+
+
+def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0):
+    r"""Gradient against normalized flux of :func:`modified_tanh_profile`.
+
+    $$\frac{df}{d\psi_N} = -\frac{h}{\Delta}\left[\mathrm{sech}^2 z + \frac{s}{2}\left(1 + \tanh z + z\,\mathrm{sech}^2 z\right)\right]$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux [-].
+    pedestal_height : float
+        Step from the edge value to the pedestal top [any].
+    pedestal_position : float
+        Symmetry point of the pedestal [-].
+    pedestal_width : float
+        Full pedestal width in $\psi_N$, positive [-].
+    core_slope : float
+        Core-continuation slope of the modified tanh [-].
+    edge_value : float
+        Asymptotic value outside the pedestal; it does not enter the gradient [any].
+
+    Returns
+    -------
+    df_dpsi_n : float or np.ndarray
+        Derivative with respect to $\psi_N$, in the profile's unit [any].
+
+    Raises
+    ------
+    ValueError
+        As for :func:`modified_tanh_profile`.
+
+    Convention
+    ----------
+    $df/d\psi_N$, with the width and position conventions of
+    :func:`modified_tanh_profile`; divide by the flux span
+    $\psi_\mathrm{boundary} - \psi_\mathrm{axis}$ for $df/d\psi$.
+
+    Physical interpretation
+    -----------------------
+    For a pressure profile this is the localized edge gradient that drives
+    edge current. A shape built from it is phenomenological and must not be
+    called a bootstrap current unless that physics is evaluated (#550).
+
+    References
+    ----------
+    .. [1] Differentiation of :func:`modified_tanh_profile`; the form follows
+           R. J. Groebner and T. N. Carlstrom, Plasma Phys. Control. Fusion 40,
+           673 (1998).
+    """
+    z = _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value)
+    return -pedestal_height / pedestal_width * _mtanh_derivative(z, core_slope)
 
 
 #: Derived rather than listed, so a function added here cannot silently

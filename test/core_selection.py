@@ -94,8 +94,10 @@ CORE_MODULES: tuple[str, ...] = (
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
+    # The process-tree stop behind LocalBackend runs small Python/sh trees.
     "test_code_execution.py",
     "test_code_resources.py",
+    "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
@@ -143,6 +145,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_ballooning.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
+    "test_diagram_equilibrium_phenomena.py",
     "test_diagram_field_configurations.py",
     "test_diagram_geometry.py",
     "test_diagram_gs_equilibrium.py",

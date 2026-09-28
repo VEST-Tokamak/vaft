@@ -117,6 +117,10 @@ DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
 PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
 
 
+#: ``NPBPS`` of upstream ``globals.f90``: the largest EQDSK box side CHEASE writes.
+CHEASE_MAX_BOX = 2300
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
     """Runtime and numerical configuration for CHEASE refinement.
@@ -137,10 +141,15 @@ class CHEASEConfig:
     # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
     # equilibrium work, which is how the old default of 11 failed (#717).
     nideal: Optional[int] = None
-    #: Size of the R-Z box CHEASE writes its EQDSK on (``NRBOX = NZBOX``).  This
-    #: is the *output* grid only: the equilibrium is solved on the ``ns`` x
-    #: ``nt`` finite-element mesh and interpolated onto it.
+    #: Size of the R-Z box CHEASE writes its EQDSK on, radially (``NRBOX``).
+    #: This is the *output* grid only: the equilibrium is solved on the ``ns``
+    #: x ``nt`` finite-element mesh and interpolated onto it.
     nw: int = 513
+    #: Vertical size of that box (``NZBOX``); ``None`` keeps it square
+    #: (``NZBOX = NRBOX``).  Upstream CHEASE reads the two independently and
+    #: silently clamps each to ``NPBPS = 2300`` (``psibox.f90``), so both are
+    #: validated against that here (#459).
+    nh: Optional[int] = None
     #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
     #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
     #: takes the default for the resolved ``NIDEAL``; see
@@ -194,6 +203,13 @@ class CHEASEConfig:
             value = getattr(self, key)
             if value is not None and int(value) < 2:
                 raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
+        for key in ("nw", "nh"):
+            value = getattr(self, key)
+            if value is not None and not 2 <= int(value) <= CHEASE_MAX_BOX:
+                raise ValueError(
+                    f"CHEASEConfig.{key} must lie in 2..{CHEASE_MAX_BOX} (CHEASE's NPBPS, "
+                    f"beyond which it silently clamps the EQDSK box); got {value}"
+                )
         if self.nideal is not None:
             warnings.warn(
                 f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
@@ -215,6 +231,11 @@ class CHEASEConfig:
             if value is not None:
                 mesh[key] = int(value)
         return mesh
+
+    @property
+    def resolved_nh(self) -> int:
+        """The ``NZBOX`` written to the namelist: ``nh``, or ``nw`` for a square box."""
+        return int(self.nh) if self.nh is not None else int(self.nw)
 
     @property
     def resolved_nideal(self) -> int:
@@ -1059,7 +1080,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "COCOS_IN = 2,\n",
         "COCOS_OUT = 2,\n",
         f"NRBOX={int(config.nw)},\n",
-        f"NZBOX={int(config.nw)},\n",
+        f"NZBOX={int(config.resolved_nh)},\n",
         "NEQDXTPO=2,\n",
         "NVEXP=1, REXT=10.0, R0W=1., RZ0W=0.,\n",
         "MSMAX=1,\n",
@@ -1202,6 +1223,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
                 "neqdsk": 0,
                 "mesh": config.resolved_mesh,
                 "output_grid": int(config.nw),
+                "output_grid_z": int(config.resolved_nh),
                 "target_psin": float(config.target_psin),
                 "boundary_smoothing": str(config.boundary_smoothing),
                 "raw_boundary_points": int(materialized.raw_boundary.shape[0]),
