@@ -28,6 +28,7 @@ EQUILIBRIUM_NOTEBOOKS = (
     "local_miller_equilibrium_fitting.ipynb",
     "analytic_solovev_equilibrium.ipynb",
     "analytic_guazzotto_freidberg_equilibrium.ipynb",
+    "compact_equilibrium_representation.ipynb",
     "edge_and_boundary_representation.ipynb",
 )
 

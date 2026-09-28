@@ -38,6 +38,7 @@ _SUBMODULES = {
     "particle": ".particle",
     "geometry": ".geometry",
     "ripple": ".ripple",
+    "disruption": ".disruption",
     "vde": ".vde",
 }
 
@@ -64,6 +65,7 @@ _IMPORT_ORDER = (
     "particle",
     "geometry",
     "ripple",
+    "disruption",
     "vde",
 )
 
