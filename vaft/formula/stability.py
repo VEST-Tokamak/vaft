@@ -69,6 +69,8 @@ __all__ = [
     "s_alpha_curvature_drive",
     "field_line_label",
     "v_alfven_from_B_n_mi",
+    "shear_alfven_frequency",
+    "magnetosonic_phase_speeds",
 ]
 
 
@@ -871,6 +873,116 @@ def c_s_from_Te_Ti_mi(T_e_keV: float,
     Te_J = T_e_keV * 1e3 * QE
     Ti_J = T_i_keV * 1e3 * QE
     return np.sqrt((Te_J + Ti_J) / m_i)
+
+
+def shear_alfven_frequency(k_parallel, v_A):
+    r"""Frequency of the ideal shear Alfven wave in a uniform plasma.
+
+    $$\omega^2 = k_\parallel^2v_A^2,\qquad \omega = |k_\parallel|\,v_A$$
+
+    Parameters
+    ----------
+    k_parallel : float or np.ndarray
+        Wavenumber along $\mathbf B_0$, signed [1/m].
+    v_A : float or np.ndarray
+        Alfven speed $B_0/\sqrt{\mu_0\rho}$ (``v_alfven_from_B_n_mi``), non-negative [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\omega \ge 0$ [rad/s].
+
+    Raises
+    ------
+    ValueError
+        ``v_A`` is negative.
+
+    Physical interpretation
+    -----------------------
+    Field-line bending restored by magnetic tension: the displacement and
+    $\delta\mathbf B_\perp = -\delta\mathbf v_\perp\,B_0/v_A$ (forward wave)
+    are perpendicular to both $\mathbf B_0$ and $\mathbf k$, and $|\mathbf B|$
+    is unchanged to first order. $\omega$ depends on $k_\perp$ not at all, so
+    energy travels along $\mathbf B_0$ only; in an inhomogeneous plasma this
+    gives the Alfven continuum $\omega = k_\parallel(r)v_A(r)$.
+
+    Assumptions
+    -----------
+    Uniform ideal MHD plasma, linear, $\omega \ll \Omega_i$; no finite
+    Larmor radius or electron inertia (kinetic and inertial Alfven waves).
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 10.2.
+    .. [2] H. Alfven, Nature 150, 405 (1942).
+    """
+    v_A = np.asarray(v_A, dtype=float)
+    if np.any(v_A < 0.0):
+        raise ValueError("v_A must be non-negative")
+    return np.abs(np.asarray(k_parallel, dtype=float)) * v_A
+
+
+def magnetosonic_phase_speeds(theta, v_A, c_s):
+    r"""Fast and slow magnetosonic phase speeds at angle $\theta$ to $\mathbf B_0$.
+
+    $$v_{f,s}^2 = \tfrac12\left[v_A^2 + c_s^2 \pm
+      \sqrt{\left(v_A^2 + c_s^2\right)^2 - 4v_A^2c_s^2\cos^2\theta}\right]$$
+
+    Parameters
+    ----------
+    theta : float or np.ndarray
+        Angle between $\mathbf k$ and $\mathbf B_0$ [rad].
+    v_A : float
+        Alfven speed, non-negative [m/s].
+    c_s : float
+        Sound speed $\sqrt{\gamma p/\rho}$, non-negative [m/s].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        $(v_f, v_s)$, $v_f \ge v_s \ge 0$ [m/s].
+
+    Raises
+    ------
+    ValueError
+        ``v_A`` or ``c_s`` is negative.
+
+    Physical interpretation
+    -----------------------
+    The two compressive ideal-MHD branches, polarized in the
+    $\mathbf k$-$\mathbf B_0$ plane. The fast wave is magnetic and thermal
+    pressure acting together; at $\theta = 90^\circ$ it is
+    $\sqrt{v_A^2 + c_s^2}$, and for $c_s \ll v_A$ it is the compressional
+    Alfven wave $\omega \simeq kv_A$ with $\delta B_\parallel \ne 0$. The
+    slow wave has them in antiphase and vanishes at $\theta = 90^\circ$. With
+    the shear Alfven speed $v_A|\cos\theta|$ (``shear_alfven_frequency``$/k$)
+    they are ordered $v_s \le v_A|\cos\theta| \le v_f$ at every angle -- the
+    Friedrichs diagram.
+
+    Assumptions
+    -----------
+    Uniform ideal MHD plasma, adiabatic, linear. Pass the adiabatic
+    $c_s$; ``c_s_from_Te_Ti_mi`` is the isothermal ($\gamma = 1$) one.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 10.2.
+    .. [2] T. J. M. Boyd and J. J. Sanderson, *The Physics of Plasmas*,
+           Cambridge University Press (2003), Sec. 4.8.
+    """
+    v_A = float(v_A)
+    c_s = float(c_s)
+    if v_A < 0.0 or c_s < 0.0:
+        raise ValueError(f"v_A and c_s must be non-negative, not {v_A!r} and {c_s!r}")
+    cos2 = np.cos(np.asarray(theta, dtype=float)) ** 2
+    total = v_A * v_A + c_s * c_s
+    root = np.sqrt(np.maximum(total * total - 4.0 * v_A * v_A * c_s * c_s * cos2, 0.0))
+    fast = np.sqrt(0.5 * (total + root))
+    # v_s^2 = v_A^2 c_s^2 cos^2 / v_f^2: no cancellation where the minus-sign form loses digits
+    slow = np.sqrt(np.divide(v_A * v_A * c_s * c_s * cos2, fast * fast, out=np.zeros_like(fast), where=fast > 0.0))
+    return fast, slow
 
 
 # ------------------------------------------------------------------

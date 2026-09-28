@@ -141,6 +141,8 @@ CONVENTION_SENSITIVE = frozenset({
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",
     "sheared_slab_field",
+    "harris_sheet_current_density",
+    "x_point_flux",
     "sheared_slab_parallel_wavenumber",
     "shear_length_from_q_R0_s",
     "cylindrical_safety_factor_from_r_B",
