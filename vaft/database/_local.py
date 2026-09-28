@@ -67,42 +67,58 @@ def _decode(value: Any) -> str | None:
 
 
 def _read_native(path: Path | str) -> h5py.File:
-    """Open a native IMAS HDF5/netCDF file for metadata reads, without locking.
+    """Open a native IMAS HDF5/netCDF file for metadata reads.
 
     imas_core's HDF5 backend keeps an entry's files open after DBEntry.close()
-    returns, and with HDF5 file locking a second read-only open of the same
-    entry in this process -- a second handle, a DD re-opened on it -- fails
-    with EAGAIN. These reads only inspect keys and attributes.
+    returns, and a second read-only open of the same entry in this process --
+    a second handle, a DD re-opened on it -- then fails, differently per
+    platform: on macOS/Linux the default open hits the file lock (EAGAIN) and
+    only ``locking=False`` succeeds; on Windows HDF5 reuses the already-open
+    file and refuses ``locking=False`` because the flag does not match the
+    open handle's. So open normally and retry without locking only when that
+    fails. These reads only inspect keys and attributes.
     """
-    return h5py.File(path, "r", locking=False)
+    try:
+        return h5py.File(path, "r")
+    except OSError:
+        return h5py.File(path, "r", locking=False)
 
 
 def _imas_version_hdf5(path: Path) -> str | None:
-    try:
-        with _read_native(path) as handle:
-            version = _decode(handle.attrs.get("data_dictionary_version"))
-            if version:
-                return version
-            roots = [handle.get("dataset_description"), handle]
-            # An entry written without dataset_description -- any third-party
-            # one, or a sparse occurrence set -- still stamps every IDS it
-            # holds, so the first stored IDS is the fallback witness.
-            roots.extend(
-                handle.get(key)
-                for key in sorted(handle.keys())
-                if key != "dataset_description"
-            )
-            for root in roots:
-                if not isinstance(root, h5py.Group):
-                    continue
-                for name in (
-                    "imas_version",
-                    "ids_properties&version_put&data_dictionary",
-                ):
-                    if name in root:
-                        return _decode(root[name][()])
-    except OSError:
-        return None
+    # The probe follows master.h5's external links into the IDS files, which
+    # may be the ones imas_core holds open, so each locking mode is tried for
+    # the whole read, not only for opening the master (see _read_native).
+    for locking in (None, False):
+        try:
+            return _imas_version_in(path, locking)
+        except OSError:
+            continue
+    return None
+
+
+def _imas_version_in(path: Path, locking: bool | None) -> str | None:
+    with h5py.File(path, "r", locking=locking) as handle:
+        version = _decode(handle.attrs.get("data_dictionary_version"))
+        if version:
+            return version
+        roots = [handle.get("dataset_description"), handle]
+        # An entry written without dataset_description -- any third-party
+        # one, or a sparse occurrence set -- still stamps every IDS it
+        # holds, so the first stored IDS is the fallback witness.
+        roots.extend(
+            handle.get(key)
+            for key in sorted(handle.keys())
+            if key != "dataset_description"
+        )
+        for root in roots:
+            if not isinstance(root, h5py.Group):
+                continue
+            for name in (
+                "imas_version",
+                "ids_properties&version_put&data_dictionary",
+            ):
+                if name in root:
+                    return _decode(root[name][()])
     return None
 
 
