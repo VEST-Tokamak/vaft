@@ -430,7 +430,7 @@ _COVERAGE_STATUS_STYLE: dict[str, dict[str, Any]] = {
     "success": {"marker": "o", "color": "palette:3"},
     "missing": {"marker": "x", "color": "emphasis:low"},
     "failed": {"marker": "X", "color": "emphasis:alert"},
-    "no_output": {"marker": "s", "color": "state:disabled", "markerfacecolor": "none"},
+    "no_output": {"marker": "s", "color": "palette:1", "markerfacecolor": "none"},
 }
 
 

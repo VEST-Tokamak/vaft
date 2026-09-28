@@ -1743,7 +1743,7 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
 
     psi_panel = Profile1D(
         series=(
-            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "palette:8"}),
+            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_inboard"], y=psi_1d, label="Inboard",
                    style={"color": "palette:0", "linestyle": "--"}),
             Series(x=[axis_r], y=[ts["global_quantities.psi_axis"]],
@@ -1758,7 +1758,7 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
     def _inboard_outboard(quantity, label, unit="", axis_value=None):
         series = [
             Series(x=ts["profiles_1d.r_inboard"], y=ts[f"profiles_1d.{quantity}"],
-                   label="Inboard", style={"color": "palette:8"}),
+                   label="Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_outboard"], y=ts[f"profiles_1d.{quantity}"],
                    label="Outboard", style={"color": "palette:3"}),
         ]
@@ -1826,7 +1826,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     layers += [
         GeometryLayer(r=prof2d["r"][:, j_theta], z=prof2d["z"][:, j_theta],
                       label="SFL theta line" if j_theta == 0 else "",
-                      style={"color": "palette:8", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
+                      style={"color": "palette:1", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
         for j_theta in range(0, nt, max(1, nt // 16))
     ]
     global_quantities = ts.get("global_quantities", {})

@@ -119,12 +119,14 @@ TOKENISED_OUTSIDE_RECIPES = (
 @pytest.mark.parametrize("relative", TOKENISED_OUTSIDE_RECIPES)
 def test_no_literal_colour_is_left_in_a_figure_built_outside_the_recipes(relative):
     source = Path(vaft.__file__).parent.joinpath(relative).read_text(encoding="utf-8")
-    token = r"(?!(?:palette|role|feature|state|emphasis):)"
+    # a token, "none", or a property-cycle colour C<n> -- which a theme's cycler owns
+    allowed = r"(?!(?:palette|role|feature|state|emphasis):|none[\"']|C\d[\"'])"
+    colour_key = r"(?:color|colors|markerfacecolor|markeredgecolor|mfc|mec|facecolor|edgecolor)"
     keyed = re.compile(
-        r"""["'](?:color|markerfacecolor|markeredgecolor)["']:\s*["']""" + token + r"""(?!none["'])[^"']+["']"""
+        r"""(?:["']""" + colour_key + r"""["']:\s*|\b""" + colour_key + r"""=)["']""" + allowed + r"""[^"']+["']"""
     )
-    # a colour handed on positionally -- a named Matplotlib colour or a hex literal
-    bare = re.compile(r"""["'](?:tab:[a-z]+|#[0-9a-fA-F]{6})["']""")
+    # a colour handed on positionally -- a named Matplotlib table colour or a hex literal
+    bare = re.compile(r"""["'](?:tab:[a-z]+|#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))["']""")
     stray = [m.group(0) for m in keyed.finditer(source)] + [m.group(0) for m in bare.finditer(source)]
     assert stray == [], stray
 
@@ -280,7 +282,7 @@ def test_a_theme_reaches_a_figure_built_outside_the_recipes():
         plt.close(figure)
         return colours
 
-    assert drawn(None) == {"#4daf4a", "#d62728"}  # palette:3 and emphasis:alert, as literals drew them
+    assert drawn(None) == {"#4daf4a", "#d62728"}  # palette:3 and emphasis:alert
     for colour in drawn("monochrome"):
         r, g, b, _ = matplotlib.colors.to_rgba(colour)
         assert r == g == b
