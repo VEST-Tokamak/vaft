@@ -87,6 +87,7 @@ CONVENTION_SENSITIVE = frozenset({
     "thin_wall_time",
     "halo_current_fraction",
     "toroidal_peaking_factor",
+    "hydrogenic_transition_wavelength",
     "flux_perturbation_from_normal_displacement",
     "grad_shafranov_source",
     "toroidal_current_density_from_p_prime_ff_prime",

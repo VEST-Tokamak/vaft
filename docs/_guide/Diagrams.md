@@ -707,6 +707,43 @@ vaft.diagram.vde_timescales()
 | `plasma_wall_halo_current` | Poloidal halo current through the scrape-off layer and the wall, toroidal eddy currents in the wall, and $\mathbf J_\mathrm{halo}\times\mathbf B_\phi$ on the floor, for one sign of $I_p$ and $B_\phi$ |
 | `vde_timescales` | $a/v_A$, the $m = 1$ wall time, and the L/R current-quench time at 5 and 20 eV for one medium-tokamak parameter set. The ordering is not universal |
 
+## Spectroscopy and ionization
+
+Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
+Metadata is progressive, and nothing is fabricated:
+- level 0 is the semantic identity (stage, charge, element);
+- level 1 is what the data declare (the wavelength in an IMAS `processed_line` label such as `OI_7770`);
+- hydrogenic lines add Bohr-model levels and Rydberg vacuum wavelengths with the isotope's reduced mass
+  (`hydrogenic_energy_level` and `hydrogenic_transition_wavelength` in `vaft.formula.atomic`). For one-electron
+  systems this model is the authoritative source; each model records it under `source`;
+- many-electron levels and photon emissivities would need OPEN-ADAS ADF04 and ADF15. Those are extension
+  points and are not loaded; ADF11 stays in `vaft.formula.atomic`.
+
+```python
+vaft.diagram.spectroscopy_ionization_stages("C III")   # "C2+", "carbon", "CIII_1909" too
+vaft.diagram.spectroscopy_transitions("H-alpha")        # "OI_7770": declared wavelength only
+vaft.diagram.spectroscopy_energy_levels("D-alpha")
+vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spectrometer declares
+```
+
+![stages]({{ '/assets/diagrams/spectroscopy_ionization_stages.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![H-alpha]({{ '/assets/diagrams/spectroscopy_transitions_h_alpha.svg' | relative_url }}) | ![O I]({{ '/assets/diagrams/spectroscopy_transitions_oi_7770.svg' | relative_url }}) |
+
+![levels]({{ '/assets/diagrams/spectroscopy_energy_levels.svg' | relative_url }})
+
+![spectrum]({{ '/assets/diagrams/spectroscopy_spectrum.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `spectroscopy_ionization_stages` | Every stage of an element, with the named one outlined. Stage $s$ is charge $s - 1$, and D and T are hydrogen with a mass number. Semantic only |
+| `spectroscopy_transitions` | A hydrogen series member gets Bohr-model levels and its vacuum wavelength (an unspecified isotope is taken as protium, and the title says so). Fully stripped ions are refused, since they have no lines. Any other line gets unnamed levels, and a wavelength only if its label declares one |
+| `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
+| `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

@@ -519,6 +519,129 @@ def impurity_fraction_from_effective_charge(z_eff, z_impurity):
     return float(fraction) if fraction.ndim == 0 else fraction
 
 
+# ------------------------------------------------------------------
+# Hydrogenic levels and lines (Bohr model with the reduced mass)
+# ------------------------------------------------------------------
+
+#: nuclear masses of the hydrogen isotopes (CODATA 2018): proton, deuteron, triton [kg]
+_NUCLEUS_MASS = {1: 1.67262192369e-27, 2: 3.3435837724e-27, 3: 5.0073567446e-27}
+
+
+def _reduced_mass_factor(mass_number) -> float:
+    from .constants import ME
+
+    if mass_number is None:
+        return 1.0
+    if mass_number not in _NUCLEUS_MASS:
+        raise ValueError(f"mass_number must be 1, 2 or 3 (H, D, T) or None, not {mass_number!r}")
+    return 1.0 / (1.0 + ME / _NUCLEUS_MASS[mass_number])
+
+
+def hydrogenic_energy_level(n, Z=1, mass_number=None):
+    r"""Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.
+
+    $$E_n = -\frac{\mu}{m_e}\,\frac{Z^2}{n^2}\,R_\infty hc,\qquad
+      R_\infty hc = \frac{m_ee^4}{8\varepsilon_0^2h^2}\approx 13.606\ \mathrm{eV}$$
+
+    Parameters
+    ----------
+    n : int or np.ndarray
+        Principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion (1 for H I, 2 for He II) [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T (the reduced mass $\mu = m_eM/(m_e + M)$), only with
+        ``Z = 1``; ``None`` for an infinitely heavy nucleus [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $E_n$, negative, from the ionisation limit [eV].
+
+    Raises
+    ------
+    ValueError
+        ``n`` below one, ``Z`` below one, an unknown ``mass_number``, or a
+        ``mass_number`` with ``Z > 1``.
+
+    Assumptions
+    -----------
+    Non-relativistic Bohr/Schroedinger levels of a one-electron ion: no fine
+    structure, Lamb shift or hyperfine splitting (H-alpha's fine structure
+    spans about 0.016 nm). Not a stand-in for many-electron levels, which need
+    atomic data (ADF04).
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    """
+    from .constants import EPS0, H_PLANCK, ME, QE
+
+    n = np.asarray(n, dtype=float)
+    if np.any(n < 1) or np.any(n != np.round(n)):
+        raise ValueError("n must be a positive integer")
+    if int(Z) != Z or Z < 1:
+        raise ValueError(f"Z must be a positive integer, not {Z!r}")
+    if mass_number is not None and Z != 1:
+        raise ValueError("mass_number names a hydrogen isotope (H, D, T): it cannot give the nuclear mass of a "
+                         f"Z = {Z} ion; pass None (infinite nuclear mass)")
+    rydberg_eV = ME * QE**4 / (8.0 * EPS0**2 * H_PLANCK**2) / QE
+    out = -_reduced_mass_factor(mass_number) * rydberg_eV * Z**2 / n**2
+    return float(out) if np.ndim(out) == 0 else out
+
+
+def hydrogenic_transition_wavelength(n_upper, n_lower, Z=1, mass_number=None):
+    r"""Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).
+
+    $$\frac{1}{\lambda} = \frac{\mu}{m_e}R_\infty Z^2\left(\frac{1}{n_l^2} - \frac{1}{n_u^2}\right),\qquad
+      R_\infty = \frac{m_ee^4}{8\varepsilon_0^2h^3c}$$
+
+    Parameters
+    ----------
+    n_upper : int or np.ndarray
+        Upper principal quantum number, above ``n_lower`` [-].
+    n_lower : int
+        Lower principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T; ``None`` for infinite nuclear mass [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Vacuum wavelength [m].
+
+    Raises
+    ------
+    ValueError
+        ``n_upper <= n_lower`` or an argument of ``hydrogenic_energy_level`` is invalid.
+
+    Convention
+    ----------
+    **Vacuum** wavelength. Tabulated visible lines are usually quoted in air
+    (H-alpha 656.28 nm air, 656.47 nm vacuum): the difference is the
+    refractive index of air, about $2.8\times10^{-4}$. The series of the
+    fusion-diagnostic names is Balmer: alpha is $3 \to 2$, beta $4 \to 2$.
+    The isotope shift from the reduced mass (D-alpha about 0.18 nm below
+    H-alpha) is what separates H and D lines.
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    """
+    from .constants import C_LIGHT, H_PLANCK, QE
+
+    n_upper = np.asarray(n_upper, dtype=float)
+    if np.any(n_upper <= n_lower):
+        raise ValueError("n_upper must exceed n_lower")
+    delta_eV = hydrogenic_energy_level(n_upper, Z, mass_number) - hydrogenic_energy_level(n_lower, Z, mass_number)
+    out = H_PLANCK * C_LIGHT / (np.asarray(delta_eV) * QE)
+    return float(out) if np.ndim(out) == 0 else out
+
+
 __all__ = [
     "fractional_abundances",
     "interpolate_adf11",
@@ -526,4 +649,6 @@ __all__ = [
     "mean_charge_from_charge_state_densities",
     "z_eff_from_n_s_Z_s",
     "impurity_fraction_from_effective_charge",
+    "hydrogenic_energy_level",
+    "hydrogenic_transition_wavelength",
 ]
