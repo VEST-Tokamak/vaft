@@ -38,7 +38,7 @@ class Polyline:
 
 @dataclass(frozen=True)
 class Marker:
-    """A point feature: ``kind`` is ``"o"`` (filled dot) or ``"x"`` (cross)."""
+    """A point feature: ``kind`` is ``"o"`` (filled dot), ``"x"`` (cross) or ``"."`` (a small puncture dot)."""
 
     at: Point
     kind: str
