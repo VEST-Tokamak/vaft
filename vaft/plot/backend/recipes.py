@@ -3446,6 +3446,49 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
     return layers
 
 
+def _first_finite(value: Any) -> float | None:
+    """The first finite sample of a scalar or a time trace, else ``None``.
+
+    EC launching positions are time traces in the DD (antenna positions are
+    read through their ``.data``); a fixed launcher repeats one value, and the
+    top view draws where it sits.
+    """
+    if value is None:
+        return None
+    samples = np.asarray(value, dtype=float).reshape(-1)
+    samples = samples[np.isfinite(samples)]
+    return float(samples[0]) if samples.size else None
+
+
+#: Length of the drawn initial EC launch direction [m].
+_EC_RAY_LENGTH = 0.25
+
+
+def _ec_launch_ray_topview(ods: Any, index: int, radius: float, phi: float) -> GeometryLayer | None:
+    """The initial straight launch direction of EC beam ``index`` in the top view.
+
+    The wave vector follows the DD 3.41 steering definitions
+    ``angle_pol = atan2(-k_Z, -k_R)`` and ``angle_tor = arcsin(k_phi/k)``.
+    """
+    base = f"ec_launchers.beam.{index}"
+    angle_pol = _first_finite(_get(ods, f"{base}.steering_angle_pol"))
+    angle_tor = _first_finite(_get(ods, f"{base}.steering_angle_tor"))
+    if angle_pol is None or angle_tor is None:
+        return None
+    k_r = -np.cos(angle_pol) * np.cos(angle_tor)
+    k_phi = np.sin(angle_tor)
+    x0, y0 = radius * np.cos(phi), radius * np.sin(phi)
+    dx = k_r * np.cos(phi) - k_phi * np.sin(phi)
+    dy = k_r * np.sin(phi) + k_phi * np.cos(phi)
+    return GeometryLayer(
+        r=[x0, x0 + _EC_RAY_LENGTH * dx],
+        z=[y0, y0 + _EC_RAY_LENGTH * dy],
+        kind="polyline",
+        label=f"EC launch direction {index}",
+        style={"lw": 1.2, "linestyle": "--"},
+    )
+
+
 def _build_machine_topview(
     ods: Any, *, time_slice: int = 0, **_: Any
 ) -> GeometryLayers:
@@ -3475,7 +3518,8 @@ def _build_machine_topview(
     for container, r_path, label, style in (
         (
             "lh_antennas.antenna",
-            "lh_antennas.antenna.{i}.position.r",
+            # DD 3.41 stores antenna positions as signals (`.data` + `.time`).
+            "lh_antennas.antenna.{i}.position.r.data",
             "LH antenna",
             {"marker": "s"},
         ),
@@ -3487,11 +3531,13 @@ def _build_machine_topview(
         ),
     ):
         for index in range(_count(ods, container)):
-            radius = _get(ods, r_path.format(i=index))
-            phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"), 0.0)
-            if radius is None:
+            radius = _first_finite(_get(ods, r_path.format(i=index)))
+            stored_phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"))
+            # No phi at all keeps the old 12 o'clock default; a phi that is
+            # stored but never finite is unknown, and nothing is drawn.
+            phi = 0.0 if stored_phi is None else _first_finite(stored_phi)
+            if radius is None or phi is None:
                 continue
-            radius, phi = float(radius), float(phi or 0.0)
             layers.append(
                 GeometryLayer(
                     r=[radius * np.cos(phi)],
@@ -3501,6 +3547,10 @@ def _build_machine_topview(
                     style=style,
                 )
             )
+            if container == "ec_launchers.beam":
+                ray = _ec_launch_ray_topview(ods, index, radius, phi)
+                if ray is not None:
+                    layers.append(ray)
     layers.extend(_topview_diagnostic_layers(ods))
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
@@ -4679,6 +4729,11 @@ def _coil_excitation_title(rows: Sequence[Mapping[str, Any]], heading: str) -> s
     return heading if instant is None else f"{heading} at t={instant:.4g} s"
 
 
+#: Sector currents and harmonic amplitudes are discrete samples: a marker
+#: each, and no line asserting a value between two coils or two mode numbers.
+_DISCRETE_SAMPLES = {"marker": "o", "linestyle": "none"}
+
+
 def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
     """The sector currents of each coil set against toroidal angle.
 
@@ -4696,13 +4751,14 @@ def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
             x=np.degrees(row["phi"]),
             y=row["current"] * display.scale,
             label=f"{row['label']} ({row['phi'].size} sectors)",
+            style=_DISCRETE_SAMPLES,
         )
         for row in rows
     )
     return Profile1D(
         series=series,
         coordinate_label=r"toroidal angle $\phi$ [deg]",
-        y_label=f"coil current per filament [{display.unit}]",
+        y_label="coil current per filament",
         y_unit=display.unit,
         x_limits=(0.0, 360.0),
         title=_coil_excitation_title(rows, "Non-axisymmetric coil excitation"),
@@ -4743,6 +4799,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
                 x=np.asarray(modes, dtype=float),
                 y=amplitude * display.scale,
                 label=f"{row['label']} ({sectors} sectors, |n| <= {limit} resolved)",
+                style=_DISCRETE_SAMPLES,
             )
         )
         if any(abs(n) > limit for n in modes):
@@ -4757,7 +4814,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
         # `coil.turns` and the mapper keeps the two apart, so a reader who
         # wants ampere-turns multiplies. Said on the axis because the
         # difference is a factor of 20 on VEST.
-        y_label=rf"$|C_n|$ per filament [{display.unit}]",
+        y_label=r"$|C_n|$ per filament",
         y_unit=display.unit,
         title=title,
         display=display,
@@ -5021,7 +5078,7 @@ RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
-    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r", "lh_antennas.antenna.{i}.position.phi", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
@@ -10844,7 +10901,9 @@ def _build_mhd_linear_eigenfunction_profile(
     if stride is not None and stride > 1:
         notes.append(f"every {stride}th radial sample")
     if notes:
-        title += f" ({'; '.join(notes)})"
+        # A second line: on one line the notes pushed the title past a default
+        # figure's width, and past half of it in the two-panel overview.
+        title += f"\n({'; '.join(notes)})"
 
     return Profile1D(
         series=series,

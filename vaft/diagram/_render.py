@@ -209,6 +209,41 @@ def render_pdf(document: str, target: Path) -> None:
         shutil.copyfile(cwd / "diagram.pdf", target)
 
 
+def committed_assets_dir() -> Path:
+    """``docs/assets/diagrams`` of the source checkout this module runs from."""
+    return Path(__file__).resolve().parents[2] / "docs" / "assets" / "diagrams"
+
+
+def committed_svg(source_sha256: str) -> Optional[str]:
+    """The committed SVG rendered from exactly this TikZ source, if there is one.
+
+    An installed package has no ``docs/`` beside it, and an asset whose
+    manifest hash differs was drawn from different source; both return
+    ``None``.
+    """
+    import json
+
+    directory = committed_assets_dir()
+    try:
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    for name, entry in manifest.get("diagrams", {}).items():
+        if entry.get("source_sha256") != source_sha256:
+            continue
+        path = directory / name
+        if not path.is_file():
+            return None
+        raw = path.read_bytes()
+        # The source hash says which picture the asset should be; the SVG hash
+        # (over the bytes, as the build writes it) says the file still is that
+        # picture, not a stale or hand-edited one.
+        if hashlib.sha256(raw).hexdigest() != entry.get("svg_sha256"):
+            return None
+        return raw.decode("utf-8")
+    return None
+
+
 class Diagram:
     """A built scientific diagram: TikZ source now, SVG on first request.
 
@@ -234,9 +269,22 @@ class Diagram:
 
     @property
     def svg(self) -> str:
-        """The rendered, normalised SVG text. Renders on first access."""
+        """The rendered, normalised SVG text. Renders on first access.
+
+        Without the TeX toolchain, a diagram whose TikZ source matches a
+        committed asset is served from ``docs/assets/diagrams/``: the manifest
+        records the source hash each asset was rendered from, so the file is
+        the picture this call would have drawn, not a nearby one. Anything
+        else still raises :class:`DiagramToolchainError`.
+        """
         if self._svg is None:
-            self._svg = render_svg(self.tikz)
+            try:
+                self._svg = render_svg(self.tikz)
+            except DiagramToolchainError:
+                committed = committed_svg(self.source_sha256)
+                if committed is None:
+                    raise
+                self._svg = committed
         return self._svg
 
     def _repr_svg_(self) -> str:

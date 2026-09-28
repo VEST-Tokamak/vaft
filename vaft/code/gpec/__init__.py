@@ -198,6 +198,39 @@ def _prepared_record(module: str, mode: int, workdir: Path) -> GPECModuleRun:
     )
 
 
+def find_gpec_executable(
+    program: str, config: "GPECSuiteConfig | None" = None
+) -> Path | None:
+    """Resolve one GPEC-suite program, or ``None`` when it is not installed.
+
+    Parameters
+    ----------
+    program : str
+        The program name under ``bin/``: ``"dcon"``, ``"rdcon"``,
+        ``"stride"``, ``"gpec"``, ``"match"`` or ``"rmatch"`` [-].
+    config : GPECSuiteConfig, optional
+        Where to look; ``config.executable_dir`` wins over ``$GPECHOME``.
+        Defaults to ``$GPECHOME`` alone [-].
+
+    Returns
+    -------
+    Path or None
+        The launchable executable, or ``None`` when neither
+        ``executable_dir`` nor ``$GPECHOME`` provides it [-].
+
+    The GPEC-suite counterpart of :func:`vaft.code.find_chease_executable`:
+    a notebook preflights a solver with this rather than by hand.
+    """
+    config = config or GPECSuiteConfig()
+    try:
+        found = rt.executable(config, program)
+    except (FileNotFoundError, PermissionError):
+        # $GPECHOME is set but this program was never built there, or the file
+        # is there without an execute bit: either way nothing can launch it.
+        return None
+    return found if found is not None and found.is_file() and is_executable(found) else None
+
+
 def validate_dcon_result(
     dcon_dir: Path | str,
     mode: int,
@@ -606,6 +639,7 @@ __all__ = [
     "run_gpec_suite_case",
     "stage_dcon_products",
     "validate_dcon_result",
+    "find_gpec_executable",
     "DconCoordinates",
     "DconEdgeScan",
     "DconEigenfunction",

@@ -86,6 +86,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
+    # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
+    **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
+       for k in ("uniform", "sheared", "reversed", "guide")},
+    "current_sheet.svg": ("current_sheet", {}),
+    "current_sheet_guide_field.svg": ("current_sheet", {"guide_field": True}),
+    **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
+                                              "island_formation", "shear_alfven_wave",
+                                              "fast_magnetosonic_wave", "mhd_wave_family")},
 }
 
 

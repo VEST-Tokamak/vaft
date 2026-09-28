@@ -27,6 +27,9 @@ from vaft.data.equilibrium import (
     DerivedValue,
     EquilibriumConvention,
     EquilibriumData,
+    FourierFitResult,
+    FourierSequenceResult,
+    FourierSurface,
     Gap,
     GlobalEquilibriumDescriptors,
     MillerFitResult,
@@ -977,7 +980,7 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ----------
     surface : MillerSurface
         The shape parameters.  ``r``, ``r0`` and ``z0`` in metres, ``kappa``,
-        ``delta`` and ``zeta`` dimensionless [-].
+        ``delta``, ``zeta`` and ``indentation`` dimensionless [-].
     theta : array_like
         Poloidal angles at which to evaluate [rad].
 
@@ -990,18 +993,22 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ------
     ValueError
         The geometry is degenerate: minor radius or elongation not positive,
-        triangularity of magnitude one or more, or squareness of magnitude one
-        half or more.
+        triangularity of magnitude one or more, squareness of magnitude one
+        half or more, or an indentation at or below ``-sqrt(1 - delta**2)``.
 
     Convention
     ----------
-    ``R = r0 + r*cos(theta + arcsin(delta)*sin(theta))`` and
-    ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``.  *theta* is the parameter
+    ``R = r0 + r*(cos(theta + arcsin(delta)*sin(theta)) + b*sin(theta)**2*cos(theta))``
+    and ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``, with ``b`` the
+    indentation.  *theta* is the parameter
     of the parameterization, not a geometric poloidal angle about the centre, and
     the two differ once the surface is shaped.  Positive ``delta`` shifts the
     extremum of ``Z`` inboard.  Positive ``zeta`` squares the surface off,
     negative rounds it.  ``zeta = 0`` is the five-parameter surface exactly, to
-    the bit, so nothing that does not ask for squareness moves.  The surface is
+    the bit, so nothing that does not ask for squareness moves; the same holds
+    for ``indentation = 0``.  The indentation term vanishes at the four
+    cardinal points, and with ``alpha = arcsin(delta)`` the inboard side turns
+    concave -- a bean -- once ``b > (1 - alpha)**2/2``.  The surface is
     up-down symmetric by construction, squareness included.
 
     Applicability
@@ -1016,7 +1023,11 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     by one half because ``d(theta + zeta*sin(2*theta))/dtheta = 1 +
     2*zeta*cos(2*theta)`` changes sign beyond it: the parameterization then
     doubles back and the "surface" crosses itself, so a larger magnitude does not
-    describe a squarer plasma but a curve that is not one.
+    describe a squarer plasma but a curve that is not one.  The indentation is
+    bounded below for the same reason: at equal height the two sides are
+    ``2 r cos(theta) (cos(alpha sin(theta)) + b sin(theta)**2)`` apart, which
+    stays positive for every ``theta`` exactly when ``b > -cos(alpha) =
+    -sqrt(1 - delta**2)``.
 
     Provenance
     ----------
@@ -1026,6 +1037,8 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     .. [2] The squareness term follows the extended form used for shape
        comparison, e.g. Barr, Boyer, Humphreys *et al.*, *ShapeFIT*, Nucl.
        Fusion 58, 076011 (2018), App. A.
+    .. [3] The inboard-indentation term for bean-shaped plasmas (PBX/PBX-M)
+       is VAFT's, specified with its bean-onset criterion in issue #941.
     """
 
     theta = np.asarray(theta, dtype=float)
@@ -1036,7 +1049,7 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     from vaft.formula.equilibrium import miller_surface
 
     return miller_surface(surface.r, theta, surface.r0, surface.kappa, surface.delta,
-                          squareness=surface.zeta, Z0=surface.z0)
+                          squareness=surface.zeta, Z0=surface.z0, indentation=surface.indentation)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:
@@ -1051,7 +1064,7 @@ def _resample_contour(contour: Contour, count: int = 256) -> Contour:
 def fit_miller_surface(
     contour: Contour | tuple[Any, Any], *, radial_value: float | None = None,
     radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
-    near_xpoint: bool = False, squareness: bool = False,
+    near_xpoint: bool = False, squareness: bool = False, indentation: bool = False,
 ) -> MillerFitResult:
     """Fit the Miller shape parameters to one closed flux-surface contour.
 
@@ -1077,6 +1090,9 @@ def fit_miller_surface(
     squareness : bool, optional
         Fit the sixth parameter, ``zeta``, as well.  Off by default: adding a
         free parameter changes the answer of a fit that did not ask for it [-].
+    indentation : bool, optional
+        Fit the inboard indentation as well, for bean-shaped surfaces.  Off by
+        default for the same reason as *squareness* [-].
 
     Returns
     -------
@@ -1100,7 +1116,8 @@ def fit_miller_surface(
     4. Score with a symmetric distance: contour-to-model and model-to-contour,
        giving a root-mean-square, a maximum, and a Hausdorff distance.
     5. Reject, in order, a surface too near the boundary, a surface near an
-       X-point, a residual over the threshold, or a solve that did not converge.
+       X-point, a fitted indentation that makes the surface cross itself, a
+       residual over the threshold, or a solve that did not converge.
 
     Defaults
     --------
@@ -1108,7 +1125,9 @@ def fit_miller_surface(
     physical constant: two percent of the minor radius is where a fitted surface
     stops being a useful stand-in for the traced one.  The parameter bounds,
     elongation in 0.05 to 10 and triangularity within 0.999, are numerical
-    conveniences that keep the solve inside the parameterization's own domain.
+    conveniences that keep the solve inside the parameterization's own domain;
+    so is the indentation box of -0.95 to 2, whose delta-dependent lower limit
+    is enforced after the solve instead.
 
     Convention
     ----------
@@ -1153,27 +1172,37 @@ def fit_miller_surface(
     initial = np.array([0.5 * (rmin + rmax), 0.5 * (zmin + zmax), minor, (zmax-zmin)/(2*minor), 0.0])
     if squareness:
         initial = np.r_[initial, 0.0]
+    if indentation:
+        initial = np.r_[initial, 0.0]
+    zeta_index = 5 if squareness else None
+    indentation_index = (6 if squareness else 5) if indentation else None
     theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
     observed_points = observed.points
 
     def _surface(params: np.ndarray) -> MillerSurface:
         # Without squareness the parameter vector is the five it always was, so
         # the optimiser sees the identical problem and returns the identical fit.
-        zeta = float(params[5]) if params.size > 5 else 0.0
-        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta)
+        zeta = float(params[zeta_index]) if zeta_index is not None else 0.0
+        bean = float(params[indentation_index]) if indentation_index is not None else 0.0
+        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta, indentation=bean)
 
-    def model(params: np.ndarray) -> np.ndarray:
-        rr, zz = evaluate_miller(_surface(params), theta)
-        return np.column_stack((rr, zz))
+    def points_on(surface: MillerSurface, angles: np.ndarray) -> np.ndarray:
+        # Unvalidated: a trial step may cross the self-intersection bound on
+        # its way, and the final surface is validated after the solve.
+        from vaft.formula.equilibrium import _miller_rz
+
+        return np.column_stack(_miller_rz(surface.r, angles, surface.r0, surface.z0, surface.kappa,
+                                          surface.delta, surface.zeta, surface.indentation))
 
     def nearest_model_points(params: np.ndarray) -> np.ndarray:
         dense_theta = np.linspace(0, 2*np.pi, 8*observed.r.size, endpoint=False)
         surface = _surface(params)
-        dense_points = np.column_stack(evaluate_miller(surface, dense_theta))
+        dense_points = points_on(surface, dense_theta)
         nearest = cKDTree(dense_points).query(observed_points)[1]
         local_theta = dense_theta[nearest]
         asin_delta = np.arcsin(params[4])
         zeta = surface.zeta
+        bean = surface.indentation
         for _ in range(5):
             angle = local_theta + asin_delta*np.sin(local_theta)
             angle_prime = 1 + asin_delta*np.cos(local_theta)
@@ -1185,18 +1214,27 @@ def fit_miller_surface(
             vertical = local_theta + zeta*np.sin(2*local_theta)
             vertical_prime = 1 + 2*zeta*np.cos(2*local_theta)
             vertical_second = -4*zeta*np.sin(2*local_theta)
+            # The indentation g = sin^2 cos enters R, with g' = sin (3 cos^2 - 1)
+            # and g'' = cos (9 cos^2 - 7); leaving it out of R' and R'' would
+            # break the orthogonal projection the same way as for squareness.
             points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(vertical)))
             first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(vertical)*vertical_prime))
             second = np.column_stack((
                 -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second),
                 params[3]*params[2]*(np.cos(vertical)*vertical_second-np.sin(vertical)*vertical_prime**2),
             ))
+            if bean != 0.0:
+                # Added separately so a fit without indentation is the old fit to the bit.
+                sin_t, cos_t = np.sin(local_theta), np.cos(local_theta)
+                points[:, 0] += params[2]*bean*sin_t**2*cos_t
+                first[:, 0] += params[2]*bean*sin_t*(3*cos_t**2-1)
+                second[:, 0] += params[2]*bean*cos_t*(9*cos_t**2-7)
             delta_points = points-observed_points
             numerator = np.sum(delta_points*first, axis=1)
             denominator = np.sum(first*first+delta_points*second, axis=1)
             step = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=np.abs(denominator)>1e-14)
             local_theta = np.mod(local_theta-step, 2*np.pi)
-        return np.column_stack(evaluate_miller(surface, local_theta))
+        return points_on(surface, local_theta)
 
     def residual(params: np.ndarray) -> np.ndarray:
         return (nearest_model_points(params)-observed_points).reshape(-1)
@@ -1208,6 +1246,11 @@ def fit_miller_surface(
         # Short of the 0.5 where the parameterization doubles back.
         lower.append(-0.499)
         upper.append(0.499)
+    if indentation:
+        # The self-intersection bound depends on delta, so the box only keeps
+        # the solve sane; a result past the bound is rejected below.
+        lower.append(-0.95)
+        upper.append(2.0)
     result = least_squares(
         residual, initial, bounds=(lower, upper),
         xtol=1e-11, ftol=1e-11, gtol=1e-11, max_nfev=1000,
@@ -1218,7 +1261,9 @@ def fit_miller_surface(
         float(best.r), float(best.r0), float(best.z0), float(best.kappa),
         float(best.delta), float(best.zeta),
         radial_value=radial_value, radial_coordinate=radial_coordinate,
+        indentation=float(best.indentation),
     )
+    self_intersecting = fitted.indentation <= -np.sqrt(1.0 - fitted.delta**2)
     predicted = Contour(nearest_points[:, 0], nearest_points[:, 1], True)
     d1 = np.linalg.norm(nearest_points-observed_points, axis=1)
     d2 = cKDTree(observed_points).query(predicted.points)[0]
@@ -1230,6 +1275,8 @@ def fit_miller_surface(
         reason = "surface is at psi_n>=0.995, where X-point/separatrix geometry is not locally Miller-like"
     elif near_xpoint:
         reason = "surface lies within 0.05 minor radii of an X-point"
+    elif self_intersecting:
+        reason = "fitted indentation makes the surface cross itself (indentation <= -sqrt(1 - delta**2))"
     elif nrms > max_normalized_rms:
         reason = f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g}"
     elif not result.success:
@@ -2912,25 +2959,304 @@ def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: flo
     return float(samples[index] + weight * (samples[index + 1] - samples[index]))
 
 
-def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
-    sampled = _resample_contour(contour, max(256, 8*modes))
-    start = int(np.argmax(sampled.r)); r = np.roll(sampled.r, -start); z = np.roll(sampled.z, -start)
-    # Ensure a deterministic CCW traversal.
-    area = 0.5*np.sum(r*np.roll(z,-1)-np.roll(r,-1)*z)
+def _arc_length_fourier(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float, Contour]:
+    """The one Fourier definition of a closed contour (#945), shared with the LCFS.
+
+    Returns the coefficients in the canonical arc-length convention of
+    :class:`FourierSurface`, the RMS residual at the fitted samples, and the
+    resampled, oriented contour those samples came from.
+    """
+    if modes < 1:
+        raise ValueError("modes must be at least 1")
+    count = max(256, 8*modes)
+    sampled = _resample_contour(contour, count)
+    r, z = sampled.r, sampled.z
+    # Counter-clockwise in (R, Z), so the angle runs outboard -> top -> inboard.
+    area = 0.5*np.sum(r*np.roll(z, -1)-np.roll(r, -1)*z)
     if area < 0:
         r = np.r_[r[0], r[:0:-1]]; z = np.r_[z[0], z[:0:-1]]
-    theta = np.linspace(0, 2*np.pi, r.size, endpoint=False)
-    matrix = [np.ones_like(theta)]
-    for n in range(1, modes+1): matrix.extend((np.cos(n*theta), np.sin(n*theta)))
-    design = np.column_stack(matrix)
+    start = int(np.argmax(r)); r = np.roll(r, -start); z = np.roll(z, -start)
+    theta = np.linspace(0, 2*np.pi, count, endpoint=False)
+    harmonics = np.arange(1, modes+1)
+    design = np.column_stack([np.ones_like(theta), *(f(m*theta) for m in harmonics for f in (np.cos, np.sin))])
     cr = np.linalg.lstsq(design, r, rcond=None)[0]; cz = np.linalg.lstsq(design, z, rcond=None)[0]
-    reconstructed = np.column_stack((design@cr, design@cz))
-    error = float(np.sqrt(np.mean(np.sum((reconstructed-np.column_stack((r,z)))**2, axis=1))))
+    error = float(np.sqrt(np.mean(np.sum((np.column_stack((design@cr, design@cz))-np.column_stack((r, z)))**2, axis=1))))
+
     def split(c: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        a = np.r_[c[0], c[1::2]]; b = np.r_[0.0, c[2::2]]
-        return a, b
+        return np.r_[c[0], c[1::2]], np.r_[0.0, c[2::2]]
+
     ar, br = split(cr); az, bz = split(cz)
-    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error
+    # Fix the phase on the fitted first harmonic of R: rotate so that
+    # r_sin[1] = 0 and r_cos[1] > 0.  Closed-form and independent of where the
+    # contour starts or how it is sampled -- a maximum of R is not, on a flat
+    # outboard side -- and for an up-down symmetric surface it is exactly the
+    # outboard midplane.
+    phi = float(np.arctan2(br[1], ar[1]))
+    c, sn = np.cos(harmonics*phi), np.sin(harmonics*phi)
+    ar[1:], br[1:] = ar[1:]*c + br[1:]*sn, br[1:]*c - ar[1:]*sn
+    az[1:], bz[1:] = az[1:]*c + bz[1:]*sn, bz[1:]*c - az[1:]*sn
+    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error, Contour(r, z, True)
+
+
+def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
+    coefficients, error, _ = _arc_length_fourier(contour, modes)
+    return coefficients, error
+
+
+def evaluate_fourier_surface(surface: FourierSurface, theta: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Points on a Fourier-represented flux surface at given arc-length angles.
+
+    The forward evaluation of the spectral surface representation;
+    :func:`fit_fourier_surface` is its inverse.
+
+    Parameters
+    ----------
+    surface : FourierSurface
+        The cosine and sine coefficients of each harmonic of R and Z [m].
+    theta : array_like
+        Arc-length angles ``2 pi s / L`` at which to evaluate [rad].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(R, Z)`` on the surface, same shape as *theta* [m].
+
+    Convention
+    ----------
+    ``R = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and likewise
+    ``Z``, with ``theta`` increasing counter-clockwise in (R, Z) from the
+    phase origin of :class:`~vaft.data.equilibrium.FourierSurface`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Truncated Fourier series of a closed curve; the arc-length angle
+       and phase are VAFT's convention (#945).
+    """
+    theta = np.asarray(theta, dtype=float)
+    m = np.arange(surface.modes+1).reshape((-1,)+(1,)*theta.ndim)
+    cos, sin = np.cos(m*theta), np.sin(m*theta)
+    r = np.tensordot(surface.r_cos, cos, axes=(0, 0)) + np.tensordot(surface.r_sin, sin, axes=(0, 0))
+    z = np.tensordot(surface.z_cos, cos, axes=(0, 0)) + np.tensordot(surface.z_sin, sin, axes=(0, 0))
+    return r, z
+
+
+def fit_fourier_surface(
+    contour: Contour | tuple[Any, Any], *, modes: int = 6, radial_value: float | None = None,
+    radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
+) -> FourierFitResult:
+    """Represent one closed flux-surface contour as a truncated Fourier series.
+
+    The general counterpart of :func:`fit_miller_surface`: where Miller holds a
+    surface in a few interpretable, up-down symmetric numbers, this keeps every
+    harmonic up to *modes* in both R and Z, sine and cosine, so up-down
+    asymmetry and higher-order shaping are represented rather than left in the
+    residual.  The truncation error it reports answers how many harmonics the
+    surface needs.
+
+    Parameters
+    ----------
+    contour : Contour or tuple of array_like
+        The closed surface, as a contour record or an ``(R, Z)`` pair [m].
+    modes : int, optional
+        Highest poloidal harmonic kept, at least one [-].
+    radial_value : float, optional
+        The surface's radial coordinate, carried onto the result for the
+        caller's bookkeeping [-].
+    radial_coordinate : str, optional
+        Which coordinate *radial_value* is in [-].
+    max_normalized_rms : float, optional
+        Largest geometric RMS error, divided by the contour's half radial
+        extent, that still counts as accepted [-].
+
+    Returns
+    -------
+    FourierFitResult
+        The surface, the resampled observed contour, the reconstruction on the
+        same angles, the symmetric geometric RMS, its normalized form, the
+        maximum and Hausdorff distances, acceptance with a reason, and the
+        derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        *modes* is below one, or the contour has zero arc length or zero radial
+        extent.
+
+    Processing steps
+    ----------------
+    1. Resample the contour to ``max(256, 8*modes)`` points uniform in arc length.
+    2. Orient it counter-clockwise and start at its largest R.
+    3. Solve the cosine and sine coefficients of R and Z by least squares.
+    4. Rotate the angle origin so the first harmonic of R is a pure cosine
+       (``r_sin[1] = 0``, ``r_cos[1] > 0``), which fixes the phase
+       independently of the contour's sampling and starting point.
+    5. Score the reconstruction geometrically: contour-to-model and
+       model-to-contour nearest distances on a dense evaluation.
+
+    Defaults
+    --------
+    ``modes = 6`` and ``max_normalized_rms = 0.02`` are numerical conveniences:
+    six harmonics resolve the shaped surfaces of a tokamak to well under a
+    percent, and the two-percent threshold is the one the Miller fit uses, so
+    the two acceptances are comparable.
+
+    Convention
+    ----------
+    The angle is ``theta = 2 pi s / L``, arc length counter-clockwise over the
+    perimeter, with its origin where the first harmonic of R peaks (so
+    ``r_sin[1] = 0``); the ``m = 0`` terms are the perimeter centroid.  An up-down symmetric surface therefore has ``r_sin = 0`` and
+    ``z_cos[1:] = 0``, and a translation changes the ``m = 0`` terms only.
+    This is the same definition :func:`derive_boundary_representation` uses
+    for the LCFS, so there is one Fourier convention for a contour, not two.
+    Purely geometric: no flux, field or COCOS enters.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The phase origin is undefined only for a contour with no first harmonic in
+    R, which no closed plasma surface is.  ``max_error`` and
+    ``hausdorff_distance`` are the same number, the larger of the two directed
+    maxima, kept separately to parallel :class:`MillerFitResult`.  Arc length is not a flux-coordinate angle, so the
+    coefficients describe shape, not straight-field-line harmonics.
+
+    Provenance
+    ----------
+    .. [1] Least-squares Fourier series of a closed curve; the convention is
+       VAFT's (#945), shared with the LCFS representation.
+    """
+    if not isinstance(contour, Contour):
+        contour = Contour(contour[0], contour[1], True)
+    modes = int(modes)
+    coefficients, _, observed = _arc_length_fourier(contour, modes)
+    minor = 0.5*float(np.ptp(observed.r))
+    if minor <= 0:
+        raise ValueError("contour must have nonzero radial extent")
+    surface = FourierSurface(**coefficients, radial_value=radial_value, radial_coordinate=radial_coordinate)
+    theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
+    reconstructed = Contour(*evaluate_fourier_surface(surface, theta), True)
+    dense = np.column_stack(evaluate_fourier_surface(surface, np.linspace(0, 2*np.pi, 16*observed.r.size, endpoint=False)))
+    # Both directions against a dense copy of the other curve: measured to
+    # the other set's sample points instead, the distance would be up to half
+    # a sample spacing whatever the fit, about one percent of the radius here.
+    d1 = cKDTree(dense).query(observed.points)[0]
+    d2 = cKDTree(_resample_contour(observed, 16*observed.r.size).points).query(reconstructed.points)[0]
+    distances = np.r_[d1, d2]
+    rms = float(np.sqrt(np.mean(distances**2))); nrms = rms/minor
+    reason = None if nrms <= max_normalized_rms else f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g} with {modes} modes"
+    provenance = DerivationProvenance(
+        "arc-length least-squares Fourier series", radial_coordinate=radial_coordinate,
+        fit_range=(radial_value, radial_value) if radial_value is not None else None,
+        tolerances={"max_normalized_rms": max_normalized_rms, "modes": modes},
+    )
+    return FourierFitResult(surface, observed, reconstructed, rms, nrms, float(np.max(distances)),
+                            float(max(np.max(d1), np.max(d2))), reason is None, reason, provenance)
+
+
+def fit_fourier_surface_sequence(
+    equilibrium: Any, levels: Sequence[float], *, radial_coordinate: str = "psi_n",
+    modes: int = 6, max_normalized_rms: float = 0.02,
+) -> FourierSequenceResult:
+    """Represent a sequence of internal flux surfaces as Fourier series.
+
+    Traces each requested surface and fits it with :func:`fit_fourier_surface`,
+    so each harmonic becomes a radial profile such as ``R_2^c(rho)`` that can
+    be compared between equilibria independently of their grids.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a psi map and the axis
+        and boundary flux [-].
+    levels : sequence of float
+        Radial positions to represent, in *radial_coordinate* [-].
+    radial_coordinate : str, optional
+        Coordinate of *levels*; anything other than normalized poloidal flux
+        is converted through :func:`derive_radial_coordinates` [-].
+    modes : int, optional
+        Highest harmonic kept on every surface [-].
+    max_normalized_rms : float, optional
+        Passed to :func:`fit_fourier_surface` as the acceptance threshold [-].
+
+    Returns
+    -------
+    FourierSequenceResult
+        The fits sorted by radial value, the levels that gave no closed
+        surface, and the derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        *radial_coordinate* is not available for this equilibrium.
+
+    Processing steps
+    ----------------
+    1. Convert the levels to normalized poloidal flux when needed.
+    2. Trace the closed surface at each level; a level outside the
+       coordinate's range, or whose surface is open or missing, is recorded
+       as skipped rather than dropped or clamped silently.
+    3. Fit each traced surface and sort the fits by radial value.
+
+    Convention
+    ----------
+    Every surface uses the arc-length convention of :func:`fit_fourier_surface`,
+    so coefficients of one harmonic are comparable across the sequence.  The
+    radial coordinate follows :func:`derive_radial_coordinates`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Near an X-point the arc-length series needs many harmonics to follow the
+    corner, which the acceptance threshold reports rather than hides.
+    Radial derivatives of the coefficients are not computed yet.
+
+    Provenance
+    ----------
+    .. [1] See :func:`fit_fourier_surface`; the surface tracing is the one
+       :func:`fit_miller_sequence` uses.
+    """
+    eq = as_equilibrium(equilibrium)
+    levels = [float(level) for level in levels]
+    if radial_coordinate != "psi_n":
+        coordinates = derive_radial_coordinates(eq)
+        radial = coordinates.get(radial_coordinate)
+        if radial is None or not radial.available:
+            raise ValueError(f"{radial_coordinate} is unavailable")
+        coordinate = np.asarray(radial.value, dtype=float); psi_n = np.asarray(coordinates["psi_n"].value, dtype=float)
+        order = np.argsort(coordinate)
+        coordinate, psi_n = coordinate[order], psi_n[order]
+        # Outside the coordinate's range np.interp would clamp to the end, and
+        # label the boundary surface with a level it does not have.
+        psi_levels = np.where((np.asarray(levels) < coordinate[0]) | (np.asarray(levels) > coordinate[-1]),
+                              np.nan, np.interp(levels, coordinate, psi_n))
+    else:
+        psi_levels = np.asarray(levels, dtype=float)
+    fits: list[FourierFitResult] = []
+    skipped: list[float] = []
+    for requested, psi_level in zip(levels, psi_levels):
+        if not np.isfinite(psi_level):
+            skipped.append(requested)
+            continue
+        contour = _contour_at_level(eq, float(psi_level))
+        if contour is None or not contour.closed:
+            skipped.append(requested)
+            continue
+        fits.append(fit_fourier_surface(contour, modes=modes, radial_value=requested,
+                                        radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms))
+    fits.sort(key=lambda item: item.surface.radial_value)
+    provenance = _provenance(eq, "flux-contour extraction plus arc-length Fourier series", ("psi",),
+                             radial_coordinate=radial_coordinate,
+                             fit_range=(float(min(levels)), float(max(levels))) if levels else None)
+    return FourierSequenceResult(tuple(fits), tuple(skipped), provenance)
 
 
 def _segment_intersections(first: Contour, second: Contour) -> list[tuple[float, float, int]]:
@@ -3000,6 +3326,11 @@ def derive_boundary_representation(
     A single global tolerance cannot be right for saddles of different sharpness.
     ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
     to represent a tokamak boundary without fitting the contour's own sampling.
+    The coefficients are :func:`fit_fourier_surface`'s, one convention for
+    every contour (#945).  Before #945 the phase origin was the sampled point
+    of largest R; it is now the phase of R's first harmonic, so individual
+    cosine and sine values differ from older results while the per-harmonic
+    amplitudes and the reconstruction error do not.
 
     Applicability
     -------------
@@ -3159,5 +3490,6 @@ __all__ = [
     "evaluate_solovev", "find_stationary_points", "fit_miller_sequence", "fit_miller_surface",
     "solovev_to_equilibrium", "solve_solovev_constraints",
     "check_equilibrium_requirements", "validate_equilibrium",
-    "miller_surfaces", "solovev_example", "solovev_shape_constraints", "solovev_xpoint_constraints",
+    "miller_surfaces", "solovev_example",
+    "evaluate_fourier_surface", "fit_fourier_surface", "fit_fourier_surface_sequence", "solovev_shape_constraints", "solovev_xpoint_constraints",
 ]

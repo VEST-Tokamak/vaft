@@ -1,6 +1,9 @@
 """
 Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.
 
+Also the canonical slab field configurations: a Harris current sheet and an
+X-point, in the same slab frame.
+
 The reductions plasma theory uses between a real torus and an analytic model,
 kept apart along two independent axes: the *geometry* (slab, cylindrical,
 toroidal) and the *ordering* (local versus global; large aspect ratio
@@ -21,6 +24,7 @@ L_s     : shear length of a sheared slab, signed                        [m]
 m, n    : poloidal and toroidal mode numbers                            [-]
 k_y, k_z: slab wavenumbers                                              [1/m]
 k_par   : parallel wavenumber k.B/B                                     [1/m]
+a       : current-sheet half-thickness                                  [m]
 
 Conventions
 -----------
@@ -48,6 +52,8 @@ from typing import Tuple
 
 import numpy as np
 
+from .constants import MU0
+
 __all__ = [
     "slab_parallel_wavenumber",
     "sheared_slab_field",
@@ -58,6 +64,9 @@ __all__ = [
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
     "local_slab_from_cylinder",
+    "harris_sheet_field",
+    "harris_sheet_current_density",
+    "x_point_flux",
 ]
 
 
@@ -579,3 +588,180 @@ def local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat) -> Tuple[float, 
     if s_hat == 0.0 or not np.isfinite(s_hat):
         raise ValueError(f"s_hat must be finite and non-zero, not {s_hat!r}")
     return m / r_0, -q_0 * R0 / s_hat, (m - n * q_0) / (q_0 * R0)
+
+
+# ------------------------------------------------------------------
+# Canonical slab field configurations: current sheet, X-point
+# ------------------------------------------------------------------
+
+
+def harris_sheet_field(x, B0, a):
+    r"""Reconnecting field of a Harris current sheet.
+
+    $$B_y(x) = B_0\tanh\frac{x}{a}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the sheet centre, along its normal [m].
+    B0 : float
+        Asymptotic reconnecting field, signed [T].
+    a : float
+        Sheet half-thickness, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $B_y$ [T].
+
+    Raises
+    ------
+    ValueError
+        ``a`` is not positive and finite.
+
+    Convention
+    ----------
+    Slab frame of ``sheared_slab_field``: $x$ the sheet normal, $y$ the
+    reconnecting direction, $z$ the current (and guide-field) direction;
+    $B_y(-x) = -B_y(x)$. A guide field $B_g\hat{\mathbf z}$ adds without
+    changing $J_z$ (``harris_sheet_current_density``).
+
+    Physical interpretation
+    -----------------------
+    The field reverses across a layer of thickness $\sim 2a$; for
+    $|x| \ll a$ it is the sheared slab with $B_y' = B_0/a$ and no guide field.
+    In the original Harris equilibrium the magnetic pressure is balanced by a
+    plasma pressure $\propto \mathrm{sech}^2(x/a)$.
+
+    Assumptions
+    -----------
+    One-dimensional, $\partial_y = \partial_z = 0$; the profile, not the
+    kinetic (drifting-Maxwellian) closure that makes it an exact Vlasov
+    equilibrium.
+
+    References
+    ----------
+    .. [1] E. G. Harris, Nuovo Cimento 23, 115 (1962).
+    .. [2] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge
+           University Press (2000), Sec. 3.1.
+    """
+    a = _positive(a, "a")
+    return float(B0) * np.tanh(np.asarray(x, dtype=float) / a)
+
+
+def harris_sheet_current_density(x, B0, a):
+    r"""Current density of a Harris current sheet, from Ampere's law.
+
+    $$J_z(x) = \frac{1}{\mu_0}\frac{dB_y}{dx} = \frac{B_0}{\mu_0 a}\,\mathrm{sech}^2\frac{x}{a}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the sheet centre, along its normal [m].
+    B0 : float
+        Asymptotic reconnecting field, signed [T].
+    a : float
+        Sheet half-thickness, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $J_z$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        ``a`` is not positive and finite.
+
+    Convention
+    ----------
+    Right-handed $(x, y, z)$ with $\mu_0\mathbf J = \nabla\times\mathbf B$,
+    so $\mu_0J_z = \partial_xB_y$: $B_0 > 0$ ($B_y$ along $+y$ above the
+    sheet) gives current along $+z$. The sheet carries $2B_0/\mu_0$ per unit
+    length in $y$.
+
+    Physical interpretation
+    -----------------------
+    The field reversal of ``harris_sheet_field`` and a localized current are
+    the same object: the current is confined to $|x| \lesssim a$, where the
+    field changes sign.
+
+    Assumptions
+    -----------
+    As ``harris_sheet_field``; displacement current neglected.
+
+    References
+    ----------
+    .. [1] E. G. Harris, Nuovo Cimento 23, 115 (1962).
+    .. [2] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge
+           University Press (2000), Sec. 3.1.
+    """
+    a = _positive(a, "a")
+    return float(B0) / (MU0 * a) / np.cosh(np.asarray(x, dtype=float) / a) ** 2
+
+
+def x_point_flux(x, y, B_prime):
+    r"""Flux function of a current-free magnetic X-point.
+
+    $$\psi(x, y) = \frac{B'}{2}\left(x^2 - y^2\right),\qquad
+      \mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi = B'\,(y, x)$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Coordinate along the inflow (sheet normal) direction [m].
+    y : float or np.ndarray
+        Coordinate along the outflow direction [m].
+    B_prime : float
+        Field gradient $B'$, non-zero [T/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\psi$; in-plane field lines lie on its contours [T m].
+
+    Raises
+    ------
+    ValueError
+        ``B_prime`` is zero or not finite.
+
+    Convention
+    ----------
+    The same $\mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi$ as
+    ``slab_perturbed_flux``: along the inflow axis $B_y = B'x$ reverses
+    across $x = 0$ as in a current sheet, along the outflow axis
+    $B_x = B'y$. The separatrices are $y = \pm x$, the contour
+    $\psi = 0$ through the X-point.
+
+    Physical interpretation
+    -----------------------
+    The lowest-order field about a null: four branches meeting at the
+    X-point, $\nabla^2\psi = 0$ so no current. A current along $z$ at the null
+    changes the separatrix angle away from $90^\circ$ (collapse towards a
+    sheet). Near each X-point of a tearing island the flux of
+    ``slab_perturbed_flux`` has this saddle form.
+
+    Assumptions
+    -----------
+    Two-dimensional, $\partial_z = 0$; expansion to second order about the
+    null, valid for $|x|, |y|$ small against the scale of the surrounding
+    field.
+
+    References
+    ----------
+    .. [1] E. R. Priest and T. G. Forbes, *Magnetic Reconnection*, Cambridge
+           University Press (2000), Sec. 2.1.
+    """
+    B_prime = float(B_prime)
+    if not np.isfinite(B_prime) or B_prime == 0.0:
+        raise ValueError(f"B_prime must be finite and non-zero, not {B_prime!r}")
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    return 0.5 * B_prime * (x * x - y * y)
+
+
+def _positive(value, name: str) -> float:
+    value = float(value)
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(f"{name} must be positive and finite, not {value!r}")
+    return value
