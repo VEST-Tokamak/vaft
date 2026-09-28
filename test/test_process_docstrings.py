@@ -426,6 +426,7 @@ CONVENTION_SENSITIVE = frozenset({
     "evaluate_fourier_surface",
     "fit_fourier_surface",
     "fit_fourier_surface_sequence",
+    "grad_shafranov_residual_modes",
     "connection_length_map",
     "ejiri_mirror_geometry",
     "romero_flux_balance",

@@ -21,11 +21,28 @@ and reaches nobody's review. Change documentation here, on the branch it belongs
 to.
 
 Building each track from its own branch is the point rather than a detail. The
-generated reference pages -- `/reference/vest-diagnostics/`, and
-`/reference/formula/` and `/reference/process/` on branches that ship the
-`vaft.formula.catalog` and `vaft.process.catalog` generators -- are built
-by introspecting the library, so they are only correct for the exact tree they
-were generated from.
+generated reference pages are built by introspecting the library, so they are
+only correct for the exact tree they were generated from. Which ones a track has
+is whatever its own `generators.yml` declares:
+
+| Generated page | Generator | `main` | `develop` |
+| --- | --- | --- | --- |
+| `/reference/vest-diagnostics/` | `vaft.machine_mapping.registry` | yes | yes |
+| `/reference/formula/` | `vaft.formula.catalog` | yes | yes |
+| `/reference/process/` | `vaft.process.catalog` | yes | yes |
+| `/reference/plot/` | `vaft.plot.docs_catalog` | no | yes |
+| `/reference/diagram/` | `vaft.diagram.docs_catalog` | no | yes |
+
+`main` gains the last two when a release carries the generators and its
+`generators.yml` declares them; nothing about the stable track changes before then.
+
+On a track that ships `scripts/catalog_coverage.py`, `build.py` runs it right
+after the generators, against the same tree. It fails the build when a public
+formula, process, plot or diagram is in no catalog, or a catalog entry no longer
+exists; its docstring says what "public" means for each layer.
+`validate_docs.rb` then checks the other half: every catalog entry is rendered
+exactly once on its reference page (`data-catalog` elements in the built HTML),
+and nothing is rendered that the catalog no longer holds.
 
 ## Building
 
@@ -70,7 +87,8 @@ npm run test:docs:develop
 ```
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
-`_data/process_catalog.yml` and `_data/provenance.yml` are generated and are
+`_data/process_catalog.yml`, `_data/plot_catalog.yml`,
+`_data/diagram_catalog.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
@@ -99,6 +117,7 @@ Linux renderer.
 | `_includes/`, `_layouts/` | vendored theme partials, locally modified |
 | `assets/` | images and theme assets |
 | `scripts/validate_docs.rb` | the validator that `build.py` and `npm run test:docs` run |
+| `scripts/catalog_coverage.py` | the public-surface check `build.py` runs after the generators |
 | `build.py`, `generators.yml` | the build and publish pipeline |
 
 Sidebar order and canonical URLs come only from `_data/navigation.yml`; page
