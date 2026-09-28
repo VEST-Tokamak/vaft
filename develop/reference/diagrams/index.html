@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5756a9b</code>. What is described
+  <code>71b7139</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1385,6 +1385,68 @@ $q(r_s) = m/n$ globally is $k_\parallel = 0$ locally (<code class="language-plai
 Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$ vary. Toroidal coupling
 (<code class="language-plaintext highlighter-rouge">poloidal_harmonic_coupling</code>) then opens the gaps of the TAE and EAE. Those are not computed here.</p>
 
+<h2 id="the-gradshafranov-problem-regions-boundaries-and-problem-classes">The Grad–Shafranov problem: regions, boundaries and problem classes</h2>
+
+<p>The axisymmetric field is $\mathbf B = R^{-1}\nabla\psi\times\hat{\boldsymbol\phi} + F(\psi)R^{-1}\hat{\boldsymbol\phi}$,
+with $\psi$ the poloidal flux per radian and $F = RB_\phi$ the poloidal-current function. Its components are
+<code class="language-plaintext highlighter-rouge">radial_magnetic_field_from_psi</code> and <code class="language-plaintext highlighter-rouge">vertical_magnetic_field_from_psi</code> (COCOS-aware); in vacuum $F$ is constant, and
+$B_\phi = F/R$ is <code class="language-plaintext highlighter-rouge">vacuum_toroidal_field</code>. One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
+source. <code class="language-plaintext highlighter-rouge">vaft.formula.grad_shafranov_source</code> gives the Ampère form $\Delta^*\psi = -\mu_0RJ_\phi$,
+which holds in every region. <code class="language-plaintext highlighter-rouge">toroidal_current_density_from_p_prime_ff_prime</code> gives the plasma current
+that force balance allows, $J_\phi = Rp’ + FF’/(\mu_0R)$. On a grid, the operator is
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.grad_shafranov_operator</code>. The flux maps are a toy: prescribed ring currents
+and three coils superposed through <code class="language-plaintext highlighter-rouge">green_psi_exact</code>. The topology (axis, X-point, limiter contact, LCFS)
+is then found from the total flux, as a free-boundary code finds it. A production solver would also make
+the plasma current consistent with $p’$ and $FF’$.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">grad_shafranov_domain_decomposition</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">fixed_vs_free_boundary_equilibrium</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">limiter_and_diverted_topologies</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">equilibrium_problem_taxonomy</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">poloidal_flux_source_decomposition</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/grad_shafranov_domain_decomposition.svg" alt="domains" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/fixed_vs_free_boundary_equilibrium.svg" alt="fixed vs free" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/limiter_and_diverted_topologies.svg" alt="topologies" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/equilibrium_problem_taxonomy.svg" alt="taxonomy" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/poloidal_flux_source_decomposition.svg" alt="sources" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">grad_shafranov_domain_decomposition</code></td>
+      <td>Same $\psi$, different $J_\phi$. The plasma source comes from force balance. The vacuum is homogeneous, $\Delta^*\psi = 0$: Laplace-type, but not $\nabla^2$. A coil carries its prescribed current. All of this sits inside the computational boundary</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fixed_vs_free_boundary_equilibrium</code></td>
+      <td>The boundary is an input (LCFS and $\psi_b$ given, only the inside solved) or it is part of the solution (coils and sources given, $\psi$ everywhere, LCFS read from the topology)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">limiter_and_diverted_topologies</code></td>
+      <td>Limited: the LCFS is the surface through the limiter tip. Diverted: the separatrix through the X-point ($\nabla\psi = 0$), with SOL and private flux. The boundary is the larger of $\psi_\mathrm{lim}$ and $\psi_X$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_problem_taxonomy</code></td>
+      <td>Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">poloidal_flux_source_decomposition</code></td>
+      <td>$\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -1517,7 +1579,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1635,7 +1697,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 09:28:14 +0000"
+        "time": "2026-09-28 09:40:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
