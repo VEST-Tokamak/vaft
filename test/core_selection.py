@@ -155,6 +155,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_infrastructure.py",
     "test_diagram_magnetic_island.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",

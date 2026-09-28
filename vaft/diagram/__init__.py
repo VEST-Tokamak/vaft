@@ -123,6 +123,8 @@ __all__ = [
     "spectroscopy_transitions",
     "spectroscopy_energy_levels",
     "spectroscopy_spectrum",
+    "nbi_particle_lifecycle",
+    "nbi_neutral_attenuation",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -209,6 +211,8 @@ _LOCATIONS = {
     "spectroscopy_transitions": "._spectroscopy",
     "spectroscopy_energy_levels": "._spectroscopy",
     "spectroscopy_spectrum": "._spectroscopy",
+    "nbi_particle_lifecycle": "._nbi",
+    "nbi_neutral_attenuation": "._nbi",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

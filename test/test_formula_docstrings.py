@@ -70,6 +70,12 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # NBI: per-component energy in eV, path density not volumetric, signed tangency radius (#1136)
+    "beam_particle_rate_from_power_energy",
+    "neutral_beam_optical_depth",
+    "beam_birth_probability_density",
+    "shine_through_fraction",
+    "injected_toroidal_angular_momentum_rate",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

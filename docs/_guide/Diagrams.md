@@ -708,6 +708,38 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Neutral beam injection: lifecycle and reduced attenuation
+
+A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and it never replaces
+`vaft.code.nubeam`.
+- **Formulas** (`vaft.formula.nbi`): `beam_particle_rate_from_power_energy` (per energy component, in eV),
+  `neutral_beam_optical_depth`, `neutral_survival_fraction_from_optical_depth`,
+  `beam_birth_probability_density` (a density along the path, not a volumetric deposition),
+  `shine_through_fraction`, and `injected_toroidal_angular_momentum_rate`. The last is the ideal rate
+  carried in, not the torque on the plasma.
+- **Process** (`vaft.process.nbi.neutral_beam_attenuation_along_path`): composes these along a prescribed
+  1-D path and adds the particle and power bookkeeping. $\int b\,ds + f_\mathrm{shine} = 1$ and
+  $P_\mathrm{birth} + P_\mathrm{shine} = P_\mathrm{injected}$ hold by construction. The
+  "power birth profile" is where neutrals become fast ions, not where the plasma is heated.
+
+The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
+built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are
+not redrawn here.
+
+```python
+vaft.diagram.nbi_particle_lifecycle()      # shine-through / prompt loss / delayed loss kept apart
+vaft.diagram.nbi_neutral_attenuation()     # S(s), b(s), births and f_shine from vaft.formula.nbi
+```
+
+| | |
+| --- | --- |
+| ![lifecycle]({{ '/assets/diagrams/nbi_particle_lifecycle.svg' | relative_url }}) | ![attenuation]({{ '/assets/diagrams/nbi_neutral_attenuation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `nbi_particle_lifecycle` | Injection, ionisation, fast-ion birth, confinement, slowing down, heating and drive, then thermalisation. Each loss branches at its own stage: shine-through while neutral, prompt orbit loss after ionisation, delayed loss after confinement |
+| `nbi_neutral_attenuation` | Survival $e^{-\tau}$ and birth density $\alpha S$ along a path through a parabolic plasma (an illustrative $\alpha$). Births are drawn at equal probability steps, and the shine-through is marked at the exit |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

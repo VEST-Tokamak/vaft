@@ -117,6 +117,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # neutral beam injection: lifecycle and reduced attenuation (#1136)
+    **{f"{name}.svg": (name, {}) for name in ("nbi_particle_lifecycle", "nbi_neutral_attenuation")},
 }
 
 

@@ -270,6 +270,16 @@
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
     },
+    "nbi_neutral_attenuation.svg": {
+      "call": "vaft.diagram.nbi_neutral_attenuation()",
+      "source_sha256": "8070be220f1013ca6883e9d00b7d9b5dae5b39b49506b046d02c8abe8aa7d11f",
+      "svg_sha256": "68f1791ce46923c5fa0113f7b3a4b3ff056467746bd094508e54ec50aec34ba5"
+    },
+    "nbi_particle_lifecycle.svg": {
+      "call": "vaft.diagram.nbi_particle_lifecycle()",
+      "source_sha256": "e0eedc7579b2ed91806758e845a37183dd11c19d9032454a7d226aafcdcbec4c",
+      "svg_sha256": "813cceee3ebbcdfc0283be0c4ba83b5d13058a1ca5be1fea255878ce73d58fc3"
+    },
     "normal_field_component.svg": {
       "call": "vaft.diagram.normal_field_component()",
       "source_sha256": "74665ff0fbd487dfcc80515d8a119fa281250d8c38c33a34a8bdb596e3ed8cbe",
