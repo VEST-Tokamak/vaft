@@ -160,6 +160,16 @@
       "source_sha256": "0d558686352d55f3bcc755a02bb10af45de927f8dc5ce8cef889284eec8e3898",
       "svg_sha256": "d0deec6c87af2d16d6d962517bd5075814743677f0437e87aebbc416d63e73bd"
     },
+    "kink_mode_1_1_internal.svg": {
+      "call": "vaft.diagram.kink_mode()",
+      "source_sha256": "d128e2357c6f736ed977f9f4aa7280e5675457f92f30c4a717557a956a682614",
+      "svg_sha256": "9749e430497a04675174a50962e0e665fadb040b15129322c1038b9c0bc71ec4"
+    },
+    "kink_mode_2_1_global.svg": {
+      "call": "vaft.diagram.kink_mode(m=2, n=1, radial_profile='global', amplitude=0.08, harmonics={2: 1.0, 3: 0.3})",
+      "source_sha256": "69cded82e5889b2280cd7fe0b4f514104b42623c6da314f43e36d6684829523b",
+      "svg_sha256": "2c57e2317062854cb0f2235d63adf7df37a42e6e1a099324728d637034a64e95"
+    },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
       "source_sha256": "ae1a86f3527c2232dccf0d1ce59c9f6254bb024ec9478a3e2f2d1abea61c4f7d",
@@ -239,6 +249,21 @@
       "call": "vaft.diagram.safety_factor_winding()",
       "source_sha256": "233b528a3c8f0a1300b077219f3a5c31c163695667b48d85d12a450a9dcae90f",
       "svg_sha256": "9b7a1f7fc38b23a680e596c7e2e22c0fa26e8f35d11c77c19808cc751ec27fc5"
+    },
+    "sawtooth_post_crash.svg": {
+      "call": "vaft.diagram.sawtooth(stage='post_crash')",
+      "source_sha256": "83adac5be87eb48212e34bedcb795eba2ccb28ca9a85e813d5ddaaf45fad2560",
+      "svg_sha256": "477db679179dc71115f54bbc77319bdfc2fd176b36ee2842349b1bca4316e0c3"
+    },
+    "sawtooth_precursor.svg": {
+      "call": "vaft.diagram.sawtooth(stage='precursor')",
+      "source_sha256": "825a29dea7fdc50469fb63230a7bd375ae7860e7175548ea9b005f5d2bc33bea",
+      "svg_sha256": "d8e62fd4fedb487f958e6fda6b1e438c40406e049632f26c6d900d02220ef674"
+    },
+    "sawtooth_reconnection.svg": {
+      "call": "vaft.diagram.sawtooth(stage='reconnection')",
+      "source_sha256": "561923b174d9287f069463c4f36c02c3cf2d30e9899c5dfacd0f0e7fa21b19a1",
+      "svg_sha256": "ab5f6b11ccd3435f08d2897d8a5867b7f66b9c3ce463bd1065e2048f0c8817db"
     },
     "sfl_coordinate_grids.svg": {
       "call": "vaft.diagram.sfl_coordinate_grids()",

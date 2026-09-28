@@ -69,6 +69,7 @@ __all__ = [
     "s_alpha_curvature_drive",
     "field_line_label",
     "v_alfven_from_B_n_mi",
+    "kadomtsev_mixing_radius",
 ]
 
 
@@ -871,6 +872,75 @@ def c_s_from_Te_Ti_mi(T_e_keV: float,
     Te_J = T_e_keV * 1e3 * QE
     Ti_J = T_i_keV * 1e3 * QE
     return np.sqrt((Te_J + Ti_J) / m_i)
+
+
+def kadomtsev_mixing_radius(r, q):
+    r"""Kadomtsev mixing radius: where the $m/n = 1/1$ helical flux returns to its axis value.
+
+    $$\psi_*(r) \propto \int_0^r r'\left(\frac{1}{q(r')} - 1\right)dr',\qquad
+      \psi_*(r_\mathrm{mix}) = \psi_*(0),\ r_\mathrm{mix} > r_1$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor radius (or a radial label used as one), increasing from the
+        axis, first point at or near zero [m or -].
+    q : np.ndarray
+        Safety factor on ``r``, below one on the axis [-].
+
+    Returns
+    -------
+    float
+        $r_\mathrm{mix}$, in the unit of ``r``.
+
+    Raises
+    ------
+    ValueError
+        ``r`` and ``q`` differ in length or ``r`` is not increasing,
+        $q(0) \ge 1$ (no $q = 1$ surface to reconnect), or $\psi_*$ does not
+        return to zero within ``r``.
+
+    Convention
+    ----------
+    Cylindrical helical flux of the 1/1 harmonic,
+    $d\psi_*/dr = rB_z(1/q - 1)/R_0$, up to the constant factor that cancels
+    in the root; it rises inside $q = 1$ ($r_1$) and falls outside it.
+    The integral starts at ``r[0]``, so pass the axis.
+
+    Physical interpretation
+    -----------------------
+    Full reconnection pairs each surface inside $r_1$ with the surface
+    outside it of equal helical flux; the outermost pair is the axis and
+    $r_\mathrm{mix}$. Everything inside $r_\mathrm{mix}$ is mixed and flattened
+    and $q$ there is raised to about one. When $1/q - 1$ is parabolic,
+    $\propto 1 - r^2/r_1^2$, $r_\mathrm{mix} = \sqrt 2\,r_1$ exactly; a
+    parabolic $q$ gives a little more.
+
+    Assumptions
+    -----------
+    Complete (Kadomtsev) reconnection in a cylinder; large aspect ratio.
+    Many sawteeth reconnect only partly, so $r_\mathrm{mix}$ is an upper bound
+    on the region a real crash flattens.
+
+    References
+    ----------
+    .. [1] B. B. Kadomtsev, Sov. J. Plasma Phys. 1, 389 (1975).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.6.
+    """
+    r = np.asarray(r, dtype=float).ravel()
+    q = np.asarray(q, dtype=float).ravel()
+    if r.shape != q.shape or r.size < 3 or np.any(np.diff(r) <= 0.0):
+        raise ValueError("r must be increasing and the same length as q (at least 3 points)")
+    if q[0] >= 1.0:
+        raise ValueError(f"q on the axis is {q[0]:g} >= 1: there is no q = 1 surface to reconnect")
+    integrand = r * (1.0 / q - 1.0)
+    psi_star = np.concatenate([[0.0], np.cumsum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(r))])
+    past = np.flatnonzero((psi_star[1:] <= 0.0) & (psi_star[:-1] > 0.0))
+    if not past.size:
+        raise ValueError("the helical flux does not return to its axis value within r: r_mix is beyond the range")
+    i = int(past[0])
+    return float(r[i] + (r[i + 1] - r[i]) * psi_star[i] / (psi_star[i] - psi_star[i + 1]))
 
 
 # ------------------------------------------------------------------

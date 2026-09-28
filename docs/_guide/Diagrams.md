@@ -482,6 +482,42 @@ slab of `local_slab_from_cylinder`, and `resonant_layer_matching` couples severa
 The screw-pinch field line itself is `field_line_geometry("cylindrical")`, and the cylinder-vs-torus harmonic
 picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic_coupling`.
 
+## Equilibrium-aware phenomena: kink displacement and sawtooth
+
+This layer sits between the reference diagrams and result plotting. The geometry comes from an
+equilibrium (any `vaft.data.equilibrium.EquilibriumData`); the physical state is a prescribed, documented
+model. The default equilibrium is the exact Solov'ev (Cerfon–Freidberg) equilibrium of
+`vaft.process.equilibrium.solovev_example` with $A = 0$, where $q$ rises from about 0.8 to 3. Surfaces,
+normals and the PEST angle $\theta^*$ come from `straight_field_line_map`, and $q(\rho)$ from
+`calculate_q_profile_from_psi`, with $\rho = \sqrt{\psi_N}$. The mode phase uses $\theta^*$. The drawing
+uses the real $(R, Z)$ surfaces.
+
+```python
+vaft.diagram.kink_mode(equilibrium=None, m=1, n=1, amplitude=0.06, radial_profile="internal")
+vaft.diagram.kink_mode(m=2, n=1, radial_profile="global", harmonics={2: 1.0, 3: 0.3})
+vaft.diagram.sawtooth(stage="precursor")   # "reconnection", "post_crash"
+```
+
+| | |
+| --- | --- |
+| ![1/1 internal]({{ '/assets/diagrams/kink_mode_1_1_internal.svg' | relative_url }}) | ![2/1 global]({{ '/assets/diagrams/kink_mode_2_1_global.svg' | relative_url }}) |
+
+![precursor]({{ '/assets/diagrams/sawtooth_precursor.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![reconnection]({{ '/assets/diagrams/sawtooth_reconnection.svg' | relative_url }}) | ![post crash]({{ '/assets/diagrams/sawtooth_post_crash.svg' | relative_url }}) |
+
+| Diagram | Model class | Concept |
+| --- | --- | --- |
+| `kink_mode` | synthetic parameterization | Each surface moves along its normal by $\xi_n = A\,a\,F(\rho)\,\mathrm{Re}\sum c_m e^{i(m\theta^* - n\phi)}$, with a named envelope. `internal` is a top hat inside $q = m/n$, `global` is $\rho^{m-1}$, and `edge` is $\rho^{4m}$. Under flux freezing this is `flux_perturbation_from_normal_displacement`, $\delta\psi = -\xi_n\lvert\nabla\psi\rvert$. It is not an eigenfunction. The cylindrical reference view is `internal_external_kink` |
+| `sawtooth` | reduced model | `precursor`: the 1/1 internal kink inside $q = 1$, with nested topology kept. `reconnection`: a hot core of radius $\rho_1(1-f)$ pushed against an outer separatrix, with the X-point where they touch and the 1/1 island in the crescent between. `post_crash`: nested surfaces again, with the region inside the Kadomtsev mixing radius flattened at conserved $\int T\rho\,d\rho$ |
+
+The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
+$\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
+$1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
+crash.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

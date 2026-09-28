@@ -142,6 +142,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_ballooning.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
+    "test_diagram_equilibrium_phenomena.py",
     "test_diagram_geometry.py",
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",

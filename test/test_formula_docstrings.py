@@ -73,6 +73,7 @@ CONVENTION_SENSITIVE = frozenset({
     "vertical_magnetic_field_from_psi",
     "current_density_from_psi",
     "current_density_from_B",
+    "flux_perturbation_from_normal_displacement",
     "psi_from_RBtheta",
     "phi_from_Bphi",
     "rhoN_from_phi",

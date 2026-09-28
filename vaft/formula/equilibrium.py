@@ -1090,6 +1090,61 @@ def current_density_from_B(B: Union[float, np.ndarray],
     return gradient(R, B) / MU0
 
 
+def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
+    r"""Ideal (flux-frozen) perturbed flux of a displacement normal to the flux surfaces.
+
+    $$\delta\psi = -\boldsymbol\xi\cdot\nabla\psi_0 = -\xi_n\,|\nabla\psi_0|$$
+
+    Parameters
+    ----------
+    xi_n : float or np.ndarray
+        Displacement along $\hat{\mathbf n} = \nabla\psi_0/|\nabla\psi_0|$ [m].
+    grad_psi : float or np.ndarray
+        $|\nabla\psi_0|$ of the equilibrium flux, non-negative [Wb/(rad m)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Eulerian flux perturbation $\delta\psi$, in the unit of $\psi_0$ [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``grad_psi`` is negative.
+
+    Convention
+    ----------
+    $\hat{\mathbf n}$ points up the gradient of $\psi_0$, so a positive
+    $\xi_n$ moves a surface towards larger $\psi_0$ -- outward when $\psi$
+    increases from the axis (COCOS 11, VAFT's ODS storage), inward when it
+    decreases (a per-radian COCOS-3 flux with positive current). Only the
+    normal component enters; a tangential displacement moves the surface
+    into itself.
+
+    Physical interpretation
+    -----------------------
+    Ideal MHD freezes the flux into the fluid, so a surface displaced by
+    $\xi_n$ carries its $\psi_0$ with it and the flux at a fixed point
+    changes by the linearised amount above. It is what turns a displacement
+    into a perturbed flux map, and back: an eigenfunction solver's
+    $\xi_n$ and its $\delta\psi$ are the same information.
+
+    Assumptions
+    -----------
+    Linear, $|\xi_n\nabla\ln|\nabla\psi_0|| \ll 1$; ideal (no reconnection),
+    so it fails in a resistive layer at a rational surface.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 8.3.
+    """
+    grad_psi = np.asarray(grad_psi, dtype=float)
+    if np.any(grad_psi < 0.0):
+        raise ValueError("grad_psi must be non-negative (it is |grad psi|)")
+    return -np.asarray(xi_n, dtype=float) * grad_psi
+
+
 def current_density_from_psi(psi: Union[float, np.ndarray],
                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.
