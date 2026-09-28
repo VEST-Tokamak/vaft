@@ -195,7 +195,7 @@ def test_vanishing_barriers_recover_the_smooth_state():
     no_itb = analytic_itb_state(ne_itb_height=0.0, te_itb_height=0.0, ti_itb_height=0.0, psi_norm=FINE)
     for name in ("n_e", "T_e", "T_i", "p_total", "dp_total_dpsi_norm"):
         np.testing.assert_array_equal(getattr(no_itb, name), getattr(smooth, name))
-    # A pedestal whose height tends to zero: tiny ITB heights converge linearly.
+    # ITB amplitudes tending to zero converge linearly to the smooth state.
     for height in (1e-3, 1e-6):
         weak = analytic_itb_state(ne_itb_height=height * 1e19, te_itb_height=height * 100,
                                   ti_itb_height=height * 50, psi_norm=FINE)
@@ -288,3 +288,76 @@ def test_projection_view_model_carries_the_projected_field(limited):
     np.testing.assert_array_equal(model.values, project_plasma_state(state, limited, "T_e").T)
     assert model.filled and "eV" in model.value_label
     assert any(layer.label == "LCFS" for layer in model.overlays)
+
+
+# --- review follow-ups ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("outside", ("nan", "edge"))
+def test_projection_keeps_the_axis_when_the_stored_axis_flux_is_shallow(limited, outside):
+    """A stored psi_axis a little shallower than the grid extremum puts psi_n < 0 next to the axis."""
+    state = analytic_hmode_state()
+    shallow = dataclasses.replace(limited, psi_axis=limited.psi_axis * (1 - 1e-3))
+    psi_n = (shallow.psi - shallow.psi_axis) / (shallow.psi_boundary - shallow.psi_axis)
+    assert psi_n.min() < 0.0
+    i, j = np.unravel_index(np.argmin(psi_n), psi_n.shape)
+    projected = project_plasma_state(state, shallow, "p_total", outside=outside)
+    assert projected[i, j] == pytest.approx(state.p_total[0], rel=1e-12)
+    assert np.all(np.isfinite(projected[psi_n < 0]))
+
+
+def test_projection_without_an_outline_keeps_the_axis_side(limited):
+    state = analytic_lmode_state()
+    shallow = dataclasses.replace(limited, psi_axis=limited.psi_axis * (1 - 1e-3), lcfs=None)
+    psi_n = (shallow.psi - shallow.psi_axis) / (shallow.psi_boundary - shallow.psi_axis)
+    i, j = np.unravel_index(np.argmin(psi_n), psi_n.shape)
+    assert project_plasma_state(state, shallow, "T_e")[i, j] == pytest.approx(state.T_e[0])
+
+
+@pytest.mark.parametrize("kwargs, match", [
+    (dict(itb_height=10.0, itb_position=0.4, itb_width=1e-4), "ITB: itb_width"),
+    (dict(itb_height=10.0, itb_position=0.4, itb_width=0.6), "ITB: itb_width"),
+    (dict(itb_height=10.0, itb_position=0.02, itb_width=0.08), "ITB: the layer"),
+    (dict(itb_height=10.0, itb_position=0.97, itb_width=0.08), "ITB: the layer"),
+    (dict(pedestal_top_value=40.0, pedestal_position=0.93, pedestal_width=0.0), "pedestal: pedestal_width"),
+    (dict(pedestal_top_value=40.0, pedestal_position=0.7, pedestal_width=0.55), "pedestal: pedestal_width"),
+    (dict(pedestal_top_value=40.0, pedestal_position=0.93, pedestal_width=0.05,
+          itb_height=10.0, itb_position=0.88, itb_width=0.08), "overlaps the pedestal"),
+    (dict(pedestal_top_value=40.0, pedestal_position=0.06, pedestal_width=0.1, core_alpha=1.0,
+          core_beta=1.0), "indistinguishable"),
+])
+def test_barrier_refusals_name_the_state(kwargs, match):
+    with pytest.raises(ValueError, match=match):
+        compose_analytic_profile("T_e", axis_value=100.0, separatrix_value=5.0, **kwargs)
+
+
+def test_positivity_is_checked_inside_a_narrow_barrier():
+    """A dip narrower than the uniform check grid's spacing is still caught."""
+    from vaft.process._analytic_plasma_state import _CHECK_GRID, _check_grid
+
+    step = BarrierStep(position=0.40025, width=1e-3, height=1.0)
+    refined = _check_grid((step,))
+    assert np.sum(np.abs(refined - step.position) < step.width / 2) > 50
+    assert np.sum(np.abs(_CHECK_GRID - step.position) < step.width / 2) <= 2
+
+
+def test_state_record_refuses_bad_grids_and_independent_pressure():
+    state = analytic_lmode_state(psi_norm=np.linspace(0, 1, 11))
+    fields = {f.name: getattr(state, f.name) for f in dataclasses.fields(state)}
+    for grid in (np.linspace(1, 0, 11), np.linspace(0, 1.1, 11), np.zeros((11, 1))):
+        with pytest.raises(ValueError, match="psi_norm"):
+            AnalyticPlasmaState(**{**fields, "psi_norm": grid})
+    with pytest.raises(ValueError, match="shape"):
+        AnalyticPlasmaState(**{**fields, "T_e": state.T_e[:-1]})
+    with pytest.raises(ValueError, match="p_e"):
+        AnalyticPlasmaState(**{**fields, "p_e": 2 * state.p_e, "p_total": 2 * state.p_e + state.p_i})
+    with pytest.raises(ValueError, match="n_i"):
+        AnalyticPlasmaState(**{**fields, "n_i": 0.5 * state.n_i})
+
+
+def test_state_arrays_are_copies_of_the_callers_grid():
+    grid = np.linspace(0.0, 1.0, 21)
+    state = analytic_lmode_state(psi_norm=grid)
+    grid[3] = 0.9
+    assert state.psi_norm[3] == pytest.approx(0.15)
+    assert not state.psi_norm.flags.writeable

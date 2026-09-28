@@ -22,7 +22,31 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from .kinetic_profiles import KineticProfiles, PsiNormalization, _sealed
+from .kinetic_profiles import KineticProfiles, PsiNormalization
+
+#: Elementary charge [C], the eV-to-J factor of ``p = e n T``; the CODATA
+#: value, as :data:`vaft.formula.constants.QE`.
+_QE = 1.602176634e-19
+
+#: Relative tolerance of the derived-quantity consistency checks.
+_CONSISTENCY_RTOL = 1e-12
+
+
+def _sealed(values) -> np.ndarray:
+    """A read-only *copy*: a caller editing its own array cannot reach into the record."""
+    array = np.array(values, dtype=float, copy=True)
+    array.setflags(write=False)
+    return array
+
+
+def _consistent(name: str, stored: np.ndarray, expected: np.ndarray) -> None:
+    scale = np.maximum(np.abs(expected), np.finfo(float).tiny)
+    if not np.all(np.abs(stored - expected) <= _CONSISTENCY_RTOL * scale):
+        raise ValueError(
+            f"{name} disagrees with the stored densities and temperatures; a state's pressures and "
+            "ion densities are derived, not specified -- build it with "
+            "vaft.process.profile.compose_plasma_state"
+        )
 
 __all__ = [
     "ANALYTIC_STATE_UNITS",
@@ -62,8 +86,11 @@ class BarrierStep:
     rescaled so that it is exactly one on the magnetic axis and exactly zero
     at ``psi_norm = 1``.  ``position`` is the centre of the steep-gradient
     layer, ``width`` its *full* width (knee at ``position - width/2``, foot at
-    ``position + width/2``), and ``height`` the rise across the layer from its
-    outer side to its inner side, in the profile's unit.  An edge pedestal and
+    ``position + width/2``), and ``height`` the *whole* step amplitude, from the
+    separatrix side (``psi_norm = 1``, where the step is zero) to the axis side
+    (``psi_norm = 0``, where it is ``height``), in the profile's unit.  The
+    change between the knee and the foot is only ``tanh(1)``, about 0.76, of
+    it for a well-localized layer.  An edge pedestal and
     an internal transport barrier are the same object at different positions.
     """
 
@@ -125,9 +152,14 @@ class AnalyticPlasmaState:
     charge :attr:`impurity_charge` and density ``n_impurity`` with
     ``n_e = n_i + Z_I n_impurity`` and ``Z_eff n_e = n_i + Z_I**2 n_impurity``;
     ``p_e = e n_e T_e`` and ``p_i = e (n_i + n_impurity) T_i``, all ions at
-    ``T_i``; ``p_total = p_e + p_i``.  The pressure gradients are the analytic
-    derivatives against ``psi_norm`` (the product rule on the channels'
-    analytic derivatives), in Pa per unit ``psi_norm``.
+    ``T_i``; ``p_total = p_e + p_i``.  Construction checks those relations
+    on the stored arrays to 1e-12 relative, so a record whose pressures or ion
+    densities were specified independently is refused.  The pressure
+    gradients are the analytic derivatives against ``psi_norm`` (the product
+    rule on the channels' analytic derivatives), in Pa per unit ``psi_norm``;
+    they are not re-checked, since that would need the analytic profiles.
+    ``psi_norm`` must be 1-D, strictly increasing and inside ``[0, 1]``, and
+    every array is copied and sealed on construction.
 
     The coordinate is the normalized poloidal flux.  :attr:`rho_pol_norm` is
     ``sqrt(psi_norm)`` by definition; the toroidal-flux radius needs a safety
@@ -156,18 +188,30 @@ class AnalyticPlasmaState:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "psi_norm", _sealed(np.asarray(self.psi_norm, dtype=float)))
-        size = self.psi_norm.size
+        grid = _sealed(self.psi_norm)
+        if grid.ndim != 1 or grid.size == 0:
+            raise ValueError(f"psi_norm must be a non-empty 1-D grid, got shape {grid.shape}")
+        if not np.all(np.isfinite(grid)) or grid[0] < 0.0 or grid[-1] > 1.0:
+            raise ValueError("psi_norm must be finite and inside [0, 1]")
+        if np.any(np.diff(grid) <= 0.0):
+            raise ValueError("psi_norm must be strictly increasing")
+        object.__setattr__(self, "psi_norm", grid)
         for name in _STATE_ARRAYS:
-            values = np.asarray(getattr(self, name), dtype=float)
-            if values.shape != self.psi_norm.shape:
+            values = _sealed(getattr(self, name))
+            if values.shape != grid.shape:
                 raise ValueError(
-                    f"{name} has shape {values.shape} but psi_norm has {self.psi_norm.shape}; "
+                    f"{name} has shape {values.shape} but psi_norm has {grid.shape}; "
                     "every profile of a state is on its one coordinate"
                 )
-            object.__setattr__(self, name, _sealed(values))
-        if size == 0:
-            raise ValueError("a plasma state needs at least one psi_norm sample")
+            object.__setattr__(self, name, values)
+        z = float(self.impurity_charge)
+        _consistent("n_i + Z n_impurity", self.n_i + z * self.n_impurity, self.n_e)
+        _consistent("Z_eff", self.n_i + z * z * self.n_impurity, self.z_eff * self.n_e)
+        _consistent("p_e", self.p_e, _QE * self.n_e * self.T_e)
+        _consistent("p_i", self.p_i, _QE * (self.n_i + self.n_impurity) * self.T_i)
+        _consistent("p_total", self.p_total, self.p_e + self.p_i)
+        _consistent("dp_total_dpsi_norm", self.dp_total_dpsi_norm,
+                    self.dp_e_dpsi_norm + self.dp_i_dpsi_norm)
         object.__setattr__(self, "profiles", MappingProxyType(dict(self.profiles)))
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 

@@ -47,8 +47,24 @@ _STATE_QUANTITIES = (
     "dp_e_dpsi_norm", "dp_i_dpsi_norm", "dp_total_dpsi_norm",
 )
 
-#: Samples used to check a composed profile for positivity.
+#: Samples used to check a composed profile for positivity; refined around
+#: each barrier by :func:`_check_grid`.
 _CHECK_GRID = np.linspace(0.0, 1.0, 2001)
+
+#: Narrowest and widest barrier layer, full width in psi_norm.  Below the
+#: minimum the step is a discontinuity on any practical grid; above the maximum
+#: it is no longer a localized layer but a second core shape.
+MIN_BARRIER_WIDTH = 1e-3
+MAX_BARRIER_WIDTH = 0.5
+
+#: Smallest ``S(knee) - C(knee)`` the pedestal solve accepts: below it the
+#: pedestal step and the core are indistinguishable at the knee.
+_MIN_PEDESTAL_CONDITIONING = 1e-3
+
+#: How far below zero psi_norm may fall, without an LCFS outline, and still be
+#: taken as the axis side of the plasma.  With an outline the axis side is
+#: decided by containment alone.
+_AXIS_TOLERANCE = 0.05
 
 #: Default grid of a state: uniform in psi_norm, axis and separatrix included.
 _DEFAULT_POINTS = 201
@@ -87,6 +103,25 @@ def _step(x, step: BarrierStep, *, derivative: bool = False):
 def _core(x, alpha: float, beta: float, *, derivative: bool = False):
     kernel = generalized_parabolic_profile_derivative if derivative else generalized_parabolic_profile
     return kernel(x, core_value=1.0, edge_value=0.0, alpha=alpha, beta=beta)
+
+
+def _check_grid(barriers) -> np.ndarray:
+    """The uniform check grid plus 401 points within three widths of each barrier centre."""
+    parts = [_CHECK_GRID]
+    for step in barriers:
+        parts.append(np.clip(np.linspace(step.position - 3 * step.width, step.position + 3 * step.width, 401),
+                             0.0, 1.0))
+    return np.unique(np.concatenate(parts))
+
+
+def _barrier_width(state: str, name: str, value) -> float:
+    width = _finite(name, value)
+    if not MIN_BARRIER_WIDTH <= width <= MAX_BARRIER_WIDTH:
+        raise ValueError(
+            f"{state}: {name} = {width!r} is outside [{MIN_BARRIER_WIDTH}, {MAX_BARRIER_WIDTH}]; "
+            "narrower is a discontinuity, wider is not a localized barrier"
+        )
+    return width
 
 
 def _finite(name: str, value) -> float:
@@ -144,8 +179,9 @@ def compose_analytic_profile(
     pedestal_width : float, optional
         Full width of the pedestal layer in ``psi_norm``, positive [-].
     itb_height : float, optional
-        Rise across the internal transport barrier, from its outer to its inner
-        side; zero for no ITB [any].
+        Whole amplitude of the internal-barrier step, from its separatrix side
+        to its axis side (the knee-to-foot change is about ``tanh(1) = 0.76``
+        of it); zero for no ITB [any].
     itb_position : float, optional
         Centre of the ITB layer in ``psi_norm``, strictly inside ``(0, 1)``;
         required when *itb_height* is non-zero [-].
@@ -167,9 +203,11 @@ def compose_analytic_profile(
     ------
     ValueError
         A non-finite value, an exponent below one, a pedestal given in part,
-        a pedestal knee outside ``(0, 1)``, an ITB centre outside ``(0, 1)``,
-        a non-positive width, or a profile that is not positive when
-        *positive* is set.
+        a width outside ``[1e-3, 0.5]``, a pedestal knee outside ``(0, 1)``, an
+        ITB layer not strictly inside ``(0, 1)`` or overlapping the pedestal
+        layer, a pedestal knee where the core and the step cannot be told apart,
+        or a profile that is not positive (checked on a grid refined around
+        each barrier) when *positive* is set.
 
     Convention
     ----------
@@ -179,7 +217,10 @@ def compose_analytic_profile(
     (Groebner-Carlstrom): the steep layer runs from ``position - width/2``
     (the knee) to ``position + width/2`` (the foot), and the steepest gradient
     of an isolated step, $-H/(\Delta\,(S(0)-S(1)))$, sits at ``position``.
-    ``itb_height`` is an amplitude; the pedestal is specified by its top value.
+    ``itb_height`` is the whole step amplitude (axis side minus separatrix
+    side), not the knee-to-foot change; the pedestal is specified by its top
+    value instead.  Widths must lie in ``[1e-3, 0.5]``; an ITB layer must lie
+    inside ``(0, 1)`` and end before the pedestal layer begins.
 
     Assumptions
     -----------
@@ -226,12 +267,15 @@ def compose_analytic_profile(
         if itb_position is None or itb_width is None:
             raise ValueError("a non-zero itb_height needs itb_position and itb_width")
         position = _finite("itb_position", itb_position)
-        width = _finite("itb_width", itb_width)
         if not 0.0 < position < 1.0:
-            raise ValueError(f"itb_position must lie strictly inside (0, 1), got {position!r}")
-        if width <= 0.0:
-            raise ValueError(f"itb_width must be positive, got {width!r}")
+            raise ValueError(f"{quantity} ITB: itb_position must lie strictly inside (0, 1), got {position!r}")
+        width = _barrier_width(f"{quantity} ITB", "itb_width", itb_width)
         itb = BarrierStep(position=position, width=width, height=h_itb)
+        if not (0.0 < itb.knee and itb.foot < 1.0):
+            raise ValueError(
+                f"{quantity} ITB: the layer [{itb.knee:.4g}, {itb.foot:.4g}] must lie strictly inside "
+                "(0, 1); an ITB reaching the separatrix is a pedestal"
+            )
 
     pedestal_given = [v is not None for v in (pedestal_top_value, pedestal_position, pedestal_width)]
     pedestal = None
@@ -241,17 +285,26 @@ def compose_analytic_profile(
             raise ValueError("a pedestal needs pedestal_top_value, pedestal_position and pedestal_width")
         top = _finite("pedestal_top_value", pedestal_top_value)
         position = _finite("pedestal_position", pedestal_position)
-        width = _finite("pedestal_width", pedestal_width)
-        if width <= 0.0:
-            raise ValueError(f"pedestal_width must be positive, got {width!r}")
+        width = _barrier_width(f"{quantity} pedestal", "pedestal_width", pedestal_width)
         knee = position - 0.5 * width
         if not 0.0 < knee < 1.0:
-            raise ValueError(f"the pedestal knee {knee!r} must lie strictly inside (0, 1)")
+            raise ValueError(f"{quantity} pedestal: the knee {knee!r} must lie strictly inside (0, 1)")
+        if itb is not None and itb.foot >= knee:
+            raise ValueError(
+                f"{quantity}: the ITB layer [{itb.knee:.4g}, {itb.foot:.4g}] overlaps the pedestal layer "
+                f"starting at its knee {knee:.4g}; move the ITB inward or narrow one of them"
+            )
         # f(0) = axis and f(knee) = top, linear in (A, H_ped).
         unit_step = BarrierStep(position=position, width=width, height=1.0)
         s_k = float(_step(knee, unit_step))
         c_k = float(_core(knee, alpha, beta))
         t_k = float(_step(knee, itb)) if itb is not None else 0.0
+        if s_k - c_k < _MIN_PEDESTAL_CONDITIONING:
+            raise ValueError(
+                f"{quantity} pedestal: at the knee {knee:.4g} the core shape ({c_k:.4g}) and the step "
+                f"({s_k:.4g}) are indistinguishable, so the top value cannot be set; move the pedestal "
+                "outward or peak the core (larger core_alpha or core_beta)"
+            )
         height = (top - sep - (axis - sep - h_itb) * c_k - t_k) / (s_k - c_k)
         pedestal = BarrierStep(position=position, width=width, height=float(height))
     amplitude = axis - sep - h_itb - (pedestal.height if pedestal is not None else 0.0)
@@ -264,9 +317,10 @@ def compose_analytic_profile(
         pedestal=pedestal, pedestal_top_value=top, itb=itb,
     )
     if positive:
-        values = evaluate_analytic_profile(profile, _CHECK_GRID)
+        grid = _check_grid(profile.barriers)
+        values = evaluate_analytic_profile(profile, grid)
         if not np.all(values > 0.0):
-            where = float(_CHECK_GRID[np.argmin(values)])
+            where = float(grid[np.argmin(values)])
             raise ValueError(
                 f"{quantity} is not positive on [0, 1] (minimum {values.min():.4g} at "
                 f"psi_norm = {where:.3f}); check the requested values"
@@ -440,7 +494,8 @@ def compose_plasma_state(
     ------
     ValueError
         A profile whose quantity or unit does not match its slot, *z_eff*
-        outside ``[1, impurity_charge]``, or a grid outside ``[0, 1]``.
+        outside ``[1, impurity_charge]``, or a grid that is not 1-D, strictly
+        increasing and inside ``[0, 1]``.
 
     Output semantics
     ----------------
@@ -767,11 +822,11 @@ def analytic_itb_state(
     ti_sep : float, optional
         Ion temperature at the separatrix [eV].
     ne_itb_height : float, optional
-        Density rise across the ITB; zero switches the ITB off in ``n_e`` [m^-3].
+        Density amplitude of the ITB step, axis side to separatrix side; zero switches the ITB off in ``n_e`` [m^-3].
     te_itb_height : float, optional
-        Electron temperature rise across the ITB; zero for none [eV].
+        Electron temperature amplitude of the ITB step, axis side to separatrix side; zero for none [eV].
     ti_itb_height : float, optional
-        Ion temperature rise across the ITB; zero for none [eV].
+        Ion temperature amplitude of the ITB step, axis side to separatrix side; zero for none [eV].
     itb_position : float or mapping, optional
         ITB centre in ``psi_norm``, shared or keyed by ``n_e``/``T_e``/``T_i``,
         so each channel can have its own [-].
@@ -800,7 +855,7 @@ def analytic_itb_state(
 
     Defaults
     --------
-    Illustrative values (assumed value, not a machine setting): rises of
+    Illustrative values (assumed value, not a machine setting): step amplitudes of
     4e18 m^-3, 120 eV and 60 eV at ``psi_norm = 0.3`` with full width 0.08,
     on the axis and separatrix values of :func:`analytic_lmode_state`.
 
@@ -880,11 +935,11 @@ def analytic_hmode_itb_state(
     ti_sep : float, optional
         Ion temperature at the separatrix [eV].
     ne_itb_height : float, optional
-        Density rise across the ITB [m^-3].
+        Density amplitude of the ITB step, axis side to separatrix side [m^-3].
     te_itb_height : float, optional
-        Electron temperature rise across the ITB [eV].
+        Electron temperature amplitude of the ITB step, axis side to separatrix side [eV].
     ti_itb_height : float, optional
-        Ion temperature rise across the ITB [eV].
+        Ion temperature amplitude of the ITB step, axis side to separatrix side [eV].
     pedestal_position : float or mapping, optional
         Pedestal centre in ``psi_norm``, shared or per channel [-].
     pedestal_width : float or mapping, optional
@@ -951,18 +1006,21 @@ def analytic_hmode_itb_state(
 
 
 def _inside_boundary(equilibrium, psi_n: np.ndarray) -> np.ndarray:
-    inside = np.isfinite(psi_n) & (psi_n >= 0.0) & (psi_n <= 1.0)
+    # psi_n < 0 next to the axis is a stored psi_axis slightly shallower than the
+    # grid's own extremum (a coarse or interpolated axis, a rescaled file).  It is
+    # the plasma centre, not the outside, so only the boundary side is thresholded.
+    inside = np.isfinite(psi_n) & (psi_n <= 1.0)
     lcfs = getattr(equilibrium, "lcfs", None)
-    if lcfs is not None and np.asarray(lcfs.r).size >= 3:
-        from matplotlib.path import Path
+    if lcfs is None or np.asarray(lcfs.r).size < 3:
+        return inside & (psi_n >= -_AXIS_TOLERANCE)
+    from matplotlib.path import Path
 
-        rr, zz = np.meshgrid(equilibrium.r, equilibrium.z, indexing="ij")
-        outline = Path(np.column_stack([lcfs.r, lcfs.z]))
-        # A hair of tolerance keeps grid points lying on the outline itself.
-        contained = outline.contains_points(np.column_stack([rr.ravel(), zz.ravel()]), radius=1e-9)
-        contained |= outline.contains_points(np.column_stack([rr.ravel(), zz.ravel()]), radius=-1e-9)
-        inside &= contained.reshape(psi_n.shape)
-    return inside
+    rr, zz = np.meshgrid(equilibrium.r, equilibrium.z, indexing="ij")
+    points = np.column_stack([rr.ravel(), zz.ravel()])
+    outline = Path(np.column_stack([lcfs.r, lcfs.z]))
+    # A hair of tolerance either way keeps grid points lying on the outline itself.
+    contained = outline.contains_points(points, radius=1e-9) | outline.contains_points(points, radius=-1e-9)
+    return inside & contained.reshape(psi_n.shape)
 
 
 def project_flux_function(equilibrium, function: Callable, *, outside: str = "nan") -> np.ndarray:
@@ -995,9 +1053,12 @@ def project_flux_function(equilibrium, function: Callable, *, outside: str = "na
     (:func:`vaft.formula.equilibrium.psi_normalised`), which is independent of
     the COCOS sign and of Wb against Wb/rad because both cancel in the ratio;
     no conversion is applied or needed.  A point is inside when
-    ``0 <= psi_norm <= 1`` *and* it lies within the ``lcfs`` outline, which
+    ``psi_norm <= 1`` *and* it lies within the ``lcfs`` outline, which
     excludes the private-flux region below an X-point and any exterior region
-    where the flux turns back below one.
+    where the flux turns back below one.  Inside points with ``psi_norm < 0``
+    -- a stored ``psi_axis`` slightly shallower than the grid's own extremum --
+    are the plasma centre and are evaluated at ``psi_norm = 0``; without an
+    outline, ``psi_norm >= -0.05`` stands in for containment on that side.
 
     Applicability
     -------------

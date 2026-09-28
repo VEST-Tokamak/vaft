@@ -301,7 +301,7 @@ input, not a measurement.
 The opposite direction — prescribe the kinetic profiles, derive the pressure — is a small preset
 layer (#1045). Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
 #552 kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
-transport barrier with its own position, full width and rise per channel. Axis and separatrix
+transport barrier with its own position, full width and step amplitude per channel. Axis and separatrix
 values hold exactly; `n_i` follows from quasi-neutrality with a uniform `z_eff`, and `p_e`, `p_i`,
 `p` and `dp/dψ_N` are derived, never specified. The coordinate is `psi_norm`; units are m⁻³, eV
 and Pa.
