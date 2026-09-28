@@ -33,7 +33,8 @@ SUPPORTED_TARGETS = {"plasma_current": 2, "q95": 1}
 
 #: Result states.
 STATUSES = ("success", "invalid_geometry", "invalid_source_model", "unsupported_target",
-            "non_converged", "invalid_equilibrium", "constraint_not_reached", "boundary_mismatch")
+            "non_converged", "invalid_equilibrium", "constraint_not_reached", "boundary_mismatch",
+            "timeout")
 
 
 @dataclass(frozen=True)
@@ -266,6 +267,11 @@ def synthesize_equilibrium_from_0d(
         source_profiles={"psi_n": psi_n, "pprime_shape": pp_shape, "ffprime_shape": ff_shape},
         chease=run, refined_geqdsk=run.refined_geqdsk, refined_ods=run.refined_ods,
     )
+    if run.timed_out:
+        # Stopped by a time limit (#1016): not a solve that failed to converge.
+        reason = (run.stderr or "").strip().splitlines()[-1:] or [run.runtime_status]
+        result.status, result.reason = "timeout", reason[0]
+        return result
     native = _native_output(run)
     if not run.ok or native is None:
         result.status, result.reason = "non_converged", f"CHEASE returned {run.returncode}; no EQDSK_COCOS_02.OUT"

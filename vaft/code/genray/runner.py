@@ -8,7 +8,7 @@ from typing import Any
 
 from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
-from ..execution import ExecutionRequest, resolve_backend
+from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .config import GENRAY_HOME_ENV, GENRAY_HOME_EXECUTABLE, GENRAYConfig, GENRAYInputs, GENRAYResult
 from .inputs import prepare_genray_inputs
 from .outputs import collect_genray_outputs, genray_to_waves, read_genray_netcdf
@@ -61,7 +61,8 @@ def run_genray(inputs: GENRAYInputs, config: GENRAYConfig) -> GENRAYResult:
             label="genray",
         )
     )
-    returncode = 124 if execution.timed_out else execution.returncode
+    # returncode=None and runtime_status="timeout" on a stop (#1016; it was 124).
+    returncode = execution.returncode
     netcdf = collect_genray_outputs(inputs.workdir)
     parsed = None
     if netcdf is not None and returncode == 0:
@@ -72,11 +73,17 @@ def run_genray(inputs: GENRAYInputs, config: GENRAYConfig) -> GENRAYResult:
             parsed = {"complete": False, "parse_error": f"{type(error).__name__}: {error}"}
     provenance = dict(inputs.provenance)
     provenance["executable"] = str(executable)
+    stderr = execution.stderr
+    if execution.timed_out:
+        reason = timeout_reason("GENRAY", execution, config.timeout)
+        stderr = f"{stderr}\n{reason}" if stderr else reason
     return GENRAYResult(
         returncode=returncode,
         workdir=Path(inputs.workdir),
         stdout=execution.stdout,
-        stderr=execution.stderr,
+        stderr=stderr,
+        runtime_status=execution.runtime_status,
+        elapsed_s=execution.elapsed_s,
         netcdf=netcdf,
         parsed=parsed,
         provenance=provenance,

@@ -687,23 +687,33 @@ def test_run_nice_hands_its_launch_to_the_configured_backend(tmp_path):
     assert (manifest["process_returncode"], manifest["process_timed_out"]) == (3, False)
 
 
-def test_a_backend_timeout_is_still_status_124_with_the_partial_logs(tmp_path):
+def test_a_backend_timeout_is_a_failed_result_with_the_partial_logs(tmp_path):
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
     from vaft.code.nice import run_nice
 
     backend = RecordingBackend(
-        ExecutionResult(returncode=None, stdout="iteration 1\n", stderr="", timed_out=True)
+        ExecutionResult(
+            returncode=None, stdout="iteration 1\n", stderr="", timed_out=True, elapsed_s=5.0
+        )
     )
     _, config, inputs = _backend_case(tmp_path, backend, timeout=5.0)
     result = run_nice(inputs, config)
 
-    assert result.returncode == 124
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 5.0
     assert not result.process_succeeded
-    assert result.termination_reason == "NICE timed out"
+    assert result.termination_reason == "NICE timed out after 5 s of running"
     assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == "iteration 1\n"
     manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
-    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (124, True)
+    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (None, True)
+    assert manifest["process_runtime_status"] == "timeout"
+    assert result.stderr.endswith("NICE timed out after 5 s of running")
+    # Collected again from the directory, the stop is still a stop.
+    from vaft.code.nice import collect_nice_outputs
+
+    again = collect_nice_outputs(inputs.workdir, config)
+    assert (again.returncode, again.runtime_status, again.elapsed_s) == (None, "timeout", 5.0)
 
 
 @pytest.mark.parametrize("error", [FileNotFoundError, PermissionError])

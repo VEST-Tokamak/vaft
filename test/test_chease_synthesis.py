@@ -154,3 +154,20 @@ def test_default_run_does_not_write_into_the_working_directory(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     result = synthesize_equilibrium_from_0d(VEST)
     assert result.ok and list(tmp_path.iterdir()) == []
+
+
+def test_a_stopped_solve_is_a_timeout_not_a_non_convergence(tmp_path, monkeypatch):
+    """#1016: CHEASE returns a timeout; synthesis names it rather than 'non_converged'."""
+    import vaft.code.chease_synthesis as module
+    from vaft.code.chease import CHEASEConfig, CHEASEResult
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda source, config: CHEASEResult(
+            returncode=None, workdir=tmp_path, runtime_status="timeout",
+            stderr="CHEASE timed out after 60 s of running",
+        ),
+    )
+    result = synthesize_equilibrium_from_0d(VEST, config=CHEASEConfig(workdir=tmp_path))
+    assert (result.status, result.reason) == ("timeout", "CHEASE timed out after 60 s of running")
+    assert not result.ok and result.chease.runtime_status == "timeout"

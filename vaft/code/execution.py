@@ -11,10 +11,12 @@ The contract every backend keeps:
 * ``run`` blocks until the program exits or times out.
 * A timeout is **returned**, not raised: ``timed_out=True``, ``returncode=None``
   and whatever output was captured before the kill. The kill stops the whole
-  process tree, not just the direct child (see :mod:`vaft.code._process_tree`). Each adapter maps that to
-  its own documented timeout result (TES returns 124, EFIT marks the slice
-  ``"timeout"``, ...), so moving an adapter onto a backend changes nothing its
-  callers see.
+  process tree, not just the direct child (see :mod:`vaft.code._process_tree`).
+  ``runtime_status`` says which limit ended it: ``"timeout"`` for a program
+  that ran too long, ``"queue_timeout"`` for a scheduler job cancelled before
+  it ever started. Every adapter turns either into a result with
+  ``status="failed"``, the same ``runtime_status``, ``returncode=None`` and
+  ``elapsed_s`` (#1016), so one timed-out case never stops a scan or a batch.
 * ``KeyboardInterrupt``, ``SIGTERM`` or ``SIGHUP`` during the wait stops the
   tree the same way and is then raised (or re-delivered) unchanged; it is never
   turned into a result.
@@ -110,6 +112,48 @@ class ExecutionResult:
     launcher: tuple[str, ...] = ()
     log_path: Optional[Path] = None
     job_id: Optional[str] = None
+    #: ``"completed"`` (the program exited; see ``returncode``), ``"timeout"``
+    #: or ``"queue_timeout"``. Left empty, it is derived from ``timed_out``.
+    runtime_status: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.runtime_status:
+            self.runtime_status = RUNTIME_TIMEOUT if self.timed_out else RUNTIME_COMPLETED
+        if self.runtime_status not in RUNTIME_STATUSES:
+            raise ValueError(
+                f"runtime_status must be one of {RUNTIME_STATUSES}, got {self.runtime_status!r}"
+            )
+        if (self.runtime_status != RUNTIME_COMPLETED) != self.timed_out:
+            raise ValueError(
+                f"runtime_status={self.runtime_status!r} disagrees with timed_out={self.timed_out}"
+            )
+
+
+#: The program exited on its own (with any return code).
+RUNTIME_COMPLETED = "completed"
+#: The program ran past its time limit and was stopped.
+RUNTIME_TIMEOUT = "timeout"
+#: A scheduler job was cancelled while still queued; the program never started.
+RUNTIME_QUEUE_TIMEOUT = "queue_timeout"
+RUNTIME_STATUSES: tuple[str, ...] = (RUNTIME_COMPLETED, RUNTIME_TIMEOUT, RUNTIME_QUEUE_TIMEOUT)
+
+
+def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[float]) -> str:
+    """The one-line reason an adapter gives for a timed-out execution.
+
+    A job that never left the scheduler queue did not "time out after N
+    seconds" of running, so the two limits are worded apart.
+    """
+    if execution.runtime_status == RUNTIME_QUEUE_TIMEOUT:
+        return (
+            f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s "
+            "in the scheduler queue (it never started)"
+        )
+    # A stop well short of ``timeout`` (a scheduler's max_wait cancelling a
+    # running job) did not run for ``timeout`` seconds; say how long it did.
+    if timeout is None or execution.elapsed_s < 0.9 * timeout:
+        return f"{program} timed out after {execution.elapsed_s:.3g} s of running"
+    return f"{program} timed out after {timeout:g} s of running"
 
 
 @runtime_checkable
@@ -314,6 +358,10 @@ def resolve_backend(config: Any = None) -> ExecutionBackend:
 
 __all__ = [
     "BACKEND_ENV",
+    "RUNTIME_COMPLETED",
+    "RUNTIME_QUEUE_TIMEOUT",
+    "RUNTIME_STATUSES",
+    "RUNTIME_TIMEOUT",
     "THREAD_ENV_VARIABLES",
     "ExecutionBackend",
     "ExecutionRequest",
@@ -323,4 +371,5 @@ __all__ = [
     "default_backend",
     "execution_environment",
     "resolve_backend",
+    "timeout_reason",
 ]

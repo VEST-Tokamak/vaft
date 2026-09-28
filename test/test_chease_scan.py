@@ -299,6 +299,27 @@ def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
     assert "exited 1" in cases[0].error
 
 
+def test_a_timed_out_case_is_recorded_with_its_result_and_named_limit(tmp_path, monkeypatch):
+    """#1016: a timeout is a result, so the scan keeps it and names the limit."""
+    import vaft.code.chease_scan as module
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(
+            returncode=None, workdir=config.workdir, runtime_status="timeout",
+            stderr="partial\nCHEASE timed out after 60 s of running",
+        ),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("slow"), EquilibriumVariation("slow too")],
+        workdir=tmp_path,
+    )
+    assert len(cases) == 2 and not any(case.converged for case in cases)
+    assert cases[0].result is not None and cases[0].result.runtime_status == "timeout"
+    assert cases[0].error.startswith("CHEASE timed out after 60 s of running; see ")
+
+
 # ---------------------------------------------------------------------------
 # A shape knob must reach the boundary CHEASE solves (#887)
 # ---------------------------------------------------------------------------

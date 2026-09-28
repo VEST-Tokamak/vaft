@@ -39,12 +39,19 @@ from vaft.process.cocos import (
     identify_flux_exponent,
 )
 
+from .base import RunOutcome
 from ._executables import (
     ExecutableNotLaunchable,
     executable_from_home,
     missing_home_message,
 )
-from .execution import ExecutionBackend, ExecutionRequest, ResourceRequest, resolve_backend
+from .execution import (
+    ExecutionBackend,
+    ExecutionRequest,
+    ResourceRequest,
+    resolve_backend,
+    timeout_reason,
+)
 
 __all__ = [
     "BRZPHI_IMAGINARY_COLUMNS",
@@ -246,7 +253,7 @@ class FlareConfig:
 
 
 @dataclass
-class FlareResult:
+class FlareResult(RunOutcome):
     """One FLARE invocation: what it was asked, and what came back."""
 
     returncode: Optional[int]
@@ -255,6 +262,11 @@ class FlareResult:
     command: tuple[str, ...] = ()
     stdout: str = ""
     stderr: str = ""
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:
@@ -340,7 +352,10 @@ def run_flare(
     Returns
     -------
     FlareResult
-        The return code, the command as run, and the captured streams.
+        The return code, the command as run, and the captured streams. A run
+        that outlived ``config.timeout`` comes back with ``returncode=None``,
+        ``runtime_status="timeout"`` and the reason at the end of ``stderr``
+        (#1016; it used to raise ``subprocess.TimeoutExpired``).
 
     Raises
     ------
@@ -353,9 +368,6 @@ def run_flare(
     ExecutableNotLaunchable
         The operating system refused to start the driver for any other reason
         (a file that is not a program for this platform, say).
-    subprocess.TimeoutExpired
-        The run outlived ``config.timeout``. It is not turned into a failed
-        :class:`FlareResult`: a killed run has no return code to report.
 
     Notes
     -----
@@ -412,18 +424,20 @@ def run_flare(
         if isinstance(error.__cause__, (FileNotFoundError, PermissionError)):
             raise error.__cause__ from None
         raise
+    stderr = completed.stderr
     if completed.timed_out:
-        # A killed run has no return code to report.
-        raise subprocess.TimeoutExpired(
-            command, config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
-        )
+        # A result with returncode=None, not an exception (#1016).
+        reason = timeout_reason(f"FLARE {task}", completed, config.timeout)
+        stderr = f"{stderr}\n{reason}" if stderr else reason
     return FlareResult(
         returncode=completed.returncode,
         workdir=workdir,
         task=task,
         command=tuple(command),
         stdout=completed.stdout,
-        stderr=completed.stderr,
+        stderr=stderr,
+        runtime_status=completed.runtime_status,
+        elapsed_s=completed.elapsed_s,
     )
 
 

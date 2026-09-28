@@ -8,6 +8,10 @@ such as EFIT GEQDSK. Packaged sample files remain available through
 from importlib import import_module
 
 __all__ = [
+    "ANALYTIC_STATE_UNITS",
+    "AnalyticPlasmaState",
+    "AnalyticProfile",
+    "BarrierStep",
     "BoundaryRepresentation",
     "CocosSpec",
     "CodeConvention",
@@ -101,6 +105,10 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "ANALYTIC_STATE_UNITS": (".analytic_plasma_state", "ANALYTIC_STATE_UNITS"),
+    "AnalyticPlasmaState": (".analytic_plasma_state", "AnalyticPlasmaState"),
+    "AnalyticProfile": (".analytic_plasma_state", "AnalyticProfile"),
+    "BarrierStep": (".analytic_plasma_state", "BarrierStep"),
     "BoundaryRepresentation": (".equilibrium", "BoundaryRepresentation"),
     "CocosSpec": (".cocos", "CocosSpec"),
     "CodeConvention": (".cocos", "CodeConvention"),
