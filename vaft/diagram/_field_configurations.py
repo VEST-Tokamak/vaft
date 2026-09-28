@@ -448,8 +448,10 @@ def island_formation(*, labels: bool = True) -> Diagram:
     k_y, shear = 1.0, 1.0
     wavelength = 2.0 * math.pi / k_y
     W, Hh, gap = 5.0, 1.6, 1.3  # panel width, half-height [cm], gap
-    ys = np.linspace(0.0, 2.0 * wavelength, 321)
-    xs = np.linspace(-1.0, 1.0, 161)
+    # 301 samples: grid nodes land at multiples of W/300 cm, never on a 4-decimal rounding tie (321 would put
+    # them at k/64 cm, where last-bit differences between platforms flip the printed coordinate)
+    ys = np.linspace(0.0, 2.0 * wavelength, 301)
+    xs = np.linspace(-1.0, 1.0, 157)  # no contour level falls on a grid row (161 put d = 0.95 on one)
     Y, X = np.meshgrid(ys, xs)
     items: List = []
     widths, separatrices = [], []

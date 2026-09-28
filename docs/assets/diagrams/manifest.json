@@ -182,8 +182,8 @@
     },
     "island_formation.svg": {
       "call": "vaft.diagram.island_formation()",
-      "source_sha256": "16475bace5d3139f6b5658c343beeb1423e9408e6babfd56b0753b9749bca711",
-      "svg_sha256": "38059f5ad985c79139a9c0b3ffd53fc3e72aa6107bd464cc67afde16e1c73adc"
+      "source_sha256": "1c83396343ee0a0031556a40d9787399f2425f9c796c6888edca1ce4a801cfec",
+      "svg_sha256": "9bc4b75f718df089e19622d2d9347885e83e256b22e196f57ce595a2ff2ec2a0"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
@@ -322,18 +322,18 @@
     },
     "slab_parity_comparison.svg": {
       "call": "vaft.diagram.slab_parity_comparison()",
-      "source_sha256": "ad3853fd77c751e24d0ad0555ffceb736864ed71c9239e05bc4393972512ac08",
-      "svg_sha256": "ef0ea80a59f92378a0d1a29cf4f3d4cc13181f85fc708bb2a1f8af83fa818f00"
+      "source_sha256": "59dee9397c1fbe3c658fd3886136af9df1b13a41ba7b29890838c928cb461bec",
+      "svg_sha256": "be2ba5a917b00a3f391caa5fe92ad16fffe84203230f72b5d6e45c6a0fddd915"
     },
     "slab_parity_tearing.svg": {
       "call": "vaft.diagram.slab_parity(parity='tearing')",
-      "source_sha256": "748cc01ab39908fc5a1cf6ed97d08d6f84e2333732675191300d638705f5054e",
-      "svg_sha256": "539765d7d22f250b81edaed356d975d05f5f4937af2955a8ade0e1292a2be543"
+      "source_sha256": "496f83fbbcb0c6ed5a8ff4d9827b27a1913b7d91c5d43207e9e6e2cff30b56ca",
+      "svg_sha256": "0a40fd12f0bfb08787178d48c3d3e03269f9b27ee014729118eafb1a7f61aa91"
     },
     "slab_parity_twisting.svg": {
       "call": "vaft.diagram.slab_parity(parity='twisting')",
-      "source_sha256": "10462e4a3bbc58d75ddbe539084ac51ff6f36f59c65d926d4aeceb1b640ae982",
-      "svg_sha256": "91aed8ec3c6372688880ac2a202bdc7913e95ec170161d6255efed2531d2a1ae"
+      "source_sha256": "323704d498ce4fe52d9931748470618aec77ec700f36a86bd75c8261e72761c7",
+      "svg_sha256": "ee078a90aa02d347c20e8c5a53bd8d8c7574ab9d97bf09795643d1cde45e7f20"
     },
     "stochastic_ripple_orbit.svg": {
       "call": "vaft.diagram.stochastic_ripple_orbit()",
