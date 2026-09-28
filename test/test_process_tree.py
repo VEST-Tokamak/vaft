@@ -215,8 +215,10 @@ def test_sigterm_stops_the_tree_then_reaches_the_callers_handler(tmp_path):
 
 
 @POSIX
-def test_sigterm_to_a_default_python_ends_it_by_the_signal_with_no_orphan(tmp_path):
-    """What Snakemake sees: the job's Python dies of SIGTERM and its solver with it."""
+@pytest.mark.parametrize("signame", ["SIGTERM", "SIGHUP"])
+def test_a_signal_to_a_default_python_ends_it_by_the_signal_with_no_orphan(tmp_path, signame):
+    """A stopped job or a dropped ssh session: Python dies of the signal, its solver with it."""
+    signum = getattr(signal, signame)
     request = _tree_request(tmp_path)
     driver = tmp_path / "driver.py"
     import vaft
@@ -237,8 +239,8 @@ def test_sigterm_to_a_default_python_ends_it_by_the_signal_with_no_orphan(tmp_pa
     python = subprocess.Popen([sys.executable, str(driver)], cwd=tmp_path)
     try:
         grandchild = _pid(tmp_path / "grandchild.pid", within=30.0)
-        python.send_signal(signal.SIGTERM)
-        assert python.wait(timeout=20) == -signal.SIGTERM
+        python.send_signal(signum)
+        assert python.wait(timeout=20) == -signum
         assert _gone(grandchild)
     finally:
         if python.poll() is None:
@@ -313,3 +315,20 @@ def test_an_unlaunchable_program_is_still_the_shared_error(tmp_path):
     with pytest.raises(ExecutableNotLaunchable) as raised:
         LocalBackend().run(ExecutionRequest(command=(str(program),), workdir=tmp_path))
     assert isinstance(raised.value.__cause__, OSError)
+
+
+@POSIX
+def test_an_ignored_signal_stays_ignored_and_handlers_are_restored(tmp_path):
+    """``nohup``: an ignored SIGHUP is left ignored; nothing is left installed afterwards."""
+    previous_hup = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    before_term = signal.getsignal(signal.SIGTERM)
+    seen = []
+    try:
+        with _process_tree.forward_termination():
+            seen.append((signal.getsignal(signal.SIGHUP), signal.getsignal(signal.SIGTERM)))
+        assert seen[0][0] is signal.SIG_IGN
+        assert seen[0][1] is not before_term
+        assert signal.getsignal(signal.SIGHUP) is signal.SIG_IGN
+        assert signal.getsignal(signal.SIGTERM) is before_term
+    finally:
+        signal.signal(signal.SIGHUP, previous_hup)

@@ -17,12 +17,19 @@ one unit the operating system can stop:
 
 A new session no longer receives the terminal's Ctrl-C or a signal sent to the
 caller's process group (which is how Snakemake stops a job), so the caller must
-forward them: :func:`forward_termination` turns ``SIGTERM`` into
-:class:`Terminated` while a program runs, and the caller stops the tree and
-calls :meth:`Terminated.redeliver`.
+forward them: :func:`forward_termination` turns ``SIGTERM`` and ``SIGHUP`` (a
+dropped ssh session) into :class:`Terminated` while a program runs, and the
+caller stops the tree and calls :meth:`Terminated.redeliver`. Ctrl-C needs no
+handler: it already arrives as ``KeyboardInterrupt``.
 
-A process that makes itself a new session leader (``setsid``) or daemonizes has
-left the tree on purpose and is not stopped.
+Not covered:
+
+* ``SIGKILL`` to the caller's process group (``kill -9 -- -PGID``). The caller
+  cannot run any cleanup, and the tree is no longer in that group, so it keeps
+  running. A supervisor should send ``SIGTERM`` first; systemd and Slurm stop
+  a whole cgroup and are unaffected.
+* A process that makes itself a new session leader (``setsid``) or
+  daemonizes has left the tree on purpose and is not stopped.
 """
 
 from __future__ import annotations
@@ -42,8 +49,12 @@ _POLL_S = 0.05
 _WINDOWS = os.name == "nt"
 
 
+#: Signals :func:`forward_termination` turns into :class:`Terminated` (POSIX).
+FORWARDED_SIGNALS: tuple[str, ...] = ("SIGTERM", "SIGHUP")
+
+
 class Terminated(BaseException):
-    """``SIGTERM`` arrived while a program was running under :func:`forward_termination`.
+    """A forwarded signal arrived while a program was running under :func:`forward_termination`.
 
     A ``BaseException`` like ``KeyboardInterrupt``, so ``except Exception``
     blocks between the wait and the caller do not swallow it.
@@ -65,34 +76,39 @@ class Terminated(BaseException):
 
 @contextlib.contextmanager
 def forward_termination() -> Iterator[None]:
-    """Raise :class:`Terminated` on ``SIGTERM`` for the duration of the block.
+    """Raise :class:`Terminated` on each of :data:`FORWARDED_SIGNALS` in the block.
 
-    The handler is installed only on POSIX and only from the main thread
-    (Python delivers signals there alone), and only when the current
-    disposition can be put back afterwards: an ignored ``SIGTERM`` stays
-    ignored, and a handler installed outside Python is left alone. The
-    previous handler is restored on every exit from the block.
+    Handlers are installed only on POSIX and only from the main thread
+    (Python delivers signals there alone), and only where the current
+    disposition can be put back afterwards: an ignored signal stays ignored
+    (``nohup`` keeps working), and a handler installed outside Python is left
+    alone. The previous handlers are restored on every exit from the block.
     """
     if _WINDOWS or threading.current_thread() is not threading.main_thread():
-        yield
-        return
-    previous = signal.getsignal(signal.SIGTERM)
-    if previous is None or previous is signal.SIG_IGN:
         yield
         return
 
     def _stop(signum: int, frame: Any) -> None:
         raise Terminated(signum)
 
+    replaced: dict[int, Any] = {}
     try:
-        signal.signal(signal.SIGTERM, _stop)
-    except ValueError:  # not the main interpreter
-        yield
-        return
-    try:
+        for name in FORWARDED_SIGNALS:
+            signum = getattr(signal, name, None)
+            if signum is None:
+                continue
+            previous = signal.getsignal(signum)
+            if previous is None or previous is signal.SIG_IGN:
+                continue
+            try:
+                signal.signal(signum, _stop)
+            except ValueError:  # not the main interpreter
+                break
+            replaced[signum] = previous
         yield
     finally:
-        signal.signal(signal.SIGTERM, previous)
+        for signum, previous in replaced.items():
+            signal.signal(signum, previous)
 
 
 class ProcessTree:
@@ -324,4 +340,10 @@ def _windows_release_job(job: Any) -> None:
         pass
 
 
-__all__ = ["TERMINATE_GRACE_S", "ProcessTree", "Terminated", "forward_termination"]
+__all__ = [
+    "FORWARDED_SIGNALS",
+    "TERMINATE_GRACE_S",
+    "ProcessTree",
+    "Terminated",
+    "forward_termination",
+]

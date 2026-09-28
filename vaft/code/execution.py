@@ -15,9 +15,9 @@ The contract every backend keeps:
   its own documented timeout result (TES returns 124, EFIT marks the slice
   ``"timeout"``, ...), so moving an adapter onto a backend changes nothing its
   callers see.
-* ``KeyboardInterrupt`` or ``SIGTERM`` during the wait stops the tree the
-  same way and is then raised (or re-delivered) unchanged; it is never turned
-  into a result.
+* ``KeyboardInterrupt``, ``SIGTERM`` or ``SIGHUP`` during the wait stops the
+  tree the same way and is then raised (or re-delivered) unchanged; it is never
+  turned into a result.
 * A program the operating system will not start raises
   :class:`~vaft.code._executables.ExecutableNotLaunchable`, chained to the
   ``OSError``.
@@ -221,7 +221,8 @@ class LocalBackend:
         """Launch as a :class:`~vaft.code._process_tree.ProcessTree` (#1016).
 
         Same result as the ``subprocess.run`` path, but a timeout, a
-        ``KeyboardInterrupt`` or a ``SIGTERM`` stops the whole tree.
+        ``KeyboardInterrupt``, a ``SIGTERM`` or a ``SIGHUP`` stops the whole
+        tree.
         """
         capture = request.log_path is None
         log_path = None if capture else Path(request.log_path)
