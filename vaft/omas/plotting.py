@@ -221,9 +221,13 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
     order-independent.
 
     OMAS' aggregate ``plot_overlay`` dispatcher matches the pattern too but is
-    excluded: it forwards to the individual overlays (which are wrapped), and
-    its ``return_overlay_list=True`` query path draws nothing, so wrapping it
-    would leak a blank figure per query.
+    excluded, because wrapping it would leak a blank figure per
+    ``return_overlay_list=True`` query, a path that draws nothing.  It does
+    *not* reach the wrapped overlays: OMAS' ``overlay()`` calls the
+    module-level ``<name>_overlay(ods, ax, ...)`` functions, not the ODS
+    methods, so ``ods.plot_overlay()`` keeps OMAS' own behaviour and draws
+    onto ``pyplot.gca()`` while each individual ``ods.plot_<name>_overlay()``
+    opens a figure of its own (issue #271).
     """
     canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(

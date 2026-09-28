@@ -135,3 +135,35 @@ def test_ensure_em_coupling_leaves_a_complete_caller_supplied_pair_alone():
     np.testing.assert_array_equal(
         ods["em_coupling.mutual_passive_active"], passive_active
     )
+
+
+def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
+    """A non-VEST ODS is refused in its own terms, not told to rename its coils (#271)."""
+    import pytest
+    from vaft.omas.process_wrapper import ensure_em_coupling
+
+    ods = ODS(consistency_check=False)
+    for index, name in enumerate(("EFC1", "EFC2")):
+        coil = f"pf_active.coil.{index}"
+        ods[f"{coil}.name"] = name
+        ods[f"{coil}.identifier"] = name
+        ods[f"{coil}.element.0.geometry.rectangle.r"] = 1.0 + index
+        ods[f"{coil}.element.0.geometry.rectangle.z"] = 0.5
+        ods[f"{coil}.element.0.geometry.rectangle.width"] = 0.1
+        ods[f"{coil}.element.0.geometry.rectangle.height"] = 0.1
+        ods[f"{coil}.element.0.turns_with_sign"] = 10.0
+    for index in range(3):
+        loop = f"pf_passive.loop.{index}"
+        ods[f"{loop}.name"] = f"L{index}"
+        ods[f"{loop}.element.0.geometry.rectangle.r"] = 1.5
+        ods[f"{loop}.element.0.geometry.rectangle.z"] = 0.1 * index
+        ods[f"{loop}.element.0.geometry.rectangle.width"] = 0.01
+        ods[f"{loop}.element.0.geometry.rectangle.height"] = 0.01
+        ods[f"{loop}.resistance"] = 1e-3
+
+    with pytest.raises(ValueError) as caught:
+        ensure_em_coupling(ods)
+    message = str(caught.value)
+    assert "VEST's packaged coupling asset" in message
+    assert "supply both matrices" in message
+    assert "dataset_description" not in ods, "the shot probe must not vivify the node"

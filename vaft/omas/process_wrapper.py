@@ -466,6 +466,15 @@ def ensure_em_coupling(ods: ODS) -> None:
     any single matrix lets such an ODS through to a bare ``KeyError`` in
     :func:`compute_impedance_matrices_ods`. Require every matrix that function
     reads, and leave a caller-supplied pair untouched.
+
+    The only reconstruction VAFT has is VEST's packaged coupling asset, which
+    accepts an ODS only when its PF coils and passive loops match that asset
+    exactly (names, order and geometry).  When they do not -- another machine,
+    or a VEST ODS whose geometry is of another era -- the error says so and
+    names the two matrices the caller can supply instead, rather than leaving
+    the asset's own mismatch message to suggest renaming the caller's coils
+    (issue #271).  Whether the ODS "is VEST" is never guessed: the asset's
+    full-geometry check is the only test, and it cannot pass a foreign machine.
     """
     existing = ods["em_coupling"] if "em_coupling" in ods else None
     if existing is not None and all(
@@ -476,12 +485,26 @@ def ensure_em_coupling(ods: ODS) -> None:
 
     from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
 
+    from vaft.ods_access import path_value
+
     shot = None
     try:
-        shot = int(ods["dataset_description.data_entry.pulse"])
-    except (KeyError, ValueError, TypeError):
+        # read without subscripting: an OMAS subscript would leave an empty
+        # dataset_description behind on an ODS that has none (#118)
+        shot = int(path_value(ods, "dataset_description.data_entry.pulse"))
+    except (ValueError, TypeError):
         pass
-    _map_em_coupling(ods, shot=shot)
+    try:
+        _map_em_coupling(ods, shot=shot)
+    except ValueError as error:
+        raise ValueError(
+            "em_coupling.mutual_passive_passive / mutual_passive_active are missing "
+            "or incomplete, and VAFT's only reconstruction -- VEST's packaged "
+            "coupling asset -- does not fit this ODS's PF coils and passive loops: "
+            f"{error}. For a machine other than VEST, supply both matrices in "
+            "em_coupling before calling; for VEST, populate pf_active/pf_passive "
+            "with vaft.machine_mapping for the ODS's own shot."
+        ) from error
 
 
 
