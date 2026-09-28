@@ -60,9 +60,11 @@ BASES = ((1, 1), (2, 1), (1, 2))
 STAGE1_PROBE, STAGE1_LOOP, STAGE1_FLOOR = 16, 2, 0.02
 
 
-def setting_name(basis: Sequence[int], probe: float, loop: float, dia: float | None, floor: float) -> str:
+def setting_name(basis: Sequence[int], probe: float, loop: float, dia: float | None, floor: float,
+                 ip: float = 1.0) -> str:
     dia_tag = "off" if dia is None else f"x{dia:g}"
-    return (f"p{basis[0]}f{basis[1]}_probe_x{probe:g}_loop_x{loop:g}_dia_{dia_tag}"
+    ip_tag = "" if ip == 1.0 else f"_ip_x{ip:g}"
+    return (f"p{basis[0]}f{basis[1]}_probe_x{probe:g}_loop_x{loop:g}_dia_{dia_tag}{ip_tag}"
             f"_floor{round(100 * floor)}pct")
 
 
@@ -78,12 +80,38 @@ def stage1_settings() -> list[dict[str, Any]]:
     return settings
 
 
+#: Stage 2 (#891): stage 1 left the probes at chi2r ~0.1 and the loops ~0.3,
+#: the diamagnetic row unsolvable at x1-x4, and the flat-top slices failing
+#: the 3 % Ip bound against a 5 % Ip sigma -- so both Ip sigmas are compared.
+STAGE2_PROBE = (4, 8)
+STAGE2_LOOP = (1, 2)
+STAGE2_DIA = (16, 64, None)
+STAGE2_BASES = ((1, 1), (1, 2))
+STAGE2_IP = (1.0, 0.4)
+
+
+def stage2_settings() -> list[dict[str, Any]]:
+    settings = [{"name": "routine", "routine": True}]
+    for basis in STAGE2_BASES:
+        for ip in STAGE2_IP:
+            for probe in STAGE2_PROBE:
+                for loop in STAGE2_LOOP:
+                    for dia in STAGE2_DIA:
+                        settings.append({
+                            "name": setting_name(basis, probe, loop, dia, STAGE1_FLOOR, ip),
+                            "basis": list(basis), "probe": probe, "loop": loop, "dia": dia,
+                            "ip": ip, "floor": STAGE1_FLOOR,
+                        })
+    return settings
+
+
 def uncertainty_scales(setting: Mapping[str, Any]) -> dict[str, float]:
     """``uncertainty_scales`` divides sigma: a multiplier m is a scale 1/m."""
     dia = setting["dia"]
     return {
         "bpol_probe": 1.0 / float(setting["probe"]),
         "flux_loop": 1.0 / float(setting["loop"]),
+        "plasma_current": 1.0 / float(setting.get("ip", 1.0)),
         "diamagnetic_flux": calibration.DIAMAGNETIC_INACTIVE_SCALE if dia is None else 1.0 / float(dia),
     }
 
@@ -242,7 +270,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if efit is None:
         print("no efit executable: set EFITHOME", file=sys.stderr)
         return 2
-    settings = json.loads(args.settings.read_text()) if args.settings else stage1_settings()
+    if args.settings:
+        settings = json.loads(args.settings.read_text())
+    else:
+        settings = {1: stage1_settings, 2: stage2_settings}[args.stage]()
     tables = str(Path(data_path("efit")).resolve()) + "/"
     reference = json.loads(calibration.REFERENCE_SET.read_text(encoding="utf-8"))
     products = {int(i["shot"]): i["files"]["product"]["path"] for i in reference["shots"]

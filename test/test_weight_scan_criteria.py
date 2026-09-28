@@ -117,9 +117,20 @@ def test_stage1_holds_probe_and_loop_and_scans_basis_by_diamagnetic_sigma(scan):
 
 def test_uncertainty_scales_divide_sigma_and_an_inactive_row_is_scaled_out(scan):
     active = {"probe": 16, "loop": 2, "dia": 4}
-    assert scan.uncertainty_scales(active) == {"bpol_probe": 1 / 16, "flux_loop": 0.5, "diamagnetic_flux": 0.25}
+    assert scan.uncertainty_scales(active) == {"bpol_probe": 1 / 16, "flux_loop": 0.5, "plasma_current": 1.0,
+                                               "diamagnetic_flux": 0.25}
     off = dict(active, dia=None)
     assert scan.uncertainty_scales(off)["diamagnetic_flux"] == scan.calibration.DIAMAGNETIC_INACTIVE_SCALE
     assert "diamagnetic_flux" in scan.fitted_families(active)
     assert "diamagnetic_flux" not in scan.fitted_families(off)
     assert scan.inactive_families(off) == ("dia",) and scan.inactive_families(active) == ()
+
+
+def test_stage2_grids_probe_loop_dia_basis_and_both_ip_sigmas(scan):
+    settings = scan.stage2_settings()[1:]
+    assert len(settings) == 2 * 2 * 3 * 2 * 2 == 48
+    assert len({s["name"] for s in settings}) == 48
+    two_percent = [s for s in settings if s["ip"] == 0.4]
+    assert len(two_percent) == 24 and all("_ip_x0.4_" in s["name"] for s in two_percent)
+    # 5 % / 0.4 = 2 %: a multiplier below one narrows the sigma.
+    assert scan.uncertainty_scales(two_percent[0])["plasma_current"] == pytest.approx(2.5)
