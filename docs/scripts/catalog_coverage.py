@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+"""Fail when a generated reference catalog and the library's public surface disagree.
+
+    cd docs && PYTHONPATH=.. python scripts/catalog_coverage.py
+
+``docs/build.py`` runs this against every track that ships it, right after the
+generators, with ``PYTHONPATH`` pointing at that track's source tree.  For
+each catalog ``generators.yml`` declares it compares the snapshot, in both
+directions, with the public surface:
+
+missing
+    a public object no catalog entry describes;
+vanished
+    a catalog entry whose object is no longer public where it says it lives.
+
+The generators run seconds earlier on the same tree, so comparing a snapshot
+with the enumeration its own generator performs could only catch a generator
+bug.  Each layer is therefore also enumerated from something the generator
+does not read: the source files on disk, or the namespace users actually type.
+
+formula / process
+    every public submodule found **on disk** (``pkgutil``, not the package's
+    ``_IMPORT_ORDER``), minus the catalog module itself: each function in its
+    ``__all__`` -- or, without an ``__all__``, each public function defined in
+    it -- must be described by an entry.  So must every function in the
+    package namespace ``vaft.formula.__all__`` / ``vaft.process.__all__``.
+    Entries are matched by the object their ``module`` and ``name`` resolve
+    to, so an entry that describes a different function of the same name does
+    not count.  Classes, constants and submodules are API, not catalog
+    entries; they belong to the API reference (#162).
+plot
+    every function in ``vaft.plot.__all__`` is either a registered renderer
+    (and then a ``plots`` entry) or, when its name starts with ``plot_`` (it
+    draws a figure), an ``entry_points`` entry; every other name ``dir(vaft.plot)``
+    offers beyond ``__all__`` (the legacy cross-shot statistics, served
+    without a warning) is an ``entry_points`` entry too.  What remains of
+    ``__all__`` -- view models, ``render_*`` bodies, ``*_model`` builders,
+    helpers -- is support API for #162.  Every registered spec, whatever its
+    status, is a ``plots`` entry.
+diagram
+    every public function **defined in a vaft.diagram module on disk** that is
+    annotated to return a ``Diagram`` is a builder entry and is in
+    ``vaft.diagram.__all__``; every asset :data:`vaft.diagram.build.CANONICAL`
+    declares and every ``*.svg`` committed under ``docs/assets/diagrams`` is an
+    asset entry; every builder has at least one asset.
+
+Finally every ``vaft`` module imported while checking must come from the tree
+being documented, so an editable install that serves a missing subpackage from
+another checkout cannot pass for this one.
+
+The rendered pages are checked against the catalogs by ``validate_docs.rb``.
+
+Exit status is 1 when anything disagrees, and every disagreement is printed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib
+import inspect
+import pkgutil
+import sys
+from pathlib import Path
+
+DOCS = Path(__file__).resolve().parents[1]
+
+
+def _load(path: Path):
+    import yaml
+
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _entry_names(entry: dict) -> list[str]:
+    return [entry["name"], *(entry.get("aliases") or [])]
+
+
+# --------------------------------------------------------------------------
+# formula and process
+# --------------------------------------------------------------------------
+
+
+def _package_functions(module_names: tuple[str, ...]) -> dict[str, object]:
+    public: dict[str, object] = {}
+    for module_name in module_names:
+        module = importlib.import_module(module_name)
+        for name in getattr(module, "__all__", ()):
+            obj = getattr(module, name, None)
+            if inspect.isfunction(obj):
+                public.setdefault(f"{module_name}.{name}", obj)
+    return public
+
+
+def _submodule_functions(package_name: str, skip: frozenset[str]) -> dict[str, object]:
+    """Public functions of every public submodule on disk."""
+    package = importlib.import_module(package_name)
+    public: dict[str, object] = {}
+    for info in sorted(pkgutil.iter_modules(package.__path__), key=lambda info: info.name):
+        if info.name.startswith("_") or info.name in skip:
+            continue
+        module = importlib.import_module(f"{package_name}.{info.name}")
+        exported = getattr(module, "__all__", None)
+        if exported is None:
+            exported = [name for name, obj in vars(module).items()
+                        if not name.startswith("_") and inspect.isfunction(obj) and obj.__module__ == module.__name__]
+        for name in exported:
+            obj = getattr(module, name, None)
+            if inspect.isfunction(obj):
+                public.setdefault(f"{module.__name__}.{name}", obj)
+    return public
+
+
+def check_functions(kind: str, snapshot: dict, rows_key: str, package: str,
+                    extra_namespaces: tuple[str, ...] = ()) -> list[str]:
+    problems: list[str] = []
+    described: dict[int, set[str]] = {}
+    for entry in snapshot.get(rows_key) or []:
+        label = entry.get("id") or entry.get("name")
+        try:
+            module = importlib.import_module(entry["module"])
+        except Exception as error:  # an entry naming a module that is gone
+            problems.append(f"{kind}: catalog entry {label} names module {entry.get('module')!r}, "
+                            f"which does not import ({type(error).__name__})")
+            continue
+        exported = set(getattr(module, "__all__", ()))
+        obj = getattr(module, entry["name"], None)
+        if not inspect.isfunction(obj) or entry["name"] not in exported:
+            problems.append(f"{kind}: catalog entry {label} vanished: "
+                            f"{entry['module']}.{entry['name']} is no longer a public function")
+            continue
+        for alias in entry.get("aliases") or []:
+            if getattr(module, alias, None) is not obj or alias not in exported:
+                problems.append(f"{kind}: catalog entry {label} lists alias {alias}, "
+                                f"which {entry['module']} no longer exports as the same function")
+        described.setdefault(id(inspect.unwrap(obj)), set()).update(_entry_names(entry))
+
+    public = _package_functions((package, *extra_namespaces))
+    for qualified, obj in _submodule_functions(package, frozenset({"catalog"})).items():
+        public.setdefault(qualified, obj)
+    for qualified, obj in sorted(public.items()):
+        name = qualified.rsplit(".", 1)[-1]
+        names = described.get(id(inspect.unwrap(obj)))
+        if names is None:
+            problems.append(f"{kind}: {obj.__module__}.{obj.__qualname__} is public as "
+                            f"{qualified} but no catalog entry describes it")
+        elif name not in names:
+            problems.append(f"{kind}: {qualified} is public but its catalog entry "
+                            f"lists it only as {', '.join(sorted(names))}")
+    return problems
+
+
+def check_formula(snapshot: dict) -> list[str]:
+    return check_functions("formula", snapshot, "formulas", "vaft.formula")
+
+
+def check_process(snapshot: dict) -> list[str]:
+    return check_functions("process", snapshot, "functions", "vaft.process")
+
+
+# --------------------------------------------------------------------------
+# plot
+# --------------------------------------------------------------------------
+
+
+def check_plot(snapshot: dict) -> list[str]:
+    import warnings
+
+    import vaft.plot as plot
+    from vaft.plot import registry
+
+    problems: list[str] = []
+    registered = {spec.name: spec for spec in registry.specs(status=None)}
+    renderers = {id(spec.renderer): spec.name for spec in registered.values()}
+    catalog = {entry["name"]: entry for entry in snapshot.get("plots") or []}
+    entry_points = {entry["name"]: entry for entry in snapshot.get("entry_points") or []}
+
+    # The namespace users type.
+    expected_entry_points: dict[str, str] = {}
+    for name in sorted(plot.__all__):
+        obj = getattr(plot, name, None)
+        if not inspect.isfunction(obj):
+            continue
+        if id(obj) in renderers:
+            if renderers[id(obj)] not in catalog:
+                problems.append(f"plot: vaft.plot.{name} renders registered plot {renderers[id(obj)]}, "
+                                f"which is not in plot_catalog.yml")
+        elif name.startswith("plot_"):
+            expected_entry_points[name] = "support"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)   # a warning name is not offered as API
+        for name in sorted(set(dir(plot)) - set(plot.__all__)):
+            if name.startswith("_"):
+                continue
+            try:
+                obj = getattr(plot, name)
+            except (AttributeError, DeprecationWarning):
+                continue
+            if inspect.isfunction(obj) and id(obj) not in renderers:
+                expected_entry_points[name] = "legacy"
+    for name in sorted(set(expected_entry_points) - set(entry_points)):
+        problems.append(f"plot: vaft.plot.{name} is a public plotting function but is not in plot_catalog.yml")
+    for name in sorted(set(entry_points) - set(expected_entry_points)):
+        problems.append(f"plot: catalog entry point {name} vanished: vaft.plot no longer offers it")
+    for name in sorted(set(entry_points) & set(expected_entry_points)):
+        if entry_points[name].get("status") != expected_entry_points[name]:
+            problems.append(f"plot: catalog entry point {name} is recorded as {entry_points[name].get('status')!r}, "
+                            f"vaft.plot offers it as {expected_entry_points[name]!r}")
+
+    # The registry, whatever the status.
+    for name in sorted(set(registered) - set(catalog)):
+        problems.append(f"plot: registered plot {name} is not in plot_catalog.yml")
+    for name in sorted(set(catalog) - set(registered)):
+        problems.append(f"plot: catalog entry {name} vanished: the registry no longer holds it")
+    for name in sorted(set(catalog) & set(registered)):
+        spec, entry = registered[name], catalog[name]
+        for field in ("subject", "view", "quantity", "status"):
+            if entry.get(field) != getattr(spec, field):
+                problems.append(f"plot: catalog entry {name} records {field}={entry.get(field)!r}, "
+                                f"the registry says {getattr(spec, field)!r}")
+    for name, spec in sorted(registered.items()):
+        if spec.status == "canonical" and (name not in plot.__all__ or getattr(plot, name, None) is not spec.renderer):
+            problems.append(f"plot: canonical plot {name} is not bound as vaft.plot.{name}")
+    return problems
+
+
+# --------------------------------------------------------------------------
+# diagram
+# --------------------------------------------------------------------------
+
+
+def _returns_diagram(function) -> bool:
+    annotation = inspect.signature(function).return_annotation
+    return annotation == "Diagram" or getattr(annotation, "__name__", None) == "Diagram"
+
+
+def _diagram_functions_on_disk() -> dict[str, object]:
+    import vaft.diagram as diagram
+
+    found: dict[str, object] = {}
+    for info in sorted(pkgutil.iter_modules(diagram.__path__), key=lambda info: info.name):
+        module = importlib.import_module(f"vaft.diagram.{info.name}")
+        for name, obj in vars(module).items():
+            if (not name.startswith("_") and inspect.isfunction(obj)
+                    and obj.__module__ == module.__name__ and _returns_diagram(obj)):
+                found[name] = obj
+    return found
+
+
+def check_diagram(snapshot: dict, root: Path) -> list[str]:
+    import vaft.diagram as diagram
+    from vaft.diagram import build
+
+    problems: list[str] = []
+    public = {name for name in diagram.__all__ if inspect.isfunction(getattr(diagram, name, None))}
+    builders = {entry["name"]: entry for entry in snapshot.get("builders") or []}
+    for name in sorted(public - set(builders)):
+        problems.append(f"diagram: public builder vaft.diagram.{name} is not in diagram_catalog.yml")
+    for name in sorted(set(builders) - public):
+        problems.append(f"diagram: catalog builder {name} vanished: vaft.diagram no longer exports it")
+    for name, obj in sorted(_diagram_functions_on_disk().items()):
+        if name not in builders:
+            problems.append(f"diagram: {obj.__module__}.{name} builds a Diagram but is not in diagram_catalog.yml")
+        if getattr(diagram, name, None) is not obj or name not in diagram.__all__:
+            problems.append(f"diagram: {obj.__module__}.{name} builds a Diagram but is not exported as vaft.diagram.{name}")
+
+    declared = set(build.CANONICAL)
+    committed = {path.name for path in (root / "docs" / "assets" / "diagrams").glob("*.svg")}
+    catalogued = {entry["asset"] for entry in snapshot.get("assets") or []}
+    for name in sorted(declared - catalogued):
+        problems.append(f"diagram: canonical asset {name} is not in diagram_catalog.yml")
+    for name in sorted(catalogued - declared):
+        problems.append(f"diagram: catalog asset {name} vanished: vaft.diagram.build.CANONICAL no longer declares it")
+    for name in sorted(catalogued - committed):
+        problems.append(f"diagram: catalog asset {name} has no committed SVG in docs/assets/diagrams")
+    for name in sorted(committed - catalogued):
+        problems.append(f"diagram: docs/assets/diagrams/{name} is committed but in no catalog entry (orphaned)")
+
+    drawn = {builder for builder, _ in build.CANONICAL.values()}
+    for name in sorted(public - drawn):
+        problems.append(f"diagram: public builder vaft.diagram.{name} has no canonical asset to show")
+    for entry in snapshot.get("assets") or []:
+        builder = entry.get("builder")
+        if builder in builders and entry["asset"] not in (builders[builder].get("assets") or []):
+            problems.append(f"diagram: asset {entry['asset']} is not listed under its builder {builder}")
+    return problems
+
+
+# --------------------------------------------------------------------------
+# entry point
+# --------------------------------------------------------------------------
+
+
+#: generator module -> how to check its output.
+CHECKS = {
+    "vaft.formula.catalog": lambda snapshot, root: check_formula(snapshot),
+    "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
+    "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot),
+    "vaft.diagram.docs_catalog": check_diagram,
+}
+
+
+def foreign_modules(root: Path) -> list[str]:
+    """Imported ``vaft`` modules whose file is not under ``root``."""
+    root = root.resolve()
+    foreign = []
+    for name, module in sorted(sys.modules.items()):
+        if name != "vaft" and not name.startswith("vaft."):
+            continue
+        location = getattr(module, "__file__", None)
+        if location and not Path(location).resolve().is_relative_to(root):
+            foreign.append(f"{name} ({location})")
+    return foreign
+
+
+def check(docs: Path = DOCS, root: Path | None = None) -> list[str]:
+    """Every disagreement between this docs tree's catalogs and the importable library.
+
+    ``root`` is the source tree the catalogs describe, ``docs/..`` unless given;
+    every imported ``vaft`` module has to be that tree's copy or nothing is judged.
+    """
+    import vaft
+
+    root = (root or docs.resolve().parent).resolve()
+    problems: list[str] = []
+    imported_from = Path(vaft.__file__).resolve().parents[1]
+    if imported_from != root:
+        problems.append(f"vaft was imported from {imported_from}, not from the tree being documented ({root}); "
+                        f"run with PYTHONPATH={root}")
+        return problems
+    manifest = docs / "generators.yml"
+    generators = ((_load(manifest) or {}).get("generators") or []) if manifest.is_file() else []
+    for generator in generators:
+        checker = CHECKS.get(generator["module"])
+        if checker is None:
+            continue
+        output = docs / generator["output"]
+        if not output.is_file():
+            problems.append(f"{generator['output']} is declared but was not generated")
+            continue
+        problems.extend(checker(_load(output) or {}, root))
+    for module in foreign_modules(root):
+        problems.append(f"{module} was imported from outside the tree being documented ({root})")
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--docs", type=Path, default=DOCS, help="docs/ directory to check (default: %(default)s)")
+    arguments = parser.parse_args(argv)
+    problems = check(arguments.docs)
+    for problem in problems:
+        print(problem, file=sys.stderr)
+    if problems:
+        print(f"catalog coverage: {len(problems)} problems", file=sys.stderr)
+        return 1
+    print("catalog coverage: every public formula, process, plot and diagram is catalogued")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

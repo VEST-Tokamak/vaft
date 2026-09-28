@@ -708,10 +708,10 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 # ------------------------------------------------------------------
 
 
-def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0):
+def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0, indentation=0.0):
     r"""Major radius and height of a Miller-parametrised flux surface.
 
-    $$R = R_0 + \Delta + r\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right),
+    $$R = R_0 + \Delta + r\left[\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right) + b\,\sin^2\theta\cos\theta\right],
     \qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)$$
 
     Parameters
@@ -732,6 +732,9 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
         Squareness $\zeta$, in $(-1/2, 1/2)$ [-].
     Z0 : float or np.ndarray
         Height of the surface centre [m].
+    indentation : float or np.ndarray
+        Inboard indentation $b$, above $-\sqrt{1-\delta^2}$; positive values
+        dent the high-field side into a bean [-].
 
     Returns
     -------
@@ -744,7 +747,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ------
     ValueError
         ``r`` is negative or not finite, ``kappa`` is not positive, ``delta``
-        lies outside $(-1, 1)$, or ``squareness`` outside $(-1/2, 1/2)$.
+        lies outside $(-1, 1)$, ``squareness`` outside $(-1/2, 1/2)$, or
+        ``indentation`` at or below $-\sqrt{1-\delta^2}$.
 
     Convention
     ----------
@@ -753,14 +757,23 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     radial profile (VAFT's schematics use $\delta(r) = \delta_a r/a$).
     ``theta`` is the parametrisation angle, not a straight-field-line angle
     (see ``straight_field_line_angle``). ``squareness = 0`` and ``Z0 = 0``
-    reproduce the five-parameter surface exactly; the process layer's
-    ``evaluate_miller`` evaluates this same function.
+    reproduce the five-parameter surface exactly, and so does
+    ``indentation = 0``; the process layer's ``evaluate_miller`` evaluates
+    this same function. The indentation term
+    $g(\theta) = \sin^2\theta\cos\theta$ vanishes at the outboard and
+    inboard midplanes and at the top and bottom, so $r$, $\kappa$ and
+    $\delta$ keep their cardinal-point definitions; the geometric elongation
+    and triangularity of the whole contour do move with $b$. Nothing keeps
+    $R$ positive: a large $b$ on a small major radius can push the inboard
+    shoulders through the axis, as a large $r$ always could.
 
     Physical interpretation
     -----------------------
     The top and bottom of the surface sit at $R_0 + \Delta - \delta r$: a
     positive triangularity pulls them inward, making the D shape; the
-    outboard midplane stays at $R_0 + \Delta + r$.
+    outboard midplane stays at $R_0 + \Delta + r$. With $\alpha = \arcsin\delta$,
+    the high-field side is concave -- a bean -- once $b > (1-\alpha)^2/2$, and
+    the outboard side stays convex while $b < (1+\alpha)^2/2$.
 
     Assumptions
     -----------
@@ -770,6 +783,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ----------
     .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
            R. E. Waltz, Phys. Plasmas 5, 973 (1998).
+    .. [2] The indentation term and its bean-onset criterion are VAFT's own
+           (issue #941), for the bean-shaped plasmas of PBX/PBX-M.
     """
     kappa = np.asarray(kappa, dtype=float)
     delta = np.asarray(delta, dtype=float)
@@ -783,8 +798,19 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
         raise ValueError("delta must lie in (-1, 1)")
     if np.any(np.abs(squareness) >= 0.5):
         raise ValueError("squareness must lie in (-1/2, 1/2): beyond it the surface doubles back on itself")
+    indentation = np.asarray(indentation, dtype=float)
+    if np.any(indentation <= -np.sqrt(1.0 - delta**2)):
+        raise ValueError("indentation must exceed -sqrt(1 - delta**2): at or below it the inboard side crosses the outboard one")
     theta = np.asarray(theta, dtype=float)
-    R = R0 + np.asarray(shift, dtype=float) + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    return _miller_rz(r, theta, R0 + np.asarray(shift, dtype=float), Z0, kappa, delta, squareness, indentation)
+
+
+def _miller_rz(r, theta, R0, Z0, kappa, delta, squareness, indentation):
+    """The Miller point formula without validation, for a fitter's trial parameters."""
+    R = R0 + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    if np.any(indentation != 0.0):
+        # Only added when asked for, so a zero indentation is the old surface to the bit.
+        R = R + r * indentation * np.sin(theta)**2 * np.cos(theta)
     return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
 
 
@@ -1088,6 +1114,128 @@ def current_density_from_B(B: Union[float, np.ndarray],
            Sec. 3.1 (Ampere's law in the tokamak).
     """
     return gradient(R, B) / MU0
+
+
+def grad_shafranov_source(R, J_phi):
+    r"""Right-hand side of the poloidal-flux equation from Ampere's law, any region.
+
+    $$\Delta^*\psi = -\mu_0 R J_\phi,\qquad
+      \Delta^* = R\frac{\partial}{\partial R}\frac{1}{R}\frac{\partial}{\partial R}
+      + \frac{\partial^2}{\partial Z^2}$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Major radius, positive [m].
+    J_phi : float or np.ndarray
+        Toroidal current density: plasma, coil or zero [A/m^2].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta^*\psi$ for a per-radian $\psi$ [Wb/(rad m^2)].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
+
+    Convention
+    ----------
+    Per-radian flux $\psi = RA_\phi$ with $\mathbf B_p = \nabla\psi\times\nabla\phi$
+    and $(R, \phi, Z)$ right-handed, $\phi$ counter-clockwise from above
+    (Freidberg; COCOS 3, $\sigma_{B_p} = -1$): a positive $J_\phi$ makes $\psi$
+    a maximum on the magnetic axis. A flux stored in another COCOS is
+    converted first with ``psi_per_radian_from_cocos`` -- for the full-weber
+    COCOS 11 of an IMAS ODS, $\psi = -\psi_{11}/(2\pi)$. The operator itself
+    on a grid is ``vaft.process.equilibrium.grad_shafranov_operator``.
+
+    Physical interpretation
+    -----------------------
+    One elliptic equation for one flux function everywhere; only the source
+    differs by region. In the plasma $J_\phi$ is constrained by force balance
+    (``toroidal_current_density_from_p_prime_ff_prime``), in a coil it is the
+    prescribed coil current density, and in vacuum it is zero, leaving the
+    homogeneous equation $\Delta^*\psi = 0$ -- Laplace-type, but not the
+    scalar Laplacian ($\Delta^*$ has $-R^{-1}\partial_R$ where $\nabla^2$ has
+    $+R^{-1}\partial_R$).
+
+    Assumptions
+    -----------
+    Axisymmetry, $\partial_\phi = 0$; magnetostatics (no displacement current).
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return -MU0 * R * np.asarray(J_phi, dtype=float)
+
+
+def toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime):
+    r"""Plasma toroidal current density allowed by force balance, $J_\phi(p', FF')$.
+
+    $$J_\phi = R\,p'(\psi) + \frac{F F'(\psi)}{\mu_0 R},\qquad
+      \Delta^*\psi = -\mu_0R^2p'(\psi) - FF'(\psi)$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Major radius, positive [m].
+    p_prime : float or np.ndarray
+        $dp/d\psi$ [Pa rad/Wb].
+    ff_prime : float or np.ndarray
+        $F\,dF/d\psi$, $F = RB_\phi$ [T^2 m^2 rad/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $J_\phi$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
+
+    Convention
+    ----------
+    Per-radian $\psi$ as in ``grad_shafranov_source``, whose source this is:
+    ``grad_shafranov_source(R, J_phi)`` is then the Grad--Shafranov right-hand
+    side. A positive $J_\phi$ makes $\psi$ a maximum on the axis, so $\psi$
+    and a peaked pressure both fall outward: $p' > 0$, and the pressure term
+    adds co-current $J_\phi$. Profiles from an EFIT g-file or an ODS carry
+    their own COCOS sign on $\psi$; convert before combining.
+
+    Physical interpretation
+    -----------------------
+    $\mathbf J\times\mathbf B = \nabla p$ with $\mathbf B = \nabla\psi\times
+    \nabla\phi + F\nabla\phi$ forces $p$ and $F$ to be flux functions and
+    leaves only these two free profiles for the toroidal current: a
+    pressure-gradient part $\propto R$ and a poloidal-current part
+    $\propto 1/R$. This is what makes the plasma region's
+    equation the Grad--Shafranov equation rather than Ampere's law alone.
+
+    Assumptions
+    -----------
+    Axisymmetric, static, isotropic-pressure ideal MHD equilibrium; no flow.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] V. D. Shafranov, Sov. Phys. JETP 6, 545 (1958); H. Grad and
+           H. Rubin, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31, 190
+           (1958).
+    """
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return R * np.asarray(p_prime, dtype=float) + np.asarray(ff_prime, dtype=float) / (MU0 * R)
 
 
 def current_density_from_psi(psi: Union[float, np.ndarray],

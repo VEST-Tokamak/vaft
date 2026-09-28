@@ -270,6 +270,31 @@ def regenerate_data(track: Track, *, quiet: bool = False) -> None:
             size = target.stat().st_size
             print(f"    {output:<34} {size:>8,} bytes   source verified")
 
+    check_catalog_coverage(track, env, quiet=quiet)
+
+
+#: Shipped in the track's own docs/, like validate_docs.rb, so a branch that
+#: predates it is simply not checked.
+COVERAGE_SCRIPT = Path("scripts") / "catalog_coverage.py"
+
+
+def check_catalog_coverage(track: Track, env: dict[str, str], *, quiet: bool = False) -> None:
+    """Fail if a public formula, process, plot or diagram is missing from its catalog.
+
+    Run with the same environment as the generators, so it imports the
+    track's tree; the script itself refuses to judge any other copy.
+    """
+    script = track.docs / COVERAGE_SCRIPT
+    if not script.is_file():
+        return
+    result = _run([sys.executable, str(script)], cwd=track.docs, env=env, check=False)
+    if result.returncode != 0:
+        raise BuildError(
+            f"{track.name}: {COVERAGE_SCRIPT.as_posix()} failed\n{(result.stderr or result.stdout).strip()}"
+        )
+    if not quiet:
+        print(f"    {COVERAGE_SCRIPT.as_posix():<34} {'':>8}         passed")
+
 
 def _verify_generated_from_track(track: Track, snapshot: Path, module: str) -> None:
     """Prove the generator read *this* tree and not another installed copy.
