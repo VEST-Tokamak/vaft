@@ -85,7 +85,9 @@ _PARAMETRIC_EXPORTS = (
     "fit_miller_surface",
     "miller_surfaces",
     "solovev_example",
+    "solovev_shape_constraints",
     "solovev_to_equilibrium",
+    "solovev_xpoint_constraints",
     "solve_solovev_constraints",
     "validate_equilibrium",
 )

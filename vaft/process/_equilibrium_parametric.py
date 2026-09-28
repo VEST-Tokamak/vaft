@@ -19,6 +19,8 @@ from scipy.spatial import cKDTree
 
 from vaft.data.cocos import VAFT_INTERNAL_COCOS, cocos_spec
 from vaft.data.equilibrium import (
+    SOLOVEV_BASIS_SIZES,
+    SOLOVEV_CONSTRAINT_KINDS,
     BoundaryRepresentation,
     Contour,
     DerivationProvenance,
@@ -1404,10 +1406,78 @@ def fit_miller_sequence(
     return MillerSequenceResult(tuple(fits), reason, provenance)
 
 
+#: The original five-term Solov'ev basis as ``(terms, length_power)``: each
+#: term list is ``c * x**p * y**q * ln(x)**k`` in ``x = R/rref``, ``y = Z/rref``
+#: (the notation of :data:`_CF_BASIS`), and the function in metres is that
+#: polynomial times ``rref**length_power``.  So the third entry is
+#: ``R**2 ln(R/rref) - Z**2`` and the last ``R**6 - 12 R**4 Z**2 + 8 R**2 Z**4``.
+_CLASSIC_SOLOVEV_BASIS: tuple[tuple[tuple[tuple[float, int, int, int], ...], int], ...] = (
+    (((1.0, 0, 0, 0),), 0),
+    (((1.0, 2, 0, 0),), 2),
+    (((1.0, 2, 0, 1), (-1.0, 0, 2, 0)), 2),
+    (((1.0, 4, 0, 0), (-4.0, 2, 2, 0)), 4),
+    (((1.0, 6, 0, 0), (-12.0, 4, 2, 0), (8.0, 2, 4, 0)), 6),
+)
+
+#: Derivative order ``(d/dR, d/dZ)`` of each constraint kind.
+_SOLOVEV_DERIVATIVE_ORDER: Mapping[str, tuple[int, int]] = {
+    "psi": (0, 0), "dpsi_dr": (1, 0), "dpsi_dz": (0, 1),
+    "d2psi_dr2": (2, 0), "d2psi_dz2": (0, 2), "d2psi_drdz": (1, 1),
+}
+
+
+def _solovev_basis_terms(basis: str) -> tuple[tuple[tuple[tuple[float, int, int, int], ...], int], ...]:
+    if basis == "classic":
+        return _CLASSIC_SOLOVEV_BASIS
+    # The Cerfon-Freidberg polynomials are used in their normalized form, so a
+    # coefficient carries the unit of psi directly.
+    return tuple((terms, 0) for terms in _CF_BASIS[: SOLOVEV_BASIS_SIZES[basis]])
+
+
+def _solovev_basis_derivative(basis: str, rref: float, r: Any, z: Any, kind: str) -> np.ndarray:
+    """Every basis function's ``kind`` derivative at (r, z), stacked on axis 0."""
+    n_r, n_z = _SOLOVEV_DERIVATIVE_ORDER[kind]
+    x = np.asarray(r, dtype=float) / rref; y = np.asarray(z, dtype=float) / rref
+    rows = []
+    for terms, power in _solovev_basis_terms(basis):
+        for _ in range(n_r):
+            terms = _cf_dx(terms)
+        for _ in range(n_z):
+            terms = _cf_dy(terms)
+        rows.append(rref ** (power - n_r - n_z) * _cf_eval(terms, x, y))
+    return np.array(rows)
+
+
+def _solovev_particular_derivative(model: SolovevEquilibrium, r: Any, z: Any, kind: str) -> np.ndarray:
+    """The ``kind`` derivative of the particular integral, which depends on R only."""
+    r = np.asarray(r, dtype=float); z = np.asarray(z, dtype=float)
+    shape = np.broadcast(r, z).shape
+    a, b = MU0 * model.pprime, model.ffprime
+    log = np.log(r / model.rref)
+    if kind == "psi":
+        value = -a * r**4 / 8 - b * r**2 * log / 2
+    elif kind == "dpsi_dr":
+        value = -a * r**3 / 2 - b * r * (2 * log + 1) / 2
+    elif kind == "d2psi_dr2":
+        value = -3 * a * r**2 / 2 - b * (2 * log + 3) / 2
+    else:
+        value = np.zeros(shape)
+    return np.broadcast_to(value, shape).astype(float)
+
+
 def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     r = np.asarray(r, dtype=float); z = np.asarray(z, dtype=float)
     if np.any(r <= 0):
         raise ValueError("Solovev evaluation requires R>0")
+    if model.basis != "classic":
+        basis = _solovev_basis_derivative(model.basis, model.rref, r, z, "psi")
+        values = []
+        for kind in ("psi", "dpsi_dr", "dpsi_dz"):
+            rows = basis if kind == "psi" else _solovev_basis_derivative(model.basis, model.rref, r, z, kind)
+            values.append(_solovev_particular_derivative(model, r, z, kind) + np.tensordot(model.coefficients, rows, axes=(0, 0)))
+        return values[0], values[1], values[2], basis
+    # The classic basis keeps its hand-written form, so its results are
+    # unchanged by the generalization above.
     log = np.log(r/model.rref)
     basis = np.array([np.ones_like(r), r**2, r**2*log-z**2, r**4-4*r**2*z**2, r**6-12*r**4*z**2+8*r**2*z**4])
     dr = np.array([np.zeros_like(r), 2*r, r*(2*log+1), 4*r**3-8*r*z**2, 6*r**5-48*r**3*z**2+16*r*z**4])
@@ -1418,6 +1488,14 @@ def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.n
     dpsi_dr = particular_dr + np.tensordot(model.coefficients, dr, axes=(0, 0))
     dpsi_dz = np.tensordot(model.coefficients, dz, axes=(0, 0))
     return psi, dpsi_dr, dpsi_dz, basis
+
+
+def _solovev_second_derivatives(model: SolovevEquilibrium, r: Any, z: Any) -> dict[str, np.ndarray]:
+    return {
+        kind: _solovev_particular_derivative(model, r, z, kind)
+        + np.tensordot(model.coefficients, _solovev_basis_derivative(model.basis, model.rref, r, z, kind), axes=(0, 0))
+        for kind in ("d2psi_dr2", "d2psi_dz2", "d2psi_drdz")
+    }
 
 
 def evaluate_solovev(
@@ -1438,7 +1516,8 @@ def evaluate_solovev(
     Parameters
     ----------
     model : SolovevEquilibrium
-        The five basis coefficients and the two linear source slopes [-].
+        The homogeneous basis coefficients, the basis they expand in, and the
+        two linear source slopes [-].
     r : array_like
         Major radius, strictly positive [m].
     z : array_like
@@ -1453,10 +1532,12 @@ def evaluate_solovev(
     Returns
     -------
     Mapping of str to np.ndarray
-        ``psi`` [Wb/rad] with its two derivatives [Wb/(rad m)]; ``b_r``, ``b_z``
-        and ``b_phi`` [T]; ``pressure`` [Pa]; ``f`` [T m]; ``j_phi`` [A/m^2]; and
-        ``grad_shafranov_source``, the right-hand side the solution satisfies
-        [T/m] [-].
+        ``psi`` [Wb/rad] with its two first derivatives [Wb/(rad m)] and its
+        three second derivatives ``d2psi_dr2``, ``d2psi_dz2``, ``d2psi_drdz``
+        [Wb/(rad m^2)], whose Hessian determinant separates an O-point from
+        an X-point; ``b_r``, ``b_z`` and ``b_phi`` [T]; ``pressure`` [Pa];
+        ``f`` [T m]; ``j_phi`` [A/m^2]; and ``grad_shafranov_source``, the
+        right-hand side the solution satisfies [T/m] [-].
 
     Raises
     ------
@@ -1502,6 +1583,9 @@ def evaluate_solovev(
        (1968), for the linear-source closed form.
     .. [2] The five-term homogeneous basis and the particular integral follow the
        standard polynomial construction for that solution.
+    .. [3] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       for the seven- and twelve-term bases of ``basis="cerfon_freidberg_even"``
+       and ``"cerfon_freidberg"``.
     """
     if convention is not None:
         if cocos != VAFT_INTERNAL_COCOS and cocos != convention:
@@ -1530,6 +1614,7 @@ def evaluate_solovev(
     f = model.f_sign*np.sqrt(np.clip(f_squared, 0, None))
     return {
         "psi": psi, "dpsi_dr": dpsi_dr, "dpsi_dz": dpsi_dz,
+        **_solovev_second_derivatives(model, r, z),
         "b_r": k_sign*dpsi_dz/rr, "b_z": -k_sign*dpsi_dr/rr, "b_phi": f/rr,
         "pressure": pressure, "f": f,
         # Ampere on the field above: mu0 j_phi = sigma_RphiZ (dB_R/dZ - dB_Z/dR)
@@ -1542,19 +1627,22 @@ def evaluate_solovev(
 def solve_solovev_constraints(
     constraints: Sequence[SolovevConstraint], *, pprime: float, ffprime: float,
     rref: float, psi_boundary: float = 0.0, pressure_boundary: float = 0.0,
-    f_boundary: float = 1.0, f_sign: int = 1,
+    f_boundary: float = 1.0, f_sign: int = 1, basis: str = "classic",
+    max_condition_number: float = 1.0e12,
 ) -> SolovevEquilibrium:
     """Solve for the Solov'ev coefficients that satisfy a set of geometric constraints.
 
     The inverse of :func:`evaluate_solovev`: given where the flux surface should
-    pass and where it should be flat, recover the five basis coefficients that put
-    it there.  This is how a Solov'ev model is shaped to a wanted boundary.
+    pass, where it should be flat and how it should curve, recover the basis
+    coefficients that put it there.  This is how a Solov'ev model is shaped to a
+    wanted boundary, and, with the richer bases, how an X-point is prescribed.
 
     Parameters
     ----------
     constraints : sequence of SolovevConstraint
-        At least five, each pinning the flux or one of its two first derivatives
-        at a point.  Flux in Wb/rad, derivatives in Wb/(rad m) [-].
+        At least as many as the basis has terms, each pinning the flux, one of
+        its first or second derivatives, or a weighted combination of them at a
+        point.  Flux in Wb/rad, derivatives in Wb/(rad m^n) [-].
     pprime : float
         The pressure gradient against flux, constant by construction
         [Pa rad/Wb].
@@ -1562,7 +1650,8 @@ def solve_solovev_constraints(
         The poloidal-current term's gradient against flux, likewise constant
         [T^2 m^2 rad/Wb].
     rref : float
-        Reference major radius that sets the logarithm's origin in the basis [m].
+        Reference major radius that sets the logarithm's origin in the basis
+        and, for the Cerfon-Freidberg bases, the normalization length [m].
     psi_boundary : float, optional
         Flux value taken as the boundary, the zero point of the linear sources
         [Wb/rad].
@@ -1572,43 +1661,56 @@ def solve_solovev_constraints(
         Poloidal current function at that boundary [T m].
     f_sign : int, optional
         Sign given to the poloidal current when the square root is taken [-].
+    basis : str, optional
+        ``"classic"`` (five up-down symmetric terms), ``"cerfon_freidberg_even"``
+        (seven symmetric terms, enough for a double null) or
+        ``"cerfon_freidberg"`` (twelve terms including odd-Z ones, needed for an
+        asymmetric single null) [-].
+    max_condition_number : float, optional
+        Largest condition number of the column-normalized constraint matrix
+        accepted before the system is refused as ill-conditioned [-].
 
     Returns
     -------
     SolovevEquilibrium
-        The five coefficients, the inputs echoed, the numerical rank of the solve,
-        the residual norm, and the constraint count [-].
+        The coefficients in *basis*, the inputs echoed, the numerical rank of
+        the solve, the residual norm, and ``metadata`` with the constraint count
+        and the condition number [-].
 
     Raises
     ------
     ValueError
-        Fewer than five constraints, an unrecognized constraint kind, or a
-        constraint set of rank below five.
+        An unknown basis, fewer constraints than basis terms, an unrecognized
+        constraint kind, a constraint set whose rank is below the basis size,
+        or one whose condition number exceeds *max_condition_number*.
 
     Processing steps
     ----------------
-    1. Evaluate the basis and the particular integral of a zero-coefficient model
-       at each constraint point.
-    2. Build one row per constraint: the basis itself for a flux constraint, or a
-       central difference of it for a derivative constraint.
-    3. Move the particular integral to the right-hand side, so the unknowns are
+    1. For each constraint, evaluate the analytic derivative the constraint
+       names of every basis function, and of the particular integral of the
+       two sources, at its point; a combination sums them with its weights.
+    2. Move the particular integral to the right-hand side, so the unknowns are
        the homogeneous coefficients alone.
-    4. Solve by least squares and refuse a rank-deficient system rather than
-       returning an underdetermined answer.
+    3. Normalize each column, since the basis functions differ by powers of
+       the radius, and solve by least squares.
+    4. Refuse a rank-deficient or ill-conditioned system rather than
+       returning an answer that is underdetermined in some direction.
 
     Defaults
     --------
     The boundary values default to a zero-flux, zero-pressure, unit-current
-    reference, which is the natural normalization for a shape-only model.  The
-    central-difference step is a numerical convenience scaled to the reference
-    radius.
+    reference, which is the natural normalization for a shape-only model.
+    ``basis="classic"`` keeps the original five-term model.  The condition
+    limit of 1e12 is a numerical convenience: about four digits short of
+    double precision, below which the least-squares answer still means
+    something.
 
     Convention
     ----------
     Same per-radian flux and same orientation as :func:`evaluate_solovev`, whose
-    basis this inverts.  Five is not a tolerance but the dimension of the
-    homogeneous solution space; anything less leaves the surface unpinned in some
-    direction.
+    basis this inverts.  The basis size is not a tolerance but the dimension of
+    the homogeneous solution space kept; anything less leaves the surface
+    unpinned in some direction.
 
     Applicability
     -------------
@@ -1616,44 +1718,260 @@ def solve_solovev_constraints(
 
     Limitations
     -----------
-    Constraints that are geometrically distinct can still be linearly dependent in
-    this basis, in which case the rank check rejects them and the caller must move
-    or add points.  With more than five constraints the solve is a least squares
-    and the result satisfies none exactly; the residual norm reports how far off.
+    Constraints that are geometrically distinct can still be linearly dependent
+    in the basis -- an up-down symmetric basis gives an all-zero row for a
+    vertical derivative on the midplane, for instance -- in which case the rank
+    check rejects them and the caller must move or add points.  With more
+    constraints than terms the solve is a least squares and the result
+    satisfies none exactly; the residual norm reports how far off.  A
+    derivative-free point is not by itself an X-point: check the sign of the
+    Hessian determinant from :func:`evaluate_solovev`.
 
     Provenance
     ----------
     .. [1] Solov'ev (1968); see :func:`evaluate_solovev` for the basis being
        solved.
+    .. [2] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       for the extended bases and the point, slope and curvature constraints.
     """
 
-    if len(constraints) < 5:
-        raise ValueError("at least five independent Solovev constraints are required")
-    zero = SolovevEquilibrium(np.zeros(5), pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign)
+    if basis not in SOLOVEV_BASIS_SIZES:
+        raise ValueError(f"basis must be one of {tuple(SOLOVEV_BASIS_SIZES)}, got {basis!r}")
+    size = SOLOVEV_BASIS_SIZES[basis]
+    if len(constraints) < size:
+        count = {5: "five", 7: "seven", 12: "twelve"}[size]
+        raise ValueError(f"at least {count} independent Solovev constraints are required for the {basis!r} basis")
+    zero = SolovevEquilibrium(np.zeros(size), pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign, basis=basis)
     rows, rhs = [], []
     for constraint in constraints:
-        psi, d_r, d_z, basis = _solovev_components(zero, constraint.r, constraint.z)
-        if constraint.kind == "psi":
-            row, particular = basis, psi
-        elif constraint.kind == "dpsi_dr":
-            eps = max(1e-6*rref, 1e-8)
-            basis_plus = _solovev_components(zero, constraint.r+eps, constraint.z)[3]
-            basis_minus = _solovev_components(zero, constraint.r-eps, constraint.z)[3]
-            row, particular = (basis_plus-basis_minus)/(2*eps), d_r
-        elif constraint.kind == "dpsi_dz":
-            eps = max(1e-6*rref, 1e-8)
-            basis_plus = _solovev_components(zero, constraint.r, constraint.z+eps)[3]
-            basis_minus = _solovev_components(zero, constraint.r, constraint.z-eps)[3]
-            row, particular = (basis_plus-basis_minus)/(2*eps), d_z
+        if constraint.kind == "combination":
+            pairs = constraint.combination
+        elif constraint.kind in SOLOVEV_CONSTRAINT_KINDS:
+            pairs = ((constraint.kind, 1.0),)
         else:
-            raise ValueError("Solovev constraint kind must be psi, dpsi_dr, or dpsi_dz")
-        rows.append(np.asarray(row, dtype=float).reshape(5)); rhs.append(float(constraint.value-np.asarray(particular)))
+            raise ValueError(f"Solovev constraint kind must be one of {SOLOVEV_CONSTRAINT_KINDS} or 'combination'")
+        if constraint.r <= 0:
+            raise ValueError("Solovev constraints require R>0")
+        row = sum(weight*_solovev_basis_derivative(basis, rref, constraint.r, constraint.z, kind) for kind, weight in pairs)
+        particular = sum(weight*_solovev_particular_derivative(zero, constraint.r, constraint.z, kind) for kind, weight in pairs)
+        rows.append(np.asarray(row, dtype=float).reshape(size)); rhs.append(float(constraint.value-np.asarray(particular)))
     matrix = np.asarray(rows); vector = np.asarray(rhs)
-    coefficients, residuals, rank, _ = np.linalg.lstsq(matrix, vector, rcond=None)
-    if rank < 5:
-        raise ValueError(f"Solovev constraints are rank deficient ({rank}/5)")
+    scale = np.linalg.norm(matrix, axis=0)
+    scale[scale == 0] = 1.0
+    scaled, _, rank, singular = np.linalg.lstsq(matrix/scale, vector, rcond=None)
+    if rank < size:
+        raise ValueError(f"Solovev constraints are rank deficient ({rank}/{size})")
+    condition = float(singular[0]/singular[-1])
+    if condition > max_condition_number:
+        raise ValueError(
+            f"Solovev constraints are ill-conditioned (condition number {condition:.3g} > "
+            f"{max_condition_number:.3g}); move or replace nearly dependent constraints"
+        )
+    coefficients = scaled/scale
     residual_norm = float(np.linalg.norm(matrix@coefficients-vector))
-    return SolovevEquilibrium(coefficients, pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign, int(rank), residual_norm, {"constraint_count": len(constraints)})
+    return SolovevEquilibrium(
+        coefficients, pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign,
+        int(rank), residual_norm, {"constraint_count": len(constraints), "condition_number": condition},
+        basis=basis,
+    )
+
+
+def solovev_xpoint_constraints(r: float, z: float, *, psi: float = 0.0) -> tuple[SolovevConstraint, ...]:
+    """The three conditions that make a point an X-point on the boundary flux surface.
+
+    A prescribed magnetic null is not a new kind of equilibrium, only three
+    linear conditions on the flux: it takes the boundary value there and both
+    of its first derivatives vanish.  This expands one X-point into those
+    conditions for :func:`solve_solovev_constraints`.
+
+    Parameters
+    ----------
+    r : float
+        Major radius of the X-point, strictly positive [m].
+    z : float
+        Height of the X-point [m].
+    psi : float, optional
+        Flux the separatrix carries, normally the model's boundary flux
+        [Wb/rad].
+
+    Returns
+    -------
+    tuple of SolovevConstraint
+        The flux, radial-slope and vertical-slope conditions at the point [-].
+
+    Raises
+    ------
+    ValueError
+        *r* is not positive.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A vanishing gradient is necessary, not sufficient: the solved point can
+    still be an extremum.  Confirm the saddle from the sign of the Hessian
+    determinant returned by :func:`evaluate_solovev`.
+
+    Provenance
+    ----------
+    .. [1] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       Sec. IV, for imposing the X-point as a flux and two slope conditions.
+    """
+    if r <= 0:
+        raise ValueError("the X-point radius must be positive")
+    return (
+        SolovevConstraint(float(r), float(z), "psi", float(psi)),
+        SolovevConstraint(float(r), float(z), "dpsi_dr", 0.0),
+        SolovevConstraint(float(r), float(z), "dpsi_dz", 0.0),
+    )
+
+
+_SOLOVEV_SHAPE_TOPOLOGIES = ("smooth", "double_null", "lower_single_null", "upper_single_null")
+
+
+def solovev_shape_constraints(
+    *,
+    major_radius: float,
+    minor_radius: float,
+    elongation: float,
+    triangularity: float,
+    topology: str = "smooth",
+    x_point: tuple[float, float] | None = None,
+    psi_boundary: float = 0.0,
+) -> tuple[SolovevConstraint, ...]:
+    """The Cerfon-Freidberg boundary conditions for a shaped, possibly diverted, plasma.
+
+    Turns an elongation, triangularity and minor radius into the point, slope
+    and curvature conditions that make an analytic Solov'ev boundary have that
+    shape, with the X-points the topology asks for.  Solving them with
+    :func:`solve_solovev_constraints` gives the equilibrium.
+
+    Parameters
+    ----------
+    major_radius : float
+        Geometric major radius R0 of the boundary, positive [m].
+    minor_radius : float
+        Minor radius a, positive and below *major_radius* [m].
+    elongation : float
+        Boundary elongation kappa, positive [-].
+    triangularity : float
+        Boundary triangularity delta, of magnitude below one [-].
+    topology : str, optional
+        ``"smooth"`` (a closed boundary with no X-point), ``"double_null"``,
+        ``"lower_single_null"`` or ``"upper_single_null"`` [-].
+    x_point : tuple of float, optional
+        ``(R, Z)`` of the X-point, the upper one for a double null; refused for
+        ``"smooth"``.  Defaults to Cerfon and Freidberg's
+        ``(R0 - 1.1 delta a, +-1.1 kappa a)`` [m].
+    psi_boundary : float, optional
+        Flux the boundary and the separatrix carry [Wb/rad].
+
+    Returns
+    -------
+    tuple of SolovevConstraint
+        Seven conditions for ``"smooth"`` and ``"double_null"``, to be solved
+        in the ``"cerfon_freidberg_even"`` basis, or twelve for a single null,
+        to be solved in ``"cerfon_freidberg"`` [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown topology, a non-physical shape, an X-point given for a
+        smooth boundary, or one on the wrong side of the midplane for the
+        topology.
+
+    Convention
+    ----------
+    The outboard, inboard and top points of the boundary are
+    ``(R0 +- a, 0)`` and ``(R0 - delta a, kappa a)``.  The curvature
+    conditions are Cerfon and Freidberg's in metres: ``psi_ZZ + N1 psi_R = 0``
+    outboard with ``N1 = -(1 + alpha)**2 / (a kappa**2)``, ``N2 = (1 -
+    alpha)**2 / (a kappa**2)`` inboard, and ``psi_RR + N3 psi_Z = 0`` at the
+    top with ``N3 = -kappa / (a cos(alpha)**2)``, where ``alpha =
+    arcsin(delta)``.  An upper single null is the lower one mirrored in Z.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The shape is imposed at three or four points only; elsewhere the boundary
+    is what the basis gives, so a measured elongation or triangularity differs
+    slightly from the request, and on an X-point side the boundary follows the
+    X-point instead.  The conditions are exact for the basis sizes above; with
+    the classic five-term basis they are only met in a least-squares sense.
+
+    Provenance
+    ----------
+    .. [1] A. J. Cerfon and J. P. Freidberg, *"One size fits all" analytic
+       solutions to the Grad-Shafranov equation*, Phys. Plasmas 17, 032502
+       (2010), Secs. III and IV: the point, slope and curvature conditions and
+       the X-point placement at 1.1 times the nominal height and triangularity.
+    """
+    if topology not in _SOLOVEV_SHAPE_TOPOLOGIES:
+        raise ValueError(f"topology must be one of {_SOLOVEV_SHAPE_TOPOLOGIES}, got {topology!r}")
+    r0, a = float(major_radius), float(minor_radius)
+    kappa, delta = float(elongation), float(triangularity)
+    if r0 <= 0 or not 0 < a < r0 or kappa <= 0 or abs(delta) >= 1:
+        raise ValueError("requires major_radius>0, 0<minor_radius<major_radius, elongation>0 and abs(triangularity)<1")
+    alpha = np.arcsin(delta)
+    n1 = -(1.0 + alpha)**2/(a*kappa**2)
+    n2 = (1.0 - alpha)**2/(a*kappa**2)
+    n3 = -kappa/(a*np.cos(alpha)**2)
+    outer, inner, high = (r0 + a, 0.0), (r0 - a, 0.0), (r0 - delta*a, kappa*a)
+    if x_point is None:
+        x_point = (r0 - 1.1*delta*a, (1.0 if topology in ("double_null", "upper_single_null") else -1.0)*1.1*kappa*a)
+    elif topology == "smooth":
+        raise ValueError("a smooth boundary has no X-point; x_point applies to the diverted topologies only")
+    xr, xz = map(float, x_point)
+    if topology != "smooth":
+        if xr <= 0:
+            raise ValueError("the X-point radius must be positive")
+        wanted = -1.0 if topology == "lower_single_null" else 1.0
+        if xz*wanted <= 0:
+            side = "below" if wanted < 0 else "above"
+            raise ValueError(f"a {topology} X-point must lie {side} the midplane")
+
+    def point(p: tuple[float, float], kind: str, value: float = 0.0) -> SolovevConstraint:
+        return SolovevConstraint(p[0], p[1], kind, value)
+
+    def curvature(p: tuple[float, float], pairs: tuple[tuple[str, float], ...]) -> SolovevConstraint:
+        return SolovevConstraint(p[0], p[1], "combination", 0.0, pairs)
+
+    outer_curve = curvature(outer, (("d2psi_dz2", 1.0), ("dpsi_dr", n1)))
+    inner_curve = curvature(inner, (("d2psi_dz2", 1.0), ("dpsi_dr", n2)))
+    high_curve = curvature(high, (("d2psi_dr2", 1.0), ("dpsi_dz", n3)))
+    edges = (point(outer, "psi", psi_boundary), point(inner, "psi", psi_boundary))
+    if topology == "smooth":
+        return edges + (point(high, "psi", psi_boundary), point(high, "dpsi_dr"), outer_curve, inner_curve, high_curve)
+    if topology == "double_null":
+        return edges + solovev_xpoint_constraints(xr, xz, psi=psi_boundary) + (outer_curve, inner_curve)
+    # A single null: shaped on one side, the X-point on the other.  Build the
+    # lower one and mirror it in Z for the upper.
+    lower = (xr, -abs(xz))
+    constraints = edges + (
+        point(high, "psi", psi_boundary), point(lower, "psi", psi_boundary),
+        point(outer, "dpsi_dz"), point(inner, "dpsi_dz"),
+        point(high, "dpsi_dr"), point(lower, "dpsi_dr"), point(lower, "dpsi_dz"),
+        outer_curve, inner_curve, high_curve,
+    )
+    if topology == "lower_single_null":
+        return constraints
+
+    def odd_in_z(kind: str) -> bool:
+        return _SOLOVEV_DERIVATIVE_ORDER[kind][1] % 2 == 1
+
+    mirrored = []
+    for c in constraints:
+        if c.kind == "combination":
+            pairs = tuple((k, -w if odd_in_z(k) else w) for k, w in c.combination)
+            mirrored.append(SolovevConstraint(c.r, -c.z, "combination", c.value, pairs))
+        else:
+            mirrored.append(SolovevConstraint(c.r, -c.z, c.kind, -c.value if odd_in_z(c.kind) else c.value))
+    return tuple(mirrored)
 
 
 def _locate_solovev_axis(
@@ -1845,7 +2163,11 @@ def solovev_to_equilibrium(
         ip=ip, bt0=float(model.f_boundary/model.rref), r0=model.rref,
         time=None, convention=conv_11,
         metadata={"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
-                  "topology_assumptions": "axisymmetric, up-down symmetric (limited or double-null)"},
+                  "basis": model.basis,
+                  "topology_assumptions": (
+                      "axisymmetric; up-down asymmetry allowed (odd-Z basis terms)"
+                      if model.basis == "cerfon_freidberg"
+                      else "axisymmetric, up-down symmetric (smooth or double-null)")},
     )
     if convention == 11:
         return eq_11
@@ -1914,46 +2236,26 @@ def _cf_terms(coefficients: np.ndarray, a: float) -> tuple[tuple[float, int, int
 
 
 def _cf_solve(topology: str, epsilon: float, kappa: float, delta: float, a: float) -> np.ndarray:
-    """Cerfon-Freidberg coefficients for one of the three standard constraint sets."""
-    alpha = np.arcsin(delta)
-    n1 = -(1.0 + alpha) ** 2 / (epsilon * kappa**2)
-    n2 = (1.0 - alpha) ** 2 / (epsilon * kappa**2)
-    n3 = -kappa / (epsilon * np.cos(alpha) ** 2)
-    used = range(12) if topology == "single_null" else range(7)
-    identity = lambda t: tuple(t)
-    dxx = lambda t: _cf_dx(_cf_dx(t))
-    dyy = lambda t: _cf_dy(_cf_dy(t))
-    rows: list[list[float]] = []
-    rhs: list[float] = []
+    """Cerfon-Freidberg coefficients for one of the three standard constraint sets.
 
-    def add(point: tuple[float, float], *combination: tuple[float, Any]) -> None:
-        x, y = point
-        rows.append([sum(w * float(_cf_eval(op(_CF_BASIS[i]), x, y)) for w, op in combination) for i in used])
-        rhs.append(-sum(w * float(_cf_eval(op(_cf_particular(a)), x, y)) for w, op in combination))
-
-    outer, inner = (1.0 + epsilon, 0.0), (1.0 - epsilon, 0.0)
-    high = (1.0 - delta * epsilon, kappa * epsilon)
-    x_sep = (1.0 - 1.1 * delta * epsilon, 1.1 * kappa * epsilon)
-    add(outer, (1.0, identity)); add(inner, (1.0, identity))
-    if topology == "limited":
-        add(high, (1.0, identity)); add(high, (1.0, _cf_dx))
-        add(outer, (1.0, dyy), (n1, _cf_dx)); add(inner, (1.0, dyy), (n2, _cf_dx))
-        add(high, (1.0, dxx), (n3, _cf_dy))
-    elif topology == "double_null":
-        add(x_sep, (1.0, identity)); add(x_sep, (1.0, _cf_dx)); add(x_sep, (1.0, _cf_dy))
-        add(outer, (1.0, dyy), (n1, _cf_dx)); add(inner, (1.0, dyy), (n2, _cf_dx))
-    else:  # lower single null: shaped upper half, X-point below
-        lower = (x_sep[0], -x_sep[1])
-        add(high, (1.0, identity)); add(lower, (1.0, identity))
-        add(outer, (1.0, _cf_dy)); add(inner, (1.0, _cf_dy))
-        add(high, (1.0, _cf_dx)); add(lower, (1.0, _cf_dx)); add(lower, (1.0, _cf_dy))
-        add(outer, (1.0, dyy), (n1, _cf_dx)); add(inner, (1.0, dyy), (n2, _cf_dx))
-        add(high, (1.0, dxx), (n3, _cf_dy))
-    matrix = np.asarray(rows); vector = np.asarray(rhs)
-    if np.linalg.matrix_rank(matrix) < len(used):
-        raise ValueError(f"the {topology} constraint set is singular for this shape")
-    coefficients = np.zeros(12)
-    coefficients[list(used)] = np.linalg.solve(matrix, vector)
+    Solved through the general constraint path in normalized units (R0 = 1,
+    psi0 = 1), where the particular integral of the sources is exactly
+    Cerfon and Freidberg's ``(1-A) x**4/8 + A x**2 ln(x)/2``.
+    """
+    shape_topology = {"limited": "smooth", "double_null": "double_null", "single_null": "lower_single_null"}[topology]
+    basis = "cerfon_freidberg" if topology == "single_null" else "cerfon_freidberg_even"
+    constraints = solovev_shape_constraints(
+        major_radius=1.0, minor_radius=epsilon, elongation=kappa, triangularity=delta, topology=shape_topology,
+    )
+    try:
+        # No condition limit: this square system was always solved outright, and
+        # a very large aspect ratio is legitimately ill-conditioned here.
+        model = solve_solovev_constraints(constraints, pprime=-(1.0 - a)/MU0, ffprime=-a, rref=1.0, basis=basis,
+                                          max_condition_number=np.inf)
+    except ValueError as error:
+        raise ValueError(f"the {topology} constraint set is singular for this shape") from error
+    coefficients = np.zeros(len(_CF_BASIS))
+    coefficients[: model.coefficients.size] = model.coefficients
     return coefficients
 
 
@@ -2857,5 +3159,5 @@ __all__ = [
     "evaluate_solovev", "find_stationary_points", "fit_miller_sequence", "fit_miller_surface",
     "solovev_to_equilibrium", "solve_solovev_constraints",
     "check_equilibrium_requirements", "validate_equilibrium",
-    "miller_surfaces", "solovev_example",
+    "miller_surfaces", "solovev_example", "solovev_shape_constraints", "solovev_xpoint_constraints",
 ]

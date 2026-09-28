@@ -277,12 +277,49 @@ class MillerSequenceResult:
     provenance: DerivationProvenance | None = None
 
 
+#: Homogeneous bases a :class:`SolovevEquilibrium` can be expanded in, with
+#: their sizes.  ``"classic"`` is the original five-term up-down symmetric
+#: basis; the two Cerfon-Freidberg bases add the higher even-Z terms (seven,
+#: enough for a double-null separatrix) and the odd-Z terms (twelve, needed for
+#: an up-down asymmetric single null) of Cerfon and Freidberg (2010).
+SOLOVEV_BASIS_SIZES: Mapping[str, int] = {
+    "classic": 5,
+    "cerfon_freidberg_even": 7,
+    "cerfon_freidberg": 12,
+}
+
+#: Linear functionals of psi a :class:`SolovevConstraint` can pin.
+SOLOVEV_CONSTRAINT_KINDS = (
+    "psi", "dpsi_dr", "dpsi_dz", "d2psi_dr2", "d2psi_dz2", "d2psi_drdz",
+)
+
+
 @dataclass(frozen=True)
 class SolovevConstraint:
+    """One linear condition on psi at a point: ``kind`` of psi equals ``value``.
+
+    ``kind`` is one of :data:`SOLOVEV_CONSTRAINT_KINDS`, or ``"combination"``,
+    in which case ``combination`` lists ``(kind, weight)`` pairs and the
+    condition is ``sum(weight * kind(psi)) = value`` -- the form a boundary
+    curvature condition takes.
+    """
+
     r: float
     z: float
     kind: str
     value: float
+    combination: tuple[tuple[str, float], ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.kind == "combination":
+            pairs = tuple((str(k), float(w)) for k, w in self.combination)
+            if not pairs:
+                raise ValueError("a combination constraint needs at least one (kind, weight) pair")
+            if any(k not in SOLOVEV_CONSTRAINT_KINDS for k, _ in pairs):
+                raise ValueError(f"combination kinds must be among {SOLOVEV_CONSTRAINT_KINDS}")
+            object.__setattr__(self, "combination", pairs)
+        elif self.combination:
+            raise ValueError("combination is only meaningful with kind='combination'")
 
 
 @dataclass(frozen=True)
@@ -298,11 +335,15 @@ class SolovevEquilibrium:
     rank: int | None = None
     residual_norm: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    basis: str = "classic"
 
     def __post_init__(self) -> None:
+        if self.basis not in SOLOVEV_BASIS_SIZES:
+            raise ValueError(f"basis must be one of {tuple(SOLOVEV_BASIS_SIZES)}, got {self.basis!r}")
         coefficients = np.asarray(self.coefficients, dtype=float).reshape(-1)
-        if coefficients.size != 5:
-            raise ValueError("SolovevEquilibrium requires five homogeneous coefficients")
+        size = SOLOVEV_BASIS_SIZES[self.basis]
+        if coefficients.size != size:
+            raise ValueError(f"the {self.basis!r} Solovev basis requires {size} homogeneous coefficients, got {coefficients.size}")
         if self.rref <= 0:
             raise ValueError("rref must be positive")
         object.__setattr__(self, "coefficients", coefficients)
@@ -383,5 +424,5 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint",
+    "ValidationReport", "XPoint", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]
