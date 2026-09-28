@@ -163,6 +163,18 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -246,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>71b7139</code>. What is described
+  <code>db71900</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -341,11 +353,11 @@ one.  Both are documented as they are; their home is decided by #263.</p>
 
 <div class="ref-entries">
 
-  <section class="ref-entry" id="analyze_significance">
+  <section class="ref-entry" id="analyze_significance" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#analyze_significance"><code>analyze_significance</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L406" title="vaft/process/statistical_analysis.py, line 406">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L406" title="vaft/process/statistical_analysis.py, line 406">source</a>
 </header>
     <pre class="ref-signature"><code>analyze_significance(results, alpha=0.05)</code></pre>
 
@@ -386,11 +398,11 @@ significance; see <code class="language-plaintext highlighter-rouge">get_correla
 
   </section>
 
-  <section class="ref-entry" id="compute_metrics">
+  <section class="ref-entry" id="compute_metrics" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_metrics"><code>compute_metrics</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L500" title="vaft/process/statistical_analysis.py, line 500">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L500" title="vaft/process/statistical_analysis.py, line 500">source</a>
 </header>
     <pre class="ref-signature"><code>compute_metrics(results, df, target_param=&#39;tauE_s&#39;)</code></pre>
 
@@ -447,11 +459,11 @@ the shorter length, which silently misaligns rows if any were dropped.</p>
 
   </section>
 
-  <section class="ref-entry" id="confinement_time_histogram">
+  <section class="ref-entry" id="confinement_time_histogram" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_time_histogram"><code>confinement_time_histogram</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L699" title="vaft/process/statistical_analysis.py, line 699">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L699" title="vaft/process/statistical_analysis.py, line 699">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_time_histogram(df, eng_params=None, m=None, n=None, figsize=None, bins=30, alpha=0.7, edgecolor=&#39;black&#39;, **kwargs)</code></pre>
 
@@ -501,11 +513,11 @@ and pulls Matplotlib in on call.  Its removal is tracked in #263.</p>
 
   </section>
 
-  <section class="ref-entry" id="filter_dataframe">
+  <section class="ref-entry" id="filter_dataframe" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#filter_dataframe"><code>filter_dataframe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L126" title="vaft/process/statistical_analysis.py, line 126">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L126" title="vaft/process/statistical_analysis.py, line 126">source</a>
 </header>
     <pre class="ref-signature"><code>filter_dataframe(df)</code></pre>
 
@@ -561,11 +573,11 @@ caller’s table may be modified and pandas may warn about a copy.</p>
 
   </section>
 
-  <section class="ref-entry" id="generate_core_profiles_history_dataframe">
+  <section class="ref-entry" id="generate_core_profiles_history_dataframe" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#generate_core_profiles_history_dataframe"><code>generate_core_profiles_history_dataframe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L173" title="vaft/process/statistical_analysis.py, line 173">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L173" title="vaft/process/statistical_analysis.py, line 173">source</a>
 </header>
     <pre class="ref-signature"><code>generate_core_profiles_history_dataframe(max_shots=None, Z_eff=2.0)</code></pre>
 
@@ -634,11 +646,11 @@ Tracked in #263.</p>
 
   </section>
 
-  <section class="ref-entry" id="get_correlation_matrix">
+  <section class="ref-entry" id="get_correlation_matrix" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_correlation_matrix"><code>get_correlation_matrix</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L607" title="vaft/process/statistical_analysis.py, line 607">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L607" title="vaft/process/statistical_analysis.py, line 607">source</a>
 </header>
     <pre class="ref-signature"><code>get_correlation_matrix(log_df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
 
@@ -677,11 +689,11 @@ consistently across pairs.</p>
 
   </section>
 
-  <section class="ref-entry" id="get_individual_correlations">
+  <section class="ref-entry" id="get_individual_correlations" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_individual_correlations"><code>get_individual_correlations</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L647" title="vaft/process/statistical_analysis.py, line 647">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L647" title="vaft/process/statistical_analysis.py, line 647">source</a>
 </header>
     <pre class="ref-signature"><code>get_individual_correlations(log_df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
 
@@ -715,11 +727,11 @@ consistently across pairs.</p>
 
   </section>
 
-  <section class="ref-entry" id="get_residuals">
+  <section class="ref-entry" id="get_residuals" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_residuals"><code>get_residuals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L587" title="vaft/process/statistical_analysis.py, line 587">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L587" title="vaft/process/statistical_analysis.py, line 587">source</a>
 </header>
     <pre class="ref-signature"><code>get_residuals(results)</code></pre>
 
@@ -749,11 +761,11 @@ consistently across pairs.</p>
 
   </section>
 
-  <section class="ref-entry" id="load_data_from_excel">
+  <section class="ref-entry" id="load_data_from_excel" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_data_from_excel"><code>load_data_from_excel</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L89" title="vaft/process/statistical_analysis.py, line 89">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L89" title="vaft/process/statistical_analysis.py, line 89">source</a>
 </header>
     <pre class="ref-signature"><code>load_data_from_excel(filepath)</code></pre>
 
@@ -800,11 +812,11 @@ depends on that.</p>
 
   </section>
 
-  <section class="ref-entry" id="log_transform">
+  <section class="ref-entry" id="log_transform" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#log_transform"><code>log_transform</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L262" title="vaft/process/statistical_analysis.py, line 262">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L262" title="vaft/process/statistical_analysis.py, line 262">source</a>
 </header>
     <pre class="ref-signature"><code>log_transform(df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
 
@@ -847,11 +859,11 @@ logarithm and becomes NaN, to be dropped by <code class="language-plaintext high
 
   </section>
 
-  <section class="ref-entry" id="perform_ols_regression">
+  <section class="ref-entry" id="perform_ols_regression" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#perform_ols_regression"><code>perform_ols_regression</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/statistical_analysis.py#L315" title="vaft/process/statistical_analysis.py, line 315">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/statistical_analysis.py#L315" title="vaft/process/statistical_analysis.py, line 315">source</a>
 </header>
     <pre class="ref-signature"><code>perform_ols_regression(df, eng_params, target_param=&#39;tauE_s&#39;, dropna=True)</code></pre>
 
@@ -1145,7 +1157,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 09:40:52 +0000"
+        "time": "2026-09-28 09:59:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

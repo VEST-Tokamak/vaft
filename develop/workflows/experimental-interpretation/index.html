@@ -163,6 +163,18 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -246,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>71b7139</code>. What is described
+  <code>db71900</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -613,7 +625,9 @@ list of ODSs</strong>, returns <code class="language-plaintext highlighter-rouge
 
 <p>An unknown option is refused and the message names the ones the plot does take, so
 <code class="language-plaintext highlighter-rouge">vaft.omas.available_plots(ods, detail=True)</code> is the fastest way to see what a given input supports —
-including how many channels are usable and which regions and representatives it offers.</p>
+including how many channels are usable and which regions and representatives it offers.
+Without an input, the generated <a href="/vaft/develop/reference/plot/">plot reference</a> lists every
+plot the registry holds, by subject and view, with the IDS paths each one needs.</p>
 
 <p>There is no <code class="language-plaintext highlighter-rouge">time_slices</code> argument on any magnetics plot — a magnetics trace is a full time series.
 To compare several shots, pass an <strong>ODC</strong>:</p>
@@ -1174,7 +1188,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 09:40:52 +0000"
+        "time": "2026-09-28 09:59:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

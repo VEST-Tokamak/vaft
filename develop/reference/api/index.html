@@ -163,6 +163,18 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -246,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>71b7139</code>. What is described
+  <code>db71900</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -758,56 +770,11 @@ input can draw and which options each plot takes.</p>
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_spectrometer_uv_time_intensity</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">emission</span><span class="o">=</span><span class="sh">'</span><span class="s">CIII</span><span class="sh">'</span><span class="p">)</span>
 </code></pre></div></div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Group</th>
-      <th>Functions</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Time traces</td>
-      <td><code class="language-plaintext highlighter-rouge">plasma_current_time</code>, <code class="language-plaintext highlighter-rouge">diamagnetic_flux_time</code>, <code class="language-plaintext highlighter-rouge">flux_loop_time_flux</code>, <code class="language-plaintext highlighter-rouge">flux_loop_time_voltage</code>, <code class="language-plaintext highlighter-rouge">b_field_probe_time_field</code>, <code class="language-plaintext highlighter-rouge">pf_coil_time_current</code>, <code class="language-plaintext highlighter-rouge">pf_coil_time_current_turns</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_current</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_b_t</code>, <code class="language-plaintext highlighter-rouge">tf_coil_time_b_t_vacuum_r</code>, <code class="language-plaintext highlighter-rouge">barometry_time_pressure</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv_time_intensity</code>, <code class="language-plaintext highlighter-rouge">spectrometer_uv_time_impurity</code>, <code class="language-plaintext highlighter-rouge">current_overview</code></td>
-    </tr>
-    <tr>
-      <td>Equilibrium scalars vs. time</td>
-      <td><code class="language-plaintext highlighter-rouge">equilibrium_time_plasma_current</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_li</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_p</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_t</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta_n</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_mhd</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_mag</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_w_tot</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_q0</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_q95</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_qa</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_major_radius</code></td>
-    </tr>
-    <tr>
-      <td>Energy and power</td>
-      <td><code class="language-plaintext highlighter-rouge">summary_time_energy</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_beta</code>, <code class="language-plaintext highlighter-rouge">summary_time_power_balance</code>, <code class="language-plaintext highlighter-rouge">summary_time_voltage_consumption</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_virial</code></td>
-    </tr>
-    <tr>
-      <td>Profiles (1-D)</td>
-      <td><code class="language-plaintext highlighter-rouge">equilibrium_profile_pressure</code></td>
-    </tr>
-    <tr>
-      <td>Geometry and 2-D</td>
-      <td><code class="language-plaintext highlighter-rouge">machine_geometry_poloidal</code>, <code class="language-plaintext highlighter-rouge">passive_structure_geometry_poloidal</code>, <code class="language-plaintext highlighter-rouge">equilibrium_field_psi_vacuum</code>, <code class="language-plaintext highlighter-rouge">equilibrium_field_2d</code></td>
-    </tr>
-    <tr>
-      <td>Kinetic diagnostics</td>
-      <td><code class="language-plaintext highlighter-rouge">thomson_scattering_profile_electron_temperature</code>, <code class="language-plaintext highlighter-rouge">thomson_scattering_time_electron_temperature</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_profile_ion_temperature</code>, <code class="language-plaintext highlighter-rouge">charge_exchange_time_ion_temperature</code>, <code class="language-plaintext highlighter-rouge">electron_temperature_profile</code>, <code class="language-plaintext highlighter-rouge">electron_temperature_field</code></td>
-    </tr>
-    <tr>
-      <td>Fluctuations</td>
-      <td><code class="language-plaintext highlighter-rouge">mirnov_time_voltage</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">mirnov_spatial_phase</code></td>
-    </tr>
-    <tr>
-      <td>Soft X-rays</td>
-      <td><code class="language-plaintext highlighter-rouge">soft_x_rays_geometry_lines_of_sight</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_time_power</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_spectrogram</code>, <code class="language-plaintext highlighter-rouge">soft_x_rays_overview</code></td>
-    </tr>
-    <tr>
-      <td>Overviews</td>
-      <td><code class="language-plaintext highlighter-rouge">magnetics_overview</code>, <code class="language-plaintext highlighter-rouge">current_overview</code>, <code class="language-plaintext highlighter-rouge">equilibrium_overview_histories</code></td>
-    </tr>
-    <tr>
-      <td>Multi-shot history</td>
-      <td><code class="language-plaintext highlighter-rouge">plot_scaling_fit</code>, <code class="language-plaintext highlighter-rouge">plot_correlation_heatmap</code>, <code class="language-plaintext highlighter-rouge">plot_regression_summary</code>, <code class="language-plaintext highlighter-rouge">plot_tauE_exp_vs_scaling_loglog</code>, <code class="language-plaintext highlighter-rouge">plot_H_factor_distribution</code>, <code class="language-plaintext highlighter-rouge">plot_H_factor_vs_greenwald_fraction</code>, <code class="language-plaintext highlighter-rouge">confinement_time_exp_vs_scaling</code></td>
-    </tr>
-  </tbody>
-</table>
+<p>Every plot the registry holds – its subject, view and quantity, the adapter that draws it, and the IDS
+paths it needs – is listed in the generated <a href="/vaft/develop/reference/plot/">plot reference</a>
+(154 plots), together with the plotting functions outside the
+registry: the analytic figures and the multi-shot history and scaling plots (<code class="language-plaintext highlighter-rouge">plot_scaling_fit</code>,
+<code class="language-plaintext highlighter-rouge">plot_H_factor_distribution</code>, …). The page is rebuilt from <code class="language-plaintext highlighter-rouge">vaft.plot</code> on every publish.</p>
 
 <p>The <a href="/vaft/develop/guide/Magnetics/">Magnetics</a> page shows several of these traces rendered from
 real shots.</p>
@@ -1630,7 +1597,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 09:40:52 +0000"
+        "time": "2026-09-28 09:59:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

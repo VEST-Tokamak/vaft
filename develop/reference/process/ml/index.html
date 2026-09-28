@@ -163,6 +163,18 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -246,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>71b7139</code>. What is described
+  <code>db71900</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -360,11 +372,11 @@ version and manifest SHA-256, never only a stage alias.</p>
 
 <div class="ref-entries">
 
-  <section class="ref-entry" id="build_dataset">
+  <section class="ref-entry" id="build_dataset" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#build_dataset"><code>build_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L90" title="vaft/process/ml/dataset.py, line 90">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L90" title="vaft/process/ml/dataset.py, line 90">source</a>
 </header>
     <pre class="ref-signature"><code>build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None, available=None)</code></pre>
 
@@ -426,11 +438,11 @@ second stage lacks a diagnostic builds that stage’s dataset with its own
 
   </section>
 
-  <section class="ref-entry" id="calibrate_threshold">
+  <section class="ref-entry" id="calibrate_threshold" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_threshold"><code>calibrate_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/training.py#L387" title="vaft/process/ml/training.py, line 387">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/training.py#L387" title="vaft/process/ml/training.py, line 387">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_threshold(model, dataset, split, *, partition=&#39;validation&#39;, output=&#39;score&#39;, quantile=0.99, name=None, mask=None, population=None)</code></pre>
 
@@ -495,11 +507,11 @@ task decision (the VEST IRE prototype used 0.85-0.90).</p>
 
   </section>
 
-  <section class="ref-entry" id="dataset_fingerprint">
+  <section class="ref-entry" id="dataset_fingerprint" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L46" title="vaft/process/ml/dataset.py, line 46">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L46" title="vaft/process/ml/dataset.py, line 46">source</a>
 </header>
     <pre class="ref-signature"><code>dataset_fingerprint(dataset)</code></pre>
 
@@ -543,11 +555,11 @@ prefixed by its name, dtype and shape.</li>
 
   </section>
 
-  <section class="ref-entry" id="evaluate_model">
+  <section class="ref-entry" id="evaluate_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_model"><code>evaluate_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/training.py#L316" title="vaft/process/ml/training.py, line 316">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/training.py#L316" title="vaft/process/ml/training.py, line 316">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_model(model, dataset, split, partition=&#39;test&#39;, *, metrics=None)</code></pre>
 
@@ -597,11 +609,11 @@ task-specific verdict for <code class="language-plaintext highlighter-rouge">vaf
 
   </section>
 
-  <section class="ref-entry" id="export_model">
+  <section class="ref-entry" id="export_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#export_model"><code>export_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/artifact.py#L293" title="vaft/process/ml/artifact.py, line 293">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/artifact.py#L293" title="vaft/process/ml/artifact.py, line 293">source</a>
 </header>
     <pre class="ref-signature"><code>export_model(model, directory, *, format=&#39;onnx&#39;)</code></pre>
 
@@ -665,11 +677,11 @@ returns <code class="language-plaintext highlighter-rouge">scores</code>, the es
 
   </section>
 
-  <section class="ref-entry" id="fetch_model">
+  <section class="ref-entry" id="fetch_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fetch_model"><code>fetch_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/resolver.py#L263" title="vaft/process/ml/resolver.py, line 263">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/resolver.py#L263" title="vaft/process/ml/resolver.py, line 263">source</a>
 </header>
     <pre class="ref-signature"><code>fetch_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
@@ -744,11 +756,11 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
-  <section class="ref-entry" id="load_dataset">
+  <section class="ref-entry" id="load_dataset" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_dataset"><code>load_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L447" title="vaft/process/ml/dataset.py, line 447">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L447" title="vaft/process/ml/dataset.py, line 447">source</a>
 </header>
     <pre class="ref-signature"><code>load_dataset(directory)</code></pre>
 
@@ -786,11 +798,11 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
-  <section class="ref-entry" id="load_model">
+  <section class="ref-entry" id="load_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model"><code>load_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/resolver.py#L353" title="vaft/process/ml/resolver.py, line 353">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/resolver.py#L353" title="vaft/process/ml/resolver.py, line 353">source</a>
 </header>
     <pre class="ref-signature"><code>load_model(name, *, version=None, stage=None, registry=None, cache=None, env=None, fetch=False)</code></pre>
 
@@ -832,11 +844,11 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
-  <section class="ref-entry" id="load_model_artifact">
+  <section class="ref-entry" id="load_model_artifact" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model_artifact"><code>load_model_artifact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/artifact.py#L189" title="vaft/process/ml/artifact.py, line 189">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/artifact.py#L189" title="vaft/process/ml/artifact.py, line 189">source</a>
 </header>
     <pre class="ref-signature"><code>load_model_artifact(directory, *, manifest=None, verify=True)</code></pre>
 
@@ -887,11 +899,11 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
-  <section class="ref-entry" id="load_model_bundle">
+  <section class="ref-entry" id="load_model_bundle" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model_bundle"><code>load_model_bundle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/bundle.py#L137" title="vaft/process/ml/bundle.py, line 137">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/bundle.py#L137" title="vaft/process/ml/bundle.py, line 137">source</a>
 </header>
     <pre class="ref-signature"><code>load_model_bundle(directory, *, manifest=None, verify=True)</code></pre>
 
@@ -935,11 +947,11 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
-  <section class="ref-entry" id="predict">
+  <section class="ref-entry" id="predict" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predict"><code>predict</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/inference.py#L69" title="vaft/process/ml/inference.py, line 69">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/inference.py#L69" title="vaft/process/ml/inference.py, line 69">source</a>
 </header>
     <pre class="ref-signature"><code>predict(model, data)</code></pre>
 
@@ -996,11 +1008,11 @@ physical event: an <code class="language-plaintext highlighter-rouge">IRE-like c
 
   </section>
 
-  <section class="ref-entry" id="register_architecture">
+  <section class="ref-entry" id="register_architecture" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_architecture"><code>register_architecture</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/_backends/__init__.py#L142" title="vaft/process/ml/_backends/__init__.py, line 142">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/_backends/__init__.py#L142" title="vaft/process/ml/_backends/__init__.py, line 142">source</a>
 </header>
     <pre class="ref-signature"><code>register_architecture(name, factory, *, kind, backend=&#39;torch&#39;)</code></pre>
 
@@ -1057,11 +1069,11 @@ manifest.</p>
 
   </section>
 
-  <section class="ref-entry" id="register_augmentation">
+  <section class="ref-entry" id="register_augmentation" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_augmentation"><code>register_augmentation</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/_backends/__init__.py#L253" title="vaft/process/ml/_backends/__init__.py, line 253">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/_backends/__init__.py#L253" title="vaft/process/ml/_backends/__init__.py, line 253">source</a>
 </header>
     <pre class="ref-signature"><code>register_augmentation(name, function)</code></pre>
 
@@ -1105,11 +1117,11 @@ augmented copy of a sample can never reach validation or test.</p>
 
   </section>
 
-  <section class="ref-entry" id="register_loss">
+  <section class="ref-entry" id="register_loss" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_loss"><code>register_loss</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/_backends/__init__.py#L204" title="vaft/process/ml/_backends/__init__.py, line 204">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/_backends/__init__.py#L204" title="vaft/process/ml/_backends/__init__.py, line 204">source</a>
 </header>
     <pre class="ref-signature"><code>register_loss(name, factory)</code></pre>
 
@@ -1160,11 +1172,11 @@ and scikit-learn backends refuse a <code class="language-plaintext highlighter-r
 
   </section>
 
-  <section class="ref-entry" id="resolve_model">
+  <section class="ref-entry" id="resolve_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_model"><code>resolve_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/resolver.py#L139" title="vaft/process/ml/resolver.py, line 139">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/resolver.py#L139" title="vaft/process/ml/resolver.py, line 139">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
@@ -1241,11 +1253,11 @@ for presence, size and SHA-256.</li>
 
   </section>
 
-  <section class="ref-entry" id="save_dataset">
+  <section class="ref-entry" id="save_dataset" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_dataset"><code>save_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L392" title="vaft/process/ml/dataset.py, line 392">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L392" title="vaft/process/ml/dataset.py, line 392">source</a>
 </header>
     <pre class="ref-signature"><code>save_dataset(dataset, directory)</code></pre>
 
@@ -1288,11 +1300,11 @@ on it are separate steps, often on separate machines; this is the hand-off.</p>
 
   </section>
 
-  <section class="ref-entry" id="save_model_artifact">
+  <section class="ref-entry" id="save_model_artifact" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_model_artifact"><code>save_model_artifact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/artifact.py#L113" title="vaft/process/ml/artifact.py, line 113">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/artifact.py#L113" title="vaft/process/ml/artifact.py, line 113">source</a>
 </header>
     <pre class="ref-signature"><code>save_model_artifact(model, directory, *, version, model_card=None, applicability=None)</code></pre>
 
@@ -1357,11 +1369,11 @@ indent) pinning every hash and size.</li>
 
   </section>
 
-  <section class="ref-entry" id="save_model_bundle">
+  <section class="ref-entry" id="save_model_bundle" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_model_bundle"><code>save_model_bundle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/bundle.py#L30" title="vaft/process/ml/bundle.py, line 30">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/bundle.py#L30" title="vaft/process/ml/bundle.py, line 30">source</a>
 </header>
     <pre class="ref-signature"><code>save_model_bundle(bundle, directory, *, version, model_card=None, applicability=None)</code></pre>
 
@@ -1423,11 +1435,11 @@ and size, each member manifest’s SHA-256 and the composition record.</li>
 
   </section>
 
-  <section class="ref-entry" id="split_groups">
+  <section class="ref-entry" id="split_groups" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#split_groups"><code>split_groups</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L178" title="vaft/process/ml/dataset.py, line 178">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L178" title="vaft/process/ml/dataset.py, line 178">source</a>
 </header>
     <pre class="ref-signature"><code>split_groups(groups, spec=None)</code></pre>
 
@@ -1501,11 +1513,11 @@ IRE prototype used [ire].</p>
 
   </section>
 
-  <section class="ref-entry" id="train_model">
+  <section class="ref-entry" id="train_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#train_model"><code>train_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/training.py#L88" title="vaft/process/ml/training.py, line 88">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/training.py#L88" title="vaft/process/ml/training.py, line 88">source</a>
 </header>
     <pre class="ref-signature"><code>train_model(dataset, split, model_spec, config=None, *, name=None, train_mask=None, train_mask_record=None)</code></pre>
 
@@ -1601,11 +1613,11 @@ tuned for any task.</p>
 
   </section>
 
-  <section class="ref-entry" id="window_dataset">
+  <section class="ref-entry" id="window_dataset" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#window_dataset"><code>window_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/71b7139d48a666803f2eca53e4f938d65a391c4d/vaft/process/ml/dataset.py#L290" title="vaft/process/ml/dataset.py, line 290">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/db71900fcc68002b9cd8add31acdd1b5a1abcef2/vaft/process/ml/dataset.py#L290" title="vaft/process/ml/dataset.py, line 290">source</a>
 </header>
     <pre class="ref-signature"><code>window_dataset(dataset, window, step, *, target_mode=None)</code></pre>
 
@@ -1898,7 +1910,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 09:40:52 +0000"
+        "time": "2026-09-28 09:59:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
