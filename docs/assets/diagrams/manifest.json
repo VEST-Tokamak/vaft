@@ -285,6 +285,31 @@
       "source_sha256": "4cf36832d82994e30fd27464fdccb9115f797a3abbf84797c8050750b297c3e9",
       "svg_sha256": "b7955ebbca3cd3f447d431f86cd98a8591b28d7d926e0f39bcebc02a86986fcc"
     },
+    "plasma_wall_interaction_energy_partition.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_energy_partition()",
+      "source_sha256": "9d6004c49750d87a845deb325cd3455705854f63ee850da014814e21842886a1",
+      "svg_sha256": "dcd65d23f17335d5bde26a2fb5a5180f36fdca6d98391f35d1d26abf99c8f053"
+    },
+    "plasma_wall_interaction_processes.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_processes()",
+      "source_sha256": "32476f360d609bf43c57cd56bd312a70b0933b64053be72bd9a4165d0e610aff",
+      "svg_sha256": "f3c647fd86a11724ffb8645c067183f2003c14a874cddd8212f5ba2419dbe8e9"
+    },
+    "plasma_wall_interaction_recycling.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_recycling()",
+      "source_sha256": "54e2d9b553930c06e4da319eeb87abcb39e6e3ee3372af9f4ca1852323a63dd9",
+      "svg_sha256": "6e35dd0a27eaf30e1fcf608c38b94945cd7bc97ec64a65320b9b862079091ebc"
+    },
+    "plasma_wall_interaction_reflection.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_reflection()",
+      "source_sha256": "2be71c7db42d5ac30dbc219871648dd3803123941351b80088ddc0c98d45405c",
+      "svg_sha256": "cba696f46be365af360f39b1147326727a3495ace7e5534fba64866a33642460"
+    },
+    "plasma_wall_interaction_sputtering.svg": {
+      "call": "vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)",
+      "source_sha256": "9f23e290295005d03062d2491cefeffccd5a57d4e6efa1ab975ebd6f788137dd",
+      "svg_sha256": "b9413523034ac509ef93a58344c264b01c80acddafb9a8704fb639be292495fb"
+    },
     "poloidal_angle_comparison.svg": {
       "call": "vaft.diagram.poloidal_angle_comparison()",
       "source_sha256": "36bb8b015c53b57253309fa8ee059c3436726c0063f6301378b4c7f71f21bdb3",

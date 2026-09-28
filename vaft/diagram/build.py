@@ -111,6 +111,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
                                               "island_formation", "shear_alfven_wave",
                                               "fast_magnetosonic_wave", "mhd_wave_family")},
+    # plasma-wall interaction concepts (#1047)
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
+                                              "plasma_wall_interaction_recycling",
+                                              "plasma_wall_interaction_energy_partition")},
+    "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
 }
 
 
