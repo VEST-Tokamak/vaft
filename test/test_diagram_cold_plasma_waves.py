@@ -17,7 +17,7 @@ def test_o_mode_cutoff_is_at_the_plasma_frequency():
     assert np.all(y[x < 1.0] < 0) and np.all(y[x > 1.0] > 0)
 
 
-@pytest.mark.parametrize("ratio", [0.6, 1.2, 2.0])
+@pytest.mark.parametrize("ratio", [0.6, 1.2, 2.0, 3.5])
 def test_x_mode_cutoffs_and_resonance_are_the_textbook_frequencies(ratio):
     p = vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=ratio).model.parameters
     # in units of |Omega_e|: omega_{R,L} = sqrt(1/4 + ratio^2) +- 1/2, omega_UH = sqrt(1 + ratio^2)
@@ -25,6 +25,10 @@ def test_x_mode_cutoffs_and_resonance_are_the_textbook_frequencies(ratio):
     assert p["omega_L"] == pytest.approx(np.sqrt(0.25 + ratio**2) - 0.5, rel=1e-9)
     assert p["omega_UH"] == pytest.approx(np.sqrt(1.0 + ratio**2), rel=1e-9)
     assert p["omega_L"] < p["omega_UH"] < p["omega_R"]
+    chart = vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=ratio).model
+    assert chart.x_range[1] > p["omega_R"]  # every layer on the chart, whatever the density
+    for name, xy in chart.labels.items():
+        assert chart.x_range[0] <= xy[0] <= chart.x_range[1], name
 
 
 def test_x_mode_curve_is_masked_at_the_pole():
@@ -51,6 +55,7 @@ def test_cma_boundaries_are_the_stix_zeros():
 def test_profile_layers_are_sign_changes_of_the_formula():
     p = cw.EXAMPLE_PROFILE
     layers = cw.profile_layers(p)
+    assert {k: len(v) for k, v in layers.items()} == {"P": 2, "R": 1, "L": 2, "S": 1, "ECR": 1}
     omega = 2 * np.pi * p["frequency"]
     for name in ("P", "R", "L", "S"):
         for r in layers[name]:

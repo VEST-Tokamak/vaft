@@ -32,8 +32,8 @@
     },
     "cma_diagram.svg": {
       "call": "vaft.diagram.cma_diagram()",
-      "source_sha256": "df4676dcd53a2be4840572468bfdb9cb6b73acc7d494fad364c5ee8e3734db63",
-      "svg_sha256": "f28a32a8b3e192ee29e862801c92f814878a95722c1e96ebe745ce2cab0c595b"
+      "source_sha256": "950906cc96a69cd822abbebb1311e6959584215d3c7f00e7170b2e6483331ae5",
+      "svg_sha256": "38651feb378e00ad8a108809d546cdcdd23ab0355a72a9dcce280df07769e299"
     },
     "collision_processes.svg": {
       "call": "vaft.diagram.collision_processes()",
@@ -312,8 +312,8 @@
     },
     "profile_propagation.svg": {
       "call": "vaft.diagram.profile_propagation()",
-      "source_sha256": "dd495467b54bd61557f1de2c866671bb00c8dc80b43bf225261b07d2261f3db2",
-      "svg_sha256": "78460bf95d4c6b04424c79d834af9260ade095c1b620d3fce654df08052c07e0"
+      "source_sha256": "00dbff23750650aeeac19d53b1c0e301bd4de2614104bec09d299bc19b3cea68",
+      "svg_sha256": "abf2b244167fb52aa6b5000239516d626d85a53a767f88840115e156b9cb288a"
     },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
@@ -532,8 +532,8 @@
     },
     "x_mode_dispersion.svg": {
       "call": "vaft.diagram.x_mode_dispersion()",
-      "source_sha256": "3591c7944be8ea1376ede9cd93cec8f75f8bbb191641bba1f4230f1c086dafd0",
-      "svg_sha256": "9087a58f174defa87b4510f67ca02ad78839ce3201c787713019883b025bcdc2"
+      "source_sha256": "690f1646f54d5e0479e5257ddf1ddb15b6d04670fcb4307e7650a0db010e46b6",
+      "svg_sha256": "698b0ba7a18d7b885095659737764b72b13c1006073a4ad25cfd48595b85db9a"
     },
     "x_point.svg": {
       "call": "vaft.diagram.x_point()",

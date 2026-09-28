@@ -45,6 +45,7 @@ __all__ = [
     "StixParameters",
     "plasma_frequency",
     "stix_parameters",
+    "dielectric_tensor",
     "cold_plasma_refractive_index_squared",
     "perpendicular_refractive_index_squared",
     "cma_coordinates",
@@ -189,17 +190,69 @@ def stix_parameters(omega, n, q, m, B):
     B = np.asarray(B, dtype=float)
     if np.any(~np.isfinite(B)):
         raise ValueError("B must be finite")
-    extra = (1,) * max(n.ndim - 1, np.ndim(B), np.ndim(omega))
-    wp2 = plasma_frequency(n, q.reshape(q.shape + (1,) * (n.ndim - 1)), m.reshape(m.shape + (1,) * (n.ndim - 1)))
-    wp2 = np.asarray(wp2, dtype=float) ** 2
-    wp2 = wp2.reshape(wp2.shape + (1,) * (len(extra) - (wp2.ndim - 1)))
-    Omega = gyrofrequency(q.reshape(q.shape + extra), m.reshape(m.shape + extra), B)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        R = 1.0 - np.sum(wp2 / (omega * (omega + Omega)), axis=0)
-        L = 1.0 - np.sum(wp2 / (omega * (omega - Omega)), axis=0)
-    P = 1.0 - np.sum(wp2 / omega**2 * np.ones_like(Omega), axis=0)
+    # every trailing shape (of n, B and omega) broadcasts from the right, behind the species axis
+    k = max(n.ndim - 1, B.ndim, omega.ndim)
+    species = (q.size,) + (1,) * k
+    wp2 = np.asarray(plasma_frequency(n, q.reshape((q.size,) + (1,) * (n.ndim - 1)),
+                                      m.reshape((m.size,) + (1,) * (n.ndim - 1))), dtype=float) ** 2
+    wp2 = wp2.reshape((q.size,) + (1,) * (k - (n.ndim - 1)) + n.shape[1:])
+    Omega = gyrofrequency(q.reshape(species), m.reshape(species), B)
+
+    def term(denominator):
+        # a species with no density contributes nothing, even at its own resonance
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.where(wp2 == 0.0, 0.0, wp2 / denominator)
+
+    R = 1.0 - np.sum(term(omega * (omega + Omega)), axis=0)
+    L = 1.0 - np.sum(term(omega * (omega - Omega)), axis=0)
+    P = 1.0 - np.sum(term(omega**2 * np.ones_like(Omega)), axis=0)
     S, D = (R + L) / 2.0, (R - L) / 2.0
     return StixParameters(*(_out(v) for v in (R, L, S, D, P)))
+
+
+def dielectric_tensor(R, L, P):
+    r"""Cold-plasma dielectric tensor in the frame with $\mathbf B_0 \parallel \hat z$.
+
+    $$\boldsymbol\epsilon = \begin{pmatrix} S & -iD & 0\\ iD & S & 0\\ 0 & 0 & P\end{pmatrix}$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Stix $R$ [-].
+    L : float or np.ndarray
+        Stix $L$ [-].
+    P : float or np.ndarray
+        Stix $P$ [-].
+
+    Returns
+    -------
+    np.ndarray
+        Complex relative permittivity, shape ``broadcast + (3, 3)`` [-].
+
+    Convention
+    ----------
+    Fields $\propto e^{i(\mathbf k\cdot\mathbf x - \omega t)}$, $\hat z$ along
+    $\mathbf B_0$; with the opposite time convention the off-diagonal signs
+    flip. $S = (R + L)/2$, $D = (R - L)/2$ as ``stix_parameters`` returns them.
+
+    Physical interpretation
+    -----------------------
+    Hermitian for real Stix parameters: a collisionless cold plasma is
+    lossless. The antisymmetric $\pm iD$ is the gyrotropy that makes the
+    circular polarisations $R$ and $L$ the eigenmodes along $\mathbf B_0$.
+
+    References
+    ----------
+    .. [1] T. H. Stix, *Waves in Plasmas*, AIP (1992), Sec. 1-2.
+    """
+    R, L, P = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (R, L, P)))
+    S, D = (R + L) / 2.0, (R - L) / 2.0
+    eps = np.zeros(R.shape + (3, 3), dtype=complex)
+    eps[..., 0, 0] = eps[..., 1, 1] = S
+    eps[..., 0, 1] = -1j * D
+    eps[..., 1, 0] = 1j * D
+    eps[..., 2, 2] = P
+    return eps
 
 
 def cold_plasma_refractive_index_squared(R, L, P, theta):
@@ -223,8 +276,9 @@ def cold_plasma_refractive_index_squared(R, L, P, theta):
     Returns
     -------
     tuple of float or np.ndarray
-        ``(n2_plus, n2_minus)``; infinite where $A = 0$ (a resonance cone)
-        [-].
+        ``(n2_plus, n2_minus)`` $= ((B + F)/2A,\ (B - F)/2A)$; where $A = 0$
+        (a resonance cone) one root is infinite and the other finite,
+        $C/B$ [-].
 
     Raises
     ------
@@ -234,7 +288,10 @@ def cold_plasma_refractive_index_squared(R, L, P, theta):
     Convention
     ----------
     $F$ is written in Stix's non-negative form, so $F^2 = B^2 - 4AC \ge 0$
-    and both roots are real for real Stix parameters. The $\pm$ labels are
+    and both roots are real for real Stix parameters. The roots are
+    evaluated as $q/A$ and $C/q$ with $q = (B + \mathrm{sign}(B)F)/2$, so the
+    finite root stays accurate as $A \to 0$; in the degenerate parallel case
+    $P = 0$ ($A = B = C = 0$) they are $R$ and $L$. The $\pm$ labels are
     the algebraic branches, not O/X or R/L: which physical mode a branch is
     changes across $A = 0$ and $\theta$, so name modes from a tracked root
     (``perpendicular_refractive_index_squared`` at $\theta = \pi/2$; $R$
@@ -258,10 +315,20 @@ def cold_plasma_refractive_index_squared(R, L, P, theta):
     s2, c2 = np.sin(theta) ** 2, np.cos(theta) ** 2
     A = S * s2 + P * c2
     Bq = R * L * s2 + P * S * (1.0 + c2)
+    C = P * R * L
     F = np.sqrt((R * L - P * S) ** 2 * s2**2 + 4.0 * P**2 * D**2 * c2)
+    # the cancellation-free form: q = (B + sign(B) F)/2, roots q/A and C/q
+    sign = np.where(Bq >= 0.0, 1.0, -1.0)
+    q = 0.5 * (Bq + sign * F)
     with np.errstate(divide="ignore", invalid="ignore"):
-        plus = np.where(A != 0.0, (Bq + F) / (2.0 * A), np.inf)
-        minus = np.where(A != 0.0, (Bq - F) / (2.0 * A), np.inf)
+        big = np.where(A != 0.0, q / A, np.copysign(np.inf, q))
+        small = np.where(q != 0.0, C / q, np.nan)
+    plus = np.where(sign > 0.0, big, small)
+    minus = np.where(sign > 0.0, small, big)
+    # A = B = C = 0: the parallel case with P = 0, where the roots are R and L themselves
+    degenerate = q == 0.0
+    plus = np.where(degenerate, R, plus)
+    minus = np.where(degenerate, L, minus)
     return _out(plus), _out(minus)
 
 

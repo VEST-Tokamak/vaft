@@ -24,7 +24,7 @@ from typing import Callable, Dict, List
 
 import numpy as np
 
-from vaft.formula.constants import ME, QE
+from vaft.formula.constants import EPS0, ME, QE
 from vaft.formula.waves import (
     cma_coordinates,
     perpendicular_refractive_index_squared,
@@ -38,7 +38,7 @@ from ._scene import Label, Polyline, Scene
 
 _Q, _M = np.array([-QE]), np.array([ME])
 #: an electron density at which omega_pe = 2 pi x 1 GHz, the frequency unit of the normalised diagrams [m^-3]
-_N_REF = (2.0 * np.pi * 1e9) ** 2 * 8.8541878128e-12 * ME / QE**2
+_N_REF = (2.0 * np.pi * 1e9) ** 2 * EPS0 * ME / QE**2
 _W_REF = 2.0 * np.pi * 1e9
 
 
@@ -137,23 +137,24 @@ def x_mode_dispersion(*, omega_pe_over_omega_ce: float = 1.2, labels: bool = Tru
         raise ValueError("omega_pe_over_omega_ce must be positive")
     n_e = _N_REF * omega_pe_over_omega_ce**2  # omega_pe in units of the reference, |Omega_e| = reference
     B = _field_for_Y(1.0, _W_REF)
-    ratio = np.linspace(0.05, 3.5, 1400)
-    s = _electron_stix(ratio * _W_REF, n_e, B)
-    _, n2_X = perpendicular_refractive_index_squared(s.R, s.L, s.P)
     stix = lambda r: _electron_stix(r * _W_REF, n_e, B)
     w_uh_guess = np.sqrt(1.0 + omega_pe_over_omega_ce**2)
     omega_L = _bisect(lambda r: stix(r).L, 1e-3, w_uh_guess - 1e-6)
     omega_UH = _bisect(lambda r: stix(r).S, 1.0 + 1e-9, 3.5 * w_uh_guess)
     omega_R = _bisect(lambda r: stix(r).R, 1.0 + 1e-9, 3.5 * w_uh_guess)
+    x_max = float(np.ceil(1.4 * omega_R * 2.0) / 2.0)
+    ratio = np.linspace(0.05, x_max, 1400)
+    s = _electron_stix(ratio * _W_REF, n_e, B)
+    _, n2_X = perpendicular_refractive_index_squared(s.R, s.L, s.P)
     limit = 6.0
-    chart = Chart(x_range=(0.0, 3.5), y_range=(-limit, limit))
+    chart = Chart(x_range=(0.0, x_max), y_range=(-limit, limit))
     for i, run in enumerate(_clip_runs(ratio, np.asarray(n2_X), limit)):
         chart.curves[f"n2_X {i}"] = run
-    chart.curves["zero"] = np.array([[0.0, 0.0], [3.5, 0.0]])
+    chart.curves["zero"] = np.array([[0.0, 0.0], [x_max, 0.0]])
     for name, value in (("omega_L", omega_L), ("omega_UH", omega_UH), ("omega_R", omega_R)):
         chart.curves[name] = np.array([[value, -limit], [value, limit]])
         chart.points[name] = (value, 0.0)
-    chart.labels.update({"gap1": (omega_L / 2, -3.2), "prop": (3.05, 2.2),
+    chart.labels.update({"gap1": (omega_L / 2, -3.2), "prop": (0.5 * (omega_R + x_max), 2.2),
                          "prop_low": (0.5 * (omega_L + omega_UH) - 0.06, 2.7)})
     chart.parameters.update({"omega_pe_over_omega_ce": omega_pe_over_omega_ce, "omega_L": omega_L,
                              "omega_UH": omega_UH, "omega_R": omega_R})
@@ -163,7 +164,7 @@ def x_mode_dispersion(*, omega_pe_over_omega_ce: float = 1.2, labels: bool = Tru
         chart, x_label="$\\omega/|\\Omega_e|$", y_label="$n_X^2 = RL/S$", curve_styles=styles,
         region_text={"gap1": "\\small evanescent", "prop": "\\small propagating",
                      "prop_low": "\\small propagating"} if labels else {},
-        x_ticks=[0.0, 1.0, 2.0, 3.0], y_ticks=[-6.0, -3.0, 0.0, 3.0, 6.0],
+        x_ticks=[float(v) for v in range(int(x_max) + 1)], y_ticks=[-6.0, -3.0, 0.0, 3.0, 6.0],
         note=(f"Cold electrons, $\\omega_{{pe}}/|\\Omega_e| = {omega_pe_over_omega_ce:g}$; "
               "the pole at $S = 0$ is the upper-hybrid resonance" if labels else ""),
     )
@@ -217,7 +218,7 @@ def cma_diagram(*, labels: bool = True) -> Diagram:
         ok = np.isfinite(bounds[name])
         chart.curves[f"{name}=0"] = np.stack([bounds[name][ok], Y[ok]], axis=-1)
     chart.curves["Y=1"] = np.array([[0.0, 1.0], [2.5, 1.0]])
-    chart.labels.update({"P": (1.15, 1.85), "R": (0.3, 0.55), "L": (2.2, 1.4), "S": (0.86, 0.5),
+    chart.labels.update({"P": (1.15, 1.85), "R": (0.3, 0.55), "L": (2.2, 1.4), "S": (0.46, 0.85),
                          "Y": (2.25, 1.08)})
     chart.parameters.update({"electrons_only": 1.0})
     styles = {"P=0": "boundary", "R=0": "boundary", "L=0": "boundary", "S=0": "approx", "Y=1": "approx"}
@@ -265,7 +266,7 @@ def profile_layers(p: Dict[str, float] = EXAMPLE_PROFILE) -> Dict[str, List[floa
                 f = lambda r, name=name: getattr(profile_quantities(np.array([r]), p)[2], name)[0]
             root = _bisect(f, R[i], R[i + 1])
             # a sign change across a pole (R and S at the cyclotron layer) is a resonance, not a zero
-            if name in ("R", "S") and abs(f(root)) > 1.0:
+            if name in ("R", "S") and not abs(f(root)) < 1e-6:
                 continue
             found.append(root)
         layers[name] = found
@@ -299,17 +300,23 @@ def profile_propagation(*, labels: bool = True) -> Diagram:
             key = f"{name} {j}"
             chart.curves[key] = np.array([[r, -limit], [r, 2.0]])
             chart.points[key] = (r, 0.0)
-    regime_O = propagation_regime(np.where(np.isfinite(n2_O), n2_O, np.inf))
     chart.parameters.update({k: float(v) for k, v in p.items()})
-    chart.parameters["O_propagating_fraction"] = float(np.mean(regime_O == "propagating"))
+    # where each mode propagates, as strips along the bottom: propagation_regime on the sampled profile
+    for mode, n2, y in (("O", n2_O, -2.45), ("X", n2_X, -2.75)):
+        regime = propagation_regime(np.where(np.isfinite(n2), n2, np.inf))
+        for i, run in enumerate(_clip_runs(R, np.where(regime == "propagating", y, np.nan), 10.0)):
+            chart.curves[f"{mode} propagates {i}"] = run
+        chart.parameters[f"{mode}_propagating_fraction"] = float(np.mean(regime == "propagating"))
     styles: Dict[str, str] = {"zero": "approx", "n2_O": "boundary"}
-    styles.update({name: "inner solution" for name in chart.curves if name.startswith("n2_X")})
+    styles.update({name: "inner solution" for name in chart.curves if name.startswith(("n2_X", "X propagates"))})
+    styles.update({name: "boundary" for name in chart.curves if name.startswith("O propagates")})
     styles.update({name: "approx" for name in chart.curves if name.split(" ")[0] in names})
     scene = render_chart(
         chart, x_label="$R$ [m]", y_label="$n^2$ (perpendicular)", curve_styles=styles, region_text={},
         x_ticks=[0.7, 0.85, 1.0, 1.15, 1.3], y_ticks=[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0],
         note=(f"Example: $R_0 = {p['R0']:g}$ m, $a = {p['a']:g}$ m, $B_0 = {p['B0']:g}$ T, "
-              f"$n_0 = 3\\times10^{{19}}$ m$^{{-3}}$, $f = {p['frequency'] / 1e9:g}$ GHz. O mode blue, X mode red"
+              f"$n_0 = 3\\times10^{{19}}$ m$^{{-3}}$, $f = {p['frequency'] / 1e9:g}$ GHz. O blue, X red; "
+              "strips: where each propagates"
               if labels else ""),
     )
     items = list(scene.items)
@@ -318,14 +325,20 @@ def profile_propagation(*, labels: bool = True) -> Diagram:
         top = float(chart.to_cm(np.array([R[0], 2.0]))[1]) + 0.12
         placed = sorted((float(chart.to_cm(np.array([r, 0.0]))[0]), name, j)
                         for name, roots in layers.items() for j, r in enumerate(roots))
-        row_end: List[float] = []
+        merged: List = []
         for x, name, j in placed:
+            if merged and x - merged[-1][0] < 0.35:  # closer than a label: one callout for both layers
+                x0, text, roles = merged[-1]
+                merged[-1] = (0.5 * (x0 + x), f"{text} / {names[name]}", roles + [f"{name} {j}"])
+            else:
+                merged.append((x, names[name], [f"{name} {j}"]))
+        row_end: List[float] = []
+        for x, text, roles in merged:
             row = next((k for k, end in enumerate(row_end) if x - end > 0.9), len(row_end))
             if row == len(row_end):
                 row_end.append(x)
             row_end[row] = x
             if row:
-                items.append(Polyline.of([(x, top - 0.1), (x, top + 0.4 * row)], "leader line", role=f"{name} {j}"))
-            items.append(Label((x, top + 0.4 * row), names[name], "small label", anchor="south",
-                               role=f"{name} {j}"))
+                items.append(Polyline.of([(x, top - 0.1), (x, top + 0.4 * row)], "leader line", role=roles[0]))
+            items.append(Label((x, top + 0.4 * row), text, "small label", anchor="south", role=" + ".join(roles)))
     return Diagram("profile_propagation", Scene(tuple(items)), model=chart)

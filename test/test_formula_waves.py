@@ -6,6 +6,7 @@ import pytest
 from vaft.formula.constants import EPS0, ME, QE
 from vaft.formula.waves import (
     cma_coordinates,
+    dielectric_tensor,
     cold_plasma_refractive_index_squared,
     perpendicular_refractive_index_squared,
     plasma_frequency,
@@ -76,14 +77,57 @@ def test_oblique_roots_solve_the_quartic_and_reduce_to_the_limits():
         sorted([n2_O, n2_X]))
 
 
-def test_the_resonance_cone_is_infinite_n2():
-    # A = S sin^2 + P cos^2 = 0 at tan^2 theta = -P/S
-    R, L, P = 2.0, 0.5, -1.0
+def test_the_finite_root_survives_the_resonance_cone():
+    # S = 0 at perpendicular propagation: A ~ 0, one root infinite, the other exactly P (= C/B)
+    R, L, P = 1.5, -1.5, 0.3
+    roots = cold_plasma_refractive_index_squared(R, L, P, np.pi / 2)
+    finite = [r for r in roots if abs(r) < 1e10]
+    assert finite == [pytest.approx(P, rel=1e-12)]
+    assert perpendicular_refractive_index_squared(R, L, P)[0] == pytest.approx(P)
+    # an exact A = 0 away from pi/2: tan^2 theta = -P/S; the finite root is C/B
+    R, L = 2.0, 0.5
     S = (R + L) / 2
-    theta = np.arctan(np.sqrt(-P / S))
-    R2, L2, P2 = np.float64(R), np.float64(L), -S * np.tan(theta) ** 2  # exact A = 0 through P
-    plus, minus = cold_plasma_refractive_index_squared(R2, L2, P2, theta)
-    assert np.isinf(plus) or np.isinf(minus) or abs(plus) > 1e12 or abs(minus) > 1e12
+    theta = 0.6
+    P = -S * np.tan(theta) ** 2
+    A = S * np.sin(theta) ** 2 + P * np.cos(theta) ** 2
+    B = R * L * np.sin(theta) ** 2 + P * S * (1 + np.cos(theta) ** 2)
+    roots = cold_plasma_refractive_index_squared(R, L, P, theta)
+    assert abs(A) < 1e-12
+    assert min(roots, key=abs) == pytest.approx(P * R * L / B, rel=1e-9)
+    assert max(abs(r) for r in roots) > 1e10
+
+
+def test_parallel_propagation_with_P_zero_returns_R_and_L():
+    assert cold_plasma_refractive_index_squared(1.5, 0.4, 0.0, 0.0) == (1.5, 0.4)
+    near = cold_plasma_refractive_index_squared(1.5, 0.4, 1e-12, 0.0)
+    assert sorted(near) == pytest.approx([0.4, 1.5])
+
+
+def test_trailing_axes_broadcast_like_a_loop_over_points():
+    omega = 2 * np.pi * 28e9
+    n = np.array([[1e19, 2e19, 3e19], [5e18, 1e19, 2e19]])
+    q, m = np.array([-QE, QE]), np.array([ME, MD])
+    B = np.array([[0.5, 1.0, 2.0], [0.7, 0.9, 1.1]])
+    got = stix_parameters(omega, n, q, m, B)
+    for field in ("R", "L", "P"):
+        ref = np.array([[getattr(stix_parameters(omega, n[:, j], q, m, B[i, j]), field) for j in range(3)]
+                        for i in range(2)])
+        np.testing.assert_allclose(getattr(got, field), ref)
+
+
+def test_an_empty_species_is_harmless_at_its_own_resonance():
+    omega = 2 * np.pi * 28e9
+    B = omega * MD / QE  # the ion resonance, with no ions present
+    s = stix_parameters(omega, np.array([1e19, 0.0]), np.array([-QE, QE]), np.array([ME, MD]), B)
+    alone = stix_parameters(omega, 1e19, -QE, ME, B)
+    assert s.L == pytest.approx(alone.L) and s.R == pytest.approx(alone.R)
+
+
+def test_the_dielectric_tensor_is_hermitian_and_carries_the_stix_parameters():
+    eps = dielectric_tensor(np.array([1.5, 2.0]), np.array([0.4, -1.0]), np.array([0.2, 0.9]))
+    assert eps.shape == (2, 3, 3)
+    np.testing.assert_allclose(eps, np.conj(np.swapaxes(eps, -1, -2)))
+    assert eps[0, 0, 0] == pytest.approx((1.5 + 0.4) / 2) and eps[0, 1, 0] == pytest.approx(1j * (1.5 - 0.4) / 2)
 
 
 def test_classification():
