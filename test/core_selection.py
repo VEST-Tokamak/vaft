@@ -141,6 +141,7 @@ CORE_MODULES: tuple[str, ...] = (
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
     "test_diagram_collision.py",
+    "test_diagram_cylindrical_modes.py",
     "test_diagram_geometry.py",
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",

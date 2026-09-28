@@ -93,7 +93,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
         "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
-        "geometry": 7,  # slab / cylinder / local reduction (#1062)
+        "geometry": 9,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())

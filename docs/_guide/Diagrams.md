@@ -442,6 +442,41 @@ vaft.diagram.resonant_layer_matching()
 | `poloidal_harmonic_coupling` | $\cos\theta$ (toroidicity) couples $m \to m \pm 1$ and $\cos 2\theta$ (elongation) couples $m \to m \pm 2$, at fixed $n$. The harmonic index $m$ is not the parity |
 | `resonant_layer_matching` | Every rational surface of one $n$ has a T and a W channel. The outer region couples them all into one $2N\times2N$ matrix (RDCON/STRIDE), and each layer is solved on its own (SLAYER) |
 
+## Cylindrical geometry: profiles, mode shapes and matching
+
+The screw-pinch picture between the torus and the slab. The profile is Wesson's peaked current
+$j \propto (1 - x^2)^\nu$, given by `peaked_current_safety_factor` together with
+`cylindrical_poloidal_field` (Ampère). The screw-pinch field line is
+`field_line_geometry("cylindrical")`, and the cylinder-versus-torus harmonic contrast is
+`poloidal_harmonic_coupling`.
+
+```python
+vaft.diagram.current_to_q_profile(nu=1.0, q_a=3.5)
+vaft.diagram.cylindrical_rational_surfaces(n=1)
+vaft.diagram.cylindrical_mode_morphology()
+vaft.diagram.internal_external_kink()
+vaft.diagram.plasma_vacuum_wall(m=2)
+vaft.diagram.cylindrical_tearing_outer(m=2, n=1)
+```
+
+![profiles]({{ '/assets/diagrams/current_to_q_profile.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![rational surfaces]({{ '/assets/diagrams/cylindrical_rational_surfaces.svg' | relative_url }}) | ![mode shapes]({{ '/assets/diagrams/cylindrical_mode_morphology.svg' | relative_url }}) |
+| ![kinks]({{ '/assets/diagrams/internal_external_kink.svg' | relative_url }}) | ![wall]({{ '/assets/diagrams/plasma_vacuum_wall.svg' | relative_url }}) |
+
+![tearing outer]({{ '/assets/diagrams/cylindrical_tearing_outer.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `current_to_q_profile` | $j \to B_\theta \to q$. More peaked current means lower $q_0 = q_a/(\nu+1)$ and stronger shear |
+| `cylindrical_rational_surfaces` | For one $n$, one surface $q(r_s) = m/n$ for each $m$ between $q_0$ and $q_a$ |
+| `cylindrical_mode_morphology` | $m = 0$ sausage, $m = 1$ kink (a rigid shift), $m = 2, 3$ helical distortions |
+| `internal_external_kink` | The $m = 1$ internal kink lives inside $q = 1$. An external kink reaches the boundary. Kruskal–Shafranov is a heuristic |
+| `plasma_vacuum_wall` | One harmonic matched across plasma, vacuum ($Ar^m + Br^{-m}$) and an ideal wall |
+| `cylindrical_tearing_outer` | The outer solutions at $r_s$ and their $\Delta'$, for the outer, ideal problem. The inner layer at $r_s$ is `slab_parity` |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
