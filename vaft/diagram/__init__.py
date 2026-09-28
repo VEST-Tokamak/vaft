@@ -123,6 +123,10 @@ __all__ = [
     "spectroscopy_transitions",
     "spectroscopy_energy_levels",
     "spectroscopy_spectrum",
+    "iteration_behavior",
+    "branch_bifurcation",
+    "basin_of_attraction",
+    "grid_induced_two_cycle",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -209,6 +213,10 @@ _LOCATIONS = {
     "spectroscopy_transitions": "._spectroscopy",
     "spectroscopy_energy_levels": "._spectroscopy",
     "spectroscopy_spectrum": "._spectroscopy",
+    "iteration_behavior": "._iteration_dynamics",
+    "branch_bifurcation": "._iteration_dynamics",
+    "basin_of_attraction": "._iteration_dynamics",
+    "grid_induced_two_cycle": "._iteration_dynamics",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

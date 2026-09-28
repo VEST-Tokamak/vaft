@@ -20,6 +20,16 @@
       "source_sha256": "2e5218ef8e2d4e3e660646784e5e848f36768a35443798a16a585e0748377c57",
       "svg_sha256": "ebe617934f0f61b8ca3c06cd8ceb2011ea7b6d8c355aa0f47d0047b60d0609ae"
     },
+    "basin_of_attraction.svg": {
+      "call": "vaft.diagram.basin_of_attraction()",
+      "source_sha256": "e7cf61662ba7a7654b712db9e6428243b5c177cbf5872af9e636ea19c95f87e9",
+      "svg_sha256": "9b976d65c51d2594dd454fc5eb0a93096f4a8cc33a30093877b5fcb59aed5998"
+    },
+    "branch_bifurcation.svg": {
+      "call": "vaft.diagram.branch_bifurcation()",
+      "source_sha256": "23ae29ded57e28f4caef023493427c89ee38b08c58a29a08a8cd16cc5b2b6777",
+      "svg_sha256": "b2e3e2e1b179a347e7921830336c0415947fcc0ef992a99de0632263ccf97085"
+    },
     "canonical_toroidal_momentum.svg": {
       "call": "vaft.diagram.canonical_toroidal_momentum()",
       "source_sha256": "c582b680226b495b7f463eb07d7c427482153e3d6395f169d49870c9f3030724",
@@ -180,6 +190,11 @@
       "source_sha256": "449ba3fa2daae3c4995c02aa2d4b3f76b1f6f507918a7c0b9c5ded88bde95146",
       "svg_sha256": "825b4c938b9cfe2f238fd06391c3fbb6fe6e321c7f236a8df5df31d21ae80f49"
     },
+    "grid_induced_two_cycle.svg": {
+      "call": "vaft.diagram.grid_induced_two_cycle()",
+      "source_sha256": "f95c068650e1334065bb046846d0690c9599451c275a894e5c05828ca8a07c87",
+      "svg_sha256": "b225e5cb1011a11f6b8a5161620002d8f2ac81ac1bb2e6cd76d6e42e7edada7d"
+    },
     "guiding_center_invariants.svg": {
       "call": "vaft.diagram.guiding_center_invariants()",
       "source_sha256": "f15fab29132914e5cb0c60b29fb19015f1b386a08cf9e6a48056619fb5090426",
@@ -214,6 +229,11 @@
       "call": "vaft.diagram.island_formation()",
       "source_sha256": "1c83396343ee0a0031556a40d9787399f2425f9c796c6888edca1ce4a801cfec",
       "svg_sha256": "9bc4b75f718df089e19622d2d9347885e83e256b22e196f57ce595a2ff2ec2a0"
+    },
+    "iteration_behavior.svg": {
+      "call": "vaft.diagram.iteration_behavior()",
+      "source_sha256": "e37a54e4f266e94a33f96e703f1f738110ff62916caf3daf59e6fc76c7bc0803",
+      "svg_sha256": "6bb19c51a5d8f62d8a07b72ccf60deb69f1b116da52b8d1ccd969f2588e20eef"
     },
     "kink_mode_1_1_internal.svg": {
       "call": "vaft.diagram.kink_mode()",

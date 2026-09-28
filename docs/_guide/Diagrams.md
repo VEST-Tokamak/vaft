@@ -708,6 +708,45 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Iteration behaviour, branch bifurcation and branch selection
+
+Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.
+
+Every curve is computed:
+- the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+  and from an expanding linear map;
+- the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;
+- the basins are its exact relaxation at $\lambda = 0$.
+
+The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.
+
+```python
+vaft.diagram.iteration_behavior()       # fixed point, divergence, 2-cycle, period-4 limit cycle
+vaft.diagram.branch_bifurcation()       # stable (solid) / unstable (dashed), folds, jumps, hysteresis
+vaft.diagram.basin_of_attraction()      # initial condition selects branch A or B
+vaft.diagram.grid_induced_two_cycle()   # discrete state hops between two nodes; the fit stays flat
+```
+
+![iteration]({{ '/assets/diagrams/iteration_behavior.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![bifurcation]({{ '/assets/diagrams/branch_bifurcation.svg' | relative_url }}) | ![basin]({{ '/assets/diagrams/basin_of_attraction.svg' | relative_url }}) |
+
+![grid 2-cycle]({{ '/assets/diagrams/grid_induced_two_cycle.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (dashed) exists in every panel, but only the first iteration reaches it |
+| `branch_bifurcation` | Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds |
+| `basin_of_attraction` | Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch |
+| `grid_induced_two_cycle` | A numerical artifact: the optimum lies between two nodes, so the index alternates while the fit stays flat. It is not a second physical branch |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
