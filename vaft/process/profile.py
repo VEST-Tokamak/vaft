@@ -106,6 +106,10 @@ __all__ = [
     "evaluate_plasma_state",
     "project_flux_function",
     "project_plasma_state",
+    # synthetic kinetic profiles from an equilibrium (#122), from ._synthetic_kinetic_profiles
+    "generate_synthetic_kinetic_profiles",
+    "spec_from_plasma_state",
+    "write_synthetic_core_profiles",
 ]
 
 
@@ -2387,6 +2391,20 @@ def _write_fit_uncertainty(ods, fit_base, measured, reconstructed, error):
     )
 
 
+def _refuse_synthetic_core_profiles(ods):
+    """Refuse to add a slice to a ``core_profiles`` IDS the #122 synthetic writer owns.
+
+    Its ``ids_properties`` and ``code`` label every slice synthetic; a measured
+    or legacy slice added beside them would be mislabelled, and its
+    ``code.parameters`` lines would be spliced into the synthetic JSON.
+    """
+    if "core_profiles.code.name" in ods and str(ods["core_profiles.code.name"]) == (
+            "vaft.process.profile.generate_synthetic_kinetic_profiles"):
+        raise ValueError(
+            "core_profiles was written by the synthetic kinetic-profile generator (#122); write these profiles "
+            "into another ODS rather than beside synthetic slices")
+
+
 def core_profiles(
     ods,
     time_ms,
@@ -2554,6 +2572,7 @@ def core_profiles(
        and ``ion.0.temperature_fit.parameters``, and one line per slice in
        ``core_profiles.code.parameters``; issue #420.
     """
+    _refuse_synthetic_core_profiles(ods)
     mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
     ti_mapped_positions = _legacy_keyword(ti_mapped_positions, ti_mapped_rho_position, "ti_mapped_rho_position")
     e_J_per_eV = 1.602176634e-19
@@ -2898,6 +2917,7 @@ def core_profiles_from_eq(
     Any split of the pressure between density and temperature is consistent
     with the equilibrium; this one is a convention, and ``Te0_eV`` fixes it.
     """
+    _refuse_synthetic_core_profiles(ods)
     e_J_per_eV = 1.602176634e-19
 
     time_ms = ods['equilibrium.time'][eq_time_index] * 1e3
@@ -3036,6 +3056,7 @@ def core_profiles_from_eq_ratio(
     -----------
     A constant ratio is a modelling choice, not an observation.
     """
+    _refuse_synthetic_core_profiles(ods)
 
     e_J = 1.602176634e-19
     time_ms = ods['equilibrium.time'][eq_time_index] * 1e3
@@ -3445,4 +3466,15 @@ except ImportError:  # direct ``spec_from_file_location`` loading
         analytic_hmode_itb_state, analytic_hmode_state, analytic_itb_state, analytic_lmode_state,
         compose_analytic_profile, compose_plasma_state, evaluate_analytic_profile,
         evaluate_plasma_state, project_flux_function, project_plasma_state,
+    )
+
+# Synthetic kinetic profiles from an equilibrium (#122), fidelity Levels 0-3,
+# built on the #1045 primitives above.
+try:  # pragma: no branch - normal package import takes this path
+    from ._synthetic_kinetic_profiles import (  # noqa: E402,F401
+        generate_synthetic_kinetic_profiles, spec_from_plasma_state, write_synthetic_core_profiles,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._synthetic_kinetic_profiles import (  # noqa: E402,F401
+        generate_synthetic_kinetic_profiles, spec_from_plasma_state, write_synthetic_core_profiles,
     )
