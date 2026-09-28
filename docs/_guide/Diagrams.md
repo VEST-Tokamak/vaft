@@ -496,6 +496,26 @@ uses the real $(R, Z)$ surfaces.
 vaft.diagram.kink_mode(equilibrium=None, m=1, n=1, amplitude=0.06, radial_profile="internal")
 vaft.diagram.kink_mode(m=2, n=1, radial_profile="global", harmonics={2: 1.0, 3: 0.3})
 vaft.diagram.sawtooth(stage="precursor")   # "reconnection", "post_crash"
+
+## Field configurations, reconnection and MHD waves
+
+The canonical slab configurations, the topology of reconnection, and the linear ideal-MHD waves.
+All are drawn in the slab frame of `vaft.formula.geometry`: $x$ is the sheet normal (radial), $y$ the
+reconnecting (binormal) direction, and $z$ the current and guide-field direction. The geometry itself
+(slab, sheared slab, cylinder, torus) belongs to [Geometric approximations]({{ '/reference/geometric-approximations/' | relative_url }}).
+The formulas are `harris_sheet_field`, `harris_sheet_current_density` and `x_point_flux` in `geometry`,
+and `shear_alfven_frequency` and `magnetosonic_phase_speeds` in `stability`.
+
+```python
+vaft.diagram.slab_field_configuration(kind="sheared")   # "uniform", "reversed", "guide"
+vaft.diagram.current_sheet(guide_field=False)
+vaft.diagram.harris_sheet()
+vaft.diagram.x_point()
+vaft.diagram.magnetic_reconnection()
+vaft.diagram.island_formation()
+vaft.diagram.shear_alfven_wave()
+vaft.diagram.fast_magnetosonic_wave()
+vaft.diagram.mhd_wave_family()
 ```
 
 | | |
@@ -540,6 +560,73 @@ The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 hel
 $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
+
+| ![sheared]({{ '/assets/diagrams/slab_field_configuration_sheared.svg' | relative_url }}) | ![reversed]({{ '/assets/diagrams/slab_field_configuration_reversed.svg' | relative_url }}) |
+| ![sheet]({{ '/assets/diagrams/current_sheet.svg' | relative_url }}) | ![harris]({{ '/assets/diagrams/harris_sheet.svg' | relative_url }}) |
+| ![x-point]({{ '/assets/diagrams/x_point.svg' | relative_url }}) | ![reconnection]({{ '/assets/diagrams/magnetic_reconnection.svg' | relative_url }}) |
+| ![shear Alfven]({{ '/assets/diagrams/shear_alfven_wave.svg' | relative_url }}) | ![fast]({{ '/assets/diagrams/fast_magnetosonic_wave.svg' | relative_url }}) |
+
+![island formation]({{ '/assets/diagrams/island_formation.svg' | relative_url }})
+
+![wave family]({{ '/assets/diagrams/mhd_wave_family.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `slab_field_configuration` | The field on stacked $x$ = const sheets. Uniform; sheared, where the direction rotates and $\lvert\mathbf B\rvert = B_0$ to first order in $x/L_s$; reversed, where $B_y(-x) = -B_y(x)$ with a null at $x = 0$; and reversed with a guide field $B_g$, which rotates with no null. Shear and reversal are different things |
+| `current_sheet` | The reversing Harris field seen along the current, with lines at equal flux spacing (spacing $\propto 1/\lvert B_y\rvert$), the sheet of thickness $2a$, its normal, and $\otimes J_z$. With `guide_field=True`, $B_g\hat{\mathbf z}$ removes the null and leaves $J_z$ unchanged |
+| `harris_sheet` | $B_y = B_0\tanh(x/a)$ and $J_z = (B_0/\mu_0a)\,\mathrm{sech}^2(x/a)$ on one chart: the reversal and the localized current are the same layer |
+| `x_point` | The current-free null $\psi = B'(x^2 - y^2)/2$: four branches and two separatrices at right angles. Geometry only |
+| `magnetic_reconnection` | Model-neutral reconnection: inflow, outflow jets, diffusion region, upstream and reconnected field lines about a stretched X-point. No Sweet–Parker, Petschek, Hall or kinetic assumption |
+| `island_formation` | `slab_perturbed_flux` with growing $\psi_0$: straight sheared lines, then X- and O-points, then an island of width $w = 4\sqrt{\psi_0/B'}$. The growth is `delta_prime`, `slab_parity` and `tearing_layer_matching` |
+| `shear_alfven_wave` | Field-line bending with equally spaced lines, so $\lvert\mathbf B\rvert$ is unchanged to first order. $\delta\mathbf v_\perp$ and $\delta\mathbf B_\perp = -(B_0/v_A)\delta\mathbf v_\perp$ lie normal to the $\mathbf k$-$\mathbf B_0$ plane, and $\omega = \lvert k_\parallel\rvert v_A$ |
+| `fast_magnetosonic_wave` | At $\mathbf k \perp \mathbf B_0$ the lines bunch and spread, $\delta B_z = -B_0\partial_x\xi_x$, and $v_f = (v_A^2 + c_s^2)^{1/2}$. It is the compressional Alfvén wave only in the limit $c_s \ll v_A$ |
+| `mhd_wave_family` | The Friedrichs diagram of fast, shear-Alfvén and slow phase speeds against the angle to $\mathbf B_0$ ($v_s \le v_A\lvert\cos\theta\rvert \le v_f$), with each branch's restoring force, compressibility and polarization |
+
+From these to the tokamak: the current sheet and the island lead to the tearing layer (`slab_parity`),
+then to the cylindrical and toroidal tearing mode (`delta_prime`, `resonant_layer_matching`). Here
+$q(r_s) = m/n$ globally is $k_\parallel = 0$ locally (`mode_number_mapping`). The uniform-slab shear
+Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$ vary. Toroidal coupling
+(`poloidal_harmonic_coupling`) then opens the gaps of the TAE and EAE. Those are not computed here.
+
+## The Grad–Shafranov problem: regions, boundaries and problem classes
+
+The axisymmetric field is $\mathbf B = R^{-1}\nabla\psi\times\hat{\boldsymbol\phi} + F(\psi)R^{-1}\hat{\boldsymbol\phi}$,
+with $\psi$ the poloidal flux per radian and $F = RB_\phi$ the poloidal-current function. Its components are
+`radial_magnetic_field_from_psi` and `vertical_magnetic_field_from_psi` (COCOS-aware); in vacuum $F$ is constant, and
+$B_\phi = F/R$ is `vacuum_toroidal_field`. One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
+source. `vaft.formula.grad_shafranov_source` gives the Ampère form $\Delta^*\psi = -\mu_0RJ_\phi$,
+which holds in every region. `toroidal_current_density_from_p_prime_ff_prime` gives the plasma current
+that force balance allows, $J_\phi = Rp' + FF'/(\mu_0R)$. On a grid, the operator is
+`vaft.process.equilibrium.grad_shafranov_operator`. The flux maps are a toy: prescribed ring currents
+and three coils superposed through `green_psi_exact`. The topology (axis, X-point, limiter contact, LCFS)
+is then found from the total flux, as a free-boundary code finds it. A production solver would also make
+the plasma current consistent with $p'$ and $FF'$.
+
+```python
+vaft.diagram.grad_shafranov_domain_decomposition()
+vaft.diagram.fixed_vs_free_boundary_equilibrium()
+vaft.diagram.limiter_and_diverted_topologies()
+vaft.diagram.equilibrium_problem_taxonomy()
+vaft.diagram.poloidal_flux_source_decomposition()
+```
+
+![domains]({{ '/assets/diagrams/grad_shafranov_domain_decomposition.svg' | relative_url }})
+
+![fixed vs free]({{ '/assets/diagrams/fixed_vs_free_boundary_equilibrium.svg' | relative_url }})
+
+![topologies]({{ '/assets/diagrams/limiter_and_diverted_topologies.svg' | relative_url }})
+
+![taxonomy]({{ '/assets/diagrams/equilibrium_problem_taxonomy.svg' | relative_url }})
+
+![sources]({{ '/assets/diagrams/poloidal_flux_source_decomposition.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `grad_shafranov_domain_decomposition` | Same $\psi$, different $J_\phi$. The plasma source comes from force balance. The vacuum is homogeneous, $\Delta^*\psi = 0$: Laplace-type, but not $\nabla^2$. A coil carries its prescribed current. All of this sits inside the computational boundary |
+| `fixed_vs_free_boundary_equilibrium` | The boundary is an input (LCFS and $\psi_b$ given, only the inside solved) or it is part of the solution (coils and sources given, $\psi$ everywhere, LCFS read from the topology) |
+| `limiter_and_diverted_topologies` | Limited: the LCFS is the surface through the limiter tip. Diverted: the separatrix through the X-point ($\nabla\psi = 0$), with SOL and private flux. The boundary is the larger of $\psi_\mathrm{lim}$ and $\psi_X$ |
+| `equilibrium_problem_taxonomy` | Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms |
+| `poloidal_flux_source_decomposition` | $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn |
 
 ## Using the committed assets
 
