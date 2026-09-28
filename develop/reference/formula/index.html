@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>96c9e7f</code>. What is described
+  <code>5650294</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -331,7 +331,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="equilibrium">
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>97</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>98</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr id="virial">
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -339,7 +339,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="stability">
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>34</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>35</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr id="green">
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -442,7 +442,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 305 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 307 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -535,6 +535,8 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="elongation_from_RZ_boundary equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#elongation_from_RZ_boundary"><code>elongation_from_RZ_boundary</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Boundary elongation $\kappa$ from the extremal points of a contour.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="exact_volume_from_RZ_contour equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#exact_volume_from_RZ_contour"><code>exact_volume_from_RZ_contour</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Plasma volume from a closed $(R, Z)$ contour by Green’s theorem.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="flux_perturbation_from_normal_displacement equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#flux_perturbation_from_normal_displacement"><code>flux_perturbation_from_normal_displacement</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Ideal (flux-frozen) perturbed flux of a displacement normal to the flux surfaces.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="generalized_parabolic_profile equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#generalized_parabolic_profile"><code>generalized_parabolic_profile</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Smooth core profile that falls from its axis value to its edge value.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -783,6 +785,8 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="island_separatrix_half_width stability"><td><a href="/vaft/develop/reference/formula/stability/#island_separatrix_half_width"><code>island_separatrix_half_width</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Radial half-width of the island separatrix at a given helical phase.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="island_width_from_resonant_flux stability"><td><a href="/vaft/develop/reference/formula/stability/#island_width_from_resonant_flux"><code>island_width_from_resonant_flux</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Full magnetic island width from the pitch-resonant flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="kadomtsev_mixing_radius stability"><td><a href="/vaft/develop/reference/formula/stability/#kadomtsev_mixing_radius"><code>kadomtsev_mixing_radius</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Kadomtsev mixing radius: where the $m/n = 1/1$ helical flux returns to its axis value.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="kink_stability_criterion stability"><td><a href="/vaft/develop/reference/formula/stability/#kink_stability_criterion"><code>kink_stability_criterion</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
@@ -1370,7 +1374,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 11:51:32 +0000"
+        "time": "2026-09-28 12:32:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

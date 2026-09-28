@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>96c9e7f</code>. What is described
+  <code>5650294</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1463,6 +1463,130 @@ the plasma current consistent with $p’$ and $FF’$.</p>
   </tbody>
 </table>
 
+<h2 id="equilibrium-aware-phenomena-kink-displacement-and-sawtooth">Equilibrium-aware phenomena: kink displacement and sawtooth</h2>
+
+<p>This layer sits between the reference diagrams and result plotting. The geometry comes from an
+equilibrium (any <code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>); the physical state is a prescribed, documented
+model. The default equilibrium is the exact Solov’ev (Cerfon–Freidberg) equilibrium of
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.solovev_example</code> with $A = 0$, where $q$ rises from about 0.8 to 3. Surfaces,
+normals and the PEST angle $\theta^<em>$ come from <code class="language-plaintext highlighter-rouge">straight_field_line_map</code>, and $q(\rho)$ from
+<code class="language-plaintext highlighter-rouge">calculate_q_profile_from_psi</code>, with $\rho = \sqrt{\psi_N}$. The mode phase uses $\theta^</em>$. The drawing
+uses the real $(R, Z)$ surfaces.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">kink_mode</span><span class="p">(</span><span class="n">equilibrium</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span> <span class="n">radial_profile</span><span class="o">=</span><span class="sh">"</span><span class="s">internal</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">kink_mode</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">radial_profile</span><span class="o">=</span><span class="sh">"</span><span class="s">global</span><span class="sh">"</span><span class="p">,</span> <span class="n">harmonics</span><span class="o">=</span><span class="p">{</span><span class="mi">2</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">})</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">sawtooth</span><span class="p">(</span><span class="n">stage</span><span class="o">=</span><span class="sh">"</span><span class="s">precursor</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "reconnection", "post_crash"
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/kink_mode_1_1_internal.svg" alt="1/1 internal" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/kink_mode_2_1_global.svg" alt="2/1 global" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/sawtooth_precursor.svg" alt="precursor" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/sawtooth_reconnection.svg" alt="reconnection" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/sawtooth_post_crash.svg" alt="post crash" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Model class</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kink_mode</code></td>
+      <td>synthetic parameterization</td>
+      <td>Each surface moves along its normal by $\xi_n = A\,a\,F(\rho)\,\mathrm{Re}\sum c_m e^{i(m\theta^* - n\phi)}$, with a named envelope. <code class="language-plaintext highlighter-rouge">internal</code> is a top hat inside $q = m/n$, <code class="language-plaintext highlighter-rouge">global</code> is $\rho^{m-1}$, and <code class="language-plaintext highlighter-rouge">edge</code> is $\rho^{4m}$. Under flux freezing this is <code class="language-plaintext highlighter-rouge">flux_perturbation_from_normal_displacement</code>, $\delta\psi = -\xi_n\lvert\nabla\psi\rvert$. It is not an eigenfunction. The cylindrical reference view is <code class="language-plaintext highlighter-rouge">internal_external_kink</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sawtooth</code></td>
+      <td>reduced model</td>
+      <td><code class="language-plaintext highlighter-rouge">precursor</code>: the 1/1 internal kink inside $q = 1$, with nested topology kept. <code class="language-plaintext highlighter-rouge">reconnection</code>: a hot core of radius $\rho_1(1-f)$ pushed against an outer separatrix, with the X-point where they touch and the 1/1 island in the crescent between. <code class="language-plaintext highlighter-rouge">post_crash</code>: nested surfaces again, with the region inside the Kadomtsev mixing radius flattened at conserved $\int T\rho\,d\rho$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Two reduced Hamiltonian models extend the vocabulary of <code class="language-plaintext highlighter-rouge">magnetic_island</code> to several resonances, and to the
+X-point.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">stochastic_layer</span><span class="p">(</span><span class="n">regime</span><span class="o">=</span><span class="sh">"</span><span class="s">touching</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "isolated", "overlapping"; or overlap=, perturbations=
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">separatrix_lobes</span><span class="p">(</span><span class="n">perturbation</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/stochastic_layer_isolated.svg" alt="isolated" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/stochastic_layer_overlapping.svg" alt="overlapping" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/stochastic_layer_touching.svg" alt="touching" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/separatrix_lobes.svg" alt="lobes" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Model class</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stochastic_layer</code></td>
+      <td>reduced Hamiltonian</td>
+      <td>A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium’s $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of <code class="language-plaintext highlighter-rouge">island_pendulum_hamiltonian</code>, width $4\sqrt{\epsilon/\lvert\iota’\rvert}$. The pair overlap $\sigma$ (<code class="language-plaintext highlighter-rouge">vaft.process.perturbation.chirikov</code>) is 0.5, 1 or 1.6. The inset shows where the section sits</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">separatrix_lobes</code></td>
+      <td>reduced Hamiltonian</td>
+      <td>The single-null Solov’ev equilibrium plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In <code class="language-plaintext highlighter-rouge">stochastic_layer</code>, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. <code class="language-plaintext highlighter-rouge">separatrix_lobes</code> draws the single-null Solov’ev equilibrium only, for now. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.</p>
+
+<p>The mixing radius comes from <code class="language-plaintext highlighter-rouge">vaft.formula.kadomtsev_mixing_radius</code>: the 1/1 helical flux
+$\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
+$1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
+crash.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -1595,7 +1719,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1713,7 +1837,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 11:51:32 +0000"
+        "time": "2026-09-28 12:32:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
