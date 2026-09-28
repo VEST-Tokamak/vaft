@@ -728,8 +728,8 @@ them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
 
 `vaft.formula.ntv` holds the exact, convention-bearing relations:
 - `ntv_precession_frequency`, whose zero is the superbanana-plateau resonance. $\omega_E$ is the
-  $E\times B$ frequency `omega_exb`, never the toroidal rotation;
-- `nonambipolar_torque_density`, the $\mathbf J\times\mathbf B$ torque of non-ambipolar fluxes.
+  $E\times B$ frequency `omega_exb`, never the toroidal rotation, and both $\omega_E$ and $\omega_B$ are measured along the plasma current;
+- `nonambipolar_torque_density`, the torque on the plasma: the $\mathbf J\times\mathbf B$ of the return current that cancels the non-ambipolar flux. Ion loss in a co-current plasma drives counter-current rotation.
 
 The size of the flux needs a drift-kinetic code (`vaft.code`), and Shaing's connected formula is not
 implemented, so the NTV regime diagram shows slopes only.
@@ -748,8 +748,8 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 | Diagram | Concept |
 | --- | --- |
 | `neoclassical_collisionality` | $D/D_\mathrm{plateau}$ against $\hat\nu$: asymptotes $\hat\nu/\epsilon^{3/2}$, 1 and $\hat\nu$ meeting at the formula's boundaries. Orderings, not phase boundaries |
-| `ntv_collisionality` | Non-resonant ($1/\nu$, $\nu$--$\sqrt\nu$, $\nu$) and resonant ($1/\nu$, superbanana plateau, $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
-| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency` |
+| `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
+| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
 
 ## Using the committed assets
 

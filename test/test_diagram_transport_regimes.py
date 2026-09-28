@@ -41,9 +41,14 @@ def test_ntv_regimes_are_the_shaing_exponents_on_two_branches():
     for branch in ("non_resonant", "resonant"):
         x, y = chart.curves[branch].T
         slopes[branch] = set(np.round(np.diff(y) / np.diff(x), 9))
-    assert slopes["non_resonant"] == {-1.0, 0.5, 1.0}
+    # non-resonant ends on the sqrt(nu) boundary layer; only the resonant branch reaches superbanana nu
+    assert slopes["non_resonant"] == {-1.0, 0.5}
     assert slopes["resonant"] == {-1.0, 0.0, 1.0}
     assert set(tr.NTV_EXPONENTS.values()) == {-1.0, 0.5, 0.0, 1.0}
+    # the resonant branch lies above the non-resonant one below the precession ordering
+    x, res = chart.curves["resonant"].T
+    nonres = chart.curves["non_resonant"][:, 1]
+    assert np.all(res[x < 0.0] > nonres[x < 0.0])
     assert {"region_sbp", "region_sqrt_nu", "region_one_over_nu"} <= _region_labels(vaft.diagram.ntv_collisionality())
 
 
@@ -52,11 +57,18 @@ def test_the_superbanana_line_is_the_zero_of_the_precession(omega_magnetic):
     chart = vaft.diagram.ntv_precession_regimes(omega_magnetic=omega_magnetic).model
     y_res = chart.curves["resonance"][0, 1]
     assert ntv_precession_frequency(y_res * omega_magnetic, omega_magnetic) == pytest.approx(0.0, abs=1e-12)
-    # the dashed V is nu_eff = |omega_d| from the same formula
+    # the dashed V is nu_eff = |omega_d| from the same formula, drawn outside the resonant band
+    band = chart.parameters["band"]
     for name in ("ordering_upper", "ordering_lower"):
         x, y = chart.curves[name].T
         omega_d = ntv_precession_frequency(y * omega_magnetic, omega_magnetic)
         np.testing.assert_allclose(10.0**x, np.abs(omega_d / omega_magnetic), rtol=1e-12)
+        assert np.all(np.abs(y - y_res) >= band - 1e-12)
+    # the superbanana plateau sits on the resonance at low collisionality, 1/nu at high
+    sbp_x, sbp_y = chart.labels["sbp"]
+    assert abs(sbp_y - y_res) < band and 10.0**sbp_x < band
+    one_x, one_y = chart.labels["one_over_nu"]
+    assert 10.0**one_x > abs(ntv_precession_frequency(one_y * omega_magnetic, omega_magnetic) / omega_magnetic)
     for name, xy in chart.labels.items():
         assert _inside(chart, xy), name
 

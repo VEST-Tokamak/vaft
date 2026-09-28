@@ -89,7 +89,7 @@ def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) ->
 
 
 #: Shaing's asymptotic flux exponents, $\Gamma \propto \nu^p$ in each NTV regime
-NTV_EXPONENTS = {"1/nu": -1.0, "nu-sqrt(nu)": 0.5, "superbanana_plateau": 0.0, "nu": 1.0}
+NTV_EXPONENTS = {"1/nu": -1.0, "nu-sqrt(nu)": 0.5, "superbanana_plateau": 0.0, "superbanana_nu": 1.0}
 
 
 def ntv_collisionality(*, labels: bool = True) -> Diagram:
@@ -97,87 +97,103 @@ def ntv_collisionality(*, labels: bool = True) -> Diagram:
 
     Schematic in both axes: only the slopes are physics -- the asymptotic
     exponents of ``NTV_EXPONENTS`` -- and the breakpoints are placed for
-    legibility. Non-resonant ($|\omega_d| \gg$ the resonance width): $1/\nu$
-    while $\nu_\mathrm{eff} > |\omega_d|$, then the $\nu$--$\sqrt\nu$ boundary
-    layer, then $\nu$. Resonant ($\omega_d \to 0$): $1/\nu$ saturates into the
-    $\nu$-independent superbanana plateau, then $\nu$. These regimes are not
+    legibility. Non-resonant ($\omega_d$ bounded away from zero): $1/\nu$
+    while $\nu_\mathrm{eff}$ exceeds the precession, then the
+    $\nu$--$\sqrt\nu$ boundary layer, whose $\sqrt\nu$ part dominates to the
+    lowest collisionality. Resonant ($\omega_d \to 0$ for some trapped
+    particles): $1/\nu$ saturates into the $\nu$-independent superbanana
+    plateau, then the superbanana regime $\propto\nu$. These regimes are not
     banana/plateau/Pfirsch--Schl\"uter: the ordering parameter is the
     precession $\omega_d$, not the transit or bounce frequency.
     """
     labels = _check_labels(labels)
     p = NTV_EXPONENTS
     x = np.linspace(-4.0, 2.0, 301)
-    # non-resonant: 1/nu above nu_eff = |omega_d| (x = 0), sqrt(nu) down to x = -2, nu below
-    nonres = np.where(x >= 0.0, p["1/nu"] * x,
-                      np.where(x >= -2.0, p["nu-sqrt(nu)"] * x, p["nu-sqrt(nu)"] * -2.0 + p["nu"] * (x + 2.0)))
-    # resonant: 1/nu down to x = -1, plateau to x = -3, nu below
+    # non-resonant: 1/nu above nu_eff ~ |omega_d| (x = 0), sqrt(nu) all the way down
+    nonres = np.where(x >= 0.0, p["1/nu"] * x, p["nu-sqrt(nu)"] * x)
+    # resonant: 1/nu down to x = -1, plateau to x = -3, superbanana nu below
     res = np.where(x >= -1.0, p["1/nu"] * x,
                    np.where(x >= -3.0, p["1/nu"] * -1.0 + p["superbanana_plateau"] * (x + 1.0),
-                            1.0 + p["nu"] * (x + 3.0)))
+                            1.0 + p["superbanana_nu"] * (x + 3.0)))
     chart = Chart(x_range=(-4.0, 2.0), y_range=(-2.5, 2.5))
     chart.curves.update({"non_resonant": np.stack([x, nonres], axis=-1), "resonant": np.stack([x, res], axis=-1),
                          "precession_ordering": np.array([[0.0, -2.5], [0.0, 2.0]])})
-    chart.labels.update({"ordering": (0.0, 2.3), "one_over_nu": (1.0, 0.2), "sqrt_nu": (-1.0, -1.05),
-                         "sbp": (-2.0, 1.35),
-                         "nu_nonres": (-3.1, -1.75), "nu_res": (-3.55, 0.05)})
+    chart.labels.update({"ordering": (0.0, 2.3), "one_over_nu": (1.0, 0.2), "sqrt_nu": (-2.0, -1.55),
+                         "sbp": (-2.0, 1.35), "superbanana_nu": (-3.45, 0.2),
+                         "branch_res": (-2.0, 0.65), "branch_nonres": (-2.6, -0.8)})
     chart.parameters.update({f"exponent {k}": v for k, v in p.items()})
     scene = render_chart(
         chart,
         x_label="$\\nu_\\mathrm{eff}$ (log, schematic)",
         y_label="NTV flux (schematic)",
         curve_styles={"precession_ordering": "approx", "non_resonant": "boundary", "resonant": "boundary"},
-        region_text={"ordering": "$\\nu_\\mathrm{eff} \\sim |\\omega_d|$", "one_over_nu": "$1/\\nu$", "sqrt_nu": "$\\nu$--$\\sqrt\\nu$",
-                     "sbp": "superbanana plateau", "nu_nonres": "$\\nu$", "nu_res": "$\\nu$"} if labels else {},
-        note=("Log--log, slopes only: resonant $\\omega_d \\to 0$ (upper), non-resonant (lower). "
-              "Not banana/plateau/PS" if labels else ""),
+        region_text={"ordering": "$\\nu_\\mathrm{eff} \\sim |\\omega_d|$", "one_over_nu": "$1/\\nu$",
+                     "sqrt_nu": "$\\nu$--$\\sqrt\\nu$", "sbp": "superbanana plateau",
+                     "superbanana_nu": "$\\nu$", "branch_res": "\\small resonant, $\\omega_d \\to 0$",
+                     "branch_nonres": "\\small non-resonant"} if labels else {},
+        note="Log--log, slopes only. Not banana/plateau/Pfirsch--Schl\\\"uter" if labels else "",
     )
     return Diagram("ntv_collisionality", scene, model=chart)
 
 
-def ntv_precession_regimes(*, omega_magnetic: float = 1.0, labels: bool = True) -> Diagram:
+def ntv_precession_regimes(*, omega_magnetic: float = 1.0, band: float = 0.5, labels: bool = True) -> Diagram:
     r"""Collisionality alone does not fix the NTV regime: the precession plane.
 
-    Axes $\nu_\mathrm{eff}/\omega_B$ (log) and $\omega_E/\omega_B$ for a
-    magnetic precession $\omega_B$ = ``omega_magnetic``. The superbanana-plateau
-    line is where ``ntv_precession_frequency`` vanishes; the V around it is
-    the ordering $\nu_\mathrm{eff} = |\omega_d|$ from the same formula,
-    separating $1/\nu$ (collisions faster than precession, inside) from
-    $\nu$--$\sqrt\nu$ (outside). That ordering is schematic -- the
-    coefficient is set to one.
+    Axes $\nu_\mathrm{eff}/|\omega_B|$ (log) and $\omega_E/\omega_B$ for a
+    magnetic precession $\omega_B$ = ``omega_magnetic``, both along the
+    plasma current. From ``ntv_precession_frequency``: the resonance line
+    $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ (dashed)
+    between $1/\nu$ (collisions faster than precession, right) and
+    $\nu$--$\sqrt\nu$ (left). Schematic: the resonant band
+    $|\omega_d| \lesssim$ ``band`` $\cdot|\omega_B|$ -- the spread of
+    $\omega_B$ over trapped pitch, whose zero some particles then cross --
+    holds the superbanana plateau for $\nu_\mathrm{eff} \lesssim |\omega_B|$
+    and the superbanana $\nu$ regime at the lowest collisionality; both
+    band edges and the split are illustrative.
     """
     labels = _check_labels(labels)
     if not (np.isfinite(omega_magnetic) and omega_magnetic != 0.0):
         raise ValueError(f"omega_magnetic must be finite and non-zero, not {omega_magnetic!r}")
+    if not 0.0 < band < 1.0:
+        raise ValueError(f"band must lie in (0, 1), not {band!r}")
     wb = float(omega_magnetic)
     # the resonance: omega_d = omega_E + omega_B is linear in omega_E; locate its zero from the formula
     slope = ntv_precession_frequency(1.0, 0.0)
     y_res = -ntv_precession_frequency(0.0, wb) / (slope * wb)
+    x_band = float(np.log10(band))
     y = np.linspace(y_res - 2.0, y_res + 2.0, 401)
     omega_d = ntv_precession_frequency(y * wb, wb)
     with np.errstate(divide="ignore"):
         x_order = np.log10(np.abs(omega_d / wb))
-    upper, lower = y > y_res, y < y_res
+    # the ordering is drawn outside the resonant band only
+    upper, lower = (y - y_res) >= band, (y_res - y) >= band
     chart = Chart(x_range=(-3.0, 1.0), y_range=(y_res - 2.0, y_res + 2.0))
+    x_sb = -2.3
     chart.curves.update({
         "resonance": np.array([[-3.0, y_res], [1.0, y_res]]),
         "ordering_upper": np.stack([x_order[upper], y[upper]], axis=-1),
         "ordering_lower": np.stack([x_order[lower], y[lower]], axis=-1),
+        "band_upper": np.array([[-3.0, y_res + band], [x_band, y_res + band]]),
+        "band_lower": np.array([[-3.0, y_res - band], [x_band, y_res - band]]),
+        "band_split": np.array([[x_sb, y_res - band], [x_sb, y_res + band]]),
     })
-    chart.labels.update({"one_over_nu": (0.45, y_res + 0.5), "nonres_upper": (-1.7, y_res + 1.4),
-                         "nonres_lower": (-1.7, y_res - 1.3), "sbp": (-1.8, y_res + 0.62)})
-    chart.parameters.update({"omega_magnetic": wb, "omega_exb_at_resonance": y_res * wb})
+    chart.labels.update({"one_over_nu": (0.45, y_res + 0.5), "nonres_upper": (-1.4, y_res + 1.4),
+                         "nonres_lower": (-1.4, y_res - 1.4), "sbp": (-1.25, y_res + 0.25),
+                         "superbanana_nu": (-2.65, y_res + 0.25), "resonance": (0.45, y_res - 0.25)})
+    chart.parameters.update({"omega_magnetic": wb, "omega_exb_at_resonance": y_res * wb, "band": band})
     x_ticks, x_text = _decades(-3, 1)
     y_ticks = [float(v) for v in np.arange(np.ceil(y_res - 2.0), np.floor(y_res + 2.0) + 1.0)]
     scene = render_chart(
         chart,
         x_label="$\\nu_\\mathrm{eff}/|\\omega_B|$",
         y_label="$\\omega_E/\\omega_B$",
-        curve_styles={"ordering_upper": "approx", "ordering_lower": "approx", "resonance": "boundary"},
+        curve_styles={"ordering_upper": "approx", "ordering_lower": "approx", "band_upper": "approx",
+                      "band_lower": "approx", "band_split": "approx", "resonance": "boundary"},
         region_text={"one_over_nu": "$1/\\nu$", "nonres_upper": "$\\nu$--$\\sqrt\\nu$",
-                     "nonres_lower": "$\\nu$--$\\sqrt\\nu$",
-                     "sbp": "\\begin{tabular}{c}superbanana plateau\\\\$\\omega_d = \\omega_E + \\omega_B = 0$\\end{tabular}"} if labels else {},
+                     "nonres_lower": "$\\nu$--$\\sqrt\\nu$", "sbp": "\\small superbanana plateau",
+                     "superbanana_nu": "\\small $\\nu$", "resonance": "\\small $\\omega_d = 0$"} if labels else {},
         x_ticks=x_ticks, x_tick_text=x_text, y_ticks=y_ticks,
-        note=("Schematic: dashed is the ordering $\\nu_\\mathrm{eff} = |\\omega_d|$; "
-              "$\\omega_E$ is the $E\\times B$ frequency, not $\\omega_\\phi$" if labels else ""),
+        note=("Schematic band and split; the line $\\omega_d = \\omega_E + \\omega_B = 0$ and the dashed "
+              "$\\nu_\\mathrm{eff} = |\\omega_d|$ are computed" if labels else ""),
     )
     return Diagram("ntv_precession_regimes", scene, model=chart)

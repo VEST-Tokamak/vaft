@@ -99,16 +99,48 @@ def test_precession_vanishes_at_the_superbanana_resonance_and_flips_with_rotatio
         ntv_precession_frequency(np.nan, 1.0)
 
 
-def test_torque_vanishes_for_ambipolar_fluxes_and_has_the_jxb_sign():
+def test_jxb_of_a_radial_current_is_minus_j_dot_grad_psi():
+    # numerically: B_pol = grad(psi) x grad(phi) from psi = R A_phi of a current along +phi,
+    # a radial current J = j grad(psi)/|grad psi|, and R phi_hat . (J x B) against -J . grad(psi)
+    R, Z = 1.2, 0.1
+    psi = lambda R, Z: -((R - 1.0) ** 2 + Z**2)  # R A_phi: largest on the axis, current along +phi
+    h = 1e-6
+    dpsi = np.array([(psi(R + h, Z) - psi(R - h, Z)) / (2 * h), 0.0, (psi(R, Z + h) - psi(R, Z - h)) / (2 * h)])
+    grad_phi = np.array([0.0, 1.0 / R, 0.0])  # (R, phi, Z) components
+    B = np.cross(dpsi, grad_phi) + 0.5 * grad_phi * R  # plus a toroidal field
+    J = 3.0 * dpsi / np.linalg.norm(dpsi)
+    torque = R * np.cross(J, B)[1]
+    assert torque == pytest.approx(-np.dot(J, dpsi), rel=1e-9)
+
+
+def test_torque_vanishes_for_ambipolar_fluxes():
     Z = np.array([1.0, -1.0])
     assert nonambipolar_torque_density(Z, np.array([2.0e19, 2.0e19]), -0.5) == 0.0
-    # outward ion flux, current along +phi (dpsi/dV < 0): torque along +phi
+
+
+def test_ion_loss_in_a_co_current_plasma_drives_counter_current_rotation():
+    # current along +phi: psi = R A_phi decreases outward, dpsi/dV < 0. An outward non-ambipolar ion flux is
+    # balanced by an inward return current, whose J x B -- the torque on the plasma -- points against the
+    # current (fast-ion ripple loss spins the plasma counter-current)
+    Z = np.array([1.0, -1.0])
     torque = nonambipolar_torque_density(Z, np.array([1.0e19, 0.0]), -0.5)
-    assert torque > 0.0
-    assert torque == pytest.approx(0.5 * QE * 1.0e19)
+    assert torque < 0.0
+    assert torque == pytest.approx(-0.5 * QE * 1.0e19)
+    # the same with the current reversed: the torque follows the current's reversal
+    assert nonambipolar_torque_density(Z, np.array([1.0e19, 0.0]), 0.5) == pytest.approx(-torque)
     # species along axis 0, radius along axis 1
     flux = np.array([[1.0e19, 2.0e19], [0.0, 0.0]])
     np.testing.assert_allclose(nonambipolar_torque_density(Z, flux, np.array([-0.5, -1.0])),
-                               [0.5 * QE * 1e19, 1.0 * QE * 2e19])
+                               [-0.5 * QE * 1e19, -1.0 * QE * 2e19])
     with pytest.raises(ValueError):
         nonambipolar_torque_density(Z, np.array([1.0, 2.0, 3.0]), -0.5)
+
+
+def test_rigid_rotation_gives_omega_exb_along_the_current():
+    # E = -omega grad(R A_phi) for rigid rotation omega along +phi; with the current along +phi the outward
+    # flux psi_out = -R A_phi, so -dPhi/dpsi_out = +omega: positive along the current, as ntv_precession wants
+    omega, psi = 2.0e3, np.linspace(0.0, -1.0, 11)  # R A_phi from the axis outward
+    potential = omega * psi  # grad(Phi) = omega grad(R A_phi)
+    psi_out = -psi
+    omega_exb = -np.gradient(potential, psi_out)
+    np.testing.assert_allclose(omega_exb, omega)

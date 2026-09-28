@@ -282,13 +282,13 @@
     },
     "ntv_collisionality.svg": {
       "call": "vaft.diagram.ntv_collisionality()",
-      "source_sha256": "8612ac64bdf9beb697629f48d0c09910a8d34d886be70209dcb3c1164757adfd",
-      "svg_sha256": "2322ef794de3c5cafc28cb1f28d93afc8b774dec9eb766a911a9fe33e7840ffc"
+      "source_sha256": "3d30af96af3a909ebca6e989c2500de60908e87b239d44bf5db0ebcd748517a9",
+      "svg_sha256": "5f799572001cdf20ea553edded7d2d77dd40fb85388ad5c447fbd8acf2fae617"
     },
     "ntv_precession_regimes.svg": {
       "call": "vaft.diagram.ntv_precession_regimes()",
-      "source_sha256": "3ddb9eb01950fc3f9e7040f1f32cb71c5aa007ad823e3ada5804746fda1deccb",
-      "svg_sha256": "1cd82da7aa1c2db70633e205f0668834eb9af57c01520a258266a1fc4df0431a"
+      "source_sha256": "c83004fbc400eb029a6966c090f04c0d331eaf74cb407e5a47eec0ed2f05efe5",
+      "svg_sha256": "ff3882917fb7d2727149e34311355ebddcaaf5692b6a94e7465338242e91a694"
     },
     "peeling_ballooning.svg": {
       "call": "vaft.diagram.peeling_ballooning()",
