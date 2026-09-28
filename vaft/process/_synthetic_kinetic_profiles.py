@@ -156,6 +156,7 @@ def _geometry(eq, grid, declared_cocos=None) -> dict[str, Any]:
     geom: dict[str, Any] = {}
     p_eq = np.full(grid.shape, np.nan)
     if eq.pressure is not None and eq.pressure.size == x1d.size:
+        # anti-alias: not time-domain -- equilibrium pressure over normalized flux.
         p_eq = np.interp(grid, x1d, eq.pressure[order])
     geom["p_eq"] = p_eq
 
@@ -164,6 +165,7 @@ def _geometry(eq, grid, declared_cocos=None) -> dict[str, Any]:
     if rho_tor.value is None:
         geom["rho_tor_norm"], geom["rho_tor_note"] = None, f"unavailable: {rho_tor.reason}"
     else:
+        # anti-alias: not time-domain -- rho_tor over normalized flux.
         geom["rho_tor_norm"] = np.interp(grid, x1d, np.asarray(rho_tor.value, float)[order])
         geom["rho_tor_note"] = "sqrt(Phi/Phi_boundary), Phi = int q dpsi, from the equilibrium's q"
 
@@ -198,6 +200,7 @@ def _measure(kind: str, values: np.ndarray, grid, geom, channel: str) -> float:
         return float(values[-1])
     if kind == "volume_average":
         return _volume_integral(values, geom["volume"]) / float(geom["volume"][-1])
+    # anti-alias: not time-domain -- a flux-function profile sampled along the line-average chord.
     line = float(np.trapezoid(np.interp(geom["chord_psi_norm"], grid, values), geom["chord_r"])
                  / (geom["chord_r"][-1] - geom["chord_r"][0]))
     if kind == "line_average":
@@ -253,9 +256,11 @@ def _evaluate(shape, grid, geom) -> np.ndarray:
               f"[{x.min():.4g}, {x.max():.4g}]; extend it or declare extrapolation='hold'")
     xc = np.clip(x, lo, hi)
     if shape.interpolation == "linear":
+        # anti-alias: not time-domain -- a tabulated profile over its radial coordinate.
         return np.interp(xc, shape.x, shape.values)
     from scipy.interpolate import PchipInterpolator
 
+    # anti-alias: not time-domain -- a tabulated profile over its radial coordinate.
     return np.asarray(PchipInterpolator(shape.x, shape.values)(xc), dtype=float)
 
 
