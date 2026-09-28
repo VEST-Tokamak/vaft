@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d32b980</code>. What is described
+  <code>e343d9a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -613,6 +613,32 @@ $n_e$ and $T_e$ share a shape, with $P = 2 n_e T_e e$ and $g(\rho) = \sqrt{P(\rh
 matching equilibrium time. The factor of 2 absorbs the assumption $T_i = T_e$; there is no $Z_{eff}$ or
 impurity modelling. These are synthetic profiles — useful to seed a code that needs <em>some</em> kinetic
 input, not a measurement.</p>
+
+<h3 id="analytic-l-mode-h-mode-and-itb-states">Analytic L-mode, H-mode and ITB states</h3>
+
+<p>The opposite direction — prescribe the kinetic profiles, derive the pressure — is a small preset
+layer (#1045). Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
+#552 kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
+transport barrier with its own position, full width and step amplitude per channel. Axis and separatrix
+values hold exactly; <code class="language-plaintext highlighter-rouge">n_i</code> follows from quasi-neutrality with a uniform <code class="language-plaintext highlighter-rouge">z_eff</code>, and <code class="language-plaintext highlighter-rouge">p_e</code>, <code class="language-plaintext highlighter-rouge">p_i</code>,
+<code class="language-plaintext highlighter-rouge">p</code> and <code class="language-plaintext highlighter-rouge">dp/dψ_N</code> are derived, never specified. The coordinate is <code class="language-plaintext highlighter-rouge">psi_norm</code>; units are m⁻³, eV
+and Pa.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.equilibrium</span> <span class="kn">import</span> <span class="n">solovev_example</span>
+<span class="kn">from</span> <span class="n">vaft.process.profile</span> <span class="kn">import</span> <span class="n">analytic_hmode_itb_state</span><span class="p">,</span> <span class="n">project_plasma_state</span>
+
+<span class="n">state</span> <span class="o">=</span> <span class="nf">analytic_hmode_itb_state</span><span class="p">(</span><span class="n">te_axis</span><span class="o">=</span><span class="mf">400.0</span><span class="p">,</span> <span class="n">te_ped</span><span class="o">=</span><span class="mf">80.0</span><span class="p">,</span> <span class="n">te_sep</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+                                 <span class="n">pedestal_position</span><span class="o">=</span><span class="mf">0.93</span><span class="p">,</span> <span class="n">pedestal_width</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+                                 <span class="n">itb_position</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">})</span>
+<span class="n">geometry</span> <span class="o">=</span> <span class="nf">solovev_example</span><span class="p">(</span><span class="sh">"</span><span class="s">limited</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">p_rz</span> <span class="o">=</span> <span class="nf">project_plasma_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">geometry</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_total</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># NaN outside the LCFS
+</span></code></pre></div></div>
+
+<p>The presets are <code class="language-plaintext highlighter-rouge">analytic_lmode_state</code>, <code class="language-plaintext highlighter-rouge">analytic_hmode_state</code>, <code class="language-plaintext highlighter-rouge">analytic_itb_state</code> and
+<code class="language-plaintext highlighter-rouge">analytic_hmode_itb_state</code>; <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> and <code class="language-plaintext highlighter-rouge">compose_plasma_state</code> build any other
+combination, and <code class="language-plaintext highlighter-rouge">vaft.plot.plot_plasma_state_projection</code> draws a projected quantity. A state is
+<strong>not</strong> an equilibrium: projecting it onto a geometry leaves that geometry solved for its own
+sources. See <code class="language-plaintext highlighter-rouge">notebooks/analytic_plasma_state_presets.ipynb</code>.</p>
 
 <h2 id="plotting">Plotting</h2>
 
@@ -1144,7 +1170,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-l-mode-h-mode-and-itb-states" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic L-mode, H-mode and ITB states</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -1262,7 +1288,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 17:42:17 +0000"
+        "time": "2026-09-28 18:37:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

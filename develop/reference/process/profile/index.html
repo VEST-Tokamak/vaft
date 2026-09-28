@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d32b980</code>. What is described
+  <code>e343d9a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -289,7 +289,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.profile</code>:
-<strong>15</strong> public functions. Each entry is what
+<strong>25</strong> public functions. Each entry is what
 <code>vaft.process.describe("profile.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -338,11 +338,23 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 15 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 25 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
+  <tr data-ref-row="analytic_hmode_itb_state"><td><a href="#analytic_hmode_itb_state"><code>analytic_hmode_itb_state</code></a></td><td>H-mode + ITB kinetic state: smooth core, internal barrier and edge pedestal composed.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="analytic_hmode_state"><td><a href="#analytic_hmode_state"><code>analytic_hmode_state</code></a></td><td>H-mode-like kinetic state: a smooth core on an edge-localized pedestal.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="analytic_itb_state"><td><a href="#analytic_itb_state"><code>analytic_itb_state</code></a></td><td>ITB-like kinetic state: a smooth profile with an internal transport barrier per channel.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="analytic_lmode_state"><td><a href="#analytic_lmode_state"><code>analytic_lmode_state</code></a></td><td>Smooth L-mode-like kinetic state: generalized parabolic profiles with no barrier.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="compare_flux_mapping"><td><a href="#compare_flux_mapping"><code>compare_flux_mapping</code></a></td><td>Map one diagnostic’s channels through several equilibria, to see how much the mapping moves them.
 </td></tr>
+  <tr data-ref-row="compose_analytic_profile"><td><a href="#compose_analytic_profile"><code>compose_analytic_profile</code></a></td><td>Compose one kinetic profile from a smooth core, an optional edge pedestal and an optional ITB.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="compose_plasma_state"><td><a href="#compose_plasma_state"><code>compose_plasma_state</code></a></td><td>Assemble prescribed <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">T_i</code> profiles into one kinetic state with derived pressure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="core_profiles"><td><a href="#core_profiles"><code>core_profiles</code></a></td><td>Evaluate fitted kinetic profiles on the equilibrium grid and store them as a <code class="language-plaintext highlighter-rouge">profiles_1d</code> slice.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="core_profiles_from_eq"><td><a href="#core_profiles_from_eq"><code>core_profiles_from_eq</code></a></td><td>Build a synthetic <code class="language-plaintext highlighter-rouge">core_profiles</code> slice from the equilibrium pressure and an axis <code class="language-plaintext highlighter-rouge">T_e</code>.
@@ -354,6 +366,10 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
   <tr data-ref-row="equilibrium_mapping_points"><td><a href="#equilibrium_mapping_points"><code>equilibrium_mapping_points</code></a></td><td>Map arbitrary <code class="language-plaintext highlighter-rouge">(R, Z)</code> points into the equilibrium’s radial coordinates.
 </td></tr>
   <tr data-ref-row="equilibrium_mapping_thomson_scattering"><td><a href="#equilibrium_mapping_thomson_scattering"><code>equilibrium_mapping_thomson_scattering</code></a></td><td>Map Thomson scattering channel positions into the equilibrium’s radial coordinates.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evaluate_analytic_profile"><td><a href="#evaluate_analytic_profile"><code>evaluate_analytic_profile</code></a></td><td>Evaluate an analytic profile, or its gradient against normalized flux, anywhere in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evaluate_plasma_state"><td><a href="#evaluate_plasma_state"><code>evaluate_plasma_state</code></a></td><td>Evaluate one quantity of an analytic plasma state at any normalized flux.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="export_electron_profile_txt"><td><a href="#export_electron_profile_txt"><code>export_electron_profile_txt</code></a></td><td>Write fitted electron profiles, sampled on a uniform grid, to a text file.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -369,6 +385,10 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="profile_fitting_thomson_scattering"><td><a href="#profile_fitting_thomson_scattering"><code>profile_fitting_thomson_scattering</code></a></td><td>Fit Thomson-scattering <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">n_e</code> profiles in a chosen radial coordinate.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="project_flux_function"><td><a href="#project_flux_function"><code>project_flux_function</code></a></td><td>Map a flux function <code class="language-plaintext highlighter-rouge">f(psi_norm)</code> onto an equilibrium’s <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="project_plasma_state"><td><a href="#project_plasma_state"><code>project_plasma_state</code></a></td><td>Project one quantity of an analytic plasma state onto an equilibrium’s <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="strip_electron_only_pressure"><td><a href="#strip_electron_only_pressure"><code>strip_electron_only_pressure</code></a></td><td>Drop slice-total pressure from every core_profiles slice with no ion temperature.
 </td></tr>
   </tbody>
@@ -378,11 +398,412 @@ main ion H+ with <code class="language-plaintext highlighter-rouge">n_i = n_e</c
 
 <div class="ref-entries">
 
+  <section class="ref-entry" id="analytic_hmode_itb_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#analytic_hmode_itb_state"><code>analytic_hmode_itb_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L891" title="vaft/process/_analytic_plasma_state.py, line 891">source</a>
+</header>
+    <pre class="ref-signature"><code>analytic_hmode_itb_state(*, ne_axis=2e+19, ne_ped=1.2e+19, ne_sep=2e+18, te_axis=250.0, te_ped=80.0, te_sep=10.0, ti_axis=150.0, ti_ped=60.0, ti_sep=10.0, ne_itb_height=4e+18, te_itb_height=120.0, ti_itb_height=60.0, pedestal_position=0.93, pedestal_width=0.05, itb_position=0.3, itb_width=0.08, core_alpha=1.0, core_beta=1.5, z_eff=1.0, impurity_charge=6.0, psi_norm=None)</code></pre>
+
+    <p>H-mode + ITB kinetic state: smooth core, internal barrier and edge pedestal composed.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ne_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density on axis.</p>
+</td></tr>
+  <tr><td><code>ne_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>ne_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the separatrix.</p>
+</td></tr>
+  <tr><td><code>te_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature on axis.</p>
+</td></tr>
+  <tr><td><code>te_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>te_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ti_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature on axis.</p>
+</td></tr>
+  <tr><td><code>ti_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>ti_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ne_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Density amplitude of the ITB step, axis side to separatrix side.</p>
+</td></tr>
+  <tr><td><code>te_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature amplitude of the ITB step, axis side to separatrix side.</p>
+</td></tr>
+  <tr><td><code>ti_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature amplitude of the ITB step, axis side to separatrix side.</p>
+</td></tr>
+  <tr><td><code>pedestal_position</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Pedestal centre in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or per channel.</p>
+</td></tr>
+  <tr><td><code>pedestal_width</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Full pedestal width in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or per channel.</p>
+</td></tr>
+  <tr><td><code>itb_position</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>ITB centre in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or per channel.</p>
+</td></tr>
+  <tr><td><code>itb_width</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Full ITB width in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or per channel.</p>
+</td></tr>
+  <tr><td><code>core_alpha</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core radial exponent.</p>
+</td></tr>
+  <tr><td><code>core_beta</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core peaking exponent.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Uniform effective charge.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the single impurity.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">-</td><td><p>Sampling grid in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>Labelled <code class="language-plaintext highlighter-rouge">"H-mode + ITB"</code>; axis, pedestal-knee and separatrix values hold exactly.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Normalized poloidal flux, full-width barrier convention; the pedestal top
+is the knee.  The same composition as the other presets, with both steps.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As for <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> and <code class="language-plaintext highlighter-rouge">compose_plasma_state</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The illustrative values (assumed value) of <code class="language-plaintext highlighter-rouge">analytic_hmode_state</code>
+and <code class="language-plaintext highlighter-rouge">analytic_itb_state</code> together.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>As for <code class="language-plaintext highlighter-rouge">analytic_hmode_state</code> and <code class="language-plaintext highlighter-rouge">analytic_itb_state</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045: composition of an internal barrier and an edge pedestal in one state.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="analytic_hmode_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#analytic_hmode_state"><code>analytic_hmode_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L686" title="vaft/process/_analytic_plasma_state.py, line 686">source</a>
+</header>
+    <pre class="ref-signature"><code>analytic_hmode_state(*, ne_axis=2e+19, ne_ped=1.2e+19, ne_sep=2e+18, te_axis=250.0, te_ped=80.0, te_sep=10.0, ti_axis=150.0, ti_ped=60.0, ti_sep=10.0, pedestal_position=0.93, pedestal_width=0.05, core_alpha=1.0, core_beta=1.5, z_eff=1.0, impurity_charge=6.0, psi_norm=None)</code></pre>
+
+    <p>H-mode-like kinetic state: a smooth core on an edge-localized pedestal.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ne_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density on axis.</p>
+</td></tr>
+  <tr><td><code>ne_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>ne_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the separatrix.</p>
+</td></tr>
+  <tr><td><code>te_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature on axis.</p>
+</td></tr>
+  <tr><td><code>te_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>te_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ti_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature on axis.</p>
+</td></tr>
+  <tr><td><code>ti_ped</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the pedestal knee.</p>
+</td></tr>
+  <tr><td><code>ti_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>pedestal_position</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Centre of the pedestal layer in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or keyed by <code class="language-plaintext highlighter-rouge">n_e</code>/<code class="language-plaintext highlighter-rouge">T_e</code>/<code class="language-plaintext highlighter-rouge">T_i</code>.</p>
+</td></tr>
+  <tr><td><code>pedestal_width</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Full pedestal width in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or keyed by channel.</p>
+</td></tr>
+  <tr><td><code>core_alpha</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core radial exponent.</p>
+</td></tr>
+  <tr><td><code>core_beta</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core peaking exponent.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Uniform effective charge.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the single impurity.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">-</td><td><p>Sampling grid in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>Labelled <code class="language-plaintext highlighter-rouge">"H-mode"</code>; axis, knee and separatrix values hold exactly.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The pedestal top is the knee, <code class="language-plaintext highlighter-rouge">pedestal_position - pedestal_width/2</code>,
+in the full-width Groebner-Carlstrom convention; <code class="language-plaintext highlighter-rouge">pedestal_position</code> is
+the centre of the steep layer, not the top.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As for <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> and <code class="language-plaintext highlighter-rouge">compose_plasma_state</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>Illustrative values (assumed value, not a machine setting): pedestal tops
+<code class="language-plaintext highlighter-rouge">n_e</code> 1.2e19 m^-3, <code class="language-plaintext highlighter-rouge">T_e</code> 80 eV, <code class="language-plaintext highlighter-rouge">T_i</code> 60 eV, the axis and separatrix
+values of <code class="language-plaintext highlighter-rouge">analytic_lmode_state</code>, centre 0.93 and full width 0.05 in
+<code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The pedestal is prescribed: no EPED width or height, no peeling-ballooning
+limit, and no bootstrap current (#550/#559).  The state is not
+Grad-Shafranov consistent with any geometry.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045, canonical confinement-regime presets.
+</li>
+  <li>R. J. Groebner and T. N. Carlstrom, Plasma Phys. Control. Fusion 40, 673 (1998), through <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.modified_tanh_profile</code>.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="analytic_itb_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#analytic_itb_state"><code>analytic_itb_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L789" title="vaft/process/_analytic_plasma_state.py, line 789">source</a>
+</header>
+    <pre class="ref-signature"><code>analytic_itb_state(*, ne_axis=2e+19, ne_sep=2e+18, te_axis=250.0, te_sep=10.0, ti_axis=150.0, ti_sep=10.0, ne_itb_height=4e+18, te_itb_height=120.0, ti_itb_height=60.0, itb_position=0.3, itb_width=0.08, core_alpha=1.0, core_beta=1.5, z_eff=1.0, impurity_charge=6.0, psi_norm=None)</code></pre>
+
+    <p>ITB-like kinetic state: a smooth profile with an internal transport barrier per channel.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ne_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density on axis.</p>
+</td></tr>
+  <tr><td><code>ne_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the separatrix.</p>
+</td></tr>
+  <tr><td><code>te_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature on axis.</p>
+</td></tr>
+  <tr><td><code>te_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ti_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature on axis.</p>
+</td></tr>
+  <tr><td><code>ti_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ne_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Density amplitude of the ITB step, axis side to separatrix side; zero switches the ITB off in <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>te_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature amplitude of the ITB step, axis side to separatrix side; zero for none.</p>
+</td></tr>
+  <tr><td><code>ti_itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature amplitude of the ITB step, axis side to separatrix side; zero for none.</p>
+</td></tr>
+  <tr><td><code>itb_position</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>ITB centre in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or keyed by <code class="language-plaintext highlighter-rouge">n_e</code>/<code class="language-plaintext highlighter-rouge">T_e</code>/<code class="language-plaintext highlighter-rouge">T_i</code>, so each channel can have its own.</p>
+</td></tr>
+  <tr><td><code>itb_width</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Full ITB width in <code class="language-plaintext highlighter-rouge">psi_norm</code>, shared or keyed by channel.</p>
+</td></tr>
+  <tr><td><code>core_alpha</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core radial exponent.</p>
+</td></tr>
+  <tr><td><code>core_beta</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core peaking exponent.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Uniform effective charge.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the single impurity.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">-</td><td><p>Sampling grid in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>Labelled <code class="language-plaintext highlighter-rouge">"ITB"</code>; axis and separatrix values hold exactly.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Positions and widths in normalized poloidal flux, full-width convention.
+The axis value is held, so the barrier steepens the profile at its centre
+and flattens it elsewhere; raise the axis value to raise the core.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As for <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> and <code class="language-plaintext highlighter-rouge">compose_plasma_state</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>Illustrative values (assumed value, not a machine setting): step amplitudes of
+4e18 m^-3, 120 eV and 60 eV at <code class="language-plaintext highlighter-rouge">psi_norm = 0.3</code> with full width 0.08,
+on the axis and separatrix values of <code class="language-plaintext highlighter-rouge">analytic_lmode_state</code>.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Nothing about ITB formation (magnetic shear, E x B shear) is modelled, and
+the state is not Grad-Shafranov consistent with any geometry.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045: independent ITB behaviour per channel.
+</li>
+  <li>R. J. Groebner and T. N. Carlstrom, Plasma Phys. Control. Fusion 40, 673 (1998), for the tanh step reused as an interior barrier.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="analytic_lmode_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#analytic_lmode_state"><code>analytic_lmode_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L603" title="vaft/process/_analytic_plasma_state.py, line 603">source</a>
+</header>
+    <pre class="ref-signature"><code>analytic_lmode_state(*, ne_axis=2e+19, ne_sep=2e+18, te_axis=250.0, te_sep=10.0, ti_axis=150.0, ti_sep=10.0, core_alpha=1.0, core_beta=1.5, z_eff=1.0, impurity_charge=6.0, psi_norm=None)</code></pre>
+
+    <p>Smooth L-mode-like kinetic state: generalized parabolic profiles with no barrier.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ne_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density on axis.</p>
+</td></tr>
+  <tr><td><code>ne_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density at the separatrix.</p>
+</td></tr>
+  <tr><td><code>te_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature on axis.</p>
+</td></tr>
+  <tr><td><code>te_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>ti_axis</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature on axis.</p>
+</td></tr>
+  <tr><td><code>ti_sep</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature at the separatrix.</p>
+</td></tr>
+  <tr><td><code>core_alpha</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core radial exponent, shared or keyed by <code class="language-plaintext highlighter-rouge">n_e</code>/<code class="language-plaintext highlighter-rouge">T_e</code>/<code class="language-plaintext highlighter-rouge">T_i</code>.</p>
+</td></tr>
+  <tr><td><code>core_beta</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>Core peaking exponent, shared or keyed by channel.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Uniform effective charge.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the single impurity.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">-</td><td><p>Sampling grid in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>Labelled <code class="language-plaintext highlighter-rouge">"L-mode"</code>; see <code class="language-plaintext highlighter-rouge">compose_plasma_state</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Every position and profile is in normalized poloidal flux <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As for <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> and <code class="language-plaintext highlighter-rouge">compose_plasma_state</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>Densities and temperatures are illustrative small-tokamak values (assumed
+value, not a machine setting): <code class="language-plaintext highlighter-rouge">n_e</code> 2e19 to 2e18 m^-3, <code class="language-plaintext highlighter-rouge">T_e</code> 250 to
+10 eV, <code class="language-plaintext highlighter-rouge">T_i</code> 150 to 10 eV; <code class="language-plaintext highlighter-rouge">core_alpha = 1</code>, <code class="language-plaintext highlighter-rouge">core_beta = 1.5</code>
+(assumed value).</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The baseline against which the barrier presets are
+compared on one fixed geometry.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A prescribed shape, not a confinement prediction, and not Grad-Shafranov
+consistent with any geometry.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045, canonical confinement-regime presets.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.generalized_parabolic_profile</code> (#552).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="compare_flux_mapping" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compare_flux_mapping"><code>compare_flux_mapping</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L2067" title="vaft/process/profile.py, line 2067">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L2078" title="vaft/process/profile.py, line 2078">source</a>
 </header>
     <pre class="ref-signature"><code>compare_flux_mapping(ods, equilibria, *, diagnostic=&#39;thomson_scattering&#39;, time=None)</code></pre>
 
@@ -449,11 +870,225 @@ given; pass the diagnostic’s time to pair the slices by time.</p>
 
   </section>
 
+  <section class="ref-entry" id="compose_analytic_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compose_analytic_profile"><code>compose_analytic_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L136" title="vaft/process/_analytic_plasma_state.py, line 136">source</a>
+</header>
+    <pre class="ref-signature"><code>compose_analytic_profile(quantity, *, axis_value, separatrix_value, core_alpha=1.0, core_beta=1.5, pedestal_top_value=None, pedestal_position=None, pedestal_width=None, itb_height=0.0, itb_position=None, itb_width=None, unit=None, positive=True)</code></pre>
+
+    <p>Compose one kinetic profile from a smooth core, an optional edge pedestal and an optional ITB.</p>
+
+\[f(\psi_N) = f_\mathrm{sep} + A\,C(\psi_N) + H_\mathrm{ped}\,\tilde S_\mathrm{ped}(\psi_N) + H_\mathrm{itb}\,\tilde S_\mathrm{itb}(\psi_N)\]
+
+    <p>with $C = (1-\psi_N^{\alpha})^{\beta}$ the generalized parabolic core and
+$\tilde S = (S - S(1))/(S(0) - S(1))$ a Groebner tanh step normalized to
+exactly one on axis and zero at the separatrix.  $A$ and $H_\mathrm{ped}$
+are solved so the requested values hold exactly.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>quantity</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Name of the profile, e.g. <code class="language-plaintext highlighter-rouge">"n_e"</code>, <code class="language-plaintext highlighter-rouge">"T_e"</code> or <code class="language-plaintext highlighter-rouge">"T_i"</code>.</p>
+</td></tr>
+  <tr><td><code>axis_value</code></td><td class="ref-type">float</td><td class="ref-unit">any</td><td><p>Value on the magnetic axis, <code class="language-plaintext highlighter-rouge">psi_norm = 0</code>; holds exactly.</p>
+</td></tr>
+  <tr><td><code>separatrix_value</code></td><td class="ref-type">float</td><td class="ref-unit">any</td><td><p>Value at <code class="language-plaintext highlighter-rouge">psi_norm = 1</code>; holds exactly.</p>
+</td></tr>
+  <tr><td><code>core_alpha</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Radial exponent of the core shape, at least one.</p>
+</td></tr>
+  <tr><td><code>core_beta</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Peaking exponent of the core shape, at least one.</p>
+</td></tr>
+  <tr><td><code>pedestal_top_value</code></td><td class="ref-type">float, optional</td><td class="ref-unit">any</td><td><p>Value at the pedestal knee, <code class="language-plaintext highlighter-rouge">pedestal_position - pedestal_width/2</code>; holds exactly.  <code class="language-plaintext highlighter-rouge">None</code> for no edge pedestal.</p>
+</td></tr>
+  <tr><td><code>pedestal_position</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Centre of the pedestal’s steep-gradient layer in <code class="language-plaintext highlighter-rouge">psi_norm</code>; required with <em>pedestal_top_value</em>.</p>
+</td></tr>
+  <tr><td><code>pedestal_width</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Full width of the pedestal layer in <code class="language-plaintext highlighter-rouge">psi_norm</code>, positive.</p>
+</td></tr>
+  <tr><td><code>itb_height</code></td><td class="ref-type">float, optional</td><td class="ref-unit">any</td><td><p>Whole amplitude of the internal-barrier step, from its separatrix side to its axis side (the knee-to-foot change is about <code class="language-plaintext highlighter-rouge">tanh(1) = 0.76</code> of it); zero for no ITB.</p>
+</td></tr>
+  <tr><td><code>itb_position</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Centre of the ITB layer in <code class="language-plaintext highlighter-rouge">psi_norm</code>, strictly inside <code class="language-plaintext highlighter-rouge">(0, 1)</code>; required when <em>itb_height</em> is non-zero.</p>
+</td></tr>
+  <tr><td><code>itb_width</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Full width of the ITB layer in <code class="language-plaintext highlighter-rouge">psi_norm</code>, positive.</p>
+</td></tr>
+  <tr><td><code>unit</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Unit label recorded on the profile; <code class="language-plaintext highlighter-rouge">m^-3</code> for <code class="language-plaintext highlighter-rouge">n_*</code> and <code class="language-plaintext highlighter-rouge">eV</code> for <code class="language-plaintext highlighter-rouge">T_*</code> when omitted.</p>
+</td></tr>
+  <tr><td><code>positive</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Refuse a profile that is not strictly positive on <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticProfile</td><td class="ref-unit">-</td><td><p>The requested values, the barrier steps and the solved core amplitude and pedestal height; evaluate it with <code class="language-plaintext highlighter-rouge">evaluate_analytic_profile</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The coordinate is the normalized poloidal flux $\psi_N$, 0 on axis and 1
+at the separatrix, so the profile is independent of the flux sign and of
+Wb against Wb/rad storage.  Barrier widths are <em>full</em> widths
+(Groebner-Carlstrom): the steep layer runs from <code class="language-plaintext highlighter-rouge">position - width/2</code>
+(the knee) to <code class="language-plaintext highlighter-rouge">position + width/2</code> (the foot), and the steepest gradient
+of an isolated step, $-H/(\Delta\,(S(0)-S(1)))$, sits at <code class="language-plaintext highlighter-rouge">position</code>.
+<code class="language-plaintext highlighter-rouge">itb_height</code> is the whole step amplitude (axis side minus separatrix
+side), not the knee-to-foot change; the pedestal is specified by its top
+value instead.  Widths must lie in <code class="language-plaintext highlighter-rouge">[1e-3, 0.5]</code>; an ITB layer must lie
+inside <code class="language-plaintext highlighter-rouge">(0, 1)</code> and end before the pedestal layer begins.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite value, an exponent below one, a pedestal given in part, a width outside <code class="language-plaintext highlighter-rouge">[1e-3, 0.5]</code>, a pedestal knee outside <code class="language-plaintext highlighter-rouge">(0, 1)</code>, an ITB layer not strictly inside <code class="language-plaintext highlighter-rouge">(0, 1)</code> or overlapping the pedestal layer, a pedestal knee where the core and the step cannot be told apart, or a profile that is not positive (checked on a grid refined around each barrier) when <em>positive</em> is set.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>The axis value is held fixed: adding an ITB or a pedestal redistributes
+the profile under it rather than raising the axis.  A caller who wants a
+higher core with an ITB raises <em>axis_value</em> as well.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Synthetic, prescribed profiles for demonstrations,
+tests and fixtures; not a transport or pedestal model.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>No pedestal width or height is predicted (EPED), and the ITB carries no
+physics of its formation.  A large ITB or pedestal with a fixed axis value
+can make the core amplitude negative, i.e. a hollow core; that is returned
+as asked, and only non-positivity is refused.  The steps are rescaled to
+vanish exactly at <code class="language-plaintext highlighter-rouge">psi_norm = 1</code>, so a layer centred at or beyond the
+separatrix is compressed rather than cut.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.generalized_parabolic_profile</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.modified_tanh_profile</code> (#552), the core shape and the step reused unchanged.
+</li>
+  <li>R. J. Groebner and T. N. Carlstrom, Plasma Phys. Control. Fusion 40, 673 (1998), for the tanh step and its full-width convention.
+</li>
+  <li>VAFT issue #1045, which fixes the composition: exact axis, separatrix and pedestal-top values, independent ITB per channel.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="compose_plasma_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#compose_plasma_state"><code>compose_plasma_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L456" title="vaft/process/_analytic_plasma_state.py, line 456">source</a>
+</header>
+    <pre class="ref-signature"><code>compose_plasma_state(n_e, T_e, T_i, *, z_eff=1.0, impurity_charge=6.0, psi_norm=None, label=&#39;analytic&#39;)</code></pre>
+
+    <p>Assemble prescribed <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">T_i</code> profiles into one kinetic state with derived pressure.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">AnalyticProfile</td><td class="ref-unit">m^-3</td><td><p>Electron density profile.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">AnalyticProfile</td><td class="ref-unit">eV</td><td><p>Electron temperature profile.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td class="ref-type">AnalyticProfile</td><td class="ref-unit">eV</td><td><p>Ion temperature profile, shared by the main ion and the impurity.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge, uniform in radius, in <code class="language-plaintext highlighter-rouge">[1, impurity_charge]</code>.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the single fully stripped impurity, greater than one.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">-</td><td><p>Grid to sample on, inside <code class="language-plaintext highlighter-rouge">[0, 1]</code>; 201 uniform points when omitted.</p>
+</td></tr>
+  <tr><td><code>label</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Name recorded on the state, e.g. <code class="language-plaintext highlighter-rouge">"H-mode"</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>The three channels, the ion and impurity densities, the electron, ion and total pressures and their analytic gradients against <code class="language-plaintext highlighter-rouge">psi_norm</code>, sampled on <em>psi_norm</em>, with the channel definitions for exact evaluation anywhere.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Coordinate <code class="language-plaintext highlighter-rouge">psi_norm</code>; <code class="language-plaintext highlighter-rouge">rho_pol_norm = sqrt(psi_norm)</code> is exposed by
+the record, never a toroidal radius.  Quasi-neutrality
+<code class="language-plaintext highlighter-rouge">n_e = n_i + Z_I n_impurity</code> with a hydrogenic main ion and
+<code class="language-plaintext highlighter-rouge">Z_eff n_e = n_i + Z_I^2 n_impurity</code>; pressure <code class="language-plaintext highlighter-rouge">p = e n T</code> in Pa with
+<code class="language-plaintext highlighter-rouge">T</code> in eV, ions at <code class="language-plaintext highlighter-rouge">T_i</code>.  The pressure is derived, never prescribed,
+so it cannot disagree with the stored densities and temperatures.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A profile whose quantity or unit does not match its slot, <em>z_eff</em> outside <code class="language-plaintext highlighter-rouge">[1, impurity_charge]</code>, or a grid that is not 1-D, strictly increasing and inside <code class="language-plaintext highlighter-rouge">[0, 1]</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Output semantics · Defaults · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Synthetic: prescribed kinetic profiles and quantities derived from them.
+No measurement, fit or equilibrium is involved.</p>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">z_eff = 1</code> (assumed value): a pure hydrogenic plasma, so <code class="language-plaintext highlighter-rouge">n_i = n_e</code>.
+<code class="language-plaintext highlighter-rouge">impurity_charge = 6</code> (assumed value, carbon) only matters once
+<code class="language-plaintext highlighter-rouge">z_eff &gt; 1</code>.  The 201-point grid is a numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Uniform <code class="language-plaintext highlighter-rouge">Z_eff</code>; one impurity charge state; thermal particles only (no
+fast-ion pressure).</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  A lightweight preset layer for demonstrations,
+tests and synthetic-diagnostic fixtures; the general synthetic kinetic
+framework is #122.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The state is not Grad-Shafranov consistent with any geometry; projecting
+it onto one (<code class="language-plaintext highlighter-rouge">project_plasma_state</code>) does not change that.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed. (2011), Ch. 2, for quasi-neutrality and the effective charge.
+</li>
+  <li>VAFT issue #1045: pressure derived from the stored kinetic state.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="core_profiles" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#core_profiles"><code>core_profiles</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L2379" title="vaft/process/profile.py, line 2379">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L2390" title="vaft/process/profile.py, line 2390">source</a>
 </header>
     <pre class="ref-signature"><code>core_profiles(ods, time_ms, mapped_positions=None, n_e_function=None, T_e_function=None, tol_ms=0.1, T_i_function=None, V_tor_function=None, ti_mapped_positions=None, rho_points=100, time_tolerance_ms=1.0, geq=None, ti_te_fallback=True, ti_te_ratio=None, *, coordinate=None, ti_te_ratio_record=None, mapped_rho_position=None, ti_mapped_rho_position=None)</code></pre>
 
@@ -612,7 +1247,7 @@ fitted in <code class="language-plaintext highlighter-rouge">psi_norm</code>.</p
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#core_profiles_from_eq"><code>core_profiles_from_eq</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L2824" title="vaft/process/profile.py, line 2824">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L2835" title="vaft/process/profile.py, line 2835">source</a>
 </header>
     <pre class="ref-signature"><code>core_profiles_from_eq(ods, Te0_eV, rho_fit=None, tol_ms=0.1, eq_time_index=0)</code></pre>
 
@@ -696,7 +1331,7 @@ with the equilibrium; this one is a convention, and <code class="language-plaint
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#core_profiles_from_eq_ratio"><code>core_profiles_from_eq_ratio</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L2964" title="vaft/process/profile.py, line 2964">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L2975" title="vaft/process/profile.py, line 2975">source</a>
 </header>
     <pre class="ref-signature"><code>core_profiles_from_eq_ratio(ods, C_ne_over_Te, rho_fit=None, tol_ms=0.1, eq_time_index=0)</code></pre>
 
@@ -779,7 +1414,7 @@ by <code class="language-plaintext highlighter-rouge">sqrt(p(0) / (2 C e))</code
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#equilibrium_mapping_charge_exchange"><code>equilibrium_mapping_charge_exchange</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L1129" title="vaft/process/profile.py, line 1129">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L1140" title="vaft/process/profile.py, line 1140">source</a>
 </header>
     <pre class="ref-signature"><code>equilibrium_mapping_charge_exchange(ods, geq, *, time=None)</code></pre>
 
@@ -849,7 +1484,7 @@ position is a time series is mapped at its first sample only.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#equilibrium_mapping_points"><code>equilibrium_mapping_points</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L741" title="vaft/process/profile.py, line 741">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L752" title="vaft/process/profile.py, line 752">source</a>
 </header>
     <pre class="ref-signature"><code>equilibrium_mapping_points(geq, r, z, *, time=None)</code></pre>
 
@@ -914,7 +1549,7 @@ names another.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#equilibrium_mapping_thomson_scattering"><code>equilibrium_mapping_thomson_scattering</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L674" title="vaft/process/profile.py, line 674">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L685" title="vaft/process/profile.py, line 685">source</a>
 </header>
     <pre class="ref-signature"><code>equilibrium_mapping_thomson_scattering(ods, geq, *, time=None)</code></pre>
 
@@ -987,11 +1622,137 @@ names another.</p>
 
   </section>
 
+  <section class="ref-entry" id="evaluate_analytic_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_analytic_profile"><code>evaluate_analytic_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L331" title="vaft/process/_analytic_plasma_state.py, line 331">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_analytic_profile(profile, psi_norm, *, derivative=False)</code></pre>
+
+    <p>Evaluate an analytic profile, or its gradient against normalized flux, anywhere in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>profile</code></td><td class="ref-type">AnalyticProfile</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">compose_analytic_profile</code> or a state’s <code class="language-plaintext highlighter-rouge">profiles</code>.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">-</td><td><p>Normalized poloidal flux in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  <tr><td><code>derivative</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Return $df/d\psi_N$ instead of $f$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">any</td><td><p>The profile, or its analytic derivative, in the profile’s unit (per unit <code class="language-plaintext highlighter-rouge">psi_norm</code> for the derivative), with the shape of <em>psi_norm</em>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The derivative is against $\psi_N$, not $\psi$; divide by
+$\psi_\mathrm{boundary}-\psi_\mathrm{axis}$ of a chosen equilibrium, in its
+own flux unit and sign, for $df/d\psi$.  It is the sum of the kernels’
+analytic derivatives, not a finite difference.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <em>psi_norm</em> is not finite or lies outside <code class="language-plaintext highlighter-rouge">[0, 1]</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.generalized_parabolic_profile_derivative</code> and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.modified_tanh_profile_derivative</code> (#552).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="evaluate_plasma_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_plasma_state"><code>evaluate_plasma_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L388" title="vaft/process/_analytic_plasma_state.py, line 388">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_plasma_state(state, psi_norm, quantity=&#39;p_total&#39;)</code></pre>
+
+    <p>Evaluate one quantity of an analytic plasma state at any normalized flux.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">compose_plasma_state</code> or a preset.</p>
+</td></tr>
+  <tr><td><code>psi_norm</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">-</td><td><p>Normalized poloidal flux in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  <tr><td><code>quantity</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">n_i</code>, <code class="language-plaintext highlighter-rouge">n_impurity</code>, <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">T_i</code>, <code class="language-plaintext highlighter-rouge">p_e</code>, <code class="language-plaintext highlighter-rouge">p_i</code>, <code class="language-plaintext highlighter-rouge">p_total</code>, <code class="language-plaintext highlighter-rouge">dp_e_dpsi_norm</code>, <code class="language-plaintext highlighter-rouge">dp_i_dpsi_norm</code>, <code class="language-plaintext highlighter-rouge">dp_total_dpsi_norm</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">any</td><td><p>The quantity in the unit of <code class="language-plaintext highlighter-rouge">vaft.data.ANALYTIC_STATE_UNITS</code> (m^-3, eV, Pa, or Pa per unit <code class="language-plaintext highlighter-rouge">psi_norm</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">p = e n T</code> with <em>T</em> in eV and <code class="language-plaintext highlighter-rouge">e</code> the elementary charge, so pressure
+is in Pa; <code class="language-plaintext highlighter-rouge">p_i</code> counts the main ion and the impurity, both at <code class="language-plaintext highlighter-rouge">T_i</code>.
+Gradients are against <code class="language-plaintext highlighter-rouge">psi_norm</code> by the product rule on the channels’
+analytic derivatives.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown quantity, or <em>psi_norm</em> outside <code class="language-plaintext highlighter-rouge">[0, 1]</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed. (2011), Ch. 2, for quasi-neutrality and the effective charge that fix the ion densities (through <code class="language-plaintext highlighter-rouge">vaft.formula.atomic.impurity_fraction_from_effective_charge</code>).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="export_electron_profile_txt" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#export_electron_profile_txt"><code>export_electron_profile_txt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L3090" title="vaft/process/profile.py, line 3090">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L3101" title="vaft/process/profile.py, line 3101">source</a>
 </header>
     <pre class="ref-signature"><code>export_electron_profile_txt(n_e_function, T_e_function, n_e_coeff, T_e_coeff, rho_points=100, filename=&#39;electron_profiles.txt&#39;)</code></pre>
 
@@ -1044,7 +1805,7 @@ is unknown here.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_ti_te_ratio"><code>fit_ti_te_ratio</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L337" title="vaft/process/profile.py, line 337">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L348" title="vaft/process/profile.py, line 348">source</a>
 </header>
     <pre class="ref-signature"><code>fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12)</code></pre>
 
@@ -1140,7 +1901,7 @@ the three shots named there, but the script that did it is not tracked.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#pedestal_top"><code>pedestal_top</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L3197" title="vaft/process/profile.py, line 3197">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L3208" title="vaft/process/profile.py, line 3208">source</a>
 </header>
     <pre class="ref-signature"><code>pedestal_top(x, values, *, quantity, value_std=None, coordinate=&#39;psi_norm&#39;, fallback=0.85, window=(0.4, 1.05), min_points=20, max_width=0.15)</code></pre>
 
@@ -1257,7 +2018,7 @@ that is the intended answer, not a failure.  The fit is unweighted in
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_fit_report_charge_exchange"><code>profile_fit_report_charge_exchange</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L1951" title="vaft/process/profile.py, line 1951">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L1962" title="vaft/process/profile.py, line 1962">source</a>
 </header>
     <pre class="ref-signature"><code>profile_fit_report_charge_exchange(ods, time_ms, mapped_positions=None, Ti_order=3, Vtor_order=3, uncertainty_option=1, rho_points=100, fitting_function_ti=&#39;polynomial&#39;, fitting_function_vtor=&#39;polynomial&#39;, ion_index=0, time_tolerance_ms=1.0, clamp_to_measured_span=True, *, coordinate=&#39;rho_tor_norm&#39;)</code></pre>
 
@@ -1357,7 +2118,7 @@ span, which no channel constrains; the residuals only test the span.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_fit_report_thomson_scattering"><code>profile_fit_report_thomson_scattering</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L1820" title="vaft/process/profile.py, line 1820">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L1831" title="vaft/process/profile.py, line 1831">source</a>
 </header>
     <pre class="ref-signature"><code>profile_fit_report_thomson_scattering(ods, time_ms, mapped_positions=None, Te_order=3, Ne_order=3, uncertainty_option=1, rho_points=100, fitting_function_te=&#39;polynomial&#39;, fitting_function_ne=&#39;polynomial&#39;, time_tolerance_ms=1.0, enforce_physical=True, *, coordinate=&#39;rho_tor_norm&#39;)</code></pre>
 
@@ -1462,7 +2223,7 @@ optimiser saw.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_fitting_charge_exchange"><code>profile_fitting_charge_exchange</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L1429" title="vaft/process/profile.py, line 1429">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L1440" title="vaft/process/profile.py, line 1440">source</a>
 </header>
     <pre class="ref-signature"><code>profile_fitting_charge_exchange(ods, time_ms, mapped_positions=None, Ti_order=3, Vtor_order=3, uncertainty_option=1, rho_points=100, fitting_function_ti=&#39;polynomial&#39;, fitting_function_vtor=&#39;polynomial&#39;, ion_index=0, time_tolerance_ms=1.0, clamp_to_measured_span=True, *, coordinate=&#39;rho_tor_norm&#39;, mapped_rho_position=None)</code></pre>
 
@@ -1610,7 +2371,7 @@ toward the axis.  Every channel’s <code class="language-plaintext highlighter-
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_fitting_thomson_scattering"><code>profile_fitting_thomson_scattering</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L793" title="vaft/process/profile.py, line 793">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L804" title="vaft/process/profile.py, line 804">source</a>
 </header>
     <pre class="ref-signature"><code>profile_fitting_thomson_scattering(ods, time_ms, mapped_positions=None, Te_order=3, Ne_order=3, uncertainty_option=1, rho_points=100, fitting_function_te=&#39;polynomial&#39;, fitting_function_ne=&#39;polynomial&#39;, time_tolerance_ms=1.0, enforce_physical=True, *, coordinate=&#39;rho_tor_norm&#39;, mapped_rho_position=None)</code></pre>
 
@@ -1765,11 +2526,159 @@ kernel.</p>
 
   </section>
 
+  <section class="ref-entry" id="project_flux_function" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_flux_function"><code>project_flux_function</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L1026" title="vaft/process/_analytic_plasma_state.py, line 1026">source</a>
+</header>
+    <pre class="ref-signature"><code>project_flux_function(equilibrium, function, *, outside=&#39;nan&#39;)</code></pre>
+
+    <p>Map a flux function <code class="language-plaintext highlighter-rouge">f(psi_norm)</code> onto an equilibrium’s <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData</td><td class="ref-unit">-</td><td><p>Geometry with <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">z</code>, <code class="language-plaintext highlighter-rouge">psi</code> indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, <code class="language-plaintext highlighter-rouge">psi_axis</code>, <code class="language-plaintext highlighter-rouge">psi_boundary</code> and, preferably, <code class="language-plaintext highlighter-rouge">lcfs</code>.</p>
+</td></tr>
+  <tr><td><code>function</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">f(psi_norm)</code> accepting an array in <code class="language-plaintext highlighter-rouge">[0, 1]</code>.</p>
+</td></tr>
+  <tr><td><code>outside</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"nan"</code> to leave points outside the plasma as NaN, <code class="language-plaintext highlighter-rouge">"edge"</code> to fill them with <code class="language-plaintext highlighter-rouge">f(1)</code>, the separatrix value.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">f</code> on the grid, shape <code class="language-plaintext highlighter-rouge">(r.size, z.size)</code>, in the function’s unit.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)</code>
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.psi_normalised</code>), which is independent of
+the COCOS sign and of Wb against Wb/rad because both cancel in the ratio;
+no conversion is applied or needed.  A point is inside when
+<code class="language-plaintext highlighter-rouge">psi_norm &lt;= 1</code> <em>and</em> it lies within the <code class="language-plaintext highlighter-rouge">lcfs</code> outline, which
+excludes the private-flux region below an X-point and any exterior region
+where the flux turns back below one.  Inside points with <code class="language-plaintext highlighter-rouge">psi_norm &lt; 0</code>
+– a stored <code class="language-plaintext highlighter-rouge">psi_axis</code> slightly shallower than the grid’s own extremum –
+are the plasma centre and are evaluated at <code class="language-plaintext highlighter-rouge">psi_norm = 0</code>; without an
+outline, <code class="language-plaintext highlighter-rouge">psi_norm &gt;= -0.05</code> stands in for containment on that side.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No flux map, equal axis and boundary flux, or an unknown <em>outside</em>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Any equilibrium record with a gridded flux map: an
+analytic Solov’ev or Guazzotto-Freidberg geometry, a GEQDSK, an ODS slice
+through <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code>.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Without an <code class="language-plaintext highlighter-rouge">lcfs</code> outline only the flux threshold is used, which can
+admit exterior points where the flux turns over near coils.  A flux
+function is constant on flux surfaces by construction; the projection
+adds no poloidal variation.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045: the explicit <code class="language-plaintext highlighter-rouge">f(psi_N) -&gt; f(R, Z)</code> mapping.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="project_plasma_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_plasma_state"><code>project_plasma_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/_analytic_plasma_state.py#L1098" title="vaft/process/_analytic_plasma_state.py, line 1098">source</a>
+</header>
+    <pre class="ref-signature"><code>project_plasma_state(state, equilibrium, quantity=&#39;p_total&#39;, *, outside=&#39;nan&#39;)</code></pre>
+
+    <p>Project one quantity of an analytic plasma state onto an equilibrium’s <code class="language-plaintext highlighter-rouge">(R, Z)</code> grid.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">AnalyticPlasmaState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">compose_plasma_state</code> or a preset.</p>
+</td></tr>
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData</td><td class="ref-unit">-</td><td><p>The geometry to project onto; it is read, never changed.</p>
+</td></tr>
+  <tr><td><code>quantity</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Any quantity <code class="language-plaintext highlighter-rouge">evaluate_plasma_state</code> accepts.</p>
+</td></tr>
+  <tr><td><code>outside</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"nan"</code> or <code class="language-plaintext highlighter-rouge">"edge"</code>, as in <code class="language-plaintext highlighter-rouge">project_flux_function</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>The quantity on the grid, shape <code class="language-plaintext highlighter-rouge">(r.size, z.size)</code>, in the unit of <code class="language-plaintext highlighter-rouge">vaft.data.ANALYTIC_STATE_UNITS</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Evaluated exactly from the state’s analytic definition at each point’s
+<code class="language-plaintext highlighter-rouge">psi_norm</code>, not interpolated from the state’s sampling grid.  The
+profile keeps its 1-D definition whatever geometry it is projected onto.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As for <code class="language-plaintext highlighter-rouge">project_flux_function</code> and <code class="language-plaintext highlighter-rouge">evaluate_plasma_state</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The projected pressure is <em>not</em> the equilibrium’s own pressure: the state
+was prescribed, and the geometry was solved for different sources.  Making
+them agree is a new equilibrium solve (CHEASE refinement, #123).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VAFT issue #1045: 2-D projection of a prescribed plasma state.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="strip_electron_only_pressure" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#strip_electron_only_pressure"><code>strip_electron_only_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/d32b9807e4b03f0e59f1d9ed438a3de4e3ec485c/vaft/process/profile.py#L2304" title="vaft/process/profile.py, line 2304">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/e343d9a2cea73fb0b782584a94c9fc7934cafb40/vaft/process/profile.py#L2315" title="vaft/process/profile.py, line 2315">source</a>
 </header>
     <pre class="ref-signature"><code>strip_electron_only_pressure(ods)</code></pre>
 
@@ -2036,7 +2945,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 17:42:17 +0000"
+        "time": "2026-09-28 18:37:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
