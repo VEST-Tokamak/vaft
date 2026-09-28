@@ -534,7 +534,10 @@ Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$
 
 ## The Grad–Shafranov problem: regions, boundaries and problem classes
 
-One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
+The axisymmetric field is $\mathbf B = R^{-1}\nabla\psi\times\hat{\boldsymbol\phi} + F(\psi)R^{-1}\hat{\boldsymbol\phi}$,
+with $\psi$ the poloidal flux per radian and $F = RB_\phi$ the poloidal-current function. Its components are
+`radial_magnetic_field_from_psi` and `vertical_magnetic_field_from_psi` (COCOS-aware); in vacuum $F$ is constant, and
+$B_\phi = F/R$ is `vacuum_toroidal_field`. One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
 source. `vaft.formula.grad_shafranov_source` gives the Ampère form $\Delta^*\psi = -\mu_0RJ_\phi$,
 which holds in every region. `toroidal_current_density_from_p_prime_ff_prime` gives the plasma current
 that force balance allows, $J_\phi = Rp' + FF'/(\mu_0R)$. On a grid, the operator is

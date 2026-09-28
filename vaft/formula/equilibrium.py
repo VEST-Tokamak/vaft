@@ -1116,12 +1116,13 @@ def grad_shafranov_source(R, J_phi):
 
     Convention
     ----------
-    Per-radian flux with $\mathbf B_p = \nabla\psi\times\nabla\phi$ and
-    $(R, \phi, Z)$ right-handed (Freidberg; COCOS 1): a positive $J_\phi$ makes
-    $\psi$ a maximum on the magnetic axis. For a full-weber, COCOS-11 flux as
-    stored in an IMAS ODS the right-hand side is multiplied by
-    $-\sigma_{B_p}(2\pi)^{e_{B_p}}$ (``psi_per_radian_from_cocos``). The
-    operator itself on a grid is ``vaft.process.equilibrium.grad_shafranov_operator``.
+    Per-radian flux $\psi = RA_\phi$ with $\mathbf B_p = \nabla\psi\times\nabla\phi$
+    and $(R, \phi, Z)$ right-handed, $\phi$ counter-clockwise from above
+    (Freidberg; COCOS 3, $\sigma_{B_p} = -1$): a positive $J_\phi$ makes $\psi$
+    a maximum on the magnetic axis. A flux stored in another COCOS is
+    converted first with ``psi_per_radian_from_cocos`` -- for the full-weber
+    COCOS 11 of an IMAS ODS, $\psi = -\psi_{11}/(2\pi)$. The operator itself
+    on a grid is ``vaft.process.equilibrium.grad_shafranov_operator``.
 
     Physical interpretation
     -----------------------
@@ -1188,9 +1189,9 @@ def toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime):
     -----------------------
     $\mathbf J\times\mathbf B = \nabla p$ with $\mathbf B = \nabla\psi\times
     \nabla\phi + F\nabla\phi$ forces $p$ and $F$ to be flux functions and
-    leaves only these two free profiles for the toroidal current: the
-    pressure-driven (diamagnetic/Pfirsch--Schluter) part $\propto R$ and the
-    poloidal-current part $\propto 1/R$. This is what makes the plasma region's
+    leaves only these two free profiles for the toroidal current: a
+    pressure-gradient part $\propto R$ and a poloidal-current part
+    $\propto 1/R$. This is what makes the plasma region's
     equation the Grad--Shafranov equation rather than Ampere's law alone.
 
     Assumptions

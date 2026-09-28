@@ -111,3 +111,42 @@ def test_every_gs_diagram_is_deterministic_and_exported(name):
     assert n_labels(fn(labels=False)) <= n_labels(fn())
     with pytest.raises(ValueError):
         fn(labels="yes")
+
+
+def test_the_toy_green_flux_has_the_cocos_13_sign():
+    from vaft.formula.particle import psi_per_radian_from_cocos
+
+    m = gs.flux_model("limited")
+    psi_axis = m["psi_axis"]
+    assert psi_axis > m["psi_limiter"]  # a maximum on the axis for positive current
+    # read as COCOS 13 it is +R A_phi (a maximum, as grad_shafranov_source's convention needs);
+    # read as COCOS 11 it would be a minimum
+    assert psi_per_radian_from_cocos(psi_axis, 13) > psi_per_radian_from_cocos(m["psi_limiter"], 13)
+    assert psi_per_radian_from_cocos(psi_axis, 11) < psi_per_radian_from_cocos(m["psi_limiter"], 11)
+
+
+def test_the_prescribed_plasma_current_lies_inside_the_lcfs():
+    from matplotlib.path import Path
+
+    for configuration in gs.CONFIGURATIONS:
+        boundary = gs.lcfs(gs.flux_model(configuration))
+        r, z, _ = gs.plasma_rings()
+        assert Path(boundary).contains_points(np.stack([r, z], -1)).all(), configuration
+
+
+def test_a_spurious_null_is_not_taken_for_an_x_point(monkeypatch):
+    # with the divertor coil switched off there is no X-point in the vessel: the search must refuse
+    monkeypatch.setattr(gs, "_DIVERTOR_COIL", (0.6, -0.92, 0.0))
+    gs.flux_model.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="no X-point"):
+            gs.flux_model("diverted")
+    finally:
+        monkeypatch.undo()
+        gs.flux_model.cache_clear()
+
+
+def test_an_open_contour_does_not_enclose():
+    open_line = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+    assert not gs._encloses(open_line, (0.5, 0.5))
+    assert gs._encloses(np.vstack([open_line, open_line[:1]]), (0.5, 0.5))

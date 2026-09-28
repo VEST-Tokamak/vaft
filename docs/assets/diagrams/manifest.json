@@ -97,8 +97,8 @@
     },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
-      "source_sha256": "988cc0a9e2666ae2120756c1221534e040e1985abaa70c37c404bcc16949b1cb",
-      "svg_sha256": "dc62af610bc575b6a6b46cdc1aefde3a91e4d0c911187ca350c1333006bd76da"
+      "source_sha256": "13d016c01cc7d752585078cacfeb7edc0667abde252b218371f9331b1e299a53",
+      "svg_sha256": "507e44460cdb407b0552357e483352f1af3162f2f597153c854bb0b9a83ac182"
     },
     "exb_drift.svg": {
       "call": "vaft.diagram.exb_drift()",
@@ -137,8 +137,8 @@
     },
     "fixed_vs_free_boundary_equilibrium.svg": {
       "call": "vaft.diagram.fixed_vs_free_boundary_equilibrium()",
-      "source_sha256": "464d9be0f50cbc951b97c05afbc76ba24f80370a042082da0bd8a6d647b272d0",
-      "svg_sha256": "6cbf300e035a92fc0372a1f6efc129a9f45743d25b05721b444dff6067326521"
+      "source_sha256": "ffb4b147b10cf09b5e40f3023e8c6b7c67247c9613a35039fc5f6c959007c882",
+      "svg_sha256": "2f44f96fdf332ebcadf0554f160b5177b63da122b32212d65255e7abc882d701"
     },
     "flux_coordinates.svg": {
       "call": "vaft.diagram.flux_coordinates()",
@@ -162,8 +162,8 @@
     },
     "grad_shafranov_domain_decomposition.svg": {
       "call": "vaft.diagram.grad_shafranov_domain_decomposition()",
-      "source_sha256": "207e85fd62c275b37063f3dbf020f01a467a47aab83893f6ac4f150d27a8e586",
-      "svg_sha256": "3c7a95b4541523d2449477bb1cc9ec4d6cee381e90fc364befcc603ac6faf1ab"
+      "source_sha256": "449ba3fa2daae3c4995c02aa2d4b3f76b1f6f507918a7c0b9c5ded88bde95146",
+      "svg_sha256": "825b4c938b9cfe2f238fd06391c3fbb6fe6e321c7f236a8df5df31d21ae80f49"
     },
     "guiding_center_invariants.svg": {
       "call": "vaft.diagram.guiding_center_invariants()",
@@ -202,8 +202,8 @@
     },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",
-      "source_sha256": "57861cf7b228eb0251bf0cd94585d4ed86509a0919c046e0427c7625709e8c94",
-      "svg_sha256": "58f3a8bba73ad3edbf97b079f0e943fb24b194acb189710d3f68d4810a581f52"
+      "source_sha256": "c6fc7f76a4b6a1dadc84bc970423da9762dbe79890b9d0a36dba4b2c54e2bf60",
+      "svg_sha256": "fcb8a7a6886e502d17c4e91e243700f2d64a3745112fa6b5998fe9e53d2f1c89"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
@@ -267,8 +267,8 @@
     },
     "poloidal_flux_source_decomposition.svg": {
       "call": "vaft.diagram.poloidal_flux_source_decomposition()",
-      "source_sha256": "4e0dcf7f3408a3e9a24d913a3e016e0f07b036c3ea298b47edf76b08d16e1cd9",
-      "svg_sha256": "b908b2a896cafa25cea8d42244f0dfe71316d45d1a9ed72efcf4217721d48580"
+      "source_sha256": "3a2a5158280d7426a96aa4ad1a7390bf3cd75acc6374a77021252074dbd5fa39",
+      "svg_sha256": "27cabae22793664a13bb6a93841facbd27f443f9da672dbec772dd8062366013"
     },
     "poloidal_harmonic_coupling.svg": {
       "call": "vaft.diagram.poloidal_harmonic_coupling()",

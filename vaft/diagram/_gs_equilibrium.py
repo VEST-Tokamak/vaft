@@ -17,7 +17,8 @@
 
 The flux maps are a toy, not an equilibrium: a prescribed ring-current
 distribution for the plasma and three coils, superposed through
-``vaft.formula.green.green_psi_exact`` (full weber, COCOS 11). The topology
+``vaft.formula.green.green_psi_exact`` (full weber, $+2\\pi RA_\\phi$: the
+COCOS-13 sign, a maximum on the axis for positive current). The topology
 -- axis, X-point, limiter contact, LCFS -- is then found from the total flux
 the way a free-boundary code finds it; a production solver would also make the
 plasma current consistent with $p'(\\psi)$, $FF'(\\psi)$.
@@ -41,7 +42,7 @@ from ._scene import Arrow, Label, Marker, Polyline, Scene
 
 CONFIGURATIONS = ("limited", "diverted")
 #: the toy machine [m]: plasma centre, minor radius, elongation, current; vessel; inboard limiter tip
-_R0, _A, _KAPPA, _IP = 0.65, 0.2, 1.35, 1.0e5
+_R0, _A, _KAPPA, _IP = 0.66, 0.18, 1.3, 1.0e5
 _VESSEL = (0.25, 1.05, -0.8, 0.8)
 _LIMITER = (0.42, 0.0)
 #: coils (R, Z, current): an outboard vertical-field pair and, for the diverted case, a divertor coil
@@ -114,8 +115,15 @@ def flux_model(configuration: str = "diverted") -> dict:
                     options={"xatol": 1e-9, "fatol": 1e-14}).x
     x_point = None
     if configuration == "diverted":
-        x_point = minimize(grad2, [_R0, -0.45], method="Nelder-Mead", options={"xatol": 1e-9, "fatol": 1e-20}).x
-        x_point = (round(float(x_point[0]), 6), round(float(x_point[1]), 6))
+        found = minimize(grad2, [_R0, -0.45], method="Nelder-Mead", options={"xatol": 1e-9, "fatol": 1e-20}).x
+        hessian = (spline(*found, dx=2)[0, 0] * spline(*found, dy=2)[0, 0]
+                   - spline(*found, dx=1, dy=1)[0, 0] ** 2)
+        r0, r1, z0, z1 = _VESSEL
+        # a null, a saddle, inside the vessel -- a minimum of |grad psi|^2 elsewhere is not an X-point
+        if not (grad2(found) < 1e-10 and hessian < 0.0 and r0 < found[0] < r1 and z0 < found[1] < z1):
+            raise RuntimeError(f"no X-point found: |grad psi|^2 = {grad2(found):.2e}, det H = {hessian:.2e} "
+                               f"at {tuple(found)}")
+        x_point = (round(float(found[0]), 6), round(float(found[1]), 6))
     psi_limiter = psi(_LIMITER)
     psi_x = psi(x_point) if x_point else -math.inf
     limited_by = "x_point" if psi_x > psi_limiter else "limiter"
@@ -142,6 +150,8 @@ def _lines(field: np.ndarray, level: float) -> List[np.ndarray]:
 def _encloses(line: np.ndarray, point) -> bool:
     from matplotlib.path import Path
 
+    if not np.allclose(line[0], line[-1]):  # an open contour cannot enclose anything
+        return False
     return bool(Path(line).contains_point(point))
 
 
@@ -241,7 +251,7 @@ def grad_shafranov_domain_decomposition(*, labels: bool = True) -> Diagram:
         rows = [
             ((_R0, 0.1), 3.0, "plasma: force balance fixes the source",
              f"$\\displaystyle {formula_equation(toroidal_current_density_from_p_prime_ff_prime)}$", "plasma"),
-            ((0.95, 0.45), 0.9, "vacuum: homogeneous, Laplace-type (not $\\nabla^2$)",
+            ((0.97, -0.05), 0.9, "vacuum: homogeneous, Laplace-type (not $\\nabla^2$)",
              "$\\displaystyle \\Delta^*\\psi = 0$", "vacuum"),
             (model["coils"][1][:2], -1.2, "coil: prescribed external current",
              "$\\displaystyle \\Delta^*\\psi = -\\mu_0 R J_{\\phi,\\mathrm{ext}}$", "coil"),
@@ -290,6 +300,8 @@ def fixed_vs_free_boundary_equilibrium(*, labels: bool = True) -> Diagram:
     items.append(Marker(tuple(_cm(model["axis"], right)), "o", "opoint", role="axis"))
     if labels:
         top = _S * 0.8 + 1.0
+        items.append(Label((_S * _R0, -_S * 0.6), "in practice a $\\psi_N \\approx 0.99$ surface, not the "
+                           "separatrix", "small label", anchor="north", role="note:practice"))
         fixed_in = box(_S * _R0, top + 1.2, 5.6, 1.1, "given: LCFS shape, $\\psi_b$, $p'(\\psi)$, $FF'(\\psi)$",
                        role="fixed:input", latex=True)
         free_in = box(right[0] + _S * _R0, top + 1.2, 6.2, 1.1,
@@ -336,8 +348,7 @@ def limiter_and_diverted_topologies(*, labels: bool = True) -> Diagram:
         items += _surfaces(model, o)
         items.append(Polyline.of(_cm(boundary, o), "boundary", role=f"lcfs:{configuration}", closed=True))
         items.append(Marker(tuple(_cm(model["axis"], o)), "o", "opoint", role="axis"))
-        items += _coil_items([c for c in model["coils"] if _VESSEL[2] - 0.2 < c[1] < _VESSEL[3] + 0.2 or c[1] < -0.85],
-                             o)
+        items += _coil_items(model["coils"], o)
         if configuration == "diverted":
             for line in _lines(model["psi"], model["psi_x"]):
                 for run in _clip(line, _VESSEL):
@@ -358,11 +369,13 @@ def limiter_and_diverted_topologies(*, labels: bool = True) -> Diagram:
             else:
                 xp = _cm(model["x_point"], o)
                 items += [Label(tuple(xp + [0.25, 0.0]), "X-point", "small label", anchor="west", role="x_point"),
-                          Label(tuple(xp + [0.0, -0.55]), "private flux", "small label", anchor="north",
+                          Label(tuple(xp + [0.0, -0.95]), "private flux", "small label", anchor="north",
                                 role="private_flux"),
                           Polyline.of(_cm([(0.97, -0.25), (1.1, -0.25)], o), "leader line", role="sol"),
                           Label(tuple(_cm((1.1, -0.25), o)), "SOL", "small label", anchor="west", role="sol"),
-                          Label(tuple(_cm((_R0 + 0.05, _KAPPA * _A + 0.2), o)), "separatrix = LCFS", "small label",
+                          Polyline.of(_cm([(_R0 + 0.1, _KAPPA * _A + 0.2), (_R0 + 0.12, _KAPPA * _A + 0.04)], o),
+                                      "leader line", role="separatrix"),
+                          Label(tuple(_cm((_R0 + 0.1, _KAPPA * _A + 0.2), o)), "separatrix = LCFS", "small label",
                                 anchor="south", role="separatrix")]
     if labels:
         items.append(_note("Dot: magnetic axis. Closed surfaces dark, open flux grey; the boundary is the larger of "
@@ -378,13 +391,14 @@ def equilibrium_problem_taxonomy(*, labels: bool = True) -> Diagram:
     (measurements given, profiles fitted). Columns: fixed boundary (LCFS
     given) and free boundary (coils given, LCFS found). EFIT is the inverse,
     free-boundary cell; a free-boundary problem need not be inverse
-    (TokaMaker) and an inverse one need not be free-boundary.
+    (TokaMaker's forward solve, as VAFT uses it -- it also has a
+    reconstruction mode) and an inverse one need not be free-boundary.
     """
     labels = _check_labels(labels)
     items: List = []
     cells = {
         ("forward", "fixed"): "prescribed-boundary equilibrium\\\\ (CHEASE)",
-        ("forward", "free"): "coil-driven predictive equilibrium\\\\ (TokaMaker)",
+        ("forward", "free"): "coil-driven predictive equilibrium\\\\ (TokaMaker forward solve)",
         ("inverse", "fixed"): "boundary-constrained\\\\ reconstruction (given LCFS)",
         ("inverse", "free"): "magnetic / kinetic reconstruction\\\\ (EFIT)",
     }
@@ -393,15 +407,19 @@ def equilibrium_problem_taxonomy(*, labels: bool = True) -> Diagram:
     for (row, col), text in cells.items():
         b = box(x_of[col], y_of[row], 5.6, 1.6, text, role=f"cell:{row}:{col}", latex=True)
         items += list(b.items)
-    heads = [box(x_of["fixed"], 1.9, 5.6, 0.9, "fixed boundary: LCFS given", role="axis:fixed", latex=True),
-             box(x_of["free"], 1.9, 5.6, 0.9, "free boundary: coils given, LCFS found", role="axis:free", latex=True),
-             box(-1.9, y_of["forward"], 3.2, 1.6, "forward\\\\ sources $\\to\\psi$", role="axis:forward", latex=True),
-             box(-1.9, y_of["inverse"], 3.2, 1.6, "inverse\\\\ data $\\to$ sources", role="axis:inverse", latex=True)]
+    heads = [box(x_of["fixed"], 1.9, 5.6, 0.9, "fixed boundary: LCFS given", role="axis:fixed", latex=True,
+                 style="concept leaf"),
+             box(x_of["free"], 1.9, 5.6, 0.9, "free boundary: coils given, LCFS found", role="axis:free", latex=True,
+                 style="concept leaf"),
+             box(-1.9, y_of["forward"], 3.2, 1.6, "forward\\\\ sources $\\to\\psi$", role="axis:forward", latex=True,
+                 style="concept leaf"),
+             box(-1.9, y_of["inverse"], 3.2, 1.6, "inverse\\\\ data $\\to$ sources", role="axis:inverse", latex=True,
+                 style="concept leaf")]
     for h in heads:
         items += list(h.items)
     if labels:
-        items.append(_note("Free boundary and inverse are not synonyms: EFIT is both, TokaMaker only the first. "
-                           "DCON/GPEC use either kind as input", 3.6, y_of["inverse"] - 1.2))
+        items.append(_note("Free boundary and inverse are not synonyms: a code sits in a cell per use (TokaMaker "
+                           "also reconstructs). DCON/GPEC take either kind as input", 3.6, y_of["inverse"] - 1.2))
     return Diagram("equilibrium_problem_taxonomy", Scene(tuple(items)), model={"cells": cells})
 
 
@@ -449,7 +467,7 @@ def poloidal_flux_source_decomposition(*, labels: bool = True) -> Diagram:
                                role="operator"))
     if labels:
         items.append(_note("Each part through $\\psi = \\sum_k I_k\\,G(R, Z; R_k, Z_k)$ (\\texttt{green\\_psi\\_exact}); "
-                           "+ $\\psi_\\mathrm{passive}$ from eddy currents, not drawn. Only the sum has the "
-                           "X-point and LCFS", 6.6 + _S * 0.65, -_S * 0.92 - 0.5))
+                           "dashed: the plasma current's support; contour levels per panel. $\\psi_\\mathrm{passive}$ "
+                           "(eddy currents) not drawn. Only the sum has the X-point and LCFS", 6.6 + _S * 0.65, -_S * 0.92 - 0.5))
     return Diagram("poloidal_flux_source_decomposition", Scene(tuple(items)),
                    model={"axis": model["axis"], "x_point": model["x_point"]})
