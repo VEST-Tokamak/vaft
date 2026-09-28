@@ -1090,6 +1090,127 @@ def current_density_from_B(B: Union[float, np.ndarray],
     return gradient(R, B) / MU0
 
 
+def grad_shafranov_source(R, J_phi):
+    r"""Right-hand side of the poloidal-flux equation from Ampere's law, any region.
+
+    $$\Delta^*\psi = -\mu_0 R J_\phi,\qquad
+      \Delta^* = R\frac{\partial}{\partial R}\frac{1}{R}\frac{\partial}{\partial R}
+      + \frac{\partial^2}{\partial Z^2}$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Major radius, positive [m].
+    J_phi : float or np.ndarray
+        Toroidal current density: plasma, coil or zero [A/m^2].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta^*\psi$ for a per-radian $\psi$ [Wb/(rad m^2)].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
+
+    Convention
+    ----------
+    Per-radian flux with $\mathbf B_p = \nabla\psi\times\nabla\phi$ and
+    $(R, \phi, Z)$ right-handed (Freidberg; COCOS 1): a positive $J_\phi$ makes
+    $\psi$ a maximum on the magnetic axis. For a full-weber, COCOS-11 flux as
+    stored in an IMAS ODS the right-hand side is multiplied by
+    $-\sigma_{B_p}(2\pi)^{e_{B_p}}$ (``psi_per_radian_from_cocos``). The
+    operator itself on a grid is ``vaft.process.equilibrium.grad_shafranov_operator``.
+
+    Physical interpretation
+    -----------------------
+    One elliptic equation for one flux function everywhere; only the source
+    differs by region. In the plasma $J_\phi$ is constrained by force balance
+    (``toroidal_current_density_from_p_prime_ff_prime``), in a coil it is the
+    prescribed coil current density, and in vacuum it is zero, leaving the
+    homogeneous equation $\Delta^*\psi = 0$ -- Laplace-type, but not the
+    scalar Laplacian ($\Delta^*$ has $-R^{-1}\partial_R$ where $\nabla^2$ has
+    $+R^{-1}\partial_R$).
+
+    Assumptions
+    -----------
+    Axisymmetry, $\partial_\phi = 0$; magnetostatics (no displacement current).
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return -MU0 * R * np.asarray(J_phi, dtype=float)
+
+
+def toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime):
+    r"""Plasma toroidal current density allowed by force balance, $J_\phi(p', FF')$.
+
+    $$J_\phi = R\,p'(\psi) + \frac{F F'(\psi)}{\mu_0 R},\qquad
+      \Delta^*\psi = -\mu_0R^2p'(\psi) - FF'(\psi)$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Major radius, positive [m].
+    p_prime : float or np.ndarray
+        $dp/d\psi$ [Pa rad/Wb].
+    ff_prime : float or np.ndarray
+        $F\,dF/d\psi$, $F = RB_\phi$ [T^2 m^2 rad/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $J_\phi$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
+
+    Convention
+    ----------
+    Per-radian $\psi$ as in ``grad_shafranov_source``, whose source this is:
+    ``grad_shafranov_source(R, J_phi)`` is then the Grad--Shafranov right-hand
+    side. A positive $J_\phi$ makes $\psi$ a maximum on the axis, so $\psi$
+    and a peaked pressure both fall outward: $p' > 0$, and the pressure term
+    adds co-current $J_\phi$. Profiles from an EFIT g-file or an ODS carry
+    their own COCOS sign on $\psi$; convert before combining.
+
+    Physical interpretation
+    -----------------------
+    $\mathbf J\times\mathbf B = \nabla p$ with $\mathbf B = \nabla\psi\times
+    \nabla\phi + F\nabla\phi$ forces $p$ and $F$ to be flux functions and
+    leaves only these two free profiles for the toroidal current: the
+    pressure-driven (diamagnetic/Pfirsch--Schluter) part $\propto R$ and the
+    poloidal-current part $\propto 1/R$. This is what makes the plasma region's
+    equation the Grad--Shafranov equation rather than Ampere's law alone.
+
+    Assumptions
+    -----------
+    Axisymmetric, static, isotropic-pressure ideal MHD equilibrium; no flow.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] V. D. Shafranov, Sov. Phys. JETP 6, 545 (1958); H. Grad and
+           H. Rubin, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31, 190
+           (1958).
+    """
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return R * np.asarray(p_prime, dtype=float) + np.asarray(ff_prime, dtype=float) / (MU0 * R)
+
+
 def current_density_from_psi(psi: Union[float, np.ndarray],
                            R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.

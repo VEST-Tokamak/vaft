@@ -82,6 +82,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
     **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
                                               "resonant_layer_matching")},
+    # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
+    **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
+                                              "fixed_vs_free_boundary_equilibrium",
+                                              "limiter_and_diverted_topologies", "equilibrium_problem_taxonomy",
+                                              "poloidal_flux_source_decomposition")},
     # cylindrical geometry: profiles, mode shapes, matching
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
