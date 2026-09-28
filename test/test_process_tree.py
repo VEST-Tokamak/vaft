@@ -215,6 +215,9 @@ def test_keyboard_interrupt_stops_the_tree_and_is_raised(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
     # A real SIGINT, as a terminal Ctrl-C delivers: ``_thread.interrupt_main``
     # only sets a flag and would not break the blocking wait.
+    # A runner started under nohup or as a background job inherits SIGINT
+    # ignored; a terminal's foreground Python has the default handler.
+    previous = signal.signal(signal.SIGINT, signal.default_int_handler)
     sender = _signal_once_started(pid_file, lambda: os.kill(os.getpid(), signal.SIGINT))
     try:
         with pytest.raises(KeyboardInterrupt):
@@ -222,6 +225,7 @@ def test_keyboard_interrupt_stops_the_tree_and_is_raised(tmp_path):
         sender.join()
         assert _gone(_pid(pid_file))
     finally:
+        signal.signal(signal.SIGINT, previous)
         _kill_published(pid_file)
 
 
@@ -275,8 +279,11 @@ def test_a_signal_to_a_default_python_ends_it_by_the_signal_with_no_orphan(tmp_p
 
     source = str(Path(vaft.__file__).resolve().parents[1])
     driver.write_text(
-        "import sys\n"
+        "import signal, sys\n"
         "from pathlib import Path\n"
+        # The default disposition an interactive or supervised Python has; a
+        # runner under nohup would otherwise hand SIGHUP down ignored.
+        f"signal.signal({int(signum)}, signal.SIG_DFL)\n"
         # Import the vaft under test, not whichever checkout is installed editable.
         "sys.meta_path[:] = [f for f in sys.meta_path if '__editable__' not in getattr(f, '__module__', '')]\n"
         f"sys.path.insert(0, {source!r})\n"
