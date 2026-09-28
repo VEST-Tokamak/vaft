@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5650294</code>. What is described
+  <code>31df7e1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -381,6 +381,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td>
     <td><code>vaft.formula.ripple</code></td><td>6</td><td>Toroidal-field ripple from a finite number of TF coils, and its orbit consequences.</td>
   </tr>
+  <tr id="disruption">
+    <td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td>
+    <td><code>vaft.formula.disruption</code></td><td>11</td><td>Disruption reference relations: thermal and current quench, induced field, runaway electrons.</td>
+  </tr>
   </tbody>
 </table>
 
@@ -442,7 +446,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 307 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 318 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1110,6 +1114,28 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="toroidal_ripple_field ripple"><td><a href="/vaft/develop/reference/formula/ripple/#toroidal_ripple_field"><code>toroidal_ripple_field</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Field strength on a flux surface with toroidicity and TF-coil ripple.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="avalanche_efolds_from_current_drop disruption"><td><a href="/vaft/develop/reference/formula/disruption/#avalanche_efolds_from_current_drop"><code>avalanche_efolds_from_current_drop</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Number of avalanche e-folds a current quench provides, $E \gg E_c$.
+</td></tr>
+  <tr data-ref-row="avalanche_growth_rate disruption"><td><a href="/vaft/develop/reference/formula/disruption/#avalanche_growth_rate"><code>avalanche_growth_rate</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Rosenbluth–Putvinski avalanche (secondary) growth rate of the runaway density.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="connor_hastie_critical_field disruption"><td><a href="/vaft/develop/reference/formula/disruption/#connor_hastie_critical_field"><code>connor_hastie_critical_field</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Connor–Hastie critical field below which no electron runs away.
+</td></tr>
+  <tr data-ref-row="current_quench_current disruption"><td><a href="/vaft/develop/reference/formula/disruption/#current_quench_current"><code>current_quench_current</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Exponential (L/R) current quench of the plasma current.
+</td></tr>
+  <tr data-ref-row="dreicer_field disruption"><td><a href="/vaft/develop/reference/formula/disruption/#dreicer_field"><code>dreicer_field</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Dreicer field: the drag on a thermal electron.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dreicer_generation_rate disruption"><td><a href="/vaft/develop/reference/formula/disruption/#dreicer_generation_rate"><code>dreicer_generation_rate</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Dreicer (primary) runaway generation rate, Connor–Hastie asymptotic form.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="inductive_parallel_electric_field disruption"><td><a href="/vaft/develop/reference/formula/disruption/#inductive_parallel_electric_field"><code>inductive_parallel_electric_field</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Parallel electric field a changing plasma current induces in the plasma.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="relativistic_collision_time disruption"><td><a href="/vaft/develop/reference/formula/disruption/#relativistic_collision_time"><code>relativistic_collision_time</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Collision time of a relativistic electron, $\tau_c = m_ec/(eE_c)$.
+</td></tr>
+  <tr data-ref-row="runaway_critical_momentum disruption"><td><a href="/vaft/develop/reference/formula/disruption/#runaway_critical_momentum"><code>runaway_critical_momentum</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Critical momentum above which an electron runs away, in units of $m_ec$.
+</td></tr>
+  <tr data-ref-row="runaway_current_from_density disruption"><td><a href="/vaft/develop/reference/formula/disruption/#runaway_current_from_density"><code>runaway_current_from_density</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Current carried by runaway electrons moving at the speed of light.
+</td></tr>
+  <tr data-ref-row="thermal_quench_temperature disruption"><td><a href="/vaft/develop/reference/formula/disruption/#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Prescribed exponential thermal quench of the electron temperature.
+</td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1374,7 +1400,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 12:32:36 +0000"
+        "time": "2026-09-28 12:48:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

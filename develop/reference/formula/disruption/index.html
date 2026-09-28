@@ -1,0 +1,1328 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: disruption · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/geometric-approximations/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/ripple/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: disruption</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>31df7e1</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_disruption">Formula reference: disruption</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.disruption, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.disruption</code>:
+<strong>11</strong> public functions. Each entry is what
+<code>vaft.formula.describe("disruption.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The semi-analytic middle layer between detecting a disruption in the data
+(<code class="language-plaintext highlighter-rouge">vaft.process.transients</code>) and simulating one (DREAM-like kinetic or
+integrated codes): transparent reference models whose assumptions are easy
+to state. The chain they describe is::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>thermal quench (T_e drops)  -&gt;  resistivity rises  -&gt;  current quench (L/R)
+-&gt;  induced E_par  -&gt;  runaway seed (Dreicer)  -&gt;  avalanche  -&gt;  RE current
+</code></pre></div></div>
+
+<p>Resistivity is <code class="language-plaintext highlighter-rouge">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>, the plasma
+resistance, inductance and L/R time are the <code class="language-plaintext highlighter-rouge">startup</code> lumped-circuit
+relations; they are reused here, not restated.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>n_e</td><td>electron density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>T_e</td><td>electron temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>E</td><td>parallel electric field, magnitude</td><td class="ref-unit">V/m</td></tr>
+  <tr><td>E_c</td><td>Connor-Hastie critical field</td><td class="ref-unit">V/m</td></tr>
+  <tr><td>E_D</td><td>Dreicer field</td><td class="ref-unit">V/m</td></tr>
+  <tr><td>Z_eff</td><td>effective ion charge</td><td class="ref-unit">-</td></tr>
+  <tr><td>ln_Lambda</td><td>Coulomb logarithm (relativistic for E_c, thermal for E_D) [-]</td><td class="ref-unit"></td></tr>
+  <tr><td>L_p</td><td>plasma self-inductance</td><td class="ref-unit">H</td></tr>
+  <tr><td>I_p</td><td>plasma current</td><td class="ref-unit">A</td></tr>
+  <tr><td>R0</td><td>major radius</td><td class="ref-unit">m</td></tr>
+  <tr><td>p_c</td><td>critical momentum, in units of m_e c</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p>SI throughout, temperatures in eV. Fields are magnitudes along the current;
+the induced field has the sign that opposes the current’s decay, so a
+falling current drives electrons that carry it. Every Coulomb logarithm is an
+explicit argument – the relativistic one ($\approx 15$-$20$) belongs in
+$E_c$ and the avalanche rate, the thermal one in $E_D$ and the Dreicer rate;
+no default is hidden (#1188).</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 11 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="avalanche_efolds_from_current_drop"><td><a href="#avalanche_efolds_from_current_drop"><code>avalanche_efolds_from_current_drop</code></a></td><td>Number of avalanche e-folds a current quench provides, $E \gg E_c$.
+</td></tr>
+  <tr data-ref-row="avalanche_growth_rate"><td><a href="#avalanche_growth_rate"><code>avalanche_growth_rate</code></a></td><td>Rosenbluth–Putvinski avalanche (secondary) growth rate of the runaway density.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="connor_hastie_critical_field"><td><a href="#connor_hastie_critical_field"><code>connor_hastie_critical_field</code></a></td><td>Connor–Hastie critical field below which no electron runs away.
+</td></tr>
+  <tr data-ref-row="current_quench_current"><td><a href="#current_quench_current"><code>current_quench_current</code></a></td><td>Exponential (L/R) current quench of the plasma current.
+</td></tr>
+  <tr data-ref-row="dreicer_field"><td><a href="#dreicer_field"><code>dreicer_field</code></a></td><td>Dreicer field: the drag on a thermal electron.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dreicer_generation_rate"><td><a href="#dreicer_generation_rate"><code>dreicer_generation_rate</code></a></td><td>Dreicer (primary) runaway generation rate, Connor–Hastie asymptotic form.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="inductive_parallel_electric_field"><td><a href="#inductive_parallel_electric_field"><code>inductive_parallel_electric_field</code></a></td><td>Parallel electric field a changing plasma current induces in the plasma.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="relativistic_collision_time"><td><a href="#relativistic_collision_time"><code>relativistic_collision_time</code></a></td><td>Collision time of a relativistic electron, $\tau_c = m_ec/(eE_c)$.
+</td></tr>
+  <tr data-ref-row="runaway_critical_momentum"><td><a href="#runaway_critical_momentum"><code>runaway_critical_momentum</code></a></td><td>Critical momentum above which an electron runs away, in units of $m_ec$.
+</td></tr>
+  <tr data-ref-row="runaway_current_from_density"><td><a href="#runaway_current_from_density"><code>runaway_current_from_density</code></a></td><td>Current carried by runaway electrons moving at the speed of light.
+</td></tr>
+  <tr data-ref-row="thermal_quench_temperature"><td><a href="#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td>Prescribed exponential thermal quench of the electron temperature.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="avalanche_efolds_from_current_drop" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#avalanche_efolds_from_current_drop"><code>avalanche_efolds_from_current_drop</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L505" title="vaft/formula/disruption.py, line 505">source</a>
+</header>
+    <pre class="ref-signature"><code>avalanche_efolds_from_current_drop(delta_I_p, L_p, R0, Z_eff, ln_Lambda)</code></pre>
+
+    <p>Number of avalanche e-folds a current quench provides, $E \gg E_c$.</p>
+
+\[N = \int\gamma_\mathrm{av}\,dt \simeq \frac{e\,L_p\,\Delta I_p}{2\pi R_0\,m_ec\,\ln\Lambda}
+  \sqrt{\frac{\pi}{3(Z_\mathrm{eff} + 5)}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>delta_I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>Current lost in the quench, non-negative.</p>
+</td></tr>
+  <tr><td><code>L_p</code></td><td class="ref-type">float</td><td class="ref-unit">H</td><td><p>Plasma self-inductance, positive.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius, positive.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective ion charge, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relativistic Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Number of e-folds; the seed is multiplied by $e^N$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">delta_I_p</code> is negative or another argument is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\int E\,dt = L_p\Delta I_p/(2\pi R_0)$ by <code class="language-plaintext highlighter-rouge">inductive_parallel_electric_field</code>,
+and $E_c\tau_c = m_ec/e$, so the $E_c$ dependence cancels: the gain
+depends on the current and the inductance, not the density. With
+$L_p \approx \mu_0R_0(\ln(8R_0/a) - 2 + l_i/2)$ this is the familiar
+$N \propto I_p/(I_A\ln\Lambda)$, $I_A = 4\pi\varepsilon_0m_ec^3/e \approx 17$ kA:
+a few MA gives tens of e-folds.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>$E \gg E_c$ throughout (the $-1$ in $E/E_c - 1$ dropped), so this is an
+upper estimate; no runaway current feeding back on $E$; no vessel
+coupling.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>M. N. Rosenbluth and S. V. Putvinski, Nucl. Fusion 37 (1997) 1355.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="avalanche_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#avalanche_growth_rate"><code>avalanche_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L444" title="vaft/formula/disruption.py, line 444">source</a>
+</header>
+    <pre class="ref-signature"><code>avalanche_growth_rate(E, E_c, Z_eff, ln_Lambda)</code></pre>
+
+    <p>Rosenbluth–Putvinski avalanche (secondary) growth rate of the runaway density.</p>
+
+\[\gamma_\mathrm{av} = \frac{E/E_c - 1}{\tau_c\ln\Lambda}\sqrt{\frac{\pi}{3(Z_\mathrm{eff} + 5)}},\qquad
+  \tau_c = \frac{m_ec}{eE_c},\qquad
+  \frac{dn_\mathrm{RE}}{dt} = \gamma_\mathrm{av}\,n_\mathrm{RE}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>E</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>Parallel electric field, magnitude.</p>
+</td></tr>
+  <tr><td><code>E_c</code></td><td class="ref-type">float</td><td class="ref-unit">V/m</td><td><p>Critical field, positive.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective ion charge, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relativistic Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma_\mathrm{av}$; zero where $E \le E_c$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\tau_c$ is derived from $E_c$ (<code class="language-plaintext highlighter-rouge">relativistic_collision_time</code>), so the
+two cannot be passed inconsistently.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">E_c</code>, <code class="language-plaintext highlighter-rouge">Z_eff</code> or <code class="language-plaintext highlighter-rouge">ln_Lambda</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Close collisions of existing runaways knock thermal electrons above
+$p_c$: exponential growth from any seed, independent of $T_e$. Over a
+whole current quench it multiplies a seed by
+<code class="language-plaintext highlighter-rouge">avalanche_efolds_from_current_drop</code> e-folds – a few per MA, so a
+handful at 1 MA but tens at reactor currents, where a tiny seed can end up
+carrying most of the current.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>The $E \gg E_c$ asymptote of Rosenbluth &amp; Putvinski for a classical,
+fully ionised plasma: not valid with high-$Z$ impurities or partial
+screening, which raise the rate, nor with radiation losses. The rate is
+clipped at zero below $E_c$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>M. N. Rosenbluth and S. V. Putvinski, Nucl. Fusion 37 (1997) 1355.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="connor_hastie_critical_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#connor_hastie_critical_field"><code>connor_hastie_critical_field</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L217" title="vaft/formula/disruption.py, line 217">source</a>
+</header>
+    <pre class="ref-signature"><code>connor_hastie_critical_field(n_e, ln_Lambda)</code></pre>
+
+    <p>Connor–Hastie critical field below which no electron runs away.</p>
+
+\[E_c = \frac{n_e e^3\ln\Lambda}{4\pi\varepsilon_0^2 m_e c^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density (free plus bound for a partially ionised plasma), positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relativistic Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>$E_c$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">n_e</code> or <code class="language-plaintext highlighter-rouge">ln_Lambda</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The minimum of the collisional drag on an electron, reached at
+relativistic speed: below $E_c$ even the fastest electrons slow down. It
+is the threshold of the avalanche; synchrotron and bremsstrahlung losses
+and partial screening raise the effective threshold above it.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. W. Connor and R. J. Hastie, Nucl. Fusion 15 (1975) 415.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="current_quench_current" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#current_quench_current"><code>current_quench_current</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L123" title="vaft/formula/disruption.py, line 123">source</a>
+</header>
+    <pre class="ref-signature"><code>current_quench_current(t, I_0, tau_CQ)</code></pre>
+
+    <p>Exponential (L/R) current quench of the plasma current.</p>
+
+\[I_p(t) = I_0\,e^{-t/\tau_\mathrm{CQ}},\quad t \ge 0,\qquad \tau_\mathrm{CQ} = L_p/R_p\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Time from the start of the current quench.</p>
+</td></tr>
+  <tr><td><code>I_0</code></td><td class="ref-type">float</td><td class="ref-unit">A</td><td><p>Current at the start.</p>
+</td></tr>
+  <tr><td><code>tau_CQ</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>L/R time, positive (<code class="language-plaintext highlighter-rouge">lr_time_from_L_R</code>).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>$I_p(t)$; $I_0$ for $t &lt; 0$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">tau_CQ</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Constant $L_p$ and $R_p$ – a cold, fixed-temperature plasma with no
+runaway current and no coupling to the vessel. With $R_p$ rising as the
+plasma cools, or runaways taking over the current, the decay is not a
+single exponential; the linear-decay fit used for CQ rates is another
+reduction.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="dreicer_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dreicer_field"><code>dreicer_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L255" title="vaft/formula/disruption.py, line 255">source</a>
+</header>
+    <pre class="ref-signature"><code>dreicer_field(n_e, T_e, ln_Lambda)</code></pre>
+
+    <p>Dreicer field: the drag on a thermal electron.</p>
+
+\[E_D = \frac{n_e e^3\ln\Lambda}{4\pi\varepsilon_0^2 T_e} = E_c\,\frac{m_ec^2}{T_e}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Thermal Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>$E_D$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$T_e$ enters as an energy $eT_e$; some texts put $T_e/m_e$ as $v_{te}^2$
+with $v_{te} = \sqrt{2T_e/m_e}$, which changes the prefactor by two. This
+is the form of Connor &amp; Hastie, consistent with $E_D/E_c = m_ec^2/T_e$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An argument is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A field $E \gtrsim E_D$ accelerates the bulk; well below it only the
+tail beyond the critical velocity runs away, at the exponentially small
+Dreicer rate. Which seed matters depends on the case: the rate is
+negligible below a few per cent of $E_D$, but a fast current quench can
+reach $E/E_D \approx 0.01$-$0.02$ at a few eV, where it is not.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>H. Dreicer, Phys. Rev. 115 (1959) 238.
+</li>
+  <li>J. W. Connor and R. J. Hastie, Nucl. Fusion 15 (1975) 415.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="dreicer_generation_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dreicer_generation_rate"><code>dreicer_generation_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L377" title="vaft/formula/disruption.py, line 377">source</a>
+</header>
+    <pre class="ref-signature"><code>dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor)</code></pre>
+
+    <p>Dreicer (primary) runaway generation rate, Connor–Hastie asymptotic form.</p>
+
+\[\frac{dn_\mathrm{RE}}{dt} = C\,n_e\nu_{ee}\left(\frac{E_D}{E}\right)^{\frac{3(1+Z)}{16}}
+  \exp\left(-\frac{E_D}{4E} - \sqrt{\frac{(1+Z)E_D}{E}}\right),\qquad
+  \nu_{ee} = \frac{n_ee^4\ln\Lambda}{4\pi\varepsilon_0^2m_e^2v_{te}^3}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>E</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>Parallel electric field, magnitude.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective ion charge, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Thermal Coulomb logarithm, positive.</p>
+</td></tr>
+  <tr><td><code>prefactor</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The order-unity $C$ of the asymptotic formula, required: fits to kinetic solutions put it between about 0.3 and 1, so there is no canonical default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3 s^-1</td><td><p>Primary generation rate; zero where $E \le 0$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$v_{te} = \sqrt{2eT_e/m_e}$; $E_D$ is <code class="language-plaintext highlighter-rouge">dreicer_field</code>. The prefactor is
+an explicit argument because published fits differ by a factor of a few.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A density, temperature, <code class="language-plaintext highlighter-rouge">Z_eff</code> or <code class="language-plaintext highlighter-rouge">ln_Lambda</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Steady state, $E \ll E_D$ (the asymptotic regime), non-relativistic
+thermal electrons – the relativistic correction factor
+$\exp[-(T_e/m_ec^2)(E_D^2/8E^2 + \ldots)]$ of Connor &amp; Hastie is dropped –
+a classical fully ionised plasma (no partial screening), no hot tail;
+unreliable above $E/E_D \approx 0.1$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. W. Connor and R. J. Hastie, Nucl. Fusion 15 (1975) 415, Eq. (62).
+</li>
+  <li>L. Hesslow et al., Nucl. Fusion 59 (2019) 084004, Eq. (4) (the form written here).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="inductive_parallel_electric_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#inductive_parallel_electric_field"><code>inductive_parallel_electric_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L165" title="vaft/formula/disruption.py, line 165">source</a>
+</header>
+    <pre class="ref-signature"><code>inductive_parallel_electric_field(L_p, dI_p_dt, R0)</code></pre>
+
+    <p>Parallel electric field a changing plasma current induces in the plasma.</p>
+
+\[E_\parallel = -\frac{L_p}{2\pi R_0}\,\frac{dI_p}{dt}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>L_p</code></td><td class="ref-type">float</td><td class="ref-unit">H</td><td><p>Plasma self-inductance, positive.</p>
+</td></tr>
+  <tr><td><code>dI_p_dt</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A/s</td><td><p>Rate of change of the plasma current.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>$E_\parallel$, positive along the current when it decays.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed along the current: a decaying current ($dI_p/dt &lt; 0$) gives
+$E_\parallel &gt; 0$, the field that keeps pushing the current-carrying
+electrons. The flux linked with the vessel and coils is ignored, so this
+is the upper estimate an isolated plasma would see.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">L_p</code> or <code class="language-plaintext highlighter-rouge">R0</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The magnetic energy $\tfrac12 L_pI_p^2$ cannot vanish instantly: a fast
+current quench turns it into a loop voltage $L_p|dI_p/dt|$, which spread
+over the circumference $2\pi R_0$ is the field that can exceed $E_c$
+by orders of magnitude.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Uniform field over the cross-section; lumped (0-D) inductance.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 7.10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="relativistic_collision_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#relativistic_collision_time"><code>relativistic_collision_time</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L343" title="vaft/formula/disruption.py, line 343">source</a>
+</header>
+    <pre class="ref-signature"><code>relativistic_collision_time(n_e, ln_Lambda)</code></pre>
+
+    <p>Collision time of a relativistic electron, $\tau_c = m_ec/(eE_c)$.</p>
+
+\[\tau_c = \frac{4\pi\varepsilon_0^2m_e^2c^3}{n_ee^4\ln\Lambda}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relativistic Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_c$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An argument is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The time the critical field takes to give an electron momentum $m_ec$;
+the avalanche grows on $\tau_c\ln\Lambda$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>M. N. Rosenbluth and S. V. Putvinski, Nucl. Fusion 37 (1997) 1355.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="runaway_critical_momentum" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#runaway_critical_momentum"><code>runaway_critical_momentum</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L304" title="vaft/formula/disruption.py, line 304">source</a>
+</header>
+    <pre class="ref-signature"><code>runaway_critical_momentum(E, E_c)</code></pre>
+
+    <p>Critical momentum above which an electron runs away, in units of $m_ec$.</p>
+
+\[p_c = \frac{1}{\sqrt{E/E_c - 1}},\qquad E &gt; E_c\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>E</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>Parallel electric field, magnitude.</p>
+</td></tr>
+  <tr><td><code>E_c</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">V/m</td><td><p>Critical field (<code class="language-plaintext highlighter-rouge">connor_hastie_critical_field</code>), positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$p_c$; <code class="language-plaintext highlighter-rouge">inf</code> where $E \le E_c$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">E_c</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>A test electron moving along the field with the relativistic drag
+$\propto 1 + 1/p^2$; pitch-angle scattering (the $Z_\mathrm{eff}$ factor)
+and radiation raise $p_c$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>B. N. Breizman et al., Nucl. Fusion 59 (2019) 083001, Sec. 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="runaway_current_from_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#runaway_current_from_density"><code>runaway_current_from_density</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L564" title="vaft/formula/disruption.py, line 564">source</a>
+</header>
+    <pre class="ref-signature"><code>runaway_current_from_density(n_RE, area)</code></pre>
+
+    <p>Current carried by runaway electrons moving at the speed of light.</p>
+
+\[I_\mathrm{RE} = e\,c\,n_\mathrm{RE}\,A\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_RE</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Runaway-electron density, non-negative.</p>
+</td></tr>
+  <tr><td><code>area</code></td><td class="ref-type">float</td><td class="ref-unit">m^2</td><td><p>Poloidal cross-section they occupy, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>$I_\mathrm{RE}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">n_RE</code> is negative or <code class="language-plaintext highlighter-rouge">area</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Every runaway moves along $\mathbf B$ at $v \simeq c$, uniform over the
+area; pitch-angle spread lowers the parallel velocity somewhat.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>B. N. Breizman et al., Nucl. Fusion 59 (2019) 083001, Sec. 1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="thermal_quench_temperature" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/31df7e1dcf5ff7a13968980fcf110d0e57a7dd55/vaft/formula/disruption.py#L78" title="vaft/formula/disruption.py, line 78">source</a>
+</header>
+    <pre class="ref-signature"><code>thermal_quench_temperature(t, T_0, T_final, tau_TQ)</code></pre>
+
+    <p>Prescribed exponential thermal quench of the electron temperature.</p>
+
+\[T_e(t) = T_\mathrm{f} + (T_0 - T_\mathrm{f})\,e^{-t/\tau_\mathrm{TQ}},\quad t \ge 0;\qquad T_e = T_0,\ t &lt; 0\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Time from the start of the quench.</p>
+</td></tr>
+  <tr><td><code>T_0</code></td><td class="ref-type">float</td><td class="ref-unit">eV</td><td><p>Pre-disruption temperature.</p>
+</td></tr>
+  <tr><td><code>T_final</code></td><td class="ref-type">float</td><td class="ref-unit">eV</td><td><p>Post-quench temperature, positive and below <code class="language-plaintext highlighter-rouge">T_0</code>.</p>
+</td></tr>
+  <tr><td><code>tau_TQ</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>Quench e-folding time, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>$T_e(t)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A temperature or <code class="language-plaintext highlighter-rouge">tau_TQ</code> is not positive, or <code class="language-plaintext highlighter-rouge">T_final &gt; T_0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>A prescribed shape, not a transport or radiation calculation: real
+quenches are often two-stage (a fast conductive drop after stochastisation,
+then radiative cooling to a few eV) and not exponential.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/geometric-approximations/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Geometric approximations">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/ripple/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: ripple">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: ripple",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_ripple.md",
+            "ref": "_guide/Formula_reference_ripple.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_disruption.md",
+        "mtime": "2026-09-27 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-28 12:48:04 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
