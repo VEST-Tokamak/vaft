@@ -100,7 +100,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
-    # writes, plus the canonical-IDS contract fixtures.
+    # writes, plus the canonical-IDS contract fixtures and the canonical
+    # public-database tables (synthetic rows, mocked network).
     "contracts/test_contract_legacy_rejections.py",
     "contracts/test_contract_samples.py",
     "contracts/test_contract_synthetic.py",
@@ -112,6 +113,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
+    "test_public_confinement.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
@@ -164,6 +166,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
     "test_diagram_transport_regimes.py",
+    "test_diagram_vde.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
