@@ -1197,6 +1197,30 @@ _SURFACE_QUANTITIES = (
 )
 
 
+def _boundary_x_points(item: GEQDSK) -> tuple[tuple[float, float], ...]:
+    """The X-points that bound the plasma, for ``boundary.x_point`` (#238).
+
+    Only saddles that :func:`~vaft.process.equilibrium.derive_boundary_representation`
+    classifies as *active* -- carrying the boundary flux, with a separatrix the
+    confined region reaches -- are X-points of the boundary.  A reconstructed
+    map has many other saddles in the vacuum (seventeen on the packaged 48224
+    g-file), and none of them belong in this leaf; a limited plasma has no
+    boundary X-point and gets an empty result.
+
+    OMFIT's own ``boundary.x_point`` is not a reference for this: on the
+    packaged 48224 ODS it holds a NaN entry and a point about 1 cm from the
+    magnetic axis, which is not a saddle of that map.
+    """
+    try:
+        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+        representation = derive_boundary_representation(as_equilibrium(item))
+    except Exception as exc:  # noqa: BLE001 -- the rest of the conversion stands
+        warnings.warn(f"boundary.x_point not written: the X-point search failed ({exc})", stacklevel=3)
+        return ()
+    return tuple((float(point.r), float(point.z)) for point in representation.x_points if point.active)
+
+
 def _surface_geometry(
     data: Mapping[str, Any], psi_norm: np.ndarray
 ) -> Optional[dict[str, np.ndarray]]:
@@ -1380,6 +1404,10 @@ def to_omas(
     if float(data["CURRENT"]) != 0.0:
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)
         eqt["boundary.outline.z"] = np.asarray(data.get("ZBBBS", []), dtype=float)
+        if allow_derived_data:
+            for index, (r_x, z_x) in enumerate(_boundary_x_points(item)):
+                eqt[f"boundary.x_point.{index}.r"] = r_x
+                eqt[f"boundary.x_point.{index}.z"] = z_x
 
     if allow_derived_data:
         # Tracing every flux surface is the expensive part of this conversion,
