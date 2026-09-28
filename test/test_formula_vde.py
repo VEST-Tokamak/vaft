@@ -48,5 +48,6 @@ def test_halo_fraction_and_peaking():
     for bad in (np.array([1.0]), np.array([1.0, -1.0]), np.zeros(4)):
         with pytest.raises(ValueError):
             toroidal_peaking_factor(bad)
-    with pytest.raises(ValueError):
-        halo_current_fraction(-1.0, 1e6)
+    for bad in ((-1.0, 1e6), (np.nan, 1e6), (1.0, np.array([1e6, 2e6])), (1.0, 0.0)):
+        with pytest.raises(ValueError):
+            halo_current_fraction(*bad)

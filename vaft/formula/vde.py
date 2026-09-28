@@ -32,10 +32,10 @@ the ITER Physics Basis convention.
 
 References
 ----------
-.. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.4-3.5
-       (VDEs and halo currents).
+.. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128 (ITER Physics Basis,
+       Chapter 3: MHD stability, operational limits and disruption management).
 .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
-       Sec. 12.4 (resistive wall).
+       the resistive-wall chapter.
 """
 
 import numpy as np
@@ -89,7 +89,7 @@ def vertical_velocity(t, Z):
 
     References
     ----------
-    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.4.
+    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
     """
     t, Z = _series(t, Z, "Z")
     return np.gradient(Z, t)
@@ -112,7 +112,8 @@ def vde_growth_rate(t, Z, Z0):
     Returns
     -------
     np.ndarray
-        $\gamma_\mathrm{VDE}$ on ``t``; NaN where $\Delta Z = 0$ [1/s].
+        $\gamma_\mathrm{VDE}$ on ``t``; NaN where $\Delta Z = 0$ and at its
+        neighbouring samples, which the central difference reaches [1/s].
 
     Raises
     ------
@@ -129,12 +130,13 @@ def vde_growth_rate(t, Z, Z0):
     Physical interpretation
     -----------------------
     With a conducting wall the growth is slowed from the Alfvenic ideal rate
-    to the wall time (``thin_wall_time``); $1/\gamma$ read off a measured
+    to a rate set by the wall eddy time (``wall_mode_decay_time``, $m = 1$)
+    divided by the stability margin; $1/\gamma$ read off a measured
     displacement says which regime an interval is in.
 
     References
     ----------
-    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.4.
+    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
     """
     t, Z = _series(t, Z, "Z")
     dZ = np.abs(Z - float(Z0))
@@ -172,7 +174,9 @@ def thin_wall_time(sigma, d, b):
     The thin-wall time of the resistive-wall-mode literature (Freidberg). The
     eddy pattern of a poloidal harmonic $m$ decays in $\tau_w/(2m)$
     (``wall_mode_decay_time``); the vertical ($m = 1$) displacement sees
-    $\tau_w/2$. A real vessel with ports, gaps and several shells has a
+    $\tau_w/2$ as its eddy time -- its growth time is that divided by the
+    stability margin, not equal to it. Some resistive-wall-mode papers call
+    $\mu_0\sigma db/2$ "$\tau_w$": the definition here is explicit. A real vessel with ports, gaps and several shells has a
     spectrum of times; its circuit elements' $L/R$ are ``lr_time_from_L_R``.
 
     Assumptions
@@ -182,8 +186,8 @@ def thin_wall_time(sigma, d, b):
 
     References
     ----------
-    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
-           Sec. 12.4.
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014), the
+           resistive-wall chapter.
     """
     arrays = [np.asarray(v, dtype=float) for v in (sigma, d, b)]
     if any(np.any(~np.isfinite(a)) or np.any(a <= 0.0) for a in arrays):
@@ -221,8 +225,8 @@ def wall_mode_decay_time(tau_w, m):
 
     References
     ----------
-    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
-           Sec. 12.4.
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014), the
+           resistive-wall chapter.
     """
     if isinstance(m, bool) or int(m) != m or int(m) < 1:
         raise ValueError(f"m must be a positive integer, not {m!r}")
@@ -263,14 +267,18 @@ def halo_current_fraction(I_halo_peak, I_p0):
 
     References
     ----------
-    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.5.
+    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
     """
     I_halo_peak = np.asarray(I_halo_peak, dtype=float)
     if np.any(I_halo_peak < 0.0):
         raise ValueError("I_halo_peak must be non-negative (a magnitude)")
+    if np.ndim(I_p0) != 0:
+        raise ValueError("I_p0 must be a scalar current")
     I_p0 = float(I_p0)
     if I_p0 == 0.0 or not np.isfinite(I_p0):
         raise ValueError("I_p0 must be finite and non-zero")
+    if np.any(~np.isfinite(I_halo_peak)):
+        raise ValueError("I_halo_peak must be finite")
     out = I_halo_peak / abs(I_p0)
     return float(out) if np.ndim(out) == 0 else out
 
@@ -305,7 +313,7 @@ def toroidal_peaking_factor(j_halo_phi):
 
     References
     ----------
-    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128, Sec. 3.5.
+    .. [1] T. C. Hender et al., Nucl. Fusion 47 (2007) S128.
     """
     j = np.asarray(j_halo_phi, dtype=float)
     if j.shape[-1:] == () or j.shape[-1] < 2:
