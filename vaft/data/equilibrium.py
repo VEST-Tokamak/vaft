@@ -435,6 +435,46 @@ class FourierSequenceResult:
 
 
 @dataclass(frozen=True)
+class SolovevFit:
+    """A Solov'ev model fitted to an existing equilibrium, with its fidelity (#1166).
+
+    ``status`` is ``"accepted"``, ``"poor_fidelity"`` (a valid model that
+    misses the equilibrium by more than the tolerance), ``"not_representable"``
+    (the fitted flux has no closed boundary) or ``"failed"`` (no model).
+    ``metrics`` holds only what was evaluated.
+    """
+
+    model: "SolovevEquilibrium | None"
+    metrics: Mapping[str, Any]
+    status: str
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
+class MXHChebyshevRepresentation:
+    """Flux surfaces as MXH shapes with shifted-Chebyshev radial profiles (Xie & Li 2026; #1166).
+
+    ``profiles[name] = (edge_value, coefficients)`` for ``h``, ``v``,
+    ``kappa``, ``a``, ``c0`` and ``c1..cM``, ``s1..sM``; each profile is
+    ``edge_value + sum_l coefficients[l] (1 - rho**2) T_l(2 rho**2 - 1)`` in
+    ``rho = sqrt(psi_N)``.  ``status`` is ``"accepted"``, ``"poor_fidelity"``
+    or ``"failed"`` (too few closed surfaces for the radial order).
+    """
+
+    r0: float
+    z0: float
+    harmonics: int
+    radial_order: int
+    profiles: Mapping[str, tuple[float, tuple[float, ...]]]
+    parameter_count: int
+    metrics: Mapping[str, float]
+    status: str
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
 class GradShafranovResidualModes:
     """The Grad-Shafranov residual projected onto poloidal harmonics, surface by surface (#948).
 
@@ -590,6 +630,6 @@ __all__ = [
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
     "ValidationReport", "XPoint", "CurrentMomentRepresentation", "GradShafranovResidualModes", "FourierFitResult",
-    "GuazzottoFreidbergEquilibrium", "FourierSequenceResult", "FourierSurface", "SOLOVEV_BASIS_SIZES",
-    "SOLOVEV_CONSTRAINT_KINDS",
+    "GuazzottoFreidbergEquilibrium", "FourierSequenceResult", "FourierSurface", "MXHChebyshevRepresentation",
+    "SolovevFit", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]
