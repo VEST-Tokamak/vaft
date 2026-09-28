@@ -642,8 +642,9 @@ the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace
 Metadata is progressive, and nothing is fabricated:
 - level 0 is the semantic identity (stage, charge, element);
 - level 1 is what the data declare (the wavelength in an IMAS `processed_line` label such as `OI_7770`);
-- hydrogenic lines add exact Bohr levels and Rydberg vacuum wavelengths with the isotope's reduced mass
-  (`hydrogenic_energy_level` and `hydrogenic_transition_wavelength` in `vaft.formula.atomic`);
+- hydrogenic lines add Bohr-model levels and Rydberg vacuum wavelengths with the isotope's reduced mass
+  (`hydrogenic_energy_level` and `hydrogenic_transition_wavelength` in `vaft.formula.atomic`). For one-electron
+  systems this model is the authoritative source; each model records it under `source`;
 - many-electron levels and photon emissivities would need OPEN-ADAS ADF04 and ADF15. Those are extension
   points and are not loaded; ADF11 stays in `vaft.formula.atomic`.
 
@@ -667,9 +668,9 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | Diagram | Concept |
 | --- | --- |
 | `spectroscopy_ionization_stages` | Every stage of an element, with the named one outlined. Stage $s$ is charge $s - 1$, and D and T are hydrogen with a mass number. Semantic only |
-| `spectroscopy_transitions` | A hydrogen series member gets exact levels and its vacuum wavelength (an unspecified isotope is taken as protium). Any other line gets unnamed levels, and a wavelength only if its label declares one |
+| `spectroscopy_transitions` | A hydrogen series member gets Bohr-model levels and its vacuum wavelength (an unspecified isotope is taken as protium, and the title says so). Fully stripped ions are refused, since they have no lines. Any other line gets unnamed levels, and a wavelength only if its label declares one |
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
-| `spectroscopy_spectrum` | Declared lines, each at its label's wavelength. Lines with no wavelength are listed, not placed |
+| `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
 ## Using the committed assets
 

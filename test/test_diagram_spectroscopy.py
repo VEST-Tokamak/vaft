@@ -11,11 +11,14 @@ from vaft.spectroscopy import matches, parse_emission_term, parse_line_label
 
 
 def test_hydrogenic_lines_are_the_known_vacuum_wavelengths():
-    # NIST vacuum wavelengths: H-alpha 656.47 nm, H-beta 486.27 nm, D-alpha 656.29 nm, He II 4->3 468.7 nm
-    assert hydrogenic_transition_wavelength(3, 2, 1, 1) * 1e9 == pytest.approx(656.47, abs=0.02)
-    assert hydrogenic_transition_wavelength(4, 2, 1, 1) * 1e9 == pytest.approx(486.27, abs=0.02)
-    assert hydrogenic_transition_wavelength(3, 2, 1, 2) * 1e9 == pytest.approx(656.29, abs=0.02)
-    assert hydrogenic_transition_wavelength(4, 3, 2, None) * 1e9 == pytest.approx(468.7, abs=0.1)
+    # Bohr-model vacuum values (NIST differs by the fine structure, ~0.02 nm): H-alpha 656.47, H-beta 486.27,
+    # D-alpha 656.29 (isotope shift 0.179 nm); He II 4->3 at infinite nuclear mass 468.65
+    assert hydrogenic_transition_wavelength(3, 2, 1, 1) * 1e9 == pytest.approx(656.470, abs=2e-3)
+    assert hydrogenic_transition_wavelength(4, 2, 1, 1) * 1e9 == pytest.approx(486.274, abs=2e-3)
+    assert hydrogenic_transition_wavelength(3, 2, 1, 2) * 1e9 == pytest.approx(656.291, abs=2e-3)
+    assert hydrogenic_transition_wavelength(4, 3, 2, None) * 1e9 == pytest.approx(468.652, abs=2e-3)
+    with pytest.raises(ValueError, match="hydrogen isotope"):
+        hydrogenic_transition_wavelength(4, 3, 2, 2)  # a deuteron's mass is not He II's
     assert hydrogenic_energy_level(1, 1, None) == pytest.approx(-13.6057, abs=1e-3)
     assert hydrogenic_energy_level(1, 2, None) == pytest.approx(4 * hydrogenic_energy_level(1, 1, None))
     for bad in ((0, 1, None), (1, 0, None), (1, 1, 4)):
@@ -32,14 +35,33 @@ def test_the_declared_labels_are_the_machine_mappings():
     assert list(sp.DECLARED_LABELS) == declared
 
 
-@pytest.mark.parametrize("term", ["H-alpha", "D-alpha", "C III", "C2+", "carbon", "OI", "O V"])
+SPELLINGS = ["H-alpha", "Halpha", "H\u03b1", "D-alpha", "C III", "C2+", "carbon", "OI", "O I", "O0", "O+", "O II",
+             "O V", "hydrogen"]
+
+
+def _plot_selection(term, labels):
+    """The (channel, line) pairs vaft.plot's emission= resolver picks from these labels, or an empty list."""
+    from omas import ODS
+
+    from vaft.plot.backend.recipes import RECIPES, _resolve_emission
+
+    ods = ODS()
+    for k, lab in enumerate(labels):
+        ods[f"spectrometer_uv.channel.0.processed_line.{k}.label"] = lab
+    try:
+        return [line for _ch, line in _resolve_emission(ods, RECIPES["spectrometer_uv_time_intensity"], [0], term, None)]
+    except ValueError:
+        return []
+
+
+@pytest.mark.parametrize("term", SPELLINGS)
 def test_diagram_and_plot_selectors_agree(term):
-    # the diagram resolves a term exactly as emission= does, and selects the same declared lines
+    # the diagram resolves a term to the identity emission= resolves, and so picks the same declared lines
     ident = sp.identity(term)
-    assert ident == parse_emission_term(term)
-    selected = [lab for lab in sp.DECLARED_LABELS if matches(parse_emission_term(term), parse_line_label(lab))]
-    for lab in selected:
-        assert matches(ident, parse_line_label(lab))
+    labels = list(sp.DECLARED_LABELS)
+    by_plot = _plot_selection(term, labels)
+    by_diagram = [k for k, lab in enumerate(labels) if matches(ident, parse_line_label(lab))]
+    assert by_plot == by_diagram
 
 
 def test_ionization_stages_mark_the_named_stage():
@@ -48,7 +70,9 @@ def test_ionization_stages_mark_the_named_stage():
     w = vaft.diagram.spectroscopy_ionization_stages("tungsten").model
     assert w["stages"][-1] == 75 and None in w["stages"]
     d = vaft.diagram.spectroscopy_ionization_stages("D-alpha").model
-    assert d["element"] == "H" and d["stages"] == [1, 2]
+    assert d["element"] == "H" and d["stages"] == [1, 2] and d["selected"] == 1  # a series line is H I
+    w20 = vaft.diagram.spectroscopy_ionization_stages("W XX").model
+    assert 20 in w20["stages"]  # the named stage stays in view when the chain is elided
 
 
 def test_transitions_never_invent_a_wavelength():
@@ -57,7 +81,13 @@ def test_transitions_never_invent_a_wavelength():
     o = vaft.diagram.spectroscopy_transitions("OI_7770").model
     assert not o["hydrogenic"] and o["wavelength_m"] == pytest.approx(777.0e-9)
     c = vaft.diagram.spectroscopy_transitions("C III").model
-    assert c["wavelength_m"] is None  # nothing declared, nothing drawn
+    assert c["wavelength_m"] is None and c["source"] is None  # nothing declared, nothing drawn
+    assert "assumed" not in h["source"] and o["source"] == "the IMAS processed_line label"
+    # a stored label names hydrogen without its isotope: protium is assumed, and said so
+    assert "protium assumed" in vaft.diagram.spectroscopy_transitions("H-alpha_6563").model["source"]
+    for bad in ("H II", "C VII", "hydrogen"):
+        with pytest.raises(ValueError):
+            vaft.diagram.spectroscopy_transitions(bad)
     assert "not declared" in " ".join(i.text for i in vaft.diagram.spectroscopy_transitions("C III").scene.items
                                       if isinstance(i, Label))
 
@@ -68,6 +98,8 @@ def test_energy_levels_are_hydrogenic_only():
     assert all(m["levels"][n] < m["levels"][n + 1] for n in range(1, 7))
     with pytest.raises(ValueError, match="ADF04"):
         vaft.diagram.spectroscopy_energy_levels("OI_7770")
+    with pytest.raises(ValueError, match="bare nucleus"):
+        vaft.diagram.spectroscopy_energy_levels("H II")
 
 
 def test_the_spectrum_places_only_declared_or_hydrogenic_lines():

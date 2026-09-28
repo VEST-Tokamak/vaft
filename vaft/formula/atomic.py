@@ -550,8 +550,8 @@ def hydrogenic_energy_level(n, Z=1, mass_number=None):
     Z : int, optional
         Nuclear charge of the one-electron ion (1 for H I, 2 for He II) [-].
     mass_number : int or None, optional
-        1, 2 or 3 for H, D, T (the reduced mass $\mu = m_eM/(m_e + M)$); ``None``
-        for an infinitely heavy nucleus [-].
+        1, 2 or 3 for H, D, T (the reduced mass $\mu = m_eM/(m_e + M)$), only with
+        ``Z = 1``; ``None`` for an infinitely heavy nucleus [-].
 
     Returns
     -------
@@ -561,13 +561,15 @@ def hydrogenic_energy_level(n, Z=1, mass_number=None):
     Raises
     ------
     ValueError
-        ``n`` below one, ``Z`` below one, or an unknown ``mass_number``.
+        ``n`` below one, ``Z`` below one, an unknown ``mass_number``, or a
+        ``mass_number`` with ``Z > 1``.
 
     Assumptions
     -----------
     Non-relativistic Bohr/Schroedinger levels of a one-electron ion: no fine
-    structure, Lamb shift or hyperfine splitting. Exact in that model; not a
-    stand-in for many-electron levels, which need atomic data (ADF04).
+    structure, Lamb shift or hyperfine splitting (H-alpha's fine structure
+    spans about 0.016 nm). Not a stand-in for many-electron levels, which need
+    atomic data (ADF04).
 
     References
     ----------
@@ -581,6 +583,9 @@ def hydrogenic_energy_level(n, Z=1, mass_number=None):
         raise ValueError("n must be a positive integer")
     if int(Z) != Z or Z < 1:
         raise ValueError(f"Z must be a positive integer, not {Z!r}")
+    if mass_number is not None and Z != 1:
+        raise ValueError("mass_number names a hydrogen isotope (H, D, T): it cannot give the nuclear mass of a "
+                         f"Z = {Z} ion; pass None (infinite nuclear mass)")
     rydberg_eV = ME * QE**4 / (8.0 * EPS0**2 * H_PLANCK**2) / QE
     out = -_reduced_mass_factor(mass_number) * rydberg_eV * Z**2 / n**2
     return float(out) if np.ndim(out) == 0 else out

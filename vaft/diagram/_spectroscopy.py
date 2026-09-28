@@ -4,8 +4,8 @@
     every ionization stage of an element, the selected one highlighted, with
     ionization and recombination between neighbours;
 ``spectroscopy_transitions``
-    the transition behind one emission term: exact levels and wavelength for
-    a hydrogenic series member, and for any other line only what its label
+    the transition behind one emission term: Bohr-model levels and wavelength
+    for a hydrogenic series member, and for any other line only what its label
     declares;
 ``spectroscopy_energy_levels``
     the hydrogenic level ladder with the Lyman, Balmer and Paschen series;
@@ -17,7 +17,7 @@ The vocabulary is :mod:`vaft.spectroscopy` (``parse_emission_term``,
 ``emission=`` uses in :mod:`vaft.plot`, so a term that selects a trace
 selects the same diagram. Metadata enrichment is progressive: level 0 is the
 semantic identity (stage, charge, element); level 1 adds what the data
-declares (a wavelength in the IMAS label); hydrogenic lines add exact Bohr
+declares (a wavelength in the IMAS label); hydrogenic lines add Bohr-model
 levels (``hydrogenic_energy_level``, ``hydrogenic_transition_wavelength``).
 Nothing is fabricated: a many-electron line without a declared wavelength is
 drawn without one, and its levels wait for OPEN-ADAS ADF04 / ADF15, which
@@ -36,6 +36,7 @@ from vaft.spectroscopy import (
     ATOMIC_NUMBERS,
     SERIES_NAMES,
     LineIdentity,
+    Species,
     charge_state_of,
     format_species,
     parse_emission_term,
@@ -53,7 +54,6 @@ DECLARED_LABELS = ("H-alpha_6563", "OI_7770", "H-beta_4861", "H-gamma_4340", "CI
                    "OII_3726", "OV_629")
 #: Balmer upper level of each series letter (the fusion-diagnostic convention: alpha is 3 -> 2)
 BALMER_UPPER = {name: 3 + k for k, name in enumerate(SERIES_NAMES)}
-_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
 
 
 def _check_labels(labels) -> bool:
@@ -67,7 +67,12 @@ def _note(text: str, x: float, y: float) -> Label:
 
 
 def identity(term) -> LineIdentity:
-    """The line identity of a term or IMAS label, through the same parsers ``emission=`` uses."""
+    """The line identity of a term or IMAS label, through the same parsers ``emission=`` uses.
+
+    The emission-term parser first (it keeps the isotope: ``"H-alpha"`` is
+    protium), the IMAS label parser second -- which only a stored label such
+    as ``"OI_7770"`` reaches; ``emission=`` takes such a label literally.
+    """
     if isinstance(term, LineIdentity):
         return term
     # the emission-term parser first (it keeps the isotope: "H-alpha" is protium), the IMAS label parser second
@@ -77,13 +82,10 @@ def identity(term) -> LineIdentity:
     return found
 
 
-def _roman(stage: int) -> str:
-    return _ROMAN[stage - 1] if stage <= len(_ROMAN) else str(stage)
-
-
 def _stage_text(element: str, stage: int) -> str:
+    name = format_species(Species(element, None, stage))  # vaft.spectroscopy's own notation
     q = charge_state_of(stage)
-    return f"{element} {_roman(stage)}\\\\ $\\mathrm{{{element}}}^{{{q}+}}$" if q else f"{element} I\\\\ neutral"
+    return f"{name}\\\\ $\\mathrm{{{element}}}^{{{q}+}}$" if q else f"{name}\\\\ neutral"
 
 
 def spectroscopy_ionization_stages(term="C III", *, labels: bool = True) -> Diagram:
@@ -100,10 +102,16 @@ def spectroscopy_ionization_stages(term="C III", *, labels: bool = True) -> Diag
     ident = identity(term)
     element = "H" if ident.species.element in ("D", "T") else ident.species.element
     Z = ATOMIC_NUMBERS[element]
+    selected = ident.species.ionization_stage
+    if selected is None and ident.series is not None:
+        selected = 1  # a hydrogen series member is a line of the neutral atom
     stages = list(range(1, Z + 2))
     if len(stages) > 12:
-        stages = stages[:10] + [None, Z + 1]
-    selected = ident.species.ionization_stage
+        head = stages[:9]
+        if selected is not None and selected > 9 and selected < Z + 1:
+            stages = head + [None, selected, None, Z + 1]  # keep the named stage in view
+        else:
+            stages = head + [None, Z + 1]
     items: List = []
     boxes = []
     for k, stage in enumerate(stages):
@@ -148,7 +156,7 @@ def spectroscopy_transitions(term="H-alpha", *, labels: bool = True) -> Diagram:
 
     A hydrogen series member (``"H-alpha"``, ``"D-beta"``, ``"H-alpha_6563"``)
     is a Balmer line: its levels $n = 3, 4, \ldots \to 2$ and vacuum wavelength
-    are exact (``hydrogenic_energy_level``,
+    are the Bohr-model values (``hydrogenic_energy_level``,
     ``hydrogenic_transition_wavelength``, with the isotope's reduced mass;
     an unspecified isotope is taken as protium). Any
     other line (``"OI_7770"``, ``"C III"``) is drawn as an unnamed upper and
@@ -158,12 +166,20 @@ def spectroscopy_transitions(term="H-alpha", *, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     ident = identity(term)
+    element = "H" if ident.species.element in ("D", "T") else ident.species.element
+    stage = ident.species.ionization_stage
+    if stage is not None and stage == ATOMIC_NUMBERS[element] + 1:
+        raise ValueError(f"{term!r} is a fully stripped ion: it has no bound levels and emits no lines")
     pair = _balmer(ident)
+    if pair is None and element == "H":
+        raise ValueError(f"{term!r} names hydrogen but no line: pass a series member such as 'H-alpha' or 'D-beta'")
     items: List = []
     model = {"identity": ident, "hydrogenic": pair is not None}
     if pair is not None:
         n_u, n_l = pair
+        assumed = ident.species.mass_number is None
         mass = ident.species.mass_number or 1  # an unspecified hydrogen isotope is taken as protium
+        model["source"] = "vaft.formula.atomic: Bohr model with the reduced mass" + (", protium assumed" if assumed else "")
         E_u, E_l = hydrogenic_energy_level(n_u, 1, mass), hydrogenic_energy_level(n_l, 1, mass)
         lam = hydrogenic_transition_wavelength(n_u, n_l, 1, mass)
         scale = 6.0 / abs(E_l)
@@ -177,13 +193,14 @@ def spectroscopy_transitions(term="H-alpha", *, labels: bool = True) -> Diagram:
             items += [Label((5.2, y_u), f"$n = {n_u}$, ${E_u:.3f}$ eV", "small label", anchor="west", role="level"),
                       Label((5.2, y_l), f"$n = {n_l}$, ${E_l:.3f}$ eV", "small label", anchor="west", role="level"),
                       Label((5.2, 8.0), "ionization limit, 0 eV", "small label", anchor="west", role="level"),
-                      Label((2.7, 0.5 * (y_u + y_l)), f"$\\lambda = {lam * 1e9:.2f}$ nm (vacuum)", "small label",
+                      Label((2.7, 0.5 * (y_u + y_l)), f"$\\lambda = {lam * 1e9:.1f}$ nm (vacuum, Bohr)", "small label",
                             anchor="west", role="wavelength")]
             declared = ident.wavelength_angstrom
             if declared:
-                items.append(Label((2.7, 0.5 * (y_u + y_l) - 0.5), f"label declares {declared / 10:g} nm (air)",
+                items.append(Label((2.7, 0.5 * (y_u + y_l) - 0.5), f"label declares {declared / 10:g} nm (air, by convention)",
                                    "small label", anchor="west", role="wavelength_declared"))
-            title = f"{format_species(ident.species)}-{ident.series}: Balmer $n = {n_u} \\to {n_l}$"
+            title = (f"{format_species(ident.species)}-{ident.series}: Balmer $n = {n_u} \\to {n_l}$"
+                     + (" (protium assumed)" if assumed else ""))
             items += [Label((2.5, 8.6), title, "label", anchor="south", role="title"),
                       Label((2.5, -0.3), f"$\\displaystyle {formula_equation(hydrogenic_transition_wavelength)}$",
                             "formula box", anchor="north", role="equations")]
@@ -193,6 +210,7 @@ def spectroscopy_transitions(term="H-alpha", *, labels: bool = True) -> Diagram:
                   Arrow((2.5, 5.0), (2.5, 1.5), "drift", role="transition")]
         lam = ident.wavelength_angstrom
         model["wavelength_m"] = lam * 1e-10 if lam else None
+        model["source"] = "the IMAS processed_line label" if lam else None
         if labels:
             stage = ident.species.ionization_stage
             who = format_species(ident.species)
@@ -200,13 +218,14 @@ def spectroscopy_transitions(term="H-alpha", *, labels: bool = True) -> Diagram:
                       Label((5.2, 1.5), "lower level (not identified)", "small label", anchor="west", role="level"),
                       Label((2.7, 3.25), f"$\\lambda = {lam / 10:g}$ nm, as declared" if lam else
                             "$\\lambda$ not declared", "small label", anchor="west", role="wavelength"),
-                      Label((2.5, 5.6), f"{who}" + (f" (charge {charge_state_of(stage)}+)" if stage else "")
+                      Label((2.5, 5.6), f"{who}" + ((f" (charge {charge_state_of(stage)}+)" if charge_state_of(stage)
+                                                     else " (neutral)") if stage else "")
                             + ": a line of this stage", "label", anchor="south", role="title"),
                       _note("Levels need ADF04, emissivity ADF15 (extension points, not loaded); nothing here is "
                             "invented", 2.5, 0.8)]
     if labels and pair is not None:
-        items.append(_note("Hydrogenic levels are exact in the Bohr model (no fine structure); vacuum wavelength -- "
-                           "tabulated visible lines are in air", 2.5, -1.9))
+        items.append(_note("Bohr-model levels with the reduced mass (no fine structure, about 0.02 nm here); vacuum "
+                           "wavelength -- tabulated visible lines are in air", 2.5, -1.9))
     return Diagram("spectroscopy_transitions", Scene(tuple(items)), model=model)
 
 
@@ -223,6 +242,8 @@ def spectroscopy_energy_levels(term="H-alpha", *, n_max: int = 7, labels: bool =
     ident = identity(term)
     if ident.species.element not in ("H", "D", "T"):
         raise ValueError(f"{term!r} is not hydrogenic: its levels need OPEN-ADAS ADF04 data, not loaded here")
+    if ident.species.ionization_stage not in (None, 1):
+        raise ValueError(f"{term!r} is a bare nucleus: it has no bound levels")
     if isinstance(n_max, bool) or not isinstance(n_max, int) or not 4 <= n_max <= 10:
         raise ValueError(f"n_max must be an integer from 4 to 10, not {n_max!r}")
     mass = ident.species.mass_number or 1  # an unspecified hydrogen isotope is taken as protium
@@ -246,9 +267,11 @@ def spectroscopy_energy_levels(term="H-alpha", *, n_max: int = 7, labels: bool =
             lines.append((name, n_u, n_l, hydrogenic_transition_wavelength(n_u, n_l, 1, mass)))
     if labels:
         for n, e in E.items():
-            if n <= 4 or n == n_max:
+            if n <= 3:
                 items.append(Label((11.2, y(e)), f"$n = {n}$: ${e:.2f}$ eV", "small label", anchor="west",
                                    role="level"))
+        items.append(Label((11.2, y(0.0) + 0.05), "$n \\to \\infty$: 0 eV", "small label", anchor="south west",
+                           role="level"))
         for name, (n_l, x0) in series.items():
             band = {"Lyman": "UV", "Balmer": "visible", "Paschen": "IR"}[name]
             items.append(Label((x0 + 0.6, y(E[n_l]) - 0.25), f"{name} ({band})", "small label", anchor="north",
@@ -258,17 +281,23 @@ def spectroscopy_energy_levels(term="H-alpha", *, n_max: int = 7, labels: bool =
                   _note("Bohr levels with the reduced mass (hydrogenic\\_energy\\_level); no fine structure", 5.5,
                         y(E[1]) - 0.9)]
     return Diagram("spectroscopy_energy_levels", Scene(tuple(items)),
-                   model={"identity": ident, "levels": E, "lines": lines, "selected": selected})
+                   model={"identity": ident, "levels": E, "lines": lines, "selected": selected,
+                          "source": "vaft.formula.atomic: Bohr model with the reduced mass"
+                                    + (", protium assumed" if ident.species.mass_number is None else "")})
 
 
 def spectroscopy_spectrum(line_labels: Optional[Sequence[str]] = None, *, labels: bool = True) -> Diagram:
     r"""Declared spectral lines on a wavelength axis, each at the wavelength its label states.
 
-    ``line_labels`` are IMAS ``processed_line.label`` strings (default: the
-    lines the VEST spectrometer declares, ``DECLARED_LABELS``). A line is
-    placed at the wavelength in its label; a hydrogen series member without
-    one at its computed vacuum wavelength (marked); any other line without a
-    wavelength is listed, not placed. Log wavelength axis, 50 to 1000 nm.
+    ``line_labels`` are IMAS ``processed_line.label`` strings or emission
+    terms (default: the lines the VEST spectrometer declares,
+    ``DECLARED_LABELS``). A line is placed at the wavelength in its label; a
+    hydrogen series member without one at its computed vacuum wavelength
+    (dashed); any other line without a wavelength is listed, not placed. The
+    frames differ: declared wavelengths follow the spectroscopic convention
+    (air above 200 nm, vacuum below), computed ones are vacuum -- a 0.18 nm
+    difference at H-alpha, invisible here but not negligible for H/D
+    separation. Log wavelength axis, 50 to 1000 nm.
     """
     labels = _check_labels(labels)
     line_labels = tuple(DECLARED_LABELS if line_labels is None else line_labels)
@@ -310,9 +339,10 @@ def spectroscopy_spectrum(line_labels: Optional[Sequence[str]] = None, *, labels
                                anchor="south west", role=f"line:{lab}"))
     if labels:
         items += [Label((W / 2, -0.8), "wavelength [nm], log scale", "small label", anchor="north", role="axis"),
-                  Label((W / 2, 4.3), "declared spectral lines", "label", anchor="south", role="title"),
-                  _note("Placed at the wavelength each label declares (IMAS processed\\_line syntax, \\AA); dashed: a "
-                        "hydrogen series member placed at its computed vacuum wavelength"
+                  Label((W / 2, 4.3), "spectral lines", "label", anchor="south", role="title"),
+                  _note("Each at the wavelength its label declares (air above 200 nm by convention)"
+                        + ("; dashed: computed vacuum wavelength" if any(src == "computed" for *_x, src in placed)
+                           else "")
                         + (f"; not placed (no wavelength): {', '.join(unplaced)}" if unplaced else ""), W / 2, -1.4)]
     return Diagram("spectroscopy_spectrum", Scene(tuple(items)),
                    model={"placed": placed, "unplaced": unplaced, "labels": line_labels})
