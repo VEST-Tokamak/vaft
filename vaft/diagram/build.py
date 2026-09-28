@@ -91,6 +91,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"stochastic_layer_{regime}.svg": ("stochastic_layer", {"regime": regime})
        for regime in ("isolated", "touching", "overlapping")},
     "separatrix_lobes.svg": ("separatrix_lobes", {}),
+    # vertical displacement events: hot/cold VDE, halo currents, timescales (#1042)
+    **{f"{name}.svg": (name, {}) for name in ("hot_vde_sequence", "cold_vde_bifurcation",
+                                              "plasma_wall_halo_current", "vde_timescales")},
     # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
     **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
                                               "fixed_vs_free_boundary_equilibrium",

@@ -30,6 +30,11 @@
       "source_sha256": "e0d0625ff28c29fc9643182db9641466496bcb9516b472b537c8f22e1be8b99f",
       "svg_sha256": "5b121c5c1426d6af56b4e0046a9478804761ded612ced1df09ede59d34a69d64"
     },
+    "cold_vde_bifurcation.svg": {
+      "call": "vaft.diagram.cold_vde_bifurcation()",
+      "source_sha256": "2d6a7fc1b1e38f046ed4cd0d064b8a12592190311e9ec8b3ba63327171390be0",
+      "svg_sha256": "e5e90929744372446e61671f2c1ca10e226a21e32afab95241e61e17d984d128"
+    },
     "collision_processes.svg": {
       "call": "vaft.diagram.collision_processes()",
       "source_sha256": "91d30b28dcab83f54f218f4d9b72264b22a5756f6ca21f0501a30a4afdb6a410",
@@ -185,6 +190,11 @@
       "source_sha256": "07716a66a3694a3fe1a0efdf5a80907701a474d50b5bcd424d92c75586965fe9",
       "svg_sha256": "f4f29e10649d62cfec43ec2bbfcc8aca796cfcea901d4ea4d92a00860aa5703e"
     },
+    "hot_vde_sequence.svg": {
+      "call": "vaft.diagram.hot_vde_sequence()",
+      "source_sha256": "a716e9da1dd29ab8650ea36c7d35d225f6c9a48eddc56c05445008a9570d7ca2",
+      "svg_sha256": "5b23af7fa0a91efe05887524f618364551c3ef4e7a6da7e8382aeb74fedd3328"
+    },
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
       "source_sha256": "d05ce35409b16c3d2f8843920a361f58ad56e36f85e571584d5f82afc4a111e7",
@@ -269,6 +279,11 @@
       "call": "vaft.diagram.plasma_vacuum_wall()",
       "source_sha256": "4cf36832d82994e30fd27464fdccb9115f797a3abbf84797c8050750b297c3e9",
       "svg_sha256": "b7955ebbca3cd3f447d431f86cd98a8591b28d7d926e0f39bcebc02a86986fcc"
+    },
+    "plasma_wall_halo_current.svg": {
+      "call": "vaft.diagram.plasma_wall_halo_current()",
+      "source_sha256": "646dc39fd95d6c9a427c352443269268758f8006a161da71808c4e5f3439f74c",
+      "svg_sha256": "672b2ce3b69fcebf99adf1e4994059a8f7bb32a0dcc8fef8e29e822c854e46de"
     },
     "poloidal_angle_comparison.svg": {
       "call": "vaft.diagram.poloidal_angle_comparison()",
@@ -469,6 +484,11 @@
       "call": "vaft.diagram.unwrapped_flux_surface()",
       "source_sha256": "db59b6a03bcdfa545074ae6eb79fad80004ac5b8d6f4d956162ae1e9e974b09d",
       "svg_sha256": "da25a78cbc4c4ec0ff6deedff96eb665f4652bff69187e03bf12ee8f8e5f3a9a"
+    },
+    "vde_timescales.svg": {
+      "call": "vaft.diagram.vde_timescales()",
+      "source_sha256": "d6c237898c334810ed976c733bc5e0b4d40faf768893bd79c4416c7a738d47ae",
+      "svg_sha256": "40694b2fdb3f7134c2a671eeb12e65dcd9f5e44750a6646fabb312b9c5e9c2e2"
     },
     "x_point.svg": {
       "call": "vaft.diagram.x_point()",

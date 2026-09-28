@@ -96,6 +96,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
+        "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

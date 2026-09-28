@@ -40,6 +40,7 @@ _IMPORT_ORDER = (
     "particle",
     "geometry",
     "ripple",
+    "vde",
 )
 
 

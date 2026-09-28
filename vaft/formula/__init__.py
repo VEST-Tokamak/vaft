@@ -38,6 +38,7 @@ _SUBMODULES = {
     "particle": ".particle",
     "geometry": ".geometry",
     "ripple": ".ripple",
+    "vde": ".vde",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -63,6 +64,7 @@ _IMPORT_ORDER = (
     "particle",
     "geometry",
     "ripple",
+    "vde",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

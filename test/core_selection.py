@@ -160,6 +160,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_slab_parity.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
+    "test_diagram_vde.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

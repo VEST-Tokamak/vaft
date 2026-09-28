@@ -635,6 +635,42 @@ $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals 
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
 
+## Vertical displacement events: hot and cold VDE, halo currents
+
+A hot VDE moves a still-hot plasma into the wall, and the scraping can trigger the thermal quench. A cold
+VDE follows the quench, as the decaying current loses its centred vertical equilibrium. Wall contact then
+drives halo currents through the scrape-off layer and the wall. The model-neutral reference quantities are
+in the new `vaft.formula.vde` category:
+- `vertical_velocity` and `vde_growth_rate` (a local $d\ln\lvert\Delta Z\rvert/dt$);
+- `thin_wall_time` and `wall_mode_decay_time`;
+- `halo_current_fraction` and `toroidal_peaking_factor`.
+
+A wall element's $L/R$ is `lr_time_from_L_R`. The named reduced VDE models (edge-current loss,
+filament-plus-wall, analytic halo) are not chosen yet. The disruption chain these diagrams couple to is
+`vaft.formula.disruption`.
+
+```python
+vaft.diagram.hot_vde_sequence()
+vaft.diagram.cold_vde_bifurcation()
+vaft.diagram.plasma_wall_halo_current()
+vaft.diagram.vde_timescales()
+```
+
+![hot VDE]({{ '/assets/diagrams/hot_vde_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![cold VDE]({{ '/assets/diagrams/cold_vde_bifurcation.svg' | relative_url }}) | ![halo]({{ '/assets/diagrams/plasma_wall_halo_current.svg' | relative_url }}) |
+
+![timescales]({{ '/assets/diagrams/vde_timescales.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `hot_vde_sequence` | The Solov'ev plasma moved 0, 8 and 16 cm into its limiter. The limiting surface shrinks, so the edge moves inward to lower $q$ (the equilibrium's own profile; the cylindrical estimate at fixed $I_p$ falls as $a^2$). Below, the causal chain towards the thermal quench |
+| `cold_vde_bifurcation` | A schematic normal form: below a critical current the centred equilibrium is lost, and the plasma follows an off-centre branch into the wall as $I_p$ decays. The real branches come from a model not chosen here |
+| `plasma_wall_halo_current` | Poloidal halo current through the scrape-off layer and the wall, toroidal eddy currents in the wall, and $\mathbf J_\mathrm{halo}\times\mathbf B_\phi$ on the floor, for one sign of $I_p$ and $B_\phi$ |
+| `vde_timescales` | $a/v_A$, the $m = 1$ wall time, and the L/R current-quench time at 5 and 20 eV for one medium-tokamak parameter set. The ordering is not universal |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
