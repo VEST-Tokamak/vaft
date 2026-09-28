@@ -721,12 +721,14 @@
   margin: 0.9em 0 0.4em;
 }
 
-.book .book-body .page-wrapper .page-inner section.normal h3.ref-name {
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name,
+.book .book-body .page-wrapper .page-inner section.normal h4.ref-name {
   margin: 0;
   font-size: 1.15em;
 }
 
-.book .book-body .page-wrapper .page-inner section.normal h3.ref-name a {
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name a,
+.book .book-body .page-wrapper .page-inner section.normal h4.ref-name a {
   color: var(--vaft-heading-color);
   text-decoration: none;
 }
@@ -864,6 +866,37 @@
 
 .book .book-body .page-wrapper .page-inner section.normal .ref-more h4.ref-label {
   margin-top: 1em;
+}
+
+/* Diagram gallery: the committed SVG is the entry point of each card. */
+.ref-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
+  gap: 0.8em;
+  margin: 0.8em 0;
+}
+
+.ref-figure {
+  margin: 0;
+  padding: 0.5em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ref-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 22em;
+  object-fit: contain;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-figure figcaption {
+  margin-top: 0.4em;
+  font-size: 0.8em;
+  color: #333;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 700px) {
