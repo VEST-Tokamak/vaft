@@ -4679,6 +4679,11 @@ def _coil_excitation_title(rows: Sequence[Mapping[str, Any]], heading: str) -> s
     return heading if instant is None else f"{heading} at t={instant:.4g} s"
 
 
+#: Sector currents and harmonic amplitudes are discrete samples: a marker
+#: each, and no line asserting a value between two coils or two mode numbers.
+_DISCRETE_SAMPLES = {"marker": "o", "linestyle": "none"}
+
+
 def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
     """The sector currents of each coil set against toroidal angle.
 
@@ -4696,13 +4701,14 @@ def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
             x=np.degrees(row["phi"]),
             y=row["current"] * display.scale,
             label=f"{row['label']} ({row['phi'].size} sectors)",
+            style=_DISCRETE_SAMPLES,
         )
         for row in rows
     )
     return Profile1D(
         series=series,
         coordinate_label=r"toroidal angle $\phi$ [deg]",
-        y_label=f"coil current per filament [{display.unit}]",
+        y_label="coil current per filament",
         y_unit=display.unit,
         x_limits=(0.0, 360.0),
         title=_coil_excitation_title(rows, "Non-axisymmetric coil excitation"),
@@ -4743,6 +4749,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
                 x=np.asarray(modes, dtype=float),
                 y=amplitude * display.scale,
                 label=f"{row['label']} ({sectors} sectors, |n| <= {limit} resolved)",
+                style=_DISCRETE_SAMPLES,
             )
         )
         if any(abs(n) > limit for n in modes):
@@ -4757,7 +4764,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
         # `coil.turns` and the mapper keeps the two apart, so a reader who
         # wants ampere-turns multiplies. Said on the axis because the
         # difference is a factor of 20 on VEST.
-        y_label=rf"$|C_n|$ per filament [{display.unit}]",
+        y_label=r"$|C_n|$ per filament",
         y_unit=display.unit,
         title=title,
         display=display,
@@ -10844,7 +10851,9 @@ def _build_mhd_linear_eigenfunction_profile(
     if stride is not None and stride > 1:
         notes.append(f"every {stride}th radial sample")
     if notes:
-        title += f" ({'; '.join(notes)})"
+        # A second line: on one line the notes pushed the title past a default
+        # figure's width, and past half of it in the two-panel overview.
+        title += f"\n({'; '.join(notes)})"
 
     return Profile1D(
         series=series,

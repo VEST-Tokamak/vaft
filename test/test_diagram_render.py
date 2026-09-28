@@ -49,6 +49,28 @@ def test_rendering_without_the_toolchain_says_what_is_missing(monkeypatch):
         vaft.diagram.magnetic_island().svg
 
 
+def test_without_the_toolchain_a_canonical_diagram_is_served_from_its_committed_asset(monkeypatch):
+    """The tutorials run offline with no TeX: a diagram built with the exact
+    arguments of a committed asset displays that asset, byte for byte."""
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    d = vaft.diagram.rational_surface()
+    assert d.svg == (ASSETS / "rational_surface.svg").read_text(encoding="utf-8")
+
+
+def test_without_the_toolchain_a_non_canonical_diagram_still_refuses(monkeypatch):
+    """A nearby picture is not the same picture: other arguments, other source."""
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    with pytest.raises(vaft.diagram.DiagramToolchainError):
+        vaft.diagram.rational_surface(m=3, n=2).svg
+
+
+def test_without_a_source_checkout_there_is_no_committed_fallback(monkeypatch, tmp_path):
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(_render, "committed_assets_dir", lambda: tmp_path)
+    with pytest.raises(vaft.diagram.DiagramToolchainError):
+        vaft.diagram.rational_surface().svg
+
+
 def test_save_refuses_an_unknown_format(tmp_path):
     with pytest.raises(ValueError, match=".svg"):
         vaft.diagram.magnetic_island().save(tmp_path / "island.png")

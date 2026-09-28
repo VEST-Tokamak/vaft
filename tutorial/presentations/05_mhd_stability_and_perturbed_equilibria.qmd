@@ -1,0 +1,290 @@
+---
+title: "MHD Stability and Perturbed Equilibria"
+subtitle: "VAFT Introductory Tutorial | Session 05"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Where this session starts
+
+## From "what fluctuated" to "what could"
+
+Session 04 measured a perturbation: $f$, $n$ modulo the alias step, candidate
+rational surfaces. Session 05 asks why it can exist.
+
+| explanation | question |
+| --- | --- |
+| ideal instability | can a displacement lower the ideal-MHD energy? |
+| resistive tearing | is $\Delta' > 0$ at a rational surface? |
+| driven 3-D response | how does a stable plasma answer a known field? |
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Start from the observables of session 04 and name the three explanations. The
+session is organised so that each one is a different question put to the same
+linear operator, not a different theory.
+
+TRANSITION:
+To ask any of them we linearize about the equilibrium of session 03.
+:::
+
+## One operator, three questions
+
+$$\rho_0\,\partial_t^2\boldsymbol\xi = \mathcal F[\boldsymbol\xi],
+\qquad
+\delta W = -\tfrac12\int\boldsymbol\xi^*\cdot\mathcal F[\boldsymbol\xi]\,dV$$
+
+- $\mathcal L\boldsymbol\xi = 0$ --- DCON, ideal stability, $\delta W$
+- same outer solution, matched across resistive layers --- RDCON, $\Delta'$
+- $\mathcal L\boldsymbol\xi = \mathbf f_{\mathrm{ext}}$ --- GPEC, driven response
+
+At $\omega^2 = 0$: $\mathcal F[\boldsymbol\xi] = 0$ **is** a static perturbed equilibrium.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Force operator, eigenvalue problem and energy principle are three views of one
+linear problem. Marginal stability is exactly linearized perturbed force
+balance. A slowly applied coil field lives in that omega -> 0 limit, which is
+why GPEC sits on the same operator as DCON.
+
+WARN:
+A general dynamic eigenmode is not a static perturbed equilibrium. The identity
+is exact in the marginal limit only.
+
+TRANSITION:
+The operator separates in n, not in m.
+:::
+
+## One $n$, many $m$
+
+$$\boldsymbol\xi = \sum_n\Big[\sum_m\boldsymbol\xi_{m,n}(\psi)e^{im\theta}\Big]e^{-in\phi}$$
+
+- axisymmetry: each $n$ is its own problem
+- shaping and $B_0(\theta)$: the $m$ of one $n$ **couple**
+- a "dominant $m$" is the largest term, not the only one
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+This is why DCON is run per n and why its eigenfunction has several traces.
+Connect to session 04: the probes measured n, and could not measure m.
+
+TRANSITION:
+Where does a given m matter most? At its rational surface.
+:::
+
+# The equilibrium and its surfaces
+
+## 39915 at 319 ms
+
+- $q$ from about 2 on axis to about 13 at the boundary
+- eleven $n = 1$ rational surfaces, crowding at the edge (1--2 % of $\psi_N$ apart)
+- the $m = 2$ surface sits almost on the axis
+
+Two reconstructions of the same instant agree in the interior, disagree at
+the edge ($q \approx 13$ vs $8$), and the legacy files 2 ms apart disagree on
+whether $q = 3$ exists at all.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The session runs on the packaged legacy g-file, the one the solvers are
+validated on. It is a different reconstruction from the sample ODS of sessions
+03 and 04; the notebook plots both. A stability answer on a core mode inherits
+the core-q uncertainty of the reconstruction.
+
+WARN:
+DCON cannot yet map the sample ODS's reconstruction (issue 1246); that is why
+the legacy file is used, not because it is better.
+
+TRANSITION:
+DCON on this equilibrium.
+:::
+
+## DCON: $\delta W$ and the eigenfunction
+
+- energy eigenvalues $W_p$, $W_v$, $W_t$ --- ascending; $W_t[0]$ decides
+- $n = 1$ in about 10 s; cost rises steeply with $n$
+- read the eigenfunction as a spectrum of $\xi_m(\psi)$
+- local limits: Mercier, $s$--$\alpha$ ballooning (off in the packaged namelist)
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+In lab mode DCON reports n=1 ideally stable on this equilibrium. Show the
+eigenfunction and point at the several m traces peaking near their surfaces.
+
+WARN:
+A criterion DCON never evaluated is written as exactly zero, which is also its
+marginal value. VAFT records what was requested (bal_flag) for that reason.
+
+TRANSITION:
+Ideal stability says nothing about reconnection.
+:::
+
+## RDCON: layers and $\Delta'$
+
+$$\Delta' = \Big[\tfrac{1}{\tilde\psi}\tfrac{d\tilde\psi}{dr}\Big]_{r_s^-}^{r_s^+}$$
+
+- ideal outer regions, resistive inner layer, matched
+- $m = 3$--$5$: $\Delta' < 0$; from $m = 6$ outward: positive and growing
+- the near-axis $m = 2$ value is a resolution statement, not physics
+- DCON stable and $\Delta' > 0$ can both be true
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The interpretable band is a judgement about this case, stated once in the
+notebook and used as a label, never as a cut. STRIDE is the independent
+cross-check for any Delta' you intend to quote.
+
+TRANSITION:
+Now the driven problem. First the actuators.
+:::
+
+# The driven problem
+
+## VEST 3-D coils
+
+- UP, LOW: saddle arrays above and below the midplane, sectors at $15^\circ + 60^\circ k$
+- MID: 12-inch circular coils on the outboard midplane, sectors at $60^\circ k$, 4 cm from the LCFS
+- 20 turns each; one geometric filament per sector
+
+$$I_k = I_0\cos(n\phi_k + \phi_0)$$
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+A sector's angle belongs to its coil set. Building a pattern on MID's angles
+for UP gives a different pattern, and the notebook's tests pin that every
+pattern is built on its own set's angles.
+
+TRANSITION:
+Six sectors make a limited spectrum.
+:::
+
+## Finite actuators, finite spectrum
+
+- six sectors resolve $|n| \le 2$; above that the spectrum aliases
+- an $n = 1$ pattern drives $n = 1, 5, 7, 11, 13, \dots$ in the field
+- UP, LOW sidebands: a tenth of $n = 1$ at the LCFS; **MID: as strong as $n = 1$**
+
+session 04: finite sensors $\rightarrow$ observable $n$ modulo the alias step\
+session 05: finite actuators $\rightarrow$ controllable $n$ modulo the same step
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The vacuum field is computed by Biot-Savart on the LCFS and decomposed
+toroidally. Close to a coil the field is a local bump, not a harmonic, so an
+n=1 GPEC run of the MID set leaves out as much field at the boundary as it
+keeps.
+
+TRANSITION:
+With the field in hand, the phase.
+:::
+
+## Relative phase and linearity
+
+$$b(\Delta\phi) = b_{\mathrm{UP}} + b_{\mathrm{LOW}}\,e^{i\Delta\phi},
+\qquad \mathbf y = \mathbf R\,\mathbf I$$
+
+- one set's phase rotates the answer; nothing changes in amplitude
+- the relative phase matters: in phase $\rightarrow$ even $m$; antiphase $\rightarrow$ odd $m$
+- so it chooses the driven surfaces: $q = 2, 4$ or $q = 3, 5$
+- two runs give the whole scan, checked against direct Biot--Savart
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The top of the LCFS barely notices the relative phase; the outboard midplane,
+where the two fields meet, swings by almost an order of magnitude. The
+geometric-angle spectrum is a proxy, but it shows the parity selection cleanly.
+
+WARN:
+The spectrum is in the geometric angle and in vacuum; a resonant harmonic lives
+in a straight-field-line angle on each surface, and the plasma changes it.
+
+TRANSITION:
+That is what GPEC adds.
+:::
+
+## GPEC: the plasma's answer
+
+$$\delta\mathbf B_{\mathrm{total}} = \delta\mathbf B_{\mathrm{vacuum}} + \delta\mathbf B_{\mathrm{plasma}}$$
+
+- linear, about the axisymmetric equilibrium; $\delta B/B_0$ of order a percent here
+- screening and amplification; resonant **and** non-resonant response
+- packaged chain today: the **vacuum** resonant field per surface (#1243)
+- vacuum islands overlap easily at VEST's crowded edge
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Two GPEC runs, UP alone and LOW alone, about three minutes each. The scan is
+the vacuum-approximation answer and is labelled as one. Whether the plasma lets
+that field in is exactly what the total response decides.
+
+WARN:
+Model excitation space is not the VEST hardware space: channels, limits,
+polarity, phase control and timing are unverified.
+
+TRANSITION:
+Close the loop back to the measurement.
+:::
+
+# Closing the loop
+
+## Measured against computed
+
+| session 04 | session 05 |
+| --- | --- |
+| $f$, lab frame | static calculations ($\omega \to 0$) |
+| $n$ mod alias step | one $n$ per run; the coils' own alias step |
+| candidate surfaces | $q = m/n$ surfaces, per reconstruction and time |
+| $\delta B$ at probes | $\xi_{m,n}$, $\delta B_{m,n}$, island widths |
+
+A synthetic diagnostic from the model, not a verdict, identifies a mode.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+The exercise asks for the whole chain on one equilibrium, and for the hardware
+feasibility of any excitation to be stated separately.
+
+TRANSITION:
+Session 06 leaves the single discharge for the operational space.
+:::
+
+## Takeaways
+
+- one linear operator: $\delta W$, $\Delta'$, driven response
+- an eigenmode is one $n$ with coupled $m$
+- DCON and RDCON can disagree
+- six sectors: $n$ modulo six, in currents and field
+- relative phase selects $m$ parity, hence surfaces; linearity makes the scan cheap
+- vacuum field $\neq$ field in the plasma (#1243); offline stability sample (#1231)
+- model excitation $\neq$ hardware scenario
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Method depth lives in the DCON and RDCON notebooks and the GPEC reference
+notebook (#1237).
+:::

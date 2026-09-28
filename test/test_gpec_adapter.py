@@ -954,3 +954,17 @@ def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch
     assert record.status == "failed"
     assert record.returncode is None
     assert "timeout after 7.0 seconds" in record.reason
+
+
+def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):
+    assert gpec.find_gpec_executable("dcon") is None
+
+
+def test_find_gpec_executable_resolves_a_built_program_and_not_a_missing_one(tmp_path, monkeypatch):
+    """A notebook preflights each solver separately: a home where only DCON
+    was built answers for DCON and says nothing is there for GPEC."""
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    built = write_launchable_stub(tmp_path / "bin" / "dcon")
+
+    assert gpec.find_gpec_executable("dcon") == built
+    assert gpec.find_gpec_executable("gpec") is None

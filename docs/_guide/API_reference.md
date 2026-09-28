@@ -461,7 +461,7 @@ outputs = collect_efit_outputs(workdir, cfg)
 | --- | --- |
 | EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
 | CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
-| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
+| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `find_gpec_executable`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
 | NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
 | TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
