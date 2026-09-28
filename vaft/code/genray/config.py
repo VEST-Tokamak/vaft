@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional
 
+from ..base import RunOutcome
+
 if TYPE_CHECKING:
     from ..execution import ExecutionBackend
 
@@ -125,7 +127,7 @@ class GENRAYInputs:
 
 
 @dataclass
-class GENRAYResult:
+class GENRAYResult(RunOutcome):
     """Outcome of one GENRAY run."""
 
     returncode: Optional[int]
@@ -135,6 +137,11 @@ class GENRAYResult:
     netcdf: Optional[Path] = None
     parsed: Any = None
     provenance: dict[str, Any] = field(default_factory=dict)
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:

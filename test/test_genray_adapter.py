@@ -452,3 +452,22 @@ def test_a_psi_convention_mismatch_between_ids_is_refused(vest_48224, tmp_path):
     ods["core_profiles.profiles_1d.0.grid.psi_magnetic_axis"] = axis * 2 * math.pi + 1.0
     with pytest.raises(ValueError, match="psi convention"):
         prepare_genray_inputs(ods, _config(), tmp_path)
+
+
+def test_a_stopped_genray_run_is_a_failed_result(tmp_path):
+    """#1016: returncode None and runtime_status "timeout" (it was 124)."""
+    from external_code_stubs import RecordingBackend, write_launchable_stub
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.genray.config import GENRAYConfig, GENRAYInputs
+    from vaft.code.genray.runner import run_genray
+
+    executable = write_launchable_stub(tmp_path / "xgenray")
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, elapsed_s=9.0))
+    config = GENRAYConfig(executable=str(executable), timeout=9.0, backend=backend)
+    inputs = GENRAYInputs(
+        workdir=tmp_path, genray_in=tmp_path / "genray.in", eqdsk=tmp_path / "eqdsk", provenance={}
+    )
+    result = run_genray(inputs, config)
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 9.0 and result.parsed is None
+    assert result.stderr == "GENRAY timed out after 9 s of running"

@@ -223,3 +223,29 @@ def test_stack_limit_wraps_only_where_ulimit_can_act(monkeypatch):
 
     monkeypatch.setattr(compat, "IS_WINDOWS", True)
     assert with_stack_limit(["s"], 32768, runner_name="r") == ["s"]
+
+
+def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
+    """#1016: every backend result names how the run ended."""
+    from vaft.code.execution import timeout_reason
+
+    assert ExecutionResult(returncode=0).runtime_status == "completed"
+    stopped = ExecutionResult(returncode=None, timed_out=True, elapsed_s=12.4)
+    assert stopped.runtime_status == "timeout"
+    queued = ExecutionResult(
+        returncode=None, timed_out=True, elapsed_s=12.4, runtime_status="queue_timeout"
+    )
+    assert timeout_reason("X", stopped, 10.0) == "X timed out after 10 s of running"
+    assert timeout_reason("X", stopped, None) == "X timed out after 12.4 s of running"
+    assert timeout_reason("X", queued, 10.0) == (
+        "X was cancelled after waiting 12 s in the scheduler queue (it never started)"
+    )
+    with pytest.raises(ValueError, match="disagrees"):
+        ExecutionResult(returncode=0, runtime_status="timeout")
+    with pytest.raises(ValueError, match="must be one of"):
+        ExecutionResult(returncode=None, timed_out=True, runtime_status="killed")
+
+
+def test_a_local_timeout_reports_runtime_status(tmp_path):
+    result = _python(tmp_path, "import time; time.sleep(30)", timeout=1.0)
+    assert (result.timed_out, result.runtime_status) == (True, "timeout")

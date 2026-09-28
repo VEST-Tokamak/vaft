@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .._profiles import GACODEProfile
-from .._runtime import gacode_platform, require_gacode_executable, run_gacode
+from .._runtime import (
+    gacode_platform,
+    require_gacode_executable,
+    run_gacode,
+    stopped_reason,
+)
 from ._types import TGLFConfig, TGLFResult
 from .inputs import TGLFInputs, prepare_tglf_case
 from .outputs import TglfOutputs, collect_tglf_outputs
@@ -70,7 +75,7 @@ def run_tglf(
         stale.unlink()
 
     log = workdir / "tglf.log"
-    returncode, log = run_gacode(
+    run = run_gacode(
         executable,
         ["-e", workdir.name, "-n", str(configuration.n_mpi)],
         cwd=workdir.parent,
@@ -78,10 +83,13 @@ def run_tglf(
         config=configuration,
         code="tglf",
     )
+    returncode, log = run
 
     native = collect_tglf_outputs(workdir)
     result = TGLFResult(
         returncode=returncode,
+        runtime_status=getattr(run, "runtime_status", "completed"),
+        elapsed_s=getattr(run, "elapsed_s", None),
         workdir=workdir,
         logs=(log,),
         outputs={"native": tuple(sorted(workdir.glob("out.tglf.*")))},
@@ -102,7 +110,9 @@ def run_tglf(
 def _failure_message(result: TGLFResult, log: Path) -> str:
     """Say which of the several ways to fail this was, then show the log tail."""
     native = result.outputs_native
-    if result.returncode != 0:
+    if result.timed_out:
+        reason = stopped_reason(log, result.runtime_status)
+    elif result.returncode != 0:
         reason = f"TGLF exited with status {result.returncode}"
     elif native is None:
         reason = "TGLF wrote no out.tglf.* files at all"

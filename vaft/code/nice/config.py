@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional
 
+from ..base import RunOutcome
+
 if TYPE_CHECKING:
     from ..execution import ExecutionBackend
 
@@ -106,7 +108,7 @@ class NiceInputs:
 
 
 @dataclass
-class NiceResult:
+class NiceResult(RunOutcome):
     returncode: Optional[int]
     workdir: Path
     process_succeeded: bool = False
@@ -126,6 +128,11 @@ class NiceResult:
     parsing_errors: tuple[str, ...] = ()
     provenance: Mapping[str, Any] = field(default_factory=dict)
     ods: Any = None
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:

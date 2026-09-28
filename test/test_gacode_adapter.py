@@ -675,19 +675,36 @@ def test_run_gacode_hands_the_launch_to_the_configured_backend(installation, tmp
     assert request.resources.threads_per_task is None
 
 
-def test_run_gacode_keeps_raising_the_stdlib_timeout(installation, tmp_path):
-    import subprocess
-
+def test_run_gacode_returns_its_timeout(installation, tmp_path):
+    """#1016: a stop is returned (returncode None), with the reason in the log."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 
-    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, elapsed_s=3.0))
     config = GACODEConfig(home=str(installation), platform="CI_CPU", timeout=3.0, backend=backend)
-    with pytest.raises(subprocess.TimeoutExpired):
-        run_gacode(
-            installation / launcher_relative_path("neo"),
-            ["-e", "case"],
-            cwd=tmp_path,
-            log_path=tmp_path / "neo.log",
-            config=config,
-        )
+    run = run_gacode(
+        installation / launcher_relative_path("neo"),
+        ["-e", "case"],
+        cwd=tmp_path,
+        log_path=tmp_path / "neo.log",
+        config=config,
+    )
+    returncode, log = run
+    assert (returncode, log) == (None, tmp_path / "neo.log")
+    assert (run.runtime_status, run.elapsed_s) == ("timeout", 3.0)
+    assert log.read_text(encoding="utf-8").strip().endswith("NEO timed out after 3 s of running")
+
+
+def test_a_stopped_neo_run_is_a_failed_result_or_the_checked_error(tmp_path, installation):
+    """``check=False`` returns the timeout; ``check=True`` raises it as NEO's error."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, elapsed_s=5.0))
+    config = NEOConfig(home=str(installation), platform="CI_CPU", timeout=5.0, backend=backend)
+    staged = prepare_neo_case(_profile(), tmp_path / "case", config)
+    result = run_neo(staged, config, check=False)
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 5.0
+    with pytest.raises(NEOExecutionError, match="NEO timed out after 5 s of running"):
+        run_neo(staged, config)

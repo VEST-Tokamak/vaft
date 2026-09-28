@@ -182,7 +182,9 @@ class CHEASEScanCase:
         """Whether CHEASE actually solved this case.
 
         ``run_chease`` subprocesses with ``check=False``, so a non-zero exit
-        comes back as a :class:`CHEASEResult` rather than an exception -- and
+        -- and, since #1016, a timeout (``result.runtime_status`` is
+        ``"timeout"``, :attr:`error` names the limit) -- comes back as a
+        :class:`CHEASEResult` rather than an exception -- and
         the most likely failure, a mesh that will not converge, exits 1 and
         writes no refined g-file.  "Did not raise" is therefore not "converged",
         and a caller reading ``result.refined_geqdsk`` on the strength of it
@@ -290,6 +292,16 @@ def apply_equilibrium_variation(
         modified["FFPRIM"] = ffprime * weight * (before / after)
 
     return modified, shape
+
+
+def _case_error(result: CHEASEResult, case_dir: Path) -> str:
+    """Why a case that reached CHEASE has no usable equilibrium."""
+    log = case_dir / "chease.log"
+    if result.timed_out:
+        # The last stderr line is the adapter's own timeout reason.
+        reason = (result.stderr or "").strip().splitlines()[-1:] or [result.runtime_status]
+        return f"{reason[0]}; see {log}"
+    return f"CHEASE exited {result.returncode}; see {log}"
 
 
 def scan_chease(
@@ -410,9 +422,7 @@ def scan_chease(
                 target_psin=float(solve_config.target_psin),
                 boundary=applied,
                 shape_parameters=geometry,
-                error=None if result.ok else (
-                    f"CHEASE exited {result.returncode}; see {case_dir / 'chease.log'}"
-                ),
+                error=None if result.ok else _case_error(result, case_dir),
             )
         except Exception as error:  # noqa: BLE001 - recorded, not swallowed
             if not keep_going:
