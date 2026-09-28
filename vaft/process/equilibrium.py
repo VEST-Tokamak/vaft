@@ -86,6 +86,7 @@ _PARAMETRIC_EXPORTS = (
     "fit_fourier_surface_sequence",
     "fit_miller_sequence",
     "fit_miller_surface",
+    "grad_shafranov_residual_modes",
     "miller_surfaces",
     "solovev_example",
     "solovev_shape_constraints",
