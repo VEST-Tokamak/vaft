@@ -96,6 +96,14 @@ _PARAMETRIC_EXPORTS = (
     "validate_equilibrium",
 )
 
+#: The current-moment API (#943), implemented in ``._equilibrium_moments``.
+_MOMENT_EXPORTS = (
+    "current_centroid",
+    "current_covariance",
+    "current_moment",
+    "derive_current_moments",
+)
+
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
     "MIN_ANNULUS_CELLS",
@@ -148,6 +156,7 @@ __all__ = [
     "virial_alpha_thin_annulus",
     "volume_average",
     *_PARAMETRIC_EXPORTS,
+    *_MOMENT_EXPORTS,
 ]
 
 
@@ -3648,6 +3657,10 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_moments import *  # noqa: E402,F401,F403
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_moments import *  # noqa: E402,F401,F403
 
 
 def make_vacuum_field_interpolator(
