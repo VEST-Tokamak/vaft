@@ -350,7 +350,10 @@ def limiter_and_diverted_topologies(*, labels: bool = True) -> Diagram:
         items.append(Marker(tuple(_cm(model["axis"], o)), "o", "opoint", role="axis"))
         items += _coil_items(model["coils"], o)
         if configuration == "diverted":
-            for line in _lines(model["psi"], model["psi_x"]):
+            # a hair outside the saddle value: exactly at it the contour joins at the X-point are decided
+            # by last-bit differences, which differ between platforms
+            level = model["psi_x"] - 1e-6 * (model["psi_axis"] - model["psi_x"])
+            for line in _lines(model["psi"], level):
                 for run in _clip(line, _VESSEL):
                     items.append(Polyline.of(_cm(run, o), "separatrix", role="separatrix"))
             items.append(Marker(tuple(_cm(model["x_point"], o)), "x", "xpoint", role="x_point"))

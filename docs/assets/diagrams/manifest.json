@@ -202,8 +202,8 @@
     },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",
-      "source_sha256": "c6fc7f76a4b6a1dadc84bc970423da9762dbe79890b9d0a36dba4b2c54e2bf60",
-      "svg_sha256": "fcb8a7a6886e502d17c4e91e243700f2d64a3745112fa6b5998fe9e53d2f1c89"
+      "source_sha256": "c5e708948a039c84df3190d4da114b2ef020f5cdc1c75963f6d23bbf77f549b8",
+      "svg_sha256": "3f2e9d715c8e48b06314a912fffafbccba87f4e0540e01eb3f23eb725b3767f6"
     },
     "magnetic_island_3d.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='3d')",
