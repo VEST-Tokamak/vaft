@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dc02e39</code>. What is described
+  <code>d32b980</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -921,7 +921,7 @@ adapter call can later run through a scheduler without its scientific API changi
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ExecutionResult</code></td>
-      <td>return code (<code class="language-plaintext highlighter-rouge">None</code> on timeout), captured output, <code class="language-plaintext highlighter-rouge">timed_out</code>, elapsed time, <code class="language-plaintext highlighter-rouge">launcher</code> (the argv actually run), <code class="language-plaintext highlighter-rouge">log_path</code>, <code class="language-plaintext highlighter-rouge">job_id</code> (scheduler backends)</td>
+      <td>return code (<code class="language-plaintext highlighter-rouge">None</code> on timeout), captured output, <code class="language-plaintext highlighter-rouge">timed_out</code>, <code class="language-plaintext highlighter-rouge">runtime_status</code> (<code class="language-plaintext highlighter-rouge">completed</code>, <code class="language-plaintext highlighter-rouge">timeout</code>, <code class="language-plaintext highlighter-rouge">queue_timeout</code>), elapsed time, <code class="language-plaintext highlighter-rouge">launcher</code> (the argv actually run), <code class="language-plaintext highlighter-rouge">log_path</code>, <code class="language-plaintext highlighter-rouge">job_id</code> (scheduler backends)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ResourceRequest</code></td>
@@ -938,10 +938,159 @@ adapter call can later run through a scheduler without its scientific API changi
   </tbody>
 </table>
 
-<p>A timeout is returned (<code class="language-plaintext highlighter-rouge">timed_out=True</code>), not raised; each adapter maps it to the timeout result it
-already documented. A program the operating system refuses to start raises <code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code>;
-a missing working directory stays a <code class="language-plaintext highlighter-rouge">FileNotFoundError</code>.
-Every adapter that runs a subprocess goes through the backend, and each has a <code class="language-plaintext highlighter-rouge">backend</code> field:
+<p>A timeout is returned (<code class="language-plaintext highlighter-rouge">timed_out=True</code>), not raised. A program the operating system refuses to
+start raises <code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code>; a missing working directory stays a <code class="language-plaintext highlighter-rouge">FileNotFoundError</code>.
+A timeout, a <code class="language-plaintext highlighter-rouge">KeyboardInterrupt</code> or a <code class="language-plaintext highlighter-rouge">SIGTERM</code>/<code class="language-plaintext highlighter-rouge">SIGHUP</code> stops the program’s whole process tree
+(#1016); the interrupt and the signal are then raised again rather than turned into a result.</p>
+
+<p><strong>Timeout results (#1016).</strong> Every adapter below returns its own result object on a timeout; none
+raises. The result says:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>On a timeout</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">status</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"failed"</code> (a property: <code class="language-plaintext highlighter-rouge">"completed"</code> when <code class="language-plaintext highlighter-rouge">ok</code>, else <code class="language-plaintext highlighter-rouge">"failed"</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">runtime_status</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"timeout"</code>: the program ran past its limit and was stopped. <code class="language-plaintext highlighter-rouge">"queue_timeout"</code>: a scheduler job cancelled by <code class="language-plaintext highlighter-rouge">max_wait</code> before it started</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">returncode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">None</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">elapsed_s</code></td>
+      <td>wall time from launch to stop [s] (set on every run, not only a timeout)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">timed_out</code></td>
+      <td><code class="language-plaintext highlighter-rouge">True</code> for either timeout kind (a property)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A stop well short of <code class="language-plaintext highlighter-rouge">timeout</code> (a scheduler’s <code class="language-plaintext highlighter-rouge">max_wait</code> cancelling a running job) reports the time
+actually run. The reason is the last line of <code class="language-plaintext highlighter-rouge">stderr</code>, or of the log for codes that write one, worded
+<code class="language-plaintext highlighter-rouge">"&lt;code&gt; timed out after N s of running"</code> or <code class="language-plaintext highlighter-rouge">"&lt;code&gt; was cancelled after waiting N s in the scheduler
+queue (it never started)"</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Adapter</th>
+      <th>Timeout result</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CHEASE <code class="language-plaintext highlighter-rouge">run_chease</code>, <code class="language-plaintext highlighter-rouge">refine_equilibrium</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CHEASEResult</code></td>
+      <td>nothing is collected; <code class="language-plaintext highlighter-rouge">chease.log</code> holds the partial output and the reason</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scan_chease</code></td>
+      <td>the case keeps its <code class="language-plaintext highlighter-rouge">CHEASEResult</code></td>
+      <td><code class="language-plaintext highlighter-rouge">case.error</code> names the limit; the scan goes on (<code class="language-plaintext highlighter-rouge">keep_going</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">synthesize_equilibrium_from_0d</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SyntheticEquilibriumResult</code></td>
+      <td><code class="language-plaintext highlighter-rouge">status="timeout"</code> with the reason, rather than <code class="language-plaintext highlighter-rouge">non_converged</code></td>
+    </tr>
+    <tr>
+      <td>GACODE <code class="language-plaintext highlighter-rouge">run_gacode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GACODERun</code></td>
+      <td>unpacks as <code class="language-plaintext highlighter-rouge">(returncode, log)</code> as before, with <code class="language-plaintext highlighter-rouge">returncode=None</code>; <code class="language-plaintext highlighter-rouge">.runtime_status</code>, <code class="language-plaintext highlighter-rouge">.elapsed_s</code></td>
+    </tr>
+    <tr>
+      <td>NEO <code class="language-plaintext highlighter-rouge">run_neo</code>, TGLF <code class="language-plaintext highlighter-rouge">run_tglf</code></td>
+      <td><code class="language-plaintext highlighter-rouge">NEOResult</code>, <code class="language-plaintext highlighter-rouge">TGLFResult</code></td>
+      <td><code class="language-plaintext highlighter-rouge">check=True</code> (the default) raises <code class="language-plaintext highlighter-rouge">NEOExecutionError</code>/<code class="language-plaintext highlighter-rouge">TGLFExecutionError</code> naming the limit, as for any failure; <code class="language-plaintext highlighter-rouge">check=False</code> returns it</td>
+    </tr>
+    <tr>
+      <td>NUBEAM <code class="language-plaintext highlighter-rouge">run_nubeam</code>, <code class="language-plaintext highlighter-rouge">run_nubeam_case</code></td>
+      <td><code class="language-plaintext highlighter-rouge">NUBEAMResult</code></td>
+      <td>a stopped INIT, STEP or Plasma State stage; <code class="language-plaintext highlighter-rouge">generate_plasma_state</code> returns a path, so there it raises <code class="language-plaintext highlighter-rouge">NUBEAMExecutionError</code></td>
+    </tr>
+    <tr>
+      <td>FLARE <code class="language-plaintext highlighter-rouge">run_flare</code></td>
+      <td><code class="language-plaintext highlighter-rouge">FlareResult</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>TES <code class="language-plaintext highlighter-rouge">run_tes</code>, <code class="language-plaintext highlighter-rouge">scan_tes</code></td>
+      <td><code class="language-plaintext highlighter-rouge">TESResult</code></td>
+      <td>outputs are still collected, as before</td>
+    </tr>
+    <tr>
+      <td>NICE <code class="language-plaintext highlighter-rouge">run_nice</code></td>
+      <td><code class="language-plaintext highlighter-rouge">NiceResult</code></td>
+      <td><code class="language-plaintext highlighter-rouge">termination_reason</code> is the reason; the manifest records <code class="language-plaintext highlighter-rouge">process_runtime_status</code></td>
+    </tr>
+    <tr>
+      <td>GENRAY <code class="language-plaintext highlighter-rouge">run_genray</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GENRAYResult</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>EFIT, EFUND, GPEC suite</td>
+      <td>unchanged for now</td>
+      <td>see “Previous behaviour”; they move after 2026-10-06</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Previous behaviour (0.7.x), kept for reference:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Adapter</th>
+      <th>What a timeout produced</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TES</td>
+      <td><code class="language-plaintext highlighter-rouge">returncode=124</code></td>
+    </tr>
+    <tr>
+      <td>EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">status="failed"</code>, <code class="language-plaintext highlighter-rouge">runtime_status="timeout"</code></td>
+    </tr>
+    <tr>
+      <td>EFUND</td>
+      <td><code class="language-plaintext highlighter-rouge">failed</code>, <code class="language-plaintext highlighter-rouge">returncode=None</code></td>
+    </tr>
+    <tr>
+      <td>GPEC suite</td>
+      <td><code class="language-plaintext highlighter-rouge">GPECModuleRun</code>: <code class="language-plaintext highlighter-rouge">completed</code> if its core outputs verify, else <code class="language-plaintext highlighter-rouge">failed</code>/<code class="language-plaintext highlighter-rouge">None</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scan_chease</code></td>
+      <td>an error string per case (<code class="language-plaintext highlighter-rouge">"TimeoutExpired: ..."</code>, <code class="language-plaintext highlighter-rouge">result=None</code>)</td>
+    </tr>
+    <tr>
+      <td>NICE, GENRAY</td>
+      <td><code class="language-plaintext highlighter-rouge">returncode=124</code></td>
+    </tr>
+    <tr>
+      <td>CHEASE, GACODE (NEO, TGLF), NUBEAM, FLARE</td>
+      <td>raised <code class="language-plaintext highlighter-rouge">subprocess.TimeoutExpired</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every adapter that runs a subprocess goes through the backend, and each has a <code class="language-plaintext highlighter-rouge">backend</code> field:
 EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM, FLARE and NICE. <code class="language-plaintext highlighter-rouge">CodeConfig</code>
 carries the field too. EFIT and EFUND declare one thread per task (<code class="language-plaintext highlighter-rouge">threads_per_task=1</code>), which sets
 <code class="language-plaintext highlighter-rouge">OMP_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">MKL_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">OPENBLAS_NUM_THREADS</code>, <code class="language-plaintext highlighter-rouge">VECLIB_MAXIMUM_THREADS</code> and
@@ -993,7 +1142,9 @@ Slurm differently, so test each such code on a real cluster before relying on it
 this on the node: from <code class="language-plaintext highlighter-rouge">SLURM_JOB_END_TIME</code> where Slurm sets it, otherwise from the runtime
 compared with the requested walltime, less one minute for the prolog.</li>
   <li><code class="language-plaintext highlighter-rouge">max_wait</code> caps the total time the backend blocks, including time in the queue. After that the
-job is cancelled, and the reason is written to <code class="language-plaintext highlighter-rouge">stderr</code> or appended to the log.</li>
+job is cancelled, and the reason is written to <code class="language-plaintext highlighter-rouge">stderr</code> or appended to the log. A job cancelled
+before its program started reports <code class="language-plaintext highlighter-rouge">runtime_status="queue_timeout"</code>; one cancelled while running,
+<code class="language-plaintext highlighter-rouge">"timeout"</code>.</li>
 </ul>
 
 <p><strong>Other outcomes.</strong></p>
@@ -1597,7 +1748,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 17:31:02 +0000"
+        "time": "2026-09-28 17:42:17 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
