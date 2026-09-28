@@ -132,6 +132,10 @@ __all__ = [
     "spectroscopy_transitions",
     "spectroscopy_energy_levels",
     "spectroscopy_spectrum",
+    "wall_conditioning_baking",
+    "wall_conditioning_gdc",
+    "wall_conditioning_boronization",
+    "wall_conditioning_sequence",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -227,6 +231,10 @@ _LOCATIONS = {
     "spectroscopy_transitions": "._spectroscopy",
     "spectroscopy_energy_levels": "._spectroscopy",
     "spectroscopy_spectrum": "._spectroscopy",
+    "wall_conditioning_baking": "._wall_conditioning",
+    "wall_conditioning_gdc": "._wall_conditioning",
+    "wall_conditioning_boronization": "._wall_conditioning",
+    "wall_conditioning_sequence": "._wall_conditioning",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

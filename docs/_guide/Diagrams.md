@@ -785,6 +785,45 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Wall conditioning
+
+Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
+$S^{(0)}_\mathrm{wall} \to S^{(1)}_\mathrm{wall}$ (`WALL_STATE_CHANGE` in the module), not only as
+"cleaning". The diagrams are reduced and semantic, and share one vessel with an inlet port, a pump port
+and a wall-surface primitive:
+- baking is thermal desorption only: no glow, anode, ion bombardment or coating;
+- the glow discharges share one apparatus template: gas feed, glow, anode, the wall as cathode, and ions
+  accelerated across the cathode sheath onto the whole wall. H$_2$/D$_2$ is reactive cleaning, with
+  volatile O/C products that match the feed isotope. He is ion-induced release of retained H/D, drawn
+  with its own arrow style;
+- boronization names a "B-containing precursor" unless one is passed, and leaves a B-rich layer.
+
+Species are examples. No temperature, precursor, pressure or thickness is built in. A temperature (in K
+or °C) or a thickness is drawn only when the caller passes it together with its source. The sequence
+ends in plasma operation; how the conditioned wall responds then is the [plasma-wall
+interaction](#plasma-wall-interaction) section.
+
+```python
+vaft.diagram.wall_conditioning_baking()        # temperature=, temperature_unit="K"|"degC", temperature_source=
+vaft.diagram.wall_conditioning_gdc("D2")       # "H2", "D2" or "He"
+vaft.diagram.wall_conditioning_boronization(precursor="B$_2$H$_6$")
+vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boronization"))
+```
+
+![sequence]({{ '/assets/diagrams/wall_conditioning_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![baking]({{ '/assets/diagrams/wall_conditioning_baking.svg' | relative_url }}) | ![boronization]({{ '/assets/diagrams/wall_conditioning_boronization.svg' | relative_url }}) |
+| ![D2 GDC]({{ '/assets/diagrams/wall_conditioning_gdc_deuterium.svg' | relative_url }}) | ![He GDC]({{ '/assets/diagrams/wall_conditioning_gdc_helium.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `wall_conditioning_baking` | External heat drives adsorbed water and gases off the wall into the pump |
+| `wall_conditioning_gdc` | One glow-discharge template. H$_2$/D$_2$: O and C leave as volatile products. He: He$^+$ bombardment releases retained H/D |
+| `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
+| `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
