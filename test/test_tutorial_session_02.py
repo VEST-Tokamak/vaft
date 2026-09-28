@@ -515,3 +515,53 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert metadata.get("session") == 2
     assert metadata.get("status") == "complete"
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
+
+
+# ---------------------------------------------------------------------------
+# #783: the reduced models after breakdown
+# ---------------------------------------------------------------------------
+
+TOYS = ("s02-toy3", "s02-toy4", "s02-toy5", "s02-toy6", "s02-toy7", "s02-toy8")
+
+
+def test_the_reduced_models_follow_breakdown_in_order(book):
+    ids = [cell.id for cell in book.cells]
+    positions = [ids.index(cell_id) for cell_id in TOYS]
+    assert positions == sorted(positions)
+    assert ids.index("s02-breakdown-note") < positions[0] < ids.index("s02-camera-lines-intro")
+
+
+def test_every_reduced_model_states_what_it_supports_and_what_it_does_not(book):
+    """#783: assumptions, the supported conclusion and the unsupported one, for each toy."""
+    notes = {"s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
+             "s02-toy7-intro": "s02-toy6", "s02-toy8-intro": "s02-toy7", "s02-toy8-note": "s02-toy8"}
+    for note, toy in notes.items():
+        text = _source(_cell(book, note))
+        assert "Not supported" in text or "not the moment" in text, (toy, note)
+    for note in ("s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
+        assert "Assumptions" in _source(_cell(book, note)), note
+
+
+def test_no_atomic_coefficient_is_invented(book):
+    """The barrier is drawn per unit P_RI and the map shows the P_RI the heating can beat."""
+    for cell_id in ("s02-toy3", "s02-toy4"):
+        source = _strip_comments(_source(_cell(book, cell_id)))
+        for call in re.findall(r"radiation_ionization_(?:power|barrier)_from_[A-Za-z_]+\(([^,]+),", source):
+            assert call.strip() == "1.0", (cell_id, call)
+    assert "#897" in _markdown(book)
+
+
+def test_the_reduced_models_use_the_startup_formulas(book):
+    executable = _executable(book)
+    for api in ("neutral_density_after_ionization_from_n_0_n_e_V_p_V_V", "ionization_fraction_from_n_e_n_D0",
+                "radiation_ionization_power_from_P_RI_n_e_n_D0_V_p", "radiation_ionization_barrier_from_P_RI_n_0_V_V",
+                "critical_ionization_fraction_from_V_p_V_V", "spitzer_resistivity_from_T_e_Z_eff_ln_Lambda",
+                "q_cyl_from_B_R_epsilon_kappa_I", "plasma_self_field_from_I_p_a"):
+        assert api in executable, api
+
+
+def test_the_vessel_shields_the_ramp_and_leaves_a_tail(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy5").outputs)
+    removed = int(re.search(r"removes up to (\d+)%", printed).group(1))
+    tail = int(re.search(r"a tail of (\d+)%", printed).group(1))
+    assert 0 < removed < 100 and 0 < tail < 100
