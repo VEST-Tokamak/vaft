@@ -114,6 +114,13 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
                                               "island_formation", "shear_alfven_wave",
                                               "fast_magnetosonic_wave", "mhd_wave_family")},
+    # plasma-wall interaction concepts (#1047)
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
+                                              "plasma_wall_interaction_recycling",
+                                              "plasma_wall_interaction_energy_partition")},
+    # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
+    # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
+    "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
     # spectroscopy and ionization concepts (#1046)
     "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
     **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
