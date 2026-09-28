@@ -82,6 +82,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
     **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
                                               "resonant_layer_matching")},
+    # disruption physics: the quench sequence, causal chain, runaway generation, energy paths (#1041)
+    **{f"{name}.svg": (name, {}) for name in ("disruption_timeline", "disruption_causal_chain",
+                                              "runaway_generation", "disruption_energy_pathways")},
     # equilibrium-aware phenomena on the default Solov'ev equilibrium (#1209)
     "kink_mode_1_1_internal.svg": ("kink_mode", {}),
     "kink_mode_2_1_global.svg": ("kink_mode", {"m": 2, "n": 1, "radial_profile": "global", "amplitude": 0.08,

@@ -387,6 +387,7 @@ CONVENTION_SENSITIVE = frozenset({
     "compare_contours",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
+    "contour_shaping_observables",
     "convert_cocos",
     "derive_boundary_representation",
     "derive_global_descriptors",

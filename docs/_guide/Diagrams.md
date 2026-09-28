@@ -635,6 +635,42 @@ $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals 
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
 
+## Disruption physics: quench sequence, runaways and energy paths
+
+The chain from loss of confinement to a runaway plateau, each link a relation in the new
+`vaft.formula.disruption` category or an existing one:
+- `thermal_quench_temperature`, `current_quench_current` and `inductive_parallel_electric_field`;
+- `connor_hastie_critical_field`, `dreicer_field`, `runaway_critical_momentum` and
+  `relativistic_collision_time`;
+- `dreicer_generation_rate`, `avalanche_growth_rate`, `avalanche_efolds_from_current_drop` and
+  `runaway_current_from_density`;
+- the Spitzer resistivity, and the `startup` plasma resistance, inductance and L/R time.
+
+Detecting a disruption in data stays in `vaft.process.transients`. Simulating one belongs to kinetic or
+integrated codes.
+
+```python
+vaft.diagram.disruption_timeline()
+vaft.diagram.disruption_causal_chain()
+vaft.diagram.runaway_generation()
+vaft.diagram.disruption_energy_pathways()
+```
+
+![timeline]({{ '/assets/diagrams/disruption_timeline.svg' | relative_url }})
+
+![causal chain]({{ '/assets/diagrams/disruption_causal_chain.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![runaway generation]({{ '/assets/diagrams/runaway_generation.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/disruption_energy_pathways.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
+| `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
+| `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+
 ## Spectroscopy and ionization
 
 Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
