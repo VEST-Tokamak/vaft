@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2bfdfd8</code>. What is described
+  <code>020d838</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -277,7 +277,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.geometry</code>:
-<strong>7</strong> public functions. Each entry is what
+<strong>9</strong> public functions. Each entry is what
 <code>vaft.formula.describe("geometry.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -322,14 +322,18 @@ shear makes $L_s = -q_0R_0/\hat s$ negative in that frame.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="cylindrical_parallel_wavenumber"><td><a href="#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></td><td>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_poloidal_field"><td><a href="#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>Poloidal field of a straight current column by Ampère’s law.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_safety_factor_from_r_B"><td><a href="#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>Safety factor of a straight cylinder standing in for a torus.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="local_slab_from_cylinder"><td><a href="#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></td><td>The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="peaked_current_safety_factor"><td><a href="#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></td><td>Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="shear_length_from_q_R0_s"><td><a href="#shear_length_from_q_R0_s"><code>shear_length_from_q_R0_s</code></a></td><td>Magnitude of the shear length a torus or cylinder gives its local slab.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -350,7 +354,7 @@ shear makes $L_s = -q_0R_0/\hat s$ negative in that frame.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L341" title="vaft/formula/geometry.py, line 341">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L343" title="vaft/formula/geometry.py, line 343">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_parallel_wavenumber(m_pol, n_tor, q, R0)</code></pre>
 
@@ -420,11 +424,74 @@ the place $k_\parallel = 0$.</p>
 
   </section>
 
+  <section class="ref-entry" id="cylindrical_poloidal_field">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L401" title="vaft/formula/geometry.py, line 401">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_poloidal_field(r, I_enclosed)</code></pre>
+
+    <p>Poloidal field of a straight current column by Ampère’s law.</p>
+
+\[B_\theta(r) = \frac{\mu_0 I(r)}{2\pi r}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius, positive.</p>
+</td></tr>
+  <tr><td><code>I_enclosed</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>Axial current inside radius $r$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>$B_\theta$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$B_\theta$ has the sign of the enclosed current along $+z$, right-handed
+about it. Exact for a cylindrically symmetric current distribution.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Only the current inside $r$ sets the field at $r$: a centrally peaked
+current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
+shapes $q(r)$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="cylindrical_safety_factor_from_r_B">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L284" title="vaft/formula/geometry.py, line 284">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L286" title="vaft/formula/geometry.py, line 286">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0)</code></pre>
 
@@ -499,7 +566,7 @@ the imposed period.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L399" title="vaft/formula/geometry.py, line 399">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L509" title="vaft/formula/geometry.py, line 509">source</a>
 </header>
     <pre class="ref-signature"><code>local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat)</code></pre>
 
@@ -584,11 +651,82 @@ a local expansion, without the cylinder in between.</p>
 
   </section>
 
+  <section class="ref-entry" id="peaked_current_safety_factor">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L448" title="vaft/formula/geometry.py, line 448">source</a>
+</header>
+    <pre class="ref-signature"><code>peaked_current_safety_factor(x, q_a, nu)</code></pre>
+
+    <p>Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.</p>
+
+\[q(x) = \frac{q_a\,x^2}{1 - (1 - x^2)^{\nu + 1}},\qquad q(0) = \frac{q_a}{\nu + 1}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Normalised minor radius $r/a$, in $[0, 1]$.</p>
+</td></tr>
+  <tr><td><code>q_a</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Edge safety factor $q(a)$.</p>
+</td></tr>
+  <tr><td><code>nu</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current peaking exponent, non-negative; $\nu = 0$ is a flat current.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$q(x)$, rising from $q_a/(\nu + 1)$ on axis to $q_a$ at the edge.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The enclosed current is $I(x) = I_a[1 - (1 - x^2)^{\nu+1}]$; with
+<code class="language-plaintext highlighter-rouge">cylindrical_poloidal_field</code> and <code class="language-plaintext highlighter-rouge">cylindrical_safety_factor_from_r_B</code>
+this is $q = rB_z/(R_0B_\theta)$. The axis value is the limit $x \to 0$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">x</code> lies outside $[0, 1]$, <code class="language-plaintext highlighter-rouge">q_a</code> is not positive or <code class="language-plaintext highlighter-rouge">nu</code> is negative.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The more peaked the current (larger $\nu$), the lower $q$ on axis and the
+stronger the shear outside: $q_a/q_0 = \nu + 1$ is fixed by the peaking
+alone.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Cylinder, large aspect ratio, the standard model profile; not a
+reconstructed equilibrium.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3 and 6.8 (the profile used for tearing and kink examples).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="shear_length_from_q_R0_s">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#shear_length_from_q_R0_s"><code>shear_length_from_q_R0_s</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L232" title="vaft/formula/geometry.py, line 232">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L234" title="vaft/formula/geometry.py, line 234">source</a>
 </header>
     <pre class="ref-signature"><code>shear_length_from_q_R0_s(q, R0, s_hat)</code></pre>
 
@@ -674,7 +812,7 @@ coefficient while discarding the rest of the geometry.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheared_slab_field"><code>sheared_slab_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L123" title="vaft/formula/geometry.py, line 123">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L125" title="vaft/formula/geometry.py, line 125">source</a>
 </header>
     <pre class="ref-signature"><code>sheared_slab_field(x, B0, L_s)</code></pre>
 
@@ -745,7 +883,7 @@ equilibrium gradient in the field strength.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L177" title="vaft/formula/geometry.py, line 177">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L179" title="vaft/formula/geometry.py, line 179">source</a>
 </header>
     <pre class="ref-signature"><code>sheared_slab_parallel_wavenumber(x, k_y, L_s, k_z=0.0)</code></pre>
 
@@ -829,7 +967,7 @@ drift waves and ballooning-type modes around rational surfaces.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2bfdfd83dbfa8f6e9564983073a9a0d61af201e6/vaft/formula/geometry.py#L75" title="vaft/formula/geometry.py, line 75">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/020d83869377c6d2a3c721c635db188cfacaecfb/vaft/formula/geometry.py#L77" title="vaft/formula/geometry.py, line 77">source</a>
 </header>
     <pre class="ref-signature"><code>slab_parallel_wavenumber(k, B)</code></pre>
 
@@ -1117,7 +1255,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 04:14:59 +0000"
+        "time": "2026-09-28 04:49:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
