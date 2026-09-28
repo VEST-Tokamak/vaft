@@ -416,7 +416,26 @@ def test_an_explicit_boundary_replaces_the_miller_knobs(geqdsk):
         EquilibriumVariation("open", boundary=Contour(boundary.r, boundary.z, closed=False))
     with pytest.raises(TypeError, match="Contour"):
         EquilibriumVariation("tuple", boundary=(boundary.r, boundary.z))
-    assert EquilibriumVariation("explicit", boundary=boundary).reshapes_boundary
+    seven = np.linspace(0.0, 2*np.pi, 8)                         # 7 distinct points, closed
+    with pytest.raises(ValueError, match="8 distinct"):
+        EquilibriumVariation("coarse", boundary=Contour(1 + 0.3*np.cos(seven), 0.5*np.sin(seven)))
+    explicit = EquilibriumVariation("explicit", boundary=boundary)
+    assert explicit.reshapes_boundary
+    # Arrays do not break equality or hashing: the label identifies a variation.
+    assert explicit == EquilibriumVariation("explicit", boundary=boundary) and len({explicit}) == 1
+
+
+def test_a_boundary_chease_cannot_hold_is_refused():
+    """CHEASE holds the boundary as rho(theta); a crescent whose inboard notch passes the centre folds that."""
+    from vaft.data.equilibrium import Contour
+
+    t = np.linspace(0.0, 2*np.pi, 200, endpoint=False)
+    crescent = Contour(1.0 + 0.3*np.cos(t) + 0.3*np.exp(-((t - np.pi)/0.45)**2), 0.45*np.sin(t))
+    with pytest.raises(ValueError, match="star-shaped"):
+        EquilibriumVariation("crescent", boundary=crescent)
+    # A doublet's waist does not: every ray from its centre crosses it once.
+    doublet = Contour(1.0 + 0.3*np.cos(t)*(0.4 + 0.6*np.sin(2*t)**2), 0.6*np.sin(t))
+    assert EquilibriumVariation("doublet", boundary=doublet).reshapes_boundary
 
 
 def test_an_explicit_boundary_is_written_as_given(geqdsk):
@@ -462,12 +481,42 @@ def test_a_scan_records_the_boundary_it_solved_on(monkeypatch, tmp_path, geqdsk)
         record = json.loads((case.workdir / "scan_boundary.json").read_text())
         expected = "explicit_contour" if case.variation.boundary is not None else "miller_rbbbs"
         assert record["boundary"] == expected
-    # The Fourier-generated boundary is what EXPEQ carries, not a Miller refit of it.
+    # The Fourier-generated boundary is what EXPEQ carries, not a Miller refit or a re-sort of it.
     expeq = _expeq_boundary(by_label["fourier_tall"].workdir / "EXPEQ")
-    source_kappa = _elongation(_expeq_boundary(by_label["control"].workdir / "EXPEQ"))
-    assert _elongation(expeq) == pytest.approx(1.1*source_kappa, rel=0.03)
+    assert _elongation(expeq) == pytest.approx(float(np.ptp(tall.z))/float(np.ptp(tall.r)), rel=2e-3)
+    for case in cases:
+        record = json.loads((case.workdir / "scan_boundary.json").read_text())
+        assert record["boundary_smoothing"] == "arclength"
     assert by_label["fourier_tall"].shape_parameters["elongation"] == pytest.approx(
         by_label["fourier_tall"].shape[2], rel=1e-9)
+
+
+def test_explicit_boundaries_alone_need_no_miller_fit_of_the_source(monkeypatch, tmp_path, geqdsk):
+    import json
+
+    import vaft.code.chease_scan as module
+    import vaft.process.equilibrium as equilibrium
+    from vaft.code import CHEASEConfig
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(returncode=1, workdir=config.workdir),
+    )
+
+    def no_miller(*args, **kwargs):
+        raise AssertionError("a scan of explicit boundaries must not fit Miller to the source")
+
+    monkeypatch.setattr(equilibrium, "fit_miller_surface", no_miller)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("tall", boundary=_fourier_boundary_of_source(geqdsk, 1.1))],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    assert all(case.error is None or "exited" in case.error for case in cases), [c.error for c in cases]
+    control = json.loads((cases[0].workdir / "scan_boundary.json").read_text())
+    assert control["boundary"] == "source_rbbbs" and cases[0].target_psin == 1.0
+    np.testing.assert_allclose(cases[0].boundary.r, np.asarray(geqdsk["RBBBS"], float)[:-1])
 
 
 def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_path):

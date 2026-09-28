@@ -70,7 +70,12 @@ class EquilibriumVariation:
     :class:`~vaft.data.equilibrium.Contour` -- evaluated from any shape model,
     Miller, :class:`~vaft.data.equilibrium.FourierSurface` or none -- which is
     what CHEASE's ``EXPEQ`` consumes anyway (#942).  The Miller knobs are one
-    way of generating such a contour; the two do not combine.
+    way of generating such a contour; the two do not combine.  CHEASE holds
+    its boundary as a radius over the poloidal angle about the plasma centre,
+    so the contour must be star-shaped about ``((R_max + R_min)/2, (Z_max +
+    Z_min)/2)``; a doublet or a deep bean is refused rather than scrambled.
+    ``boundary`` does not take part in equality or hashing, which the label
+    already makes unique within a scan.
     """
 
     label: str
@@ -78,7 +83,7 @@ class EquilibriumVariation:
     current_peaking: float = 0.0
     elongation_scale: float = 1.0
     triangularity_shift: float = 0.0
-    boundary: Optional[Contour] = None
+    boundary: Optional[Contour] = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if self.current_peaking < 0.0:
@@ -99,10 +104,16 @@ class EquilibriumVariation:
                     "an explicit boundary replaces the Miller shape knobs; give "
                     "either boundary or elongation_scale/triangularity_shift, not both"
                 )
-            if not self.boundary.closed or self.boundary.r.size < 8:
-                raise ValueError("an explicit boundary must be a closed contour of at least 8 points")
-            if np.any(self.boundary.r <= 0.0):
+            r, z = _open_outline(self.boundary.r, self.boundary.z)
+            if not self.boundary.closed or r.size < 8:
+                raise ValueError("an explicit boundary must be a closed contour of at least 8 distinct points")
+            if np.any(r <= 0.0):
                 raise ValueError("an explicit boundary must lie at positive major radius")
+            if not _star_shaped(r, z):
+                raise ValueError(
+                    "an explicit boundary must be star-shaped about its centre: CHEASE "
+                    "represents the boundary as a radius over the poloidal angle"
+                )
 
     @property
     def reshapes_boundary(self) -> bool:
@@ -114,6 +125,24 @@ class EquilibriumVariation:
         )
 
 
+def _open_outline(r: Any, z: Any) -> tuple[np.ndarray, np.ndarray]:
+    """The outline without a repeated closing point."""
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    if r.size > 1 and np.isclose(r[0], r[-1]) and np.isclose(z[0], z[-1]):
+        return r[:-1], z[:-1]
+    return r, z
+
+
+def _star_shaped(r: np.ndarray, z: np.ndarray) -> bool:
+    """Whether the polar angle about the box centre advances monotonically around the outline."""
+    centre_r = 0.5 * (float(np.max(r)) + float(np.min(r)))
+    centre_z = 0.5 * (float(np.max(z)) + float(np.min(z)))
+    angle = np.unwrap(np.arctan2(np.r_[z, z[0]] - centre_z, np.r_[r, r[0]] - centre_r))
+    step = np.diff(angle)
+    return bool(np.all(step > 0) or np.all(step < 0)) and bool(np.isclose(abs(angle[-1] - angle[0]), 2 * np.pi))
+
+
 @dataclass(frozen=True)
 class CHEASEScanCase:
     """What one point of a scan produced, converged or not."""
@@ -122,7 +151,12 @@ class CHEASEScanCase:
     workdir: Path
     result: Optional[CHEASEResult] = None
     error: Optional[str] = None
-    #: ``(r0, a, kappa, delta)`` the boundary actually carried into the solve.
+    #: ``(r0, a, kappa, delta)`` the boundary actually carried into the solve:
+    #: the fitted Miller parameters for a Miller-knob case, the geometric
+    #: centre, half-width, elongation and mean of the upper and lower
+    #: triangularity for an explicit ``boundary``.  The two agree only to the
+    #: Miller fit residual; :attr:`shape_parameters` is measured the same way
+    #: for every case.
     shape: Optional[tuple[float, float, float, float]] = None
     #: The ``target_psin`` the case was solved with -- 1 for every case of a
     #: scan that varies the shape, whatever the caller's config said.  Also
@@ -159,9 +193,7 @@ def _reshape_boundary(
     from vaft.process.equilibrium import contour_shape_parameters, evaluate_miller, fit_miller_surface
 
     if variation.boundary is not None:
-        r_new, z_new = variation.boundary.r, variation.boundary.z
-        if np.isclose(r_new[0], r_new[-1]) and np.isclose(z_new[0], z_new[-1]):
-            r_new, z_new = r_new[:-1], z_new[:-1]
+        r_new, z_new = _open_outline(variation.boundary.r, variation.boundary.z)
         geometry = contour_shape_parameters(r_new, z_new)
         minor = 0.5 * (geometry["r_outboard"] - geometry["r_inboard"])
         shape = (
@@ -310,13 +342,22 @@ def scan_chease(
     root.mkdir(parents=True, exist_ok=True)
     geqdsk = _coerce_geqdsk(source)
 
-    # A scan that varies the shape at all compares every case against the same
-    # Miller representation, so the control is not the odd one out.
-    refit = any(item.reshapes_boundary for item in variations)
     from vaft.process.equilibrium import contour_shape_parameters
-    # ...and solves on that representation: target_psin >= 1 is the adapter's
-    # "the EXPEQ boundary is RBBBS" path, the only one a reshaped RBBBS reaches.
-    solve_config = replace(base_config, target_psin=1.0) if refit else base_config
+
+    # A scan that varies the shape at all solves every case on RBBBS:
+    # target_psin >= 1 is the adapter's "the EXPEQ boundary is RBBBS" path, the
+    # only one a reshaped RBBBS reaches.
+    reshaped = any(item.reshapes_boundary for item in variations)
+    # A scan with Miller knobs compares every case against the same Miller
+    # representation, so the control is not the odd one out.  Explicit
+    # boundaries alone need no Miller fit of the source, which may not have one.
+    refit = any(item.reshapes_boundary and item.boundary is None for item in variations)
+    explicit = any(item.boundary is not None for item in variations)
+    solve_config = replace(base_config, target_psin=1.0) if reshaped else base_config
+    if explicit:
+        # The default FFT smoothing re-sorts points by polar angle about the
+        # outboard midplane; arc-length resampling keeps the given outline.
+        solve_config = replace(solve_config, boundary_smoothing="arclength")
 
     cases: list[CHEASEScanCase] = []
     for variation in variations:
@@ -331,12 +372,18 @@ def scan_chease(
                     "solved_target_psin": float(solve_config.target_psin),
                     "boundary": (
                         "explicit_contour" if variation.boundary is not None
-                        else "miller_rbbbs" if refit else "adapter_default"
+                        else "miller_rbbbs" if refit
+                        else "source_rbbbs" if reshaped else "adapter_default"
                     ),
+                    "boundary_smoothing": str(solve_config.boundary_smoothing),
                     "reason": (
-                        "the scan varies the shape, so every case solves on the "
-                        "Miller boundary written to RBBBS (#887)"
-                        if refit else "no shape variation in this scan"
+                        "an explicit boundary contour, written to RBBBS and solved on (#942)"
+                        if variation.boundary is not None
+                        else "the scan varies the shape, so every case solves on the "
+                        "Miller boundary written to RBBBS (#887)" if refit
+                        else "the scan varies the shape through explicit contours only, "
+                        "so this case solves on the source RBBBS (#942)" if reshaped
+                        else "no shape variation in this scan"
                     ),
                 },
                 indent=2,
@@ -349,12 +396,10 @@ def scan_chease(
             )
             applied = None
             geometry: dict[str, float] = {}
-            if refit:
-                applied = Contour(
-                    np.asarray(modified["RBBBS"], dtype=float),
-                    np.asarray(modified["ZBBBS"], dtype=float),
-                )
-                geometry = contour_shape_parameters(applied.r[:-1], applied.z[:-1])
+            if reshaped:
+                r_open, z_open = _open_outline(modified["RBBBS"], modified["ZBBBS"])
+                applied = Contour(r_open, z_open)
+                geometry = contour_shape_parameters(r_open, z_open)
             result = refine_equilibrium(modified, replace(solve_config, workdir=case_dir))
             case = CHEASEScanCase(
                 variation,

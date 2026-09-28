@@ -93,16 +93,26 @@ def test_indentation_depth_follows_the_miller_coefficient():
     depths = [contour_shaping_observables(*(lambda c: (c.r, c.z))(_miller(1.6, 0.4, indentation=b)))
               ["normalized_indentation_depth"] for b in (0.0, 0.2, 0.35, 0.5)]
     assert depths[0] < 1e-3
-    assert all(later > earlier for earlier, later in zip(depths[1:], depths[2:]))
+    # Below the analytic onset the surface is still convex, so depth only rises from there on.
+    assert all(later >= earlier for earlier, later in zip(depths, depths[1:]))
+    assert depths[-1] > depths[-2] > 1e-3
 
 
-def test_asymmetry_matches_the_two_triangularities():
+def test_asymmetry_grows_with_the_triangularity_difference():
+    halves = (0.0, 0.05, 0.1, 0.2, 0.25)
+    asymmetry, split = [], []
+    for half in halves:
+        contour = _asymmetric_d(half=half)
+        shape = contour_shape_parameters(contour.r, contour.z)
+        split.append(shape["triangularity_upper"] - shape["triangularity_lower"])
+        asymmetry.append(contour_shaping_observables(contour.r, contour.z)["up_down_asymmetry"])
+    assert asymmetry[0] < 1e-3 and abs(split[0]) < 1e-3
+    assert all(b > a for a, b in zip(asymmetry, asymmetry[1:]))
+    assert all(b > a for a, b in zip(split, split[1:]))
+    # Flipping the contour upside down changes which side is sharper, not how asymmetric it is.
     contour = BENCHMARKS["asymmetric_d"][0]
-    shape = contour_shape_parameters(contour.r, contour.z)
-    assert shape["triangularity_upper"] > shape["triangularity_lower"] + 0.3
-    mirrored = contour_shaping_observables(contour.r, -contour.z)
-    assert mirrored["up_down_asymmetry"] == pytest.approx(
-        contour_shaping_observables(contour.r, contour.z)["up_down_asymmetry"], rel=1e-6)
+    assert contour_shaping_observables(contour.r, -contour.z)["up_down_asymmetry"] == pytest.approx(
+        asymmetry[-1], rel=1e-6)
 
 
 def test_every_model_evaluates_back_to_a_contour_that_measures_the_same():
