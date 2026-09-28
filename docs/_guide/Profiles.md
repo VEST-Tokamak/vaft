@@ -296,6 +296,33 @@ matching equilibrium time. The factor of 2 absorbs the assumption $T_i = T_e$; t
 impurity modelling. These are synthetic profiles — useful to seed a code that needs *some* kinetic
 input, not a measurement.
 
+### Analytic L-mode, H-mode and ITB states
+
+The opposite direction — prescribe the kinetic profiles, derive the pressure — is a small preset
+layer (#1045). Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
+#552 kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
+transport barrier with its own position, full width and rise per channel. Axis and separatrix
+values hold exactly; `n_i` follows from quasi-neutrality with a uniform `z_eff`, and `p_e`, `p_i`,
+`p` and `dp/dψ_N` are derived, never specified. The coordinate is `psi_norm`; units are m⁻³, eV
+and Pa.
+
+```python
+from vaft.process.equilibrium import solovev_example
+from vaft.process.profile import analytic_hmode_itb_state, project_plasma_state
+
+state = analytic_hmode_itb_state(te_axis=400.0, te_ped=80.0, te_sep=10.0,
+                                 pedestal_position=0.93, pedestal_width=0.05,
+                                 itb_position={"n_e": 0.3, "T_e": 0.3, "T_i": 0.45})
+geometry = solovev_example("limited")
+p_rz = project_plasma_state(state, geometry, "p_total")   # NaN outside the LCFS
+```
+
+The presets are `analytic_lmode_state`, `analytic_hmode_state`, `analytic_itb_state` and
+`analytic_hmode_itb_state`; `compose_analytic_profile` and `compose_plasma_state` build any other
+combination, and `vaft.plot.plot_plasma_state_projection` draws a projected quantity. A state is
+**not** an equilibrium: projecting it onto a geometry leaves that geometry solved for its own
+sources. See `notebooks/analytic_plasma_state_presets.ipynb`.
+
 ## Plotting
 
 Each stage has a canonical plot, reached through the `vaft.omas.plot_*` adapters. They draw what the ODS

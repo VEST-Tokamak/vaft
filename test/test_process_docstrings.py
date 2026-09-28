@@ -305,6 +305,18 @@ CONVENTION_SENSITIVE = frozenset({
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
+    # profile (#1045): analytic plasma states are defined in psi_norm with
+    # full-width barriers, and the projection relies on the COCOS-free ratio
+    "analytic_hmode_itb_state",
+    "analytic_hmode_state",
+    "analytic_itb_state",
+    "analytic_lmode_state",
+    "compose_analytic_profile",
+    "compose_plasma_state",
+    "evaluate_analytic_profile",
+    "evaluate_plasma_state",
+    "project_flux_function",
+    "project_plasma_state",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
     # shot-era baselines, per-unit-current responses, and the toroidal mode-number
     # entry points harmonized under standard right-handed coordinates (#638)
