@@ -517,28 +517,28 @@
     },
     "wall_conditioning_baking.svg": {
       "call": "vaft.diagram.wall_conditioning_baking()",
-      "source_sha256": "bef6c044f73f2c48ec8e3032f040132e62b2f0b14a2637d2815808b04042ce23",
-      "svg_sha256": "24dce897b2fb3a77bdffc0068b56e3f34a448a0cb64128425637158777e6ab88"
+      "source_sha256": "e9f969eb82cfcbc9353c37aaebe29e290b497d1ce34b61a57244a4bb5f13a15f",
+      "svg_sha256": "ee8057164e7930dbc1f737af645dcc88cf2c526bb2f74f8195d2e94f3b71898b"
     },
     "wall_conditioning_boronization.svg": {
       "call": "vaft.diagram.wall_conditioning_boronization()",
-      "source_sha256": "caf91fbe4eefc94f5de57eeda14030d7dae4bb008bd924bd28266f4892bbc74e",
-      "svg_sha256": "d8d8f5f132a5f6a1de21da84940829338f071238a3d3647cef2c0965a90e6548"
+      "source_sha256": "1dce2568780aad4efd2217162408cc4b92f23ae97145ee60e32edfadbb7ca94c",
+      "svg_sha256": "8969496f2b85d744ea5ead37bcb40220c70029b9f81620f216a3b6e55c503bcb"
     },
-    "wall_conditioning_gdc_d2.svg": {
+    "wall_conditioning_gdc_deuterium.svg": {
       "call": "vaft.diagram.wall_conditioning_gdc(gas='D2')",
-      "source_sha256": "2fb9e73fd73b94145a034e796452efb25274de73019e9bbea164bc938edf17d4",
-      "svg_sha256": "969c2b85c28a5e5fdb83ddfa3d716d35e08723f43842e9868904758542e91e1e"
+      "source_sha256": "add2ca3f1c75eb3739a093361e1867f60ac773b17a1ec8c79a4689f19a23d7cb",
+      "svg_sha256": "23b30c8e5e3dc3a6d386ef0a66932b84a4d97182d3174ee05c0a43723d630888"
     },
-    "wall_conditioning_gdc_he.svg": {
+    "wall_conditioning_gdc_helium.svg": {
       "call": "vaft.diagram.wall_conditioning_gdc(gas='He')",
-      "source_sha256": "493fafe3815f29d57f7ab83222f0469df752479791d5b45dc11bfb13852222a8",
-      "svg_sha256": "dafa47f853297e50906bc421ec8bc5cb8ef0aa3db40aac4929583e2b7c79c686"
+      "source_sha256": "a22e77fe4b37161359f9c00201b9c352d063db6d5a257bc7bdf78e76e9d951d7",
+      "svg_sha256": "a2b268bef9eca70d37f1dea7fba941c26d12bf881e4bd11998587fdffed8d7a6"
     },
     "wall_conditioning_sequence.svg": {
       "call": "vaft.diagram.wall_conditioning_sequence()",
-      "source_sha256": "2e6980010ce8bcf66307ef81907087db2e27d1cac9790a03585372c4e75c610c",
-      "svg_sha256": "50decccca3ef91f5f7ff5491c1dfe88e34648354ab361bb63d190cbada62d315"
+      "source_sha256": "58b21ea7aff600595111c0c104802aa4c4be9ce8b7a7855d554dda433b177ca8",
+      "svg_sha256": "185d50d596b7755b4e1c4debd14c9428c01830c007939b0f3428b73cf0db3d07"
     },
     "x_point.svg": {
       "call": "vaft.diagram.x_point()",
