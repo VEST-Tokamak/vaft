@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import os
 from pathlib import Path
+import re
 import secrets
 import stat
 
@@ -78,6 +79,20 @@ def _parse_line(line: str) -> tuple[str, str] | None:
     return fields[0].strip(), fields[1].strip()
 
 
+def _lines(text: str, keepends: bool = False) -> list[str]:
+    """Split like Python's text-mode file iteration (h5pyd's reader): on
+    ``\\n``, ``\\r\\n`` and ``\\r`` only -- ``str.splitlines`` also splits on form
+    feeds and other separators h5pyd would keep inside a line."""
+    lines = re.split(r"(\r\n|\r|\n)", text)
+    out = []
+    for index in range(0, len(lines), 2):
+        body = lines[index]
+        end = lines[index + 1] if index + 1 < len(lines) else ""
+        if body or end:
+            out.append(body + end if keepends else body)
+    return out
+
+
 def read_values(path: Path) -> dict[str, str]:
     """Every ``key = value`` pair in *path*; the last occurrence wins, as in h5pyd.
 
@@ -86,7 +101,7 @@ def read_values(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not Path(path).is_file():
         return values
-    for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in _lines(Path(path).read_text(encoding="utf-8", errors="replace")):
         parsed = _parse_line(line)
         if parsed is not None:
             values[parsed[0]] = parsed[1]
@@ -115,6 +130,10 @@ def validate_value(key: str, value: str) -> None:
         )
     if value != value.strip():
         raise ValueError(f"{key} has leading or trailing whitespace, which h5pyd strips")
+    if not value.isascii() or not value.isprintable():
+        # h5pyd opens the file in the locale encoding (cp1252 on many Windows
+        # systems), so a UTF-8 byte sequence would read back as other text.
+        raise ValueError(f"{key} must be printable ASCII")
 
 
 def render_update(original: str, updates: Mapping[str, str]) -> str:
@@ -128,7 +147,7 @@ def render_update(original: str, updates: Mapping[str, str]) -> str:
     """
     for key, value in updates.items():
         validate_value(key, value)
-    lines = original.splitlines(keepends=True)
+    lines = _lines(original, keepends=True)
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
     seen: set[str] = set()
@@ -157,10 +176,13 @@ def write_private(path: Path, text: str) -> None:
     The temporary file is created by ``os.open(..., O_EXCL, 0o600)`` in the
     destination's directory (so ``os.replace`` is a same-filesystem rename) and
     ``fchmod``-ed to ``0600`` again, so the mode does not depend on the process
-    umask having no odd bits. A symlink at *path* is replaced by a regular
-    file rather than followed.
+    umask having no odd bits. A symlink at *path* (a dotfiles setup) is
+    followed: its target is rewritten, so the link survives and no stale copy
+    of the old secret is left behind at the target.
     """
     path = Path(path)
+    if path.is_symlink():
+        path = path.resolve()
     directory = path.parent
     directory.mkdir(parents=True, exist_ok=True)
     temporary = directory / f".hscfg.{secrets.token_hex(8)}.tmp"
@@ -188,7 +210,13 @@ def write_private(path: Path, text: str) -> None:
 def update_hscfg(path: Path, updates: Mapping[str, str]) -> None:
     """Set *updates* in the ``.hscfg`` at *path*, creating it ``0600`` if needed."""
     path = Path(path)
-    original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    try:
+        original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    except UnicodeDecodeError:
+        # The codec message would quote a byte offset inside the credentials.
+        raise ValueError(
+            f"{path} is not UTF-8/ASCII text; fix or remove it, then rerun"
+        ) from None
     write_private(path, render_update(original, updates))
 
 

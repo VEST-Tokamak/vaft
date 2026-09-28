@@ -47,6 +47,11 @@ def home(tmp_path, monkeypatch):
     work = tmp_path / "work"
     work.mkdir()
     monkeypatch.chdir(work)
+    # The checker also looks at the checkout's own .hscfg; point it at an
+    # empty directory so a developer's real file is never read.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setattr(checker, "REPOSITORY_ROOT", repo)
     for name in ("HS_ENDPOINT", "HS_USERNAME", "HS_PASSWORD", "HS_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     return home
@@ -152,7 +157,7 @@ def test_written_file_is_0600_even_under_umask_022(home):
 
 
 @pytest.mark.skipif(not POSIX, reason="file modes are not enforced on Windows")
-def test_loose_existing_file_is_tightened_and_never_readable_in_between(home, monkeypatch):
+def test_loose_existing_file_is_replaced_by_a_0600_temporary(home, monkeypatch):
     config = home / ".hscfg"
     config.write_text("hs_endpoint = http://old:5101\n", encoding="utf-8")
     config.chmod(0o664)
@@ -217,19 +222,92 @@ def test_password_stdin_rejects_empty_input(home, capsys):
     assert not (home / ".hscfg").exists()
 
 
-def test_secrets_are_not_accepted_as_arguments():
-    parser_help = io.StringIO()
+def test_secrets_are_not_accepted_as_arguments(capsys):
     with pytest.raises(SystemExit):
-        sys_stdout, sys.stdout = sys.stdout, parser_help
-        try:
-            cli.main(["configure", "--help"])
-        finally:
-            sys.stdout = sys_stdout
-    text = parser_help.getvalue()
+        cli.main(["configure", "--help"])
+    text = capsys.readouterr().out
     assert "--password-stdin" in text
     assert "--password " not in text and "--api-key" not in text
-    with pytest.raises(SystemExit):
-        cli.main(["configure", "--password", SECRET])
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["configure", "--password", SECRET],
+        ["configure", f"--password={SECRET}"],
+        ["configure", "--pass", SECRET],
+        ["configure", "--api-key", SECRET],
+        ["configure", SECRET],
+    ],
+)
+def test_a_secret_typed_as_an_argument_is_refused_without_echo(home, capsys, argv):
+    """No prefix match onto --password-stdin, and the error never quotes it."""
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(argv)
+    assert exit_info.value.code == 2
+    captured = capsys.readouterr()
+    assert SECRET not in captured.out + captured.err
+    assert not (home / ".hscfg").exists()
+
+
+def test_password_stdin_from_a_terminal_uses_the_hidden_prompt(home, monkeypatch):
+    class Terminal(io.StringIO):
+        def isatty(self):
+            return True
+
+    monkeypatch.setattr(sys, "stdin", Terminal("typed-with-echo\n"))
+    calls = []
+    monkeypatch.setattr(cli.getpass, "getpass", lambda prompt="": calls.append(prompt) or SECRET)
+    assert cli.main(["configure", "--password-stdin"]) == 0
+    assert calls, "a terminal stdin must be read through getpass"
+    assert hscfg.read_values(home / ".hscfg")["hs_password"] == SECRET
+
+
+def test_empty_endpoint_flag_is_refused(home):
+    code, _ = _run(_args(endpoint="  "))
+    assert code == 2 and not (home / ".hscfg").exists()
+
+
+def test_invalid_endpoint_is_asked_again_before_the_secrets(home, capsys):
+    prompts = _Prompts(["hsds.example", "http://hsds.example:5101", "student"], [SECRET, ""])
+    code, _ = _run(_args(), prompts)
+    assert code == 0
+    assert len(prompts.plain_prompts) == 3
+    assert hscfg.read_values(home / ".hscfg")["hs_endpoint"] == "http://hsds.example:5101"
+
+
+def test_end_of_input_aborts_without_writing(home):
+    def eof(prompt):
+        raise EOFError
+
+    code = cli.configure(_args(), ask=eof, ask_secret=eof, out=io.StringIO())
+    assert code == 1 and not (home / ".hscfg").exists()
+
+
+def test_non_ascii_value_is_refused(home, capsys):
+    code, _ = _run(_args(password_stdin=True), stdin=io.StringIO("pässwort\n"))
+    assert code == 2 and not (home / ".hscfg").exists()
+    assert "pässwort" not in capsys.readouterr().err
+
+
+def test_undecodable_file_is_reported_without_its_bytes(home, capsys):
+    (home / ".hscfg").write_bytes(b"hs_password = caf\xe9-secret\n")
+    code, _ = _run(_args(endpoint="http://x:5101"))
+    err = capsys.readouterr().err
+    assert code == 2 and "secret" not in err and "position" not in err
+
+
+@pytest.mark.skipif(not POSIX, reason="symlinks need privileges on Windows")
+def test_symlinked_file_is_updated_through_the_link(home):
+    target = home / "dotfiles" / "hscfg"
+    target.parent.mkdir()
+    target.write_text("hs_endpoint = http://old:5101\n", encoding="utf-8")
+    (home / ".hscfg").symlink_to(target)
+    code, _ = _run(_args(password_stdin=True), stdin=io.StringIO(SECRET))
+    assert code == 0
+    assert (home / ".hscfg").is_symlink()
+    assert hscfg.read_values(target)["hs_password"] == SECRET
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
 
 
 def test_h5pyd_parses_the_written_file(home):
@@ -321,6 +399,22 @@ def test_probe_errors_are_scrubbed_of_credentials(home):
     assert SECRET not in rendered and API_KEY not in rendered
     assert "student" not in rendered  # URL user-info is dropped whole
     assert "http://***@x:5101/" in rendered
+
+
+def test_probe_scrubs_encoded_forms_and_at_signs():
+    secret = "p@ss/word 1"
+    scrub = checker._secret_values(environ={"HS_USERNAME": "u", "HS_PASSWORD": secret}, paths=[])
+    import base64
+    from urllib.parse import quote
+
+    text = (
+        f"http://u:{secret}@host:5101/ q={quote(secret, safe='')} "
+        f"r={secret!r} auth=Basic {base64.b64encode(f'u:{secret}'.encode()).decode()}"
+    )
+    rendered = checker.redact(text, scrub)
+    for form in (secret, quote(secret, safe=""), "word 1", base64.b64encode(f"u:{secret}".encode()).decode()):
+        assert form not in rendered
+    assert "http://***@host:5101/" in rendered
 
 
 def test_probe_scrubs_environment_secrets(home, monkeypatch):

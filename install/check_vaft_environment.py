@@ -390,7 +390,9 @@ def check_hscfg_permissions(
     )
 
 
-_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
+# Greedy up to the last "@" before the path, so a password containing an
+# unencoded "@" is still dropped whole.
+_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/\s]*@")
 
 
 def _secret_values(environ: Optional[dict] = None, paths: Optional[Sequence[Path]] = None) -> list[str]:
@@ -402,8 +404,25 @@ def _secret_values(environ: Optional[dict] = None, paths: Optional[Sequence[Path
             values += [value for key, value in _hscfg_pairs(Path(config)) if key in SECRET_HSCFG_KEYS]
         except OSError:
             continue
+    user = environ.get("HS_USERNAME", "")
+    for config in hscfg_candidates() if paths is None else paths:
+        try:
+            user = user or next(
+                (value for key, value in _hscfg_pairs(Path(config)) if key == "hs_username"), ""
+            )
+        except OSError:
+            continue
+    import base64
+    from urllib.parse import quote
+
+    forms = set()
+    for value in values:
+        if not value:
+            continue
+        forms |= {value, quote(value, safe=""), repr(value)[1:-1]}
+        forms.add(base64.b64encode(f"{user}:{value}".encode()).decode())
     # Longest first, so a secret containing another is replaced whole.
-    return sorted({value for value in values if value}, key=len, reverse=True)
+    return sorted(forms, key=len, reverse=True)
 
 
 def redact(text: str, secrets: Iterable[str]) -> str:

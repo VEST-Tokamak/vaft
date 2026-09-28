@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Iterable
 import getpass
+import os
 from pathlib import Path
 import sys
 
@@ -42,6 +43,43 @@ def _prompt_secret(label: str, configured: bool, reader: Callable[[str], str]) -
     return answer or None
 
 
+class _QuietParser(argparse.ArgumentParser):
+    """Refuses bad arguments without echoing them.
+
+    A mistyped ``--password SECRET`` would otherwise be quoted back on stderr
+    ("unrecognized arguments: SECRET"), and prefix matching (``allow_abbrev``)
+    would read ``--pass`` as ``--password-stdin``; both are disabled.
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("allow_abbrev", False)
+        super().__init__(*args, **kwargs)
+
+    def error(self, message: str):  # noqa: D401 - argparse hook
+        self.print_usage(sys.stderr)
+        self.exit(
+            2,
+            f"{self.prog}: error: invalid arguments (values are not shown). "
+            "Secrets are never taken as arguments; use the prompts or "
+            "--password-stdin. See --help.\n",
+        )
+
+
+def _check_endpoint(endpoint: str) -> str | None:
+    if not endpoint.startswith(("http://", "https://", "http+unix://")):
+        return f"endpoint must start with http:// or https:// (got {endpoint!r})"
+    return None
+
+
+def _read_password_stdin(stdin: Iterable[str] | None, ask_secret: Callable[[str], str]) -> str:
+    if stdin is None:
+        if sys.stdin.isatty():
+            # Typing into a terminal would echo; use the hidden prompt instead.
+            return ask_secret("Password (input hidden): ")
+        stdin = sys.stdin
+    return next(iter(stdin), "").rstrip("\r\n")
+
+
 def configure(
     arguments: argparse.Namespace,
     *,
@@ -56,7 +94,11 @@ def configure(
     ask_secret = ask_secret if ask_secret is not None else getpass.getpass
     out = out if out is not None else sys.stdout
     path = Path(arguments.config).expanduser() if arguments.config else hscfg.default_path()
-    current = hscfg.read_values(path)
+    try:
+        current = hscfg.read_values(path)
+    except OSError as error:
+        print(f"error: cannot read {path}: {error.strerror}", file=sys.stderr)
+        return 2
     updates: dict[str, str] = {}
 
     interactive = not (
@@ -64,14 +106,17 @@ def configure(
         or arguments.username is not None
         or arguments.password_stdin
     )
-    if arguments.endpoint is not None:
-        updates["hs_endpoint"] = arguments.endpoint.strip()
-    if arguments.username is not None:
-        updates["hs_username"] = arguments.username.strip()
+    for key, value in (("hs_endpoint", arguments.endpoint), ("hs_username", arguments.username)):
+        if value is not None:
+            if not value.strip():
+                print(f"error: --{key[3:]} is empty", file=sys.stderr)
+                return 2
+            updates[key] = value.strip()
+    if "hs_endpoint" in updates and (problem := _check_endpoint(updates["hs_endpoint"])):
+        print(f"error: {problem}", file=sys.stderr)
+        return 2
     if arguments.password_stdin:
-        source = stdin if stdin is not None else sys.stdin
-        line = next(iter(source), "")
-        password = line.rstrip("\r\n")
+        password = _read_password_stdin(stdin, ask_secret)
         if not password:
             print("error: --password-stdin read an empty line", file=sys.stderr)
             return 2
@@ -79,19 +124,26 @@ def configure(
 
     if interactive:
         print(f"Configuring HSDS credentials in {path}", file=out)
-        for key, label in (("hs_endpoint", "Server endpoint"), ("hs_username", "Username")):
-            answer = _prompt_plain(label, current.get(key, ""), ask)
+        try:
+            while True:
+                answer = _prompt_plain("Server endpoint", current.get("hs_endpoint", ""), ask)
+                problem = _check_endpoint(answer) if answer is not None else None
+                if problem is None:
+                    break
+                print(f"error: {problem}; try again", file=sys.stderr)
             if answer is not None:
-                updates[key] = answer
-        for key, label in (("hs_password", "Password"), ("hs_api_key", "API key")):
-            answer = _prompt_secret(label, bool(current.get(key)), ask_secret)
+                updates["hs_endpoint"] = answer
+            answer = _prompt_plain("Username", current.get("hs_username", ""), ask)
             if answer is not None:
-                updates[key] = answer
+                updates["hs_username"] = answer
+            for key, label in (("hs_password", "Password"), ("hs_api_key", "API key")):
+                answer = _prompt_secret(label, bool(current.get(key)), ask_secret)
+                if answer is not None:
+                    updates[key] = answer
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted; nothing was written.", file=sys.stderr)
+            return 1
 
-    endpoint = updates.get("hs_endpoint", current.get("hs_endpoint", ""))
-    if endpoint and not endpoint.startswith(("http://", "https://", "http+unix://")):
-        print(f"error: endpoint must start with http:// or https:// (got {endpoint!r})", file=sys.stderr)
-        return 2
     try:
         if updates:
             hscfg.update_hscfg(path, updates)
@@ -99,8 +151,9 @@ def configure(
         print(f"error: {error}", file=sys.stderr)
         return 2
 
+    mode = " (mode 0600)" if os.name != "nt" else ""
     if updates:
-        print(f"Updated {', '.join(sorted(updates))} in {path} (mode 0600).", file=out)
+        print(f"Updated {', '.join(sorted(updates))} in {path}{mode}.", file=out)
     else:
         print(f"No changes; {path} left as it was.", file=out)
     if path.is_file() and hscfg.insecure_permissions(path):
@@ -115,12 +168,19 @@ def configure(
             f"note: h5pyd run from this directory reads {active} instead of {path}.",
             file=out,
         )
+    overriding = sorted(name for name in ("HS_ENDPOINT", "HS_USERNAME", "HS_PASSWORD", "HS_API_KEY")
+                        if name in os.environ)
+    if overriding:
+        print(
+            f"note: {', '.join(overriding)} set in this shell override the file for h5pyd.",
+            file=out,
+        )
     return 0
 
 
 def main(argv: Iterable[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="vaft hsds", description=__doc__.split("\n\n")[0])
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser = _QuietParser(prog="vaft hsds", description=__doc__.split("\n\n")[0])
+    subparsers = parser.add_subparsers(dest="command", required=True, parser_class=_QuietParser)
     setup = subparsers.add_parser(
         "configure",
         help="write h5pyd credentials to ~/.hscfg without echoing secrets",

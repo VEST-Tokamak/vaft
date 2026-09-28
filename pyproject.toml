@@ -38,7 +38,8 @@ dependencies = [
   # The floor is issue #50: older h5py builds break against NumPy 2.
   "h5py>=3.16,<4",
   # Exact: the HSDS client (#969). 0.24.0 was qualified live against the VEST
-  # HSDS server (0.9.0.alpha0): reads bit-identical to 0.20.0. 1.0.0 is NOT
+  # HSDS server (0.9.0.alpha0): reads bit-identical to 0.20.0; publication,
+  # master merge, attribute writes and the hs* tools verified. 1.0.0 is NOT
   # usable with that server -- it trusts the consolidated `getobjs` metadata,
   # which this server returns without attributes, so every HDF5 attribute reads
   # back empty without an error (hsget'd IMAS files lose HDF5_BACKEND_VERSION).
