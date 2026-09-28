@@ -427,10 +427,10 @@ _COVERAGE_KEY_RE = re.compile(r"^t=(?P<time>[^/]+)/(?P<module>[^/]+)/n=(?P<mode>
 #: One marker style per solver-run status, shared by every module's panel so
 #: the same status always reads the same way across panels.
 _COVERAGE_STATUS_STYLE: dict[str, dict[str, Any]] = {
-    "success": {"marker": "o", "color": "tab:green"},
-    "missing": {"marker": "x", "color": "tab:gray"},
-    "failed": {"marker": "X", "color": "tab:red"},
-    "no_output": {"marker": "s", "color": "tab:orange", "markerfacecolor": "none"},
+    "success": {"marker": "o", "color": "palette:3"},
+    "missing": {"marker": "x", "color": "emphasis:low"},
+    "failed": {"marker": "X", "color": "emphasis:alert"},
+    "no_output": {"marker": "s", "color": "state:disabled", "markerfacecolor": "none"},
 }
 
 

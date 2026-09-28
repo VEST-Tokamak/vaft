@@ -1424,8 +1424,8 @@ def _comparison_model(original: Any, refined: Any):
         )
 
     r1, z1, psi1 = _psi_norm_for_plot(refined)
-    input_layers = _boundary_and_limiter_layers(original, "input", "tab:blue", "--")
-    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "tab:orange", "-")
+    input_layers = _boundary_and_limiter_layers(original, "input", "palette:0", "--")
+    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "palette:1", "-")
     panels.append(
         Field2D(
             r=r1,

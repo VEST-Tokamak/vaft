@@ -104,6 +104,31 @@ def test_no_literal_colour_is_left_in_a_recipe_outside_the_allowed_blocks():
     assert camera, "the camera builders moved; point the allowlist at them"
 
 
+#: Figures built outside recipes.py that draw through vaft.plot models (#748).
+#: Each must name its colours by intent, so a theme reaches them too.
+TOKENISED_OUTSIDE_RECIPES = (
+    "plot/nubeam.py",
+    "omas/update.py",
+    "code/chease.py",
+    "code/efit/iteration_history.py",
+    "database/production_qa.py",
+    "database/raw.py",
+)
+
+
+@pytest.mark.parametrize("relative", TOKENISED_OUTSIDE_RECIPES)
+def test_no_literal_colour_is_left_in_a_figure_built_outside_the_recipes(relative):
+    source = Path(vaft.__file__).parent.joinpath(relative).read_text(encoding="utf-8")
+    token = r"(?!(?:palette|role|feature|state|emphasis):)"
+    keyed = re.compile(
+        r"""["'](?:color|markerfacecolor|markeredgecolor)["']:\s*["']""" + token + r"""(?!none["'])[^"']+["']"""
+    )
+    # a colour handed on positionally -- a named Matplotlib colour or a hex literal
+    bare = re.compile(r"""["'](?:tab:[a-z]+|#[0-9a-fA-F]{6})["']""")
+    stray = [m.group(0) for m in keyed.finditer(source)] + [m.group(0) for m in bare.finditer(source)]
+    assert stray == [], stray
+
+
 # ---------------------------------------------------------------------------
 # the vocabulary
 # ---------------------------------------------------------------------------
@@ -238,3 +263,24 @@ def test_a_patch_evicts_the_alias_it_replaces():
 
 def test_themes_stay_hashable():
     assert len({theme for theme in THEMES.values()}) == 3
+
+
+def test_a_theme_reaches_a_figure_built_outside_the_recipes():
+    from vaft.database.production_qa import mhd_linear_run_coverage_model
+    from vaft.plot import render_panels
+
+    model = mhd_linear_run_coverage_model({"modules_modes": {
+        "t=0.3/dcon/n=1": {"status": "success"},
+        "t=0.3/dcon/n=2": {"status": "failed"},
+    }})
+
+    def drawn(theme):
+        figure = render_panels(model, theme=theme)[0]
+        colours = {matplotlib.colors.to_hex(line.get_color()) for axes in figure.axes for line in axes.lines}
+        plt.close(figure)
+        return colours
+
+    assert drawn(None) == {"#4daf4a", "#d62728"}  # palette:3 and emphasis:alert, as literals drew them
+    for colour in drawn("monochrome"):
+        r, g, b, _ = matplotlib.colors.to_rgba(colour)
+        assert r == g == b

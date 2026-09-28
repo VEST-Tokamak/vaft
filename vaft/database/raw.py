@@ -1544,8 +1544,8 @@ def compare_db_and_dumped_raw_signals_for_shot(
                     [db_time, json_time],
                     [db_data, json_data],
                     labels=("DB Data", "JSON Data"),
-                    styles=({"color": "b", "alpha": 0.7},
-                            {"color": "r", "linestyle": "--", "alpha": 0.7}),
+                    styles=({"color": "palette:0", "alpha": 0.7},
+                            {"color": "palette:8", "linestyle": "--", "alpha": 0.7}),
                     title_suffix=suffix,
                 )
             )
