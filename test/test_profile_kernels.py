@@ -144,3 +144,16 @@ def test_h_mode_is_a_composition_of_the_two_kernels():
     h_mode = core + mtanh(x, **PED)
     assert h_mode[0] == pytest.approx(3.0 + 2.1)
     assert np.argmin(np.gradient(h_mode, x)) == pytest.approx(95, abs=1)
+
+
+def test_gp_tolerates_rounding_at_the_endpoints_and_a_flat_profile():
+    assert gp(1.0 + 1e-15) == pytest.approx(0.0)
+    assert gp(-1e-15) == pytest.approx(1.0)
+    assert dgp(0.0, core_value=2.0, edge_value=2.0, alpha=0.5) == 0.0
+
+
+def test_array_parameters_are_refused_with_a_clear_message():
+    with pytest.raises(ValueError, match="must be a scalar"):
+        gp(0.5, alpha=np.array([1.0, 2.0]))
+    with pytest.raises(ValueError, match="must be a scalar"):
+        mtanh(0.5, **dict(PED, pedestal_height=np.array([1.0, 2.0])))

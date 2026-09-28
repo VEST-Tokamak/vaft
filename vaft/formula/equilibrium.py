@@ -4894,17 +4894,26 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
 # --- Analytic 1-D profile kernels in normalized poloidal flux (#552) ----------
 
 
+#: How far outside [0, 1] a psi_N grid may stray by rounding and still be
+#: accepted (and clipped) by the bounded kernels.
+_PSI_N_ROUNDING = 1e-12
+
+
 def _profile_psi_n(psi_n, *, bounded):
     x = np.asarray(psi_n, dtype=float)
     if not np.all(np.isfinite(x)):
         raise ValueError("psi_n must be finite")
-    if bounded and (np.any(x < 0.0) or np.any(x > 1.0)):
-        raise ValueError("psi_n must lie in [0, 1] for a generalized-parabolic profile")
+    if bounded:
+        if np.any(x < -_PSI_N_ROUNDING) or np.any(x > 1.0 + _PSI_N_ROUNDING):
+            raise ValueError("psi_n must lie in [0, 1] for a generalized-parabolic profile")
+        x = np.clip(x, 0.0, 1.0)
     return x
 
 
 def _finite_parameters(**values):
     for name, value in values.items():
+        if np.ndim(value) != 0:
+            raise ValueError(f"{name} must be a scalar, got an array of shape {np.shape(value)}")
         if not np.isfinite(value):
             raise ValueError(f"{name} must be finite, got {value!r}")
 
@@ -4963,7 +4972,7 @@ def generalized_parabolic_profile(psi_n, *, core_value=1.0, edge_value=0.0, alph
     for ``alpha < 1`` and at the boundary for ``beta < 1`` (see
     :func:`generalized_parabolic_profile_derivative`). Outside ``[0, 1]`` the
     form is undefined for non-integer exponents, so it is refused rather than
-    extrapolated.
+    extrapolated; a rounding excess below 1e-12 is clipped.
     """
     x = _profile_psi_n(psi_n, bounded=True)
     _finite_parameters(core_value=core_value, edge_value=edge_value, alpha=alpha, beta=beta)
@@ -5019,7 +5028,8 @@ def generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_valu
     for ``alpha = 1``, zero for ``alpha > 1`` and infinite for
     ``alpha < 1``; at ``psi_n = 1`` it is zero for ``beta > 1``,
     $-\alpha(f_\mathrm{core}-f_\mathrm{edge})$ for ``beta = 1`` and infinite
-    for ``beta < 1``.
+    for ``beta < 1``. A flat profile (``core_value == edge_value``) has a
+    zero gradient everywhere, singular exponents included.
 
     """
     x = _profile_psi_n(psi_n, bounded=True)
@@ -5027,6 +5037,8 @@ def generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_valu
     if alpha <= 0.0 or beta <= 0.0:
         raise ValueError("alpha and beta must be positive")
     amplitude = core_value - edge_value
+    if amplitude == 0.0:
+        return np.zeros_like(x)  # a flat profile, even where the shape is singular
     with np.errstate(divide="ignore", invalid="ignore"):
         inner = np.power(x, alpha - 1.0) if alpha != 1.0 else np.ones_like(x)
         outer = np.power(1.0 - np.power(x, alpha), beta - 1.0) if beta != 1.0 else np.ones_like(x)
