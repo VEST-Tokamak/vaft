@@ -207,3 +207,18 @@ def test_a_catalog_entry_missing_from_its_rendered_page_is_caught(site, tmp_path
     output = result.stderr + result.stdout
     assert message in output, output
     assert f"{entry}-removed is rendered on" in output
+
+
+def test_a_generated_page_without_its_data_is_caught(site, tmp_path):
+    """Dropping a generator from generators.yml must not leave an empty page that validates."""
+    source, builds = site
+    destination, baseurl = builds["development"]
+    if not (source / "_data" / "plot_catalog.yml").is_file():
+        pytest.skip("this branch does not generate the plot and diagram catalogs")
+    copy = tmp_path / "docs"
+    shutil.copytree(source, copy)
+    (copy / "_data" / "plot_catalog.yml").unlink()
+    result = _validate(copy, destination, baseurl)
+    assert result.returncode != 0
+    assert "_guide/Plot_reference.md is published but _data/plot_catalog.yml was not generated" in (
+        result.stderr + result.stdout)

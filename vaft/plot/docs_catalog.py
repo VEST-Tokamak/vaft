@@ -7,6 +7,13 @@ the registry holds -- whatever its ``status`` -- with the identity
 :func:`vaft.plot.discovery.capability_for` already derives, plus the adapter
 it is reached through and the source line of its renderer.
 
+It also lists ``entry_points``: the plotting functions users reach from
+``vaft.plot`` that are not registry renderers -- every ``plot_*`` function in
+``vaft.plot.__all__`` (ad-hoc and analytic figures such as
+``plot_parameter_history``) and every name in ``vaft.plot._migration.LEGACY``
+(the cross-shot statistics, still exported without a warning).  Deprecated,
+relocated and removed names warn or raise and are not listed.
+
 This module only *reads* :mod:`vaft.plot.registry` and :mod:`vaft.plot.discovery`;
 nothing imports it, so it adds nothing to ``import vaft.plot``.  Like
 ``vaft.formula.catalog`` and ``vaft.process.catalog``, the snapshot is a pure
@@ -28,9 +35,10 @@ _GENERATOR = "python -m vaft.plot.docs_catalog --output docs/_data/plot_catalog.
 _PACKAGE = Path(__file__).resolve().parent
 _ROOT = _PACKAGE.parents[1]
 
-#: Modules whose contents decide what the snapshot says, besides the modules
-#: that define the renderers themselves.
-_FIXED_SOURCES = ("registry.py", "taxonomy.py", "discovery.py", "backends.py", "docs_catalog.py")
+
+def _source_files() -> list[Path]:
+    """Every file of the package: registration, backends and models all shape the snapshot."""
+    return sorted(path for path in _PACKAGE.rglob("*.py") if "__pycache__" not in path.parts)
 
 
 def _relative(path: str | Path) -> str:
@@ -70,6 +78,48 @@ def _row(spec) -> dict:
     }
 
 
+def _plain_signature(function) -> str:
+    signature = inspect.signature(function)
+    return str(signature.replace(
+        parameters=[p.replace(annotation=inspect.Parameter.empty) for p in signature.parameters.values()],
+        return_annotation=inspect.Signature.empty,
+    ))
+
+
+def entry_point_names() -> list[tuple[str, str]]:
+    """``(name, status)`` of the plotting functions that are not registry renderers."""
+    import vaft.plot as plot
+
+    from . import _migration, registry
+
+    renderers = {id(spec.renderer) for spec in registry.specs(status=None)}
+    names = [
+        (name, "support")
+        for name in sorted(plot.__all__)
+        if name.startswith("plot_")
+        and inspect.isfunction(getattr(plot, name))
+        and id(getattr(plot, name)) not in renderers
+    ]
+    names.extend((name, "legacy") for name in sorted(_migration.LEGACY))
+    return names
+
+
+def _entry_point(name: str, status: str) -> dict:
+    import vaft.plot as plot
+
+    function = inspect.unwrap(getattr(plot, name))
+    summary = (inspect.getdoc(function) or "").strip().split("\n\n")[0].replace("\n", " ")
+    return {
+        "id": name,
+        "name": name,
+        "status": status,
+        "module": function.__module__,
+        "summary": summary,
+        "signature": _plain_signature(function),
+        "source": _source_of(function),
+    }
+
+
 def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     """Every registered plot, ordered subject (taxonomy order) -> view (``VIEWS`` order)."""
     import vaft.plot  # noqa: F401 -- importing the package registers every renderer
@@ -93,15 +143,12 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     for spec in specs:
         counts[spec.subject] = counts.get(spec.subject, 0) + 1
 
-    sources = {_PACKAGE / name for name in _FIXED_SOURCES}
-    sources.update(Path(inspect.getsourcefile(inspect.unwrap(spec.renderer))).resolve() for spec in specs)
-
     snapshot: dict = {
         "schema_version": SCHEMA_VERSION,
         "generator": _GENERATOR,
         "source": [
             {"path": _relative(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-            for path in sorted(sources, key=_relative)
+            for path in _source_files()
         ],
         "views": list(registry.VIEWS),
         "subjects": [
@@ -115,6 +162,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             if subject.name in counts
         ],
         "plots": [_row(spec) for spec in specs],
+        "entry_points": [_entry_point(name, status) for name, status in entry_point_names()],
     }
     if provenance:
         snapshot["provenance"] = {key: provenance[key] for key in sorted(provenance)}

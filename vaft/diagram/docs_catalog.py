@@ -195,9 +195,12 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
 
     families: dict[str, dict] = {}
     builders: list[dict] = []
+    # The whole package (builders, scene, the TikZ template), the manifest, and
+    # every vaft.formula module a formula reference was resolved in.
     sources: set[Path] = {
-        _PACKAGE / "__init__.py", _PACKAGE / "build.py", _PACKAGE / "docs_catalog.py", manifest_path,
+        path for path in _PACKAGE.rglob("*") if path.is_file() and "__pycache__" not in path.parts
     }
+    sources.add(manifest_path)
     for name in builder_names():
         function = inspect.unwrap(getattr(diagram, name))
         module = inspect.getmodule(function)
@@ -209,6 +212,14 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             families[family] = {"name": family, "title": _family_title(module), "module": module.__name__,
                                 "builders": []}
         families[family]["builders"].append(name)
+        referenced = formula_references(path, function.__name__)
+        for qualname in referenced:
+            sources.add(Path(inspect.getsourcefile(importlib.import_module(qualname.rpartition(".")[0]))).resolve())
+        formula_rows = [
+            {"id": qualname, "category": qualname.split(".")[2] if qualname.count(".") > 2 else "",
+             "name": qualname.rsplit(".", 1)[-1]}
+            for qualname in referenced
+        ]
         summary = (inspect.getdoc(function) or "").strip().split("\n\n")[0].replace("\n", " ")
         builders.append(
             {
@@ -218,11 +229,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
                 "module": module.__name__,
                 "summary": summary,
                 "signature": _plain_signature(function),
-                "formula": [
-                    {"id": qualname, "category": qualname.split(".")[2] if qualname.count(".") > 2 else "",
-                     "name": qualname.rsplit(".", 1)[-1]}
-                    for qualname in formula_references(path, function.__name__)
-                ],
+                "formula": formula_rows,
                 "assets": assets_by_builder.get(name, []),
                 "source": {"path": _relative(path), "line": line},
             }

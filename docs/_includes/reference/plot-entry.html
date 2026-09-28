@@ -17,7 +17,7 @@ in the catalog.
 </header>
 <p class="ref-note">{{ p.subject }} / {{ p.view }}{% if p.quantity != "" %} / {{ p.quantity }}{% endif %} &middot; domain <code>{{ p.domain }}</code> &middot; view model <code>{{ p.model }}</code></p>
 
-{{ p.description }}
+{{ p.description | escape }}
 
 <pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
 vaft.plot.{{ p.name }}(model)   # from a {{ p.model }}</code></pre>

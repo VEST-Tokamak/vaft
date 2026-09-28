@@ -19,7 +19,8 @@ related:
 {%- assign kinds = catalog.subjects | map: "kind" | uniq -%}
 
 <p class="ref-intro">Generated from <code>vaft.plot.registry</code> by <code>python -m vaft.plot.docs_catalog</code>:
-<strong>{{ catalog.plots.size }}</strong> plots over <strong>{{ catalog.subjects.size }}</strong> subjects.
+<strong>{{ catalog.plots.size }}</strong> registered plots over <strong>{{ catalog.subjects.size }}</strong> subjects,
+plus <strong>{{ catalog.entry_points.size }}</strong> other plotting functions.
 Each entry is a record of <code>vaft.plot.available_plots()</code>; nothing on this page is written by hand.</p>
 
 A plot's identity is **subject / view / quantity**: the subject is what it shows physically, the view
@@ -63,3 +64,26 @@ vaft.omas.plot_plasma_current_time(ods, yunit="kA")
 {% endfor %}
 </div>
 {% endfor %}{% endfor %}
+
+## Other plotting functions
+
+Plotting functions `vaft.plot` offers outside the registry: ad-hoc and analytic figures that take a
+result rather than an ODS (`support`), and the cross-shot statistics kept as they are until they get a
+canonical home (`legacy`). They have no subject / view identity and no `vaft.omas` adapter.
+
+<div class="ref-entries" markdown="block">
+{% for e in catalog.entry_points %}
+<section class="ref-entry" id="{{ e.name }}" data-catalog="plot-function" markdown="block">
+<header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#{{ e.name }}"><code>{{ e.name }}</code></a></h4>
+<span class="ref-flags"><span class="ref-flag{% if e.status == "legacy" %} ref-flag-deprecated{% endif %}">{{ e.status | capitalize }}</span></span>
+{% if e.source.line > 0 %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ source_ref }}/{{ e.source.path }}#L{{ e.source.line }}" title="{{ e.source.path }}, line {{ e.source.line }}">source</a>{% endif %}
+</header>
+<pre class="ref-signature"><code>vaft.plot.{{ e.name }}{{ e.signature | escape }}</code></pre>
+
+{{ e.summary }}
+
+<p class="ref-note">Defined in <code>{{ e.module }}</code></p>
+</section>
+{% endfor %}
+</div>

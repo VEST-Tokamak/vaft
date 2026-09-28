@@ -213,7 +213,11 @@ def test_a_process_missing_from_its_catalog_is_caught(coverage, snapshots):
 
 def test_a_plot_missing_from_its_catalog_is_caught(coverage, snapshots):
     problems = coverage.check_plot(_without(snapshots["plot"], "plots", "plasma_current_time"))
-    assert problems == ["plot: registered plot plasma_current_time is not in plot_catalog.yml"]
+    assert problems == [
+        # from the namespace users type, and from the registry
+        "plot: vaft.plot.plasma_current_time renders registered plot plasma_current_time, which is not in plot_catalog.yml",
+        "plot: registered plot plasma_current_time is not in plot_catalog.yml",
+    ]
 
 
 def test_a_diagram_builder_missing_from_its_catalog_is_caught(coverage, snapshots):
@@ -315,3 +319,100 @@ def test_the_build_fails_when_coverage_fails(build, tmp_path):
 def test_the_build_passes_when_coverage_passes_or_the_track_predates_it(build, tmp_path):
     build.check_catalog_coverage(_fake_track(build, tmp_path / "a", "print('ok')\n"), {}, quiet=True)
     build.check_catalog_coverage(_fake_track(build, tmp_path / "b", None), {}, quiet=True)
+
+
+# --------------------------------------------------------------------------
+# enumerations the generators do not perform (review of #1275)
+# --------------------------------------------------------------------------
+
+
+def test_the_plot_catalog_lists_the_plotting_functions_outside_the_registry(snapshots):
+    import vaft.plot as plot
+    from vaft.plot import _migration
+
+    entry_points = {row["name"]: row["status"] for row in snapshots["plot"]["entry_points"]}
+    assert {name for name, status in entry_points.items() if status == "legacy"} == set(_migration.LEGACY)
+    assert "plot_parameter_history" in entry_points and entry_points["plot_parameter_history"] == "support"
+    assert not set(entry_points) & {row["name"] for row in snapshots["plot"]["plots"]}
+    for name in entry_points:
+        assert inspect.isfunction(getattr(plot, name))
+
+
+def test_a_plot_function_missing_from_its_catalog_is_caught(coverage, snapshots):
+    for victim in ("plot_parameter_history", "plot_scaling_fit"):
+        problems = coverage.check_plot(_without(snapshots["plot"], "entry_points", victim))
+        assert problems == [f"plot: vaft.plot.{victim} is a public plotting function but is not in plot_catalog.yml"]
+
+
+def test_a_new_plot_function_in_the_namespace_is_caught(coverage, snapshots, monkeypatch):
+    import vaft.plot
+
+    def plot_brand_new():
+        """Draws something."""
+
+    monkeypatch.setattr(vaft.plot, "plot_brand_new", plot_brand_new, raising=False)
+    monkeypatch.setattr(vaft.plot, "__all__", sorted([*vaft.plot.__all__, "plot_brand_new"]))
+    assert coverage.check_plot(snapshots["plot"]) == [
+        "plot: vaft.plot.plot_brand_new is a public plotting function but is not in plot_catalog.yml"]
+
+
+@pytest.mark.parametrize("package, check", [("vaft.formula", "check_formula"), ("vaft.process", "check_process")])
+def test_a_submodule_outside_the_import_order_is_caught(coverage, snapshots, monkeypatch, tmp_path, package, check):
+    """A new submodule on disk is public whether or not the package lists it."""
+    module = importlib.import_module(package)
+    (tmp_path / "newthing.py").write_text(
+        '"""New."""\n__all__ = ["brand_new"]\n\n\ndef brand_new(x):\n    """New."""\n    return x\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "__path__", [*module.__path__, str(tmp_path)])
+    kind = package.split(".")[1]
+    try:
+        problems = getattr(coverage, check)(snapshots[kind])
+    finally:
+        sys.modules.pop(f"{package}.newthing", None)
+        if hasattr(module, "newthing"):
+            delattr(module, "newthing")
+    assert problems == [f"{kind}: {package}.newthing.brand_new is public as {package}.newthing.brand_new "
+                        f"but no catalog entry describes it"]
+
+
+def test_a_diagram_builder_nobody_exported_is_caught(coverage, snapshots, monkeypatch):
+    from vaft.diagram import _ripple
+
+    def hidden_diagram() -> "Diagram":  # noqa: F821 -- annotation text is what is read
+        """New."""
+
+    hidden_diagram.__module__ = _ripple.__name__
+    hidden_diagram.__annotations__["return"] = "Diagram"
+    monkeypatch.setattr(_ripple, "hidden_diagram", hidden_diagram, raising=False)
+    problems = coverage.check_diagram(snapshots["diagram"], ROOT)
+    assert problems == [
+        "diagram: vaft.diagram._ripple.hidden_diagram builds a Diagram but is not in diagram_catalog.yml",
+        "diagram: vaft.diagram._ripple.hidden_diagram builds a Diagram but is not exported as vaft.diagram.hidden_diagram",
+    ]
+
+
+def test_a_vaft_module_served_from_another_tree_is_caught(coverage, snapshots, tmp_path, monkeypatch):
+    import types
+
+    stray = types.ModuleType("vaft.somewhere_else")
+    stray.__file__ = str(tmp_path / "elsewhere" / "vaft" / "somewhere_else.py")
+    monkeypatch.setitem(sys.modules, "vaft.somewhere_else", stray)
+    assert coverage.foreign_modules(ROOT) == [f"vaft.somewhere_else ({stray.__file__})"]
+    docs = _docs_tree(tmp_path, snapshots)
+    problems = coverage.check(docs, root=ROOT)
+    assert problems == [f"vaft.somewhere_else ({stray.__file__}) was imported from outside the tree being documented ({ROOT})"]
+
+
+def test_the_plot_catalog_hashes_every_file_of_the_package(snapshots):
+    recorded = {entry["path"] for entry in snapshots["plot"]["source"]}
+    on_disk = {path.relative_to(ROOT).as_posix() for path in (ROOT / "vaft" / "plot").rglob("*.py")
+               if "__pycache__" not in path.parts}
+    assert recorded == on_disk
+
+
+def test_the_diagram_catalog_hashes_the_formula_modules_it_resolved(snapshots):
+    recorded = {entry["path"] for entry in snapshots["diagram"]["source"]}
+    for builder in snapshots["diagram"]["builders"]:
+        for f in builder["formula"]:
+            assert f"vaft/formula/{f['category']}.py" in recorded

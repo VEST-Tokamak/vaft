@@ -421,8 +421,9 @@ vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 
 Every plot the registry holds -- its subject, view and quantity, the adapter that draws it, and the IDS
 paths it needs -- is listed in the generated [plot reference]({{ site.baseurl }}/reference/plot/){% if site.data.plot_catalog %}
-({{ site.data.plot_catalog.plots.size }} plots){% endif %}, which is rebuilt from `vaft.plot.registry` on every
-publish.
+({{ site.data.plot_catalog.plots.size }} plots){% endif %}, together with the plotting functions outside the
+registry: the analytic figures and the multi-shot history and scaling plots (`plot_scaling_fit`,
+`plot_H_factor_distribution`, ...). The page is rebuilt from `vaft.plot` on every publish.
 
 The [Magnetics]({{ site.baseurl }}/guide/Magnetics/) page shows several of these traces rendered from
 real shots.

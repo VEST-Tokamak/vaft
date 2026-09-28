@@ -212,7 +212,7 @@ end
 plot_snapshot = nil
 if (ROOT / "_data" / "plot_catalog.yml").file?
   plot_snapshot = data("plot_catalog.yml")
-  %w[schema_version generator source views subjects plots].each do |field|
+  %w[schema_version generator source views subjects plots entry_points].each do |field|
     errors << "plot snapshot missing #{field}" unless plot_snapshot.key?(field)
   end
   check_snapshot_sources(errors, "plot", plot_snapshot, registry_source)
@@ -226,6 +226,10 @@ if (ROOT / "_data" / "plot_catalog.yml").file?
     errors << "plot #{item['id']} has unknown view #{item['view']}" unless views.include?(item["view"])
     errors << "plot #{item['id']} has no source location" unless item["source"].is_a?(Hash) && item["source"]["path"].to_s.start_with?("vaft/plot/") && item["source"]["line"].to_i.positive?
   end
+  entry_points = plot_snapshot.fetch("entry_points", [])
+  require_fields(errors, "plot function", entry_points, %w[id name status module summary signature source])
+  overlap = plots.map { |item| item["name"] } & entry_points.map { |item| item["name"] }
+  errors << "plot names listed both as registered plots and as plot functions: #{overlap.join(', ')}" unless overlap.empty?
 end
 
 diagram_snapshot = nil
@@ -252,11 +256,18 @@ if (ROOT / "_data" / "diagram_catalog.yml").file?
   end
   # Hand-written pages may show a diagram only if it is still canonical.
   catalogued_svgs = assets.map { |item| item["asset"] }.to_set
-  ROOT.glob("_guide/*.md").each do |page|
+  (ROOT.glob("{_guide,_pages,guide}/*.md") + ROOT.glob("*.{md,markdown,html}")).each do |page|
     page.read(encoding: "UTF-8").scan(%r{/assets/diagrams/([A-Za-z0-9_.-]+\.svg)}).flatten.uniq.each do |name|
       errors << "#{page.relative_path_from(ROOT)} shows #{name}, which is not a canonical diagram" unless catalogued_svgs.include?(name)
     end
   end
+end
+
+# A generated page whose data was not generated renders as an empty list and
+# would otherwise pass everything below.
+{ "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml" }.each do |page, snapshot|
+  next unless (ROOT / "_guide" / page).file?
+  errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
 end
 
 # Every catalog entry is rendered exactly once on its reference page, and the
@@ -266,15 +277,19 @@ end
 def rendered_catalog(url, selector, attribute)
   built = output_path(url)
   return nil unless built
-  Nokogiri::HTML(built.read).css(selector).map { |node| node[attribute] }
+  document = Nokogiri::HTML(built.read)
+  [document.css(selector).map { |node| node[attribute] }, document.css("[id]").map { |node| node["id"] }.tally]
 end
 
 def compare_rendered(errors, label, url, expected, selector, attribute = "id")
-  rendered = rendered_catalog(url, selector, attribute)
+  rendered, ids = rendered_catalog(url, selector, attribute)
   if rendered.nil?
     errors << "#{label} reference page is not built: #{url}"
     return
   end
+  # An anchor shared with another element (a heading, another entry) sends the
+  # link to whichever comes first.
+  expected.uniq.each { |name| errors << "#{label} #{name}: id is used more than once on #{url}" if attribute == "id" && ids.fetch(name, 0) > 1 }
   (expected - rendered).uniq.each { |name| errors << "#{label} #{name} is in the catalog but not rendered on #{url}" }
   (rendered - expected).uniq.each { |name| errors << "#{label} #{name} is rendered on #{url} but is not in the catalog" }
   rendered.tally.select { |_name, count| count > 1 }.each_key { |name| errors << "#{label} #{name} is rendered more than once on #{url}" }
@@ -295,6 +310,7 @@ if process_snapshot
 end
 if plot_snapshot
   compare_rendered(errors, "plot", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("plots", []).map { |item| item["name"] }, '[data-catalog="plot"]')
+  compare_rendered(errors, "plot function", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("entry_points", []).map { |item| item["name"] }, '[data-catalog="plot-function"]')
 end
 if diagram_snapshot
   url = "#{BASEURL}/reference/diagram/"
