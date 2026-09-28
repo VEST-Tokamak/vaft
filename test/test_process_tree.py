@@ -175,6 +175,27 @@ def test_a_shell_launcher_that_does_not_exec_is_stopped_whole(tmp_path):
         _kill(grandchild)
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="environment token is read from /proc")
+def test_a_descendant_orphaned_before_the_stop_is_found_by_its_token(tmp_path):
+    """A launcher that exits and leaves its background job holding the pipe.
+
+    The job was reparented to init before the timeout, so no parent-id walk
+    reaches it; the inherited ``VAFT_PROCESS_TREE`` token does.
+    """
+    pid_file = tmp_path / "orphan.pid"
+    command = f"sleep 60 & echo $! > {pid_file}; echo started; exit 0"
+    result = LocalBackend().run(
+        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=4.0)
+    )
+    orphan = _pid(pid_file)
+    try:
+        assert result.timed_out
+        assert "started" in result.stdout
+        assert _gone(orphan)
+    finally:
+        _kill(orphan)
+
+
 @POSIX
 def test_a_grandchild_that_ignores_sigterm_is_killed_after_the_grace(tmp_path):
     started = time.monotonic()

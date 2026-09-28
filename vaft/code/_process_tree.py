@@ -9,8 +9,10 @@ wait can then hang until they exit. :class:`ProcessTree` stops the whole tree:
   to that group -- a terminal's Ctrl-C and Ctrl-Z, a supervisor's ``SIGSTOP``
   or ``SIGKILL``, Snakemake stopping a job -- still reaches the solver exactly
   as it did before (#1016). :meth:`ProcessTree.terminate` finds the tree by
-  parent id, freezes it with ``SIGSTOP`` so nothing forks while it is being
-  walked, sends ``SIGTERM`` (and ``SIGCONT`` so it can act on it), waits
+  parent id and -- on Linux -- by the :data:`TREE_ENV` token every descendant
+  inherits, which also finds one whose parent already exited (a launcher
+  script that died of Ctrl-C while its background job ignored it). It freezes
+  the tree with ``SIGSTOP`` so nothing forks while it is being walked, sends ``SIGTERM`` (and ``SIGCONT`` so it can act on it), waits
   :data:`TERMINATE_GRACE_S` seconds, then sends ``SIGKILL`` to what is left.
 * Windows: the child is assigned to a Job Object created with
   ``JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE``; terminating the job stops every
@@ -24,8 +26,9 @@ A signal sent to the caller alone (``kill <pid>``) does not reach the tree, so
 
 Not covered:
 
-* A descendant whose parent had already exited before the stop has been
-  reparented to init and is no longer found by parent id (POSIX).
+* macOS: a descendant whose parent had already exited is no longer found
+  (the token cannot be read there). On Linux, one that cleared its
+  environment (``env -i``) is found only by parent id.
 * A process that makes itself a new session leader or daemonizes.
 * Windows: a grandchild started before the job assignment completes escapes
   the job, and when an escaped process keeps the pipes open the output read
@@ -40,10 +43,15 @@ import signal
 import subprocess
 import threading
 import time
+import uuid
 from typing import Any, Iterable, Iterator, Optional, Sequence
 
 #: Seconds a tree gets between the polite stop and the forced one.
 TERMINATE_GRACE_S = 10.0
+
+#: Environment variable carrying a per-launch token that every descendant
+#: inherits, so a stop finds processes that were reparented away (Linux).
+TREE_ENV = "VAFT_PROCESS_TREE"
 
 #: Signals :func:`forward_termination` turns into :class:`Terminated` (POSIX).
 FORWARDED_SIGNALS: tuple[str, ...] = ("SIGTERM", "SIGHUP")
@@ -127,9 +135,12 @@ def _blocked(signums: Sequence[int]) -> Iterator[None]:
 class ProcessTree:
     """A started program together with everything it starts."""
 
-    def __init__(self, process: "subprocess.Popen[Any]", job: Any = None) -> None:
+    def __init__(
+        self, process: "subprocess.Popen[Any]", job: Any = None, token: Optional[str] = None
+    ) -> None:
         self.process = process
         self._job = job
+        self._token = token
 
     @classmethod
     def start(cls, argv: Sequence[str], **popen_kwargs: Any) -> "ProcessTree":
@@ -137,8 +148,12 @@ class ProcessTree:
 
         ``OSError`` from the launch propagates unchanged.
         """
+        token = uuid.uuid4().hex
+        environment = dict(os.environ if popen_kwargs.get("env") is None else popen_kwargs["env"])
+        environment[TREE_ENV] = token
+        popen_kwargs["env"] = environment
         process = subprocess.Popen(list(argv), **popen_kwargs)
-        return cls(process, _windows_job_for(process) if _WINDOWS else None)
+        return cls(process, _windows_job_for(process) if _WINDOWS else None, token)
 
     def terminate(self, grace: Optional[float] = None) -> None:
         """Stop the whole tree; return once its leader has been reaped.
@@ -178,13 +193,11 @@ class ProcessTree:
     # -- POSIX ------------------------------------------------------------
 
     def _terminate_posix(self, grace: float) -> None:
-        # A reaped leader's pid may already belong to someone else, and its
-        # children were reparented when it exited: nothing left to find.
-        if self.process.poll() is not None:
-            return
+        # Filled while freezing, so an interrupt mid-walk still kills what was
+        # already stopped instead of leaving it frozen.
         tree: set[int] = set()
         try:
-            tree = self._freeze()
+            self._freeze(tree)
             _send(tree, signal.SIGTERM)
             _send(tree, signal.SIGCONT)
             deadline = time.monotonic() + grace
@@ -203,22 +216,22 @@ class ProcessTree:
         _send(tree, signal.SIGKILL)
         _reap(self.process)
 
-    def _freeze(self) -> set[int]:
-        """``SIGSTOP`` the leader and its descendants until no new one appears."""
-        frozen: set[int] = set()
+    def _freeze(self, frozen: set[int]) -> None:
+        """``SIGSTOP`` the leader and its descendants into ``frozen`` until no new one appears."""
         for _ in range(_FREEZE_PASSES):
             table = _process_table()
-            found = {
-                pid
-                for pid in _descendants(self.process.pid, table) | {self.process.pid}
-                if _alive(pid, table)
-            }
+            # A reaped leader's pid may already belong to someone else.
+            roots = {self.process.pid} if self.process.poll() is None else set()
+            roots |= _tagged(self._token, table)
+            found: set[int] = set()
+            for root in roots:
+                found |= _descendants(root, table) | {root}
+            found = {pid for pid in found if _alive(pid, table) and pid != os.getpid()}
             fresh = found - frozen
             if not fresh:
                 break
-            _send(fresh, signal.SIGSTOP)
             frozen |= fresh
-        return frozen
+            _send(fresh, signal.SIGSTOP)
 
     # -- Windows ----------------------------------------------------------
 
@@ -273,6 +286,22 @@ def _process_table() -> dict[int, tuple[int, str]]:
         if len(parts) >= 3 and parts[0].isdigit() and parts[1].isdigit():
             table[int(parts[0])] = (int(parts[1]), parts[2])
     return table
+
+
+def _tagged(token: Optional[str], table: dict[int, tuple[int, str]]) -> set[int]:
+    """Processes whose environment carries ``TREE_ENV=token`` (Linux only)."""
+    if token is None or not os.path.isdir("/proc/self/task"):
+        return set()
+    needle = f"{TREE_ENV}={token}".encode("ascii")
+    tagged: set[int] = set()
+    for pid in table:
+        try:
+            with open(f"/proc/{pid}/environ", "rb") as environ:
+                if needle in environ.read().split(b"\0"):
+                    tagged.add(pid)
+        except OSError:  # gone, or another user's process
+            continue
+    return tagged
 
 
 def _descendants(root: int, table: dict[int, tuple[int, str]]) -> set[int]:
@@ -416,6 +445,7 @@ def _windows_release_job(job: Any) -> None:
 __all__ = [
     "FORWARDED_SIGNALS",
     "TERMINATE_GRACE_S",
+    "TREE_ENV",
     "ProcessTree",
     "Terminated",
     "forward_termination",
