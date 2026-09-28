@@ -64,6 +64,20 @@ def test_without_the_toolchain_a_non_canonical_diagram_still_refuses(monkeypatch
         vaft.diagram.rational_surface(m=3, n=2).svg
 
 
+def test_without_the_toolchain_an_edited_committed_asset_is_not_served(monkeypatch, tmp_path):
+    """The manifest's SVG hash guards the file itself: a stale or hand-edited
+    asset beside a correct manifest entry is refused, not displayed."""
+    import shutil as _shutil
+
+    for name in ("manifest.json", "rational_surface.svg"):
+        _shutil.copy(ASSETS / name, tmp_path / name)
+    (tmp_path / "rational_surface.svg").write_text("<svg>edited</svg>\n", encoding="utf-8")
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(_render, "committed_assets_dir", lambda: tmp_path)
+    with pytest.raises(vaft.diagram.DiagramToolchainError):
+        vaft.diagram.rational_surface().svg
+
+
 def test_without_a_source_checkout_there_is_no_committed_fallback(monkeypatch, tmp_path):
     monkeypatch.setattr(shutil, "which", lambda name: None)
     monkeypatch.setattr(_render, "committed_assets_dir", lambda: tmp_path)

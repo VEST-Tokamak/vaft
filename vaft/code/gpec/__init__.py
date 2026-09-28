@@ -224,8 +224,9 @@ def find_gpec_executable(
     config = config or GPECSuiteConfig()
     try:
         found = rt.executable(config, program)
-    except FileNotFoundError:
-        # $GPECHOME is set but this program was never built there.
+    except (FileNotFoundError, PermissionError):
+        # $GPECHOME is set but this program was never built there, or the file
+        # is there without an execute bit: either way nothing can launch it.
         return None
     return found if found is not None and found.is_file() and is_executable(found) else None
 

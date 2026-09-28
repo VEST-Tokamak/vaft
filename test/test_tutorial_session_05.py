@@ -153,10 +153,19 @@ def test_the_default_path_runs_no_solver(executed):
 def test_every_solver_launch_is_gated_by_the_mode_and_the_preflight(book):
     assert 'MODE = os.environ.get("VAFT_TUTORIAL_MODE", "offline")' in _executable(book)
     assert 'MODE == "lab" and path is not None' in _executable(book)
+    launches = 0
     for cell in _code_cells(book):
-        source = _strip_comments(_source(cell))
-        if any(call in source for call in SOLVER_CALLS):
-            assert re.search(r"^if RUN\[", source, re.M), cell.id
+        tree = ast.parse(_source(cell))
+        guarded = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) and "RUN[" in ast.unparse(node.test):
+                guarded.update(id(child) for statement in node.body for child in ast.walk(statement))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in SOLVER_CALLS):
+                launches += 1
+                assert id(node) in guarded, f"{cell.id}: {ast.unparse(node)[:80]} runs outside `if RUN[...]`"
+    assert launches >= 4
 
 
 def test_solver_workdirs_are_short_temporary_directories(book):

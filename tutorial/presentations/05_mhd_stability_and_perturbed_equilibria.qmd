@@ -111,7 +111,7 @@ DCON on this equilibrium.
 
 ## DCON: $\delta W$ and the eigenfunction
 
-- energy eigenvalues $W_p$, $W_v$, $W_t$ --- ascending; $W_t[0]$ decides
+- energy eigenvalues $W_p$, $W_v$, $W_t$; the least-stable total, `total1`, decides
 - $n = 1$ in about 10 s; cost rises steeply with $n$
 - read the eigenfunction as a spectrum of $\xi_m(\psi)$
 - local limits: Mercier, $s$--$\alpha$ ballooning (off in the packaged namelist)
@@ -202,7 +202,7 @@ $$b(\Delta\phi) = b_{\mathrm{UP}} + b_{\mathrm{LOW}}\,e^{i\Delta\phi},
 \qquad \mathbf y = \mathbf R\,\mathbf I$$
 
 - one set's phase rotates the answer; nothing changes in amplitude
-- the relative phase matters: in phase $\rightarrow$ even $m$; antiphase $\rightarrow$ odd $m$
+- the relative phase matters: two lobes at $\theta = \pm 90^\circ$, in phase favour even $m$, in antiphase odd $m$
 - so it chooses the driven surfaces: $q = 2, 4$ or $q = 3, 5$
 - two runs give the whole scan, checked against direct Biot--Savart
 
@@ -212,7 +212,9 @@ $$b(\Delta\phi) = b_{\mathrm{UP}} + b_{\mathrm{LOW}}\,e^{i\Delta\phi},
 NARRATE:
 The top of the LCFS barely notices the relative phase; the outboard midplane,
 where the two fields meet, swings by almost an order of magnitude. The
-geometric-angle spectrum is a proxy, but it shows the parity selection cleanly.
+geometric-angle spectrum is a proxy, but it shows the selection cleanly. It is the
+placement of the two lobes half a poloidal turn apart that selects even or odd m;
+midplane symmetry alone only decides cosine against sine.
 
 WARN:
 The spectrum is in the geometric angle and in vacuum; a resonant harmonic lives
@@ -277,7 +279,7 @@ Session 06 leaves the single discharge for the operational space.
 - an eigenmode is one $n$ with coupled $m$
 - DCON and RDCON can disagree
 - six sectors: $n$ modulo six, in currents and field
-- relative phase selects $m$ parity, hence surfaces; linearity makes the scan cheap
+- relative phase shifts the drive between even and odd $m$, hence surfaces; linearity makes the scan cheap
 - vacuum field $\neq$ field in the plasma (#1243); offline stability sample (#1231)
 - model excitation $\neq$ hardware scenario
 

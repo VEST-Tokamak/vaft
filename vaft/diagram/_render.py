@@ -229,10 +229,18 @@ def committed_svg(source_sha256: str) -> Optional[str]:
     except (OSError, ValueError):
         return None
     for name, entry in manifest.get("diagrams", {}).items():
-        if entry.get("source_sha256") == source_sha256:
-            path = directory / name
-            if path.is_file():
-                return path.read_text(encoding="utf-8")
+        if entry.get("source_sha256") != source_sha256:
+            continue
+        path = directory / name
+        if not path.is_file():
+            return None
+        raw = path.read_bytes()
+        # The source hash says which picture the asset should be; the SVG hash
+        # (over the bytes, as the build writes it) says the file still is that
+        # picture, not a stale or hand-edited one.
+        if hashlib.sha256(raw).hexdigest() != entry.get("svg_sha256"):
+            return None
+        return raw.decode("utf-8")
     return None
 
 

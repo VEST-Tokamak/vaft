@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from vaft.code import gpec
+from vaft.compat import IS_WINDOWS
 
 from external_code_stubs import write_launchable_stub
 
@@ -968,3 +969,16 @@ def test_find_gpec_executable_resolves_a_built_program_and_not_a_missing_one(tmp
 
     assert gpec.find_gpec_executable("dcon") == built
     assert gpec.find_gpec_executable("gpec") is None
+
+
+def test_find_gpec_executable_is_none_for_a_program_without_an_execute_bit(tmp_path, monkeypatch):
+    """A preflight must answer, not raise: the offline tutorial path calls it."""
+    if IS_WINDOWS:
+        pytest.skip("the execute bit is a POSIX notion")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    program = tmp_path / "bin" / "dcon"
+    program.parent.mkdir(parents=True)
+    program.write_text("#!/bin/sh\n", encoding="utf-8")
+    program.chmod(0o644)
+
+    assert gpec.find_gpec_executable("dcon") is None
