@@ -36,11 +36,19 @@ VEST_REFERENCE_RADIUS_M = 0.4
 
 VEST_SUMMARY_DEFINITIONS: dict[str, str] = {
     "p_loss_definition": (
-        "VAFT core_profiles summary: P_ohm - dW/dt - P_rad (line + bremsstrahlung "
-        "+ synchrotron); radiation IS subtracted; no auxiliary heating"
+        "VAFT core_profiles summary: P_ohm (integral of eta J^2, Spitzer, Z_eff=2) "
+        "- dW/dt - P_rad (line + bremsstrahlung + synchrotron); radiation IS "
+        "subtracted; no auxiliary heating; dW/dt uses W = (2/3)<p>V (#1282)"
     ),
     "w_th_definition": "not carried by the summary",
-    "tau_e_definition": "VAFT summary tau_e_s = W_th(1.5 <p_kinetic> V) / P_loss",
+    "tau_e_definition": (
+        "VAFT summary tau_e_s = W_th / P_loss, W_th = 1.5 <p_kinetic> V with "
+        "p = 2 n_e T_e (T_i = T_e, n_i = n_e)"
+    ),
+    "n_e_definition": (
+        "VAFT summary: z = 0 chord through the core_profiles n_e mapped onto "
+        "the equilibrium (synthetic, not an interferometer)"
+    ),
     "b_t_definition": (
         "B_phi(magnetic axis) * R_axis / r_geo_m: total field on axis, "
         "rescaled by 1/R to the geometric radius"
@@ -160,6 +168,8 @@ def _line_average_density_z0(ods, eq_index: int, equilibrium) -> float:
         return np.nan
 
     lcfs_r, lcfs_z = equilibrium.lcfs.r, equilibrium.lcfs.z
+    if lcfs_r.size and (lcfs_r[0] != lcfs_r[-1] or lcfs_z[0] != lcfs_z[-1]):
+        lcfs_r, lcfs_z = np.append(lcfs_r, lcfs_r[0]), np.append(lcfs_z, lcfs_z[0])
     crossings = []
     for i in range(lcfs_r.size - 1):
         z0, z1 = lcfs_z[i], lcfs_z[i + 1]
@@ -248,8 +258,11 @@ def vest_ods_to_confinement_rows(
         a = value("minor_radius")
         volume = value("volume")
         time_s = float(ods["equilibrium.time"][index])
-        b_t = (abs(float(np.ravel(b0)[index]) * float(r0)) / r_geo
-               if b0 is not None and r0 is not None else np.nan)
+        b0_series = np.ravel(b0) if b0 is not None else np.array([])
+        # b0 is per equilibrium time; a length that does not match cannot be
+        # paired with this slice by position, so it is not guessed.
+        b_t = (abs(float(b0_series[index]) * float(r0)) / r_geo
+               if b0_series.size == n_slices and r0 is not None else np.nan)
         rows.append({
             "shot": int(shot) if shot is not None else pd.NA,
             "time_s": time_s,
@@ -271,6 +284,10 @@ def vest_ods_to_confinement_rows(
             "w_th_definition": "1.5 x integral of equilibrium pressure over the plasma volume",
             "tau_e_definition": "not evaluated",
             "b_t_definition": "vacuum field |b0 r0| / r_geo_m, as DB5 BT",
+            "n_e_definition": (
+                "z = 0 chord inside the LCFS through core_profiles n_e(rho_tor_norm); "
+                "synthetic, own implementation (differs ~2% from the summary's)"
+            ),
             "m_eff_source": "user-specified",
         })
     table = pd.DataFrame(rows, columns=[c for c in CONFINEMENT_COLUMNS if c not in (

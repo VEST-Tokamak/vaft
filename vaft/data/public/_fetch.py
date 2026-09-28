@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+from http.client import HTTPException
 import os
 from pathlib import Path
 import sys
@@ -154,16 +155,24 @@ def sha256_of(path: str | os.PathLike[str]) -> str:
     return digest.hexdigest()
 
 
-def _download(url: str, destination: Path, timeout: float) -> None:
+def _download(url: str, destination: Path, timeout: float, sha256: str) -> None:
     request = Request(url, headers={"User-Agent": "vaft-public-data/1"})
     try:
         with urlopen(request, timeout=timeout) as response:
             status = getattr(response, "status", 200)
             payload = response.read()
-    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+    except (HTTPError, URLError, HTTPException, TimeoutError, OSError) as exc:
         raise FetchError(f"Could not download {url}: {exc}") from exc
     if status != 200:
         raise FetchError(f"{url} returned HTTP {status}")
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != sha256.lower():
+        # Checked before the rename, so a bad download never appears in the cache.
+        raise ChecksumError(
+            f"{url} delivered SHA-256 {actual}, expected {sha256}. The upstream "
+            "file changed or the transfer was corrupted; a new release needs a "
+            "new registry entry."
+        )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
@@ -213,27 +222,24 @@ def fetch(
     Raises
     ------
     FetchError
-        The download failed.
+        The download failed, including a truncated transfer.
     ChecksumError
-        The cached or downloaded file does not match ``sha256``.  A corrupt
-        download is removed; a mismatching file already in the cache is left
-        in place for inspection.
+        The downloaded or cached file does not match ``sha256``.  A download is
+        verified before it is moved into the cache, so a mismatching one never
+        lands there; a mismatching file already in the cache is left in place
+        for inspection.
     """
     if Path(filename).name != filename or not filename:
         raise ValueError(f"filename must be a bare file name, got {filename!r}")
     destination = cache_dir(cache) / filename
-    downloaded = False
     if not destination.exists():
-        _download(url, destination, timeout)
-        downloaded = True
+        _download(url, destination, timeout, sha256)
+        return destination
     actual = sha256_of(destination)
     if actual != sha256.lower():
-        if downloaded:
-            destination.unlink(missing_ok=True)
         raise ChecksumError(
-            f"{destination} has SHA-256 {actual}, expected {sha256}. "
-            "The upstream file changed or the cached copy is corrupt; a new "
-            "release needs a new registry entry."
+            f"Cached {destination} has SHA-256 {actual}, expected {sha256}; "
+            "delete it to re-download."
         )
     return destination
 

@@ -93,6 +93,12 @@ def test_validation_rejects_duplicate_ids_and_negative_magnitudes(db5):
         validate_confinement_table(db5.drop(columns=["kappa_area"]))
 
 
+def test_triangularity_is_signed(db5):
+    table = db5.copy()
+    table.loc[0, "delta"] = -0.3
+    assert validate_confinement_table(table).loc[0, "delta"] == pytest.approx(-0.3)
+
+
 # ---------------------------------------------------------------- DB5
 
 
@@ -284,6 +290,15 @@ def test_fetch_removes_a_download_with_the_wrong_checksum(tmp_path):
         with pytest.raises(ChecksumError):
             _fetch.fetch("https://example.invalid/x", sha256="0" * 64, filename="x.csv", cache=tmp_path)
     assert not (tmp_path / "x.csv").exists()
+    assert not list(tmp_path.iterdir())
+
+
+def test_fetch_reports_a_truncated_transfer_as_fetch_error(tmp_path):
+    from http.client import IncompleteRead
+
+    with mock.patch.object(_fetch, "urlopen", side_effect=IncompleteRead(b"part")):
+        with pytest.raises(FetchError):
+            _fetch.fetch("https://example.invalid/x", sha256="0" * 64, filename="x.csv", cache=tmp_path)
 
 
 def test_fetch_reports_an_upstream_outage_as_fetch_error(tmp_path):
@@ -326,6 +341,44 @@ def test_population_renderers_draw_the_canonical_table(db5):
         plt.close(fig)
 
 
+def test_population_renderers_refuse_a_series_from_another_table(db5):
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    from vaft.plot import population
+
+    vest = vest_summary_to_confinement_table(_summary_rows(), effective_mass_amu=1.0)
+    table = pd.concat([vest, db5], ignore_index=True)
+    # Same integer labels, different rows: pairing by label would be silent.
+    with pytest.raises(ValueError, match="not indexed like the table"):
+        population.confinement_predicted_vs_measured(table, predict_confinement_time(db5))
+    with pytest.raises(ValueError, match="not indexed like the table"):
+        population.confinement_h_factor_distribution(table, h_factor(db5))
+
+
+def test_vest_ods_adapter_on_the_48224_kinetic_equilibrium():
+    from pathlib import Path
+
+    import vaft
+    from vaft.data.public import vest_ods_to_confinement_rows
+
+    path = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not path.exists():
+        pytest.skip("repository-only kinetic EFIT sample")
+    ods = vaft.omas.load(path)
+    before = sorted(ods.flat())
+    row = vest_ods_to_confinement_rows(ods, effective_mass_amu=1.0).iloc[0]
+    assert sorted(ods.flat()) == before  # reading must not create paths
+
+    assert row["record_id"] == "VEST:48224:300"
+    assert row["kappa_area"] == pytest.approx(
+        1.0223282582 / (2 * np.pi**2 * row["a_m"] ** 2 * row["r_geo_m"]), rel=1e-6
+    )
+    assert row["b_t_T"] == pytest.approx(0.150869643 * 0.4 / row["r_geo_m"], rel=1e-6)
+    density = np.asarray(ods["core_profiles.profiles_1d.0.electrons.density"], float)
+    assert density.min() < row["n_e_line_avg_m3"] < density.max()
+    assert np.isnan(row["p_loss_W"]) and np.isnan(row["tau_e_th_s"])
+
+
 # ---------------------------------------------------------------- network
 
 
@@ -339,11 +392,13 @@ def test_real_db5_release_reproduces_its_own_ipb98_h_factor():
     assert len(table) == 14153
     assert int(table["selected"].sum()) == 7568
     # DB5's HIPB98Y2 = TAUTH * TAUC92 / IPB98(y,2): the SI conversions, the
-    # line-averaged density and kappa_area must reproduce it.
+    # line-averaged density and kappa_area must reproduce it.  HIPB98Y2 is
+    # stored to ~4 significant figures, and a couple of source rows disagree
+    # with their own TAUTH (e.g. D3D 86209), so allow both.
     ratio = h_factor(table, "H98y2") / (raw["HIPB98Y2"] / raw["TAUC92"])
     ratio = ratio[np.isfinite(ratio)]
     assert len(ratio) > 11000
-    assert float((np.abs(ratio - 1.0) < 1e-6).mean()) > 0.999
+    assert int((np.abs(ratio - 1.0) >= 2e-3).sum()) <= 5
 
 
 def test_the_subpackage_survives_the_sdist_prune_of_vaft_data():

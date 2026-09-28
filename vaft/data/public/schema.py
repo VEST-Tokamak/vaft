@@ -14,8 +14,8 @@ Rules
   radius of the toroidal field, how ``W_th`` was measured, where the ion mass
   came from) carries a ``*_definition`` / ``*_source`` string on every row, so
   a population mixing sources can be split on it.
-* Rows are identified by ``record_id`` (``"<machine>:<shot>:<time_ms>"``), not
-  by position.
+* Rows are identified by ``record_id`` (``"<machine>:<shot>:<time key>"``),
+  not by position.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ class ColumnSpec:
 CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     # identity
     "machine": ColumnSpec("str", "Canonical machine name, upper case (e.g. 'JET', 'VEST')."),
-    "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time_ms>' identifier."),
+    "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time key>' identifier; the time key is the source's own (DB5 TIME_ID) or milliseconds."),
     "shot": ColumnSpec("int", "Discharge number."),
     "time_s": ColumnSpec("s", "Time of the record within the discharge."),
     "regime": ColumnSpec("str", "Confinement phase as labelled by the source (e.g. 'H', 'HGELM', 'OHM', 'L')."),
@@ -73,6 +73,7 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     "delta": ColumnSpec("1", "Average triangularity of the boundary."),
     "m_eff_amu": ColumnSpec("amu", "Effective ion mass (see m_eff_source)."),
     # definitions and provenance
+    "n_e_definition": ColumnSpec("str", "Which chord or construction n_e_line_avg_m3 is."),
     "p_loss_definition": ColumnSpec("str", "How p_loss_W was formed, in the source's terms."),
     "w_th_definition": ColumnSpec("str", "How w_th_J was obtained."),
     "tau_e_definition": ColumnSpec("str", "How tau_e_th_s was formed."),
@@ -85,6 +86,8 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
 }
 
 _LABEL_UNITS = {"str", "bool", "int"}
+#: Signed quantities, exempt from the magnitude check.
+_SIGNED = {"time_s", "delta"}
 
 
 def make_record_id(machine: str, shot, time_s) -> str:
@@ -152,8 +155,9 @@ def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
     Raises
     ------
     ValueError
-        A canonical column is missing, ``record_id`` is not unique, or a
-        numeric column holds a negative or infinite value.
+        A canonical column is missing, ``record_id`` is not unique, a numeric
+        column holds an infinite value, or a magnitude column (all numeric
+        columns except ``time_s`` and ``delta``) holds a negative one.
     """
     missing = [name for name in CONFINEMENT_COLUMNS if name not in table.columns]
     if missing:
@@ -162,12 +166,12 @@ def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
     if len(duplicated):
         raise ValueError(f"record_id is not unique: {duplicated.unique()[:5].tolist()}")
     for name, spec in CONFINEMENT_COLUMNS.items():
-        if spec.unit in _LABEL_UNITS or name == "time_s":
+        if spec.unit in _LABEL_UNITS:
             continue
         values = pd.to_numeric(table[name], errors="raise").to_numpy(dtype=float)
         if np.any(np.isinf(values)):
             raise ValueError(f"Column {name!r} holds infinite values")
-        if np.any(values[np.isfinite(values)] < 0.0):
+        if name not in _SIGNED and np.any(values[np.isfinite(values)] < 0.0):
             raise ValueError(f"Column {name!r} holds negative values; magnitudes are expected")
     out = table.loc[:, list(CONFINEMENT_COLUMNS)].reset_index(drop=True)
     return _attach_attrs(out)

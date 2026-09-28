@@ -67,6 +67,10 @@ DB5_DEFINITIONS: dict[str, str] = {
     ),
     "tau_e_definition": "DB5 TAUTH = WTH / PLTH",
     "b_t_definition": "DB5 BT: vacuum toroidal field at RGEO",
+    "n_e_definition": (
+        "DB5 NEL: central line-averaged density from interferometry "
+        "(approximated where NELFORM says so)"
+    ),
     "m_eff_source": "source",
 }
 
@@ -142,7 +146,9 @@ def normalize_db5(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd.Da
     * Units are unchanged (DB5 is SI); ``IP`` and ``BT`` become magnitudes.
     * ``epsilon = AMIN / RGEO`` is the only derived column.
     * ``record_id`` is ``"<TOK>:<SHOT>:<TIME_ID>"`` using the source's own
-      ``TIME_ID``, which differs from ``round(1000 TIME)`` on ~2,900 JET rows.
+      ``TIME_ID``.  It is not always milliseconds: it is off by one from
+      ``round(1000 TIME)`` on ~2,800 JET rows (and some COMPASS / JT60U rows)
+      and in units of 1e-5 s for TUMAN3M.
     * Blank source cells stay ``NaN``; nothing is filled.
     * DB5's own ``HIPB98Y2`` multiplies ``TAUTH`` by the ``TAUC92`` correction
       (not 1 only for a few old machines).  ``tau_e_th_s`` is the uncorrected

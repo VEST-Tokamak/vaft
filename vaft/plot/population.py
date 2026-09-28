@@ -73,6 +73,20 @@ def _groups(table: pd.DataFrame, by: str, highlight: str | None, max_groups: int
     return groups
 
 
+def _aligned(series: pd.Series, table: pd.DataFrame, name: str) -> np.ndarray:
+    """Values of a per-row series, refusing one computed on another table.
+
+    Aligning by index would silently pair rows of different tables (a
+    concatenated table re-numbers its rows), so the index must be identical.
+    """
+    if not series.index.equals(table.index):
+        raise ValueError(
+            f"{name} is not indexed like the table; compute it on this table "
+            "(rows are paired by the table's own rows, not by position)"
+        )
+    return pd.to_numeric(series, errors="coerce").to_numpy(float)
+
+
 def _axes(ax, figsize):
     import matplotlib.pyplot as plt
 
@@ -178,7 +192,7 @@ def confinement_predicted_vs_measured(
     table : pandas.DataFrame
         Canonical confinement table [table].
     predicted : pandas.Series
-        Prediction indexed like ``table``, e.g. from
+        Prediction computed on ``table`` itself (identical index), e.g. by
         :func:`vaft.data.public.predict_confinement_time` [s].
     scaling_label : str, optional
         Name shown on the axis, default ``"IPB98(y,2)"`` [str].
@@ -196,7 +210,7 @@ def confinement_predicted_vs_measured(
     """
     fig, ax = _axes(ax, figsize)
     measured = pd.to_numeric(table["tau_e_th_s"], errors="coerce").to_numpy(float)
-    pred = pd.to_numeric(predicted.reindex(table.index), errors="coerce").to_numpy(float)
+    pred = _aligned(predicted, table, "predicted")
     for name, mask, color, marker in _groups(table, by, highlight, max_groups):
         ok = mask & np.isfinite(measured) & np.isfinite(pred)
         ax.scatter(pred[ok], measured[ok], s=10, color=color, marker=marker, alpha=0.55,
@@ -242,7 +256,7 @@ def confinement_h_factor_distribution(
     table : pandas.DataFrame
         Canonical confinement table [table].
     h : pandas.Series
-        H-factor indexed like ``table``, e.g. from
+        H-factor computed on ``table`` itself (identical index), e.g. by
         :func:`vaft.data.public.h_factor` [-].
     scaling_label : str, optional
         Scaling named on the axis, default ``"IPB98(y,2)"`` [str].
@@ -259,8 +273,8 @@ def confinement_h_factor_distribution(
         ``(Figure, Axes)`` [matplotlib].
     """
     fig, ax = _axes(ax, figsize)
-    values = pd.to_numeric(h.reindex(table.index), errors="coerce")
-    frame = pd.DataFrame({"group": table[by].astype(str), "h": values}).dropna()
+    values = _aligned(h, table, "h")
+    frame = pd.DataFrame({"group": table[by].astype(str).to_numpy(), "h": values}).dropna()
     order = frame.groupby("group")["h"].median().sort_values().index.tolist()
     data = [frame.loc[frame.group == g, "h"].to_numpy() for g in order]
     if data:
