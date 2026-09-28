@@ -121,6 +121,19 @@ class TestPyVista:
                 else:
                     assert len(record["verts"]) == layer.x.size
 
+    @pytest.mark.parametrize("suffix", [".vtm", ".vtp"])
+    def test_both_formats_agree_on_repeated_groups_and_undrawable_layers(self, tmp_path, suffix):
+        scene = Geometry3DLayers((
+            Geometry3DLayer(x=[0.0, 1.0], y=[0.0, 0.0], z=[0.0, 0.0], group="a/b"),
+            Geometry3DLayer(x=[0.0, 1.0], y=[1.0, 1.0], z=[0.0, 0.0], group="a/b"),
+            Geometry3DLayer(x=[0.0, np.nan, 1.0], y=[2.0] * 3, z=[0.0] * 3, group="a/lone vertices"),
+            Geometry3DLayer(x=[np.nan], y=[np.nan], z=[np.nan], group="a/empty"),
+        ))
+        records = vaft.visualization.read_vtk_blocks(vaft.visualization.write_vtk(scene, tmp_path / f"s{suffix}"))
+        assert sorted(records) == ["a/b", "a/b #2"]
+        assert np.allclose(records["a/b #2"]["points"][:, 1], 1.0)
+        assert all(not record["verts"] for record in records.values())
+
     def test_an_unknown_suffix_is_refused(self, tmp_path, coils):
         with pytest.raises(ValueError, match=r"\.vtm, \.vtp"):
             vaft.visualization.write_vtk(vaft.plot.extract("coil_3d_geometry3d", coils), tmp_path / "coils.stl")

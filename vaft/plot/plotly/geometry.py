@@ -67,7 +67,8 @@ def add_geometry_3d_layers(
     legend_group = None
     for index, layer in enumerate(model.layers):
         if layer.label:
-            legend_group = f"layer{index}:{layer.label}"
+            # Unique per model too: two 3-D panels may label their first layers alike.
+            legend_group = f"{id(model)}:{index}:{layer.label}"
         points = layer.kind == "points"
         props = _props_3d({**style, **dict(layer.style)}, points=points)
         figure.add_trace(

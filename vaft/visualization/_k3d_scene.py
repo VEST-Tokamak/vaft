@@ -108,6 +108,11 @@ def _coil_turns(source: Any) -> dict[str, float]:
 _FIELD_COMPONENTS = ("B_R", "B_phi", "B_Z", "|B|")
 
 
+def _closed(layer: Geometry3DLayer) -> bool:
+    ends = np.array([[layer.x[0], layer.y[0], layer.z[0]], [layer.x[-1], layer.y[-1], layer.z[-1]]])
+    return layer.x.size > 1 and np.allclose(ends[0], ends[1])
+
+
 def coil_phase_explorer(
     source: Any,
     *,
@@ -158,7 +163,9 @@ def coil_phase_explorer(
     driven = sets[coil_set]
     turns_by_name = _coil_turns(source)
     turns = np.array([turns_by_name.get(layer.group.split("/")[-1], 1.0) for layer in driven])
-    centroids = np.array([np.mean(layer.x + 1j * layer.y) for layer in driven])
+    # The closing vertex repeats the first; counting it twice would bias the angle.
+    centroids = np.array([np.mean((layer.x + 1j * layer.y)[:-1] if _closed(layer) else layer.x + 1j * layer.y)
+                          for layer in driven])
     phi_sector = np.angle(centroids)
     filaments = [np.column_stack([layer.x, layer.y, layer.z]) for layer in driven]
     if probe_r is None:

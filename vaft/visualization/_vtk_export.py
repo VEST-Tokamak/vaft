@@ -38,6 +38,8 @@ VTK_SUFFIXES = (".vtm", ".vtp")
 def _cells(layer: Geometry3DLayer) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """``(points, verts, lines)`` of one layer in VTK's flat cell layout, finite vertices only."""
     runs = finite_runs(layer)
+    if layer.kind != "points":
+        runs = [run for run in runs if run.size >= 2]  # a lone vertex of a polyline draws nothing
     kept = np.concatenate(runs) if runs else np.zeros(0, dtype=int)
     points = np.column_stack([layer.x, layer.y, layer.z])[kept]
     renumber = {int(old): new for new, old in enumerate(kept)}
@@ -46,8 +48,6 @@ def _cells(layer: Geometry3DLayer) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         return points, verts, np.zeros(0, dtype=int)
     lines: list[int] = []
     for run in runs:
-        if run.size < 2:
-            continue  # a lone vertex of a polyline draws nothing
         lines += [run.size, *(renumber[int(index)] for index in run)]
     return points, np.zeros(0, dtype=int), np.asarray(lines, dtype=int)
 
@@ -68,7 +68,7 @@ def _polydata(pv: Any, layer: Geometry3DLayer) -> Any:
         cells["verts"] = verts
     if lines.size:
         cells["lines"] = lines
-    mesh = pv.PolyData(points, **cells) if len(points) else pv.PolyData()
+    mesh = pv.PolyData(points, **cells)
     for key, value in _layer_metadata(layer).items():
         mesh.field_data[key] = value if not isinstance(value, str) else [value]
     return mesh
@@ -106,6 +106,8 @@ def to_pyvista(model: Any) -> Any:
     for key in ("title", "x_label", "y_label", "z_label"):
         root.field_data[f"vaft_{key}"] = [str(getattr(scene, key))]
     for index, layer in enumerate(scene.layers):
+        if not len(_cells(layer)[0]):
+            continue  # nothing finite to draw: no block, in either file format
         path = layer.group.split("/") if layer.group else ["layers", f"layer {index}"]
         block = root
         for name in path[:-1]:
@@ -118,7 +120,8 @@ def _merged_polydata(pv: Any, scene: Any) -> Any:
     """Every layer in one ``PolyData``; the cell array ``vaft_layer`` says which layer a cell is."""
     points, verts, lines, vert_layer, line_layer = [], [], [], [], []
     offset = 0
-    for index, layer in enumerate(scene.layers):
+    drawn = [layer for layer in scene.layers if len(_cells(layer)[0])]
+    for index, layer in enumerate(drawn):
         layer_points, layer_verts, layer_lines = _cells(layer)
         for flat, out, owner in ((layer_verts, verts, vert_layer), (layer_lines, lines, line_layer)):
             position = 0
@@ -138,10 +141,10 @@ def _merged_polydata(pv: Any, scene: Any) -> Any:
     mesh = pv.PolyData(stacked, **cells) if len(stacked) else pv.PolyData()
     # VTK orders a PolyData's cells verts first, then lines.
     mesh.cell_data["vaft_layer"] = np.asarray(vert_layer + line_layer, dtype=np.int32)
-    mesh.field_data["vaft_label"] = [layer.label for layer in scene.layers]
-    mesh.field_data["vaft_group"] = [layer.group for layer in scene.layers]
-    mesh.field_data["vaft_kind"] = [layer.kind for layer in scene.layers]
-    mesh.field_data["vaft_color"] = np.asarray([layer_rgb(layer) for layer in scene.layers], dtype=float).reshape(-1, 3)
+    mesh.field_data["vaft_label"] = [layer.label for layer in drawn]
+    mesh.field_data["vaft_group"] = [layer.group for layer in drawn]
+    mesh.field_data["vaft_kind"] = [layer.kind for layer in drawn]
+    mesh.field_data["vaft_color"] = np.asarray([layer_rgb(layer) for layer in drawn], dtype=float).reshape(-1, 3)
     for key in ("title", "x_label", "y_label", "z_label"):
         mesh.field_data[f"vaft_{key}"] = [str(getattr(scene, key))]
     return mesh
@@ -156,6 +159,9 @@ def write_vtk(model: Any, path: str | Path) -> Path:
     ``.vtp``
         one merged polydata; the cell array ``vaft_layer`` and the per-layer
         field data (``vaft_label``, ``vaft_group``, ...) keep layer identity.
+
+    A layer with nothing drawable -- no finite point, or a polyline of lone
+    vertices only -- is left out of both formats.
     """
     pv = require_pyvista()
     target = Path(path)
@@ -227,7 +233,13 @@ def read_vtk_blocks(path: str | Path) -> dict[str, dict[str, Any]]:
                for kind, cells in (("verts", verts), ("lines", lines))}
         used = np.unique(np.concatenate([*own["verts"], *own["lines"]])) if (own["verts"] or own["lines"]) else np.zeros(0, dtype=int)
         renumber = {int(old): new for new, old in enumerate(used)}
-        records[group or f"layers/layer {index}"] = {
+        key = group or f"layers/layer {index}"
+        if key in records:  # the .vtm block tree suffixes a repeated name the same way
+            suffix = 2
+            while f"{key} #{suffix}" in records:
+                suffix += 1
+            key = f"{key} #{suffix}"
+        records[key] = {
             "points": points[used],
             "lines": [np.array([renumber[int(i)] for i in cell]) for cell in own["lines"]],
             "verts": [np.array([renumber[int(i)] for i in cell]) for cell in own["verts"]],
