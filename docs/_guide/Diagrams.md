@@ -416,6 +416,32 @@ vaft.diagram.ballooning_workflow()
 The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).
 The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
 
+## Slab resonant layers: tearing and twisting parity
+
+How a global harmonic becomes a local layer response. The mapping $(m, n) \to (k_y, k_z)$ and
+$q = m/n \Leftrightarrow k_\parallel = 0$ is `mode_number_mapping`. The flux is
+`vaft.formula.slab_perturbed_flux`; its tearing form is the island pendulum of `magnetic_island`.
+
+```python
+vaft.diagram.slab_parity(parity="tearing")   # "twisting"
+vaft.diagram.slab_parity_comparison()
+vaft.diagram.poloidal_harmonic_coupling(m=3)
+vaft.diagram.resonant_layer_matching()
+```
+
+![parity]({{ '/assets/diagrams/slab_parity_comparison.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![coupling]({{ '/assets/diagrams/poloidal_harmonic_coupling.svg' | relative_url }}) | ![matching]({{ '/assets/diagrams/resonant_layer_matching.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `slab_parity` | Contours of $\Psi_T = B_s'x^2/2 + \psi_0\cos k_yy$: an island of width $4\sqrt{\psi_0/B_s'}$, O- and X-points, and $\delta B_x(0) \ne 0$. Contours of $\Psi_W = B_s'x^2/2 + \psi_1x\cos k_yy$: $x = 0$ stays a flux surface and its neighbours are displaced |
+| `slab_parity_comparison` | Both side by side, with the parity of $\tilde\psi$ and $\tilde\phi$, $\delta B_x(0)$ and the topology |
+| `poloidal_harmonic_coupling` | $\cos\theta$ (toroidicity) couples $m \to m \pm 1$ and $\cos 2\theta$ (elongation) couples $m \to m \pm 2$, at fixed $n$. The harmonic index $m$ is not the parity |
+| `resonant_layer_matching` | Every rational surface of one $n$ has a T and a W channel. The outer region couples them all into one $2N\times2N$ matrix (RDCON/STRIDE), and each layer is solved on its own (SLAYER) |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
