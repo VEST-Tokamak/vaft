@@ -169,3 +169,59 @@ def test_an_ambiguous_but_agreeing_convention_is_enough_and_a_wrong_one_is_warne
     assert derive_current_moments(native).total_current == pytest.approx(native.ip, rel=2e-3)
     with pytest.warns(UserWarning, match="factor 6.28"):
         derive_current_moments(as_equilibrium(gfile, convention=11))
+
+
+def test_nan_inside_the_weighted_region_is_refused_or_filled():
+    r, z, _, _ = _grid(41)
+    j = np.ones((41, 41)); j[20, 20] = np.nan
+    with pytest.raises(ValueError, match="not finite"):
+        current_centroid(j, r, z)
+    w = np.ones_like(j); w[20, 20] = 0.0
+    assert np.isfinite(current_centroid(j, r, z, weights=w)[0])   # outside the region NaN is fine
+
+    eq = solovev_example("limited", a_parameter=0.3)             # finite edge current
+    from vaft.process._equilibrium_moments import _flux_function_current
+    from vaft.process.equilibrium import fractional_cell_weights_from_boundary as weights_of
+
+    full = _flux_function_current(eq)
+    rm, zm = np.meshgrid(eq.r, eq.z, indexing="ij")
+    from matplotlib.path import Path
+    inside = Path(eq.lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+    ods_style = np.where(inside, full, np.nan)                  # update.py writes NaN by cell centre
+    assert np.sum((weights_of(eq.r, eq.z, eq.lcfs.r, eq.lcfs.z) > 0) & ~inside) > 0
+    filled = derive_current_moments(eq, j_tor=ods_style)
+    reference = derive_current_moments(eq)
+    assert "partial LCFS cells filled" in filled.current_density_source
+    assert filled.total_current == pytest.approx(reference.total_current, rel=1e-12)
+    assert filled.central_moments[(2, 0)] == pytest.approx(reference.central_moments[(2, 0)], rel=1e-12)
+
+
+def test_negative_plasma_current_keeps_its_sign():
+    positive = derive_current_moments(solovev_example("limited"))
+    negative = derive_current_moments(solovev_example("limited", plasma_current=-1.0e5))
+    assert negative.total_current == pytest.approx(-positive.total_current, rel=1e-9)
+    assert negative.centroid_r == pytest.approx(positive.centroid_r)
+
+
+def test_an_unidentified_flux_unit_is_refused_with_its_own_message():
+    from vaft.data.equilibrium import EquilibriumConvention
+
+    eq = dataclasses.replace(solovev_example("limited"), convention=EquilibriumConvention())
+    with pytest.raises(ValueError, match="flux unit"):
+        derive_current_moments(eq)
+
+
+def test_ods_path_agrees_with_the_2d_j_tor_updater():
+    pytest.importorskip("omas")
+    import vaft.omas.update as update
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+    from vaft.process._equilibrium_moments import _flux_function_current
+
+    ods = sample_geqdsk().to_omas()
+    update.update_equilibrium_profiles_2d_j_tor(ods, time_slice=0)
+    stored = np.asarray(ods["equilibrium.time_slice.0.profiles_2d.0.j_tor"], dtype=float)
+    derived = _flux_function_current(as_equilibrium(ods))
+    finite = np.isfinite(stored)
+    assert finite.sum() > 100
+    np.testing.assert_allclose(derived[finite], stored[finite], rtol=1e-8, atol=1e-6*np.nanmax(np.abs(stored)))

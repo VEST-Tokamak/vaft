@@ -28,8 +28,15 @@ def _grid(j_tor: Any, r: Any, z: Any, weights: Any) -> tuple[np.ndarray, np.ndar
     if w.shape != j.shape:
         raise ValueError("weights must have the shape of j_tor")
     # Outside the weighted region the density is irrelevant, and may be NaN
-    # (an ODS writes NaN beyond the LCFS); it must not poison the sums.
-    element = np.where(w > 0, np.nan_to_num(j)*w*area, 0.0)
+    # (an ODS writes NaN beyond the LCFS); it must not poison the sums.  Inside
+    # it a NaN is missing current, and zeroing it would bias every moment.
+    missing = (w > 0) & ~np.isfinite(j)
+    if np.any(missing):
+        raise ValueError(
+            f"j_tor is not finite in {int(np.sum(missing))} cells with nonzero weight; "
+            "fill them (e.g. partial LCFS cells an ODS leaves NaN) or zero their weights"
+        )
+    element = np.where(w > 0, np.where(np.isfinite(j), j, 0.0)*w*area, 0.0)
     rm, zm = np.meshgrid(r, z, indexing="ij")
     return element, rm, zm, w
 
@@ -200,28 +207,38 @@ def current_covariance(j_tor: Any, r: Any, z: Any, *, weights: Any = None) -> np
     ----------
     .. [1] Definition of the current moments; see issue #943.
     """
-    mu = {pq: current_moment(j_tor, r, z, *pq, weights=weights) for pq in ((2, 0), (1, 1), (0, 2))}
+    _, r0, z0 = current_centroid(j_tor, r, z, weights=weights)
+    mu = {pq: current_moment(j_tor, r, z, *pq, weights=weights, center=(r0, z0)) for pq in ((2, 0), (1, 1), (0, 2))}
     return np.array([[mu[(2, 0)], mu[(1, 1)]], [mu[(1, 1)], mu[(0, 2)]]], dtype=float)
 
 
 def _flux_function_current(eq: Any) -> np.ndarray:
-    """J_phi on the record's grid from its p' and FF' profiles, in the record's COCOS."""
+    """J_phi on the record's grid from its p' and FF' profiles, in the record's COCOS.
+
+    The convention is resolved as ``vaft.omas.update`` resolves it for an ODS:
+    the 2*pi exponent from ``psi_per_radian`` (or the COCOS), ``sigma_Bp`` from
+    the index or from candidates that agree on it, and the DD's +1 otherwise.
+    """
     if eq.convention is None:
         raise ValueError("the equilibrium declares no COCOS convention, so the sign and 2*pi of J_phi are unknown; pass j_tor")
-    # J_phi depends on the convention only through sigma_Bp and e_Bp, so an
-    # unresolved candidate set (e.g. COCOS 1 or 2) is enough when they agree.
-    candidates = [eq.convention.cocos] if eq.convention.cocos is not None else list(eq.convention.candidates or ())
-    factors = {(cocos_spec(int(c)).sigma_bp, cocos_spec(int(c)).exp_bp) for c in candidates}
-    if len(factors) != 1:
-        raise ValueError(
-            f"the COCOS candidates {tuple(candidates)} disagree on sigma_Bp or the 2*pi exponent, "
-            "so J_phi is ambiguous; declare the convention or pass j_tor"
-        )
-    sigma_bp, exp_bp = factors.pop()
     if eq.pprime is None or eq.ffprime is None or eq.psi_1d is None:
         raise ValueError("the equilibrium has no p'/FF' profiles to derive J_phi from; pass j_tor")
-    if eq.psi_axis is None or eq.psi_boundary is None or eq.psi_axis == eq.psi_boundary:
-        raise ValueError("psi_axis and psi_boundary are needed, and distinct, to map p'/FF' onto the grid")
+    if eq.psi_axis is None or eq.psi_boundary is None or not (np.isfinite(eq.psi_axis) and np.isfinite(eq.psi_boundary)):
+        raise ValueError("psi_axis and psi_boundary must be finite to map p'/FF' onto the grid")
+    if eq.psi_axis == eq.psi_boundary:
+        raise ValueError("psi_axis equals psi_boundary; p'/FF' cannot be mapped onto the grid")
+    convention = eq.convention
+    indices = [convention.cocos] if convention.cocos is not None else [c for c in (convention.candidates or ()) if c]
+    specs = [cocos_spec(int(c)) for c in indices]
+    if convention.psi_per_radian is not None:
+        exp_bp = 0 if convention.psi_per_radian else 1
+    elif specs and len({spec.exp_bp for spec in specs}) == 1:
+        exp_bp = specs[0].exp_bp
+    else:
+        raise ValueError("the flux unit (Wb or Wb/rad) of this record is not identified, so J_phi is off by 2*pi either way; "
+                         "declare the convention or pass j_tor")
+    signs = {spec.sigma_bp for spec in specs}
+    sigma_bp = signs.pop() if len(signs) == 1 else 1
     psi_n_1d = (np.asarray(eq.psi_1d, dtype=float) - eq.psi_axis)/(eq.psi_boundary - eq.psi_axis)
     order = np.argsort(psi_n_1d)
     psi_n = np.clip((np.asarray(eq.psi, dtype=float) - eq.psi_axis)/(eq.psi_boundary - eq.psi_axis), 0.0, 1.0)
@@ -282,7 +299,9 @@ def derive_current_moments(equilibrium: Any, *, max_order: int = 4, j_tor: Any =
     ----------
     The derived current density is the same expression, and the same resolved
     psi convention, as ``vaft.omas.update.update_equilibrium_profiles_2d_j_tor``
-    uses for an ODS, so the two paths agree; it is never a ``dpsi/dR``
+    uses for an ODS, resolved the same way (the 2*pi exponent from
+    ``psi_per_radian``, ``sigma_Bp`` from agreeing candidates, else +1), so
+    the two paths agree; it is never a ``dpsi/dR``
     pseudo-current.  Moments are central about the current centroid and
     normalized by the total current (m**(p+q)); the area element is
     ``dR dZ``, so the zeroth moment is the plasma current.
@@ -293,7 +312,13 @@ def derive_current_moments(equilibrium: Any, *, max_order: int = 4, j_tor: Any =
 
     Limitations
     -----------
-    The integrated current is checked against the record's ``ip``, and a
+    An ODS's own ``profiles_2d.j_tor`` is not read automatically --
+    :func:`as_equilibrium` does not carry it -- so pass it as *j_tor*; the
+    derived density agrees with ``update_equilibrium_profiles_2d_j_tor`` to
+    about 1e-10 inside the LCFS.  NaN cells of a supplied *j_tor* that the
+    fractional weights still count are filled from ``p'``/``FF'`` and the
+    source label says how many.  The integrated current is checked against
+    the record's ``ip``, and a
     disagreement beyond five percent -- typically a factor 2*pi or -1 from a
     wrongly declared convention -- is warned about, not corrected.  Current
     outside the LCFS, such as a halo or a vessel current, is excluded
@@ -316,13 +341,19 @@ def derive_current_moments(equilibrium: Any, *, max_order: int = 4, j_tor: Any =
         raise ValueError("the equilibrium carries no (R, Z) psi map")
     if eq.lcfs is None:
         raise ValueError("the equilibrium has no LCFS to bound the integration")
+    weights = fractional_cell_weights_from_boundary(eq.r, eq.z, eq.lcfs.r, eq.lcfs.z)
     if j_tor is None:
         j = _flux_function_current(eq)
         source = "grad_shafranov_flux_functions"
     else:
-        j = np.asarray(j_tor, dtype=float)
+        j = np.array(j_tor, dtype=float)
         source = "supplied"
-    weights = fractional_cell_weights_from_boundary(eq.r, eq.z, eq.lcfs.r, eq.lcfs.z)
+        missing = (weights > 0) & ~np.isfinite(j)
+        if np.any(missing):
+            # An ODS's profiles_2d.j_tor is NaN wherever the cell *centre* is
+            # outside the LCFS, which includes partial boundary cells.
+            j[missing] = _flux_function_current(eq)[missing]
+            source = f"supplied; {int(np.sum(missing))} partial LCFS cells filled from p'/FF'"
     total, r_c, z_c = current_centroid(j, eq.r, eq.z, weights=weights)
     if eq.ip not in (None, 0) and np.isfinite(eq.ip) and abs(total/eq.ip - 1.0) > 0.05:
         # A factor 2*pi or -1 here almost always means a wrongly declared
