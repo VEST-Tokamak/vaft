@@ -879,6 +879,9 @@ def build_diagnostics_ods(
         "ec_power", "ec_launchers", "ec_launchers.beam.0.power_launched.time"
     )
     langmuir_policy = policies["langmuir_probes"]
+    # Filled by the mapper; statuses keeps this same dict, so the counts reach
+    # the manifest without opening the ODS (#915).
+    langmuir_unfiltered: dict[str, Any] = {}
     run_component(
         "langmuir_probes",
         ("langmuir_probes",),
@@ -889,7 +892,16 @@ def build_diagnostics_ods(
             langmuir_policy.tend,
             langmuir_policy.dt,
             raw_source=raw_path,
+            report=langmuir_unfiltered,
         ),
+        anti_alias={
+            "policy": (
+                "finite runs of the triple-probe solve shorter than filtfilt "
+                "accepts are decimated unfiltered; every target sample they "
+                "contribute to has validity_timed = -1 (#915)"
+            ),
+            "unfiltered": langmuir_unfiltered,
+        },
     )
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]

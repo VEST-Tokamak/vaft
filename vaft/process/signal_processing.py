@@ -1108,7 +1108,8 @@ def anti_alias_filter(
     numtaps: int | None = None,
     axis: int = -1,
     nan_policy: str = "segment",
-) -> np.ndarray:
+    return_mask: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Zero-phase FIR low-pass applied on the *source* grid, ahead of a rate cut.
 
     This is the half of a downsample that ``np.interp`` cannot do for you.
@@ -1134,11 +1135,18 @@ def anti_alias_filter(
         ``"segment"`` filters each maximal finite run on its own; ``"error"``
         refuses non-finite samples; ``"ignore"`` hands them to ``filtfilt``,
         which smears them across the record [-].
+    return_mask : bool, optional
+        Also return which samples the filter actually covered [-].
 
     Returns
     -------
     np.ndarray
         The filtered waveform, same shape as ``values`` [any].
+    np.ndarray of bool
+        Only with ``return_mask=True``: ``True`` where ``filtfilt`` ran over
+        the sample, ``False`` for a sample left unfiltered (a short record or
+        finite run) and for a non-finite sample under ``"segment"``; same
+        shape as ``values`` [-].
 
     Raises
     ------
@@ -1186,7 +1194,9 @@ def anti_alias_filter(
     shorter than that is returned unfiltered rather than padded, and nothing is
     interpolated or invented in its place. One warning per call summarizes how
     many runs and samples were left unfiltered, so a caller can tell a single
-    stray sample from most of the record.  The filter assumes evenly spaced
+    stray sample from most of the record; ``return_mask=True`` says which
+    samples, so a caller can flag them rather than store them beside filtered
+    values as if they were equivalent (#915).  The filter assumes evenly spaced
     samples; on an irregular grid the design rate is a fiction, which
     :func:`resample_to_time` refuses for you.
 
@@ -1236,22 +1246,30 @@ def anti_alias_filter(
                 RuntimeWarning,
                 stacklevel=3,
             )
+            if return_mask:
+                return data, np.zeros(data.shape, dtype=bool)
             return data
-        return np.moveaxis(scipy_signal.filtfilt(taps, 1.0, moved, axis=-1), -1, axis)
+        filtered = np.moveaxis(scipy_signal.filtfilt(taps, 1.0, moved, axis=-1), -1, axis)
+        if return_mask:
+            return filtered, np.ones(data.shape, dtype=bool)
+        return filtered
 
     out = moved.copy()
     flat = out.reshape(-1, length)
     flat_finite = finite.reshape(-1, length)
+    covered = np.zeros(moved.shape, dtype=bool)
+    flat_covered = covered.reshape(-1, length)
     # One summary rather than a warning for the first short run: that run is
     # the one correctly left alone, so naming it pointed the reader of #893 at
     # a one-sample run while a 992-sample run was the one that failed.
     unfiltered: list[int] = []
-    for row, row_finite in zip(flat, flat_finite):
+    for row, row_finite, row_covered in zip(flat, flat_finite, flat_covered):
         for start, stop in _finite_runs(row_finite):
             if stop - start < minimum:
                 unfiltered.append(stop - start)
                 continue
             row[start:stop] = scipy_signal.filtfilt(taps, 1.0, row[start:stop])
+            row_covered[start:stop] = True
     if unfiltered:
         warnings.warn(
             f"{len(unfiltered)} finite run(s) totalling {sum(unfiltered)} samples "
@@ -1261,7 +1279,10 @@ def anti_alias_filter(
             RuntimeWarning,
             stacklevel=3,
         )
-    return np.moveaxis(flat.reshape(moved.shape), -1, axis)
+    result = np.moveaxis(flat.reshape(moved.shape), -1, axis)
+    if return_mask:
+        return result, np.moveaxis(covered, -1, axis)
+    return result
 
 
 def _interp_along_last_axis(target_time, source_time, values, *, extrapolate):
@@ -1291,7 +1312,8 @@ def resample_to_time(
     nan_policy: str = "segment",
     on_unsorted: str = "error",
     axis: int = -1,
-) -> np.ndarray:
+    return_filter_mask: bool = False,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Project a signal onto ``target_time``, low-passing first if that is a rate cut.
 
     Use this instead of a bare ``np.interp`` anywhere a diagnostic is written
@@ -1330,12 +1352,21 @@ def resample_to_time(
         Refuse an unsorted source, or sort it and collapse duplicates [-].
     axis : int, optional
         The time axis of ``values`` [-].
+    return_filter_mask : bool, optional
+        Also return, on the *source* grid, which samples reached the target
+        band-limited [-].
 
     Returns
     -------
     np.ndarray
         ``values`` on ``target_time``; the time axis has ``len(target_time)``
         samples [any].
+    np.ndarray of bool
+        Only with ``return_filter_mask=True`` (which requires
+        ``on_unsorted="error"``): per source sample, ``True`` if no filter was needed or
+        :func:`anti_alias_filter` covered it, ``False`` if a filter was needed
+        but the sample was left unfiltered or is non-finite.  It is a logical
+        series: project it with ``anti_alias=False`` [-].
 
     Raises
     ------
@@ -1417,6 +1448,10 @@ def resample_to_time(
         raise ValueError(f"extrapolate must be 'clamp', 'nan' or 'error'; got {extrapolate!r}")
     if on_unsorted not in ("error", "sort"):
         raise ValueError(f"on_unsorted must be 'error' or 'sort'; got {on_unsorted!r}")
+    if return_filter_mask and on_unsorted == "sort":
+        # Sorting collapses duplicate times, so a source-grid mask would no
+        # longer line up with the caller's samples.
+        raise ValueError("return_filter_mask requires on_unsorted='error'")
 
     times = np.asarray(source_time, dtype=float).reshape(-1)
     targets = np.asarray(target_time, dtype=float).reshape(-1)
@@ -1432,9 +1467,13 @@ def resample_to_time(
             "along the time axis"
         )
 
+    def _source_axis(mask):
+        return np.moveaxis(mask, -1, axis) if data.ndim > 1 else mask.reshape(-1)
+
     if targets.size == 0:
         empty = np.empty(moved.shape[:-1] + (0,), dtype=float)
-        return np.moveaxis(empty, -1, axis) if data.ndim > 1 else empty.reshape(0)
+        empty = np.moveaxis(empty, -1, axis) if data.ndim > 1 else empty.reshape(0)
+        return (empty, _source_axis(np.ones(moved.shape, dtype=bool))) if return_filter_mask else empty
 
     source_grid = describe_time_grid(times)
     if not source_grid.strictly_increasing:
@@ -1469,7 +1508,8 @@ def resample_to_time(
 
     if times.size == 1:
         filled = np.repeat(moved, targets.size, axis=-1)
-        return np.moveaxis(filled, -1, axis) if data.ndim > 1 else filled.reshape(-1)
+        filled = np.moveaxis(filled, -1, axis) if data.ndim > 1 else filled.reshape(-1)
+        return (filled, _source_axis(np.ones(moved.shape, dtype=bool))) if return_filter_mask else filled
 
     # np.interp evaluates at arbitrary instants, so target_time is allowed to be
     # unsorted -- but the *spacing* statistics that place the cutoff are only
@@ -1524,7 +1564,7 @@ def resample_to_time(
             target_nyquist = 0.5 / abs(target_grid.dt)
             if cutoff < target_nyquist:
                 stopband = min(target_nyquist, 0.5 * source_grid.sample_rate)
-        moved = anti_alias_filter(
+        moved, covered = anti_alias_filter(
             moved,
             source_rate=source_grid.sample_rate,
             cutoff_hz=cutoff,
@@ -1532,10 +1572,14 @@ def resample_to_time(
             numtaps=numtaps,
             axis=-1,
             nan_policy=nan_policy,
+            return_mask=True,
         )
+    else:
+        covered = np.ones(moved.shape, dtype=bool)
 
     out = _interp_along_last_axis(targets, times, moved, extrapolate=extrapolate)
-    return np.moveaxis(out, -1, axis) if data.ndim > 1 else out.reshape(-1)
+    out = np.moveaxis(out, -1, axis) if data.ndim > 1 else out.reshape(-1)
+    return (out, _source_axis(covered)) if return_filter_mask else out
 
 
 def process_signal(time, data, options=None):
