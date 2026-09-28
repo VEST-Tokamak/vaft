@@ -39,6 +39,7 @@ _SUBMODULES = {
     "geometry": ".geometry",
     "ripple": ".ripple",
     "disruption": ".disruption",
+    "vde": ".vde",
     "pwi": ".pwi",
     "boundaries": ".boundaries",
 }
@@ -67,6 +68,7 @@ _IMPORT_ORDER = (
     "geometry",
     "ripple",
     "disruption",
+    "vde",
     "pwi",
     "boundaries",
 )
