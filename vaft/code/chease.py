@@ -137,10 +137,14 @@ class CHEASEConfig:
     # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
     # equilibrium work, which is how the old default of 11 failed (#717).
     nideal: Optional[int] = None
-    #: Size of the R-Z box CHEASE writes its EQDSK on (``NRBOX = NZBOX``).  This
-    #: is the *output* grid only: the equilibrium is solved on the ``ns`` x
-    #: ``nt`` finite-element mesh and interpolated onto it.
+    #: Size of the R-Z box CHEASE writes its EQDSK on, radially (``NRBOX``).
+    #: This is the *output* grid only: the equilibrium is solved on the ``ns``
+    #: x ``nt`` finite-element mesh and interpolated onto it.
     nw: int = 513
+    #: Vertical size of that box (``NZBOX``); ``None`` keeps it square
+    #: (``NZBOX = NRBOX``).  Upstream CHEASE reads the two independently and
+    #: caps ``NZBOX`` at ``3 * NPISOEFF`` (#459).
+    nh: Optional[int] = None
     #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
     #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
     #: takes the default for the resolved ``NIDEAL``; see
@@ -190,7 +194,7 @@ class CHEASEConfig:
                 "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
                 "refinement contract (#516)"
             )
-        for key in ("ns", "nt", "npsi", "nchi"):
+        for key in ("ns", "nt", "npsi", "nchi", "nh"):
             value = getattr(self, key)
             if value is not None and int(value) < 2:
                 raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
@@ -215,6 +219,11 @@ class CHEASEConfig:
             if value is not None:
                 mesh[key] = int(value)
         return mesh
+
+    @property
+    def resolved_nh(self) -> int:
+        """The ``NZBOX`` written to the namelist: ``nh``, or ``nw`` for a square box."""
+        return int(self.nh) if self.nh is not None else int(self.nw)
 
     @property
     def resolved_nideal(self) -> int:
@@ -1059,7 +1068,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "COCOS_IN = 2,\n",
         "COCOS_OUT = 2,\n",
         f"NRBOX={int(config.nw)},\n",
-        f"NZBOX={int(config.nw)},\n",
+        f"NZBOX={int(config.resolved_nh)},\n",
         "NEQDXTPO=2,\n",
         "NVEXP=1, REXT=10.0, R0W=1., RZ0W=0.,\n",
         "MSMAX=1,\n",
@@ -1202,6 +1211,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
                 "neqdsk": 0,
                 "mesh": config.resolved_mesh,
                 "output_grid": int(config.nw),
+                "output_grid_z": int(config.resolved_nh),
                 "target_psin": float(config.target_psin),
                 "boundary_smoothing": str(config.boundary_smoothing),
                 "raw_boundary_points": int(materialized.raw_boundary.shape[0]),
