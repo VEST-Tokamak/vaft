@@ -128,3 +128,29 @@ def test_achieved_descriptors_are_stable_under_mesh_refinement(tmp_path):
     assert coarse.ok and fine.ok
     for name in ("q95", "beta_t", "li_virial", "shafranov_shift"):
         assert coarse.achieved[name] == pytest.approx(fine.achieved[name], rel=0.02), name
+
+
+@pytest.mark.parametrize("ip, bt", [(1e5, 0.1), (-1e5, 0.1), (1e5, -0.1), (-1e5, -0.1)])
+def test_input_signs_are_cocos_11_consistent(ip, bt):
+    eq = build_input_equilibrium(dataclasses.replace(VEST, plasma_current=ip, toroidal_field=bt))
+    assert np.all(np.sign(eq.q) == np.sign(ip*bt))                     # sigma_rho_theta_phi = +1
+    assert np.sign(eq.psi_boundary - eq.psi_axis) == np.sign(ip)          # psi rises outward for Ip > 0
+    assert np.all(np.sign(eq.f) == np.sign(bt))
+
+
+@needs_chease
+def test_negative_current_keeps_its_sign_through_chease(tmp_path):
+    from vaft.code.chease import CHEASEConfig
+
+    spec = dataclasses.replace(VEST, plasma_current=-1.0e5, vertical_position=0.05)
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.ok, result.reason
+    assert float(result.refined_ods["equilibrium.time_slice.0.global_quantities.ip"]) < 0
+    assert abs(result.residuals["vertical_position"]) < 0.01
+
+
+@needs_chease
+def test_default_run_does_not_write_into_the_working_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = synthesize_equilibrium_from_0d(VEST)
+    assert result.ok and list(tmp_path.iterdir()) == []

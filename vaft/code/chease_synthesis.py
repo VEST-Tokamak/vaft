@@ -33,7 +33,7 @@ SUPPORTED_TARGETS = {"plasma_current": 2, "q95": 1}
 
 #: Result states.
 STATUSES = ("success", "invalid_geometry", "invalid_source_model", "unsupported_target",
-            "non_converged", "constraint_not_reached", "boundary_mismatch")
+            "non_converged", "invalid_equilibrium", "constraint_not_reached", "boundary_mismatch")
 
 
 @dataclass(frozen=True)
@@ -163,8 +163,9 @@ def build_input_equilibrium(spec: ZeroDimensionalEquilibriumSpec, *, q95: float 
     # A quadratic q with q(0.95) = q95: the adapter samples q at the constraint
     # surface with a cubic interpolation, which reproduces a quadratic exactly.
     q_edge95 = q95 if q95 is not None else 3.0
-    q = 1.0 + (q_edge95 - 1.0)*(psi_1d_n/0.95)**2
-    convention = _detect_convention(explicit=11, bt0=spec.toroidal_field, ip=spec.plasma_current, q=None,
+    # COCOS 11 has sigma_rho_theta_phi = +1, so q carries the sign of Ip*Bt.
+    q = np.sign(spec.plasma_current*spec.toroidal_field)*(1.0 + (q_edge95 - 1.0)*(psi_1d_n/0.95)**2)
+    convention = _detect_convention(explicit=11, bt0=spec.toroidal_field, ip=spec.plasma_current, q=q,
                                     psi_1d=psi_1d, source="0D synthesis input")
     return EquilibriumData(
         r=r, z=z, psi=psi, psi_axis=psi_axis, psi_boundary=0.0, magnetic_axis=(r0, z0), lcfs=boundary,
@@ -210,15 +211,19 @@ def synthesize_equilibrium_from_0d(
     q95_tolerance : float, optional
         Largest relative q95 miss accepted for a q95 target [-].
     boundary_tolerance : float, optional
-        Largest relative miss of the solved elongation, triangularities and
-        minor radius against the request [-].
+        Largest miss of the solved shape against the request: relative for the
+        elongation and the radii, absolute for the triangularities, and in
+        minor radii for the vertical position [-].
 
     Returns
     -------
     SyntheticEquilibriumResult
-        Status and reason, the request, the achieved descriptors, their
-        residuals, the constructed boundary, the source shapes, the CHEASE
-        run, and the refined g-file and ODS [-].
+        Status and reason (every problem found, the first one's state), the
+        request, the achieved descriptors -- magnitudes, in CHEASE's
+        orientation, with the refined output's signs checked against the
+        request -- their residuals, the constructed boundary, the source
+        shapes, the CHEASE run, and the refined g-file and ODS.  Without a
+        *config*, CHEASE runs in a fresh temporary directory [-].
     """
     requested = {
         "major_radius": spec.major_radius, "minor_radius": spec.minor_radius, "elongation": spec.elongation,
@@ -247,6 +252,11 @@ def synthesize_equilibrium_from_0d(
     psi_n = np.linspace(0.0, 1.0, 101)
     pp_shape, ff_shape = _source_shapes(spec, psi_n)
     settings = dict(vars(config)) if config is not None else {}
+    if config is None or Path(config.workdir) == Path("."):
+        import tempfile
+
+        # CHEASE writes a dozen files; never into the caller's working directory by default.
+        settings["workdir"] = Path(tempfile.mkdtemp(prefix="vaft-0d-chease-"))
     settings.update(target_psin=1.0, ncscal=SUPPORTED_TARGETS[target],
                     q_constraint_psi_norm=0.95 if target == "q95" else None,
                     edge_zero=False, preserve_boundary_limiter=False)
@@ -260,34 +270,80 @@ def synthesize_equilibrium_from_0d(
     if not run.ok or native is None:
         result.status, result.reason = "non_converged", f"CHEASE returned {run.returncode}; no EQDSK_COCOS_02.OUT"
         return result
+    # The native file carries CHEASE's own sign pattern (COCOS 2, both signs
+    # forced positive), so magnitudes are read there and signs are checked on
+    # the refined output, which is returned in the request's orientation.
     solved = as_equilibrium(read_geqdsk(native))
     descriptors = derive_global_descriptors(solved).values
     achieved = {name: float(descriptors[name].value) for name in (
-        "ip", "q0", "q95", "major_radius", "minor_radius", "elongation", "triangularity_upper",
-        "triangularity_lower", "beta_t", "beta_n", "li_virial", "shafranov_shift", "magnetic_axis_r",
-        "magnetic_axis_z", "volume") if name in descriptors and descriptors[name].available}
-    achieved["ip"] = abs(achieved.get("ip", float("nan")))
-    shape = contour_shape_parameters(solved.lcfs.r, solved.lcfs.z) if solved.lcfs is not None else {}
+        "ip", "q0", "q95", "bt0", "major_radius", "minor_radius", "elongation", "geometric_center_z",
+        "beta_t", "beta_n", "beta_p_boundary_average", "li_virial", "shafranov_shift",
+        "magnetic_axis_r", "magnetic_axis_z", "volume") if name in descriptors and descriptors[name].available}
+    for name in ("ip", "q0", "q95", "bt0"):
+        if name in achieved:
+            achieved[name] = abs(achieved[name])
+    if "beta_p_boundary_average" in achieved:
+        achieved["beta_p"] = achieved.pop("beta_p_boundary_average")
+    if solved.lcfs is not None:
+        # One estimator for the achieved triangularity and its residual.
+        shape = contour_shape_parameters(solved.lcfs.r, solved.lcfs.z)
+        achieved["triangularity_upper"] = float(shape["triangularity_upper"])
+        achieved["triangularity_lower"] = float(shape["triangularity_lower"])
     residuals = {}
-    if "ip" in achieved:
+    if target == "plasma_current" and "ip" in achieved:
         residuals["plasma_current"] = achieved["ip"]/abs(spec.plasma_current) - 1
-    if "q95" in achieved and target == "q95":
-        residuals["q95"] = abs(achieved["q95"])/q95 - 1
-    for name, want in (("elongation", spec.elongation), ("minor_radius", spec.minor_radius)):
+    if target == "q95" and "q95" in achieved:
+        residuals["q95"] = achieved["q95"]/q95 - 1
+    if "bt0" in achieved:
+        residuals["toroidal_field"] = achieved["bt0"]/abs(spec.toroidal_field) - 1
+    for name, want in (("elongation", spec.elongation), ("minor_radius", spec.minor_radius),
+                       ("major_radius", spec.major_radius)):
         if name in achieved:
             residuals[name] = achieved[name]/want - 1
+    # Absolute, not relative: a triangularity or a vertical position can be zero.
     for name in ("triangularity_upper", "triangularity_lower"):
-        if name in shape:
-            residuals[name] = shape[name] - spec.triangularity
+        if name in achieved:
+            residuals[name] = achieved[name] - spec.triangularity
+    if "geometric_center_z" in achieved:
+        residuals["vertical_position"] = (achieved["geometric_center_z"] - spec.vertical_position)/spec.minor_radius
     result.achieved, result.residuals = achieved, residuals
+
+    problems: list[tuple[str, str]] = []
+    axis_inside = (solved.lcfs is not None and solved.magnetic_axis is not None
+                   and _inside(solved.lcfs, solved.magnetic_axis))
+    sign_ok = _signs_match(run.refined_ods, spec)
+    if not axis_inside:
+        problems.append(("invalid_equilibrium", "the magnetic axis is not inside the solved boundary"))
+    if sign_ok is False:
+        problems.append(("invalid_equilibrium", "the refined output's Ip/Bt signs differ from the request"))
     if target == "plasma_current" and abs(residuals.get("plasma_current", np.inf)) > current_tolerance:
-        result.status, result.reason = "constraint_not_reached", f"plasma current off by {residuals.get('plasma_current'):.3g}"
-    elif target == "q95" and abs(residuals.get("q95", np.inf)) > q95_tolerance:
-        result.status, result.reason = "constraint_not_reached", f"q95 off by {residuals.get('q95'):.3g}"
-    elif any(abs(residuals.get(n, 0.0)) > boundary_tolerance for n in ("elongation", "minor_radius",
-                                                                         "triangularity_upper", "triangularity_lower")):
-        result.status, result.reason = "boundary_mismatch", "the solved boundary departs from the requested shape"
+        problems.append(("constraint_not_reached", f"plasma current off by {residuals.get('plasma_current'):.3g}"))
+    if target == "q95" and abs(residuals.get("q95", np.inf)) > q95_tolerance:
+        problems.append(("constraint_not_reached", f"q95 off by {residuals.get('q95'):.3g}"))
+    off = [n for n in ("elongation", "minor_radius", "major_radius", "triangularity_upper",
+                       "triangularity_lower", "vertical_position") if abs(residuals.get(n, 0.0)) > boundary_tolerance]
+    if off:
+        problems.append(("boundary_mismatch", "the solved boundary departs from the request in " + ", ".join(off)))
+    if problems:
+        result.status = problems[0][0]
+        result.reason = "; ".join(reason for _, reason in problems)
     return result
+
+
+def _inside(contour: Any, point: tuple[float, float]) -> bool:
+    from matplotlib.path import Path as MplPath
+
+    return bool(MplPath(np.column_stack((contour.r, contour.z))).contains_point(point))
+
+
+def _signs_match(ods: Any, spec: ZeroDimensionalEquilibriumSpec) -> bool | None:
+    """Do the refined output's Ip and B0 carry the request's signs?  None when unreadable."""
+    try:
+        ip = float(ods["equilibrium.time_slice.0.global_quantities.ip"])
+        b0 = float(np.ravel(ods["equilibrium.vacuum_toroidal_field.b0"])[0])
+    except Exception:
+        return None
+    return bool(np.sign(ip) == np.sign(spec.plasma_current) and np.sign(b0) == np.sign(spec.toroidal_field))
 
 
 __all__ = [
