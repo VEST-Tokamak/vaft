@@ -8,7 +8,6 @@ patched down so a forced stop takes a fraction of a second.
 
 from __future__ import annotations
 
-import _thread
 import os
 import signal
 import subprocess
@@ -173,7 +172,9 @@ def test_a_grandchild_that_ignores_sigterm_is_killed_after_the_grace(tmp_path):
 @POSIX
 def test_keyboard_interrupt_stops_the_tree_and_is_raised(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
-    timer = threading.Timer(0.0, lambda: (_pid(pid_file), _thread.interrupt_main()))
+    # A real SIGINT, as a terminal Ctrl-C delivers: ``_thread.interrupt_main``
+    # only sets a flag and would not break the blocking wait.
+    timer = threading.Timer(0.0, lambda: (_pid(pid_file), os.kill(os.getpid(), signal.SIGINT)))
     timer.start()
     try:
         with pytest.raises(KeyboardInterrupt):

@@ -96,8 +96,8 @@ CORE_MODULES: tuple[str, ...] = (
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
     "test_code_execution.py",
-    "test_process_tree.py",
     "test_code_resources.py",
+    "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures.
