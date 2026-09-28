@@ -1,4 +1,7 @@
-"""Backend-free helpers shared by the PyVista and K3D adapters."""
+"""Helpers shared by :mod:`vaft.plot.pyvista` and :mod:`vaft.plot.k3d` (issue #1087).
+
+Neither library is imported here until a ``require_*`` call asks for it.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +11,7 @@ import numpy as np
 
 from vaft.plot.models import Geometry3DLayer, Geometry3DLayers
 
-__all__ = ["as_layers", "finite_runs", "layer_rgb"]
+__all__ = ["as_layers", "finite_runs", "layer_rgb", "require_k3d", "require_pyvista"]
 
 
 def as_layers(model: Any) -> Geometry3DLayers:
@@ -49,3 +52,27 @@ def layer_rgb(layer: Geometry3DLayer, fallback: str = "C0") -> tuple[float, floa
         return tuple(float(channel) for channel in to_rgb(resolve_color(value, theme=None)))
     except ValueError:
         return tuple(float(channel) for channel in to_rgb(fallback))
+
+
+def require_pyvista() -> Any:
+    """``pyvista``, or an ImportError naming ``vaft[vtk]``."""
+    try:
+        import pyvista
+    except ImportError as error:
+        raise ImportError(
+            "VTK/ParaView export needs the pyvista package, which is optional; "
+            "install it with `pip install vaft[vtk]` (or `pip install pyvista`)."
+        ) from error
+    return pyvista
+
+
+def require_k3d() -> Any:
+    """``k3d``, or an ImportError naming ``vaft[jupyter3d]``."""
+    try:
+        import k3d
+    except ImportError as error:
+        raise ImportError(
+            "Interactive 3-D notebook views need the k3d package, which is optional; "
+            "install it with `pip install vaft[jupyter3d]` (or `pip install k3d`)."
+        ) from error
+    return k3d

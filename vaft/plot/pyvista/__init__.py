@@ -1,5 +1,10 @@
 """PyVista/VTK conversion and VTK-family export of 3-D scenes (issue #1087).
 
+The scientific 3-D tier beside :mod:`vaft.plot.plotly` and :mod:`vaft.plot.k3d`:
+it is an adapter of the view model, not a ``backend=`` value, and nothing in
+:mod:`vaft.plot` imports it -- or PyVista -- until asked.  Needs
+``pip install vaft[vtk]``; ParaView reads the files and is not a dependency.
+
 A :class:`~vaft.plot.models.Geometry3DLayers` becomes a ``pyvista.MultiBlock``:
 
 * each layer is one ``PolyData`` -- a polyline keeps its vertex order as
@@ -26,8 +31,7 @@ import numpy as np
 
 from vaft.plot.models import Geometry3DLayer
 
-from ._optional import require_pyvista
-from ._scene import as_layers, finite_runs, layer_rgb
+from .._scene3d import as_layers, finite_runs, layer_rgb, require_pyvista
 
 __all__ = ["read_vtk_blocks", "to_pyvista", "write_vtk"]
 

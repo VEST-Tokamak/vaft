@@ -7,7 +7,8 @@ physics is :func:`vaft.process.coils_non_axisymmetric.phased_sector_currents`
 and :func:`~vaft.process.coils_non_axisymmetric.biot_savart_filaments`, and
 its controls are the :class:`~vaft.plot.controls.ControlSpec` /
 :class:`~vaft.plot.navigation.ControlState` pair every interactive
-:mod:`vaft.plot` view uses, drawn by the same ipywidgets layer.
+:mod:`vaft.plot` view uses, drawn by the same ipywidgets layer.  Needs ``pip install vaft[jupyter3d]``;
+nothing in :mod:`vaft.plot` imports K3D until one of these is called.
 """
 
 from __future__ import annotations
@@ -18,8 +19,7 @@ import numpy as np
 
 from vaft.plot.models import Geometry3DLayer
 
-from ._optional import require_k3d
-from ._scene import as_layers, finite_runs, layer_rgb
+from .._scene3d import as_layers, finite_runs, layer_rgb, require_k3d
 
 __all__ = ["coil_phase_explorer", "to_k3d"]
 
@@ -145,13 +145,13 @@ def coil_phase_explorer(
     tests that drive ``result.state``.
     """
     k3d = require_k3d()
-    import vaft.plot as vplot
+    from vaft.plot import extract
     from vaft.plot.controls import ControlSpec
     from vaft.plot.navigation import ControlState
     from vaft.plot.renderers.interactive import Interactive, _ipywidgets_controls
     from vaft.process.coils_non_axisymmetric import biot_savart_filaments, phased_sector_currents
 
-    scene = vplot.extract("coil_3d_geometry3d", source)
+    scene = extract("coil_3d_geometry3d", source)
     sets: dict[str, list[Geometry3DLayer]] = {}
     for layer in scene.layers:
         parts = layer.group.split("/")

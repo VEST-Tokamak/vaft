@@ -1,10 +1,10 @@
-"""The 3-D visualization layer's contract without its optional libraries (issue #1087).
+"""The 3-D adapters' contract without their optional libraries (issue #1087).
 
-Importing VAFT, and ``vaft.visualization`` itself, must not import PyVista or
-K3D; a missing library is named together with the extra that installs it;
+Importing VAFT, ``vaft.plot``, and the adapters ``vaft.plot.pyvista`` and
+``vaft.plot.k3d`` themselves, must not import PyVista or K3D; a missing library is named together with the extra that installs it;
 the Cartesian convention is the IMAS toroidal angle of #718; and the coil
 phasing the K3D explorer drives is the inverse of the existing toroidal mode
-decomposition.  The rendering itself is covered in test_visualization_3d.py.
+decomposition.  The rendering itself is covered in test_plot_3d_adapters.py.
 """
 
 from __future__ import annotations
@@ -28,12 +28,12 @@ from vaft.process.coils_non_axisymmetric import phased_sector_currents, toroidal
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
-def test_importing_vaft_and_the_visualization_package_imports_no_3d_library():
+def test_importing_vaft_and_the_3d_adapters_imports_no_3d_library():
     code = (
-        "import sys, vaft, vaft.plot, vaft.visualization as v\n"
+        "import sys, vaft, vaft.plot, vaft.plot.pyvista as pv_adapter, vaft.plot.k3d as k3d_adapter\n"
         "assert pathlib_root in vaft.__file__, vaft.__file__\n"
         "print(sorted(m for m in ('pyvista', 'vtk', 'k3d') if m in sys.modules))\n"
-        "print(sorted(v.__all__))\n"
+        "print(sorted(pv_adapter.__all__ + k3d_adapter.__all__))\n"
     ).replace("pathlib_root", repr(str(ROOT)))
     result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
     loaded, names = result.stdout.strip().splitlines()
@@ -43,16 +43,18 @@ def test_importing_vaft_and_the_visualization_package_imports_no_3d_library():
 
 @pytest.mark.parametrize("module, name, extra", [("pyvista", "to_pyvista", "vaft[vtk]"), ("k3d", "to_k3d", "vaft[jupyter3d]")])
 def test_a_missing_library_names_its_extra(monkeypatch, module, name, extra):
-    import vaft.visualization as visualization
+    import importlib
+
+    adapter = importlib.import_module(f"vaft.plot.{module}")
 
     monkeypatch.setitem(sys.modules, module, None)  # makes `import <module>` raise
     scene = Geometry3DLayers((Geometry3DLayer(x=[0, 1], y=[0, 1], z=[0, 1]),))
     with pytest.raises(ImportError, match=re.escape(f"pip install {extra}")):
-        getattr(visualization, name)(scene)
+        getattr(adapter, name)(scene)
 
 
 def test_a_non_scene_is_refused_with_the_way_to_build_one():
-    from vaft.visualization._scene import as_layers
+    from vaft.plot._scene3d import as_layers
 
     with pytest.raises(TypeError, match=r"vaft\.plot\.extract\('machine_geometry3d', ods\)"):
         as_layers({"x": [0.0]})

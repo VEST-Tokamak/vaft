@@ -579,9 +579,10 @@ class Geometry3DLayer(ViewModel):
 class Geometry3DLayers(ViewModel):
     """A stack of 3D geometry layers drawn into one machine-coordinate view.
 
-    Rendered by Matplotlib and Plotly through :mod:`vaft.plot`; converted to
-    PyVista/VTK (and so ParaView) or K3D by :mod:`vaft.visualization`, which
-    keeps each layer's ``group`` as its block/object identity.
+    Rendered by Matplotlib and Plotly through ``backend=``; converted to
+    PyVista/VTK (and so ParaView) by :mod:`vaft.plot.pyvista` and to K3D by
+    :mod:`vaft.plot.k3d`, which keep each layer's ``group`` as its
+    block/object identity.
     """
 
     layers: tuple[Geometry3DLayer, ...]

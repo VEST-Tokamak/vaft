@@ -277,18 +277,19 @@ work (#909, #1100).
 |---|---|---|---|
 | Matplotlib | static validation and publication figures | `plot_machine_geometry3d(ods)`, `plot_coil_3d_geometry3d(ods)` | core |
 | Plotly | browser figure, hover, legend toggles per set | the same, `backend="plotly"` | core |
-| PyVista / VTK | scientific 3-D objects, `.vtm`/`.vtp` files | `vaft.visualization.to_pyvista`, `write_vtk` | `vaft[vtk]` |
-| K3D | interactive scene in Jupyter | `vaft.visualization.to_k3d`, `coil_phase_explorer` | `vaft[jupyter3d]` |
+| PyVista / VTK | scientific 3-D objects, `.vtm`/`.vtp` files | `vaft.plot.pyvista.to_pyvista`, `write_vtk` | `vaft[vtk]` |
+| K3D | interactive scene in Jupyter | `vaft.plot.k3d.to_k3d`, `coil_phase_explorer` | `vaft[jupyter3d]` |
 | ParaView | external viewer of the exported files | open the `.vtm` | not a dependency |
 
 ```python
 scene = vaft.plot.extract("machine_geometry3d", ods)
-vaft.visualization.write_vtk(scene, "machine.vtm")   # blocks follow `group`
-vaft.visualization.coil_phase_explorer(ods, coil_set="MID")   # n / phase sliders
+vaft.plot.pyvista.write_vtk(scene, "machine.vtm")   # blocks follow `group`
+vaft.plot.k3d.coil_phase_explorer(ods, coil_set="MID")   # n / phase sliders
 ```
 
-`RENDER_BACKENDS` stays Matplotlib and Plotly: PyVista and K3D are adapters of
-the model, and no data or physics API returns their objects.
+`RENDER_BACKENDS` stays Matplotlib and Plotly: `vaft.plot.pyvista` and
+`vaft.plot.k3d` are adapters of the model beside `vaft.plot.plotly`, imported
+only on use, and no data or physics API returns their objects.
 
 ## Time traces
 

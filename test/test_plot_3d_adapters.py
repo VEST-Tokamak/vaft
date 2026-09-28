@@ -21,7 +21,8 @@ import vaft
 import vaft.data
 import vaft.omas
 import vaft.plot
-import vaft.visualization
+import vaft.plot.k3d
+import vaft.plot.pyvista
 from vaft.machine_mapping.conventions import cylindrical_to_cartesian
 from vaft.plot.models import Geometry3DLayer, Geometry3DLayers
 
@@ -79,7 +80,7 @@ class TestPyVista:
 
     def test_polylines_keep_their_order_and_the_tree_follows_group(self, coils):
         scene = vaft.plot.extract("coil_3d_geometry3d", coils)
-        blocks = vaft.visualization.to_pyvista(scene)
+        blocks = vaft.plot.pyvista.to_pyvista(scene)
         assert list(blocks.keys()) == ["coils_non_axisymmetric"]
         assert list(blocks["coils_non_axisymmetric"].keys()) == ["UP", "MID", "LOW"]
         total = 0
@@ -99,7 +100,7 @@ class TestPyVista:
             Geometry3DLayer(x=[0.0, 1.0, np.nan, 2.0, 3.0], y=[0.0] * 5, z=[0.0] * 5, label="split"),
             Geometry3DLayer(x=[0.0, 1.0, np.nan], y=[1.0] * 3, z=[0.0] * 3, kind="points"),
         ))
-        blocks = vaft.visualization.to_pyvista(layers)
+        blocks = vaft.plot.pyvista.to_pyvista(layers)
         line, points = blocks["layers"]["layer 0"], blocks["layers"]["layer 1"]
         assert line.n_points == 4 and list(line.lines) == [2, 0, 1, 2, 2, 3]
         assert points.n_points == 2 and points.n_verts == 2 and points.n_lines == 0
@@ -108,8 +109,8 @@ class TestPyVista:
     def test_the_files_read_back_with_connectivity_and_identity(self, tmp_path, sample, coils, suffix):
         for source, name in ((coils, "coil_3d_geometry3d"), (sample, "machine_geometry3d")):
             scene = vaft.plot.extract(name, source)
-            path = vaft.visualization.write_vtk(scene, tmp_path / f"{name}{suffix}")
-            records = vaft.visualization.read_vtk_blocks(path)
+            path = vaft.plot.pyvista.write_vtk(scene, tmp_path / f"{name}{suffix}")
+            records = vaft.plot.pyvista.read_vtk_blocks(path)
             assert len(records) == len(scene.layers)
             by_group = {record["group"]: record for record in records.values()}
             for layer in scene.layers:
@@ -129,14 +130,14 @@ class TestPyVista:
             Geometry3DLayer(x=[0.0, np.nan, 1.0], y=[2.0] * 3, z=[0.0] * 3, group="a/lone vertices"),
             Geometry3DLayer(x=[np.nan], y=[np.nan], z=[np.nan], group="a/empty"),
         ))
-        records = vaft.visualization.read_vtk_blocks(vaft.visualization.write_vtk(scene, tmp_path / f"s{suffix}"))
+        records = vaft.plot.pyvista.read_vtk_blocks(vaft.plot.pyvista.write_vtk(scene, tmp_path / f"s{suffix}"))
         assert sorted(records) == ["a/b", "a/b #2"]
         assert np.allclose(records["a/b #2"]["points"][:, 1], 1.0)
         assert all(not record["verts"] for record in records.values())
 
     def test_an_unknown_suffix_is_refused(self, tmp_path, coils):
         with pytest.raises(ValueError, match=r"\.vtm, \.vtp"):
-            vaft.visualization.write_vtk(vaft.plot.extract("coil_3d_geometry3d", coils), tmp_path / "coils.stl")
+            vaft.plot.pyvista.write_vtk(vaft.plot.extract("coil_3d_geometry3d", coils), tmp_path / "coils.stl")
 
 
 class TestK3D:
@@ -146,7 +147,7 @@ class TestK3D:
 
     def test_one_named_object_per_layer(self, sample):
         scene = vaft.plot.extract("machine_geometry3d", sample)
-        plot = vaft.visualization.to_k3d(scene)
+        plot = vaft.plot.k3d.to_k3d(scene)
         assert [obj.name for obj in plot.objects] == [layer.group for layer in scene.layers]
         kinds = {type(obj).__name__ for obj in plot.objects}
         assert kinds == {"Line", "Points"}
@@ -155,7 +156,7 @@ class TestK3D:
     def test_the_explorer_drives_existing_physics_in_place(self, coils):
         from vaft.process.coils_non_axisymmetric import toroidal_mode_decomposition
 
-        result = vaft.visualization.coil_phase_explorer(coils, coil_set="MID", show=False)
+        result = vaft.plot.k3d.coil_phase_explorer(coils, coil_set="MID", show=False)
         plot, state = result.figure, result.state
         objects = list(plot.objects)
         mid = [obj for obj in objects if obj.name.startswith("coils_non_axisymmetric/MID/")]
@@ -181,4 +182,4 @@ class TestK3D:
 
     def test_an_unknown_coil_set_is_named(self, coils):
         with pytest.raises(ValueError, match="UP, MID, LOW"):
-            vaft.visualization.coil_phase_explorer(coils, coil_set="MIDDLE", show=False)
+            vaft.plot.k3d.coil_phase_explorer(coils, coil_set="MIDDLE", show=False)
