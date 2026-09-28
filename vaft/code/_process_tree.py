@@ -29,7 +29,12 @@ Not covered:
 * macOS: a descendant whose parent had already exited is no longer found
   (the token cannot be read there). On Linux, one that cleared its
   environment (``env -i``) is found only by parent id.
-* A process that makes itself a new session leader or daemonizes.
+* A process that makes itself a new session leader or daemonizes, on macOS.
+  On Linux such a process still carries the token and **is** stopped with the
+  tree: a solver's helper server does not outlive a timeout or an interrupt.
+  (A program that exits normally is never stopped; nothing changes there.)
+* A nested VAFT launch gives its own tree a new token; the outer stop still
+  finds that tree by parent id while the inner Python is alive.
 * Windows: a grandchild started before the job assignment completes escapes
   the job, and when an escaped process keeps the pipes open the output read
   before the stop is lost (``communicate`` there reports none on timeout).
@@ -59,6 +64,9 @@ FORWARDED_SIGNALS: tuple[str, ...] = ("SIGTERM", "SIGHUP")
 _POLL_S = 0.1
 _FREEZE_PASSES = 10
 _WINDOWS = os.name == "nt"
+_INTERRUPTS: tuple[int, ...] = tuple(
+    getattr(signal, name) for name in ("SIGINT", "SIGTERM", "SIGHUP") if hasattr(signal, name)
+)
 _STDLIB_RUN = subprocess.run
 
 
@@ -79,6 +87,9 @@ class Terminated(BaseException):
         The process then ends by the signal, as it would have without VAFT in
         the way.
         """
+        # Terminated only exists where the default disposition was taken over;
+        # put it back even if the handler swap was cut short.
+        signal.signal(self.signum, signal.SIG_DFL)
         signal.raise_signal(self.signum)
 
 
@@ -125,6 +136,9 @@ def forward_termination() -> Iterator[None]:
 
 @contextlib.contextmanager
 def _blocked(signums: Sequence[int]) -> Iterator[None]:
+    if not hasattr(signal, "pthread_sigmask"):
+        yield
+        return
     previous = signal.pthread_sigmask(signal.SIG_BLOCK, signums)
     try:
         yield
@@ -189,34 +203,52 @@ class ProcessTree:
         if self._job is not None:
             _windows_release_job(self._job)
             self._job = None
+        # After an interrupt or a collect that gave up, the pipes are still open.
+        for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+            if stream is not None:
+                with contextlib.suppress(OSError):
+                    stream.close()
 
     # -- POSIX ------------------------------------------------------------
 
     def _terminate_posix(self, grace: float) -> None:
-        # Filled while freezing, so an interrupt mid-walk still kills what was
-        # already stopped instead of leaving it frozen.
-        tree: set[int] = set()
+        # ``{pid: start time}``, filled while freezing, so an interrupt mid-walk
+        # still kills what was already stopped instead of leaving it frozen.
+        # The start time guards every later signal against a reused pid.
+        tree: dict[int, str] = {}
         try:
             self._freeze(tree)
-            _send(tree, signal.SIGTERM)
-            _send(tree, signal.SIGCONT)
+            # The leader goes through Popen, which will not signal a reaped pid;
+            # that also covers a process table that could not be read.
+            _send_to(tree, signal.SIGTERM, _process_table())
+            with contextlib.suppress(OSError):
+                self.process.terminate()
+            _send_to(tree, signal.SIGCONT, _process_table())
+            with contextlib.suppress(OSError):
+                self.process.send_signal(signal.SIGCONT)
             deadline = time.monotonic() + grace
             while time.monotonic() < deadline:
-                self.process.poll()  # reap the leader; a zombie is not "alive"
+                leader_gone = self.process.poll() is not None
                 table = _process_table()
-                if not any(_alive(pid, table) for pid in tree):
+                if leader_gone and not any(_same(pid, start, table) for pid, start in tree.items()):
                     return
                 time.sleep(_POLL_S)
         except BaseException:
             # A second interrupt skips to the forced stop rather than
             # abandoning a frozen tree.
-            _send(tree, signal.SIGKILL)
-            _reap(self.process)
+            self._kill(tree)
             raise
-        _send(tree, signal.SIGKILL)
+        self._kill(tree)
+
+    def _kill(self, tree: dict[int, str]) -> None:
+        # Nothing may interrupt this half way and leave members SIGSTOPped.
+        with _blocked(_INTERRUPTS):
+            _send_to(tree, signal.SIGKILL, _process_table())
+            with contextlib.suppress(OSError):
+                self.process.kill()
         _reap(self.process)
 
-    def _freeze(self, frozen: set[int]) -> None:
+    def _freeze(self, frozen: dict[int, str]) -> None:
         """``SIGSTOP`` the leader and its descendants into ``frozen`` until no new one appears."""
         for _ in range(_FREEZE_PASSES):
             table = _process_table()
@@ -226,11 +258,14 @@ class ProcessTree:
             found: set[int] = set()
             for root in roots:
                 found |= _descendants(root, table) | {root}
-            found = {pid for pid in found if _alive(pid, table) and pid != os.getpid()}
-            fresh = found - frozen
+            fresh = {
+                pid: table[pid][2]
+                for pid in found
+                if pid not in frozen and pid != os.getpid() and _same(pid, None, table)
+            }
             if not fresh:
                 break
-            frozen |= fresh
+            frozen.update(fresh)
             _send(fresh, signal.SIGSTOP)
 
     # -- Windows ----------------------------------------------------------
@@ -262,10 +297,14 @@ def _send(pids: Iterable[int], signum: int) -> None:
 # -- POSIX process table --------------------------------------------------
 
 
-def _process_table() -> dict[int, tuple[int, str]]:
-    """``{pid: (ppid, state)}`` for every process this user can see."""
+def _process_table() -> dict[int, tuple[int, str, str]]:
+    """``{pid: (ppid, state, start time)}`` for every process this user can see.
+
+    Empty when the table cannot be read (``ps`` could not start, say); the
+    caller still stops the leader through ``Popen``.
+    """
+    table: dict[int, tuple[int, str, str]] = {}
     if os.path.isdir("/proc/self/task"):
-        table: dict[int, tuple[int, str]] = {}
         for entry in os.scandir("/proc"):
             if not entry.name.isdigit():
                 continue
@@ -273,22 +312,31 @@ def _process_table() -> dict[int, tuple[int, str]]:
                 with open(f"/proc/{entry.name}/stat", "rb") as stat:
                     # comm may contain spaces and parentheses; it ends at the last ')'.
                     fields = stat.read().rsplit(b")", 1)[1].split()
-            except (OSError, IndexError):
+                table[int(entry.name)] = (
+                    int(fields[1]),
+                    fields[0].decode("ascii", "replace"),
+                    fields[19].decode("ascii", "replace"),  # starttime, field 22
+                )
+            except (OSError, IndexError, ValueError):
                 continue
-            table[int(entry.name)] = (int(fields[1]), fields[0].decode("ascii", "replace"))
         return table
-    listing = _STDLIB_RUN(
-        ["ps", "-A", "-o", "pid=,ppid=,stat="], capture_output=True, text=True, check=False
-    )
-    table = {}
+    try:
+        listing = _STDLIB_RUN(
+            ["ps", "-A", "-o", "pid=,ppid=,stat=,lstart="],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return table
     for line in listing.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 3 and parts[0].isdigit() and parts[1].isdigit():
-            table[int(parts[0])] = (int(parts[1]), parts[2])
+        if len(parts) >= 4 and parts[0].isdigit() and parts[1].isdigit():
+            table[int(parts[0])] = (int(parts[1]), parts[2], " ".join(parts[3:]))
     return table
 
 
-def _tagged(token: Optional[str], table: dict[int, tuple[int, str]]) -> set[int]:
+def _tagged(token: Optional[str], table: dict[int, tuple[int, str, str]]) -> set[int]:
     """Processes whose environment carries ``TREE_ENV=token`` (Linux only)."""
     if token is None or not os.path.isdir("/proc/self/task"):
         return set()
@@ -304,9 +352,9 @@ def _tagged(token: Optional[str], table: dict[int, tuple[int, str]]) -> set[int]
     return tagged
 
 
-def _descendants(root: int, table: dict[int, tuple[int, str]]) -> set[int]:
+def _descendants(root: int, table: dict[int, tuple[int, str, str]]) -> set[int]:
     children: dict[int, list[int]] = {}
-    for pid, (ppid, _) in table.items():
+    for pid, (ppid, _, _) in table.items():
         children.setdefault(ppid, []).append(pid)
     found: set[int] = set()
     pending = [root]
@@ -318,9 +366,16 @@ def _descendants(root: int, table: dict[int, tuple[int, str]]) -> set[int]:
     return found
 
 
-def _alive(pid: int, table: dict[int, tuple[int, str]]) -> bool:
+def _same(pid: int, start: Optional[str], table: dict[int, tuple[int, str, str]]) -> bool:
+    """``pid`` is running (not a zombie) and, if ``start`` is given, is the same process."""
     entry = table.get(pid)
-    return entry is not None and not entry[1].startswith(("Z", "X"))
+    if entry is None or entry[1].startswith(("Z", "X")):
+        return False
+    return start is None or entry[2] == start
+
+
+def _send_to(tree: dict[int, str], signum: int, table: dict[int, tuple[int, str, str]]) -> None:
+    _send([pid for pid, start in tree.items() if _same(pid, start, table)], signum)
 
 
 # -- Windows Job Object ---------------------------------------------------

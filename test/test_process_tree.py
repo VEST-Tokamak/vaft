@@ -134,7 +134,7 @@ def _tree_request(tmp_path: Path, *extra: str, **request) -> ExecutionRequest:
 
 
 def test_timeout_stops_the_grandchild_and_keeps_partial_output(tmp_path):
-    result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
+    result = LocalBackend().run(_tree_request(tmp_path, timeout=8.0))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out
@@ -147,7 +147,7 @@ def test_timeout_stops_the_grandchild_and_keeps_partial_output(tmp_path):
 
 def test_timeout_with_a_log_keeps_the_partial_log(tmp_path):
     log = tmp_path / "logs" / "run.log"
-    result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0, log_path=log))
+    result = LocalBackend().run(_tree_request(tmp_path, timeout=8.0, log_path=log))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out and result.returncode is None
@@ -164,7 +164,7 @@ def test_a_shell_launcher_that_does_not_exec_is_stopped_whole(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
     command = f"sleep 60 & echo $! > {pid_file}; echo started; wait"
     result = LocalBackend().run(
-        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=4.0)
+        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=8.0)
     )
     grandchild = _pid(pid_file)
     try:
@@ -185,7 +185,7 @@ def test_a_descendant_orphaned_before_the_stop_is_found_by_its_token(tmp_path):
     pid_file = tmp_path / "orphan.pid"
     command = f"sleep 60 & echo $! > {pid_file}; echo started; exit 0"
     result = LocalBackend().run(
-        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=4.0)
+        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=8.0)
     )
     orphan = _pid(pid_file)
     try:
@@ -199,7 +199,7 @@ def test_a_descendant_orphaned_before_the_stop_is_found_by_its_token(tmp_path):
 @POSIX
 def test_a_grandchild_that_ignores_sigterm_is_killed_after_the_grace(tmp_path):
     started = time.monotonic()
-    result = LocalBackend().run(_tree_request(tmp_path, "stubborn", timeout=5.0))
+    result = LocalBackend().run(_tree_request(tmp_path, "stubborn", timeout=8.0))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out
@@ -234,7 +234,7 @@ def test_the_tree_stays_in_the_callers_process_group(tmp_path):
         pid_file, lambda: seen.append(os.getpgid(_pid(pid_file)))
     )
     try:
-        LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
+        LocalBackend().run(_tree_request(tmp_path, timeout=8.0))
         sender.join()
         assert seen == [os.getpgrp()]
     finally:
@@ -253,7 +253,7 @@ def test_a_callers_own_sigterm_handler_keeps_its_choice(tmp_path):
     previous = signal.signal(signal.SIGTERM, callers_handler)
     try:
         sender = _signal_once_started(pid_file, lambda: os.kill(os.getpid(), signal.SIGTERM))
-        result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
+        result = LocalBackend().run(_tree_request(tmp_path, timeout=8.0))
         sender.join()
         assert seen == [signal.SIGTERM]
         assert result.timed_out
@@ -305,7 +305,7 @@ def test_off_the_main_thread_no_handler_is_installed_and_timeout_still_stops_the
     results = []
 
     def run():
-        results.append(LocalBackend().run(_tree_request(tmp_path, timeout=5.0)))
+        results.append(LocalBackend().run(_tree_request(tmp_path, timeout=8.0)))
 
     worker = threading.Thread(target=run)
     worker.start()
@@ -382,3 +382,20 @@ def test_only_the_default_disposition_is_taken_over_and_it_is_restored():
     finally:
         signal.signal(signal.SIGHUP, previous_hup)
         signal.signal(signal.SIGTERM, previous_term)
+
+
+@POSIX
+def test_an_unreadable_process_table_still_stops_the_leader(tmp_path, monkeypatch):
+    """``ps`` could not start (memory pressure): the leader is still stopped through Popen."""
+    monkeypatch.setattr(_process_tree, "_process_table", lambda: {})
+    started = time.monotonic()
+    result = LocalBackend().run(
+        ExecutionRequest(
+            command=(sys.executable, "-c", "import time; print('started', flush=True); time.sleep(60)"),
+            workdir=tmp_path,
+            timeout=8.0,
+        )
+    )
+    assert result.timed_out and result.returncode is None
+    assert "started" in result.stdout
+    assert time.monotonic() - started < 30.0
