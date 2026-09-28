@@ -189,3 +189,83 @@ def test_reference_bundle_parses():
     assert control.coil_names == ("12inch_20turn",)
     assert control.energy_total == pytest.approx(1.2068106340712506)
     assert result.cylindrical.R.size == 129
+
+
+# ---------------------------------------------------- the singular-coupling block
+
+
+def test_the_control_reader_exposes_the_singular_coupling_block(tmp_path):
+    """``edge_overlap_metric``'s only documented input used to be unreachable.
+
+    That function takes a coupling matrix and an external field, and names
+    GPEC's ``C_xe`` as the already-normed matrix to hand it.  The control reader
+    kept a fixed whitelist of complex extras that did not include ``C_xe``,
+    ``Phi_xe`` or ``O_CPhi_xe``, so a caller following the docstring had nowhere
+    to get them and had to decode the ``i`` axis by hand.
+    """
+    expected = write_control_nc(tmp_path)
+    extras = read_gpec_netcdf(tmp_path).control.extras
+
+    for name in ("C_xe", "Phi_xe", "O_CPhi_xe", "C_coil", "Phi_coile", "J_surf_2"):
+        assert name in extras, name
+        assert np.iscomplexobj(extras[name]), name
+        np.testing.assert_allclose(extras[name], expected[name])
+
+
+def test_the_coupling_shapes_are_modes_by_harmonics(tmp_path):
+    """So a caller can tell which axis is which without reading the file again."""
+    write_control_nc(tmp_path, m_count=5)
+    control = read_gpec_netcdf(tmp_path).control
+
+    modes, harmonics = control.extras["C_xe"].shape
+    assert harmonics == control.m.size
+    assert control.extras["Phi_xe"].shape == (harmonics,)
+    assert control.extras["O_CPhi_xe"].shape == (modes,)
+    assert control.extras["C_coil"].shape == (modes, len(control.coil_names))
+    assert control.extras["Phi_coile"].shape == (len(control.coil_names), harmonics)
+    assert control.extras["J_surf_2"].shape == (harmonics, harmonics)
+
+
+def test_the_exposed_block_feeds_the_edge_overlap_metric(tmp_path):
+    """The point of exposing it: the documented call now works off the reader.
+
+    Also checks the projection against GPEC's own ``O_CPhi_xe``, which the file
+    carries for exactly that comparison.  Magnitudes only: a right singular
+    vector is fixed up to a phase, so the complex overlap is a gauge.
+    """
+    from vaft.process.perturbation import edge_overlap_metric
+
+    expected = write_control_nc(tmp_path)
+    control = read_gpec_netcdf(tmp_path).control
+
+    overlap = edge_overlap_metric(
+        control.extras["C_xe"],
+        control.extras["Phi_xe"],
+        b_t0=float(control.attrs["bt0"]),
+    )
+    assert overlap.b_t0 == pytest.approx(expected["bt0"])
+    assert overlap.delta_e == pytest.approx(
+        float(np.max(overlap.projection)) / expected["bt0"]
+    )
+    assert overlap.projection.shape == control.extras["O_CPhi_xe"].shape
+
+
+def test_a_control_file_without_the_block_still_reads(tmp_path):
+    """A run written without ``resp_flag``/``filter_flag`` has no coupling block.
+
+    ``extras`` holds what the file has, so an absent name is an absent key and
+    not an exception -- which is what lets one reader serve both kinds of run.
+    """
+    import xarray as xr
+
+    write_control_nc(tmp_path)
+    path = tmp_path / "gpec_control_output_n1.nc"
+    with xr.open_dataset(path) as dataset:
+        trimmed = dataset.drop_vars(
+            ["C_xe", "Phi_xe", "O_CPhi_xe", "C_coil", "Phi_coile", "J_surf_2"]
+        ).load()
+    trimmed.to_netcdf(path, mode="w")
+
+    extras = read_gpec_netcdf(tmp_path).control.extras
+    assert "C_xe" not in extras
+    assert "W_e_eigenvalue" in extras
