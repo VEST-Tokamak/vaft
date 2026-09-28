@@ -253,6 +253,9 @@ class MillerSurface:
     q: float | None = None
     magnetic_shear: float | None = None
     alpha: float | None = None
+    #: Inboard indentation, the bean-shaping coefficient of #941.  Last, so
+    #: positional construction is unchanged; zero is the surface without it.
+    indentation: float = 0.0
 
 
 @dataclass(frozen=True)

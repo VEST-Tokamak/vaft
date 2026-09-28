@@ -708,10 +708,10 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 # ------------------------------------------------------------------
 
 
-def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0):
+def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0, indentation=0.0):
     r"""Major radius and height of a Miller-parametrised flux surface.
 
-    $$R = R_0 + \Delta + r\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right),
+    $$R = R_0 + \Delta + r\left[\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right) + b\,\sin^2\theta\cos\theta\right],
     \qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)$$
 
     Parameters
@@ -732,6 +732,9 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
         Squareness $\zeta$, in $(-1/2, 1/2)$ [-].
     Z0 : float or np.ndarray
         Height of the surface centre [m].
+    indentation : float or np.ndarray
+        Inboard indentation $b$, above $-\sqrt{1-\delta^2}$; positive values
+        dent the high-field side into a bean [-].
 
     Returns
     -------
@@ -744,7 +747,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ------
     ValueError
         ``r`` is negative or not finite, ``kappa`` is not positive, ``delta``
-        lies outside $(-1, 1)$, or ``squareness`` outside $(-1/2, 1/2)$.
+        lies outside $(-1, 1)$, ``squareness`` outside $(-1/2, 1/2)$, or
+        ``indentation`` at or below $-\sqrt{1-\delta^2}$.
 
     Convention
     ----------
@@ -753,14 +757,20 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     radial profile (VAFT's schematics use $\delta(r) = \delta_a r/a$).
     ``theta`` is the parametrisation angle, not a straight-field-line angle
     (see ``straight_field_line_angle``). ``squareness = 0`` and ``Z0 = 0``
-    reproduce the five-parameter surface exactly; the process layer's
-    ``evaluate_miller`` evaluates this same function.
+    reproduce the five-parameter surface exactly, and so does
+    ``indentation = 0``; the process layer's ``evaluate_miller`` evaluates
+    this same function. The indentation term
+    $g(\theta) = \sin^2\theta\cos\theta$ vanishes at the outboard and
+    inboard midplanes and at the top and bottom, so it leaves the minor radius,
+    the elongation and the triangularity where they were.
 
     Physical interpretation
     -----------------------
     The top and bottom of the surface sit at $R_0 + \Delta - \delta r$: a
     positive triangularity pulls them inward, making the D shape; the
-    outboard midplane stays at $R_0 + \Delta + r$.
+    outboard midplane stays at $R_0 + \Delta + r$. With $\alpha = \arcsin\delta$,
+    the high-field side is concave -- a bean -- once $b > (1-\alpha)^2/2$, and
+    the outboard side stays convex while $b < (1+\alpha)^2/2$.
 
     Assumptions
     -----------
@@ -770,6 +780,8 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     ----------
     .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
            R. E. Waltz, Phys. Plasmas 5, 973 (1998).
+    .. [2] The indentation term and its bean-onset criterion follow VAFT issue
+           #941, for the bean-shaped plasmas of PBX/PBX-M.
     """
     kappa = np.asarray(kappa, dtype=float)
     delta = np.asarray(delta, dtype=float)
@@ -783,8 +795,19 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
         raise ValueError("delta must lie in (-1, 1)")
     if np.any(np.abs(squareness) >= 0.5):
         raise ValueError("squareness must lie in (-1/2, 1/2): beyond it the surface doubles back on itself")
+    indentation = np.asarray(indentation, dtype=float)
+    if np.any(indentation <= -np.sqrt(1.0 - delta**2)):
+        raise ValueError("indentation must exceed -sqrt(1 - delta**2): at or below it the inboard side crosses the outboard one")
     theta = np.asarray(theta, dtype=float)
-    R = R0 + np.asarray(shift, dtype=float) + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    return _miller_rz(r, theta, R0 + np.asarray(shift, dtype=float), Z0, kappa, delta, squareness, indentation)
+
+
+def _miller_rz(r, theta, R0, Z0, kappa, delta, squareness, indentation):
+    """The Miller point formula without validation, for a fitter's trial parameters."""
+    R = R0 + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    if np.any(indentation != 0.0):
+        # Only added when asked for, so a zero indentation is the old surface to the bit.
+        R = R + r * indentation * np.sin(theta)**2 * np.cos(theta)
     return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
 
 
