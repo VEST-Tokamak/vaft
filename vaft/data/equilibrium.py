@@ -295,6 +295,83 @@ SOLOVEV_CONSTRAINT_KINDS = (
 
 
 @dataclass(frozen=True)
+class FourierSurface:
+    """A closed contour as a truncated Fourier series in a uniform arc-length angle (#945).
+
+    ``R(theta) = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and the
+    same for ``Z``, for ``m = 0 .. modes``.  ``theta = 2 pi s / L`` is the
+    arc length ``s`` from the outboard point of largest ``R``, counted
+    counter-clockwise in the (R, Z) plane, over the perimeter ``L``; so the
+    ``m = 0`` terms are the perimeter centroid, ``r_sin[0] = z_sin[0] = 0``,
+    and an up-down symmetric surface has ``r_sin = 0`` and ``z_cos[1:] = 0``.
+    """
+
+    r_cos: np.ndarray
+    r_sin: np.ndarray
+    z_cos: np.ndarray
+    z_sin: np.ndarray
+    radial_value: float | None = None
+    radial_coordinate: str = "psi_n"
+    angle_convention: str = "arc_length"
+
+    def __post_init__(self) -> None:
+        arrays = [np.asarray(getattr(self, name), dtype=float).reshape(-1) for name in ("r_cos", "r_sin", "z_cos", "z_sin")]
+        if len({a.size for a in arrays}) != 1 or arrays[0].size < 2:
+            raise ValueError("FourierSurface needs four coefficient arrays of one common length, at least two (m = 0, 1)")
+        if arrays[1][0] != 0.0 or arrays[3][0] != 0.0:
+            raise ValueError("the m = 0 sine coefficients must be zero")
+        if self.angle_convention != "arc_length":
+            raise ValueError(f"unsupported angle convention {self.angle_convention!r}; only 'arc_length' is defined")
+        for name, value in zip(("r_cos", "r_sin", "z_cos", "z_sin"), arrays):
+            object.__setattr__(self, name, value)
+
+    @property
+    def modes(self) -> int:
+        """Highest poloidal harmonic kept."""
+        return int(self.r_cos.size - 1)
+
+    @property
+    def reference_r(self) -> float:
+        """The ``m = 0`` radial term: the perimeter centroid's major radius."""
+        return float(self.r_cos[0])
+
+    @property
+    def reference_z(self) -> float:
+        """The ``m = 0`` vertical term: the perimeter centroid's height."""
+        return float(self.z_cos[0])
+
+
+@dataclass(frozen=True)
+class FourierFitResult:
+    surface: FourierSurface
+    contour: Contour
+    reconstructed: Contour
+    rms_error: float
+    normalized_rms_error: float
+    max_error: float
+    hausdorff_distance: float
+    accepted: bool
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
+class FourierSequenceResult:
+    fits: tuple[FourierFitResult, ...]
+    skipped: tuple[float, ...] = ()
+    provenance: DerivationProvenance | None = None
+
+    def coefficient(self, name: str, m: int, *, accepted_only: bool = True) -> tuple[np.ndarray, np.ndarray]:
+        """``(radial values, coefficient)`` of one family and harmonic across the sequence."""
+        if name not in ("r_cos", "r_sin", "z_cos", "z_sin"):
+            raise ValueError(f"unknown coefficient family {name!r}")
+        items = [f for f in self.fits if f.accepted or not accepted_only]
+        radial = np.array([f.surface.radial_value for f in items], dtype=float)
+        values = np.array([getattr(f.surface, name)[m] for f in items], dtype=float)
+        return radial, values
+
+
+@dataclass(frozen=True)
 class SolovevConstraint:
     """One linear condition on psi at a point: ``kind`` of psi equals ``value``.
 
@@ -424,5 +501,6 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
+    "ValidationReport", "XPoint", "FourierFitResult", "FourierSequenceResult", "FourierSurface",
+    "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]
