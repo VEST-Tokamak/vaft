@@ -4,6 +4,7 @@ The catalog tests only read docstrings; everything here calls the functions
 and checks numbers.
 """
 
+import dataclasses
 import math
 
 import numpy as np
@@ -119,18 +120,41 @@ def test_inputs_must_match_the_declaration():
 
 
 # ------------------------------------------------------------------
-# Units: the model never converts, so a unit change is the caller's rescale
+# Signs: a negative current or a non-positive boundary is never "safe"
 # ------------------------------------------------------------------
 
-def test_power_law_in_rescaled_units_agrees():
-    """The same law declared in mm and MW must agree after the caller converts."""
-    in_m = _power_law()
-    x_mm = B.BoundaryQuantity("x", "x", "mm")
-    in_mm = B.Boundary(
-        key="toy_mm", family="toy", target=_P, inputs=(x_mm, _Y), form="power_law",
-        coefficient=2.0e-3, exponents={"x": 1.0, "y": -2.0}, allowed_side="below", sources=_SRC,
-    )
-    assert B.boundary_value(in_mm, x=1500.0, y=0.7) == pytest.approx(B.boundary_value(in_m, x=1.5, y=0.7))
+def test_greenwald_uses_the_current_magnitude():
+    """OMAS stores I_p with its COCOS sign; the limit must not flip with it."""
+    entry = B.get_boundary("greenwald")
+    positive = B.evaluate_boundary(entry, 5.0, plasma_current=0.1, minor_radius=0.25)
+    negative = B.evaluate_boundary(entry, 5.0, plasma_current=-0.1, minor_radius=0.25)
+    assert negative.boundary_value > 0
+    assert negative.boundary_value == pytest.approx(positive.boundary_value)
+    assert negative.margin == pytest.approx(positive.margin)
+    assert negative.allowed is positive.allowed is True
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0, np.nan])
+def test_non_positive_boundary_is_never_permitted(value):
+    boundary = B.Boundary(key="bad", family="toy", target=_P, inputs=(), form="threshold",
+                          coefficient=value, allowed_side="below", sources=_SRC)
+    result = B.evaluate_boundary(boundary, -2.0)
+    assert result.allowed is False
+    assert math.isnan(result.margin) and math.isnan(result.ratio)
+    assert any("non-positive" in w for w in result.warnings)
+
+
+def test_zero_current_slices_are_flagged_in_an_array():
+    entry = B.get_boundary("greenwald")
+    result = B.evaluate_boundary(entry, np.array([1.0, 1.0]), plasma_current=np.array([0.08, 0.0]), minor_radius=0.24)
+    np.testing.assert_array_equal(result.allowed, [True, False])
+    assert np.isnan(result.margin[1]) and result.margin[0] > 0
+
+
+def test_non_finite_inputs_are_out_of_domain():
+    boundary = _power_law(ranges={"x": (0.0, 10.0)})
+    result = B.evaluate_boundary(boundary, 1.0, x=np.nan, y=1.0)
+    assert result.extrapolated == ("x",)
 
 
 # ------------------------------------------------------------------
@@ -151,6 +175,27 @@ def test_window_is_permitted_only_between_its_edges():
     result = B.evaluate_window(window, np.array([0.5, 2.0, 3.5]))
     np.testing.assert_array_equal(result.inside, [False, True, False])
     assert B.evaluate_window(window, 2.0).inside is True
+
+
+def test_window_routes_each_edge_its_own_inputs():
+    lower = B.Boundary(key="lo", family="toy", target=_P, inputs=(_X,), form="power_law",
+                       coefficient=1.0, exponents={"x": 1.0}, allowed_side="above", sources=_SRC)
+    upper = B.Boundary(key="hi", family="toy", target=_P, inputs=(_Y,), form="power_law",
+                       coefficient=10.0, exponents={"y": 1.0}, allowed_side="below", sources=_SRC)
+    window = B.BoundaryWindow("w", "toy_regime", lower=lower, upper=upper)
+    result = B.evaluate_window(window, 5.0, x=2.0, y=1.0)
+    assert result.lower.boundary_value == 2.0 and result.upper.boundary_value == 10.0
+    assert result.inside is True
+    assert B.evaluate_window(window, 5.0, x=6.0, y=1.0).inside is False
+    with pytest.raises(TypeError, match="does not use"):
+        B.evaluate_window(window, 5.0, x=2.0, y=1.0, z=0.0)
+
+
+def test_window_edges_match_by_quantity_identity_not_wording():
+    reworded = B.BoundaryQuantity("power", "P_{\\rm loss}", "MW", "Same quantity, other words.")
+    upper = B.Boundary(key="u", family="toy", target=reworded, inputs=(), form="threshold",
+                       coefficient=3.0, allowed_side="below", sources=_SRC)
+    B.BoundaryWindow("w", "r", lower=_threshold(1.0, "above"), upper=upper)
 
 
 def test_window_rejects_inverted_edges_and_mixed_targets():
@@ -187,12 +232,15 @@ def test_applicability_rejects_a_reversed_range():
         B.Applicability(ranges={"x": (2.0, 1.0)})
 
 
-def test_entries_are_immutable():
+def test_entries_are_immutable_and_hashable():
     entry = B.get_boundary("greenwald")
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         entry.allowed_side = "above"
     with pytest.raises(TypeError):
         entry.applicability.ranges["plasma_current"] = (0, 1)
+    assert entry in {entry}
+    applicability = B.Applicability(ranges={"x": [0.0, 1.0]})
+    assert applicability.ranges["x"] == (0.0, 1.0)
 
 
 # ------------------------------------------------------------------
@@ -221,6 +269,19 @@ def test_curve_of_a_threshold_is_flat():
                           coefficient=5.0, exponents={"x": 0.0}, allowed_side="above", sources=_SRC)
     curve = B.boundary_curve(boundary, "x", np.linspace(0.0, 1.0, 4))
     np.testing.assert_allclose(curve.y, 5.0)
+
+
+def test_curve_arrays_are_read_only_and_scalars_become_one_point():
+    curve = B.boundary_curve(B.get_boundary("greenwald"), "plasma_current", 0.1, minor_radius=0.25)
+    assert curve.xy.shape == (1, 2)
+    with pytest.raises(ValueError):
+        curve.y[0] = 0.0
+
+
+def test_curve_rejects_array_fixed_inputs():
+    with pytest.raises(TypeError, match="scalars"):
+        B.boundary_curve(B.get_boundary("greenwald"), "plasma_current", [0.1, 0.2, 0.3],
+                         minor_radius=np.array([0.2, 0.3]))
 
 
 def test_curve_rejects_unknown_or_doubly_given_sweeps():

@@ -119,11 +119,11 @@ class Applicability:
     """
 
     machine_class: str = ""
-    ranges: Mapping[str, tuple] = field(default_factory=dict)
+    ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
     assumptions: tuple = ()
 
     def __post_init__(self):
-        object.__setattr__(self, "ranges", _frozen_mapping(self.ranges))
+        object.__setattr__(self, "ranges", _frozen_mapping({k: tuple(v) for k, v in dict(self.ranges or {}).items()}))
         object.__setattr__(self, "assumptions", tuple(self.assumptions))
         for name, bounds in self.ranges.items():
             if len(bounds) != 2:
@@ -144,7 +144,7 @@ class Uncertainty:
     """
 
     coefficient: Optional[float] = None
-    exponents: Mapping[str, float] = field(default_factory=dict)
+    exponents: Mapping[str, float] = field(default_factory=dict, hash=False)
     note: str = ""
 
     def __post_init__(self):
@@ -176,7 +176,7 @@ class Boundary:
     allowed_side: str
     sources: tuple
     coefficient: Optional[float] = None
-    exponents: Mapping[str, float] = field(default_factory=dict)
+    exponents: Mapping[str, float] = field(default_factory=dict, hash=False)
     function: Optional[Callable] = None
     hardness: str = "soft"
     origin: str = "published"
@@ -243,13 +243,14 @@ class BoundaryWindow:
     upper: Boundary
 
     def __post_init__(self):
-        if self.lower.target != self.upper.target:
+        lower, upper = self.lower.target, self.upper.target
+        if (lower.name, lower.unit) != (upper.name, upper.unit):
             raise ValueError("a window's lower and upper boundaries must share one target quantity")
         if self.lower.allowed_side != "above" or self.upper.allowed_side != "below":
             raise ValueError("a window needs a lower boundary permitted 'above' and an upper one permitted 'below'")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class BoundaryEvaluation:
     """How one operating state compares with one boundary."""
 
@@ -271,7 +272,7 @@ class BoundaryEvaluation:
         return not self.extrapolated
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class WindowEvaluation:
     """How one operating state compares with an access window."""
 
@@ -281,12 +282,13 @@ class WindowEvaluation:
     inside: object
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class BoundaryCurve:
     """A boundary sampled on a 2-D projection, ready to overlay.
 
-    ``allowed_side`` is stated in the projection's own terms: ``"below"`` or
-    ``"above"`` the curve along y, or ``"left"`` or ``"right"`` of it along x.
+    ``allowed_side`` says where permitted operating points lie relative to
+    the curve: ``"below"`` or ``"above"`` it along y. The ``x`` and ``y``
+    arrays are read-only.
     """
 
     key: str
@@ -299,6 +301,10 @@ class BoundaryCurve:
 
     def __post_init__(self):
         object.__setattr__(self, "fixed", _frozen_mapping(self.fixed))
+        for name in ("x", "y"):
+            array = np.array(getattr(self, name), dtype=float)
+            array.setflags(write=False)
+            object.__setattr__(self, name, array)
 
     @property
     def xy(self) -> np.ndarray:
@@ -369,7 +375,7 @@ def _extrapolated(boundary: Boundary, inputs: Mapping) -> tuple:
     outside = []
     for name, (low, high) in boundary.applicability.ranges.items():
         values = np.asarray(inputs[name], dtype=float)
-        below = low is not None and bool(np.any(values < low))
+        below = bool(np.any(~np.isfinite(values))) or (low is not None and bool(np.any(values < low)))
         above = high is not None and bool(np.any(values > high))
         if below or above:
             outside.append(name)
@@ -406,7 +412,10 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     The margin is normalised by the boundary value. A positive margin is
     always the permitted side, whichever way the boundary points, so margins
     of different boundaries share one sign convention. ``allowed`` is strict:
-    a state exactly on the boundary is not counted as permitted.
+    a state exactly on the boundary is not counted as permitted. A boundary
+    value that is zero, negative or not finite gives NaN margin and ratio, is
+    never permitted, and adds a warning. Pass magnitudes where a sign
+    convention could make the boundary negative.
 
     Notes
     -----
@@ -418,20 +427,29 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     x = np.asarray(operating_value, dtype=float)
     b_arr = np.asarray(b, dtype=float)
     difference = x - b_arr
-    margin = -difference / b_arr if boundary.allowed_side == "below" else difference / b_arr
+    signed = -difference if boundary.allowed_side == "below" else difference
+    valid = np.isfinite(b_arr) & (b_arr > 0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        margin = np.where(valid, signed / np.where(valid, b_arr, 1.0), np.nan)
+        ratio = np.where(valid, x / np.where(valid, b_arr, 1.0), np.nan)
+    allowed = valid & (signed > 0)
     extrapolated = _extrapolated(boundary, inputs)
     warnings = tuple(
         f"{name} lies outside the range {boundary.applicability.ranges[name]} "
-        f"[{boundary.input(name).unit}] covered by {boundary.key!r}"
+        f"[{boundary.input(name).unit}] covered by {boundary.key!r}, or is not finite"
         for name in extrapolated
     )
-    allowed = margin > 0
+    if not np.all(valid):
+        warnings += (
+            f"{boundary.key!r} is non-positive or not finite at some inputs; margin and ratio are NaN "
+            "and the state is not counted as permitted there",
+        )
     return BoundaryEvaluation(
         key=boundary.key,
         target=boundary.target,
         boundary_value=b,
         operating_value=_scalar_or_array(x),
-        ratio=_scalar_or_array(x / b_arr),
+        ratio=_scalar_or_array(ratio),
         difference=_scalar_or_array(difference),
         margin=_scalar_or_array(margin),
         allowed=bool(allowed) if np.ndim(allowed) == 0 else allowed,
@@ -511,7 +529,8 @@ def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryC
     KeyError
         ``sweep`` is not an input of the boundary.
     TypeError
-        A fixed input is missing, unknown, or duplicates the swept one.
+        A fixed input is missing, unknown, an array, or duplicates the swept
+        one; or ``values`` is not 1-D.
 
     Convention
     ----------
@@ -521,8 +540,13 @@ def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryC
     x_quantity = boundary.input(sweep)
     if sweep in fixed:
         raise TypeError(f"{sweep!r} is swept; do not also fix it")
-    x = np.asarray(values, dtype=float)
-    y = np.asarray(boundary_value(boundary, **{sweep: x}, **fixed), dtype=float) * np.ones_like(x)
+    non_scalar = [name for name, value in fixed.items() if np.ndim(value) != 0]
+    if non_scalar:
+        raise TypeError(f"fixed inputs must be scalars; {non_scalar} are arrays")
+    x = np.atleast_1d(np.asarray(values, dtype=float))
+    if x.ndim != 1:
+        raise TypeError("values must be a 1-D sequence")
+    y = np.broadcast_to(np.asarray(boundary_value(boundary, **{sweep: x}, **fixed), dtype=float), x.shape)
     return BoundaryCurve(
         key=boundary.key,
         x=x,
@@ -595,7 +619,10 @@ def list_boundaries(family: Optional[str] = None) -> tuple:
 # Quantities and entries
 # ------------------------------------------------------------------
 
-_PLASMA_CURRENT_MA = BoundaryQuantity("plasma_current", "I_p", "MA", "Total toroidal plasma current.")
+_PLASMA_CURRENT_MA = BoundaryQuantity(
+    "plasma_current", "|I_p|", "MA",
+    "Magnitude of the total toroidal plasma current; the sign convention (COCOS) is dropped.",
+)
 _MINOR_RADIUS = BoundaryQuantity("minor_radius", "a", "m", "Plasma minor radius (half the midplane width).")
 _LINE_AVERAGE_DENSITY = BoundaryQuantity(
     "line_average_density", r"\bar n_e", "1e19 m^-3",
@@ -608,7 +635,7 @@ _register(Boundary(
     target=_LINE_AVERAGE_DENSITY,
     inputs=(_PLASMA_CURRENT_MA, _MINOR_RADIUS),
     form="function",
-    function=lambda plasma_current, minor_radius: greenwald_density(plasma_current, minor_radius),
+    function=lambda plasma_current, minor_radius: greenwald_density(np.abs(plasma_current), minor_radius),
     allowed_side="below",
     hardness="soft",
     origin="published",
