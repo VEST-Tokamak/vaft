@@ -299,11 +299,12 @@ class FourierSurface:
     """A closed contour as a truncated Fourier series in a uniform arc-length angle (#945).
 
     ``R(theta) = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and the
-    same for ``Z``, for ``m = 0 .. modes``.  ``theta = 2 pi s / L`` is the
-    arc length ``s`` from the outboard point of largest ``R``, counted
-    counter-clockwise in the (R, Z) plane, over the perimeter ``L``; so the
-    ``m = 0`` terms are the perimeter centroid, ``r_sin[0] = z_sin[0] = 0``,
-    and an up-down symmetric surface has ``r_sin = 0`` and ``z_cos[1:] = 0``.
+    same for ``Z``, for ``m = 0 .. modes``.  ``theta = 2 pi s / L`` is arc
+    length ``s`` counted counter-clockwise in the (R, Z) plane over the
+    perimeter ``L``, with its origin where the first harmonic of ``R`` peaks,
+    i.e. ``r_sin[1] = 0`` and ``r_cos[1] > 0``.  So the ``m = 0`` terms are the
+    perimeter centroid, ``r_sin[0] = z_sin[0] = 0``, and an up-down symmetric
+    surface -- racetracks included -- has ``r_sin = 0`` and ``z_cos[1:] = 0``.
     """
 
     r_cos: np.ndarray

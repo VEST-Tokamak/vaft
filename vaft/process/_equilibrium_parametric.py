@@ -2942,21 +2942,12 @@ def _arc_length_fourier(contour: Contour, modes: int) -> tuple[dict[str, np.ndar
         return np.r_[c[0], c[1::2]], np.r_[0.0, c[2::2]]
 
     ar, br = split(cr); az, bz = split(cz)
-    # The sampled start is only within one sample of the largest R, so the
-    # phase would depend on the sampling.  Move theta = 0 to the maximum of the
-    # fitted R series itself, found by Newton from the sampled start.
-    phi = 0.0
-    for _ in range(20):
-        d1 = np.sum(harmonics*(-ar[1:]*np.sin(harmonics*phi)+br[1:]*np.cos(harmonics*phi)))
-        d2 = np.sum(harmonics**2*(-ar[1:]*np.cos(harmonics*phi)-br[1:]*np.sin(harmonics*phi)))
-        if d2 >= 0:
-            break  # not near a maximum; keep the sampled start
-        step = d1/d2
-        phi -= step
-        if abs(step) < 1e-14:
-            break
-    if abs(phi) > 4*np.pi/count:
-        phi = 0.0  # Newton wandered off the sampled maximum; do not jump to another one
+    # Fix the phase on the fitted first harmonic of R: rotate so that
+    # r_sin[1] = 0 and r_cos[1] > 0.  Closed-form and independent of where the
+    # contour starts or how it is sampled -- a maximum of R is not, on a flat
+    # outboard side -- and for an up-down symmetric surface it is exactly the
+    # outboard midplane.
+    phi = float(np.arctan2(br[1], ar[1]))
     c, sn = np.cos(harmonics*phi), np.sin(harmonics*phi)
     ar[1:], br[1:] = ar[1:]*c + br[1:]*sn, br[1:]*c - ar[1:]*sn
     az[1:], bz[1:] = az[1:]*c + bz[1:]*sn, bz[1:]*c - az[1:]*sn
@@ -2977,7 +2968,7 @@ def evaluate_fourier_surface(surface: FourierSurface, theta: Any) -> tuple[np.nd
     Parameters
     ----------
     surface : FourierSurface
-        The coefficients, in metres, of each harmonic of R and Z [-].
+        The cosine and sine coefficients of each harmonic of R and Z [m].
     theta : array_like
         Arc-length angles ``2 pi s / L`` at which to evaluate [rad].
 
@@ -2989,8 +2980,8 @@ def evaluate_fourier_surface(surface: FourierSurface, theta: Any) -> tuple[np.nd
     Convention
     ----------
     ``R = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and likewise
-    ``Z``, with ``theta = 0`` at the largest R and increasing
-    counter-clockwise in (R, Z); see :class:`~vaft.data.equilibrium.FourierSurface`.
+    ``Z``, with ``theta`` increasing counter-clockwise in (R, Z) from the
+    phase origin of :class:`~vaft.data.equilibrium.FourierSurface`.
 
     Applicability
     -------------
@@ -3056,8 +3047,9 @@ def fit_fourier_surface(
     1. Resample the contour to ``max(256, 8*modes)`` points uniform in arc length.
     2. Orient it counter-clockwise and start at its largest R.
     3. Solve the cosine and sine coefficients of R and Z by least squares.
-    4. Move the angle origin to the maximum of the fitted R series, so the
-       phase does not depend on the contour's sampling or starting point.
+    4. Rotate the angle origin so the first harmonic of R is a pure cosine
+       (``r_sin[1] = 0``, ``r_cos[1] > 0``), which fixes the phase
+       independently of the contour's sampling and starting point.
     5. Score the reconstruction geometrically: contour-to-model and
        model-to-contour nearest distances on a dense evaluation.
 
@@ -3070,9 +3062,9 @@ def fit_fourier_surface(
 
     Convention
     ----------
-    The angle is ``theta = 2 pi s / L``, the arc length from the maximum-R point
-    counter-clockwise over the perimeter; the ``m = 0`` terms are the perimeter
-    centroid.  An up-down symmetric surface therefore has ``r_sin = 0`` and
+    The angle is ``theta = 2 pi s / L``, arc length counter-clockwise over the
+    perimeter, with its origin where the first harmonic of R peaks (so
+    ``r_sin[1] = 0``); the ``m = 0`` terms are the perimeter centroid.  An up-down symmetric surface therefore has ``r_sin = 0`` and
     ``z_cos[1:] = 0``, and a translation changes the ``m = 0`` terms only.
     This is the same definition :func:`derive_boundary_representation` uses
     for the LCFS, so there is one Fourier convention for a contour, not two.
@@ -3084,9 +3076,10 @@ def fit_fourier_surface(
 
     Limitations
     -----------
-    The origin is the maximum of R; a surface whose outboard side is flat
-    (a racetrack) has a poorly defined one, and its phase is then only as
-    stable as that maximum.  Arc length is not a flux-coordinate angle, so the
+    The phase origin is undefined only for a contour with no first harmonic in
+    R, which no closed plasma surface is.  ``max_error`` and
+    ``hausdorff_distance`` are the same number, the larger of the two directed
+    maxima, kept separately to parallel :class:`MillerFitResult`.  Arc length is not a flux-coordinate angle, so the
     coefficients describe shape, not straight-field-line harmonics.
 
     Provenance
@@ -3161,8 +3154,9 @@ def fit_fourier_surface_sequence(
     Processing steps
     ----------------
     1. Convert the levels to normalized poloidal flux when needed.
-    2. Trace the closed surface at each level; a level whose surface is open
-       or missing is recorded as skipped rather than dropped silently.
+    2. Trace the closed surface at each level; a level outside the
+       coordinate's range, or whose surface is open or missing, is recorded
+       as skipped rather than dropped or clamped silently.
     3. Fit each traced surface and sort the fits by radial value.
 
     Convention
@@ -3193,12 +3187,21 @@ def fit_fourier_surface_sequence(
         radial = coordinates.get(radial_coordinate)
         if radial is None or not radial.available:
             raise ValueError(f"{radial_coordinate} is unavailable")
-        psi_levels = np.interp(levels, np.asarray(radial.value), np.asarray(coordinates["psi_n"].value))
+        coordinate = np.asarray(radial.value, dtype=float); psi_n = np.asarray(coordinates["psi_n"].value, dtype=float)
+        order = np.argsort(coordinate)
+        coordinate, psi_n = coordinate[order], psi_n[order]
+        # Outside the coordinate's range np.interp would clamp to the end, and
+        # label the boundary surface with a level it does not have.
+        psi_levels = np.where((np.asarray(levels) < coordinate[0]) | (np.asarray(levels) > coordinate[-1]),
+                              np.nan, np.interp(levels, coordinate, psi_n))
     else:
         psi_levels = np.asarray(levels, dtype=float)
     fits: list[FourierFitResult] = []
     skipped: list[float] = []
     for requested, psi_level in zip(levels, psi_levels):
+        if not np.isfinite(psi_level):
+            skipped.append(requested)
+            continue
         contour = _contour_at_level(eq, float(psi_level))
         if contour is None or not contour.closed:
             skipped.append(requested)
@@ -3279,6 +3282,11 @@ def derive_boundary_representation(
     A single global tolerance cannot be right for saddles of different sharpness.
     ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
     to represent a tokamak boundary without fitting the contour's own sampling.
+    The coefficients are :func:`fit_fourier_surface`'s, one convention for
+    every contour (#945).  Before #945 the phase origin was the sampled point
+    of largest R; it is now the phase of R's first harmonic, so individual
+    cosine and sine values differ from older results while the per-harmonic
+    amplitudes and the reconstruction error do not.
 
     Applicability
     -------------

@@ -98,7 +98,41 @@ def test_evaluate_inverts_the_fit():
     fit = fit_fourier_surface(_asymmetric(), modes=10)
     r, z = evaluate_fourier_surface(fit.surface, np.linspace(0, 2*np.pi, 64, endpoint=False))
     assert r.shape == (64,) and fit.accepted
-    assert np.argmax(evaluate_fourier_surface(fit.surface, np.linspace(-0.01, 0.01, 2001))[0]) == pytest.approx(1000, abs=1)
+    # The reconstruction lies on the contour: about a millimetre at worst on a 0.2 m surface.
+    assert fit.max_error < 2e-3 and fit.normalized_rms_error < 2e-3
+    np.testing.assert_allclose(fit.reconstructed.points.shape, fit.contour.points.shape)
+
+
+def test_known_harmonics_match_an_independent_arc_length_fft():
+    """Reference built without the fitter: dense arc-length reparameterization plus an FFT."""
+    t = np.linspace(0, 2*np.pi, 200001)[:-1]
+    r = 0.9 + 0.25*np.cos(t) + 0.03*np.cos(2*t) + 0.015*np.cos(3*t) + 0.01*np.sin(2*t)
+    z = 0.05 + 0.4*np.sin(t) - 0.02*np.sin(3*t) + 0.012*np.cos(2*t)
+    ds = np.hypot(np.diff(np.r_[r, r[0]]), np.diff(np.r_[z, z[0]]))
+    s = np.r_[0.0, np.cumsum(ds)[:-1]]; length = ds.sum()
+    n = 4096; target = np.arange(n)*length/n
+    ru = np.interp(target, s, r); zu = np.interp(target, s, z)
+    fr, fz = np.fft.rfft(ru)/n, np.fft.rfft(zu)/n
+    a_r, b_r = 2*fr.real, -2*fr.imag; a_z, b_z = 2*fz.real, -2*fz.imag
+    phi = np.arctan2(b_r[1], a_r[1]); m = np.arange(fr.size)
+    rot = lambda a, b: (a*np.cos(m*phi) + b*np.sin(m*phi), b*np.cos(m*phi) - a*np.sin(m*phi))
+    (a_r, b_r), (a_z, b_z) = rot(a_r, b_r), rot(a_z, b_z)
+    fit = fit_fourier_surface((r[::50], z[::50]), modes=6).surface
+    for got, ref in ((fit.r_cos, a_r), (fit.r_sin, b_r), (fit.z_cos, a_z), (fit.z_sin, b_z)):
+        np.testing.assert_allclose(got[1:5], ref[1:5], atol=5e-5)
+    assert fit.reference_r == pytest.approx(fr[0].real, abs=5e-5)
+
+
+def test_flat_outboard_racetrack_keeps_parity_and_start_invariance():
+    t = np.linspace(0, 2*np.pi, 800, endpoint=False)
+    results = []
+    for t0 in (0.0, 0.3, 1.1):
+        r = 1 + 0.3*np.clip(1.5*np.cos(t + t0), -1, 1); z = 0.4*np.sin(t + t0)
+        results.append(fit_fourier_surface((r, z), modes=8).surface)
+    for s in results:
+        # A maximum-R origin gave 0.1-0.28 here (#945 review); the residual is resampling.
+        assert np.max(np.abs(s.r_sin)) < 1e-4 and np.max(np.abs(s.z_cos[1:])) < 1e-4
+        np.testing.assert_allclose(s.r_cos, results[0].r_cos, atol=1e-4)
 
 
 def test_record_validates_its_convention():
@@ -120,7 +154,7 @@ def test_sequence_is_radially_ordered_and_continuous():
     radial, r1 = sequence.coefficient("r_cos", 1)
     np.testing.assert_allclose(radial, sorted(levels))
     assert np.all(np.diff(r1) > 0)                               # minor radius grows outward
-    _, asym = sequence.coefficient("r_sin", 1)
+    _, asym = sequence.coefficient("z_cos", 1)
     assert np.all(np.abs(asym) > 1e-4)                           # the single null is asymmetric throughout
     assert all(f.accepted for f in sequence.fits)
 
@@ -130,9 +164,30 @@ def test_sequence_records_levels_without_a_closed_surface():
     assert sequence.skipped == (1.4,) and len(sequence.fits) == 1
 
 
-def test_boundary_representation_uses_the_same_definition():
-    eq = solovev_example("double_null")
+#: develop's LCFS Fourier output before #945 (limited, single null; 12 modes):
+#: reconstruction error and per-harmonic amplitudes, which the phase change keeps.
+PRE_945 = {
+    "limited": (0.0001935165136373169, [0.375004700258, 0.247898343363, 0.022812468321, 0.015884905731, 0.003634273122],
+                [1.644e-09, 0.370669464952, 0.010618335935, 0.020409512783, 0.008573245712]),
+    "single_null": (0.001545302974690152, [0.371319595843, 0.240303653183, 0.03152305043, 0.005277059115, 0.007571686929],
+                    [0.000761824435, 0.37034278539, 0.015079007173, 0.022424320243, 0.012907469996]),
+}
+
+
+@pytest.mark.parametrize("topology", sorted(PRE_945))
+def test_boundary_representation_keeps_its_error_and_amplitudes(topology):
+    eq = solovev_example(topology)
     rep = derive_boundary_representation(eq, fourier_modes=12)
+    error, r_amp, z_amp = PRE_945[topology]
+    c = rep.fourier_coefficients
+    assert rep.fourier_reconstruction_error.value == pytest.approx(error, rel=1e-9)
+    np.testing.assert_allclose(np.hypot(c["r_cos"], c["r_sin"])[:5], r_amp, atol=1e-10)
+    np.testing.assert_allclose(np.hypot(c["z_cos"], c["z_sin"])[:5], z_amp, atol=1e-10)
     surface = fit_fourier_surface(eq.lcfs, modes=12).surface
     for name in ("r_cos", "r_sin", "z_cos", "z_sin"):
-        np.testing.assert_array_equal(rep.fourier_coefficients[name], getattr(surface, name))
+        np.testing.assert_array_equal(c[name], getattr(surface, name))
+
+
+def test_sequence_skips_levels_outside_the_coordinate_range():
+    sequence = fit_fourier_surface_sequence(solovev_example("limited"), [0.5, 1.2], radial_coordinate="rho_pol_n")
+    assert sequence.skipped == (1.2,) and [f.surface.radial_value for f in sequence.fits] == [0.5]
