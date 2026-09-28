@@ -136,6 +136,7 @@ __all__ = [
     "computed_diamagnetism_from_phi",
     "compare_contours",
     "contour_shape_parameters",
+    "contour_shaping_observables",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
     "ParallelCurrentResult",
@@ -2622,6 +2623,98 @@ def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, 
         "triangularity_lower": (r_geo - r_at_z_extremum(r_seg, z_seg, upper=False)) / minor,
         "r_inboard": r_min,
         "r_outboard": r_max,
+    }
+
+
+def contour_shaping_observables(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float | bool]:
+    """Model-independent shaping observables of one closed contour: indentation and asymmetry.
+
+    Measurable from any valid boundary, whatever model -- Miller, Fourier or
+    none -- describes it, so a model coefficient such as
+    ``MillerSurface.indentation`` can be checked against a geometric fact
+    rather than against another model.
+
+    Parameters
+    ----------
+    r_seg : array_like
+        Major radius of the contour points [m].
+    z_seg : array_like
+        Height of the contour points [m].
+
+    Returns
+    -------
+    dict of str to float or bool
+        ``indentation_depth``, the largest distance from an inboard point to
+        the convex hull of the contour, in metres; ``normalized_indentation_depth``,
+        that over the minor radius [-]; ``inboard_concave``, whether that
+        normalized depth exceeds 1e-3 [-]; and ``up_down_asymmetry``, the
+        Hausdorff distance between the contour and its mirror image about
+        its mid-height, over the minor radius, zero for an up-down symmetric
+        contour [-].
+
+    Raises
+    ------
+    ValueError
+        Fewer than four points, or a contour with zero minor radius.
+
+    Convention
+    ----------
+    Inboard means major radius below the geometric centre ``(R_out +
+    R_in)/2``; the minor radius is ``(R_out - R_in)/2`` and the mirror plane
+    is ``Z = (Z_max + Z_min)/2``, the same references as
+    :func:`contour_shape_parameters`.  Distances are measured against the
+    contour polyline resampled to 4096 points of equal arc length.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The 1e-3 concavity threshold sits above the chord error of a smooth
+    contour sampled with about a hundred points; a coarser contour can read
+    a small spurious depth.  Outboard concavity is not reported.
+
+    Provenance
+    ----------
+    .. [1] The observables proposed in #942, section 7, kept separate from the
+       coefficients of any one parameterization.
+    """
+    from scipy.spatial import ConvexHull, cKDTree
+
+    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
+    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
+    if r_seg.size < 4:
+        raise ValueError("a contour needs at least four points")
+    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
+    minor = 0.5 * (r_max - r_min)
+    if minor <= 0.0:
+        raise ValueError("degenerate contour")
+    r_geo = 0.5 * (r_max + r_min)
+    z_mid = 0.5 * (float(np.max(z_seg)) + float(np.min(z_seg)))
+    if np.isclose(r_seg[0], r_seg[-1]) and np.isclose(z_seg[0], z_seg[-1]):
+        r_seg, z_seg = r_seg[:-1], z_seg[:-1]
+    r_closed, z_closed = np.r_[r_seg, r_seg[0]], np.r_[z_seg, z_seg[0]]
+    arc = np.r_[0.0, np.cumsum(np.hypot(np.diff(r_closed), np.diff(z_closed)))]
+    # anti-alias: upsampling a polyline by linear interpolation along its own arc length.
+    s = np.linspace(0.0, arc[-1], 4096, endpoint=False)
+    dense = np.column_stack((np.interp(s, arc, r_closed), np.interp(s, arc, z_closed)))
+    hull = ConvexHull(dense)
+    # Facet equations are n.x + b <= 0 inside; the distance to the hull boundary is the smallest -(n.x + b).
+    inside = -(dense @ hull.equations[:, :2].T + hull.equations[:, 2])
+    depth_all = np.min(inside, axis=1)
+    inboard = dense[:, 0] < r_geo
+    depth = float(np.max(depth_all[inboard])) if np.any(inboard) else 0.0
+    depth = max(depth, 0.0)
+    mirrored = dense.copy()
+    mirrored[:, 1] = 2.0 * z_mid - mirrored[:, 1]
+    forward = cKDTree(dense).query(mirrored)[0]
+    backward = cKDTree(mirrored).query(dense)[0]
+    return {
+        "indentation_depth": depth,
+        "normalized_indentation_depth": depth / minor,
+        "inboard_concave": bool(depth / minor > 1e-3),
+        "up_down_asymmetry": float(max(np.max(forward), np.max(backward))) / minor,
     }
 
 
