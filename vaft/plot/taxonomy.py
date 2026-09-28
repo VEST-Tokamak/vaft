@@ -119,6 +119,13 @@ _SUBJECTS = (
     # so the two IDS are indexed by different things and a plot of one is not a
     # plot of the other.
     Subject("ntms", "model", ("tearing", "delta_prime")),
+    # Field-line tracing: connection lengths, Poincare punctures and divertor
+    # footprints.  Its own subject rather than a view of `equilibrium`,
+    # because what it describes is the topology a *perturbed* field makes --
+    # an equilibrium is only one of its inputs -- and rather than of
+    # `mhd_linear`, because a traced line is not one of the toroidal modes
+    # the solver was asked for (issue #1099).
+    Subject("field_line_topology", "model", ("connection_length", "field_lines")),
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),

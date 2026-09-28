@@ -11,7 +11,7 @@ has.  Reading ``__all__`` is what pulls the whole subtree in: the module-level
 import triggers the full load at the moment it actually needs it, and nothing
 before then does.
 
-The discovery layer -- ``describe``, ``search``, ``list_formulas``,
+The discovery layer -- ``describe``, ``show``, ``search``, ``list_formulas``,
 ``categories`` and the ``catalog`` submodule they live in -- is resolved the
 same way, on first access, and is never part of ``__all__``: the star import
 does not touch it, and neither does importing a physics submodule.
@@ -36,6 +36,8 @@ _SUBMODULES = {
     "startup": ".startup",
     "transformer": ".transformer",
     "particle": ".particle",
+    "geometry": ".geometry",
+    "ripple": ".ripple",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -59,13 +61,15 @@ _IMPORT_ORDER = (
     "startup",
     "transformer",
     "particle",
+    "geometry",
+    "ripple",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
 #: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
 #: make the star import load it, which is exactly what issue #248 forbids.
 _CATALOG_NAMES = frozenset(
-    {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories"}
+    {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories", "show"}
 )
 
 _MODULES: dict[str, object] = {}

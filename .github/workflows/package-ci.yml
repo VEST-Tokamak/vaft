@@ -175,7 +175,29 @@ jobs:
           # failure with a misleading message, since the tables in the
           # repository are fine. This is the only job that reads them: the
           # `core` selection does not include either module.
-          lfs: true
+          #
+          # They are fetched below from a cache rather than by `lfs: true`:
+          # every LFS download counts against the organization's monthly
+          # bandwidth quota (10 GB free), and two legs pulling ~164 MB per run
+          # exhausted it in four days in 2026-09, after which LFS stopped
+          # serving the tables at all.
+          lfs: false
+
+      - name: Compute LFS cache key
+        id: lfs-key
+        # bash on both legs: Git for Windows ships sha256sum. The key is the
+        # object list, so the cache only misses when a table changes.
+        shell: bash
+        run: echo "hash=$(git lfs ls-files --long | sort | sha256sum | cut -c1-64)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs
+          key: lfs-${{ runner.os }}-${{ steps.lfs-key.outputs.hash }}
+
+      - name: Materialize LFS files
+        # A cache hit leaves every object local, so this transfers nothing.
+        run: git lfs pull
 
       - uses: actions/setup-python@v7
         with:

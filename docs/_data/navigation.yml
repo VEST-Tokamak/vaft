@@ -38,6 +38,9 @@ sections:
       - id: diagrams
         title: Scientific diagrams
         url: /reference/diagrams/
+      - id: geometric-approximations
+        title: Geometric approximations
+        url: /reference/geometric-approximations/
       - id: process-reference
         title: Process reference
         url: /reference/process/

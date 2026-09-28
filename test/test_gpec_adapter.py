@@ -184,7 +184,15 @@ def test_prepare_writes_stride_without_a_gpec_installation(no_gpec_env, case):
 
 
 def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path, case):
-    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots."""
+    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots.
+
+    That layout is unchanged, and ``dcon_workdir`` still says where DCON's
+    products come from.  What ``gpec.in`` names is no longer that tree but the
+    GPEC cell itself: GPEC writes its vacuum handshake files into its working
+    directory and reads them back from ``dcon_dir``, so the two have to be one
+    directory, and the products are brought over by ``stage_dcon_products``
+    once DCON has made them (``test_gpec_dcon_staging.py``).
+    """
     coil = tmp_path / "coil.in"
     coil.write_text("&coil /\n", encoding="utf-8")
     case.dcon_workdir = tmp_path / "dcon-work"
@@ -196,9 +204,15 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     )
 
     assert result.ok
-    gpec_in = case.workdir / "00325" / "gpec" / "nn=1" / "gpec.in"
+    run_dir = case.workdir / "00325" / "gpec" / "nn=1"
+    text = (run_dir / "gpec.in").read_text(encoding="utf-8")
+    assert str(run_dir.resolve()) in text
+
+    # The separate tree is still where the suite looks for DCON, which is what
+    # the layout claim is about.
     expected_dcon = case.dcon_workdir / "00325" / "dcon" / "nn=1"
-    assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
+    assert gpec._dcon_run_dir(case, 1, case.geqdsk) == expected_dcon
+    assert str(expected_dcon.resolve()) not in text
 
 
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):

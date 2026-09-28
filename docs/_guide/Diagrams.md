@@ -131,6 +131,317 @@ Each has further projections of the same computed orbits, chosen with `projectio
 The units are normalised ($|q| = 1$, $m_e = 1$, fields of order one). The ion-to-electron mass ratio is reduced (4 by
 default) so that both orbits are visible; the figures state this.
 
+## Tearing physics
+
+The ideas upstream of an island, **one concept per diagram**, so each can be used on its own in a
+page, notebook or slide. None takes an equilibrium, shot or solver output: the curves are schematic.
+
+```python
+vaft.diagram.rational_surface(m=2, n=1)
+vaft.diagram.delta_prime(sign="positive")   # "positive", "zero" or "negative"
+vaft.diagram.tearing_layer_matching()
+```
+
+| | | |
+| --- | --- | --- |
+| ![rational surface]({{ '/assets/diagrams/rational_surface.svg' | relative_url }}) | ![Delta prime]({{ '/assets/diagrams/delta_prime.svg' | relative_url }}) | ![layer matching]({{ '/assets/diagrams/tearing_layer_matching.svg' | relative_url }}) |
+
+| Diagram | Question | What is schematic |
+| --- | --- | --- |
+| `rational_surface` | Where does a perturbation resonate with the field-line pitch, $q(r_s) = m/n$? | The monotonic $q(r)$; it is not an equilibrium profile |
+| `delta_prime` | What does the tearing stability index measure? | The outer solutions: quadratics that vanish on the axis and at the edge. Their slopes at $r_s$ go through `vaft.formula.delta_prime_from_outer_derivatives`, and only the sign of $\Delta'$ is meaningful |
+| `tearing_layer_matching` | Why are the ideal outer regions and the non-ideal inner layer solved separately? | The layer width and the layer solution, which only joins the outer solutions in value and slope |
+
+The index drawn here is the definition, not a stability result: no outer equation is solved. Solver
+values of $\Delta'$ (RDCON, STRIDE) belong to `vaft.plot`, and they are not the RDCON $D_R$ or the
+Modified Rutherford terms. The object these lead to is `magnetic_island`.
+
+## 3-D perturbation harmonics
+
+How a linear 3-D perturbation is written as complex Fourier harmonics, and what the complex numbers
+mean. Each diagram is one concept and needs no equilibrium, shot or GPEC output.
+
+```python
+vaft.diagram.normal_field_component()
+vaft.diagram.complex_harmonic(amplitude=1.0, phase=1.05)
+vaft.diagram.toroidal_harmonic_phase(n=1)
+vaft.diagram.harmonic_real_space_projection(m=2, n=1, phase=1.05)
+vaft.diagram.complex_field_superposition(case="screening")   # "amplification", "phase_shift"
+```
+
+| | |
+| --- | --- |
+| ![normal component]({{ '/assets/diagrams/normal_field_component.svg' | relative_url }}) | ![complex harmonic]({{ '/assets/diagrams/complex_harmonic.svg' | relative_url }}) |
+| ![toroidal phase]({{ '/assets/diagrams/toroidal_harmonic_phase.svg' | relative_url }}) | ![superposition]({{ '/assets/diagrams/complex_field_superposition.svg' | relative_url }}) |
+
+![real-space projection]({{ '/assets/diagrams/harmonic_real_space_projection.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `normal_field_component` | $\delta B_n = \delta\mathbf B\cdot\hat{\mathbf n}$ is the part of a perturbation that crosses a magnetic surface. It is geometric only, with no code-specific normalisation |
+| `complex_harmonic` | One harmonic is $\hat b = b_R + i\,b_I = A e^{i\alpha}$. $b_R$ and $b_I$ are the cosine and sine quadratures of one pattern, not two fields |
+| `toroidal_harmonic_phase` | Moving the toroidal origin by $\Delta\phi$ turns $\hat b$ by $-n\Delta\phi$. $\lvert\hat b\rvert$ is invariant; $b_R$ and $b_I$ are not |
+| `harmonic_real_space_projection` | The physical field is real, $\delta b = \mathrm{Re}[\hat b\,e^{i(m\theta - n\phi)}]$ (`vaft.formula.helical_harmonic`): stripes of slope $n/m$ on the unwrapped $(\phi, \theta)$ plane |
+| `complex_field_superposition` | External and plasma-response fields add as complex numbers, so screening, amplification and phase shift all come from one vector sum |
+
+The phase convention is `helical_phase`'s $\xi = m\theta - n\phi$, with both mode numbers positive and
+the helicity in the minus sign. `vaft.code.gpec` stores each complex quantity as a real/imaginary pair
+(`i = 0` real, `i = 1` imaginary) and rebuilds it as `real + 1j * imag`, deciding no convention. For
+GPEC's spectral outputs that pair is the $(b_R, b_I)$ of `complex_harmonic`, and it becomes a field only
+through the real-space reconstruction. Two sources differ:
+
+* the `*_fun` quantities (`b_n_fun`, `xi_n_fun`) are already real-space in $\theta$, and GPEC writes
+  them as $(\mathrm{Re}, -h\,\mathrm{Im})$ with its helicity $h$;
+* `vaft.process.toroidal_mode_decomposition` returns the conjugate, $\hat b = 2\,\overline{C_n}$.
+
+`helical_harmonic`'s Convention section states both. Amplitudes, phases and responses in these
+figures are schematic.
+
+## Collision processes
+
+A classification of the interactions in a fusion plasma, built from the concept-diagram primitives.
+Coulomb collisions between charged particles relax the distribution. Atomic processes change charge
+states and bound electrons. Nuclear reactions change nuclei.
+
+```python
+vaft.diagram.collision_processes()
+```
+
+![collision processes]({{ '/assets/diagrams/collision_processes.svg' | relative_url }})
+
+The diagram contains no numbers except the D–T alpha energy, which is `vaft.formula.constants.E_ALPHA`. Collision frequencies, the
+Coulomb logarithm and collisionality regimes are left to formula-backed diagrams (#1111).
+
+## Geometric approximations
+
+How slab, cylindrical and toroidal models relate, keeping geometry and ordering on separate axes. The
+physics is in `vaft.formula.geometry`. [Geometric approximations]({{ '/reference/geometric-approximations/' | relative_url }})
+explains each representation.
+
+```python
+vaft.diagram.geometry_ordering_map()
+vaft.diagram.field_line_geometry(geometry="toroidal")   # "cylindrical", "slab"
+vaft.diagram.mode_number_mapping(m=2, n=1)
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `geometry_ordering_map` | Geometries are columns and orderings are bands. Each reduction arrow names what it keeps or drops |
+| `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
+| `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
+
+## Tokamak geometry and flux coordinates
+
+The parent geometry that the cylindrical and slab reductions start from. Surfaces are
+`miller_surface`, the shift is `shafranov_shift_from_r_a_R0_beta_p_li`, the field is
+`vacuum_toroidal_field`, and $\theta^*$ is `straight_field_line_angle`.
+
+```python
+vaft.diagram.tokamak_torus(projection="3d")        # "poloidal"
+vaft.diagram.flux_surfaces(shape="circular")       # "shifted"
+vaft.diagram.shaping_family()
+vaft.diagram.hfs_lfs_field()
+vaft.diagram.safety_factor_winding(q=3)
+vaft.diagram.flux_coordinates()
+vaft.diagram.poloidal_angle_comparison()
+vaft.diagram.unwrapped_flux_surface(q=2.5)
+vaft.diagram.field_line_pitch(q=1.0)
+```
+
+| | |
+| --- | --- |
+| ![torus]({{ '/assets/diagrams/tokamak_torus_3d.svg' | relative_url }}) | ![cross-section]({{ '/assets/diagrams/tokamak_torus_poloidal.svg' | relative_url }}) |
+| ![concentric]({{ '/assets/diagrams/flux_surfaces_circular.svg' | relative_url }}) | ![Shafranov shift]({{ '/assets/diagrams/flux_surfaces_shifted.svg' | relative_url }}) |
+| ![HFS/LFS]({{ '/assets/diagrams/hfs_lfs_field.svg' | relative_url }}) | ![safety factor]({{ '/assets/diagrams/safety_factor_winding.svg' | relative_url }}) |
+| ![flux coordinates]({{ '/assets/diagrams/flux_coordinates.svg' | relative_url }}) | ![theta vs theta*]({{ '/assets/diagrams/poloidal_angle_comparison.svg' | relative_url }}) |
+
+![field-line pitch]({{ '/assets/diagrams/field_line_pitch.svg' | relative_url }})
+
+![shaping]({{ '/assets/diagrams/shaping_family.svg' | relative_url }})
+
+![unwrapped surface]({{ '/assets/diagrams/unwrapped_flux_surface.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `tokamak_torus` | $R_0$, $a$, $\phi$ (counter-clockwise from above) and $\theta$ (from the outboard midplane), with $R = R_0 + r\cos\theta$ |
+| `flux_surfaces` | Concentric surfaces, then the Shafranov shift: $\Delta(r)$ is zero at the edge and largest on axis, so the magnetic axis sits outside the geometric axis |
+| `shaping_family` | Circular, $\kappa$, $\delta$, and both. Positive triangularity pulls the top in to $R_0 - \delta r$ |
+| `hfs_lfs_field` | $B_\phi = B_0R_0/R$ is stronger on the inboard (high-field) side |
+| `field_line_pitch` | $\mathbf B = B_\phi\hat{\boldsymbol\phi} + B_\theta\hat{\boldsymbol\theta}$ at a point of a field line, with $B_\theta/B_\phi = r/(qR)$ so that $\mathbf B$ lies along the line |
+| `safety_factor_winding` | $q$ toroidal turns per poloidal turn, counted at one cross-section |
+| `flux_coordinates` | $(\psi, \theta, \phi)$, with $+\phi$ into the page when $R$ is to the right and $Z$ is up |
+| `poloidal_angle_comparison` | On a D shape, equal steps of $\theta^*$ are not rays of the geometric angle |
+| `unwrapped_flux_surface` | A field line is straight, $d\phi/d\theta^* = q$, in straight-field-line coordinates, and not in the parametrisation angle $\theta$ |
+
+The field line on a torus, its cylindrical and slab reductions, and the geometry/ordering map are in
+the geometric-approximations section above. The toroidal → cylindrical → slab bridge is
+`geometry_ordering_map` together with `field_line_geometry`.
+
+## Toroidicity and TF ripple
+
+From the $1/R$ mirror to ripple-induced fast-particle transport. The formulas are in
+[`vaft.formula.ripple`]({{ '/reference/formula/ripple/' | relative_url }}), and each one names its diagram
+under *See Also*. $B_\phi \propto 1/R$ itself is `hfs_lfs_field`, in the tokamak-geometry section.
+
+```python
+vaft.diagram.trapped_and_passing_orbits()
+vaft.diagram.toroidal_field_ripple(n_tf=16)
+vaft.diagram.ripple_well_formation()
+vaft.diagram.stochastic_ripple_orbit()
+```
+
+| | |
+| --- | --- |
+| ![trapped and passing]({{ '/assets/diagrams/trapped_and_passing_orbits.svg' | relative_url }}) | ![TF ripple]({{ '/assets/diagrams/toroidal_field_ripple.svg' | relative_url }}) |
+| ![ripple wells]({{ '/assets/diagrams/ripple_well_formation.svg' | relative_url }}) | ![stochastic tips]({{ '/assets/diagrams/stochastic_ripple_orbit.svg' | relative_url }}) |
+
+| Diagram | Concept | Formula |
+| --- | --- | --- |
+| `trapped_and_passing_orbits` | $\mu$ and energy conservation in $B \propto 1/R$: small pitches bounce as bananas, large ones pass | `parallel_speed_from_mu`, `vacuum_toroidal_field` |
+| `toroidal_field_ripple` | $N_\mathrm{TF}$ coils corrugate $B(\phi)$: maximal under a coil, minimal between | `toroidal_ripple_field`, `ripple_amplitude` |
+| `ripple_well_formation` | Along a field line the ripple makes local wells where $\alpha^* \lesssim 1$, near the midplanes (to first order in $\epsilon$) | `ripple_well_parameter` |
+| `stochastic_ripple_orbit` | Ripple kicks at banana tips decorrelate above $\delta_\mathrm{GWB}$. Drawn as the standard map with $K \sim \delta/\delta_\mathrm{GWB}$ | `gwb_stochastic_threshold`, `gwb_stochasticity_parameter` |
+
+These are regime indicators, not a loss calculation. Orbit following (ASCOT, NUBEAM) is the
+quantitative check. Low-$n$ error fields, NTV and locking are separate topics.
+
+## Guiding-centre invariants and toroidal symmetry
+
+This is the global view of the orbit physics that `curvature_drift` and `toroidal_drift` show locally.
+The grad-B and curvature drifts say why a guiding centre moves at each instant. Conservation of
+$P_\phi$ constrains the whole orbit in an axisymmetric field. These are the same physics seen two
+ways, not competing explanations.
+
+```python
+vaft.diagram.guiding_center_invariants()
+vaft.diagram.canonical_toroidal_momentum(phase=0.45)
+vaft.diagram.toroidal_symmetry_breaking()
+```
+
+| | |
+| --- | --- |
+| ![invariants]({{ '/assets/diagrams/guiding_center_invariants.svg' | relative_url }}) | ![P_phi]({{ '/assets/diagrams/canonical_toroidal_momentum.svg' | relative_url }}) |
+
+![symmetry breaking]({{ '/assets/diagrams/toroidal_symmetry_breaking.svg' | relative_url }})
+
+| Diagram | Concept | Formula |
+| --- | --- | --- |
+| `guiding_center_invariants` | Gyration, bounce and toroidal drift, with invariants $\mu$, $J_\parallel = \oint p_\parallel\,dl$ and $P_\phi$, valid for $\Omega_c \gg \omega_b \gg \omega_d$ | `magnetic_moment` |
+| `canonical_toroidal_momentum` | A banana built from $\mu$ and $P_\phi$ conservation. From the bounce tip, $\Delta(q\psi)$ and $\Delta(mv_\parallel Rb_\phi)$ cancel, so $\psi$ moves with $v_\parallel$: this is the orbit width. `phase` is the state a future animation steps | `guiding_center_toroidal_momentum`, `parallel_speed_from_mu` |
+| `toroidal_symmetry_breaking` | A 3-D field changes $P_\phi$. Away from resonance the change oscillates; where $\Delta\omega_\mathrm{BH} = 0$ it is secular | `bounce_harmonic_detuning` |
+
+**Conventions.**
+* $P_\phi = mRv_\phi + qRA_\phi$ (`canonical_toroidal_momentum`) uses physical components and the
+  IMAS $\phi$.
+* The guiding-centre form uses $\psi = RA_\phi$ in **Wb per radian**, largest on the axis for a current
+  along $+\phi$. `psi_per_radian_from_cocos` converts a stored flux: $-\psi/2\pi$ for COCOS 11
+  (IMAS DD3) and $+\psi/2\pi$ for COCOS 17 (DD4). Used as stored, the flux has the wrong sign or a
+  $2\pi$ error.
+* $J_\parallel$ is documented but deliberately not a numerical helper: its bounce interval and
+  orientation depend on the orbit.
+* The drift of one orbit's $P_\phi$ is not NTV. Torque and transport are #1111's, and need the kinetic
+  response of the whole distribution.
+
+## Straight-field-line coordinates
+
+Straight field lines are a condition, not a coordinate system. The freedom the condition leaves is what
+PEST, Boozer, Hamada and equal-arc fix in different ways. All four are members of one generalised
+family, $\mathcal{J} \propto R^{p_R}/(B_p^{p_{Bp}}B^{p_B})$ (`vaft.formula.generalized_straight_field_line_angle`,
+as in DCON/GPEC). The unwrapped picture of a straight field line is `unwrapped_flux_surface`.
+Clebsch, field-aligned and ballooning coordinates are #1075's.
+
+```python
+vaft.diagram.sfl_coordinate_grids()
+vaft.diagram.sfl_coordinate_taxonomy()
+vaft.diagram.sfl_fourier_convergence()
+```
+
+![grids]({{ '/assets/diagrams/sfl_coordinate_grids.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![taxonomy]({{ '/assets/diagrams/sfl_coordinate_taxonomy.svg' | relative_url }}) | ![spectra]({{ '/assets/diagrams/sfl_fourier_convergence.svg' | relative_url }}) |
+
+| Coordinate | $(p_{Bp}, p_B, p_R)$ | Geometric $\phi$ kept | Also simplified | Typical use |
+| --- | --- | --- | --- | --- |
+| PEST | $(0, 0, 2)$ | yes | the toroidal angle | classical MHD stability |
+| Boozer | $(0, 2, 0)$ | no ($\zeta = \phi + \nu$) | $\mathcal{J} \propto B^{-2}$, the $B$ spectrum | orbits, neoclassical, 3-D |
+| Hamada | $(0, 0, 0)$ | no | flux-function Jacobian; current lines straight too | MHD stability |
+| equal-arc | $(1, 0, 0)$ | no ($\zeta = \phi + \nu$) | uniform poloidal sampling | numerical representation |
+
+* **Same equilibrium, different grids.** All four panels of `sfl_coordinate_grids` share one
+  equilibrium: $R_0/a = 1.7$, $\kappa = 2$, $\delta = 0.45$. The surfaces are identical and only the
+  angle changes. A test checks this.
+* **Different Fourier costs.** In `sfl_fourier_convergence`, one outboard-localised, axisymmetric
+  perturbation needs anywhere from 9 to 26 poloidal harmonics, depending on the angle it is expanded
+  in. Moved inboard, the ranking reverses: which angle is compact depends on where the structure sits.
+  For $n \ne 0$, the toroidal shift $\nu$ of every angle except PEST couples harmonics further. The
+  figure leaves that out.
+* **Only PEST keeps $\phi$.** Keeping the geometric $\phi$ forces $\mathcal{J} \propto R^2$, so every
+  other member has $\zeta = \phi + \nu$.
+* **Boozer ≈ PEST here.** The two nearly coincide at this $B_p \ll B_\phi$, where $B^2 \propto R^{-2}$.
+* **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
+  taxonomy, independently of which angle is chosen.
+
+## Clebsch labels and the ballooning representation
+
+These figures go from straight-field-line coordinates to the local, field-aligned and ballooning
+descriptions that high-$n$ stability and turbulence models use. The formulas are
+`field_line_label`, `s_alpha_curvature_drive` and `s_alpha_ballooning_solution` in
+`vaft.formula.stability`, on the circular $s$–$\alpha$ model.
+
+```python
+vaft.diagram.clebsch_field_line_label(q=2.5)
+vaft.diagram.ballooning_curvature_drive()
+vaft.diagram.ballooning_newcomb_test()
+vaft.diagram.ballooning_harmonic_envelope(n=20)
+vaft.diagram.ballooning_workflow()
+```
+
+| | |
+| --- | --- |
+| ![Clebsch]({{ '/assets/diagrams/clebsch_field_line_label.svg' | relative_url }}) | ![curvature]({{ '/assets/diagrams/ballooning_curvature_drive.svg' | relative_url }}) |
+| ![Newcomb test]({{ '/assets/diagrams/ballooning_newcomb_test.svg' | relative_url }}) | ![harmonics]({{ '/assets/diagrams/ballooning_harmonic_envelope.svg' | relative_url }}) |
+
+![workflow]({{ '/assets/diagrams/ballooning_workflow.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `clebsch_field_line_label` | A field line is where $\psi$ = const meets $\alpha = \phi - q\theta$ = const. In `helical_phase`'s left-handed $(\psi, \theta, \phi)$, with $\psi$ rising outward and $\mathbf B$ along $+\phi$, $\mathbf B \propto \nabla\psi\times\nabla\alpha$. Right-handed coordinates give the Connor–Hastie–Taylor form $\nabla\alpha\times\nabla\psi$ |
+| `ballooning_curvature_drive` | Normal curvature $\cos\theta > 0$ (bad, outboard, shaded) once per $2\pi$ period of the covering space, and the total drive $K = \cos\theta + \Lambda\sin\theta$. Its outer lobes come from the geodesic term, which grows with the local shear. Also shown with $\theta_0$ |
+| `ballooning_newcomb_test` | Newcomb's test on the marginal solution $F(\theta)$: it stays positive (stable), crosses zero (unstable), or is positive again beyond $\alpha_2$ (second stability). These are not localised eigenfunctions |
+| `ballooning_harmonic_envelope` | $a_m = \hat F(m - nq)$ for a stated model envelope: many coupled harmonics around $nq$. Their sum oscillates at $m \approx nq$ under the envelope, localised outboard |
+| `ballooning_workflow` | Straight-field-line coordinates → field-line label → field-aligned → ballooning / flux tube, and the infinite-$n$ path. A finite-$n$ global calculation keeps what that path drops |
+
+The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).
+The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
+
+## Slab resonant layers: tearing and twisting parity
+
+How a global harmonic becomes a local layer response. The mapping $(m, n) \to (k_y, k_z)$ and
+$q = m/n \Leftrightarrow k_\parallel = 0$ is `mode_number_mapping`. The flux is
+`vaft.formula.slab_perturbed_flux`; its tearing form is the island pendulum of `magnetic_island`.
+
+```python
+vaft.diagram.slab_parity(parity="tearing")   # "twisting"
+vaft.diagram.slab_parity_comparison()
+vaft.diagram.poloidal_harmonic_coupling(m=3)
+vaft.diagram.resonant_layer_matching()
+```
+
+![parity]({{ '/assets/diagrams/slab_parity_comparison.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![coupling]({{ '/assets/diagrams/poloidal_harmonic_coupling.svg' | relative_url }}) | ![matching]({{ '/assets/diagrams/resonant_layer_matching.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `slab_parity` | Contours of $\Psi_T = B_s'x^2/2 + \psi_0\cos k_yy$: an island of width $4\sqrt{\psi_0/B_s'}$, O- and X-points, and $\delta B_x(0) \ne 0$. Contours of $\Psi_W = B_s'x^2/2 + \psi_1x\cos k_yy$, drawn with its $O(\psi_1^2)$ completion: no normal field at the layer ($k_\parallel = 0$) and no reconnection, and every surface, the rational one included, displaced together by $\xi = -\psi_1\cos k_yy/B_s'$ |
+| `slab_parity_comparison` | Both side by side, with the parity of $\tilde\psi$ and $\tilde\phi$, $\delta B_x(0)$ and the topology |
+| `poloidal_harmonic_coupling` | $\cos\theta$ (toroidicity) couples $m \to m \pm 1$ and $\cos 2\theta$ (elongation) couples $m \to m \pm 2$, at fixed $n$. The harmonic index $m$ is not the parity |
+| `resonant_layer_matching` | Every rational surface of one $n$ has a T and a W channel. The outer region couples them all into one $2N\times2N$ matrix (RDCON/STRIDE), and each layer is solved on its own (SLAYER) |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

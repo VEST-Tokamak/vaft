@@ -15,6 +15,8 @@ on:
       - 'notebooks/**'
       - 'vaft/formula/**'
       - 'vaft/machine_mapping/**'
+      - 'vaft/process/**'
+      - 'vaft/_docstring.py'
       - '.github/workflows/docs.yml'
   push:
     branches: [main, develop]
@@ -23,6 +25,8 @@ on:
       - 'notebooks/**'
       - 'vaft/formula/**'
       - 'vaft/machine_mapping/**'
+      - 'vaft/process/**'
+      - 'vaft/_docstring.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

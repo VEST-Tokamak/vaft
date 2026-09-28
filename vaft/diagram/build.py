@@ -46,6 +46,42 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}_{projection}.svg": (name, {"projection": projection}) for name, projection in (
         ("exb_drift", "3d"), ("curvature_drift", "poloidal"), ("curvature_drift", "top"),
         ("magnetization_current", "3d"), ("toroidal_drift", "poloidal"), ("toroidal_drift", "top"))},
+    # tearing physics, one concept per diagram
+    **{f"{name}.svg": (name, {}) for name in ("rational_surface", "delta_prime", "tearing_layer_matching")},
+    # 3-D perturbation harmonics
+    **{f"{name}.svg": (name, {}) for name in ("normal_field_component", "complex_harmonic",
+                                              "toroidal_harmonic_phase", "harmonic_real_space_projection",
+                                              "complex_field_superposition")},
+    # concept diagrams
+    "collision_processes.svg": ("collision_processes", {}),
+    # geometric approximations
+    "geometry_ordering_map.svg": ("geometry_ordering_map", {}),
+    **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
+       for g in ("toroidal", "cylindrical", "slab")},
+    "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    # tokamak geometry and flux coordinates
+    **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
+    **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},
+    **{f"{name}.svg": (name, {}) for name in ("shaping_family", "hfs_lfs_field", "safety_factor_winding",
+                                              "flux_coordinates", "poloidal_angle_comparison",
+                                              "unwrapped_flux_surface", "field_line_pitch")},
+    # toroidicity and TF ripple
+    **{f"{name}.svg": (name, {}) for name in ("trapped_and_passing_orbits", "toroidal_field_ripple",
+                                              "ripple_well_formation", "stochastic_ripple_orbit")},
+    # guiding-centre invariants and toroidal symmetry
+    **{f"{name}.svg": (name, {}) for name in ("guiding_center_invariants", "canonical_toroidal_momentum",
+                                              "toroidal_symmetry_breaking")},
+    # straight-field-line coordinates
+    **{f"{name}.svg": (name, {}) for name in ("sfl_coordinate_grids", "sfl_coordinate_taxonomy",
+                                              "sfl_fourier_convergence")},
+    # Clebsch labels, field-aligned and ballooning representations
+    **{f"{name}.svg": (name, {}) for name in ("clebsch_field_line_label", "ballooning_curvature_drive",
+                                              "ballooning_newcomb_test", "ballooning_harmonic_envelope",
+                                              "ballooning_workflow")},
+    # slab resonant layers: parity and harmonic coupling
+    **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
+    **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
+                                              "resonant_layer_matching")},
 }
 
 

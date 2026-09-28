@@ -159,12 +159,23 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("equilibrium", description="equilibrium (or {name: equilibrium}) the channels are mapped through"),
         OptionSpec("fitting_function", "str", description="profile model: polynomial, exponential, gp, linear, ..."),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
+        # How a field map spaces its value axis (issue #1099). A connection
+        # length runs over decades and is drawn logarithmically by default;
+        # "linear" is there for a caller comparing against one.
+        OptionSpec("scale", "choice", "recipes.VALUE_SCALES",
+                   description="value-axis spacing of a field map: log or linear"),
         OptionSpec("phi0", "float"), OptionSpec("pose_path"), OptionSpec("quantity"), OptionSpec("r0", "float"),
         OptionSpec("reference_slopes"), OptionSpec("sample_rate", "float"), OptionSpec("series_label", "str"),
         OptionSpec("shot", "int"), OptionSpec("show_lcfs", "bool"), OptionSpec("show_magnetic_axis", "bool"),
         OptionSpec("show_wall", "bool"), OptionSpec("sigma", "float"), OptionSpec("time_resolution", "float"),
         OptionSpec("title", "str"), OptionSpec("use_wall_boundary", "bool"), OptionSpec("window"),
         OptionSpec("window_size", "float"), OptionSpec("x_limits", "range"), OptionSpec("z0", "float"),
+        # Island and coil-spectrum views (issue #886).
+        OptionSpec("unit", "str", description="display unit of a coil current or perturbed field; 'auto' picks one"),
+        OptionSpec("modes", description="toroidal mode numbers of a coil-current spectrum; None draws all"),
+        OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
+        OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
+        OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
     )
 
 

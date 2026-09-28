@@ -45,9 +45,11 @@ __all__ = [
     "beta_tor_from_beta_pol",
     "c_s_from_Te_Ti_mi",
     "collisionality_from_n_T_B_R",
+    "delta_prime_from_outer_derivatives",
     "empirical_li_qa",
     "greenwald_density",
     "greenwald_fraction",
+    "helical_harmonic",
     "helical_phase",
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
@@ -62,6 +64,10 @@ __all__ = [
     "s_alpha_marginal_alpha",
     "rhostar_from_Te_a_Bt",
     "sawtooth_stability_criterion",
+    "slab_perturbed_flux",
+    "s_alpha_ballooning_solution",
+    "s_alpha_curvature_drive",
+    "field_line_label",
     "v_alfven_from_B_n_mi",
 ]
 
@@ -1144,6 +1150,75 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
             - np.asarray(phase, dtype=float))
 
 
+def helical_harmonic(b_hat, theta, phi, m_pol, n_tor):
+    r"""The real perturbation carried by one complex $m/n$ Fourier coefficient.
+
+    $$\delta b = \mathrm{Re}\left[\hat b\,e^{i(m\theta - n\phi)}\right]
+      = b_R\cos\xi - b_I\sin\xi$$
+
+    Parameters
+    ----------
+    b_hat : complex or np.ndarray
+        Complex harmonic coefficient $\hat b = b_R + i\,b_I$ [B].
+    theta : float or np.ndarray
+        Poloidal angle [rad].
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    m_pol : int
+        Poloidal mode number [-].
+    n_tor : int
+        Toroidal mode number [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        The physical, real perturbation at $(\theta, \phi)$, in the unit of
+        ``b_hat`` [B].
+
+    Raises
+    ------
+    ValueError
+        ``m_pol`` or ``n_tor`` is not a positive mode number.
+
+    Convention
+    ----------
+    The phase is ``helical_phase`` with $\phi_0 = 0$, $\xi = m\theta - n\phi$:
+    both mode numbers positive, the helicity in the minus sign, and
+    $\hat b$ carrying the amplitude $|\hat b|$ and the phase
+    $\arg\hat b$ of the pattern. A crest ($\delta b = |\hat b|$) sits where
+    $\xi = -\arg\hat b$. A coefficient taken with the kernel
+    $e^{-in\phi}$ over a real pattern -- ``toroidal_mode_decomposition``'s
+    $C_n$, for which $A\cos(n\phi + \delta)$ gives $(A/2)e^{+i\delta}$ --
+    is the conjugate of this one: $\hat b = 2\,\overline{C_n}$. GPEC's
+    spectral output matches $e^{-in\phi}$ as written here, while its
+    real-space $\theta$-functions (``*_fun``) are stored as
+    $(\mathrm{Re}, -h\,\mathrm{Im})$ with the helicity $h$ (see
+    ``vaft.machine_mapping.conventions``). A stored pair is converted by the
+    rule of its source, never reinterpreted.
+
+    Physical interpretation
+    -----------------------
+    A magnetic perturbation is real. Its complex coefficient is bookkeeping:
+    $b_R$ and $b_I$ are the cosine and sine quadratures of one pattern, not
+    two fields, and only $|\hat b|$ and phases relative to a stated
+    origin are independent of the reference.
+
+    Assumptions
+    -----------
+    One harmonic; a field with several is the sum of this over $m$ (and $n$).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.2.
+    .. [2] J.-K. Park and N. C. Logan, Phys. Plasmas 24 (2017) 032505
+           (GPEC).
+    """
+    xi = helical_phase(theta, phi, m_pol, n_tor)
+    result = np.real(np.asarray(b_hat, dtype=complex) * np.exp(1j * xi))
+    return float(result) if np.ndim(result) == 0 else result
+
+
 def island_pendulum_hamiltonian(x, xi, width):
     r"""Local flux function of a constant-$\psi$ magnetic island.
 
@@ -1265,6 +1340,70 @@ def island_separatrix_half_width(xi, width):
 
 
 
+def delta_prime_from_outer_derivatives(psi_s, dpsi_dr_minus, dpsi_dr_plus):
+    r"""Tearing stability index from the outer solution's derivatives at the rational surface.
+
+    $$\Delta' = \frac{1}{\tilde\psi(r_s)}\left(\left.\frac{d\tilde\psi}{dr}\right|_{r_s^+}
+      - \left.\frac{d\tilde\psi}{dr}\right|_{r_s^-}\right)$$
+
+    Parameters
+    ----------
+    psi_s : float or np.ndarray
+        Perturbed poloidal flux of the outer solution at the rational
+        surface, where both sides meet [Wb].
+    dpsi_dr_minus : float or np.ndarray
+        Radial derivative of the inner-side outer solution as $r \to r_s^-$ [Wb/m].
+    dpsi_dr_plus : float or np.ndarray
+        Radial derivative of the outer-side outer solution as $r \to r_s^+$ [Wb/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta'$, the jump in the logarithmic derivative [1/m].
+
+    Raises
+    ------
+    ValueError
+        ``psi_s`` is zero or not finite.
+
+    Convention
+    ----------
+    $r$ increases outward, so the jump is the outer-side derivative minus
+    the inner-side one. $\Delta' > 0$ is the classical tearing drive; the
+    index is unchanged by the normalisation of $\tilde\psi$, and $r\Delta'$
+    is its dimensionless form. Any flux unit works if the derivatives share
+    it.
+
+    Physical interpretation
+    -----------------------
+    The free energy the ideal outer region offers a reconnecting layer at
+    $r_s$: the two outer solutions are continuous there but their slopes
+    are not, and only non-ideal physics in a thin layer can bridge the jump.
+
+    Assumptions
+    -----------
+    $\tilde\psi$ is continuous across $r_s$ with a jump only in its
+    derivative, the outer solutions being those of ideal, marginally stable
+    MHD. Nothing else is needed for the definition, which solves no outer
+    equation. What makes $\Delta'$ the quantity a layer matches is separate:
+    a layer thin compared with $r_s$ and, for the constant-$\psi$ regime,
+    $\Delta'\delta \ll 1$ across its width $\delta$.
+
+    References
+    ----------
+    .. [1] H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6
+           (1963) 459.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.8.
+    """
+    psi_s = np.asarray(psi_s, dtype=float)
+    if not (np.all(np.isfinite(psi_s)) and np.all(psi_s != 0.0)):
+        raise ValueError(f"psi_s must be finite and non-zero, not {psi_s!r}")
+    jump = np.asarray(dpsi_dr_plus, dtype=float) - np.asarray(dpsi_dr_minus, dtype=float)
+    result = jump / psi_s
+    return float(result) if result.ndim == 0 else result
+
+
 # ------------------------------------------------------------------
 # s-alpha ballooning stability
 # ------------------------------------------------------------------
@@ -1273,6 +1412,83 @@ def island_separatrix_half_width(xi, width):
 #: Doubling the range or halving the step moves the boundaries by < 0.01.
 _S_ALPHA_THETA_MAX = 40.0 * np.pi
 _S_ALPHA_STEP = 0.02
+
+
+def slab_perturbed_flux(x, y, shear, amplitude, k_y, parity="tearing"):
+    r"""Helical flux of a sheared slab with a tearing- or twisting-parity perturbation.
+
+    $$\Psi_T = \frac{B_s'}{2}x^2 + \psi_0\cos k_y y,\qquad
+      \Psi_W = \frac{B_s'}{2}x^2 + \psi_1\,x\cos k_y y$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the rational surface [m].
+    y : float or np.ndarray
+        Binormal coordinate [m].
+    shear : float
+        $B_s' = dB_y/dx$ at the rational surface, non-zero [T/m].
+    amplitude : float
+        $\psi_0$ (tearing) or $\psi_1$ (twisting); the units follow $\Psi$ [T m or T].
+    k_y : float
+        Binormal wavenumber $m/r_s$ [1/m].
+    parity : str
+        ``"tearing"`` (even $\tilde\psi$) or ``"twisting"`` (odd $\tilde\psi$) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Psi$; field lines lie on its contours [T m].
+
+    Raises
+    ------
+    ValueError
+        ``shear`` is zero or ``parity`` is unknown.
+
+    Convention
+    ----------
+    $\mathbf B_\perp = \hat{\mathbf z}\times\nabla\Psi$ in the slab frame of
+    ``sheared_slab_field`` (with $B_y = B_s'x$), so $\delta B_x = -\partial_y\tilde\psi$.
+    Tearing parity has $\tilde\psi(-x) = \tilde\psi(x)$ and $\delta B_x(0) \ne 0$;
+    twisting parity has $\tilde\psi(-x) = -\tilde\psi(x)$ and $\delta B_x(0) = 0$.
+    $\Psi_T/B_s'$ is ``island_pendulum_hamiltonian`` with $\xi = k_yy + \pi$ and
+    full width $w = 4\sqrt{|\psi_0/B_s'|}$; the O-points sit where
+    $\cos k_yy = -\mathrm{sgn}(\psi_0/B_s')$. ``shear`` may be negative -- the
+    slab of ``local_slab_from_cylinder`` has $L_s < 0$ for positive shear.
+
+    Physical interpretation
+    -----------------------
+    Tearing parity reconnects flux across the rational surface and opens a
+    magnetic island (O- and X-points, separatrix); its displacement
+    $\xi_x = -\tilde\psi/(B_s'x)$ is odd in $x$. Twisting parity has no normal
+    field on the rational surface ($k_\parallel = 0$ there), no reconnection,
+    and an even displacement $\xi_x = -\psi_1\cos k_yy/B_s'$: the surfaces on
+    both sides, and the rational surface with them, move together.
+
+    Assumptions
+    -----------
+    Constant shear across the layer, a single helicity, the perturbation's
+    radial structure taken as its leading term at $x = 0$ ($\psi_0$, or $\psi_1x$).
+    Linear in the amplitude: contours of $\Psi_W$ close to $x = 0$ form thin
+    cells of width $O(\psi_1/B_s')$ that are an artefact of dropping the
+    $O(\psi_1^2)$ term; $\tfrac12B_s'(x + \psi_1\cos k_yy/B_s')^2$ completes it.
+
+    References
+    ----------
+    .. [1] H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6
+           (1963) 459.
+    .. [2] R. Fitzpatrick, *Plasma Physics: An Introduction*, CRC Press
+           (2014), Ch. 7.
+    """
+    shear = float(shear)
+    if shear == 0.0 or not np.isfinite(shear):
+        raise ValueError(f"shear must be finite and non-zero, not {shear!r}")
+    if parity not in ("tearing", "twisting"):
+        raise ValueError(f"parity must be 'tearing' or 'twisting', not {parity!r}")
+    x = np.asarray(x, dtype=float)
+    wave = float(amplitude) * np.cos(float(k_y) * np.asarray(y, dtype=float))
+    result = 0.5 * shear * x * x + (wave if parity == "tearing" else x * wave)
+    return float(result) if np.ndim(result) == 0 else result
 
 
 def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_ALPHA_STEP):
@@ -1369,6 +1585,189 @@ def s_alpha_ballooning_stable(s, alpha, theta_max=_S_ALPHA_THETA_MAX, step=_S_AL
         theta += h
         stable &= F > 0.0
     return stable if stable.ndim else bool(stable)
+
+
+def field_line_label(phi, theta, q):
+    r"""Clebsch field-line label on a flux surface in straight-field-line coordinates.
+
+    $$\alpha = \phi - q\,\theta$$
+
+    Parameters
+    ----------
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    theta : float or np.ndarray
+        Straight-field-line poloidal angle, e.g. PEST $\theta^*$ [rad].
+    q : float or np.ndarray
+        Safety factor of the surface, a positive magnitude [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha$, constant along each field line; not wrapped [rad].
+
+    Convention
+    ----------
+    Along a field line $d\phi/d\theta = q$, so $\alpha$ is constant. With
+    ``helical_phase``'s angles ($\theta$ counter-clockwise from the outboard
+    midplane, $\phi$ counter-clockwise from above: $(\psi, \theta, \phi)$
+    left-handed), $\psi$ rising outward and $\mathbf B$ along $+\phi$,
+    $+\theta$, the Clebsch form is $\mathbf B \propto \nabla\psi\times\nabla\alpha$;
+    in right-handed coordinates (e.g. $\theta$ clockwise) it is
+    $\nabla\alpha\times\nabla\psi$, the Connor--Hastie--Taylor form.
+    For a rational $q = m/n$ it relates to ``helical_phase`` by
+    $\alpha = -\xi/n$ ($\phi_0 = 0$): lines of one $\alpha$ are lines of one
+    helical phase.
+
+    Physical interpretation
+    -----------------------
+    Together with $\psi$ it names a field line: the line is the intersection
+    of the surfaces $\psi = $ const and $\alpha = $ const. It is the natural
+    binormal coordinate of field-aligned, ballooning and flux-tube models.
+
+    Assumptions
+    -----------
+    Nested flux surfaces with a straight-field-line angle; undefined at
+    separatrices and in islands or stochastic regions.
+
+    References
+    ----------
+    .. [1] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 4 and 6.
+    """
+    result = np.asarray(phi, dtype=float) - np.asarray(q, dtype=float) * np.asarray(theta, dtype=float)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_curvature_drive(theta, s, alpha, theta0=0.0):
+    r"""Normal-curvature drive of the $s$-$\alpha$ ballooning equation along the extended angle.
+
+    $$K(\theta) = \cos\theta + \Lambda\sin\theta,\qquad
+      \Lambda = s(\theta - \theta_0) - \alpha(\sin\theta - \sin\theta_0)$$
+
+    Parameters
+    ----------
+    theta : float or np.ndarray
+        Extended ballooning angle, not restricted to one period [rad].
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta0 : float
+        Ballooning angle $\theta_0$ (radial-wavenumber parameter) [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $K$; the drive $\alpha K F$ is destabilising where $K > 0$ [-].
+
+    Convention
+    ----------
+    The coefficient of $\alpha F$ in the equation of
+    ``s_alpha_ballooning_stable`` (there $\theta_0 = 0$). $\cos\theta$ is the
+    normal curvature -- bad (positive) on the outboard side -- and
+    $\Lambda\sin\theta$ the geodesic curvature weighted by the local shear.
+
+    Physical interpretation
+    -----------------------
+    Where the mode sits along the field line decides whether pressure
+    drives it: it balloons where $K > 0$, on the outboard, bad-curvature side,
+    and is stabilised by field-line bending elsewhere. $\theta_0$ slides the
+    point of zero local shear along the line.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``: large aspect ratio, circular shifted
+    surfaces, infinite toroidal mode number.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    """
+    theta = np.asarray(theta, dtype=float)
+    lam = float(s) * (theta - float(theta0)) - float(alpha) * (np.sin(theta) - np.sin(float(theta0)))
+    result = np.cos(theta) + lam * np.sin(theta)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_STEP):
+    r"""The even solution $F(\theta)$ of the marginal $s$-$\alpha$ ballooning equation.
+
+    $$\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
+    + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = 0,\qquad F(0) = 1,\ F'(0) = 0$$
+
+    Parameters
+    ----------
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta_max : float
+        End of the extended-angle interval [rad].
+    step : float
+        Fixed fourth-order Runge-Kutta step [rad].
+
+    Returns
+    -------
+    theta : np.ndarray
+        Extended angle from 0 in steps of ``step``, to the first step at or
+        beyond ``theta_max`` [rad].
+    F : np.ndarray
+        The solution; it is even, so $F(-\theta) = F(\theta)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``theta_max`` or ``step`` is not positive.
+
+    Convention
+    ----------
+    The same equation, normalisation and integrator as
+    ``s_alpha_ballooning_stable``, returning the path instead of the verdict:
+    by Newcomb's criterion the surface is unstable exactly when this $F$
+    crosses zero.
+
+    Physical interpretation
+    -----------------------
+    The marginal ($\omega^2 = 0$) solution along the field line on the
+    extended angle -- not a localised eigenfunction: a stable $F$ grows
+    without decaying. A zero crossing means a localised perturbation can
+    release energy.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    """
+    if not theta_max > 0.0 or not step > 0.0:
+        raise ValueError("theta_max and step must be positive")
+    s, a = float(s), float(alpha)
+
+    def rhs(theta, F, G):
+        lam = s * theta - a * np.sin(theta)
+        return G / (1.0 + lam * lam), -a * (np.cos(theta) + lam * np.sin(theta)) * F
+
+    h = float(step)
+    n = int(np.ceil(theta_max / h))
+    thetas = np.arange(n + 1) * h
+    F, G = 1.0, 0.0
+    out = [F]
+    for i in range(n):
+        theta = thetas[i]
+        k1F, k1G = rhs(theta, F, G)
+        k2F, k2G = rhs(theta + h / 2, F + h / 2 * k1F, G + h / 2 * k1G)
+        k3F, k3G = rhs(theta + h / 2, F + h / 2 * k2F, G + h / 2 * k2G)
+        k4F, k4G = rhs(theta + h, F + h * k3F, G + h * k3G)
+        F = F + h / 6 * (k1F + 2 * k2F + 2 * k3F + k4F)
+        G = G + h / 6 * (k1G + 2 * k2G + 2 * k3G + k4G)
+        out.append(F)
+    return thetas, np.array(out)
 
 
 def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):

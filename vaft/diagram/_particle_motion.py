@@ -14,7 +14,6 @@ orbits and drift vectors, so tests check the physics without the drawing.
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -31,6 +30,7 @@ from vaft.formula.particle import (
     larmor_radius,
 )
 
+from ._equations import formula_equation
 from ._projection import camera, project
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
@@ -101,20 +101,7 @@ _EQUATIONS = {
     "magnetization_current": (boris_orbit, gyrofrequency, larmor_radius),
     "toroidal_drift": (grad_b_drift_velocity, curvature_drift_velocity, exb_drift_velocity),
 }
-_DISPLAY_EQUATION = re.compile(r"\$\$(.+?)\$\$", re.S)
 _EQUATION_LINE_HEIGHT = 0.95  # cm per displayed equation in the box
-
-
-def formula_equation(function) -> str:
-    """The defining equation of a ``vaft.formula`` function, from its docstring.
-
-    The figures show exactly this text, so an equation on a diagram cannot
-    drift from the one the formula documents and implements.
-    """
-    match = _DISPLAY_EQUATION.search(function.__doc__ or "")
-    if match is None:
-        raise ValueError(f"{function.__name__} documents no $$...$$ equation")
-    return " ".join(match.group(1).split())
 
 
 def _with_equations(scene: Scene, family: str) -> Scene:
@@ -262,7 +249,10 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     plane): the gyration is a circle climbing at the drift velocity.
     ``"top"`` looks down the $z$ axis at the curved line and the orbit
     wrapped around it.
-    """
+    
+    The global, invariant view of the same orbit physics is
+    ``vaft.diagram.canonical_toroidal_momentum``.
+"""
     _check_projection(projection, ("3d", "poloidal", "top"))
     R0, B0, q, m = 6.0, 4.0, 1.0, 1.0
     v_par, v_perp = 1.0, 2.0
@@ -454,7 +444,10 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels:
     ``projection="poloidal"`` is that cross-section in the $(R, z)$ plane --
     the textbook picture -- and ``"top"`` looks down on the circular field
     lines and the inward $\nabla B$, with the vertical drifts out of the page.
-    """
+    
+    The global, invariant view of the same orbit physics is
+    ``vaft.diagram.canonical_toroidal_momentum``.
+"""
     from ._magnetic_island import _validate as _island_model
 
     _check_projection(projection, ("3d", "poloidal", "top"))

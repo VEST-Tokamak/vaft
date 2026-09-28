@@ -299,9 +299,9 @@ configured label the product lacks is `absent` while an unconfigured one simply 
 optical feature notes what the mapper did to its channel (`resampled`, `native_rate_hz`, `time_shift_s` for
 the fast filterscope) and whether the channel's digitizer clipped inside the window (`railed`, judged on the
 raw maximum against `spectrometer_uv.CHANNEL_RAIL_LEVEL`; `None` for a channel with no documented rail). The
-diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): VEST's stored flux
-is negative-going, so a paramagnetic shot would come back positive. `ip_ramp_end` is reserved and never
-required.
+diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): the stored flux
+is positive for a paramagnetic plasma (#1196), so a diamagnetic shot would come back negative. `ip_ramp_end`
+is reserved and never required.
 
 ```python
 from vaft.omas.plasma_features import plasma_features

@@ -788,6 +788,77 @@ def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0
     return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
 
 
+def shafranov_shift_from_r_a_R0_beta_p_li(r, a, R0, beta_p, l_i):
+    r"""Large-aspect-ratio Shafranov shift of a circular surface relative to the boundary.
+
+    $$\Delta(r) - \Delta(a) = \frac{a^2 - r^2}{2R_0}\left(\beta_p + \frac{l_i}{2}\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius of the surface, in $[0, a]$ [m].
+    a : float
+        Minor radius of the boundary [m].
+    R0 : float
+        Major radius of the boundary centre [m].
+    beta_p : float
+        Poloidal beta, taken constant across the surfaces [-].
+    l_i : float
+        Internal inductance, taken constant across the surfaces [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Outward shift of the surface centre beyond the boundary's, largest on
+        the magnetic axis [m].
+
+    Raises
+    ------
+    ValueError
+        ``a`` or ``R0`` is not positive, or ``r`` lies outside $[0, a]$.
+
+    Convention
+    ----------
+    Positive outward (towards larger $R$), measured from the centre of the
+    boundary, which is the geometric axis. It integrates Wesson's
+    $d\Delta/dr = -(r/R_0)(\beta_p + l_i/2)$ with $\beta_p$ and $l_i$
+    held at their global values; profile-resolved $\beta_p(r)$ and $l_i(r)$
+    would need the integral itself.
+
+    Physical interpretation
+    -----------------------
+    Pressure (the $\beta_p$ term) and the hoop force of the plasma current --
+    the poloidal field is stronger, so its pressure higher, on the inboard side
+    (the $l_i/2$ term) -- push the inner surfaces outward, so the
+    magnetic axis sits outside the geometric axis by
+    $a^2(\beta_p + l_i/2)/(2R_0)$ and the surfaces crowd on the low-field side.
+
+    Assumptions
+    -----------
+    Circular surfaces, large aspect ratio $a/R_0 \ll 1$, a shift small
+    against $a$, and radially uniform $\beta_p + l_i/2$.
+
+    Validity
+    --------
+    Accurate to $O(\epsilon)$; at tight aspect ratio (spherical tokamaks)
+    the shift and the shaping it couples to need a Grad--Shafranov solution.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] V. D. Shafranov, Rev. Plasma Phys. 2 (1966) 103.
+    """
+    a, R0 = float(a), float(R0)
+    if not (a > 0.0 and R0 > 0.0):
+        raise ValueError(f"a and R0 must be positive, not {a!r} and {R0!r}")
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0) or np.any(r > a * (1.0 + 1e-12)):
+        raise ValueError("r must be finite and lie in [0, a]")
+    result = (a * a - r * r) / (2.0 * R0) * (float(beta_p) + 0.5 * float(l_i))
+    return float(result) if np.ndim(result) == 0 else result
+
+
 def straight_field_line_angle(theta, jacobian, R):
     r"""Straight-field-line (PEST) poloidal angle on one flux surface.
 
@@ -881,9 +952,102 @@ def straight_field_line_angle(theta, jacobian, R):
     return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]
 
 
+def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0.0, power_b=0.0, power_r=2.0):
+    r"""Straight-field-line poloidal angle of the generalised family: PEST, Boozer, Hamada, equal-arc.
+
+    $$\theta_\mathrm{sfl}(\theta) = \theta_0 + 2\pi\,
+    \frac{\int_{\theta_0}^{\theta} \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}
+         {\oint \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}$$
+
+    Parameters
+    ----------
+    theta : np.ndarray
+        Poloidal angle of the surface's own parametrisation, strictly
+        increasing and spanning exactly one period, both ends included [rad].
+    jacobian : np.ndarray
+        Jacobian of the $(r, \theta, \phi)$ coordinates at each ``theta``, as
+        in ``straight_field_line_angle`` [arb].
+    R : np.ndarray
+        Major radius at each ``theta`` [m].
+    B_p : np.ndarray
+        Poloidal field strength at each ``theta``; only its variation matters [T].
+    B : np.ndarray
+        Total field strength at each ``theta``; only its variation matters [T].
+    power_bp : float
+        $p_{Bp}$ [-].
+    power_b : float
+        $p_B$ [-].
+    power_r : float
+        $p_R$ [-].
+
+    Returns
+    -------
+    np.ndarray
+        The straight-field-line angle at each ``theta``, from ``theta[0]`` to
+        ``theta[0] + 2 pi`` [rad].
+
+    Raises
+    ------
+    ValueError
+        As ``straight_field_line_angle``, or a field is not positive.
+
+    Convention
+    ----------
+    The target coordinates have Jacobian
+    $\mathcal{J}_\mathrm{sfl} \propto R^{p_R}/(B_p^{\,p_{Bp}}B^{\,p_B})$, the
+    DCON/GPEC generalised family: PEST $(0, 0, 2)$, Boozer $(0, 2, 0)$,
+    Hamada $(0, 0, 0)$, equal-arc $(1, 0, 0)$ for
+    $(p_{Bp}, p_B, p_R)$. Since $\mathbf B\cdot\nabla\theta_\mathrm{sfl} \propto
+    1/\mathcal J_\mathrm{sfl}$ whatever toroidal angle is paired with it,
+    $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
+    poloidal angle is fully set here. Every member except PEST also shifts the
+    toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- which this
+    function does not compute. The defaults give PEST, equal to
+    ``straight_field_line_angle``.
+
+    Physical interpretation
+    -----------------------
+    Straightness does not fix the coordinates: every member of the family
+    makes field lines straight, and the powers say what else is made simple --
+    the geometric $\phi$ (PEST), $|B|$ in the Jacobian (Boozer), a flux-function
+    Jacobian that also straightens current lines (Hamada), or uniform
+    poloidal arc sampling (equal-arc).
+
+    Assumptions
+    -----------
+    Axisymmetric nested flux surfaces; the fields are those on the surface
+    at the same points.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoid rule, as ``straight_field_line_angle``.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON), Sec. II.
+    .. [2] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    """
+    theta = np.asarray(theta, dtype=float)
+    B_p = np.asarray(B_p, dtype=float)
+    B = np.asarray(B, dtype=float)
+    if B_p.shape != theta.shape or B.shape != theta.shape:
+        raise ValueError("B_p and B must have the shape of theta")
+    if np.any(B_p <= 0.0) or np.any(B <= 0.0):
+        raise ValueError("B_p and B must be positive")
+    R = np.asarray(R, dtype=float)
+    # the PEST angle of a re-weighted Jacobian: J R^-pR Bp^pBp B^pB = (J R^{2-pR} Bp^pBp B^pB) / R^2
+    weighted = np.asarray(jacobian, dtype=float) * R ** (2.0 - float(power_r)) * B_p ** float(power_bp) \
+        * B ** float(power_b)
+    return straight_field_line_angle(theta, weighted, R)
+
+
 # ------------------------------------------------------------------
 # Current Density
 # ------------------------------------------------------------------
+
 
 def current_density_from_B(B: Union[float, np.ndarray],
                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -1154,6 +1318,10 @@ def vacuum_toroidal_field(B0, R0, R):
     Assumptions
     -----------
     Axisymmetric coils (no ripple), no plasma current or diamagnetism.
+
+    See Also
+    --------
+    vaft.diagram.hfs_lfs_field : the canonical diagram of this relation.
 
     References
     ----------

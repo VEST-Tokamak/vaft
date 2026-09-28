@@ -42,11 +42,13 @@ from ._docstring import (
     ModuleDoc,
     ParamDoc,
     ParsedDocstring,
+    RaiseDoc,
     Reference,
     ReturnDoc,
     machine_scope,
     parse_docstring,
     parse_module_docstring,
+    source_location,
     strip_roles,
 )
 
@@ -68,7 +70,7 @@ __all__ = [
 #: functions are public through ``equilibrium``, and that is where they appear.
 CATEGORIES: tuple[str, ...] = (*_IMPORT_ORDER, "cocos")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _GENERATOR = "python -m vaft.process.catalog --output docs/_data/process_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent
 
@@ -99,6 +101,9 @@ class ProcessSpec:
     deprecated: bool
     aliases: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    raises: tuple[RaiseDoc, ...] = ()
+    source_path: str = ""
+    source_line: int = 0
 
     @property
     def qualname(self) -> str:
@@ -196,7 +201,7 @@ class ProcessSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Provenance")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "Provenance")
             ],
             "provenance": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -205,6 +210,11 @@ class ProcessSpec:
             "convention_sensitive": self.convention_sensitive,
             "deprecated": self.deprecated,
             "conforming": self.conforming,
+            "raises": [
+                {"type": item.type, "description": strip_roles(item.description)}
+                for item in self.raises
+            ],
+            "source": {"path": self.source_path, "line": self.source_line},
             "aliases": list(self.aliases),
             "errors": list(self.errors),
         }
@@ -324,6 +334,7 @@ def _structural_violations(parsed: ParsedDocstring, fn) -> list[str]:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> ProcessSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
+    path, line = source_location(fn, _PACKAGE.parent.parent)
     errors = list(dict.fromkeys([*parsed.errors, *_structural_violations(parsed, fn)]))
     return ProcessSpec(
         name=name,
@@ -341,6 +352,9 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         errors=tuple(errors),
+        raises=parsed.raises,
+        source_path=path,
+        source_line=line,
     )
 
 

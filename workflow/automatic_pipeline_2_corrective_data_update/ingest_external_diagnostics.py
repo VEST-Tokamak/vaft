@@ -17,8 +17,10 @@ Two deliberate exclusions:
     one-off.
 
 ``unmapped/``
-    Arranged frames, vendor ``.mcf`` containers, the 2013-era CCD export and
-    hard X-ray CSVs. No mapping can read any of it yet.
+    Arranged frames, vendor ``.mcf`` containers and the 2013-era CCD export.
+    No mapping can read any of it yet. (Hard X-ray CSVs moved to
+    ``legacy/hard_x_rays/`` once ``vaft.machine_mapping.hard_x_rays`` could
+    read them; they have no ingest tree yet.)
 
 Products land in the canonical ``omas/`` domain, resolved through
 ``FileDB.omas_product`` / ``FileDB.omas_manifest``. Each tree is a real
@@ -193,7 +195,7 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
         payload = record_path.read_bytes()
         record = json.loads(payload)
         provenance = {
-            "record": str(record_path.relative_to(root)),
+            "record": record_path.relative_to(root).as_posix(),
             "record_sha256": hashlib.sha256(payload).hexdigest(),
             "workbook": record.get("source", {}),
         }
