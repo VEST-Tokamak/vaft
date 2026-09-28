@@ -15,7 +15,8 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
 
         expected_specs = {
             "h5py>=3.16,<4",
-            "h5pyd==0.20.0",
+            "h5pyd==1.0.0; python_version >= '3.11'",
+            "h5pyd==0.24.0; python_version < '3.11'",
             "numpy>=2.0.0,<3",
             "scipy>=1.13.0,<2",
             "matplotlib>=3.7.3,<4",
@@ -35,7 +36,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         self.assertNotIn("numpy>=2,<3", overrides)
         dependencies = set(data["project"]["dependencies"])
         self.assertIn("numpy>=2.0.0,<3", dependencies)
-        self.assertIn("h5pyd==0.20.0", dependencies)
+        self.assertIn("h5pyd==1.0.0; python_version >= '3.11'", dependencies)
 
     def test_exact_pins_are_the_reviewed_ones(self):
         """#1012: an exact pin must have a recorded reason, not come from a freeze.
@@ -61,6 +62,34 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
             if exact:
                 pinned.add(requirement.name.lower())
         self.assertEqual(pinned, {"omas", "h5pyd"})
+
+    def test_h5pyd_pins_partition_the_supported_interpreters(self):
+        """#969: every supported Python gets exactly one h5pyd pin.
+
+        1.0.0 needs Python 3.11, so 3.10 keeps 0.24.0. A gap would leave h5pyd
+        uninstalled on some interpreter; an overlap would make pip fail.
+        """
+        pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        from packaging.requirements import Requirement
+        from packaging.specifiers import SpecifierSet
+
+        pins = [
+            Requirement(dep)
+            for dep in data["project"]["dependencies"]
+            if Requirement(dep).name.lower() == "h5pyd"
+        ]
+        supported = SpecifierSet(data["project"]["requires-python"])
+        for minor in range(10, 20):
+            version = f"3.{minor}"
+            if version not in supported:
+                continue
+            chosen = [
+                str(pin.specifier)
+                for pin in pins
+                if pin.marker is None or pin.marker.evaluate({"python_version": version})
+            ]
+            self.assertEqual(len(chosen), 1, (version, chosen))
 
 
 if __name__ == "__main__":

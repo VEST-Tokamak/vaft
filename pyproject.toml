@@ -37,9 +37,11 @@ dependencies = [
   "f90nml>=1.4.4",
   # The floor is issue #50: older h5py builds break against NumPy 2.
   "h5py>=3.16,<4",
-  # Exact: the HSDS client. Its upgrade (0.24.x/1.0.0, which drops Python 3.10)
-  # changes the credential and transport path and is tracked in #969.
-  "h5pyd==0.20.0",
+  # Exact: the HSDS client (#969). 1.0.0 and its new h5json>=2 dependency need
+  # Python 3.11, so 3.10 keeps the last release that supports it. Both were
+  # qualified live against the VEST HSDS server (reads bit-identical to 0.20.0).
+  "h5pyd==1.0.0; python_version >= '3.11'",
+  "h5pyd==0.24.0; python_version < '3.11'",
   "ipykernel>=6.29.4",
   "ipython",
   "ipywidgets",
