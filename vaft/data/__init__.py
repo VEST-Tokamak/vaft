@@ -8,6 +8,18 @@ such as EFIT GEQDSK. Packaged sample files remain available through
 from importlib import import_module
 
 __all__ = [
+    "CLOSURE_MODES",
+    "CURRENT_NORMALIZATIONS",
+    "CURRENT_POLICIES",
+    "ITERATION_STATUSES",
+    "STATE_STATUSES",
+    "ConvergenceCriteria",
+    "CurrentPolicy",
+    "CurrentSource",
+    "EquilibriumKineticSpec",
+    "IterationState",
+    "PressureSource",
+    "SelfConsistentState",
     "ION_SPECIES",
     "PRESSURE_CLOSURES",
     "PRESSURE_CONSTRAINTS",
@@ -124,6 +136,18 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "CLOSURE_MODES": (".equilibrium_kinetic_iteration", "CLOSURE_MODES"),
+    "CURRENT_NORMALIZATIONS": (".equilibrium_kinetic_iteration", "CURRENT_NORMALIZATIONS"),
+    "CURRENT_POLICIES": (".equilibrium_kinetic_iteration", "CURRENT_POLICIES"),
+    "ITERATION_STATUSES": (".equilibrium_kinetic_iteration", "ITERATION_STATUSES"),
+    "STATE_STATUSES": (".equilibrium_kinetic_iteration", "STATE_STATUSES"),
+    "ConvergenceCriteria": (".equilibrium_kinetic_iteration", "ConvergenceCriteria"),
+    "CurrentPolicy": (".equilibrium_kinetic_iteration", "CurrentPolicy"),
+    "CurrentSource": (".equilibrium_kinetic_iteration", "CurrentSource"),
+    "EquilibriumKineticSpec": (".equilibrium_kinetic_iteration", "EquilibriumKineticSpec"),
+    "IterationState": (".equilibrium_kinetic_iteration", "IterationState"),
+    "PressureSource": (".equilibrium_kinetic_iteration", "PressureSource"),
+    "SelfConsistentState": (".equilibrium_kinetic_iteration", "SelfConsistentState"),
     "ION_SPECIES": (".synthetic_kinetic_profiles", "ION_SPECIES"),
     "PRESSURE_CLOSURES": (".synthetic_kinetic_profiles", "PRESSURE_CLOSURES"),
     "PRESSURE_CONSTRAINTS": (".synthetic_kinetic_profiles", "PRESSURE_CONSTRAINTS"),
