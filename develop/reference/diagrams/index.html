@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aa2660b</code>. What is described
+  <code>a15f579</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1281,6 +1281,110 @@ slab of <code class="language-plaintext highlighter-rouge">local_slab_from_cylin
 The screw-pinch field line itself is <code class="language-plaintext highlighter-rouge">field_line_geometry("cylindrical")</code>, and the cylinder-vs-torus harmonic
 picture (independent $m$ vs toroidally coupled $m, m\pm1$) is <code class="language-plaintext highlighter-rouge">poloidal_harmonic_coupling</code>.</p>
 
+<h2 id="field-configurations-reconnection-and-mhd-waves">Field configurations, reconnection and MHD waves</h2>
+
+<p>The canonical slab configurations, the topology of reconnection, and the linear ideal-MHD waves.
+All are drawn in the slab frame of <code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code>: $x$ is the sheet normal (radial), $y$ the
+reconnecting (binormal) direction, and $z$ the current and guide-field direction. The geometry itself
+(slab, sheared slab, cylinder, torus) belongs to <a href="/vaft/develop/reference/geometric-approximations/">Geometric approximations</a>.
+The formulas are <code class="language-plaintext highlighter-rouge">harris_sheet_field</code>, <code class="language-plaintext highlighter-rouge">harris_sheet_current_density</code> and <code class="language-plaintext highlighter-rouge">x_point_flux</code> in <code class="language-plaintext highlighter-rouge">geometry</code>,
+and <code class="language-plaintext highlighter-rouge">shear_alfven_frequency</code> and <code class="language-plaintext highlighter-rouge">magnetosonic_phase_speeds</code> in <code class="language-plaintext highlighter-rouge">stability</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">slab_field_configuration</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="sh">"</span><span class="s">sheared</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "uniform", "reversed", "guide"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">current_sheet</span><span class="p">(</span><span class="n">guide_field</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">harris_sheet</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">x_point</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">magnetic_reconnection</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">island_formation</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">shear_alfven_wave</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">fast_magnetosonic_wave</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">mhd_wave_family</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/slab_field_configuration_sheared.svg" alt="sheared" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/slab_field_configuration_reversed.svg" alt="reversed" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/current_sheet.svg" alt="sheet" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/harris_sheet.svg" alt="harris" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/x_point.svg" alt="x-point" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/magnetic_reconnection.svg" alt="reconnection" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/shear_alfven_wave.svg" alt="shear Alfven" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/fast_magnetosonic_wave.svg" alt="fast" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/island_formation.svg" alt="island formation" /></p>
+
+<p><img src="/vaft/develop/assets/diagrams/mhd_wave_family.svg" alt="wave family" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">slab_field_configuration</code></td>
+      <td>The field on stacked $x$ = const sheets. Uniform; sheared, where the direction rotates and $\lvert\mathbf B\rvert = B_0$ to first order in $x/L_s$; reversed, where $B_y(-x) = -B_y(x)$ with a null at $x = 0$; and reversed with a guide field $B_g$, which rotates with no null. Shear and reversal are different things</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">current_sheet</code></td>
+      <td>The reversing Harris field seen along the current, with lines at equal flux spacing (spacing $\propto 1/\lvert B_y\rvert$), the sheet of thickness $2a$, its normal, and $\otimes J_z$. With <code class="language-plaintext highlighter-rouge">guide_field=True</code>, $B_g\hat{\mathbf z}$ removes the null and leaves $J_z$ unchanged</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">harris_sheet</code></td>
+      <td>$B_y = B_0\tanh(x/a)$ and $J_z = (B_0/\mu_0a)\,\mathrm{sech}^2(x/a)$ on one chart: the reversal and the localized current are the same layer</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">x_point</code></td>
+      <td>The current-free null $\psi = B’(x^2 - y^2)/2$: four branches and two separatrices at right angles. Geometry only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">magnetic_reconnection</code></td>
+      <td>Model-neutral reconnection: inflow, outflow jets, diffusion region, upstream and reconnected field lines about a stretched X-point. No Sweet–Parker, Petschek, Hall or kinetic assumption</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">island_formation</code></td>
+      <td><code class="language-plaintext highlighter-rouge">slab_perturbed_flux</code> with growing $\psi_0$: straight sheared lines, then X- and O-points, then an island of width $w = 4\sqrt{\psi_0/B’}$. The growth is <code class="language-plaintext highlighter-rouge">delta_prime</code>, <code class="language-plaintext highlighter-rouge">slab_parity</code> and <code class="language-plaintext highlighter-rouge">tearing_layer_matching</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shear_alfven_wave</code></td>
+      <td>Field-line bending with equally spaced lines, so $\lvert\mathbf B\rvert$ is unchanged to first order. $\delta\mathbf v_\perp$ and $\delta\mathbf B_\perp = -(B_0/v_A)\delta\mathbf v_\perp$ lie normal to the $\mathbf k$-$\mathbf B_0$ plane, and $\omega = \lvert k_\parallel\rvert v_A$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fast_magnetosonic_wave</code></td>
+      <td>At $\mathbf k \perp \mathbf B_0$ the lines bunch and spread, $\delta B_z = -B_0\partial_x\xi_x$, and $v_f = (v_A^2 + c_s^2)^{1/2}$. It is the compressional Alfvén wave only in the limit $c_s \ll v_A$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mhd_wave_family</code></td>
+      <td>The Friedrichs diagram of fast, shear-Alfvén and slow phase speeds against the angle to $\mathbf B_0$ ($v_s \le v_A\lvert\cos\theta\rvert \le v_f$), with each branch’s restoring force, compressibility and polarization</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>From these to the tokamak: the current sheet and the island lead to the tearing layer (<code class="language-plaintext highlighter-rouge">slab_parity</code>),
+then to the cylindrical and toroidal tearing mode (<code class="language-plaintext highlighter-rouge">delta_prime</code>, <code class="language-plaintext highlighter-rouge">resonant_layer_matching</code>). Here
+$q(r_s) = m/n$ globally is $k_\parallel = 0$ locally (<code class="language-plaintext highlighter-rouge">mode_number_mapping</code>). The uniform-slab shear
+Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$ vary. Toroidal coupling
+(<code class="language-plaintext highlighter-rouge">poloidal_harmonic_coupling</code>) then opens the gaps of the TAE and EAE. Those are not computed here.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -1413,7 +1517,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -1531,7 +1635,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 08:40:58 +0000"
+        "time": "2026-09-28 09:09:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

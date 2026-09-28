@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aa2660b</code>. What is described
+  <code>a15f579</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -327,7 +327,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="stability">
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>32</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>34</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr id="green">
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -363,7 +363,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="geometry">
     <td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td>
-    <td><code>vaft.formula.geometry</code></td><td>9</td><td>Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.</td>
+    <td><code>vaft.formula.geometry</code></td><td>12</td><td>Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.</td>
   </tr>
   <tr id="ripple">
     <td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td>
@@ -430,7 +430,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 294 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 299 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -764,6 +764,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
   <tr data-ref-row="li_from_qa_empirical stability"><td><a href="/vaft/develop/reference/formula/stability/#li_from_qa_empirical"><code>li_from_qa_empirical</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Internal inductance at a given $q_a$ by interpolating the JET survey points.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="magnetosonic_phase_speeds stability"><td><a href="/vaft/develop/reference/formula/stability/#magnetosonic_phase_speeds"><code>magnetosonic_phase_speeds</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Fast and slow magnetosonic phase speeds at angle $\theta$ to $\mathbf B_0$.
+</td></tr>
   <tr data-ref-row="plasma_stability_margins stability"><td><a href="/vaft/develop/reference/formula/stability/#plasma_stability_margins"><code>plasma_stability_margins</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Beta, $q_{95}$ and density margins in one call.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="power_limit_from_beta stability"><td><a href="/vaft/develop/reference/formula/stability/#power_limit_from_beta"><code>power_limit_from_beta</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
@@ -784,6 +786,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="sawtooth_stability_criterion stability"><td><a href="/vaft/develop/reference/formula/stability/#sawtooth_stability_criterion"><code>sawtooth_stability_criterion</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="shear_alfven_frequency stability"><td><a href="/vaft/develop/reference/formula/stability/#shear_alfven_frequency"><code>shear_alfven_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Frequency of the ideal shear Alfven wave in a uniform plasma.
+</td></tr>
   <tr data-ref-row="slab_perturbed_flux stability"><td><a href="/vaft/develop/reference/formula/stability/#slab_perturbed_flux"><code>slab_perturbed_flux</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Helical flux of a sheared slab with a tearing- or twisting-parity perturbation.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="v_alfven_from_B_n_mi stability"><td><a href="/vaft/develop/reference/formula/stability/#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.
@@ -1040,6 +1044,10 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_safety_factor_from_r_B geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Safety factor of a straight cylinder standing in for a torus.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="harris_sheet_current_density geometry"><td><a href="/vaft/develop/reference/formula/geometry/#harris_sheet_current_density"><code>harris_sheet_current_density</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Current density of a Harris current sheet, from Ampere’s law.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="harris_sheet_field geometry"><td><a href="/vaft/develop/reference/formula/geometry/#harris_sheet_field"><code>harris_sheet_field</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Reconnecting field of a Harris current sheet.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="local_slab_from_cylinder geometry"><td><a href="/vaft/develop/reference/formula/geometry/#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="peaked_current_safety_factor geometry"><td><a href="/vaft/develop/reference/formula/geometry/#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
@@ -1051,6 +1059,8 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="sheared_slab_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Parallel wavenumber across a sheared slab, to first order in $x/L_s$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="slab_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Component of a wavevector along the magnetic field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="x_point_flux geometry"><td><a href="/vaft/develop/reference/formula/geometry/#x_point_flux"><code>x_point_flux</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Flux function of a current-free magnetic X-point.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="gwb_stochastic_threshold ripple"><td><a href="/vaft/develop/reference/formula/ripple/#gwb_stochastic_threshold"><code>gwb_stochastic_threshold</code></a></td><td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td><td>Goldston–White–Boozer ripple above which banana-tip motion is stochastic.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1336,7 +1346,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 08:40:58 +0000"
+        "time": "2026-09-28 09:09:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

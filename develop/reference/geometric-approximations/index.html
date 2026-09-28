@@ -246,7 +246,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>aa2660b</code>. What is described
+  <code>a15f579</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -401,6 +401,11 @@ perturbation is field-aligned on one surface and $|k_\parallel|$ grows linearly 
   <li><strong>Drops:</strong> global geometry, and curvature unless it is added.</li>
   <li><strong>Used for:</strong> the inner layer of tearing modes (FKR, Rutherford), drift waves with shear, and the
 local limits of gyrokinetics.</li>
+  <li><strong>Related configurations in the same frame:</strong> the reversing field of a Harris current sheet,
+$B_y = B_0\tanh(x/a)$ (<code class="language-plaintext highlighter-rouge">harris_sheet_field</code>, <code class="language-plaintext highlighter-rouge">harris_sheet_current_density</code>), whose centre is a
+sheared slab with $B_y’ = B_0/a$ and no guide field, and the current-free X-point
+$\psi = B’(x^2 - y^2)/2$ (<code class="language-plaintext highlighter-rouge">x_point_flux</code>). These configurations, not geometries, are drawn in the
+field-configuration section of the diagrams guide.</li>
 </ul>
 
 <h2 id="curved-slab">Curved slab</h2>
@@ -534,7 +539,9 @@ straight / sheared / curved slab -&gt; drift waves, interchange, reduced edge tu
 </code></pre></div></div>
 
 <p>The tearing diagrams (<code class="language-plaintext highlighter-rouge">rational_surface</code>, <code class="language-plaintext highlighter-rouge">delta_prime</code>, <code class="language-plaintext highlighter-rouge">tearing_layer_matching</code>) start from the
-cylinder and sheared slab described here. See <a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a>.</p>
+cylinder and sheared slab described here. The current-sheet, X-point, reconnection and MHD-wave
+diagrams (<code class="language-plaintext highlighter-rouge">current_sheet</code>, <code class="language-plaintext highlighter-rouge">x_point</code>, <code class="language-plaintext highlighter-rouge">magnetic_reconnection</code>, <code class="language-plaintext highlighter-rouge">shear_alfven_wave</code>, <code class="language-plaintext highlighter-rouge">mhd_wave_family</code>)
+use the slab frame of this page. See <a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a>.</p>
 
 <h2 id="references">References</h2>
 
@@ -765,7 +772,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-28 08:40:58 +0000"
+        "time": "2026-09-28 09:09:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
