@@ -46,7 +46,7 @@ def _surfaces(surfaces: Any) -> tuple[Any, ...]:
     return items
 
 
-_SHAPE_SYMBOLS = {"r": "a", "kappa": "κ", "delta": "δ", "zeta": "ζ", "r0": "R0", "z0": "Z0"}
+_SHAPE_SYMBOLS = {"r": "a", "kappa": "κ", "delta": "δ", "zeta": "ζ", "indentation": "b", "r0": "R0", "z0": "Z0"}
 
 
 def _surface_label(surface: Any, varying: Sequence[str]) -> str:
@@ -73,7 +73,7 @@ def miller_surfaces_model(
     items = _surfaces(surfaces)
     theta = np.linspace(0.0, 2.0 * np.pi, int(theta_points), endpoint=True)
     varying = [
-        key for key in ("r", "kappa", "delta", "zeta", "r0", "z0")
+        key for key in ("r", "kappa", "delta", "zeta", "indentation", "r0", "z0")
         if len({round(float(getattr(item, key)), 12) for item in items}) > 1
     ]
     if labels is not None and len(labels) != len(items):

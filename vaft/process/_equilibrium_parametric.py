@@ -980,7 +980,7 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ----------
     surface : MillerSurface
         The shape parameters.  ``r``, ``r0`` and ``z0`` in metres, ``kappa``,
-        ``delta`` and ``zeta`` dimensionless [-].
+        ``delta``, ``zeta`` and ``indentation`` dimensionless [-].
     theta : array_like
         Poloidal angles at which to evaluate [rad].
 
@@ -993,18 +993,22 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ------
     ValueError
         The geometry is degenerate: minor radius or elongation not positive,
-        triangularity of magnitude one or more, or squareness of magnitude one
-        half or more.
+        triangularity of magnitude one or more, squareness of magnitude one
+        half or more, or an indentation at or below ``-sqrt(1 - delta**2)``.
 
     Convention
     ----------
-    ``R = r0 + r*cos(theta + arcsin(delta)*sin(theta))`` and
-    ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``.  *theta* is the parameter
+    ``R = r0 + r*(cos(theta + arcsin(delta)*sin(theta)) + b*sin(theta)**2*cos(theta))``
+    and ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``, with ``b`` the
+    indentation.  *theta* is the parameter
     of the parameterization, not a geometric poloidal angle about the centre, and
     the two differ once the surface is shaped.  Positive ``delta`` shifts the
     extremum of ``Z`` inboard.  Positive ``zeta`` squares the surface off,
     negative rounds it.  ``zeta = 0`` is the five-parameter surface exactly, to
-    the bit, so nothing that does not ask for squareness moves.  The surface is
+    the bit, so nothing that does not ask for squareness moves; the same holds
+    for ``indentation = 0``.  The indentation term vanishes at the four
+    cardinal points, and with ``alpha = arcsin(delta)`` the inboard side turns
+    concave -- a bean -- once ``b > (1 - alpha)**2/2``.  The surface is
     up-down symmetric by construction, squareness included.
 
     Applicability
@@ -1019,7 +1023,11 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     by one half because ``d(theta + zeta*sin(2*theta))/dtheta = 1 +
     2*zeta*cos(2*theta)`` changes sign beyond it: the parameterization then
     doubles back and the "surface" crosses itself, so a larger magnitude does not
-    describe a squarer plasma but a curve that is not one.
+    describe a squarer plasma but a curve that is not one.  The indentation is
+    bounded below for the same reason: at equal height the two sides are
+    ``2 r cos(theta) (cos(alpha sin(theta)) + b sin(theta)**2)`` apart, which
+    stays positive for every ``theta`` exactly when ``b > -cos(alpha) =
+    -sqrt(1 - delta**2)``.
 
     Provenance
     ----------
@@ -1029,6 +1037,8 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     .. [2] The squareness term follows the extended form used for shape
        comparison, e.g. Barr, Boyer, Humphreys *et al.*, *ShapeFIT*, Nucl.
        Fusion 58, 076011 (2018), App. A.
+    .. [3] The inboard-indentation term for bean-shaped plasmas (PBX/PBX-M)
+       is VAFT's, specified with its bean-onset criterion in issue #941.
     """
 
     theta = np.asarray(theta, dtype=float)
@@ -1039,7 +1049,7 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     from vaft.formula.equilibrium import miller_surface
 
     return miller_surface(surface.r, theta, surface.r0, surface.kappa, surface.delta,
-                          squareness=surface.zeta, Z0=surface.z0)
+                          squareness=surface.zeta, Z0=surface.z0, indentation=surface.indentation)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:
@@ -1054,7 +1064,7 @@ def _resample_contour(contour: Contour, count: int = 256) -> Contour:
 def fit_miller_surface(
     contour: Contour | tuple[Any, Any], *, radial_value: float | None = None,
     radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
-    near_xpoint: bool = False, squareness: bool = False,
+    near_xpoint: bool = False, squareness: bool = False, indentation: bool = False,
 ) -> MillerFitResult:
     """Fit the Miller shape parameters to one closed flux-surface contour.
 
@@ -1080,6 +1090,9 @@ def fit_miller_surface(
     squareness : bool, optional
         Fit the sixth parameter, ``zeta``, as well.  Off by default: adding a
         free parameter changes the answer of a fit that did not ask for it [-].
+    indentation : bool, optional
+        Fit the inboard indentation as well, for bean-shaped surfaces.  Off by
+        default for the same reason as *squareness* [-].
 
     Returns
     -------
@@ -1103,7 +1116,8 @@ def fit_miller_surface(
     4. Score with a symmetric distance: contour-to-model and model-to-contour,
        giving a root-mean-square, a maximum, and a Hausdorff distance.
     5. Reject, in order, a surface too near the boundary, a surface near an
-       X-point, a residual over the threshold, or a solve that did not converge.
+       X-point, a fitted indentation that makes the surface cross itself, a
+       residual over the threshold, or a solve that did not converge.
 
     Defaults
     --------
@@ -1111,7 +1125,9 @@ def fit_miller_surface(
     physical constant: two percent of the minor radius is where a fitted surface
     stops being a useful stand-in for the traced one.  The parameter bounds,
     elongation in 0.05 to 10 and triangularity within 0.999, are numerical
-    conveniences that keep the solve inside the parameterization's own domain.
+    conveniences that keep the solve inside the parameterization's own domain;
+    so is the indentation box of -0.95 to 2, whose delta-dependent lower limit
+    is enforced after the solve instead.
 
     Convention
     ----------
@@ -1156,27 +1172,37 @@ def fit_miller_surface(
     initial = np.array([0.5 * (rmin + rmax), 0.5 * (zmin + zmax), minor, (zmax-zmin)/(2*minor), 0.0])
     if squareness:
         initial = np.r_[initial, 0.0]
+    if indentation:
+        initial = np.r_[initial, 0.0]
+    zeta_index = 5 if squareness else None
+    indentation_index = (6 if squareness else 5) if indentation else None
     theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
     observed_points = observed.points
 
     def _surface(params: np.ndarray) -> MillerSurface:
         # Without squareness the parameter vector is the five it always was, so
         # the optimiser sees the identical problem and returns the identical fit.
-        zeta = float(params[5]) if params.size > 5 else 0.0
-        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta)
+        zeta = float(params[zeta_index]) if zeta_index is not None else 0.0
+        bean = float(params[indentation_index]) if indentation_index is not None else 0.0
+        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta, indentation=bean)
 
-    def model(params: np.ndarray) -> np.ndarray:
-        rr, zz = evaluate_miller(_surface(params), theta)
-        return np.column_stack((rr, zz))
+    def points_on(surface: MillerSurface, angles: np.ndarray) -> np.ndarray:
+        # Unvalidated: a trial step may cross the self-intersection bound on
+        # its way, and the final surface is validated after the solve.
+        from vaft.formula.equilibrium import _miller_rz
+
+        return np.column_stack(_miller_rz(surface.r, angles, surface.r0, surface.z0, surface.kappa,
+                                          surface.delta, surface.zeta, surface.indentation))
 
     def nearest_model_points(params: np.ndarray) -> np.ndarray:
         dense_theta = np.linspace(0, 2*np.pi, 8*observed.r.size, endpoint=False)
         surface = _surface(params)
-        dense_points = np.column_stack(evaluate_miller(surface, dense_theta))
+        dense_points = points_on(surface, dense_theta)
         nearest = cKDTree(dense_points).query(observed_points)[1]
         local_theta = dense_theta[nearest]
         asin_delta = np.arcsin(params[4])
         zeta = surface.zeta
+        bean = surface.indentation
         for _ in range(5):
             angle = local_theta + asin_delta*np.sin(local_theta)
             angle_prime = 1 + asin_delta*np.cos(local_theta)
@@ -1188,18 +1214,27 @@ def fit_miller_surface(
             vertical = local_theta + zeta*np.sin(2*local_theta)
             vertical_prime = 1 + 2*zeta*np.cos(2*local_theta)
             vertical_second = -4*zeta*np.sin(2*local_theta)
+            # The indentation g = sin^2 cos enters R, with g' = sin (3 cos^2 - 1)
+            # and g'' = cos (9 cos^2 - 7); leaving it out of R' and R'' would
+            # break the orthogonal projection the same way as for squareness.
             points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(vertical)))
             first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(vertical)*vertical_prime))
             second = np.column_stack((
                 -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second),
                 params[3]*params[2]*(np.cos(vertical)*vertical_second-np.sin(vertical)*vertical_prime**2),
             ))
+            if bean != 0.0:
+                # Added separately so a fit without indentation is the old fit to the bit.
+                sin_t, cos_t = np.sin(local_theta), np.cos(local_theta)
+                points[:, 0] += params[2]*bean*sin_t**2*cos_t
+                first[:, 0] += params[2]*bean*sin_t*(3*cos_t**2-1)
+                second[:, 0] += params[2]*bean*cos_t*(9*cos_t**2-7)
             delta_points = points-observed_points
             numerator = np.sum(delta_points*first, axis=1)
             denominator = np.sum(first*first+delta_points*second, axis=1)
             step = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=np.abs(denominator)>1e-14)
             local_theta = np.mod(local_theta-step, 2*np.pi)
-        return np.column_stack(evaluate_miller(surface, local_theta))
+        return points_on(surface, local_theta)
 
     def residual(params: np.ndarray) -> np.ndarray:
         return (nearest_model_points(params)-observed_points).reshape(-1)
@@ -1211,6 +1246,11 @@ def fit_miller_surface(
         # Short of the 0.5 where the parameterization doubles back.
         lower.append(-0.499)
         upper.append(0.499)
+    if indentation:
+        # The self-intersection bound depends on delta, so the box only keeps
+        # the solve sane; a result past the bound is rejected below.
+        lower.append(-0.95)
+        upper.append(2.0)
     result = least_squares(
         residual, initial, bounds=(lower, upper),
         xtol=1e-11, ftol=1e-11, gtol=1e-11, max_nfev=1000,
@@ -1221,7 +1261,9 @@ def fit_miller_surface(
         float(best.r), float(best.r0), float(best.z0), float(best.kappa),
         float(best.delta), float(best.zeta),
         radial_value=radial_value, radial_coordinate=radial_coordinate,
+        indentation=float(best.indentation),
     )
+    self_intersecting = fitted.indentation <= -np.sqrt(1.0 - fitted.delta**2)
     predicted = Contour(nearest_points[:, 0], nearest_points[:, 1], True)
     d1 = np.linalg.norm(nearest_points-observed_points, axis=1)
     d2 = cKDTree(observed_points).query(predicted.points)[0]
@@ -1233,6 +1275,8 @@ def fit_miller_surface(
         reason = "surface is at psi_n>=0.995, where X-point/separatrix geometry is not locally Miller-like"
     elif near_xpoint:
         reason = "surface lies within 0.05 minor radii of an X-point"
+    elif self_intersecting:
+        reason = "fitted indentation makes the surface cross itself (indentation <= -sqrt(1 - delta**2))"
     elif nrms > max_normalized_rms:
         reason = f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g}"
     elif not result.success:
