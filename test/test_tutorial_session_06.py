@@ -146,7 +146,8 @@ def test_the_notebook_uses_only_public_vaft_modules_and_no_local_functions(book)
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("vaft"):
             assert not any(part.startswith("_") for part in node.module.split(".")), node.module
-        assert not isinstance(node, ast.FunctionDef), f"notebook-local function {getattr(node, 'name', '')}"
+        assert not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)), \
+            f"notebook-local function {getattr(node, 'name', 'lambda')}"
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ def test_the_session_climbs_from_records_to_representations(book):
         _first_code_index(book, "kadomtsev_constraint_from_engineering_exponents"),
         _first_code_index(book, "perform_ols_regression("),
         _first_code_index(book, "standardized = "),
-        _first_code_index(book, "current_quench("),
+        _first_code_index(book, "quench = current_quench("),
     ]
     assert order == sorted(order), order
     assert book.cells.index(_cell(book, "s06-ml")) > book.cells.index(_cell(book, "s06-events"))
@@ -178,7 +179,8 @@ def test_the_session_climbs_from_records_to_representations(book):
 # ---------------------------------------------------------------------------
 
 
-def test_every_validity_rule_reports_what_it_removed(executed):
+def test_every_validity_rule_reports_what_it_removed(book, executed):
+    assert "current_quench(" in _source(_cell(book, "s06-coverage"))   # rule 2 is each shot's own quench
     printed = _printed_by(executed, "s06-coverage")
     assert re.search(r"rule 1 -- .*: \d+ removed", printed)
     assert re.search(r"rule 2 -- .*: \d+ removed", printed)
@@ -220,18 +222,26 @@ def test_greenwald_is_formed_in_one_unit(book, executed):
     source = _source(_cell(book, "s06-greenwald"))
     assert 'greenwald_fraction(state["ne_line_1e19_m3"], n_g)' in source
     f_g = float(re.search(r"f_G = ([0-9.]+)", _printed_by(executed, "s06-greenwald")).group(1))
-    assert 0.01 < f_g < 1.0
+    # 0.098 in one unit; a 1e20 n_G against a 1e19 density would print ten times less or more.
+    assert 0.05 < f_g < 0.2
 
 
 def test_confounding_is_shown_within_and_across_shots(executed):
     printed = _printed_by(executed, "s06-regression")
-    assert "pooled over" in printed and "alone (" in printed
+    pooled = re.search(r"pooled over \d+ slices: li ~ q95\^([+-][0-9.]+)", printed)
+    within = re.findall(r"alone \(\s*\d+ slices\): li ~ q95\^([+-][0-9.]+)", printed)
+    assert pooled and len(within) >= 2, printed
 
 
-def test_events_are_joined_to_states_by_time_not_position(book):
+def test_events_are_joined_to_states_by_time_not_position(book, executed):
     source = _source(_cell(book, "s06-events"))
     assert 'slices["time_s"] < quench.time_80' in source
-    assert "idxmax()" in source
+    rows = [line.split() for line in _printed_by(executed, "s06-events").splitlines()
+            if re.match(r"\s*\d{5}\s", line)]
+    joined = [row for row in rows if row[3] != "NaN"]
+    assert joined, rows
+    for row in joined:
+        assert float(row[3]) < float(row[1]), row   # the pre-event state precedes the quench
 
 
 def test_machine_learning_is_presented_as_planned_not_as_a_model(book):

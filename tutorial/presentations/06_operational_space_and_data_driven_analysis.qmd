@@ -60,7 +60,7 @@ Before any statistic: what is actually there?
 - $C_X = N(X\ \text{available}) / N(\text{relevant records})$
 - equilibrium 4/6, kinetic profiles 1/6, one shot has no $I_p$ record at all
 - rule 1: slices with zero current (failed reconstructions)
-- rule 2: slices below half of the shot's peak current --- their $l_i$ reaches 12
+- rule 2: slices from each shot's own current-quench 80 % time on --- their $l_i$ reaches 12
 
 Missing data are part of the experiment. **Stated rules, counted removals.**
 
@@ -69,8 +69,9 @@ Missing data are part of the experiment. **Stated rules, counted removals.**
 
 NARRATE:
 Rule 2 is the one to dwell on. Reconstructions of a collapsing current give
-profile quantities no equilibrium of this machine has; left in, they dominate
-the l_i distribution and the regression.
+profile quantities no equilibrium of this machine has. The cut is each shot's
+own quench, measured as in session 04; a cruder half-of-peak-current cut keeps
+ten of those slices.
 
 TRANSITION:
 With a clean population, reduce each shot to one state.
@@ -80,7 +81,7 @@ With a clean population, reduce each shot to one state.
 
 $$\text{question} \rightarrow \text{sampling rule} \rightarrow \text{representative value}$$
 
-- max $I_p$ and max $W_{\mathrm{MHD}}$ pick the same slice on some shots, not on others
+- max $I_p$ and max $W_{\mathrm{MHD}}$ pick the same slice on three shots, not on 41672
 - on 41672 $q_{95}$ moves from 5.0 to 7.4 between the two rules
 - the rule belongs in the provenance of the table
 
@@ -115,8 +116,8 @@ The survey is q_a from another machine; VEST plots q95.
 
 ## Validity before physics: $\beta_N$
 
-- magnetics-only reconstructions: $\beta_N \approx 0.05$, $W \approx 10$--20 J (#386)
-- the kinetically constrained 48224: several times higher, near its Thomson $\beta_t$
+- magnetics-only reconstructions: $\beta_N$ 0.06--0.12, no pressure constraint (#386)
+- the kinetically constrained 48224: the highest, $\beta_t$ between the electron-only and $T_i = T_e$ Thomson estimates
 - a pooled $\beta_N$ column mixes two quantities under one name
 - `kink_stability_criterion` uses $2.8\,q_{95}$: unsourced (#350), not drawn
 
@@ -131,7 +132,8 @@ code base is not evidence; its own docstring records the defect.
 ## Density, dimensionless variables, confinement
 
 - $f_G \approx 0.1$ on the one kinetic state; `greenwald_density` returns $10^{19}$
-- $\rho_* \approx 0.04$, $\nu_* \approx 0.1$, $\epsilon \approx 0.73$: a spherical tokamak in dimensionless terms
+- $\rho_* \approx 0.03$ (hydrogen), $\nu_* \approx 0.1$, $\epsilon \approx 0.73$: a spherical tokamak in dimensionless terms
+- $q_{\mathrm{cyl}} \approx 1.9$ beside $q_{95} \approx 5.8$: $q$ definitions part company at low aspect ratio
 - five reference scalings, H from 0.06 to 0.9: five questions, not one answer
 - Kadomtsev residual: a similarity check on exponents, not a fit
 
@@ -148,7 +150,7 @@ power balance (#548).
 
 ## Confounding and similarity
 
-- pooled $l_i \propto q_{95}^{\alpha}$ vs the same fit within each shot: the shot confounds
+- pooled $l_i \propto q_{95}^{\alpha}$ sits on 41672's own exponent: half the slices, half the fit
 - $I_p$ and $q_{95}$ share a variable
 - nearest states by $\lVert\mathbf z_i - \mathbf z_j\rVert$ depend on features and scaling
 - **split by shot**, for tests and for learning
