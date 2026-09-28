@@ -74,7 +74,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "virial": 33,
         "stability": 35,  # +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
+        "atomic": 8,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.

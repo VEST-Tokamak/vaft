@@ -86,6 +86,7 @@ CONVENTION_SENSITIVE = frozenset({
     "sputtering_threshold_bohdansky",
     "inductive_parallel_electric_field",
     "dreicer_field",
+    "hydrogenic_transition_wavelength",
     "flux_perturbation_from_normal_displacement",
     "grad_shafranov_source",
     "toroidal_current_density_from_p_prime_ff_prime",

@@ -124,6 +124,10 @@ __all__ = [
     "plasma_wall_interaction_sputtering",
     "plasma_wall_interaction_recycling",
     "plasma_wall_interaction_energy_partition",
+    "spectroscopy_ionization_stages",
+    "spectroscopy_transitions",
+    "spectroscopy_energy_levels",
+    "spectroscopy_spectrum",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -211,6 +215,10 @@ _LOCATIONS = {
     "plasma_wall_interaction_sputtering": "._pwi",
     "plasma_wall_interaction_recycling": "._pwi",
     "plasma_wall_interaction_energy_partition": "._pwi",
+    "spectroscopy_ionization_stages": "._spectroscopy",
+    "spectroscopy_transitions": "._spectroscopy",
+    "spectroscopy_energy_levels": "._spectroscopy",
+    "spectroscopy_spectrum": "._spectroscopy",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

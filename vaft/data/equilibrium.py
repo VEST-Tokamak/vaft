@@ -308,6 +308,15 @@ class GuazzottoFreidbergEquilibrium:
     are quadratic in psi, so p, p' and J_phi vanish on the surface.  The
     eigenvalue ``alpha`` fixes the flux on axis once ``R0``, ``B0`` and ``beta0``
     (or ``q0``) are chosen; see :func:`guazzotto_freidberg_to_equilibrium`.
+
+    Part 2 (#1149) adds an edge current pedestal ``current_pedestal`` (f_J),
+    for which ``coefficients`` expand ``psi_J = psi + f_J/(1 - f_J)``;
+    toroidal flow at axis Mach number ``mach_number`` with
+    ``adiabatic_index`` 2 or inf, which changes the source to
+    ``alpha**2 (1 + nu G(x))``; and the surface-current inputs
+    ``pressure_pedestal`` (f_P) and ``bootstrap_fraction`` (f_B), which leave
+    the interior flux unchanged and enter only the plasma parameters.  All
+    default to zero, which is Part 1.
     """
 
     topology: str
@@ -327,6 +336,11 @@ class GuazzottoFreidbergEquilibrium:
     series_terms: int = 250
     status: str = "converged"
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    current_pedestal: float = 0.0
+    pressure_pedestal: float = 0.0
+    bootstrap_fraction: float = 0.0
+    mach_number: float = 0.0
+    adiabatic_index: float | None = None
 
 
 @dataclass(frozen=True)

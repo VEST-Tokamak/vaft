@@ -435,6 +435,31 @@
       "source_sha256": "323704d498ce4fe52d9931748470618aec77ec700f36a86bd75c8261e72761c7",
       "svg_sha256": "ee078a90aa02d347c20e8c5a53bd8d8c7574ab9d97bf09795643d1cde45e7f20"
     },
+    "spectroscopy_energy_levels.svg": {
+      "call": "vaft.diagram.spectroscopy_energy_levels(term='D-alpha')",
+      "source_sha256": "085021accf7a424cdcc11fccae61937ab64c97db6350b556fb2fa01e4fc7a132",
+      "svg_sha256": "0a6a43800462c59fb23acdfa6f94613ac05700a3d45029c42939584dcc0bacbb"
+    },
+    "spectroscopy_ionization_stages.svg": {
+      "call": "vaft.diagram.spectroscopy_ionization_stages(term='C III')",
+      "source_sha256": "665e02ea501b6560237fe4c3c71491c2b36dddca00b3254b746ef0d4dd817458",
+      "svg_sha256": "90b0a8bfbbcd59cc6283d7a10c8bb963e80513d30d5ce587e92f3857df28d8c4"
+    },
+    "spectroscopy_spectrum.svg": {
+      "call": "vaft.diagram.spectroscopy_spectrum()",
+      "source_sha256": "f4881c968ee39ab42092a2e381fc400358170d5485b52f4355efca7adfe90c3c",
+      "svg_sha256": "b5edce52de8f51c3bca7c837b08245f9eea93dd2f59a726fe28b7639a842bd9f"
+    },
+    "spectroscopy_transitions_h_alpha.svg": {
+      "call": "vaft.diagram.spectroscopy_transitions(term='H-alpha')",
+      "source_sha256": "6a7e3e2dad28e7fb03808f095cea67ffc4eb3552cb8b98757bd660bb93901702",
+      "svg_sha256": "ff22deb31d6b0c36f3593028e1e85aaf7821570ca2a211a9425004ef03d2256e"
+    },
+    "spectroscopy_transitions_oi_7770.svg": {
+      "call": "vaft.diagram.spectroscopy_transitions(term='OI_7770')",
+      "source_sha256": "4412ce8803b8cca332afba5ec5639fc3807a9d0a56d58b705fb50e0e433cbe94",
+      "svg_sha256": "162a3d69d60196a4401b3a5e1ee4ffb3658faa66439ca959217fd6f6769f77f5"
+    },
     "stochastic_layer_isolated.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='isolated')",
       "source_sha256": "60d1f9482606db51340778dd984270f2b33e4324633fa67d02afe914f7050d39",
