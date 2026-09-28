@@ -345,7 +345,9 @@ from vaft.process.profile import (compose_analytic_profile, generate_synthetic_k
 
 shape = compose_analytic_profile("n_e", axis_value=1.0, separatrix_value=0.2, core_beta=1.5)
 spec = SyntheticKineticSpec(
-    n_e=ProfileSpec(shape, ScalarTarget("greenwald_fraction", 0.3), peaking_factor=1.6),
+    # peaking is solved through the core exponent (beta >= 1), so it cannot go below the beta = 1
+    # value of this shape (about 1.74 here); a lower request comes back constraint_not_reached.
+    n_e=ProfileSpec(shape, ScalarTarget("greenwald_fraction", 0.3), peaking_factor=1.8),
     temperature=TemperatureAssumption(ti_over_te=0.5),
     composition=Composition("D", "C", z_eff=2.0),
     pressure_constraint="equilibrium", closure="temperature",   # solve T_e so p_kin = p_eq
