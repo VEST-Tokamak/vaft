@@ -45,13 +45,25 @@ def test_the_tearing_panel_marks_true_o_and_x_points_on_its_separatrix():
     assert any(abs(b) > 1e-3 for _, b in m["delta_Bx_on_x0"])
 
 
-def test_the_twisting_panel_keeps_x0_a_flux_surface():
-    m = vaft.diagram.slab_parity("twisting").model
-    ys = np.linspace(0, 4 * math.pi, 50)
-    np.testing.assert_allclose(slab_perturbed_flux(0.0, ys, 1.0, m["amplitude"], 1.0, "twisting"), 0.0, atol=1e-15)
+def test_the_twisting_panel_displaces_every_surface_together_without_normal_field():
+    from vaft.diagram._scene import Arrow
+
+    d = vaft.diagram.slab_parity("twisting")
+    m = d.model
     assert all(abs(b) < 1e-9 for _, b in m["delta_Bx_on_x0"])
-    assert not vaft.diagram.slab_parity("twisting").scene.role("delta_Bx")[:1] or all(
-        not hasattr(it, "end") for it in vaft.diagram.slab_parity("twisting").scene.role("delta_Bx"))
+    assert not [it for it in d.scene.role("delta_Bx") if isinstance(it, Arrow)]
+    # the drawn rational surface is the displaced one, xi = -psi1 cos(k_y y)/B'
+    ys, xs = m["rational_surface"].T
+    np.testing.assert_allclose(xs, -m["amplitude"] * np.cos(ys))
+    # surfaces above and below shift the same way: the contour levels are x +- d displaced by xi
+    ygrid, xgrid, Z = m["grid"]
+    for level in m["levels"][3:6]:
+        d0 = math.sqrt(2 * level)
+        for y in (0.0, math.pi):
+            xi = -m["amplitude"] * math.cos(y)
+            for x in (xi + d0, xi - d0):
+                i, j = np.argmin(abs(xgrid - x)), np.argmin(abs(ygrid - y))
+                assert Z[i, j] == pytest.approx(level, abs=0.02)
 
 
 @pytest.mark.parametrize("m", [1, 3, 7])

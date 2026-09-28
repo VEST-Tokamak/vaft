@@ -437,7 +437,7 @@ vaft.diagram.resonant_layer_matching()
 
 | Diagram | Concept |
 | --- | --- |
-| `slab_parity` | Contours of $\Psi_T = B_s'x^2/2 + \psi_0\cos k_yy$: an island of width $4\sqrt{\psi_0/B_s'}$, O- and X-points, and $\delta B_x(0) \ne 0$. Contours of $\Psi_W = B_s'x^2/2 + \psi_1x\cos k_yy$: $x = 0$ stays a flux surface and its neighbours are displaced |
+| `slab_parity` | Contours of $\Psi_T = B_s'x^2/2 + \psi_0\cos k_yy$: an island of width $4\sqrt{\psi_0/B_s'}$, O- and X-points, and $\delta B_x(0) \ne 0$. Contours of $\Psi_W = B_s'x^2/2 + \psi_1x\cos k_yy$, drawn with its $O(\psi_1^2)$ completion: no normal field at the layer ($k_\parallel = 0$) and no reconnection, and every surface, the rational one included, displaced together by $\xi = -\psi_1\cos k_yy/B_s'$ |
 | `slab_parity_comparison` | Both side by side, with the parity of $\tilde\psi$ and $\tilde\phi$, $\delta B_x(0)$ and the topology |
 | `poloidal_harmonic_coupling` | $\cos\theta$ (toroidicity) couples $m \to m \pm 1$ and $\cos 2\theta$ (elongation) couples $m \to m \pm 2$, at fixed $n$. The harmonic index $m$ is not the parity |
 | `resonant_layer_matching` | Every rational surface of one $n$ has a T and a W channel. The outer region couples them all into one $2N\times2N$ matrix (RDCON/STRIDE), and each layer is solved on its own (SLAYER) |

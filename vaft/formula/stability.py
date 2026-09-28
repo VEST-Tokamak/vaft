@@ -1452,19 +1452,26 @@ def slab_perturbed_flux(x, y, shear, amplitude, k_y, parity="tearing"):
     Tearing parity has $\tilde\psi(-x) = \tilde\psi(x)$ and $\delta B_x(0) \ne 0$;
     twisting parity has $\tilde\psi(-x) = -\tilde\psi(x)$ and $\delta B_x(0) = 0$.
     $\Psi_T/B_s'$ is ``island_pendulum_hamiltonian`` with $\xi = k_yy + \pi$ and
-    full width $w = 4\sqrt{\psi_0/B_s'}$.
+    full width $w = 4\sqrt{|\psi_0/B_s'|}$; the O-points sit where
+    $\cos k_yy = -\mathrm{sgn}(\psi_0/B_s')$. ``shear`` may be negative -- the
+    slab of ``local_slab_from_cylinder`` has $L_s < 0$ for positive shear.
 
     Physical interpretation
     -----------------------
     Tearing parity reconnects flux across the rational surface and opens a
-    magnetic island (O- and X-points, separatrix). Twisting parity keeps the
-    rational surface a flux surface -- no flux crosses $x = 0$ -- and only
-    displaces the surfaces beside it, oppositely on the two sides.
+    magnetic island (O- and X-points, separatrix); its displacement
+    $\xi_x = -\tilde\psi/(B_s'x)$ is odd in $x$. Twisting parity has no normal
+    field on the rational surface ($k_\parallel = 0$ there), no reconnection,
+    and an even displacement $\xi_x = -\psi_1\cos k_yy/B_s'$: the surfaces on
+    both sides, and the rational surface with them, move together.
 
     Assumptions
     -----------
     Constant shear across the layer, a single helicity, the perturbation's
     radial structure taken as its leading term at $x = 0$ ($\psi_0$, or $\psi_1x$).
+    Linear in the amplitude: contours of $\Psi_W$ close to $x = 0$ form thin
+    cells of width $O(\psi_1/B_s')$ that are an artefact of dropping the
+    $O(\psi_1^2)$ term; $\tfrac12B_s'(x + \psi_1\cos k_yy/B_s')^2$ completes it.
 
     References
     ----------

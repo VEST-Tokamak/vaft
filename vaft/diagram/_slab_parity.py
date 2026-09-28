@@ -64,21 +64,27 @@ def _panel(parity: str, labels: bool, x_off: float = 0.0) -> dict:
     Y, X = np.meshgrid(ys, xs)
     amp = _AMPLITUDE[parity]
     Z = slab_perturbed_flux(X, Y, _SHEAR, amp, _KY, parity=parity)
+    if parity == "twisting":
+        # complete the square with the O(psi1^2) term the linear flux drops: the surfaces, the
+        # rational one included, are then rigidly displaced by xi = -psi1 cos(k_y y)/B' with no
+        # spurious cells at x = 0
+        Z = Z + 0.5 * (amp * np.cos(_KY * Y)) ** 2 / _SHEAR
 
     def cm(pts):
         pts = np.asarray(pts, dtype=float)
         return np.stack([x_off + pts[..., 0] / (2.0 * wavelength) * _W, pts[..., 1] / _X_HALF * 0.5 * _H], -1)
 
     # levels evenly spaced in distance from the rational surface (Psi ~ x^2), so the layer is resolved
-    # twisting: start outside the thin cells the linear perturbation leaves around x = 0, which read as
-    # islands but are not reconnection
-    start = 0.06 if parity == "tearing" else 0.26
-    levels = [0.5 * _SHEAR * d * d for d in np.linspace(start, 0.95, 12)]
+    levels = [0.5 * _SHEAR * d * d for d in np.linspace(0.06, 0.95, 12)]
     items: List = []
     for line in _contours(Z, xs, ys, levels):
         items.append(Polyline.of(cm(line), "surface", role="flux_surface"))
-    items.append(Polyline.of(cm(np.array([[0.0, 0.0], [2.0 * wavelength, 0.0]])), "rational", role="rational_surface"))
-    info = {"amplitude": amp}
+    if parity == "tearing":
+        rational = np.array([[0.0, 0.0], [2.0 * wavelength, 0.0]])
+    else:  # the rational surface moves with its neighbours
+        rational = np.stack([ys, -amp * np.cos(_KY * ys) / _SHEAR], -1)
+    items.append(Polyline.of(cm(rational), "rational", role="rational_surface"))
+    info = {"amplitude": amp, "rational_surface": rational, "levels": levels, "grid": (ys, xs, Z)}
     if parity == "tearing":
         sep_level = amp  # the X-points' value, Psi = psi_0 at x = 0, cos = 1
         for line in _contours(Z, xs, ys, [sep_level]):
@@ -104,14 +110,14 @@ def _panel(parity: str, labels: bool, x_off: float = 0.0) -> dict:
     info["delta_Bx_on_x0"] = arrows
     if labels:
         title = {"tearing": "tearing parity: $\\tilde\\psi$ even, island",
-                 "twisting": "twisting parity: $\\tilde\\psi$ odd, surfaces displaced"}[parity]
+                 "twisting": "twisting parity: $\\tilde\\psi$ odd, rigid displacement"}[parity]
         items += [
             Label((x_off + 0.5 * _W, 0.5 * _H + 0.25), title, "label", anchor="south", role="title"),
             Label((x_off - 0.15, 0.0), "$x = 0$", "small label", anchor="east", role="rational_surface"),
             Label((x_off + 0.5 * _W, -0.5 * _H - 0.15), "$y$", "label", anchor="north", role="axes"),
         ]
         bx_text = ("$\\delta B_x(0) \\ne 0$: flux crosses the rational surface" if parity == "tearing"
-                   else "$\\delta B_x(0) = 0$: $x = 0$ stays a flux surface")
+                   else "$\\delta B_x = 0$ at the layer ($k_\\parallel = 0$): no reconnection; all surfaces move together")
         items.append(Label((x_off + 0.5 * _W, -0.5 * _H - 0.7), bx_text, "small label", anchor="north",
                            role="delta_Bx"))
     return {"items": items, "info": info}
@@ -123,10 +129,10 @@ def slab_parity(parity: str = "tearing", *, labels: bool = True) -> Diagram:
     Contours of $\Psi$ from ``slab_perturbed_flux`` over two wavelengths: for
     tearing parity the island of width $4\sqrt{\psi_0/B_s'}$ with its O- and
     X-points and separatrix, and $\delta B_x \ne 0$ on $x = 0$ (arrows); for
-    twisting parity $x = 0$ stays a flux surface ($\delta B_x = 0$ there) and
-    the surfaces beside it are displaced oppositely on the two sides. (The
-    thin lens-shaped cells between $x = 0$ and a displaced surface are an
-    artefact of keeping only the linear perturbation, not reconnection.)
+    twisting parity $\Psi_W$ completed with its $O(\psi_1^2)$ term, so every
+    surface -- the rational one included -- is displaced together by
+    $\xi = -\psi_1\cos k_yy/B_s'$, with no normal field at the layer and no
+    reconnection.
     """
     if parity not in PARITIES:
         raise ValueError(f"parity must be one of {PARITIES}, not {parity!r}")
@@ -137,7 +143,8 @@ def slab_parity(parity: str = "tearing", *, labels: bool = True) -> Diagram:
         items += [
             Label((0.5 * _W, -0.5 * _H - 1.35), f"$\\displaystyle {formula_equation(slab_perturbed_flux)}$",
                   "formula box", anchor="north", role="equations"),
-            Label((0.5 * _W, -0.5 * _H - 2.6), "Sheared slab, $B_y = B_s'x$; radial $x$ up, binormal $y$ across",
+            Label((0.5 * _W, -0.5 * _H - 2.6), "Sheared slab, $B_y = B_s'x$; radial $x$ up, binormal $y$ across"
+                  + ("; twisting drawn with its $O(\\psi_1^2)$ completion" if parity == "twisting" else ""),
                   "note", anchor="north", role="note"),
         ]
     return Diagram(f"slab_parity_{parity}", Scene(tuple(items)), model={"parity": parity, **panel["info"]})
@@ -160,18 +167,20 @@ def slab_parity_comparison(*, labels: bool = True) -> Diagram:
         items += panel["items"]
         info[parity] = panel["info"]
     if labels:
-        rows = [("$\\tilde\\psi(-x)$", "$+\\tilde\\psi(x)$", "$-\\tilde\\psi(x)$"),
+        rows = [("perturbation", "$\\psi_0\\cos k_yy$", "$\\psi_1x\\cos k_yy$"),
+                ("$\\tilde\\psi(-x)$", "$+\\tilde\\psi(x)$", "$-\\tilde\\psi(x)$"),
                 ("$\\tilde\\phi(-x)$", "$-\\tilde\\phi(x)$", "$+\\tilde\\phi(x)$"),
                 ("$\\delta B_x(0)$", "$\\ne 0$", "$= 0$"),
-                ("topology", "island, reconnected flux", "displaced surfaces")]
+                ("displacement", "odd, $\\propto 1/x$", "even, rigid"),
+                ("topology", "island, reconnected flux", "no reconnection")]
         y0 = -0.5 * _H - 1.6
         for j, (name, t, w) in enumerate(rows):
             y = y0 - 0.5 * j
             items += [Label((-0.2, y), name, "small label", anchor="east", role="table"),
                       Label((0.5 * _W, y), t, "small label", anchor="center", role="table"),
                       Label((_W + 1.5 + 0.5 * _W, y), w, "small label", anchor="center", role="table")]
-        items.append(Label((_W + 0.75, y0 - 2.3), "Parity is the local layer response; $m$ is the poloidal harmonic",
-                           "note", anchor="north", role="note"))
+        items.append(Label((_W + 0.75, y0 - 3.3), "T and W are two layer responses of the same $(m, n)$, not "
+                           "different mode numbers", "note", anchor="north", role="note"))
     return Diagram("slab_parity_comparison", Scene(tuple(items)), model=info)
 
 
@@ -207,7 +216,7 @@ def poloidal_harmonic_coupling(m: int = 3, *, labels: bool = True) -> Diagram:
     ms = sorted(spectrum)
     chart = Chart(x_range=(m - 3.0, m + 3.0), y_range=(0.0, 1.2))
     source = {m: "self", m - 1: "cos1", m + 1: "cos1", m - 2: "cos2", m + 2: "cos2"}
-    style = {"self": "component real", "cos1": "component imag", "cos2": "boundary"}
+    style = {"self": "component real", "cos1": "component imag", "cos2": "orbit electron"}
     for k in ms:
         chart.curves[f"bar_{k}"] = np.array([[k, 0.0], [k, abs(spectrum[k])]])
     chart.parameters.update({"m": m, "c1": c1, "c2": c2, "spectrum": spectrum})
@@ -224,12 +233,13 @@ def poloidal_harmonic_coupling(m: int = 3, *, labels: bool = True) -> Diagram:
                   role="legend"),
             Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.6), f"blue: $m \\pm 1$, $c_1/2 = {c1 / 2:g}$ (toroidicity)",
                   "small label", anchor="north west", role="legend"),
-            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 1.1), f"thick: $m \\pm 2$, $c_2/2 = {c2 / 2:g}$ (elongation)",
+            Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 1.1), f"thin dark: $m \\pm 2$, $c_2/2 = {c2 / 2:g}$ (elongation)",
                   "small label", anchor="north west", role="legend"),
             Label((CHART_WIDTH / 2, -1.45), "$\\cos\\theta\\,e^{im\\theta} = \\tfrac12\\left[e^{i(m+1)\\theta} + "
-                  "e^{i(m-1)\\theta}\\right]$, same $n$", "formula box", anchor="north", role="equations"),
-            Label((CHART_WIDTH / 2, -2.6), "$C(\\theta) = 1 + c_1\\cos\\theta + c_2\\cos 2\\theta$, schematic; real "
-                  "equilibria couple more harmonics", "note", anchor="north", role="note"),
+                  "e^{i(m-1)\\theta}\\right],\\quad \\cos 2\\theta\\,e^{im\\theta} = \\tfrac12\\left[e^{i(m+2)\\theta} + "
+                  "e^{i(m-2)\\theta}\\right]$", "formula box", anchor="north", role="equations"),
+            Label((CHART_WIDTH / 2, -2.6), "Same $n$ throughout; $m$ is the harmonic index, not the T/W parity. "
+                  "$C(\\theta)$ schematic", "note", anchor="north", role="note"),
         ]
     return Diagram("poloidal_harmonic_coupling", Scene(tuple(items)), model=chart)
 
@@ -247,18 +257,20 @@ def resonant_layer_matching(*, labels: bool = True) -> Diagram:
     ideal outer region couples all of them -- through the poloidal-harmonic
     coupling of the equilibrium -- into one $2N \times 2N$ matching matrix
     (the multi-surface generalisation of $\Delta'$ that RDCON/STRIDE compute),
-    while the layer physics is solved surface by surface (e.g. SLAYER).
+    while the layer physics is solved surface by surface (SLAYER-type models
+    for the tearing response).
     """
     labels = _check_labels(labels)
     items: List = []
     items += band(-1.2, 17.2, -4.1, 1.6, "one toroidal mode number $n$", role="band")
-    outer = box(8.0, 0.4, 16.0, 1.2, "ideal outer region: couples every surface through the equilibrium's "
-                "harmonic coupling $\\to$ one $2N\\times2N$ matching matrix", role="outer", latex=True)
+    outer = box(8.0, 0.4, 16.0, 1.2, "ideal outer region: every surface coupled through the equilibrium"
+                "\\\\ $\\det[D'_\\mathrm{outer} - D_\\mathrm{layer}] = 0$ on a $2N\\times2N$ matrix", role="outer",
+                latex=True)
     items += list(outer.items)
     surfaces = []
     for i, m in enumerate((2, 3, 4)):
         x = 2.5 + 5.5 * i
-        head = box(x, -1.4, 4.6, 0.9, f"$q = {m}/1$, $r_{{s,{i + 1}}}$", role=f"surface:{m}", latex=True)
+        head = box(x, -1.4, 4.6, 0.9, f"$(n, m) = (1, {m})$ at $r_{{s,{i + 1}}}$", role=f"surface:{m}", latex=True)
         t = box(x - 1.2, -3.0, 2.1, 1.1, "T\\\\ tearing", role=f"layer:{m}:tearing", latex=True)
         w = box(x + 1.2, -3.0, 2.1, 1.1, "W\\\\ twisting", role=f"layer:{m}:twisting", latex=True)
         items += list(head.items) + list(t.items) + list(w.items)
@@ -266,6 +278,7 @@ def resonant_layer_matching(*, labels: bool = True) -> Diagram:
                   connector(head, w, role=f"edge:{m}->W")]
         surfaces.append(m)
     if labels:
-        items.append(Label((8.0, -4.5), "Layer physics per surface (T and W); the outer region couples them all "
-                           "(RDCON/STRIDE matrix)", "note", anchor="north", role="note"))
+        items.append(Label((8.0, -4.5), "Each layer labelled $(n, m, r_s, \\mathrm{parity})$; the outer region couples "
+                           "all (RDCON/STRIDE); layer models give T (e.g. SLAYER) and W responses", "note",
+                           anchor="north", role="note"))
     return Diagram("resonant_layer_matching", Scene(tuple(items)), model={"surfaces": tuple(surfaces)})
