@@ -33,9 +33,11 @@ def test_rectangular_box_is_written_as_asked():
     assert _box(CHEASEConfig(nw=513, nh=257)) == ["NRBOX=513,", "NZBOX=257,"]
 
 
-def test_box_sizes_are_validated():
-    with pytest.raises(ValueError, match="nh"):
-        CHEASEConfig(nh=1)
+@pytest.mark.parametrize("kwargs", [dict(nh=1), dict(nw=1), dict(nh=2301), dict(nw=4000)])
+def test_box_sizes_are_validated(kwargs):
+    # CHEASE silently clamps either side to NPBPS = 2300 (psibox.f90).
+    with pytest.raises(ValueError, match=next(iter(kwargs))):
+        CHEASEConfig(**kwargs)
 
 
 @needs_chease
@@ -64,7 +66,7 @@ def test_manifest_keeps_output_grid_an_integer(tmp_path):
     from vaft.code.chease import prepare_chease_inputs
     from vaft.data.resources import sample_geqdsk
 
-    prepared = prepare_chease_inputs(sample_geqdsk(), CHEASEConfig(workdir=tmp_path, nw=129, nh=65, create_plot=False))
+    prepare_chease_inputs(sample_geqdsk(), CHEASEConfig(workdir=tmp_path, nw=129, nh=65, create_plot=False))
     manifest = json.loads((tmp_path/"chease_input_manifest.json").read_text())
-    assert manifest["output_grid"] == 129 and manifest["output_grid_z"] == 65
-    assert prepared.manifests
+    assert type(manifest["output_grid"]) is int and type(manifest["output_grid_z"]) is int
+    assert (manifest["output_grid"], manifest["output_grid_z"]) == (129, 65)

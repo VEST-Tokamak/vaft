@@ -117,6 +117,10 @@ DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
 PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
 
 
+#: ``NPBPS`` of upstream ``globals.f90``: the largest EQDSK box side CHEASE writes.
+CHEASE_MAX_BOX = 2300
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
     """Runtime and numerical configuration for CHEASE refinement.
@@ -143,7 +147,8 @@ class CHEASEConfig:
     nw: int = 513
     #: Vertical size of that box (``NZBOX``); ``None`` keeps it square
     #: (``NZBOX = NRBOX``).  Upstream CHEASE reads the two independently and
-    #: caps ``NZBOX`` at ``3 * NPISOEFF`` (#459).
+    #: silently clamps each to ``NPBPS = 2300`` (``psibox.f90``), so both are
+    #: validated against that here (#459).
     nh: Optional[int] = None
     #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
     #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
@@ -194,10 +199,17 @@ class CHEASEConfig:
                 "mappings (e.g. NIDEAL=9 for GENE/ORB5) are outside the "
                 "refinement contract (#516)"
             )
-        for key in ("ns", "nt", "npsi", "nchi", "nh"):
+        for key in ("ns", "nt", "npsi", "nchi"):
             value = getattr(self, key)
             if value is not None and int(value) < 2:
                 raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
+        for key in ("nw", "nh"):
+            value = getattr(self, key)
+            if value is not None and not 2 <= int(value) <= CHEASE_MAX_BOX:
+                raise ValueError(
+                    f"CHEASEConfig.{key} must lie in 2..{CHEASE_MAX_BOX} (CHEASE's NPBPS, "
+                    f"beyond which it silently clamps the EQDSK box); got {value}"
+                )
         if self.nideal is not None:
             warnings.warn(
                 f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
