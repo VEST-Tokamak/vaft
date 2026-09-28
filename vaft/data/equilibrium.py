@@ -376,6 +376,31 @@ class FourierSequenceResult:
 
 
 @dataclass(frozen=True)
+class GradShafranovResidualModes:
+    """The Grad-Shafranov residual projected onto poloidal harmonics, surface by surface (#948).
+
+    Row ``i`` is the surface at ``radial_values[i]``; ``cos[i, m]`` and
+    ``sin[i, m]`` are the residual's harmonics in T/m with the arc-length angle
+    of :class:`FourierSurface`, ``rms[i]`` its RMS on that surface, and
+    ``scale`` the whole-plasma RMS of the source for normalization.
+    """
+
+    radial_values: np.ndarray
+    cos: np.ndarray
+    sin: np.ndarray
+    rms: np.ndarray
+    scale: float
+    radial_coordinate: str = "psi_n"
+    angle_convention: str = "arc_length"
+    skipped: tuple[float, ...] = ()
+    provenance: DerivationProvenance | None = None
+
+    def amplitude(self, m: int) -> np.ndarray:
+        """``sqrt(cos**2 + sin**2)`` of harmonic *m* on every surface [T/m]."""
+        return np.hypot(self.cos[:, m], self.sin[:, m])
+
+
+@dataclass(frozen=True)
 class SolovevConstraint:
     """One linear condition on psi at a point: ``kind`` of psi equals ``value``.
 
@@ -505,6 +530,6 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint", "FourierFitResult", "FourierSequenceResult", "FourierSurface",
+    "ValidationReport", "XPoint", "GradShafranovResidualModes", "FourierFitResult", "FourierSequenceResult", "FourierSurface",
     "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]
