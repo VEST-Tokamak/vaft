@@ -1,35 +1,35 @@
-"""Start a program so that it and everything it starts can be stopped together.
+"""Stop a program together with everything it started.
 
 ``subprocess.run(timeout=...)`` kills only the direct child. A launcher that
 does not ``exec`` (GACODE's scripts, FLARE's ``-n`` MPI driver, a ``.cmd``
 wrapper) leaves its own children running after the kill, and on Windows the
-wait can then hang until they exit. :class:`ProcessTree` puts the whole tree in
-one unit the operating system can stop:
+wait can then hang until they exit. :class:`ProcessTree` stops the whole tree:
 
-* POSIX: the child starts its own session (``start_new_session=True``), so it
-  leads a process group that :meth:`ProcessTree.terminate` signals as a whole --
-  ``SIGTERM``, :data:`TERMINATE_GRACE_S` seconds to exit, then ``SIGKILL``.
+* POSIX: the child stays in the caller's process group, so every signal sent
+  to that group -- a terminal's Ctrl-C and Ctrl-Z, a supervisor's ``SIGSTOP``
+  or ``SIGKILL``, Snakemake stopping a job -- still reaches the solver exactly
+  as it did before (#1016). :meth:`ProcessTree.terminate` finds the tree by
+  parent id, freezes it with ``SIGSTOP`` so nothing forks while it is being
+  walked, sends ``SIGTERM`` (and ``SIGCONT`` so it can act on it), waits
+  :data:`TERMINATE_GRACE_S` seconds, then sends ``SIGKILL`` to what is left.
 * Windows: the child is assigned to a Job Object created with
   ``JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE``; terminating the job stops every
   process in it. If the job cannot be set up, ``taskkill /T /F`` stops the tree
-  by parent id instead. A grandchild started before the assignment completes
-  escapes the job; ``taskkill`` is not attempted for it.
+  by parent id instead.
 
-A new session no longer receives the terminal's Ctrl-C or a signal sent to the
-caller's process group (which is how Snakemake stops a job), so the caller must
-forward them: :func:`forward_termination` turns ``SIGTERM`` and ``SIGHUP`` (a
-dropped ssh session) into :class:`Terminated` while a program runs, and the
-caller stops the tree and calls :meth:`Terminated.redeliver`. Ctrl-C needs no
-handler: it already arrives as ``KeyboardInterrupt``.
+A signal sent to the caller alone (``kill <pid>``) does not reach the tree, so
+:func:`forward_termination` turns ``SIGTERM`` and ``SIGHUP`` into
+:class:`Terminated` while a program runs; the caller stops the tree and calls
+:meth:`Terminated.redeliver`. Ctrl-C arrives as ``KeyboardInterrupt``.
 
 Not covered:
 
-* ``SIGKILL`` to the caller's process group (``kill -9 -- -PGID``). The caller
-  cannot run any cleanup, and the tree is no longer in that group, so it keeps
-  running. A supervisor should send ``SIGTERM`` first; systemd and Slurm stop
-  a whole cgroup and are unaffected.
-* A process that makes itself a new session leader (``setsid``) or
-  daemonizes has left the tree on purpose and is not stopped.
+* A descendant whose parent had already exited before the stop has been
+  reparented to init and is no longer found by parent id (POSIX).
+* A process that makes itself a new session leader or daemonizes.
+* Windows: a grandchild started before the job assignment completes escapes
+  the job, and when an escaped process keeps the pipes open the output read
+  before the stop is lost (``communicate`` there reports none on timeout).
 """
 
 from __future__ import annotations
@@ -40,17 +40,18 @@ import signal
 import subprocess
 import threading
 import time
-from typing import Any, Iterator, Optional, Sequence
+from typing import Any, Iterable, Iterator, Optional, Sequence
 
 #: Seconds a tree gets between the polite stop and the forced one.
 TERMINATE_GRACE_S = 10.0
 
-_POLL_S = 0.05
-_WINDOWS = os.name == "nt"
-
-
 #: Signals :func:`forward_termination` turns into :class:`Terminated` (POSIX).
 FORWARDED_SIGNALS: tuple[str, ...] = ("SIGTERM", "SIGHUP")
+
+_POLL_S = 0.1
+_FREEZE_PASSES = 10
+_WINDOWS = os.name == "nt"
+_STDLIB_RUN = subprocess.run
 
 
 class Terminated(BaseException):
@@ -65,50 +66,62 @@ class Terminated(BaseException):
         self.signum = signum
 
     def redeliver(self) -> None:
-        """Deliver the signal again, now that the caller's own handler is back.
+        """Deliver the signal again, now that the default disposition is back.
 
-        Under the default disposition the process ends here, by the signal, as
-        it would have without VAFT in the way. A handler that returns leaves
-        the caller to re-raise this exception.
+        The process then ends by the signal, as it would have without VAFT in
+        the way.
         """
         signal.raise_signal(self.signum)
+
+
+def _forwarded() -> list[int]:
+    return [getattr(signal, name) for name in FORWARDED_SIGNALS if hasattr(signal, name)]
 
 
 @contextlib.contextmanager
 def forward_termination() -> Iterator[None]:
     """Raise :class:`Terminated` on each of :data:`FORWARDED_SIGNALS` in the block.
 
-    Handlers are installed only on POSIX and only from the main thread
-    (Python delivers signals there alone), and only where the current
-    disposition can be put back afterwards: an ignored signal stays ignored
-    (``nohup`` keeps working), and a handler installed outside Python is left
-    alone. The previous handlers are restored on every exit from the block.
+    A handler is installed only on POSIX, only from the main thread (Python
+    delivers signals there alone) and only over the **default** disposition:
+    an ignored signal stays ignored (``nohup``), and a caller's own handler --
+    one that drains gracefully, say -- keeps its choice. The signals are
+    blocked while handlers are swapped, so one that arrives meanwhile is
+    delivered after the swap rather than lost or left half-installed.
     """
     if _WINDOWS or threading.current_thread() is not threading.main_thread():
         yield
         return
+    signums = _forwarded()
+    replaced: list[int] = []
 
     def _stop(signum: int, frame: Any) -> None:
         raise Terminated(signum)
 
-    replaced: dict[int, Any] = {}
     try:
-        for name in FORWARDED_SIGNALS:
-            signum = getattr(signal, name, None)
-            if signum is None:
-                continue
-            previous = signal.getsignal(signum)
-            if previous is None or previous is signal.SIG_IGN:
-                continue
-            try:
-                signal.signal(signum, _stop)
-            except ValueError:  # not the main interpreter
-                break
-            replaced[signum] = previous
+        with _blocked(signums):
+            for signum in signums:
+                if signal.getsignal(signum) is not signal.SIG_DFL:
+                    continue
+                try:
+                    signal.signal(signum, _stop)
+                except ValueError:  # not the main interpreter
+                    break
+                replaced.append(signum)
         yield
     finally:
-        for signum, previous in replaced.items():
-            signal.signal(signum, previous)
+        with _blocked(signums):
+            for signum in replaced:
+                signal.signal(signum, signal.SIG_DFL)
+
+
+@contextlib.contextmanager
+def _blocked(signums: Sequence[int]) -> Iterator[None]:
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, signums)
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
 class ProcessTree:
@@ -120,17 +133,18 @@ class ProcessTree:
 
     @classmethod
     def start(cls, argv: Sequence[str], **popen_kwargs: Any) -> "ProcessTree":
-        """``Popen(argv, **popen_kwargs)`` in its own process group or job.
+        """``Popen(argv, **popen_kwargs)``; on Windows, inside a kill-on-close job.
 
         ``OSError`` from the launch propagates unchanged.
         """
-        if not _WINDOWS:
-            return cls(subprocess.Popen(list(argv), start_new_session=True, **popen_kwargs))
         process = subprocess.Popen(list(argv), **popen_kwargs)
-        return cls(process, _windows_job_for(process))
+        return cls(process, _windows_job_for(process) if _WINDOWS else None)
 
     def terminate(self, grace: Optional[float] = None) -> None:
-        """Stop the whole tree; return once its leader has been reaped."""
+        """Stop the whole tree; return once its leader has been reaped.
+
+        Safe to call again: a tree that is already stopped is left alone.
+        """
         grace = TERMINATE_GRACE_S if grace is None else float(grace)
         if _WINDOWS:
             self._terminate_windows()
@@ -148,8 +162,7 @@ class ProcessTree:
             return self.process.communicate(timeout=grace)
         except subprocess.TimeoutExpired as expired:
             self.process.kill()
-            with contextlib.suppress(subprocess.TimeoutExpired):
-                self.process.wait(timeout=grace)
+            _reap(self.process)
             return expired.output, expired.stderr
 
     def close(self) -> None:
@@ -165,60 +178,120 @@ class ProcessTree:
     # -- POSIX ------------------------------------------------------------
 
     def _terminate_posix(self, grace: float) -> None:
-        # The child leads its own session, so its process group id is its pid.
-        group = self.process.pid
-        if not _signal_group(group, signal.SIGTERM):
-            self.process.poll()
+        # A reaped leader's pid may already belong to someone else, and its
+        # children were reparented when it exited: nothing left to find.
+        if self.process.poll() is not None:
             return
+        tree: set[int] = set()
         try:
+            tree = self._freeze()
+            _send(tree, signal.SIGTERM)
+            _send(tree, signal.SIGCONT)
             deadline = time.monotonic() + grace
             while time.monotonic() < deadline:
-                # Reap the leader: a zombie still counts as a group member.
-                self.process.poll()
-                if not _group_alive(group):
+                self.process.poll()  # reap the leader; a zombie is not "alive"
+                table = _process_table()
+                if not any(_alive(pid, table) for pid in tree):
                     return
                 time.sleep(_POLL_S)
         except BaseException:
-            # A second interrupt during the grace period skips straight to
-            # the forced stop rather than abandoning the tree.
-            _signal_group(group, signal.SIGKILL)
+            # A second interrupt skips to the forced stop rather than
+            # abandoning a frozen tree.
+            _send(tree, signal.SIGKILL)
+            _reap(self.process)
             raise
-        _signal_group(group, signal.SIGKILL)
-        with contextlib.suppress(subprocess.TimeoutExpired):
-            self.process.wait(timeout=grace)
+        _send(tree, signal.SIGKILL)
+        _reap(self.process)
+
+    def _freeze(self) -> set[int]:
+        """``SIGSTOP`` the leader and its descendants until no new one appears."""
+        frozen: set[int] = set()
+        for _ in range(_FREEZE_PASSES):
+            table = _process_table()
+            found = {
+                pid
+                for pid in _descendants(self.process.pid, table) | {self.process.pid}
+                if _alive(pid, table)
+            }
+            fresh = found - frozen
+            if not fresh:
+                break
+            _send(fresh, signal.SIGSTOP)
+            frozen |= fresh
+        return frozen
 
     # -- Windows ----------------------------------------------------------
 
     def _terminate_windows(self) -> None:
-        job, self._job = self._job, None
-        if job is not None and _windows_terminate_job(job):
+        if self.process.poll() is not None and self._job is None:
             return
-        subprocess.run(
-            ["taskkill", "/T", "/F", "/PID", str(self.process.pid)],
-            capture_output=True,
-            check=False,
-        )
+        job, self._job = self._job, None
+        if job is None or not _windows_terminate_job(job):
+            _STDLIB_RUN(
+                ["taskkill", "/T", "/F", "/PID", str(self.process.pid)],
+                capture_output=True,
+                check=False,
+            )
+        _reap(self.process)
 
 
-def _signal_group(group: int, signum: int) -> bool:
-    try:
-        os.killpg(group, signum)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        # A member changed its credentials; it is out of reach either way.
-        return False
-    return True
+def _reap(process: "subprocess.Popen[Any]") -> None:
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        process.wait(timeout=2.0)
 
 
-def _group_alive(group: int) -> bool:
-    try:
-        os.killpg(group, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+def _send(pids: Iterable[int], signum: int) -> None:
+    for pid in pids:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.kill(pid, signum)
+
+
+# -- POSIX process table --------------------------------------------------
+
+
+def _process_table() -> dict[int, tuple[int, str]]:
+    """``{pid: (ppid, state)}`` for every process this user can see."""
+    if os.path.isdir("/proc/self/task"):
+        table: dict[int, tuple[int, str]] = {}
+        for entry in os.scandir("/proc"):
+            if not entry.name.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry.name}/stat", "rb") as stat:
+                    # comm may contain spaces and parentheses; it ends at the last ')'.
+                    fields = stat.read().rsplit(b")", 1)[1].split()
+            except (OSError, IndexError):
+                continue
+            table[int(entry.name)] = (int(fields[1]), fields[0].decode("ascii", "replace"))
+        return table
+    listing = _STDLIB_RUN(
+        ["ps", "-A", "-o", "pid=,ppid=,stat="], capture_output=True, text=True, check=False
+    )
+    table = {}
+    for line in listing.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0].isdigit() and parts[1].isdigit():
+            table[int(parts[0])] = (int(parts[1]), parts[2])
+    return table
+
+
+def _descendants(root: int, table: dict[int, tuple[int, str]]) -> set[int]:
+    children: dict[int, list[int]] = {}
+    for pid, (ppid, _) in table.items():
+        children.setdefault(ppid, []).append(pid)
+    found: set[int] = set()
+    pending = [root]
+    while pending:
+        for child in children.get(pending.pop(), ()):
+            if child not in found:
+                found.add(child)
+                pending.append(child)
+    return found
+
+
+def _alive(pid: int, table: dict[int, tuple[int, str]]) -> bool:
+    entry = table.get(pid)
+    return entry is not None and not entry[1].startswith(("Z", "X"))
 
 
 # -- Windows Job Object ---------------------------------------------------
@@ -315,7 +388,7 @@ def _windows_job_for(process: "subprocess.Popen[Any]") -> Any:
         ):
             return job
         kernel32.CloseHandle(job)
-    except (OSError, AttributeError, ValueError):
+    except Exception:  # ctypes.ArgumentError is not an OSError
         pass
     return None
 
@@ -326,7 +399,7 @@ def _windows_terminate_job(job: Any) -> bool:
         stopped = bool(kernel32.TerminateJobObject(job, 1))
         kernel32.CloseHandle(job)
         return stopped
-    except (OSError, AttributeError, ValueError):
+    except Exception:  # ctypes.ArgumentError is not an OSError
         return False
 
 
@@ -336,7 +409,7 @@ def _windows_release_job(job: Any) -> None:
         # Drop kill-on-close first so closing the handle leaves survivors alone.
         _set_limits(kernel32, job, 0)
         kernel32.CloseHandle(job)
-    except (OSError, AttributeError, ValueError):
+    except Exception:  # ctypes.ArgumentError is not an OSError
         pass
 
 

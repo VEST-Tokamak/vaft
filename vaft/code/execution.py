@@ -222,7 +222,9 @@ class LocalBackend:
 
         Same result as the ``subprocess.run`` path, but a timeout, a
         ``KeyboardInterrupt``, a ``SIGTERM`` or a ``SIGHUP`` stops the whole
-        tree.
+        tree. The program stays in the caller's process group, so signals sent
+        to the group (Ctrl-C, Ctrl-Z, a supervisor's ``SIGSTOP``) reach it as
+        before.
         """
         capture = request.log_path is None
         log_path = None if capture else Path(request.log_path)
@@ -235,26 +237,34 @@ class LocalBackend:
         if capture:
             popen_kwargs.update(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         started = time.monotonic()
-        try:
-            tree = _process_tree.ProcessTree.start(command, **popen_kwargs)
-        except OSError as error:
-            raise ExecutableNotLaunchable(f"cannot launch {command[0]}: {error}") from error
+        tree: Optional[_process_tree.ProcessTree] = None
         timed_out = False
         try:
+            # The guard spans the stop as well, so a second signal during it
+            # escalates to SIGKILL instead of ending Python with a frozen tree.
             with _process_tree.forward_termination():
                 try:
-                    stdout, stderr = tree.process.communicate(stdin, timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    timed_out = True
-                    tree.terminate()
-                    stdout, stderr = tree.collect()
+                    tree = _process_tree.ProcessTree.start(command, **popen_kwargs)
+                except OSError as error:
+                    raise ExecutableNotLaunchable(
+                        f"cannot launch {command[0]}: {error}"
+                    ) from error
+                try:
+                    try:
+                        stdout, stderr = tree.process.communicate(stdin, timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        timed_out = True
+                        tree.terminate()
+                        stdout, stderr = tree.collect()
                 except BaseException:
+                    # KeyboardInterrupt, a forwarded signal, or one landing
+                    # during the timeout's own stop. ``terminate`` is idempotent.
                     tree.terminate()
                     raise
                 finally:
                     tree.close()
         except _process_tree.Terminated as stop:
-            # Our handler is gone again; let the caller's disposition decide.
+            # Our handler is gone again; the default disposition decides.
             stop.redeliver()
             raise
         return ExecutionResult(

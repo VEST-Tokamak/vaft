@@ -20,7 +20,7 @@ import pytest
 
 from vaft.code import ExecutionRequest, LocalBackend
 from vaft.code import _process_tree
-from vaft.code._process_tree import ProcessTree, Terminated
+from vaft.code._process_tree import ProcessTree
 
 POSIX = pytest.mark.skipif(os.name == "nt", reason="POSIX process groups and signals")
 
@@ -103,6 +103,26 @@ def _kill(pid: int) -> None:
             os.kill(pid, signal.SIGKILL)
 
 
+def _kill_published(pid_file: Path) -> None:
+    if pid_file.is_file() and pid_file.read_text().strip():
+        _kill(int(pid_file.read_text()))
+
+
+def _signal_once_started(pid_file: Path, send) -> threading.Thread:
+    """Call ``send()`` once the tree has published its grandchild, or after 10 s anyway."""
+
+    def run():
+        try:
+            _pid(pid_file)
+        except AssertionError:
+            pass
+        send()
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return thread
+
+
 def _tree_request(tmp_path: Path, *extra: str, **request) -> ExecutionRequest:
     script = tmp_path / "tree.py"
     script.write_text(_TREE, encoding="utf-8")
@@ -114,7 +134,7 @@ def _tree_request(tmp_path: Path, *extra: str, **request) -> ExecutionRequest:
 
 
 def test_timeout_stops_the_grandchild_and_keeps_partial_output(tmp_path):
-    result = LocalBackend().run(_tree_request(tmp_path, timeout=3.0))
+    result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out
@@ -127,7 +147,7 @@ def test_timeout_stops_the_grandchild_and_keeps_partial_output(tmp_path):
 
 def test_timeout_with_a_log_keeps_the_partial_log(tmp_path):
     log = tmp_path / "logs" / "run.log"
-    result = LocalBackend().run(_tree_request(tmp_path, timeout=3.0, log_path=log))
+    result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0, log_path=log))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out and result.returncode is None
@@ -144,7 +164,7 @@ def test_a_shell_launcher_that_does_not_exec_is_stopped_whole(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
     command = f"sleep 60 & echo $! > {pid_file}; echo started; wait"
     result = LocalBackend().run(
-        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=2.0)
+        ExecutionRequest(command=("sh", "-c", command), workdir=tmp_path, timeout=4.0)
     )
     grandchild = _pid(pid_file)
     try:
@@ -158,7 +178,7 @@ def test_a_shell_launcher_that_does_not_exec_is_stopped_whole(tmp_path):
 @POSIX
 def test_a_grandchild_that_ignores_sigterm_is_killed_after_the_grace(tmp_path):
     started = time.monotonic()
-    result = LocalBackend().run(_tree_request(tmp_path, "stubborn", timeout=3.0))
+    result = LocalBackend().run(_tree_request(tmp_path, "stubborn", timeout=5.0))
     grandchild = _pid(tmp_path / "grandchild.pid")
     try:
         assert result.timed_out
@@ -174,22 +194,35 @@ def test_keyboard_interrupt_stops_the_tree_and_is_raised(tmp_path):
     pid_file = tmp_path / "grandchild.pid"
     # A real SIGINT, as a terminal Ctrl-C delivers: ``_thread.interrupt_main``
     # only sets a flag and would not break the blocking wait.
-    timer = threading.Timer(0.0, lambda: (_pid(pid_file), os.kill(os.getpid(), signal.SIGINT)))
-    timer.start()
+    sender = _signal_once_started(pid_file, lambda: os.kill(os.getpid(), signal.SIGINT))
     try:
         with pytest.raises(KeyboardInterrupt):
             LocalBackend().run(_tree_request(tmp_path))
+        sender.join()
+        assert _gone(_pid(pid_file))
     finally:
-        timer.join()
-    grandchild = _pid(pid_file)
-    try:
-        assert _gone(grandchild)
-    finally:
-        _kill(grandchild)
+        _kill_published(pid_file)
 
 
 @POSIX
-def test_sigterm_stops_the_tree_then_reaches_the_callers_handler(tmp_path):
+def test_the_tree_stays_in_the_callers_process_group(tmp_path):
+    """Group signals (Ctrl-Z, a supervisor's SIGSTOP or SIGKILL) keep reaching the solver."""
+    pid_file = tmp_path / "grandchild.pid"
+    seen = []
+    sender = _signal_once_started(
+        pid_file, lambda: seen.append(os.getpgid(_pid(pid_file)))
+    )
+    try:
+        LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
+        sender.join()
+        assert seen == [os.getpgrp()]
+    finally:
+        _kill_published(pid_file)
+
+
+@POSIX
+def test_a_callers_own_sigterm_handler_keeps_its_choice(tmp_path):
+    """A handler that drains gracefully is not overridden: the run goes on to its timeout."""
     pid_file = tmp_path / "grandchild.pid"
     seen: list[int] = []
 
@@ -197,21 +230,17 @@ def test_sigterm_stops_the_tree_then_reaches_the_callers_handler(tmp_path):
         seen.append(signum)
 
     previous = signal.signal(signal.SIGTERM, callers_handler)
-    timer = threading.Timer(0.0, lambda: (_pid(pid_file), os.kill(os.getpid(), signal.SIGTERM)))
     try:
-        timer.start()
-        with pytest.raises(Terminated):
-            LocalBackend().run(_tree_request(tmp_path))
-        timer.join()
-        assert signal.getsignal(signal.SIGTERM) is callers_handler
+        sender = _signal_once_started(pid_file, lambda: os.kill(os.getpid(), signal.SIGTERM))
+        result = LocalBackend().run(_tree_request(tmp_path, timeout=5.0))
+        sender.join()
         assert seen == [signal.SIGTERM]
+        assert result.timed_out
+        assert signal.getsignal(signal.SIGTERM) is callers_handler
+        assert _gone(_pid(pid_file))
     finally:
         signal.signal(signal.SIGTERM, previous)
-    grandchild = _pid(pid_file)
-    try:
-        assert _gone(grandchild)
-    finally:
-        _kill(grandchild)
+        _kill_published(pid_file)
 
 
 @POSIX
@@ -245,7 +274,7 @@ def test_a_signal_to_a_default_python_ends_it_by_the_signal_with_no_orphan(tmp_p
     finally:
         if python.poll() is None:
             python.kill()
-        _kill(_pid(tmp_path / "grandchild.pid"))
+        _kill_published(tmp_path / "grandchild.pid")
 
 
 @POSIX
@@ -255,7 +284,7 @@ def test_off_the_main_thread_no_handler_is_installed_and_timeout_still_stops_the
     results = []
 
     def run():
-        results.append(LocalBackend().run(_tree_request(tmp_path, timeout=3.0)))
+        results.append(LocalBackend().run(_tree_request(tmp_path, timeout=5.0)))
 
     worker = threading.Thread(target=run)
     worker.start()
@@ -318,17 +347,17 @@ def test_an_unlaunchable_program_is_still_the_shared_error(tmp_path):
 
 
 @POSIX
-def test_an_ignored_signal_stays_ignored_and_handlers_are_restored(tmp_path):
-    """``nohup``: an ignored SIGHUP is left ignored; nothing is left installed afterwards."""
+def test_only_the_default_disposition_is_taken_over_and_it_is_restored():
+    """``nohup``: an ignored SIGHUP is left ignored; nothing stays installed afterwards."""
     previous_hup = signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    before_term = signal.getsignal(signal.SIGTERM)
-    seen = []
+    previous_term = signal.signal(signal.SIGTERM, signal.SIG_DFL)
     try:
         with _process_tree.forward_termination():
-            seen.append((signal.getsignal(signal.SIGHUP), signal.getsignal(signal.SIGTERM)))
-        assert seen[0][0] is signal.SIG_IGN
-        assert seen[0][1] is not before_term
+            during = (signal.getsignal(signal.SIGHUP), signal.getsignal(signal.SIGTERM))
+        assert during[0] is signal.SIG_IGN
+        assert callable(during[1])
         assert signal.getsignal(signal.SIGHUP) is signal.SIG_IGN
-        assert signal.getsignal(signal.SIGTERM) is before_term
+        assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL
     finally:
         signal.signal(signal.SIGHUP, previous_hup)
+        signal.signal(signal.SIGTERM, previous_term)
