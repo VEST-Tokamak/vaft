@@ -1,10 +1,11 @@
-"""Guazzotto-Freidberg analytic equilibria, Part 1 (#1148).
+"""Guazzotto-Freidberg analytic equilibria, Parts 1 (#1148) and 2 (#1149).
 
 L. Guazzotto and J. P. Freidberg, *Simple, general, realistic, robust,
 analytic tokamak equilibria. Part 1. Limiter and divertor tokamaks*,
-J. Plasma Phys. 87, 905870303 (2021), doi:10.1017/S002237782100009X.
-Equation numbers below refer to that paper.  :mod:`vaft.process.equilibrium`
-is the public import location.
+J. Plasma Phys. 87, 905870303 (2021), doi:10.1017/S002237782100009X, and
+*Part 2. Pedestals and flow*, J. Plasma Phys. 87, 905870305 (2021),
+doi:10.1017/S0022377821000118.  Equation numbers refer to Part 1 unless
+marked "Part 2".  :mod:`vaft.process.equilibrium` is the public import location.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from typing import Any, Mapping
 
 import numpy as np
 from scipy.constants import mu_0 as MU0
-from scipy.optimize import minimize_scalar, root
+from scipy.optimize import brentq, minimize_scalar, root
 
 from vaft.data.equilibrium import Contour, EquilibriumData, GuazzottoFreidbergEquilibrium
 
@@ -38,43 +39,77 @@ def _separation_constants(eps: float, alpha: float) -> tuple[np.ndarray, np.ndar
     return h, k
 
 
-def _series(k: float, lam2: float, eps_hat: float, sine: bool, terms: int) -> tuple[np.ndarray, np.ndarray]:
-    """Eqs. (A2)-(A3): power-series coefficients of the cosine- or sine-like X_n."""
+def _flow_factor_exponent(gamma: float | None) -> float:
+    """``gamma/(gamma - 1)``, the exponent of the flow factor in Eqs. (5.6) and (6.1)."""
+    return 1.0 if gamma is None or np.isinf(gamma) else gamma/(gamma - 1)
+
+
+def _source_polynomial(eps: float, nu: float, mach: float = 0.0, gamma: float | None = None) -> tuple[float, float, float]:
+    """``(s1, s2, s3)`` with ``nu G(x) = s1 x + s2 x**2 + s3 x**3``, Eqs. (5.6)-(5.8).
+
+    Without flow ``G = eps_hat x`` (Part 1).  With flow, ``gamma = inf`` and
+    ``gamma = 2`` make ``G`` a quadratic and a cubic; ``s_j = eps_hat**j nu_j``
+    so that ``lambda_j**2 = alpha**2 s_j`` of Eq. (5.10).
+    """
+    eps_hat = 2*eps/(1 + eps**2)
+    if mach == 0:
+        return (eps_hat*nu, 0.0, 0.0)
+    zeta = mach**2*(1 + eps**2)/(1 + mach**2*eps**2)
+    if gamma is None or np.isinf(gamma):
+        nus = ((1 + zeta)*nu, zeta*nu, 0.0)
+    else:
+        nus = ((1 + 2*zeta)*nu, zeta*(2 + zeta)*nu, zeta**2*nu)
+    return tuple(float(eps_hat**(j + 1)*v) for j, v in enumerate(nus))
+
+
+def _series(k: float, lam: tuple[float, float, float], eps_hat: float, sine: bool, terms: int) -> tuple[np.ndarray, np.ndarray]:
+    """Eqs. (A2)-(A3) of Part 1, generalized to (B3) of Part 2: power-series coefficients of X_n.
+
+    ``lam`` holds ``(lambda_1**2, lambda_2**2, lambda_3**2)`` of Eq. (5.10);
+    Part 1 is ``(alpha**2 eps_hat nu, 0, 0)``.
+    """
+    l1, l2, l3 = lam
     a = np.zeros(terms); b = np.zeros(terms)
     if sine:
         b[0] = 1.0
     else:
         a[0] = 1.0
     for m in range(3, terms):
-        am = eps_hat*(m-1)*(m-2)*a[m-1] + (lam2 - eps_hat*k*k)*a[m-3] + 2*(m-1)*k*b[m-1] + 2*eps_hat*(m-2)*k*b[m-2]
-        bm = eps_hat*(m-1)*(m-2)*b[m-1] + (lam2 - eps_hat*k*k)*b[m-3] - 2*(m-1)*k*a[m-1] - 2*eps_hat*(m-2)*k*a[m-2]
+        am = eps_hat*(m-1)*(m-2)*a[m-1] + (l1 - eps_hat*k*k)*a[m-3] + 2*(m-1)*k*b[m-1] + 2*eps_hat*(m-2)*k*b[m-2]
+        bm = eps_hat*(m-1)*(m-2)*b[m-1] + (l1 - eps_hat*k*k)*b[m-3] - 2*(m-1)*k*a[m-1] - 2*eps_hat*(m-2)*k*a[m-2]
+        if m >= 4:
+            am += l2*a[m-4]; bm += l2*b[m-4]
+        if m >= 5:
+            am += l3*a[m-5]; bm += l3*b[m-5]
         a[m] = -am/(m*(m-1)); b[m] = -bm/(m*(m-1))
     return a, b
 
 
-def _radial(a: np.ndarray, b: np.ndarray, k: float, lam2: float, eps_hat: float, x: np.ndarray) -> tuple[np.ndarray, ...]:
-    """X, X', X'' by Eq. (A4); X'' from the ODE (A1) itself."""
+def _radial(a: np.ndarray, b: np.ndarray, k: float, lam: tuple[float, float, float], eps_hat: float,
+            x: np.ndarray) -> tuple[np.ndarray, ...]:
+    """X, X', X'' by Eq. (A4); X'' from the ODE (5.10) itself."""
     m = np.arange(a.size)
     xm = x[..., None]**m
     dxm = np.where(m > 0, m*x[..., None]**np.maximum(m - 1, 0), 0.0)
     cos, sin = np.cos(k*x)[..., None], np.sin(k*x)[..., None]
     X = np.sum((a*cos + b*sin)*xm, axis=-1)
     Xp = np.sum((-k*a*xm + b*dxm)*sin + (k*b*xm + a*dxm)*cos, axis=-1)
-    Xpp = -(k*k + lam2*x)/(1.0 + eps_hat*x)*X
+    Xpp = -(k*k + lam[0]*x + lam[1]*x**2 + lam[2]*x**3)/(1.0 + eps_hat*x)*X
     return X, Xp, Xpp
 
 
-def _basis_values(topology: str, eps: float, nu: float, alpha: float, x: Any, y: Any, terms: int) -> list[dict[str, np.ndarray]]:
+def _basis_values(topology: str, eps: float, source: tuple[float, float, float], alpha: float, x: Any, y: Any,
+                  terms: int) -> list[dict[str, np.ndarray]]:
     x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
     x, y = np.broadcast_arrays(x, y)
-    eps_hat = 2*eps/(1 + eps**2); lam2 = alpha**2*eps_hat*nu
+    eps_hat = 2*eps/(1 + eps**2); lam = tuple(alpha**2*s for s in source)
     h, k = _separation_constants(eps, alpha)
     radial: dict[tuple[int, str], tuple[np.ndarray, ...]] = {}
     out = []
     for n, kind, vertical in (_ASYMMETRIC_BASIS if topology == "lower_single_null" else _SYMMETRIC_BASIS):
         if (n, kind) not in radial:
-            a, b = _series(k[n-1], lam2, eps_hat, kind == "S", terms)
-            radial[(n, kind)] = _radial(a, b, k[n-1], lam2, eps_hat, x)
+            a, b = _series(k[n-1], lam, eps_hat, kind == "S", terms)
+            radial[(n, kind)] = _radial(a, b, k[n-1], lam, eps_hat, x)
         X, Xp, Xpp = radial[(n, kind)]
         hy = h[n-1]*y
         if vertical == "cos":
@@ -127,16 +162,16 @@ def _constraints(topology: str, eps: float, kappa: float | None, delta: float | 
     return rows
 
 
-def _matrix(topology: str, eps: float, nu: float, alpha: float, rows, terms: int) -> np.ndarray:
+def _matrix(topology: str, eps: float, source, alpha: float, rows, terms: int) -> np.ndarray:
     points = np.array([point for point, _ in rows])
-    columns = _basis_values(topology, eps, nu, alpha, points[:, 0], points[:, 1], terms)
+    columns = _basis_values(topology, eps, source, alpha, points[:, 0], points[:, 1], terms)
     return np.array([[sum(weight*column[kind][i] for kind, weight in combo) for column in columns]
                      for i, (_, combo) in enumerate(rows)])
 
 
-def _eigen_error(topology: str, eps: float, nu: float, alpha: float, rows, terms: int) -> tuple[float, np.ndarray, float]:
+def _eigen_error(topology: str, eps: float, source, alpha: float, rows, terms: int) -> tuple[float, np.ndarray, float]:
     """Eq. (3.11): c_1 = 1, the first N-1 conditions solved, the last one's normalized miss."""
-    A = _matrix(topology, eps, nu, alpha, rows, terms)
+    A = _matrix(topology, eps, source, alpha, rows, terms)
     n = A.shape[0]
     sub = A[:n-1, 1:]
     rest = np.linalg.solve(sub, -A[:n-1, 0])
@@ -151,6 +186,8 @@ def solve_guazzotto_freidberg(
     elongation: float | None = None, triangularity: float | None = None,
     x_point_elongation: float | None = None, x_point_triangularity: float | None = None,
     alpha_range: tuple[float, float] = (0.5, 6.0), series_terms: int = 250,
+    current_pedestal: float = 0.0, pressure_pedestal: float = 0.0, bootstrap_fraction: float = 0.0,
+    mach_number: float = 0.0, adiabatic_index: float | None = None, allow_current_reversal: bool = False,
 ) -> GuazzottoFreidbergEquilibrium:
     """Solve the Guazzotto-Freidberg analytic equilibrium for a shape and a beta parameter.
 
@@ -185,6 +222,24 @@ def solve_guazzotto_freidberg(
         Interval scanned for the lowest eigenvalue [-].
     series_terms : int, optional
         Terms kept in the radial power series [-].
+    current_pedestal : float, optional
+        ``f_J``, the edge-to-axis ratio of the toroidal current density
+        (Part 2, Eq. 4.5), in [0, 1) [-].
+    pressure_pedestal : float, optional
+        ``f_P = p(surf)/p(axis)`` (Part 2, Eq. 3.1), in [0, 1); it leaves the
+        flux unchanged and enters the plasma parameters [-].
+    bootstrap_fraction : float, optional
+        ``f_B = 1 - I/I_hat``, the edge-localized bootstrap current carried
+        as a surface current (Part 2, Eq. 3.5), in [0, 1); plasma
+        parameters only [-].
+    mach_number : float, optional
+        ``M0``, the toroidal flow Mach number on the axis (Part 2, Eq. 5.6) [-].
+    adiabatic_index : float or None, optional
+        ``gamma``, 2 (adiabatic) or ``inf`` (incompressible); required with
+        flow, the two cases whose source is a polynomial (Part 2, Eq. 5.8) [-].
+    allow_current_reversal : bool, optional
+        Accept ``nu`` above ``nu_max``, where the inboard edge current
+        reverses, and mark the result ``status = "current_reversal"`` [-].
 
     Returns
     -------
@@ -198,8 +253,11 @@ def solve_guazzotto_freidberg(
     ValueError
         An unknown topology or missing shape input; invalid geometry,
         including ``kappa_X <= 2 sqrt(1 - delta_X**2)`` (Eq. 4.4); ``nu``
-        beyond ``1/eps_hat``, where the inboard current reverses; or no
-        eigenvalue in *alpha_range* (no physical root).
+        beyond ``nu_max`` (``1/eps_hat``, or ``-1/G(-1)`` with flow), where
+        the inboard current reverses, unless *allow_current_reversal*; a
+        pedestal or bootstrap fraction outside [0, 1); flow without
+        ``adiabatic_index`` 2 or inf; or no eigenvalue in *alpha_range*, or
+        no pedestal root below it (no physical root).
 
     Processing steps
     ----------------
@@ -211,6 +269,10 @@ def solve_guazzotto_freidberg(
        and accept it only if the error is at round-off level.
     4. Locate the magnetic axis as the maximum of psi and normalize psi to
        one there.
+    5. With a current pedestal (Part 2, Eqs. 4.8-4.11), solve the
+       inhomogeneous system ``psi_J = f_J/(1 - f_J)`` on the surface
+       instead, and find the ``alpha`` below the pedestal-free eigenvalue at
+       which ``psi_J(axis) = 1/(1 - f_J)``.
 
     Defaults
     --------
@@ -222,7 +284,9 @@ def solve_guazzotto_freidberg(
     ----------
     Normalized coordinates of Eq. (2.8): ``R = R0 sqrt(1 + eps**2 + 2 eps x)``,
     ``Z = a y``, ``psi = Psi/Psi_0`` with ``psi = 1`` on the axis and ``0`` on
-    the surface; ``eps_hat = 2 eps/(1 + eps**2)``.  The lower single null
+    the surface; ``eps_hat = 2 eps/(1 + eps**2)``.  With flow the source is
+    ``alpha**2 (1 + nu G(x))``, ``G = (1 + eps_hat x)(1 + 2 M0**2 eps x/(1 +
+    M0**2 eps**2))**(gamma/(gamma - 1)) - 1`` (Part 2, Eq. 5.6).  The lower single null
     places its X-point at ``(-x_X, -kappa_X)`` with ``x_X = delta_X + (eps/2)
     (1 - delta_X**2)``.
 
@@ -236,13 +300,20 @@ def solve_guazzotto_freidberg(
     ``(-delta_X, -kappa_X)``; this uses the X-point itself, ``(-x_X,
     -kappa_X)``, which is the reading that reproduces the published
     eigenvalues.  Only the lowest eigenvalue is sought; the model surface is
-    matched at three or four points only.
+    matched at three or four points only.  With a current pedestal the
+    midplane curvature conditions keep their pedestal-free values, so the
+    X-point angle is no longer the model's right angle (Part 2, Section 4.3).
+    Part 2's Table 2 cases C and D keep ``nu = 1.04`` above the flow-reduced
+    ``nu_max = 1.025``; they need *allow_current_reversal*.
 
     Provenance
     ----------
     .. [1] L. Guazzotto and J. P. Freidberg, J. Plasma Phys. 87, 905870303
        (2021), doi:10.1017/S002237782100009X: Eqs. (2.8)-(2.9), (3.2)-(3.11),
        (4.3)-(4.7), (5.3)-(5.8) and Appendix A.
+    .. [2] L. Guazzotto and J. P. Freidberg, J. Plasma Phys. 87, 905870305
+       (2021), doi:10.1017/S0022377821000118: Eqs. (3.1)-(3.5), (4.1)-(4.11),
+       (5.6)-(5.14) and Appendix B.
     """
     if topology not in GF_TOPOLOGIES:
         raise ValueError(f"topology must be one of {GF_TOPOLOGIES}, got {topology!r}")
@@ -251,9 +322,23 @@ def solve_guazzotto_freidberg(
         raise ValueError("invalid geometry: inverse_aspect_ratio must lie in (0, 1)")
     if nu < 0:
         raise ValueError("nu must be non-negative")
-    eps_hat = 2*eps/(1 + eps**2)
-    if nu > 1/eps_hat:
-        raise ValueError(f"nonphysical current reversal: nu={nu} exceeds nu_max = 1/eps_hat = {1/eps_hat:.4g} (Eq. 2.10)")
+    f_j, f_p, f_b = float(current_pedestal), float(pressure_pedestal), float(bootstrap_fraction)
+    for name, value in (("current_pedestal", f_j), ("pressure_pedestal", f_p), ("bootstrap_fraction", f_b)):
+        if not 0 <= value < 1:
+            raise ValueError(f"{name} must lie in [0, 1), got {value}")
+    mach = float(mach_number)
+    if mach < 0:
+        raise ValueError("mach_number must be non-negative")
+    if mach > 0 and not (adiabatic_index is not None and (np.isinf(adiabatic_index) or adiabatic_index == 2)):
+        raise ValueError("toroidal flow needs adiabatic_index 2 (adiabatic) or inf (incompressible), "
+                         "the two cases with a closed-form G(x) (Eq. 5.8)")
+    gamma = None if mach == 0 else float(adiabatic_index)
+    nu_max = _nu_max(eps, mach, gamma)
+    reversed_current = nu > nu_max
+    if reversed_current and not allow_current_reversal:
+        bound = "-1/G(-1)" if mach > 0 else "1/eps_hat"
+        raise ValueError(f"nonphysical current reversal: nu={nu} exceeds nu_max = {bound} = {nu_max:.4g} "
+                         f"({'Part 2, Eq. 5.7' if mach > 0 else 'Eq. 2.10'})")
     if topology in ("limited", "lower_single_null"):
         if elongation is None or triangularity is None:
             raise ValueError(f"{topology} needs elongation and triangularity")
@@ -267,38 +352,102 @@ def solve_guazzotto_freidberg(
                              "kappa_X > 2 sqrt(1 - delta_X**2) and abs(delta_X) < 1 (Eq. 4.4)")
     rows = _constraints(topology, eps, elongation, triangularity, x_point_elongation, x_point_triangularity)
     terms = int(series_terms)
+    source = _source_polynomial(eps, nu, mach, gamma)
     grid = np.linspace(*alpha_range, 1101)
-    errors = np.array([_eigen_error(topology, eps, nu, a, rows, terms)[0] for a in grid])
+    errors = np.array([_eigen_error(topology, eps, source, a, rows, terms)[0] for a in grid])
     alpha = None
     for i in range(1, grid.size - 1):
         if errors[i] <= errors[i-1] and errors[i] <= errors[i+1] and errors[i] < 1e-3:
-            refined = minimize_scalar(lambda a: _eigen_error(topology, eps, nu, a, rows, terms)[0],
+            refined = minimize_scalar(lambda a: _eigen_error(topology, eps, source, a, rows, terms)[0],
                                       bracket=(grid[i-1], grid[i], grid[i+1]), tol=1e-12)
             if refined.fun < 1e-14:
                 alpha = float(refined.x)
                 break
     if alpha is None:
         raise ValueError(f"no physical root: no eigenvalue alpha in {alpha_range} satisfies the matching conditions")
-    residual, coefficients, condition = _eigen_error(topology, eps, nu, alpha, rows, terms)
+    if f_j == 0:
+        residual, coefficients, condition = _eigen_error(topology, eps, source, alpha, rows, terms)
+        axis, at_axis = _find_axis(topology, eps, source, alpha, coefficients, terms)
+        coefficients = coefficients/float(at_axis["psi"])
+    else:
+        # Eqs. (4.8)-(4.11): psi_J = f_J/(1 - f_J) on the surface makes the
+        # system inhomogeneous, and alpha is fixed by psi_J(axis) = 1/(1 - f_J)
+        # instead.  psi_J(axis) rises from about f_J/(1 - f_J) at small alpha
+        # to infinity at the pedestal-free eigenvalue, so the root lies below it.
+        target = 1/(1 - f_j)
+
+        def mismatch(a: float) -> float:
+            try:
+                u = _pedestal_coefficients(topology, eps, source, a, rows, terms, f_j/(1 - f_j))
+                _, values = _find_axis(topology, eps, source, a, u, terms)
+            except (ValueError, np.linalg.LinAlgError):
+                return float("nan")
+            return float(values["psi"]) - target
+
+        low = alpha_range[0]
+        trial = np.linspace(low, alpha, 121)[:-1]
+        signs = np.array([mismatch(a) for a in trial])
+        crossing = [i for i in range(trial.size - 1)
+                    if np.isfinite(signs[i]) and np.isfinite(signs[i+1]) and signs[i] < 0 <= signs[i+1]]
+        if not crossing:
+            raise ValueError(f"no physical root: psi_J(axis) = 1/(1 - f_J) is not reached for alpha in "
+                             f"[{low}, {alpha:.4g}) (Eq. 4.11)")
+        i = crossing[0]
+        alpha = float(brentq(mismatch, trial[i], trial[i+1], xtol=1e-13))
+        coefficients = _pedestal_coefficients(topology, eps, source, alpha, rows, terms, f_j/(1 - f_j))
+        axis, at_axis = _find_axis(topology, eps, source, alpha, coefficients, terms)
+        residual = float(((float(at_axis["psi"]) - target)/(abs(float(at_axis["psi"])) + target))**2)
+        condition = float(np.linalg.cond(_matrix(topology, eps, source, alpha, rows, terms)))
     h, k = _separation_constants(eps, alpha)
-
-    def gradient(point: np.ndarray) -> list[float]:
-        values = _evaluate(topology, eps, nu, alpha, coefficients, point[0], point[1], terms)
-        return [float(values["x"]), float(values["y"])]
-
-    solved = root(gradient, [0.0, 0.0])
-    axis = (float(solved.x[0]), float(solved.x[1]))
-    at_axis = _evaluate(topology, eps, nu, alpha, coefficients, *axis, terms)
-    if not solved.success or float(at_axis["xx"]*at_axis["yy"] - at_axis["xy"]**2) <= 0:
-        raise ValueError("no magnetic axis (extremum of psi) was found near the geometric centre")
-    coefficients = coefficients/float(at_axis["psi"])
     return GuazzottoFreidbergEquilibrium(
         topology=topology, inverse_aspect_ratio=eps, nu=float(nu), alpha=alpha, coefficients=coefficients,
         separation_h=h, separation_k=k, magnetic_axis=axis, elongation=elongation, triangularity=triangularity,
         x_point_elongation=x_point_elongation, x_point_triangularity=x_point_triangularity,
         eigen_residual=float(residual), condition_number=condition, series_terms=terms,
-        metadata={"reference": "Guazzotto & Freidberg, J. Plasma Phys. 87, 905870303 (2021)"},
+        metadata={"reference": "Guazzotto & Freidberg, J. Plasma Phys. 87, 905870303 (2021)"
+                               + ("" if (f_j, f_p, f_b, mach) == (0, 0, 0, 0) else
+                                  "; Part 2, J. Plasma Phys. 87, 905870305 (2021)")},
+        current_pedestal=f_j, pressure_pedestal=f_p, bootstrap_fraction=f_b, mach_number=mach,
+        adiabatic_index=gamma, status="current_reversal" if reversed_current else "converged",
     )
+
+
+def _nu_max(eps: float, mach: float, gamma: float | None) -> float:
+    """Eq. (5.7): ``nu_max = -1/G(-1)``; ``1/eps_hat`` without flow (Part 1, Eq. 2.10)."""
+    eps_hat = 2*eps/(1 + eps**2)
+    c = 2*mach**2*eps/(1 + mach**2*eps**2)
+    g_inner = (1 - eps_hat)*(1 - c)**_flow_factor_exponent(gamma) - 1
+    return float(-1/g_inner)
+
+
+def _pedestal_coefficients(topology, eps, source, alpha, rows, terms, offset) -> np.ndarray:
+    """Eq. (4.10): the inhomogeneous matching system, ``psi_J = offset`` at the surface points."""
+    A = _matrix(topology, eps, source, alpha, rows, terms)
+    v = np.array([offset if combo == (("psi", 1.0),) else 0.0 for _, combo in rows])
+    return np.linalg.solve(A, v)
+
+
+def _find_axis(topology, eps, source, alpha, coefficients, terms):
+    """The magnetic axis, an extremum of psi near the geometric centre, and the fields there."""
+    def gradient(point: np.ndarray) -> list[float]:
+        values = _evaluate(topology, eps, source, alpha, coefficients, point[0], point[1], terms)
+        return [float(values["x"]), float(values["y"])]
+
+    solved = root(gradient, [0.0, 0.0])
+    axis = (float(solved.x[0]), float(solved.x[1]))
+    at_axis = _evaluate(topology, eps, source, alpha, coefficients, *axis, terms)
+    if not solved.success or abs(axis[0]) > 1 or float(at_axis["xx"]*at_axis["yy"] - at_axis["xy"]**2) <= 0:
+        raise ValueError("no magnetic axis (extremum of psi) was found near the geometric centre")
+    return axis, at_axis
+
+
+def _model_source(model: GuazzottoFreidbergEquilibrium) -> tuple[float, float, float]:
+    return _source_polynomial(model.inverse_aspect_ratio, model.nu, model.mach_number, model.adiabatic_index)
+
+
+def _flux_offset(model: GuazzottoFreidbergEquilibrium) -> float:
+    """``f_J/(1 - f_J)``: ``psi = psi_J - offset`` (Eq. 4.7); zero without a current pedestal."""
+    return model.current_pedestal/(1 - model.current_pedestal)
 
 
 def _psi_on_grid(model: GuazzottoFreidbergEquilibrium, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
@@ -308,23 +457,24 @@ def _psi_on_grid(model: GuazzottoFreidbergEquilibrium, xs: np.ndarray, ys: np.nd
     per x value instead of once per grid point.
     """
     xs = np.asarray(xs, dtype=float); ys = np.asarray(ys, dtype=float)
-    eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
-    eps_hat = 2*eps/(1 + eps**2); lam2 = alpha**2*eps_hat*nu
+    eps, alpha = model.inverse_aspect_ratio, model.alpha
+    eps_hat = 2*eps/(1 + eps**2); lam = tuple(alpha**2*s for s in _model_source(model))
     h, k = model.separation_h, model.separation_k
     basis = _ASYMMETRIC_BASIS if model.topology == "lower_single_null" else _SYMMETRIC_BASIS
     psi = np.zeros((xs.size, ys.size))
     radial: dict[tuple[int, str], np.ndarray] = {}
     for c, (n, kind, vertical) in zip(model.coefficients, basis):
         if (n, kind) not in radial:
-            a, b = _series(k[n-1], lam2, eps_hat, kind == "S", model.series_terms)
-            radial[(n, kind)] = _radial(a, b, k[n-1], lam2, eps_hat, xs)[0]
+            a, b = _series(k[n-1], lam, eps_hat, kind == "S", model.series_terms)
+            radial[(n, kind)] = _radial(a, b, k[n-1], lam, eps_hat, xs)[0]
         Y = np.cos(h[n-1]*ys) if vertical == "cos" else np.sin(h[n-1]*ys)
         psi += c*np.outer(radial[(n, kind)], Y)
-    return psi
+    return psi - _flux_offset(model)
 
 
-def _evaluate(topology, eps, nu, alpha, coefficients, x, y, terms) -> dict[str, np.ndarray]:
-    columns = _basis_values(topology, eps, nu, alpha, x, y, terms)
+def _evaluate(topology, eps, source, alpha, coefficients, x, y, terms) -> dict[str, np.ndarray]:
+    """psi_J (psi without a current pedestal) and its derivatives."""
+    columns = _basis_values(topology, eps, source, alpha, x, y, terms)
     return {kind: sum(c*column[kind] for c, column in zip(coefficients, columns)) for kind in _KINDS}
 
 
@@ -345,9 +495,11 @@ def evaluate_guazzotto_freidberg(model: GuazzottoFreidbergEquilibrium, x: Any, y
     -------
     Mapping of str to np.ndarray
         ``psi`` and its derivatives ``psi_x``, ``psi_y``, ``psi_xx``,
-        ``psi_yy``, ``psi_xy``, and ``gs_residual``, the Grad-Shafranov
-        equation (2.9) evaluated as ``(1 + eps_hat x) psi_xx + psi_yy/(1 +
-        eps**2) + alpha**2 (1 + eps_hat nu x) psi``, zero to round-off [-].
+        ``psi_yy``, ``psi_xy``; ``psi_j``, the shifted flux ``psi + f_J/(1 -
+        f_J)`` of Part 2 (equal to psi without a current pedestal); and
+        ``gs_residual``, the Grad-Shafranov equation evaluated as ``(1 +
+        eps_hat x) psi_xx + psi_yy/(1 + eps**2) + alpha**2 (1 + nu G(x))
+        psi_J``, zero to round-off (Eq. 2.9; Part 2, Eq. 5.14) [-].
 
     Convention
     ----------
@@ -360,15 +512,17 @@ def evaluate_guazzotto_freidberg(model: GuazzottoFreidbergEquilibrium, x: Any, y
 
     Provenance
     ----------
-    .. [1] Guazzotto and Freidberg (2021), Eqs. (2.9), (3.2) and (A4).
+    .. [1] Guazzotto and Freidberg (2021), Eqs. (2.9), (3.2) and (A4); Part 2,
+       Eqs. (5.12)-(5.14).
     """
-    values = _evaluate(model.topology, model.inverse_aspect_ratio, model.nu, model.alpha, model.coefficients,
-                       x, y, model.series_terms)
+    values = _evaluate(model.topology, model.inverse_aspect_ratio, _model_source(model), model.alpha,
+                       model.coefficients, x, y, model.series_terms)
     eps = model.inverse_aspect_ratio; eps_hat = 2*eps/(1 + eps**2)
     xx = np.asarray(x, dtype=float)
+    s1, s2, s3 = _model_source(model)
     residual = ((1 + eps_hat*xx)*values["xx"] + values["yy"]/(1 + eps**2)
-                + model.alpha**2*(1 + eps_hat*model.nu*xx)*values["psi"])
-    return {"psi": values["psi"], "psi_x": values["x"], "psi_y": values["y"], "psi_xx": values["xx"],
+                + model.alpha**2*(1 + s1*xx + s2*xx**2 + s3*xx**3)*values["psi"])
+    return {"psi": values["psi"] - _flux_offset(model), "psi_j": values["psi"], "psi_x": values["x"], "psi_y": values["y"], "psi_xx": values["xx"],
             "psi_yy": values["yy"], "psi_xy": values["xy"], "gs_residual": residual}
 
 
@@ -379,22 +533,32 @@ def _axis_curvature(model: GuazzottoFreidbergEquilibrium) -> tuple[float, float]
     return 1 + eps**2 + 2*eps*model.magnetic_axis[0], float(at_axis["psi_xx"]*at_axis["psi_yy"])
 
 
+def _pedestal_factors(model: GuazzottoFreidbergEquilibrium) -> tuple[float, float]:
+    """``(1 + f_J)/(1 - f_J)`` and ``(1 - f_P)(1 + M0**2 eps**2)**(gamma/(gamma - 1))`` of Part 2, Eq. (6.1)."""
+    eps = model.inverse_aspect_ratio
+    current = (1 + model.current_pedestal)/(1 - model.current_pedestal)
+    pressure = (1 - model.pressure_pedestal)*(1 + model.mach_number**2*eps**2)**_flow_factor_exponent(model.adiabatic_index)
+    return current, pressure
+
+
 def _beta_ratio_from_q0(model: GuazzottoFreidbergEquilibrium, q0: float) -> float:
-    """Eq. (6.12), inverted, as ``beta0/nu``, which stays finite as nu -> 0."""
+    """Part 1 Eq. (6.12) / Part 2 Eq. (6.1), inverted, as ``beta0/nu``, which stays finite as nu -> 0."""
     eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+    current, pressure = _pedestal_factors(model)
     r_axis, curvature = _axis_curvature(model)
-    denominator = q0**2*r_axis**2*curvature - (1 + eps**2)*(1 - nu)*eps**2*alpha**2
+    denominator = q0**2*r_axis**2*curvature - current*(1 + eps**2)*(1 - nu)*eps**2*alpha**2
     if denominator <= 0:
         raise ValueError(f"q0={q0} is not reachable for this equilibrium: Eq. (6.12) gives a non-positive beta0")
-    return float(eps**2*alpha**2/denominator)
+    return float(current*eps**2*alpha**2/(pressure*denominator))
 
 
 def _q0_from_beta_ratio(model: GuazzottoFreidbergEquilibrium, ratio: float) -> float:
-    """Eq. (6.12), forward: q0 = F/(R0 B0) (nu/beta0)**0.5 eps alpha/(r (psi_xx psi_yy)**0.5) on the axis."""
+    """The same relation forward: q0 from ``beta0/nu``."""
     eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
+    current, pressure = _pedestal_factors(model)
     r_axis, curvature = _axis_curvature(model)
-    delta_b = ratio*(1 + eps**2)*(1 - nu)/2
-    return float(np.sqrt(1 + 2*delta_b)/np.sqrt(ratio)*eps*alpha/(r_axis*np.sqrt(curvature)))
+    q0_squared = (current*eps**2*alpha**2/(pressure*ratio) + current*(1 + eps**2)*(1 - nu)*eps**2*alpha**2)
+    return float(np.sqrt(q0_squared/(r_axis**2*curvature)))
 
 
 def _plasma_region(model: GuazzottoFreidbergEquilibrium, resolution: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Any]:
@@ -445,7 +609,12 @@ def guazzotto_freidberg_parameters(
         ``alpha``, ``beta0``, ``q0``, ``delta_b_over_b0`` (Eq. 6.4),
         ``beta_t`` (6.6), ``beta_p`` (6.7), ``li`` (6.9), ``q_star`` (6.10)
         with the elongation it used as ``kappa_q_star``, and ``q95`` from
-        Eq. (6.11) on the ``psi = 0.05`` surface [-].
+        Eq. (6.11) on the ``psi = 0.05`` surface; and from Part 2,
+        ``beta0_hat`` (6.4), ``surface_field_ratio`` ``Delta_B = B_hat0/B0``
+        (6.3), ``total_current_ratio`` ``I_hat/I`` (6.9), and the core current
+        ``mu0 I/(a B0)`` as ``core_current`` (area integral of J_phi) and
+        ``core_current_line_integral`` (closed integral of b_P on the
+        surface), which agree by Ampere's law [-].
 
     Raises
     ------
@@ -455,12 +624,15 @@ def guazzotto_freidberg_parameters(
 
     Processing steps
     ----------------
-    1. Take *beta0*, or obtain it from *q0* by Eq. (6.12).
-    2. Integrate ``psi``, ``psi**2`` and their ``(1 + nu eps_hat x)/(1 + eps_hat x)``
-       weighted forms over the plasma in ``(x, y)``, where the volume element
-       is uniform.
-    3. Evaluate Eqs. (6.4)-(6.10), and q95 as the line integral
-       ``F/(2 pi) closed_integral dl/(R**2 B_p)`` on the ``psi = 0.05`` surface.
+    1. Take *beta0*, or obtain it from *q0* by Eq. (6.12) (Part 2, Eq. 6.1).
+    2. Integrate ``psi_J``, ``psi_J**2`` and their ``(1 + nu G)/(1 + eps_hat x)``
+       and ``(1 + G)/(1 + eps_hat x)`` weighted forms over the plasma in
+       ``(x, y)``, where the volume element is uniform.
+    3. Iterate the exterior field ratio ``Delta_B`` until the surface current
+       carries the bootstrap fraction (Part 2, Eqs. 3.9 and 6.3).
+    4. Evaluate Eqs. (6.4)-(6.10) (Part 2, 6.4-6.11), and q95 as the line
+       integral ``F/(2 pi) closed_integral dl/(R**2 B_p)`` on the ``psi = 0.05``
+       surface.
 
     Defaults
     --------
@@ -475,7 +647,11 @@ def guazzotto_freidberg_parameters(
     the height of the ``psi = 0.05`` surface over the full plasma width
     ``2a`` -- the reading that reproduces the published values -- and for a
     limited one the input elongation.  With ``nu = 0`` (force free) ``beta0``
-    is zero and only *q0* can fix the normalization.
+    is zero and only *q0* can fix the normalization.  ``beta_t`` is
+    normalized to the exterior vacuum field ``B_hat0`` (Part 2, Eq. 6.7
+    prints the ratio ``B_hat0**2/B0**2`` inverted), and ``li`` weights the
+    current with ``1 + nu G`` where Part 2, Eq. (6.10) prints ``1 + nu
+    eps_hat x``; the two readings coincide without flow.
 
     Applicability
     -------------
@@ -484,18 +660,59 @@ def guazzotto_freidberg_parameters(
     Limitations
     -----------
     Integrals are on a Cartesian grid masked by the surface, so they
-    carry an error of order the cell size.
+    carry an error of order the cell size.  Part 2's Table 2 is reproduced
+    to 0.5 % in ``beta_p`` and 1.1 % in ``q_star``.  The surface-current
+    jump uses Eq. (3.9), whose toroidal-field term carries ``R0**2/R**2``;
+    Eq. (6.2) prints it without, a 0.2 % difference in q*.
 
     Provenance
     ----------
     .. [1] Guazzotto and Freidberg (2021), Section 6, Eqs. (6.3)-(6.12).
+    .. [2] Guazzotto and Freidberg (2021), Part 2, doi:10.1017/S0022377821000118,
+       Eqs. (3.6)-(3.10) and Section 6, Eqs. (6.1)-(6.12).
     """
     parameters, _ = _parameters_and_current(model, q0=q0, beta0=beta0, resolution=resolution)
     return parameters
 
 
+def _surface_field_ratio(model, surface, psi_a: float, surface_pressure) -> tuple[float, float]:
+    """Part 2 Eqs. (3.9) and (6.3): the exterior field ratio Delta_B that gives the bootstrap fraction f_B.
+
+    Pressure balance across the surface current gives ``b_hat_P**2 = b_P**2
+    + 2 mu0 p_surf/B0**2 + (1 - Delta_B**2) R0**2/R**2``.  Eq. (6.2) prints
+    the last term without ``R0**2/R**2``; the toroidal field jump
+    ``B_phi**2 - B_hat_phi**2 = (1 - Delta_B**2) B0**2 R0**2/R**2`` of
+    Eqs. (3.6)-(3.9) carries it, and the two change q* by 0.2 % on Table 2.
+    Returns ``(Delta_B, closed_integral b_P dl)``, the latter in units of ``B0 a``.
+    """
+    eps = model.inverse_aspect_ratio
+    xc, yc = surface[:, 0], surface[:, 1]
+    if not np.allclose(surface[0], surface[-1]):
+        xc, yc = np.r_[xc, xc[0]], np.r_[yc, yc[0]]
+    xm, ym = 0.5*(xc[1:] + xc[:-1]), 0.5*(yc[1:] + yc[:-1])
+    r = 1 + eps**2 + 2*eps*xm
+    dl = np.hypot(np.diff(np.sqrt(1 + eps**2 + 2*eps*xc)), eps*np.diff(yc))/eps          # units of a
+    field = evaluate_guazzotto_freidberg(model, xm, ym)
+    b_p2 = psi_a**2*(field["psi_x"]**2 + field["psi_y"]**2/r)
+    inside = float(np.sum(np.sqrt(b_p2)*dl))
+    geometric = 1/r
+    base = b_p2 + surface_pressure(xm)
+    f_b, f_p = model.bootstrap_fraction, model.pressure_pedestal
+    if f_b == 0 and f_p == 0:
+        return 1.0, inside
+    target = inside/(1 - f_b)
+
+    def excess(delta: float) -> float:
+        return float(np.sum(np.sqrt(np.maximum(base + (1 - delta**2)*geometric, 0.0))*dl)) - target
+
+    upper = float(np.sqrt(1 + np.min(base/geometric)))
+    if excess(upper) > 0:
+        raise ValueError("no exterior field ratio Delta_B reproduces the requested bootstrap fraction (Eq. 6.3)")
+    return float(brentq(excess, 1e-9, upper, xtol=1e-12)), inside
+
+
 def _parameters_and_current(model, *, q0, beta0, resolution):
-    """Section 6 parameters and the weighted current integral of Eq. (6.8)."""
+    """Section 6 parameters (Part 1 and Part 2) and ``mu0 I/(a B0)``, the core current."""
     import matplotlib.path as mpath
     from contourpy import contour_generator
 
@@ -511,16 +728,32 @@ def _parameters_and_current(model, *, q0, beta0, resolution):
         ratio = float(beta0)/nu
         q0_value = _q0_from_beta_ratio(model, ratio)
     beta_axis = nu*ratio
+    f_j, f_p, f_b = model.current_pedestal, model.pressure_pedestal, model.bootstrap_fraction
+    current, pressure = _pedestal_factors(model)
+    exponent = _flow_factor_exponent(model.adiabatic_index)
+    flow_c = 2*model.mach_number**2*eps/(1 + model.mach_number**2*eps**2)
+    psi_a = float(np.sqrt(pressure/current*ratio)/alpha)                 # Psi_0/(a R0 B0), Eq. (6.1)
     eps_hat = 2*eps/(1 + eps**2)
-    xs, ys, psi, inside, _ = _plasma_region(model, resolution)
+    s1, s2, s3 = _model_source(model)
+    xs, ys, psi, inside, surface = _plasma_region(model, resolution)
+    psi_j = psi + _flux_offset(model)
     X = xs[:, None]*np.ones((1, ys.size))
     cell = (xs[1] - xs[0])*(ys[1] - ys[0])
-    weight = (1 + nu*eps_hat*X)/(1 + eps_hat*X)
+    source_weight = (1 + s1*X + s2*X**2 + s3*X**3)/(1 + eps_hat*X)     # (1 + nu G)/(1 + eps_hat x)
+    flow_weight = (1 + flow_c*X)**exponent                                # (1 + G)/(1 + eps_hat x)
+    edge = (f_p - f_j**2)/(1 - f_j)**2
     area = np.sum(inside)*cell
-    i2 = np.sum(psi**2*inside)*cell
-    iw = np.sum(weight*psi*inside)*cell
-    iw2 = np.sum(weight*psi**2*inside)*cell
-    delta_b = ratio*(1 + eps**2)*(1 - nu)/2                            # Eq. (6.4) with beta0 = nu*ratio
+    i_source = np.sum(source_weight*psi_j*inside)*cell
+    i_source2 = np.sum(source_weight*psi_j**2*inside)*cell
+    i_pressure = np.sum(flow_weight*((1 - f_p)*psi_j**2 + edge)*inside)*cell
+    delta_b = ratio*(1 + eps**2)*pressure*(1 - nu)/2                   # Eq. (6.5) with beta0 = nu*ratio
+    i_core = psi_a*alpha**2*i_source                                     # mu0 I/(a B0), Ampere on Eq. (6.1)
+
+    def surface_pressure(x):
+        return beta_axis*f_p*(1 + model.mach_number**2*eps**2 + 2*model.mach_number**2*eps*x)**exponent
+
+    delta_field, line_current = _surface_field_ratio(model, surface, psi_a, surface_pressure)
+    current_ratio = 1/(1 - f_b)                                          # I_hat/I, Eq. (6.9)
     lines = contour_generator(xs, ys, psi.T).lines(0.05)
     closing = [line for line in lines if mpath.Path(line).contains_point(model.magnetic_axis)]
     if not closing:
@@ -534,19 +767,28 @@ def _parameters_and_current(model, *, q0, beta0, resolution):
     # published divertor q* values are reproduced with this, to 0.3 %.
     kappa95 = float(np.ptp(Z)/(2*eps))
     kappa_q = model.elongation if model.topology == "limited" else kappa95
-    q_star = np.pi*eps/alpha/np.sqrt(ratio)*(1 + kappa_q**2)/iw
-    psi0 = eps/alpha*np.sqrt(ratio)                                      # in units of B0 R0**2
+    q_star = np.pi*eps*(1 + kappa_q**2)*delta_field/(current_ratio*i_core)   # Eq. (6.11)
+    psi0 = eps*psi_a                                                     # in units of B0 R0**2
     field = evaluate_guazzotto_freidberg(model, 0.5*(xc[1:] + xc[:-1]), 0.5*(yc[1:] + yc[:-1]))
     r_mid = 0.5*(R[1:] + R[:-1])
     b_pol = psi0/eps*np.sqrt(field["psi_x"]**2 + field["psi_y"]**2/r_mid**2)
-    f95 = np.sqrt(1 + 2*delta_b*0.05**2)
+    a2 = delta_b*2*f_j/(1 + f_j)                                         # A_2 of Eqs. (4.3), (4.5)
+    f95 = np.sqrt(1 + 2*delta_b*0.05**2 + 2*a2*(0.05 - 0.05**2))
     q95 = f95/(2*np.pi)*np.sum(np.hypot(np.diff(R), np.diff(Z))/(r_mid**2*b_pol))
+    x_axis = model.magnetic_axis[0]
     parameters = {
         "alpha": alpha, "beta0": float(beta_axis), "q0": q0_value, "delta_b_over_b0": float(delta_b),
-        "beta_t": float(beta_axis*i2/area), "beta_p": float(nu*i2/iw2), "li": float(4*np.pi/alpha**2*iw2/iw**2),
+        "beta0_hat": float(beta_axis/delta_field**2*(1 + model.mach_number**2*eps**2
+                                                     + 2*model.mach_number**2*eps*x_axis)**exponent),
+        "beta_t": float(beta_axis*pressure/(1 - f_p)*np.sum(flow_weight*((1 - f_p)*psi_j**2/current
+                        + (f_p - f_j**2)/(1 - f_j**2))*inside)*cell/area/delta_field**2),
+        "beta_p": float(nu*i_pressure/((1 - f_p)*i_source2)),
+        "li": float(4*np.pi/alpha**2/current_ratio**2*i_source2/i_source**2),
         "q_star": float(q_star), "kappa_q_star": float(kappa_q), "q95": float(q95),
+        "surface_field_ratio": float(delta_field), "total_current_ratio": float(current_ratio),
+        "core_current_line_integral": float(line_current), "core_current": float(i_core),
     }
-    return parameters, float(iw)
+    return parameters, float(i_core)
 
 
 def guazzotto_freidberg_to_equilibrium(
@@ -576,22 +818,26 @@ def guazzotto_freidberg_to_equilibrium(
     -------
     EquilibriumData
         psi, axis and boundary flux, LCFS, pressure, F, p', FF' (psi = 0 on
-        the boundary), the plasma current of Eq. (6.8) and the vacuum field,
-        with ``metadata`` carrying the model and the Section 6 parameters [-].
+        the boundary), the core plasma current and the vacuum field inside
+        the surface, with ``metadata`` carrying the model and the Section 6
+        parameters [-].
 
     Raises
     ------
     ValueError
-        Invalid physical inputs or COCOS index, an unreachable *q0*, or a
-        boundary that does not close on the grid.
+        Invalid physical inputs or COCOS index, an unreachable *q0*, a
+        boundary that does not close on the grid, or toroidal flow, whose
+        pressure is not a flux function.
 
     Processing steps
     ----------------
     1. Fix ``beta0`` and from it ``p0`` (6.3), ``dB/B0`` (6.4) and the axis
        flux ``Psi_0`` (6.5).
     2. Evaluate ``psi`` on an R-Z grid through ``x = (R**2/R0**2 - 1 - eps**2)/(2 eps)``.
-    3. Build ``p = p0 psi**2`` and ``F**2 = R0**2 B0**2 (1 + 2 (dB/B0) psi**2)``,
-       their flux derivatives, and ``I_p`` from Eq. (6.8).
+    3. Build ``p = p0 (f_P + (1 - f_P) psi**2 + A1 (psi - psi**2))`` and
+       ``F**2 = R0**2 B0**2 (1 + 2 (dB/B0) psi**2 + 2 A2 (psi - psi**2))``
+       (Part 2, Eqs. 4.1, 4.3, 4.5; ``A1 = A2 = 0`` without pedestals),
+       their flux derivatives, and ``I_p`` from Ampere's law on J_phi.
     4. Store in COCOS 11 and convert when another convention is asked for.
 
     Defaults
@@ -613,11 +859,15 @@ def guazzotto_freidberg_to_equilibrium(
     Limitations
     -----------
     ``q`` is not filled; compute it with :func:`calculate_q_profile_from_psi`
-    or take q95 from :func:`guazzotto_freidberg_parameters`.
+    or take q95 from :func:`guazzotto_freidberg_parameters`.  The surface
+    currents of Part 2 are not on the grid: ``ip`` is the core current ``I``
+    and ``bt0`` the interior ``B0``; ``I_hat/I`` and ``B_hat0/B0`` are in
+    ``metadata["parameters"]``.
 
     Provenance
     ----------
-    .. [1] Guazzotto and Freidberg (2021), Eqs. (2.2), (2.8), (6.3)-(6.8).
+    .. [1] Guazzotto and Freidberg (2021), Eqs. (2.2), (2.8), (6.3)-(6.8);
+       Part 2, Eqs. (4.1)-(4.6) and (6.5)-(6.6).
     """
     from vaft.process._equilibrium_parametric import _closed_boundary_contour, _detect_convention, convert_cocos
 
@@ -625,7 +875,10 @@ def guazzotto_freidberg_to_equilibrium(
         raise ValueError("major_radius and toroidal_field must be positive")
     if convention not in range(1, 19) or convention in (9, 10):
         raise ValueError("convention must be a COCOS index in the range 1..18 (excluding 9 and 10)")
-    parameters, iw = _parameters_and_current(model, q0=q0, beta0=beta0, resolution=400)
+    if model.mach_number > 0:
+        raise ValueError("an equilibrium with toroidal flow has a pressure that is not a flux function "
+                         "(Part 2, Eq. 6.1); the gridded record cannot hold it")
+    parameters, i_core = _parameters_and_current(model, q0=q0, beta0=beta0, resolution=400)
     beta_axis = parameters["beta0"]
     eps, nu, alpha = model.inverse_aspect_ratio, model.nu, model.alpha
     r0, b0 = float(major_radius), float(toroidal_field)
@@ -633,7 +886,8 @@ def guazzotto_freidberg_to_equilibrium(
     p0 = beta_axis*b0**2/(2*MU0)
     delta_b = parameters["delta_b_over_b0"]
     ratio = beta_axis/nu if nu > 0 else _beta_ratio_from_q0(model, parameters["q0"])
-    psi0 = eps*b0*r0**2/alpha*np.sqrt(ratio)                             # Wb/rad, Eq. (6.5)
+    current, pressure_factor = _pedestal_factors(model)
+    psi0 = eps*b0*r0**2/alpha*np.sqrt(ratio*pressure_factor/current)   # Wb/rad, Part 1 (6.5), Part 2 (6.6)
     height = max(v for v in (model.elongation, model.x_point_elongation) if v is not None)*minor
     # The radial series converges only for |x| < 1/eps_hat (R = 0 is a
     # singular point), so the grid stops short of that.
@@ -651,11 +905,17 @@ def guazzotto_freidberg_to_equilibrium(
     if lcfs is None:
         raise ValueError("the boundary does not close around the magnetic axis on this grid; raise resolution")
     psi_1d_n = np.linspace(1.0, 0.0, max(65, min(r.size, z.size)))
-    pressure = p0*psi_1d_n**2
-    f = r0*b0*np.sqrt(1 + 2*delta_b*psi_1d_n**2)
-    pprime = 2*p0*psi_1d_n/stored
-    ffprime = (r0*b0)**2*2*delta_b*psi_1d_n/stored
-    ip = float(eps*b0*r0*alpha*np.sqrt(ratio)*iw/MU0)                    # Eq. (6.8)
+    # Part 2, Eqs. (4.1), (4.3), (4.5): Solov'ev-like terms linear in psi
+    # carry the pressure and current pedestals; A1 = A2 = 0 without them.
+    f_p, f_j = model.pressure_pedestal, model.current_pedestal
+    a1 = 2*(1 - f_p)*f_j/(1 + f_j)
+    a2 = delta_b*2*f_j/(1 + f_j)
+    x = psi_1d_n
+    pressure = p0*(f_p + (1 - f_p)*x**2 + a1*(x - x**2))
+    f = r0*b0*np.sqrt(1 + 2*delta_b*x**2 + 2*a2*(x - x**2))
+    pprime = p0*(2*(1 - f_p)*x + a1*(1 - 2*x))/stored
+    ffprime = (r0*b0)**2*(2*delta_b*x + a2*(1 - 2*x))/stored
+    ip = float(eps*b0*r0*i_core/MU0)                                     # core current, Ampere's law
     conv_11 = _detect_convention(explicit=11, bt0=b0, ip=ip, q=None, psi_1d=stored*psi_1d_n,
                                  source="analytic Guazzotto-Freidberg")
     eq_11 = EquilibriumData(
