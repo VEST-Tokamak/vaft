@@ -1100,12 +1100,12 @@ def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
     xi_n : float or np.ndarray
         Displacement along $\hat{\mathbf n} = \nabla\psi_0/|\nabla\psi_0|$ [m].
     grad_psi : float or np.ndarray
-        $|\nabla\psi_0|$ of the equilibrium flux, non-negative [Wb/(rad m)].
+        $|\nabla\psi_0|$ of the equilibrium flux, non-negative, in the unit of $\psi_0$ per metre [Wb/m or Wb/(rad m)].
 
     Returns
     -------
     float or np.ndarray
-        Eulerian flux perturbation $\delta\psi$, in the unit of $\psi_0$ [Wb/rad].
+        Eulerian flux perturbation $\delta\psi$, in the unit of $\psi_0$ [Wb or Wb/rad].
 
     Raises
     ------
@@ -1116,8 +1116,9 @@ def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
     ----------
     $\hat{\mathbf n}$ points up the gradient of $\psi_0$, so a positive
     $\xi_n$ moves a surface towards larger $\psi_0$ -- outward when $\psi$
-    increases from the axis (COCOS 11, VAFT's ODS storage), inward when it
-    decreases (a per-radian COCOS-3 flux with positive current). Only the
+    increases from the axis (COCOS 11 with positive $I_p$, VAFT's usual ODS
+    storage), inward when it decreases (COCOS 11 with negative $I_p$, or a
+    per-radian COCOS-3 flux with positive current). Only the
     normal component enters; a tangential displacement moves the surface
     into itself.
 

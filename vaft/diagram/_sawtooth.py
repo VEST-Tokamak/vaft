@@ -28,7 +28,7 @@ from vaft.formula.stability import kadomtsev_mixing_radius
 
 from ._chart import Chart, render_chart
 from ._equations import formula_equation
-from ._equilibrium_geometry import equilibrium_geometry
+from ._equilibrium_geometry import equilibrium_geometry, rho_toroidal
 from ._mhd_mode import SURFACES, _S, displacement
 from ._render import Diagram
 from ._scene import Label, Marker, Polyline, Scene
@@ -47,8 +47,14 @@ def _note(text: str, x: float, y: float) -> Label:
 
 
 def _mixing(geom) -> float:
+    """$\\rho_\\mathrm{mix}$ as $\\sqrt{\\psi_N}$: the formula's cylindrical radius is the toroidal-flux radius."""
     rho = np.linspace(0.0, 0.97, 400)
-    return kadomtsev_mixing_radius(rho, geom.q(rho))
+    rho_tor = rho_toroidal(geom, rho)
+    try:
+        mix_tor = kadomtsev_mixing_radius(rho_tor, geom.q(rho))
+    except ValueError as err:
+        raise ValueError(f"no Kadomtsev mixing radius inside the plasma for this equilibrium ({err})") from None
+    return float(np.interp(mix_tor, rho_tor, rho))
 
 
 def _circle(center_x: float, radius: float, n: int = 241) -> np.ndarray:
@@ -133,7 +139,7 @@ def sawtooth(equilibrium=None, stage: str = "precursor", *, amplitude: float = 0
     if rho_1 is None:
         raise ValueError(f"a sawtooth needs a q = 1 surface; this equilibrium has q from {geom.q0:.2f} "
                          f"to {geom.q_profile[-1]:.2f}")
-    rho_mix = _mixing(geom)
+    rho_mix = _mixing(geom) if stage != "precursor" else None
     items: List = []
     model = {"classification": "reduced_model", "stage": stage, "rho_1": rho_1, "rho_mix": rho_mix, "geometry": geom}
     s1 = geom.surface(rho_1)
@@ -146,7 +152,8 @@ def sawtooth(equilibrium=None, stage: str = "precursor", *, amplitude: float = 0
             items.append(Polyline.of(_S * np.stack([d["R"], d["Z"]], -1),
                                      "boundary" if rho == SURFACES[-1] else "orbit electron", role="surface",
                                      closed=True))
-            surfaces.append({"rho": float(rho), "xi": d["xi"], "theta_star": d["surface"].theta_star})
+            surfaces.append({"rho": float(rho), "xi": d["xi"], "theta_star": d["surface"].theta_star,
+                             "R": d["R"], "Z": d["Z"]})
         items.append(Polyline.of(q1_line, "rational", role="q1", closed=True))
         model.update({"amplitude": float(amplitude), "surfaces": surfaces})
     elif stage == "reconnection":
@@ -161,8 +168,8 @@ def sawtooth(equilibrium=None, stage: str = "precursor", *, amplitude: float = 0
         for i, c in enumerate(core):
             items.append(Polyline.of(_to_rz(geom, c), "trough" if i == 2 else "orbit electron", role="core",
                                      closed=True))
-        items.append(Polyline.of(_to_rz(geom, _circle(0.0, geo["rho_o"])), "separatrix", role="outer_separatrix",
-                                 closed=True))
+        outer = _to_rz(geom, _circle(0.0, geo["rho_o"]))
+        items.append(Polyline.of(outer, "boundary", role="outer_separatrix", closed=True))
         island = _island_lines(geo)
         for line in island:
             items.append(Polyline.of(_to_rz(geom, line), "orbit ion", role="island", closed=True))
@@ -171,6 +178,9 @@ def sawtooth(equilibrium=None, stage: str = "precursor", *, amplitude: float = 0
         c_rz = _to_rz(geom, np.array([[geo["shift"], 0.0]]))[0]
         items += [Marker(tuple(x_rz), "x", "xpoint", role="x_point"), Marker(tuple(o_rz), "o", "opoint",
                                                                               role="o_point")]
+        if labels:
+            items += [Label(tuple(x_rz + [0.15, 0.1]), "X", "small label", anchor="south west", role="x_point"),
+                      Label(tuple(o_rz + [0.0, 0.15]), "O", "small label", anchor="south", role="o_point")]
         items.append(Polyline.of(q1_line, "rational", role="q1", closed=True))
         model.update({"fraction": float(reconnection_fraction), **geo, "island": island,
                       "x_point_rz": tuple(x_rz / _S), "o_point_rz": tuple(o_rz / _S), "core_centre_rz": tuple(c_rz / _S)})
@@ -220,17 +230,18 @@ def sawtooth(equilibrium=None, stage: str = "precursor", *, amplitude: float = 0
                  "reconnection": f"reconnection: hot core against the X-point, $f = {reconnection_fraction:g}$",
                  "post_crash": "after the crash: core mixed inside $\\rho_\\mathrm{mix}$"}[stage]
         items.append(Label((x_mid, top), title, "label", anchor="south", role="title"))
-        legend = {"precursor": "blue dashed: $q = 1$\\\\ nested surfaces kept",
-                  "reconnection": "red: hot core (shifted)\\\\ blue: $1/1$ island, O and X\\\\ "
-                                  "solid blue: outer separatrix\\\\ dashed: $q = 1$ before",
-                  "post_crash": f"shaded: $\\rho \\le \\rho_\\mathrm{{mix}} = {rho_mix:.2f}$\\\\ "
-                                f"dashed: $q = 1$ at $\\rho_1 = {rho_1:.2f}$\\\\ "
+        legend = {"precursor": "blue dashed: $q = 1$ (unperturbed)\\\\ nested surfaces kept",
+                  "reconnection": "red: hot core (shifted)\\\\ thin blue: $1/1$ island, O and X\\\\ "
+                                  "heavy: outer separatrix\\\\ dashed: $q = 1$ before",
+                  "post_crash": f"shaded: $\\rho \\le \\rho_\\mathrm{{mix}} = {(rho_mix or 0):.2f}$\\\\ "
+                                f"dashed: $q = 1$ before, $\\rho_1 = {rho_1:.2f}$\\\\ "
                                 "flat at conserved $\\int T\\rho\\,d\\rho$; the step\\\\ at "
                                 "$\\rho_\\mathrm{mix}$ is idealised"}[stage]
         items.append(Label((right, _S * 0.3), legend, "small label,align=left", anchor="north west", role="legend"))
         items.append(Label((x_mid, -top - 0.2), f"$\\displaystyle {formula_equation(kadomtsev_mixing_radius)}$",
                            "formula box", anchor="north", role="equations"))
         items.append(_note("Reduced, Kadomtsev-like: complete reconnection is the $f \\to 1$ limit, not a claim for "
-                           "every crash; geometry in $(\\sqrt{\\psi_N}, \\theta^*)$ drawn on the real surfaces",
+                           "every crash. $r$ above is the toroidal-flux radius; the drawing is in "
+                           "$(\\sqrt{\\psi_N}, \\theta^*)$ on the real surfaces",
                            x_mid + 2.0, -top - 1.6))
     return Diagram(f"sawtooth_{stage}", Scene(tuple(items)), model=model)

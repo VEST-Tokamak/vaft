@@ -19,7 +19,7 @@ source), whose $q$ rises from about 0.8 on the axis to 3 at the edge.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from typing import Optional
 
 import numpy as np
@@ -55,14 +55,20 @@ class EquilibriumGeometry:
         self.sfl = straight_field_line_map(eq.psi, eq.r, eq.z, eq.psi_axis, eq.psi_boundary, eq.magnetic_axis)
         self.axis = tuple(float(v) for v in self.sfl.magnetic_axis)
         rho = np.linspace(0.05, 0.98, 32)
-        cocos = getattr(getattr(eq, "convention", None), "cocos", 11) or 11
-        q = calculate_q_profile_from_psi(eq.psi, eq.r, eq.z, (eq.psi_1d, eq.f), eq.psi_axis, eq.psi_boundary,
-                                         rho**2, axis_rz=eq.magnetic_axis, boundary=(eq.lcfs.r, eq.lcfs.z),
-                                         cocos=cocos)
+        stored = getattr(eq, "q", None)
+        if stored is not None and np.size(stored) == np.size(eq.psi_1d) and np.all(np.isfinite(stored)):
+            # the record's own q, on its own flux grid
+            psi_n = (np.asarray(eq.psi_1d, float) - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
+            q = np.interp(rho**2, psi_n, np.asarray(stored, float))
+        else:
+            q = calculate_q_profile_from_psi(eq.psi, eq.r, eq.z, (eq.psi_1d, eq.f), eq.psi_axis, eq.psi_boundary,
+                                             rho**2, axis_rz=eq.magnetic_axis, boundary=(eq.lcfs.r, eq.lcfs.z),
+                                             cocos=_cocos(eq))
         self.rho_q = rho
         self.q_profile = np.abs(np.asarray(q, dtype=float))
         # the axis value by quadratic extrapolation in rho (q is even in rho near the axis)
         self.q0 = float(np.polyval(np.polyfit(rho[:6] ** 2, self.q_profile[:6], 1), 0.0))
+        self._surfaces = {}
 
     def q(self, rho) -> np.ndarray:
         rho = np.asarray(rho, dtype=float)
@@ -89,15 +95,18 @@ class EquilibriumGeometry:
         g = np.hypot(dR, dZ)
         return dR / g, dZ / g
 
-    @lru_cache(maxsize=64)
     def surface(self, rho: float) -> Surface:
         rho = float(rho)
         if not 0.0 < rho < 1.0:
             raise ValueError(f"rho must lie in (0, 1), not {rho!r}")
-        s = self.sfl.surface(rho * rho, n_theta=self.n_theta)
-        nR, nZ = self.normal(s["r"], s["z"])
-        return Surface(rho, np.asarray(s["r"]), np.asarray(s["z"]), np.asarray(s["theta"]),
-                       np.asarray(s["theta_star"]), nR, nZ, float(self.q(rho)))
+        cached = self._surfaces.get(rho)  # per instance: a class-wide cache would pin every geometry
+        if cached is None:
+            s = self.sfl.surface(rho * rho, n_theta=self.n_theta)
+            nR, nZ = self.normal(s["r"], s["z"])
+            cached = self._surfaces[rho] = Surface(rho, np.asarray(s["r"]), np.asarray(s["z"]),
+                                                   np.asarray(s["theta"]), np.asarray(s["theta_star"]), nR, nZ,
+                                                   float(self.q(rho)))
+        return cached
 
     def point(self, rho, theta_star):
         """$(R, Z)$ on surface ``rho`` at straight-field-line angle ``theta_star``."""
@@ -109,7 +118,7 @@ class EquilibriumGeometry:
         t = np.mod(np.asarray(theta_star, dtype=float), 2 * np.pi)
         return np.interp(t, ts, R), np.interp(t, ts, Z)
 
-    @lru_cache(maxsize=1)
+    @cached_property
     def _rz_table(self):
         from scipy.interpolate import RegularGridInterpolator
 
@@ -128,7 +137,7 @@ class EquilibriumGeometry:
         """$(R, Z)$ at arbitrary $(\\rho, \\theta^*)$, by interpolation between tabulated surfaces."""
         rho = np.clip(np.asarray(rho, dtype=float), 0.0, 0.97)
         t = np.mod(np.asarray(theta_star, dtype=float), 2 * np.pi)
-        fR, fZ = self._rz_table()
+        fR, fZ = self._rz_table
         pts = np.stack([rho, t], -1)
         return fR(pts), fZ(pts)
 
@@ -137,6 +146,28 @@ class EquilibriumGeometry:
         """Half the midplane width of the last closed surface [m]."""
         r = np.asarray(self.equilibrium.lcfs.r, dtype=float)
         return 0.5 * float(r.max() - r.min())
+
+
+def _cocos(eq) -> int:
+    """The COCOS to read ``eq.psi`` in; a record without one is per radian or full weber by its own flag."""
+    convention = getattr(eq, "convention", None)
+    cocos = getattr(convention, "cocos", None)
+    if cocos:
+        return int(cocos)
+    per_radian = getattr(convention, "psi_per_radian", None)
+    if per_radian is None:
+        raise ValueError("the equilibrium names neither its COCOS nor whether psi is per radian; q would be off by "
+                         "2 pi. Set EquilibriumData.convention")
+    # the index only fixes the 2 pi and the sign; |q| is taken, so 1 vs 3 and 11 vs 13 agree
+    return 1 if per_radian else 11
+
+
+def rho_toroidal(geom: "EquilibriumGeometry", rho) -> np.ndarray:
+    """Normalized toroidal-flux radius at $\\rho = \\sqrt{\\psi_N}$: $\\sqrt{\\int_0^{\\psi_N} q\\,d\\psi_N / \\int_0^1 q\\,d\\psi_N}$."""
+    grid = np.linspace(0.0, 1.0, 401)
+    q = geom.q(np.sqrt(grid))
+    phi = np.concatenate([[0.0], np.cumsum(0.5 * (q[1:] + q[:-1]) * np.diff(grid))])
+    return np.sqrt(np.interp(np.asarray(rho, float) ** 2, grid, phi / phi[-1]))
 
 
 @lru_cache(maxsize=None)

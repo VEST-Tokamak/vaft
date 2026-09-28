@@ -46,17 +46,30 @@ def _note(text: str, x: float, y: float) -> Label:
     return Label((x, y), text, "note", anchor="north", role="note")
 
 
-def envelope(kind: str, rho, *, m: int, rho_s: Optional[float]) -> np.ndarray:
+def edge_width(amplitude: float) -> float:
+    """Half-width of the internal envelope's edge, in $\\rho$: at least 0.035, and wider than the amplitude.
+
+    The displacement changes by $A\\,a$ across the edge, so with $|dF/d\\rho|
+    \\le 1/(2w)$ the surfaces keep their order while $A\\,a/(2w)$ stays below
+    their spacing $\\sim a\\,d\\rho$: $w = \\max(0.035, 0.9A)$ keeps a margin.
+    """
+    return max(_EDGE, 0.9 * float(amplitude))
+
+
+def envelope(kind: str, rho, *, m: int, rho_s: Optional[float], amplitude: float = 0.0) -> np.ndarray:
     """The schematic radial envelope $F(\\rho)$, 1 at its maximum.
 
     ``internal``: a top hat inside the resonant surface $\\rho_s$, smoothed
-    over $\\pm 0.035$; ``global``: $\\rho^{m-1}$, reaching the boundary (for
-    $m = 1$ a rigid shift of every surface); ``edge``: $\\rho^{4m}$, confined
-    to the edge.
+    over $\\pm$ ``edge_width(amplitude)`` and times $(\\rho/\\rho_s)^{m-1}$ so
+    that it is regular at the axis; ``global``: $\\rho^{m-1}$, reaching
+    the boundary (for $m = 1$ a rigid shift of every surface); ``edge``:
+    $\\rho^{4m}$, confined to the edge.
     """
     rho = np.asarray(rho, dtype=float)
     if kind == "internal":
-        return 0.5 * (1.0 - np.tanh((rho - rho_s) / _EDGE))
+        # regular at the axis: an m >= 2 displacement vanishes there like rho^(m - 1)
+        regular = np.minimum(rho / rho_s, 1.0) ** (m - 1)
+        return regular * 0.5 * (1.0 - np.tanh((rho - rho_s) / edge_width(amplitude)))
     if kind == "global":
         return rho ** (m - 1)
     return rho ** (4 * m)
@@ -64,11 +77,28 @@ def envelope(kind: str, rho, *, m: int, rho_s: Optional[float]) -> np.ndarray:
 
 def displacement(geom: EquilibriumGeometry, rho: float, *, n: int, amplitude: float, harmonics: Dict[int, complex],
                  kind: str, rho_s: Optional[float], phase: float, phi: float = 0.0) -> dict:
-    """One displaced surface: $\\xi_n$ on it, and the moved points $\\mathbf x + \\xi_n\\hat{\\mathbf n}$."""
+    """One displaced surface: $\\xi_n$ on it, and the moved points.
+
+    For a single $m = 1$ harmonic the surface is shifted rigidly, by the vector
+    whose normal component is $\\xi_n$ -- the $m = 1$ kink is a shift, and
+    moving each point along its own normal would turn a small inner surface
+    into a limacon. Otherwise the points move by $\\xi_n\\hat{\\mathbf n}$.
+    """
     s = geom.surface(float(rho))
     m_lead = min(harmonics)
+    scale = amplitude * geom.minor_radius * envelope(kind, rho, m=m_lead, rho_s=rho_s, amplitude=amplitude)
+    if set(harmonics) == {1}:
+        c = harmonics[1]
+        # Re[c e^{i(theta* - n phi + phase)}] peaks at theta* = -(phase - n phi + arg c): shift towards that point
+        peak = -(phase - n * phi + np.angle(c))
+        axis = np.array(geom.axis)
+        toward = np.array(geom.point(0.3, peak)) - axis
+        e = toward / np.linalg.norm(toward)
+        shift = scale * abs(c) * e
+        xi = shift[0] * s.normal_R + shift[1] * s.normal_Z
+        return {"surface": s, "xi": xi, "R": s.R + shift[0], "Z": s.Z + shift[1], "shift": shift}
     helical = sum(c * np.exp(1j * (m * s.theta_star - n * phi + phase)) for m, c in harmonics.items())
-    xi = amplitude * geom.minor_radius * envelope(kind, rho, m=m_lead, rho_s=rho_s) * np.real(helical)
+    xi = scale * np.real(helical)
     return {"surface": s, "xi": xi, "R": s.R + xi * s.normal_R, "Z": s.Z + xi * s.normal_Z}
 
 
@@ -125,14 +155,16 @@ def kink_mode(equilibrium=None, m: int = 1, n: int = 1, *, amplitude: float = 0.
         s = geom.surface(rho_s)
         items.append(Polyline.of(_S * np.stack([s.R, s.Z], -1), "rational", role="resonant_surface", closed=True))
     # displacement arrows on the surface where the envelope is largest, x3 for visibility
-    show = surfaces[2] if radial_profile == "internal" else surfaces[-1]
+    # on the outermost drawn surface whose displacement is (nearly) the largest
+    peak = [np.abs(sfc["R"] - sfc["R0"]).max() + np.abs(sfc["Z"] - sfc["Z0"]).max() for sfc in surfaces]
+    show = surfaces[max(i for i, v in enumerate(peak) if v >= 0.9 * max(peak))] if max(peak) > 0 else surfaces[-1]
     arrows = []
-    for i in range(0, len(show["xi"]), len(show["xi"]) // 12)[:12]:
-        xi = show["xi"][i]
-        if abs(xi) < 0.02 * geom.minor_radius * max(amplitude, 1e-9):
+    for i in range(0, len(show["xi"]), len(show["xi"]) // 10)[:10]:
+        moved = np.array([show["R"][i] - show["R0"][i], show["Z"][i] - show["Z0"][i]])
+        if np.hypot(*moved) < 0.1 * geom.minor_radius * max(amplitude, 1e-9):
             continue
         p0 = np.array([show["R0"][i], show["Z0"][i]])
-        p1 = p0 + 3.0 * xi * np.array([show["normal"][0][i], show["normal"][1][i]])
+        p1 = p0 + 3.0 * moved
         items.append(Arrow(tuple(_S * p0), tuple(_S * p1), "drift", role="xi"))
         arrows.append((p0, p1))
     # the axis moves with the innermost surface (a rigid shift for m = 1, none for m >= 2)
@@ -151,16 +183,18 @@ def kink_mode(equilibrium=None, m: int = 1, n: int = 1, *, amplitude: float = 0.
         items += [
             Label((x_mid, top), f"prescribed $m/n = {m}/{n}$ displacement, {radial_profile} envelope", "label",
                   anchor="south", role="title"),
-            Label((right, _S * 0.25), "solid: displaced\\\\ dashed grey: unperturbed\\\\ red arrows: "
-                  "$\\xi_n\\hat{\\mathbf{n}}$, $\\times 3$" + ("\\\\ blue dashed: $q = %d/%d$" % (m, n) if rho_s else ""),
+            Label((right + 0.5, _S * 0.25), "solid: displaced\\\\ dashed grey: unperturbed\\\\ red arrows: "
+                  "displacement, $\\times 3$" + (f"\\\\ blue dashed: $q = {m if n == 1 else f'{m}/{n}'}$ (unperturbed)"
+                                                if rho_s else ""),
                   "small label,align=left", anchor="north west", role="legend"),
-            Label((right, -_S * 0.05), f"$\\xi_n = A\\,a\\,F(\\rho)\\,\\mathrm{{Re}}[({terms})\\,e^{{-in\\phi + i\\varphi_0}}]$\\\\ "
+            Label((right + 0.5, -_S * 0.05), f"$\\xi_n = A\\,a\\,F(\\rho)\\,\\mathrm{{Re}}[({terms})\\,e^{{-in\\phi + i\\varphi_0}}]$\\\\ "
                   f"$A = {amplitude:g}$, $\\phi = 0$", "small label,align=left", anchor="north west", role="model"),
             Label((x_mid, -top - 0.2),
                   f"$\\displaystyle {formula_equation(flux_perturbation_from_normal_displacement)}$",
                   "formula box", anchor="north", role="equations"),
             _note("Synthetic parameterization, not an eigenfunction: the phase uses the equilibrium's $\\theta^*$ "
-                  "(PEST), the drawing its real $(R, Z)$ surfaces", x_mid + 2.0, -top - 1.5),
+                  "(PEST), the drawing its real $(R, Z)$ surfaces; $m = 1$ drawn as the rigid shift; the helicity "
+                  "sign is not drawn ($\\phi = 0$ only)", x_mid + 2.0, -top - 1.5),
         ]
     model = {"classification": "synthetic_parameterization", "m": m, "n": n, "amplitude": float(amplitude),
              "radial_profile": radial_profile, "harmonics": harmonics, "phase": float(phase), "rho_s": rho_s,

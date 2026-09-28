@@ -78,18 +78,29 @@ def test_the_internal_envelope_stays_inside_the_resonant_surface():
     assert m["axis_shift"][0] > 0.0  # the core moves towards theta* = 0 (outboard) at phase 0
 
 
-def test_no_surface_inversion_at_the_largest_amplitude():
-    for profile in ("internal", "global"):
-        m = vaft.diagram.kink_mode(m=1 if profile == "internal" else 2, n=1, radial_profile=profile,
-                                   amplitude=0.15).model
-        g = m["geometry"]
-        previous = None
-        for s in m["surfaces"]:
-            level = g.sfl.psi_norm(s["R"], s["Z"])  # the displaced points, read against the unperturbed map
-            if previous is not None:
-                # moving outward in rho never falls back inside the previous displaced surface on average
-                assert np.median(level) > previous
-            previous = np.median(level)
+def _nested(surfaces) -> bool:
+    """Every point of each surface lies strictly inside the next one out."""
+    from matplotlib.path import Path
+
+    for inner, outer in zip(surfaces[:-1], surfaces[1:]):
+        if not Path(np.stack(outer, -1)).contains_points(np.stack(inner, -1)).all():
+            return False
+    return True
+
+
+@pytest.mark.parametrize("m, profile", [(1, "internal"), (2, "internal"), (1, "global"), (2, "global"), (2, "edge")])
+@pytest.mark.parametrize("amplitude", [0.03, 0.06, 0.1, 0.15])
+def test_no_surface_inversion_over_the_documented_amplitude_range(m, profile, amplitude):
+    from vaft.diagram._mhd_mode import displacement
+
+    g = eg.default_equilibrium()
+    rho_s = g.rho_at_q(m)
+    dense = np.round(np.linspace(0.1, 0.95, 35), 4)  # far denser than the drawn surfaces
+    moved = []
+    for rho in dense:
+        d = displacement(g, rho, n=1, amplitude=amplitude, harmonics={m: 1.0}, kind=profile, rho_s=rho_s, phase=0.3)
+        moved.append((d["R"], d["Z"]))
+    assert _nested(moved)
 
 
 def test_the_internal_envelope_needs_its_resonant_surface():
@@ -97,10 +108,13 @@ def test_the_internal_envelope_needs_its_resonant_surface():
         vaft.diagram.kink_mode(m=5, n=1)
 
 
-def test_the_precursor_keeps_nested_topology():
-    m = vaft.diagram.sawtooth(stage="precursor").model
+@pytest.mark.parametrize("amplitude", [0.06, 0.15])
+def test_the_precursor_keeps_nested_topology(amplitude):
+    m = vaft.diagram.sawtooth(stage="precursor", amplitude=amplitude).model
     assert m["rho_1"] == pytest.approx(eg.default_equilibrium().rho_at_q(1.0))
     assert m["axis_shift"][0] > 0.0
+    assert _nested([(s["R"], s["Z"]) for s in m["surfaces"]])
+    assert m["rho_mix"] is None  # the precursor does not need it
 
 
 def test_the_reconnection_stage_has_its_1_1_x_and_o_points():
@@ -122,7 +136,7 @@ def test_the_reconnection_stage_has_its_1_1_x_and_o_points():
     assert m2["rho_c"] < m["rho_c"] and m2["rho_o"] > m["rho_o"]
 
 
-def test_the_post_crash_profile_is_flat_inside_the_mixing_radius_and_conserves_energy():
+def test_the_post_crash_profile_is_flat_inside_the_mixing_radius_at_conserved_int_T_rho():
     m = vaft.diagram.sawtooth(stage="post_crash").model
     rho, before, after = m["rho"], m["T_before"], m["T_after"]
     inside = rho <= m["rho_mix"]
@@ -163,3 +177,36 @@ def test_every_phenomenon_diagram_is_deterministic_and_exported(fn, kwargs):
     assert d.scene.role("note") and not f(**kwargs, labels=False).scene.role("note")
     assert sum(isinstance(i, Label) for i in f(**kwargs, labels=False).scene.items) < sum(
         isinstance(i, Label) for i in d.scene.items)
+
+
+def test_the_mixing_radius_is_taken_in_toroidal_flux():
+    # exact 1/1 helical flux in poloidal flux: int_0^{psi_mix} (1 - q) dpsi_N = 0 (cylindrical r is rho_tor)
+    g = eg.default_equilibrium()
+    rho_mix = vaft.diagram.sawtooth(stage="post_crash").model["rho_mix"]
+    psi = np.linspace(0.0, rho_mix**2, 4001)
+    q = g.q(np.sqrt(psi))
+    assert np.trapezoid(1.0 - q, psi) == pytest.approx(0.0, abs=2e-4)
+
+
+def test_the_adapter_reads_q_in_the_records_own_unit():
+    import dataclasses
+
+    from vaft.process.equilibrium import solovev_example
+
+    eq = solovev_example("limited", a_parameter=0.0)
+    unknown = dataclasses.replace(eq.convention, cocos=None, psi_per_radian=None)
+    with pytest.raises(ValueError, match="2 pi"):
+        eg.EquilibriumGeometry(dataclasses.replace(eq, convention=unknown, q=None))
+    full_weber = dataclasses.replace(eq.convention, cocos=None, psi_per_radian=False)
+    g = eg.EquilibriumGeometry(dataclasses.replace(eq, convention=full_weber, q=None))
+    assert g.q0 == pytest.approx(eg.default_equilibrium().q0, rel=1e-6)
+
+
+def test_a_single_null_equilibrium_works_too():
+    from vaft.process.equilibrium import solovev_example
+
+    sn = solovev_example("single_null", a_parameter=0.0)
+    for stage in ("precursor", "reconnection", "post_crash"):
+        m = vaft.diagram.sawtooth(sn, stage=stage).model
+        assert m["rho_1"] is not None
+    assert vaft.diagram.kink_mode(sn).model["rho_s"] is not None
