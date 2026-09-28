@@ -242,6 +242,8 @@ list of ODSs**, returns `(Figure, Axes)`, and does **not** call `plt.show()` unl
 An unknown option is refused and the message names the ones the plot does take, so
 `vaft.omas.available_plots(ods, detail=True)` is the fastest way to see what a given input supports —
 including how many channels are usable and which regions and representatives it offers.
+Without an input, the generated [plot reference]({{ site.baseurl }}/reference/plot/) lists every
+plot the registry holds, by subject and view, with the IDS paths each one needs.
 
 There is no `time_slices` argument on any magnetics plot — a magnetics trace is a full time series.
 To compare several shots, pass an **ODC**:

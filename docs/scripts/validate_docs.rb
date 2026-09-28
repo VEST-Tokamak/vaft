@@ -91,6 +91,7 @@ end
 
 # vaft.formula.catalog reached develop after main, so the formula reference is
 # present on some branches and not others.  Validate it when the branch ships it.
+formula_snapshot = nil
 if (ROOT / "_data" / "formula_catalog.yml").file?
   formula_snapshot = data("formula_catalog.yml")
   %w[schema_version generator source categories formulas].each do |field|
@@ -126,6 +127,7 @@ if (ROOT / "_data" / "formula_catalog.yml").file?
   end
 end
 
+process_snapshot = nil
 if (ROOT / "_data" / "process_catalog.yml").file?
   process_snapshot = data("process_catalog.yml")
   %w[schema_version generator source categories functions].each do |field|
@@ -176,6 +178,147 @@ if (ROOT / "_data" / "process_catalog.yml").file?
       else
         errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
       end
+    end
+  end
+end
+
+# vaft.plot.docs_catalog and vaft.diagram.docs_catalog: same shape of checks as
+# the formula and process snapshots, on the branches that ship them.
+def check_snapshot_sources(errors, label, snapshot, registry_source)
+  sources = snapshot.fetch("source", [])
+  errors << "#{label} snapshot has no sources" unless sources.is_a?(Array) && !sources.empty?
+  sources.each do |entry|
+    errors << "#{label} snapshot source checksum is invalid: #{entry['path']}" unless entry["sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+    next if registry_source.nil? || registry_source.empty?
+    source_path = Pathname(registry_source) / entry.fetch("path")
+    if source_path.file?
+      errors << "#{label} snapshot does not match VAFT_REGISTRY_SOURCE: #{entry['path']}" unless Digest::SHA256.file(source_path).hexdigest == entry["sha256"]
+    else
+      errors << "VAFT_REGISTRY_SOURCE has no #{entry['path']}"
+    end
+  end
+end
+
+def require_fields(errors, label, rows, fields)
+  ids = rows.map { |item| item["id"] }
+  errors << "#{label} snapshot has duplicate IDs" unless ids.uniq.length == ids.length
+  rows.each do |item|
+    fields.each do |field|
+      errors << "#{label} #{item['id'] || '(unknown)'} missing #{field}" if item[field].nil?
+    end
+  end
+end
+
+plot_snapshot = nil
+if (ROOT / "_data" / "plot_catalog.yml").file?
+  plot_snapshot = data("plot_catalog.yml")
+  %w[schema_version generator source views subjects plots entry_points].each do |field|
+    errors << "plot snapshot missing #{field}" unless plot_snapshot.key?(field)
+  end
+  check_snapshot_sources(errors, "plot", plot_snapshot, registry_source)
+  plots = plot_snapshot.fetch("plots", [])
+  errors << "plot snapshot has no plots" unless plots.is_a?(Array) && !plots.empty?
+  require_fields(errors, "plot", plots, %w[id name status subject view quantity domain description model adapter renderer ids required_paths optional_paths backends source])
+  subjects = plot_snapshot.fetch("subjects", []).map { |item| item["name"] }
+  views = plot_snapshot.fetch("views", [])
+  plots.each do |item|
+    errors << "plot #{item['id']} has unknown subject #{item['subject']}" unless subjects.include?(item["subject"])
+    errors << "plot #{item['id']} has unknown view #{item['view']}" unless views.include?(item["view"])
+    errors << "plot #{item['id']} has no source location" unless item["source"].is_a?(Hash) && item["source"]["path"].to_s.start_with?("vaft/plot/") && item["source"]["line"].to_i.positive?
+  end
+  entry_points = plot_snapshot.fetch("entry_points", [])
+  require_fields(errors, "plot function", entry_points, %w[id name status module summary signature source])
+  overlap = plots.map { |item| item["name"] } & entry_points.map { |item| item["name"] }
+  errors << "plot names listed both as registered plots and as plot functions: #{overlap.join(', ')}" unless overlap.empty?
+end
+
+diagram_snapshot = nil
+if (ROOT / "_data" / "diagram_catalog.yml").file?
+  diagram_snapshot = data("diagram_catalog.yml")
+  %w[schema_version generator source families builders assets].each do |field|
+    errors << "diagram snapshot missing #{field}" unless diagram_snapshot.key?(field)
+  end
+  check_snapshot_sources(errors, "diagram", diagram_snapshot, registry_source)
+  builders = diagram_snapshot.fetch("builders", [])
+  assets = diagram_snapshot.fetch("assets", [])
+  errors << "diagram snapshot has no builders" unless builders.is_a?(Array) && !builders.empty?
+  require_fields(errors, "diagram builder", builders, %w[id name family module summary signature formula assets source])
+  require_fields(errors, "diagram asset", assets, %w[id asset builder arguments call svg svg_sha256])
+  builder_names = builders.map { |item| item["name"] }
+  assets.each do |item|
+    errors << "diagram asset #{item['asset']} names unknown builder #{item['builder']}" unless builder_names.include?(item["builder"])
+    svg = ROOT / item["svg"].to_s
+    if svg.file?
+      errors << "diagram asset #{item['asset']} does not match its recorded SVG checksum" unless Digest::SHA256.file(svg).hexdigest == item["svg_sha256"]
+    else
+      errors << "diagram asset #{item['asset']} has no SVG at #{item['svg']}"
+    end
+  end
+  # Hand-written pages may show a diagram only if it is still canonical.
+  catalogued_svgs = assets.map { |item| item["asset"] }.to_set
+  (ROOT.glob("{_guide,_pages,guide}/*.md") + ROOT.glob("*.{md,markdown,html}")).each do |page|
+    page.read(encoding: "UTF-8").scan(%r{/assets/diagrams/([A-Za-z0-9_.-]+\.svg)}).flatten.uniq.each do |name|
+      errors << "#{page.relative_path_from(ROOT)} shows #{name}, which is not a canonical diagram" unless catalogued_svgs.include?(name)
+    end
+  end
+end
+
+# A generated page whose data was not generated renders as an empty list and
+# would otherwise pass everything below.
+{ "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml" }.each do |page, snapshot|
+  next unless (ROOT / "_guide" / page).file?
+  errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
+end
+
+# Every catalog entry is rendered exactly once on its reference page, and the
+# page renders nothing the catalog no longer holds.  The pages mark each entry
+# with data-catalog, so this reads the built HTML rather than trusting the
+# Liquid that produced it.
+def rendered_catalog(url, selector, attribute)
+  built = output_path(url)
+  return nil unless built
+  document = Nokogiri::HTML(built.read)
+  [document.css(selector).map { |node| node[attribute] }, document.css("[id]").map { |node| node["id"] }.tally]
+end
+
+def compare_rendered(errors, label, url, expected, selector, attribute = "id")
+  rendered, ids = rendered_catalog(url, selector, attribute)
+  if rendered.nil?
+    errors << "#{label} reference page is not built: #{url}"
+    return
+  end
+  # An anchor shared with another element (a heading, another entry) sends the
+  # link to whichever comes first.
+  expected.uniq.each { |name| errors << "#{label} #{name}: id is used more than once on #{url}" if attribute == "id" && ids.fetch(name, 0) > 1 }
+  (expected - rendered).uniq.each { |name| errors << "#{label} #{name} is in the catalog but not rendered on #{url}" }
+  (rendered - expected).uniq.each { |name| errors << "#{label} #{name} is rendered on #{url} but is not in the catalog" }
+  rendered.tally.select { |_name, count| count > 1 }.each_key { |name| errors << "#{label} #{name} is rendered more than once on #{url}" }
+end
+
+if formula_snapshot
+  formula_snapshot.fetch("formulas", []).group_by { |item| item["category"] }.each do |category, rows|
+    compare_rendered(errors, "formula", "#{BASEURL}/reference/formula/#{category}/", rows.map { |item| item["name"] }, '[data-catalog="formula"]')
+  end
+end
+if process_snapshot
+  conforming = process_snapshot.fetch("categories", []).select { |item| item["conforming"] }.map { |item| item["name"] }
+  process_snapshot.fetch("functions", []).group_by { |item| item["category"] }.each do |category, rows|
+    # A pending category has no page by design (see above).
+    next unless conforming.include?(category)
+    compare_rendered(errors, "process", "#{BASEURL}/reference/process/#{category}/", rows.map { |item| item["name"] }, '[data-catalog="process"]')
+  end
+end
+if plot_snapshot
+  compare_rendered(errors, "plot", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("plots", []).map { |item| item["name"] }, '[data-catalog="plot"]')
+  compare_rendered(errors, "plot function", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("entry_points", []).map { |item| item["name"] }, '[data-catalog="plot-function"]')
+end
+if diagram_snapshot
+  url = "#{BASEURL}/reference/diagram/"
+  compare_rendered(errors, "diagram", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, '[data-catalog="diagram"]')
+  compare_rendered(errors, "diagram asset", url, diagram_snapshot.fetch("assets", []).map { |item| item["asset"] }, '[data-catalog="diagram-asset"]', "data-asset")
+  if (built = output_path(url))
+    Nokogiri::HTML(built.read).css('[data-catalog="diagram-asset"] img').each do |image|
+      errors << "diagram gallery image does not resolve: #{image['src']}" unless output_path(image["src"].to_s)
     end
   end
 end
