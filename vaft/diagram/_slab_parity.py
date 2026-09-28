@@ -60,7 +60,9 @@ def _contours(Z, xs, ys, levels) -> List[np.ndarray]:
 def _panel(parity: str, labels: bool, x_off: float = 0.0) -> dict:
     wavelength = 2.0 * math.pi / _KY
     ys = np.linspace(0.0, 2.0 * wavelength, 401)
-    xs = np.linspace(-_X_HALF, _X_HALF, 201)
+    # 197 rows: with 201 the outermost level d = 0.95 lay exactly on a grid row, where last-bit differences
+    # between platforms make the contour zigzag between cells
+    xs = np.linspace(-_X_HALF, _X_HALF, 197)
     Y, X = np.meshgrid(ys, xs)
     amp = _AMPLITUDE[parity]
     Z = slab_perturbed_flux(X, Y, _SHEAR, amp, _KY, parity=parity)
@@ -87,7 +89,9 @@ def _panel(parity: str, labels: bool, x_off: float = 0.0) -> dict:
     info = {"amplitude": amp, "rational_surface": rational, "levels": levels, "grid": (ys, xs, Z)}
     if parity == "tearing":
         sep_level = amp  # the X-points' value, Psi = psi_0 at x = 0, cos = 1
-        for line in _contours(Z, xs, ys, [sep_level]):
+        # a hair inside the saddle value: exactly at it the X-points are grid nodes and last-bit
+        # differences decide how the contour joins there, platform by platform
+        for line in _contours(Z, xs, ys, [sep_level * (1.0 - 1e-6)]):
             items.append(Polyline.of(cm(line), "separatrix", role="separatrix"))
         x_points = [(0.0, 0.0), (wavelength, 0.0), (2.0 * wavelength, 0.0)]
         o_points = [(0.5 * wavelength, 0.0), (1.5 * wavelength, 0.0)]

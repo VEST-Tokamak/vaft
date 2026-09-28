@@ -26,6 +26,9 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # A parameterization with no physics of its own (#552).
+    "generalized_parabolic_profile",
+    "generalized_parabolic_profile_derivative",
     "aspect_ratio_from_a_R",
     "inverse_aspect_ratio_from_a_R",
     "calc_inverse_aspect_ratio",
@@ -67,12 +70,19 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
+    "generalized_parabolic_profile",
+    "generalized_parabolic_profile_derivative",
+    "modified_tanh_profile",
+    "modified_tanh_profile_derivative",
     # psi / B / j / q / flux
     "poloidal_field_factor",
     "radial_magnetic_field_from_psi",
     "vertical_magnetic_field_from_psi",
     "current_density_from_psi",
     "current_density_from_B",
+    "grad_shafranov_source",
+    "toroidal_current_density_from_p_prime_ff_prime",
     "psi_from_RBtheta",
     "phi_from_Bphi",
     "rhoN_from_phi",
@@ -133,6 +143,8 @@ CONVENTION_SENSITIVE = frozenset({
     # geometric approximations: Fourier sign, slab orientation, signed shear length
     "slab_parallel_wavenumber",
     "sheared_slab_field",
+    "harris_sheet_current_density",
+    "x_point_flux",
     "sheared_slab_parallel_wavenumber",
     "shear_length_from_q_R0_s",
     "cylindrical_safety_factor_from_r_B",

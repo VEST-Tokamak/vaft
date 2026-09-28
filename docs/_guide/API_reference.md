@@ -419,18 +419,11 @@ vaft.omas.plot_barometry_time_pressure(ods)
 vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
-| Group | Functions |
-| --- | --- |
-| Time traces | `plasma_current_time`, `diamagnetic_flux_time`, `flux_loop_time_flux`, `flux_loop_time_voltage`, `b_field_probe_time_field`, `pf_coil_time_current`, `pf_coil_time_current_turns`, `tf_coil_time_current`, `tf_coil_time_b_t`, `tf_coil_time_b_t_vacuum_r`, `barometry_time_pressure`, `spectrometer_uv_time_intensity`, `spectrometer_uv_time_impurity`, `current_overview` |
-| Equilibrium scalars vs. time | `equilibrium_time_plasma_current`, `equilibrium_time_li`, `equilibrium_time_beta_p`, `equilibrium_time_beta_t`, `equilibrium_time_beta_n`, `equilibrium_time_w_mhd`, `equilibrium_time_w_mag`, `equilibrium_time_w_tot`, `equilibrium_time_q0`, `equilibrium_time_q95`, `equilibrium_time_qa`, `equilibrium_time_major_radius` |
-| Energy and power | `summary_time_energy`, `equilibrium_time_beta`, `summary_time_power_balance`, `summary_time_voltage_consumption`, `equilibrium_time_virial` |
-| Profiles (1-D) | `equilibrium_profile_pressure` |
-| Geometry and 2-D | `machine_geometry_poloidal`, `passive_structure_geometry_poloidal`, `equilibrium_field_psi_vacuum`, `equilibrium_field_2d` |
-| Kinetic diagnostics | `thomson_scattering_profile_electron_temperature`, `thomson_scattering_time_electron_temperature`, `charge_exchange_profile_ion_temperature`, `charge_exchange_time_ion_temperature`, `electron_temperature_profile`, `electron_temperature_field` |
-| Fluctuations | `mirnov_time_voltage`, `mirnov_spectrogram`, `mirnov_spatial_phase` |
-| Soft X-rays | `soft_x_rays_geometry_lines_of_sight`, `soft_x_rays_time_power`, `soft_x_rays_spectrogram`, `soft_x_rays_overview` |
-| Overviews | `magnetics_overview`, `current_overview`, `equilibrium_overview_histories` |
-| Multi-shot history | `plot_scaling_fit`, `plot_correlation_heatmap`, `plot_regression_summary`, `plot_tauE_exp_vs_scaling_loglog`, `plot_H_factor_distribution`, `plot_H_factor_vs_greenwald_fraction`, `confinement_time_exp_vs_scaling` |
+Every plot the registry holds -- its subject, view and quantity, the adapter that draws it, and the IDS
+paths it needs -- is listed in the generated [plot reference]({{ site.baseurl }}/reference/plot/){% if site.data.plot_catalog %}
+({{ site.data.plot_catalog.plots.size }} plots){% endif %}, together with the plotting functions outside the
+registry: the analytic figures and the multi-shot history and scaling plots (`plot_scaling_fit`,
+`plot_H_factor_distribution`, ...). The page is rebuilt from `vaft.plot` on every publish.
 
 The [Magnetics]({{ site.baseurl }}/guide/Magnetics/) page shows several of these traces rendered from
 real shots.
@@ -461,7 +454,7 @@ outputs = collect_efit_outputs(workdir, cfg)
 | --- | --- |
 | EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
 | CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
-| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
+| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `find_gpec_executable`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
 | TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
 | NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
 | TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
