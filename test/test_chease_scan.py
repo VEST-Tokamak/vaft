@@ -426,16 +426,22 @@ def test_an_explicit_boundary_replaces_the_miller_knobs(geqdsk):
 
 
 def test_a_boundary_chease_cannot_hold_is_refused():
-    """CHEASE holds the boundary as rho(theta); a crescent whose inboard notch passes the centre folds that."""
+    """The CHEASE input holds the boundary as rho(theta); a crescent whose notch passes the centre folds that."""
     from vaft.data.equilibrium import Contour
 
     t = np.linspace(0.0, 2*np.pi, 200, endpoint=False)
     crescent = Contour(1.0 + 0.3*np.cos(t) + 0.3*np.exp(-((t - np.pi)/0.45)**2), 0.45*np.sin(t))
     with pytest.raises(ValueError, match="star-shaped"):
         EquilibriumVariation("crescent", boundary=crescent)
-    # A doublet's waist does not: every ray from its centre crosses it once.
+    # Nor can a doublet: its outermost point is on a lobe, and rays from there cross the waist twice.
     doublet = Contour(1.0 + 0.3*np.cos(t)*(0.4 + 0.6*np.sin(2*t)**2), 0.6*np.sin(t))
-    assert EquilibriumVariation("doublet", boundary=doublet).reshapes_boundary
+    with pytest.raises(ValueError, match="star-shaped"):
+        EquilibriumVariation("doublet", boundary=doublet)
+    # A D, a bean and an up-down asymmetric D are all fine.
+    for label, contour in (("d", Contour(1.0 + 0.3*np.cos(t + 0.4*np.sin(t)), 0.5*np.sin(t))),
+                           ("asym", Contour(1.0 + 0.3*np.cos(t + np.arcsin(0.3 + 0.25*np.sin(t))*np.sin(t)),
+                                            0.5*np.sin(t)))):
+        assert EquilibriumVariation(label, boundary=contour).reshapes_boundary
 
 
 def test_an_explicit_boundary_is_written_as_given(geqdsk):
@@ -486,7 +492,7 @@ def test_a_scan_records_the_boundary_it_solved_on(monkeypatch, tmp_path, geqdsk)
     assert _elongation(expeq) == pytest.approx(float(np.ptp(tall.z))/float(np.ptp(tall.r)), rel=2e-3)
     for case in cases:
         record = json.loads((case.workdir / "scan_boundary.json").read_text())
-        assert record["boundary_smoothing"] == "arclength"
+        assert record["boundary_smoothing"] == "fft"
     assert by_label["fourier_tall"].shape_parameters["elongation"] == pytest.approx(
         by_label["fourier_tall"].shape[2], rel=1e-9)
 

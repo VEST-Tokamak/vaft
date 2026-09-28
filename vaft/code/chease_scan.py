@@ -70,10 +70,11 @@ class EquilibriumVariation:
     :class:`~vaft.data.equilibrium.Contour` -- evaluated from any shape model,
     Miller, :class:`~vaft.data.equilibrium.FourierSurface` or none -- which is
     what CHEASE's ``EXPEQ`` consumes anyway (#942).  The Miller knobs are one
-    way of generating such a contour; the two do not combine.  CHEASE holds
-    its boundary as a radius over the poloidal angle about the plasma centre,
-    so the contour must be star-shaped about ``((R_max + R_min)/2, (Z_max +
-    Z_min)/2)``; a doublet or a deep bean is refused rather than scrambled.
+    way of generating such a contour; the two do not combine.  The adapter's
+    default boundary smoothing re-samples the boundary as a radius over the
+    polar angle about ``((R_max + R_min)/2, Z at R_max)``, as CHEASE holds it,
+    so the contour must be star-shaped about that point; a doublet or a
+    crescent is refused rather than scrambled.
     ``boundary`` does not take part in equality or hashing, which the label
     already makes unique within a scan.
     """
@@ -111,8 +112,9 @@ class EquilibriumVariation:
                 raise ValueError("an explicit boundary must lie at positive major radius")
             if not _star_shaped(r, z):
                 raise ValueError(
-                    "an explicit boundary must be star-shaped about its centre: CHEASE "
-                    "represents the boundary as a radius over the poloidal angle"
+                    "an explicit boundary must be star-shaped about its centre (the radial "
+                    "box centre at the height of the outermost point): the CHEASE input "
+                    "holds the boundary as a radius over the poloidal angle"
                 )
 
     @property
@@ -135,9 +137,13 @@ def _open_outline(r: Any, z: Any) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _star_shaped(r: np.ndarray, z: np.ndarray) -> bool:
-    """Whether the polar angle about the box centre advances monotonically around the outline."""
+    """Whether the polar angle advances monotonically around the outline.
+
+    The centre is the one ``vaft.code.chease._smooth_boundary_fft`` sorts
+    points about: the radial box centre, at the height of the outermost point.
+    """
     centre_r = 0.5 * (float(np.max(r)) + float(np.min(r)))
-    centre_z = 0.5 * (float(np.max(z)) + float(np.min(z)))
+    centre_z = float(z[int(np.argmax(r))])
     angle = np.unwrap(np.arctan2(np.r_[z, z[0]] - centre_z, np.r_[r, r[0]] - centre_r))
     step = np.diff(angle)
     return bool(np.all(step > 0) or np.all(step < 0)) and bool(np.isclose(abs(angle[-1] - angle[0]), 2 * np.pi))
@@ -352,12 +358,7 @@ def scan_chease(
     # representation, so the control is not the odd one out.  Explicit
     # boundaries alone need no Miller fit of the source, which may not have one.
     refit = any(item.reshapes_boundary and item.boundary is None for item in variations)
-    explicit = any(item.boundary is not None for item in variations)
     solve_config = replace(base_config, target_psin=1.0) if reshaped else base_config
-    if explicit:
-        # The default FFT smoothing re-sorts points by polar angle about the
-        # outboard midplane; arc-length resampling keeps the given outline.
-        solve_config = replace(solve_config, boundary_smoothing="arclength")
 
     cases: list[CHEASEScanCase] = []
     for variation in variations:
