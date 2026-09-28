@@ -170,3 +170,17 @@ def test_outside_the_boundary_is_blank():
     model = vo.extract_electron_temperature_field(ods)
     r = np.asarray(model.r, dtype=float)
     assert np.all(np.isnan(np.asarray(model.values)[:, r > 1.0 + 1e-9]))
+
+
+def test_a_degenerate_stored_coordinate_is_not_trusted():
+    # an all-zero leaf from a failed slice, with q to fall back on
+    ods = _one_slice({"rho_tor_norm": np.zeros_like(PSI_N_1D), "q": np.full(PSI_N_1D.size, 2.0)})
+    # constant q: rho_tor_norm = sqrt(psi_N), so psi_N = 0.25 holds Te(0.5)
+    assert _te_at_psi_n(ods, 0.25) == pytest.approx(50.0, abs=0.5)
+
+
+def test_without_global_psi_the_map_is_normalised_by_the_profile_ends():
+    ods = _one_slice({"rho_tor_norm": PSI_N_1D})
+    del ods["equilibrium.time_slice.0.global_quantities"]
+    # the grid runs to psi_N = 1.2; normalising by its extrema moved every cell
+    assert _te_at_psi_n(ods, 0.25) == pytest.approx(75.0, abs=0.5)

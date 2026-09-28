@@ -4364,6 +4364,10 @@ def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndar
     stored = _array(ods, f"{base}.rho_tor_norm")
     if (
         stored is not None and stored.size == psi.size and np.all(np.isfinite(stored))
+        # a coordinate at all: axis to edge, never turning back (an all-zero
+        # leaf from a failed slice would paint the plasma at Te(0))
+        and abs(stored[0]) < 1e-6 and abs(stored[-1] - 1.0) < 1e-6
+        and np.all(np.diff(stored) >= 0.0)
         and not is_rho_pol_proxy(stored, psi_norm)
     ):
         return psi_norm, stored
@@ -4409,7 +4413,15 @@ def _build_core_profile_field(
             "rho_tor_norm grid are required"
         )
     if psi_axis is None or psi_boundary is None:
-        psi_axis, psi_boundary = float(np.nanmin(psi_2d)), float(np.nanmax(psi_2d))
+        # The profile's own ends, so the 2-D psi_N and the rho_tor table below
+        # share one normalisation; the grid's extrema lie beyond the separatrix.
+        psi_1d = _array(ods, f"equilibrium.time_slice.{time_slice}.profiles_1d.psi")
+        if psi_1d is None or psi_1d.size < 2:
+            raise ValueError(
+                f"equilibrium.time_slice.{time_slice} has neither global_quantities "
+                "psi_axis/psi_boundary nor profiles_1d.psi to normalise its flux map"
+            )
+        psi_axis, psi_boundary = float(psi_1d[0]), float(psi_1d[-1])
     span = float(psi_boundary) - float(psi_axis)
     if span == 0.0:
         raise ValueError("equilibrium psi_axis and psi_boundary are equal")
