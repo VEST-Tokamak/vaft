@@ -29,6 +29,7 @@ from vaft.data.equilibrium import (
     EquilibriumData,
     FourierFitResult,
     FourierSequenceResult,
+    GradShafranovResidualModes,
     FourierSurface,
     Gap,
     GlobalEquilibriumDescriptors,
@@ -2959,16 +2960,17 @@ def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: flo
     return float(samples[index] + weight * (samples[index + 1] - samples[index]))
 
 
-def _arc_length_fourier(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float, Contour]:
+def _arc_length_fourier(contour: Contour, modes: int, samples: int | None = None) -> tuple[dict[str, np.ndarray], float, Contour, float]:
     """The one Fourier definition of a closed contour (#945), shared with the LCFS.
 
     Returns the coefficients in the canonical arc-length convention of
     :class:`FourierSurface`, the RMS residual at the fitted samples, and the
-    resampled, oriented contour those samples came from.
+    resampled, oriented contour those samples came from, and the phase ``phi``
+    the coefficients were rotated by (sample ``k`` sits at ``2 pi k/N - phi``).
     """
     if modes < 1:
         raise ValueError("modes must be at least 1")
-    count = max(256, 8*modes)
+    count = max(256, 8*modes) if samples is None else int(samples)
     sampled = _resample_contour(contour, count)
     r, z = sampled.r, sampled.z
     # Counter-clockwise in (R, Z), so the angle runs outboard -> top -> inboard.
@@ -2995,11 +2997,11 @@ def _arc_length_fourier(contour: Contour, modes: int) -> tuple[dict[str, np.ndar
     c, sn = np.cos(harmonics*phi), np.sin(harmonics*phi)
     ar[1:], br[1:] = ar[1:]*c + br[1:]*sn, br[1:]*c - ar[1:]*sn
     az[1:], bz[1:] = az[1:]*c + bz[1:]*sn, bz[1:]*c - az[1:]*sn
-    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error, Contour(r, z, True)
+    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error, Contour(r, z, True), phi
 
 
 def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
-    coefficients, error, _ = _arc_length_fourier(contour, modes)
+    coefficients, error, _, _ = _arc_length_fourier(contour, modes)
     return coefficients, error
 
 
@@ -3134,7 +3136,7 @@ def fit_fourier_surface(
     if not isinstance(contour, Contour):
         contour = Contour(contour[0], contour[1], True)
     modes = int(modes)
-    coefficients, _, observed = _arc_length_fourier(contour, modes)
+    coefficients, _, observed, _ = _arc_length_fourier(contour, modes)
     minor = 0.5*float(np.ptp(observed.r))
     if minor <= 0:
         raise ValueError("contour must have nonzero radial extent")
@@ -3257,6 +3259,163 @@ def fit_fourier_surface_sequence(
                              radial_coordinate=radial_coordinate,
                              fit_range=(float(min(levels)), float(max(levels))) if levels else None)
     return FourierSequenceResult(tuple(fits), tuple(skipped), provenance)
+
+
+def grad_shafranov_residual_modes(
+    equilibrium: Any, levels: Sequence[float], *, max_mode: int = 8, radial_coordinate: str = "psi_n",
+    residual_map: Any = None,
+) -> GradShafranovResidualModes:
+    """Project the Grad-Shafranov residual onto poloidal harmonics on nested flux surfaces.
+
+    A pointwise or surface-RMS residual says that force balance fails; the
+    harmonics say *how*: a large ``m = 0`` term is a radial offset of the
+    whole surface's balance, while ``m >= 1`` terms follow the shaping.  The
+    angle is the arc-length angle of :func:`fit_fourier_surface`, so residual
+    and shape harmonics of the same surface are directly comparable.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs psi, p' and FF' and a
+        declared flux convention [-].
+    levels : sequence of float
+        Surfaces to analyse, in *radial_coordinate* [-].
+    max_mode : int, optional
+        Highest harmonic kept, at least zero [-].
+    radial_coordinate : str, optional
+        Coordinate of *levels*, converted through
+        :func:`derive_radial_coordinates` when it is not ``psi_n`` [-].
+    residual_map : array_like, optional
+        A residual on the record's grid, indexed ``(R, Z)``, to project instead
+        of the computed one -- for comparing residual definitions or testing
+        the projection [T/m].
+
+    Returns
+    -------
+    GradShafranovResidualModes
+        Per surface: the radial value, the cosine and sine coefficients of the
+        residual for ``m = 0 .. max_mode``, and its RMS on the surface; the
+        global source scale for normalization; levels without a closed surface;
+        and the derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        A negative *max_mode*, a record without the profiles or without a
+        known flux unit, an unavailable radial coordinate, or a residual map
+        of the wrong shape.
+
+    Processing steps
+    ----------------
+    1. Evaluate ``G = Delta* psi - (-mu0 R^2 p' - FF')`` on the grid with
+       :func:`grad_shafranov_residual`, in per-radian flux.
+    2. Trace each requested surface and resample it uniformly in arc length
+       from its outboard side, as :func:`fit_fourier_surface` does.
+    3. Interpolate ``G`` onto the samples and take its discrete Fourier
+       coefficients, then rotate them by the surface's canonical phase.
+
+    Defaults
+    --------
+    ``max_mode = 8`` is a numerical convenience; the surface is sampled at
+    ``max(256, 8*max_mode)`` points, at least four per wavelength of the
+    highest harmonic, so the kept modes do not alias.
+
+    Convention
+    ----------
+    The residual is :func:`grad_shafranov_residual`'s ``delta_star - source``
+    in per-radian flux (T/m); a full-weber record is converted by its declared
+    convention.  Coefficients are raw, in T/m: ``G(theta) = sum_m a_m cos(m
+    theta) + b_m sin(m theta)`` with the arc-length angle and phase of
+    :class:`~vaft.data.equilibrium.FourierSurface`.  Divide by ``scale`` for a
+    normalized form.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The angle is geometric (arc length), not a straight-field-line angle; a
+    PEST projection waits on the flux-coordinate framework (#472).  The
+    residual is a finite-difference quantity, so near a sharp boundary or on a
+    coarse grid its harmonics carry discretization error of the grid scale.
+
+    Provenance
+    ----------
+    .. [1] The projection of a force-balance residual onto poloidal harmonics
+       follows the moment step of variational-moment equilibrium methods
+       (VMOMS); here it is a diagnostic of an existing equilibrium (#948).
+    """
+    from scipy.interpolate import RectBivariateSpline
+
+    from vaft.process.equilibrium import grad_shafranov_residual
+
+    max_mode = int(max_mode)
+    if max_mode < 0:
+        raise ValueError("max_mode must be non-negative")
+    eq = as_equilibrium(equilibrium)
+    if eq.psi is None or eq.pprime is None or eq.ffprime is None or eq.psi_1d is None:
+        raise ValueError("the equilibrium needs psi, psi_1d, pprime and ffprime")
+    r = np.asarray(eq.r, dtype=float); z = np.asarray(eq.z, dtype=float)
+    if residual_map is None:
+        per_radian = None if eq.convention is None else eq.convention.psi_per_radian
+        if per_radian is None:
+            raise ValueError("the record's flux unit (Wb or Wb/rad) is not identified; pass residual_map or declare the convention")
+        factor = 1.0 if per_radian else 2*np.pi
+        residual = grad_shafranov_residual(
+            np.asarray(eq.psi)/factor, r, z, psi_1d=np.asarray(eq.psi_1d)/factor,
+            pprime=np.asarray(eq.pprime)*factor, ffprime=np.asarray(eq.ffprime)*factor,
+            psi_axis=eq.psi_axis/factor, psi_boundary=eq.psi_boundary/factor,
+            boundary_r=None if eq.lcfs is None else eq.lcfs.r, boundary_z=None if eq.lcfs is None else eq.lcfs.z,
+        )
+        field_map = np.where(np.isfinite(residual.delta_star), residual.delta_star - residual.source, 0.0)
+        scale = float(residual.scale)
+        definition = "delta_star - (-mu0 R^2 p' - FF'), per-radian flux (grad_shafranov_residual)"
+    else:
+        field_map = np.asarray(residual_map, dtype=float)
+        if field_map.shape != (r.size, z.size):
+            raise ValueError(f"residual_map must have the grid shape {(r.size, z.size)}")
+        scale = float("nan")
+        definition = "supplied residual map"
+    spline = RectBivariateSpline(r, z, field_map, kx=3, ky=3)
+    levels = [float(level) for level in levels]
+    if radial_coordinate != "psi_n":
+        coordinates = derive_radial_coordinates(eq)
+        radial = coordinates.get(radial_coordinate)
+        if radial is None or not radial.available:
+            raise ValueError(f"{radial_coordinate} is unavailable")
+        coordinate = np.asarray(radial.value, dtype=float); psi_n_grid = np.asarray(coordinates["psi_n"].value, dtype=float)
+        order = np.argsort(coordinate)
+        psi_levels = np.interp(levels, coordinate[order], psi_n_grid[order], left=np.nan, right=np.nan)
+    else:
+        psi_levels = np.asarray(levels, dtype=float)
+    samples = max(256, 8*max_mode)
+    harmonics = np.arange(max_mode + 1)
+    rows, cos_rows, sin_rows, rms, skipped = [], [], [], [], []
+    for requested, psi_level in zip(levels, psi_levels):
+        contour = _contour_at_level(eq, float(psi_level)) if np.isfinite(psi_level) else None
+        if contour is None or not contour.closed:
+            skipped.append(requested)
+            continue
+        _, _, sampled, phi = _arc_length_fourier(contour, max(max_mode, 1), samples)
+        values = spline.ev(sampled.r, sampled.z)
+        theta = np.linspace(0, 2*np.pi, values.size, endpoint=False)
+        a = 2*np.array([np.mean(values*np.cos(m*theta)) for m in harmonics]); a[0] /= 2
+        b = 2*np.array([np.mean(values*np.sin(m*theta)) for m in harmonics]); b[0] = 0.0
+        c, s_ = np.cos(harmonics*phi), np.sin(harmonics*phi)
+        a, b = a*c + b*s_, b*c - a*s_
+        rows.append(requested); cos_rows.append(a); sin_rows.append(b)
+        rms.append(float(np.sqrt(np.mean(values**2))))
+    order = np.argsort(rows)
+    provenance = _provenance(eq, "arc-length Fourier projection of the Grad-Shafranov residual", ("psi", "pprime", "ffprime"),
+                             radial_coordinate=radial_coordinate, notes=(definition, f"max_mode={max_mode}", f"samples={samples}"))
+    return GradShafranovResidualModes(
+        radial_values=np.asarray(rows, dtype=float)[order],
+        cos=np.asarray(cos_rows, dtype=float).reshape(-1, max_mode + 1)[order],
+        sin=np.asarray(sin_rows, dtype=float).reshape(-1, max_mode + 1)[order],
+        rms=np.asarray(rms, dtype=float)[order], scale=scale, radial_coordinate=radial_coordinate,
+        skipped=tuple(skipped), provenance=provenance,
+    )
 
 
 def _segment_intersections(first: Contour, second: Contour) -> list[tuple[float, float, int]]:
@@ -3491,5 +3650,6 @@ __all__ = [
     "solovev_to_equilibrium", "solve_solovev_constraints",
     "check_equilibrium_requirements", "validate_equilibrium",
     "miller_surfaces", "solovev_example",
-    "evaluate_fourier_surface", "fit_fourier_surface", "fit_fourier_surface_sequence", "solovev_shape_constraints", "solovev_xpoint_constraints",
+    "evaluate_fourier_surface", "fit_fourier_surface", "fit_fourier_surface_sequence",
+    "grad_shafranov_residual_modes", "solovev_shape_constraints", "solovev_xpoint_constraints",
 ]

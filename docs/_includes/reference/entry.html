@@ -11,11 +11,14 @@ the two sections a reader must not miss -- Convention (it changes the number)
 and Raises (it says when there is no number) -- and every other section folded
 behind one <details>.  Section prose is emitted raw so kramdown renders it
 exactly once (a second markdownify pass escapes display math, see #371).
+
+The data-catalog attribute is what validate_docs.rb counts against the
+catalog: one per entry, no more and no fewer.
 {%- endcomment -%}
 {%- assign f = include.f -%}
 {%- assign convention = f.sections | where: "title", "Convention" | first -%}
 {%- if include.kind == "formula" -%}{%- assign cites = f.references -%}{%- assign cites_title = "References" -%}{%- else -%}{%- assign cites = f.provenance -%}{%- assign cites_title = "Provenance" -%}{%- endif -%}
-<section class="ref-entry" id="{{ f.name }}" markdown="block">
+<section class="ref-entry" id="{{ f.name }}" data-catalog="{{ include.kind }}" markdown="block">
 <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></h3>
 <span class="ref-flags">{% if include.kind == "process" %}{% if f.machine_scope == "independent" %}<span class="ref-flag">Machine-independent</span>{% elsif f.machine_scope == "vest" %}<span class="ref-flag ref-flag-vest">VEST-specific</span>{% endif %}{% endif %}{% if f.empirical %}<span class="ref-flag ref-flag-empirical">Empirical fit</span>{% endif %}{% if f.convention_sensitive %}<span class="ref-flag ref-flag-convention">Convention-sensitive</span>{% endif %}{% if f.deprecated %}<span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</span>
