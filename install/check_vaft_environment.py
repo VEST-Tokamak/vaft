@@ -427,10 +427,11 @@ def _secret_values(environ: Optional[dict] = None, paths: Optional[Sequence[Path
 
 def redact(text: str, secrets: Iterable[str]) -> str:
     """*text* with URL user-info and every known secret value replaced by ``***``."""
-    text = _URL_USERINFO.sub(r"\g<scheme>***@", text)
+    # Known values first: the URL pattern could otherwise split a secret
+    # that contains "/" or "@" and leave its tail behind.
     for secret in secrets:
         text = text.replace(secret, "***")
-    return text
+    return _URL_USERINFO.sub(r"\g<scheme>***@", text)
 
 
 def check_hsds_connection(
