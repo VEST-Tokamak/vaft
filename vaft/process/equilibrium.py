@@ -96,6 +96,15 @@ _PARAMETRIC_EXPORTS = (
     "validate_equilibrium",
 )
 
+#: The Guazzotto-Freidberg analytic family (#1148), implemented in
+#: ``._equilibrium_guazzotto_freidberg``.
+_GF_EXPORTS = (
+    "evaluate_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "solve_guazzotto_freidberg",
+)
+
 #: The current-moment API (#943), implemented in ``._equilibrium_moments``.
 _MOMENT_EXPORTS = (
     "current_centroid",
@@ -156,6 +165,7 @@ __all__ = [
     "virial_alpha_thin_annulus",
     "volume_average",
     *_PARAMETRIC_EXPORTS,
+    *_GF_EXPORTS,
     *_MOMENT_EXPORTS,
 ]
 
@@ -3657,6 +3667,16 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
 try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_moments import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
