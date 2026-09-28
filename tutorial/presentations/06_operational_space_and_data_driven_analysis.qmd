@@ -1,0 +1,212 @@
+---
+title: "Operational Space and Data-Driven Plasma Analysis"
+subtitle: "VAFT Introductory Tutorial | Session 06"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# From a discharge to a database
+
+## The question turns around
+
+Sessions 01--05 went deeper into one discharge. Session 06 asks:
+
+> What can a database of consistently represented discharges tell us --- and not tell us?
+
+$$\text{discharges} \rightarrow \text{features} \rightarrow \text{population}
+\rightarrow \text{operational space} \rightarrow \text{limits, regimes, performance}$$
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The course has been a descent into one shot. This session reverses it. The
+precondition for everything is one definition and one provenance per quantity
+in every row: VAFT's summary presets.
+
+TRANSITION:
+What is a row?
+:::
+
+## The unit of analysis
+
+| unit | example | question |
+| --- | --- | --- |
+| shot | max $I_p$, pulse duration | what discharge was produced? |
+| time slice | $q_{95}$, $l_i$, $\kappa$ | where did the state exist? |
+| event | current quench | from what state did it occur? |
+
+Offline: 6 samples $\rightarrow$ 5 shot rows, 35 slices from 4 shots, **one shot
+supplies over half of the slices**.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Slices of one discharge share settings, wall, fuelling and reconstruction.
+They are not independent samples of the machine. That is pseudo-replication,
+and it is the first thing to check.
+
+TRANSITION:
+Before any statistic: what is actually there?
+:::
+
+# Coverage and validity first
+
+## The funnel
+
+- $C_X = N(X\ \text{available}) / N(\text{relevant records})$
+- equilibrium 4/6, kinetic profiles 1/6, one shot has no $I_p$ record at all
+- rule 1: slices with zero current (failed reconstructions)
+- rule 2: slices below half of the shot's peak current --- their $l_i$ reaches 12
+
+Missing data are part of the experiment. **Stated rules, counted removals.**
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Rule 2 is the one to dwell on. Reconstructions of a collapsing current give
+profile quantities no equilibrium of this machine has; left in, they dominate
+the l_i distribution and the regression.
+
+TRANSITION:
+With a clean population, reduce each shot to one state.
+:::
+
+## A representative state is a modelling decision
+
+$$\text{question} \rightarrow \text{sampling rule} \rightarrow \text{representative value}$$
+
+- max $I_p$ and max $W_{\mathrm{MHD}}$ pick the same slice on some shots, not on others
+- on 41672 $q_{95}$ moves from 5.0 to 7.4 between the two rules
+- the rule belongs in the provenance of the table
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Neither rule is wrong. They answer different questions. Populations built with
+different rules are not comparable.
+:::
+
+# Operational space
+
+## An observed envelope is not a limit
+
+- VEST states in $(q_{95}, l_i)$ sit far from $q = 2$
+- the empty region: never attempted? unreachable? avoided? filtered? unstable?
+- the JET survey points are a **reference drawn for comparison, not a VEST limit**
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+List the six reasons a region can be empty. Only one of them is physics. The
+evidence that separates them: accessibility limits of the PF system, event
+labels, and session 05's stability calculations on states near the edge of
+the cloud.
+
+WARN:
+The survey is q_a from another machine; VEST plots q95.
+:::
+
+## Validity before physics: $\beta_N$
+
+- magnetics-only reconstructions: $\beta_N \approx 0.05$, $W \approx 10$--20 J (#386)
+- the kinetically constrained 48224: several times higher, near its Thomson $\beta_t$
+- a pooled $\beta_N$ column mixes two quantities under one name
+- `kink_stability_criterion` uses $2.8\,q_{95}$: unsourced (#350), not drawn
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+A column's constraint set is part of its definition. A formula existing in the
+code base is not evidence; its own docstring records the defect.
+:::
+
+## Density, dimensionless variables, confinement
+
+- $f_G \approx 0.1$ on the one kinetic state; `greenwald_density` returns $10^{19}$
+- $\rho_* \approx 0.04$, $\nu_* \approx 0.1$, $\epsilon \approx 0.73$: a spherical tokamak in dimensionless terms
+- five reference scalings, H from 0.06 to 0.9: five questions, not one answer
+- Kadomtsev residual: a similarity check on exponents, not a fit
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Only references whose domain includes a small ohmic spherical tokamak are
+candidates. A database H factor is a distribution, and needs validated
+power balance (#548).
+:::
+
+# Statistics and its traps
+
+## Confounding and similarity
+
+- pooled $l_i \propto q_{95}^{\alpha}$ vs the same fit within each shot: the shot confounds
+- $I_p$ and $q_{95}$ share a variable
+- nearest states by $\lVert\mathbf z_i - \mathbf z_j\rVert$ depend on features and scaling
+- **split by shot**, for tests and for learning
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The within-shot slopes describe evolution in time; the between-shot spread
+describes how the machine was run. A pooled fit mixes the two.
+:::
+
+## Events, joined by time
+
+- current quench on every shot with an $I_p$ record
+- pre-event state = latest slice **before** the 80 % time
+- occupancy $\neq P(\text{event} \mid \mathbf x)$
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+The join is only as good as the slice cadence. A general event contract and
+pre-event join are #1234; stability labels in aggregate, #940 and #1084.
+:::
+
+# Learning from the database
+
+## A ladder, and where VAFT stands on it
+
+$$\text{statistics} \rightarrow \text{machine learning} \rightarrow \text{representation learning}$$
+
+- scalar features lose ramp, oscillation, onset, termination
+- levels: tabular $\rightarrow$ time series $\rightarrow$ profiles $\rightarrow$ images $\rightarrow$ multimodal $\mathbf z$
+- **planned, not implemented:** classification, event risk, hazards, stability surrogates, retrieval
+- `vaft.process.ml`: datasets, group-aware splits, provenance --- infrastructure, not models
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Be explicit that the data-driven half is a direction. The endpoint is a latent
+operational space: the high-dimensional successor of the (q_a, l_i) plane.
+:::
+
+## Takeaways
+
+- one definition and one provenance per quantity; the presets, not the notebook
+- unit of analysis and representative rule are choices; slices are not independent
+- coverage and validity before physics
+- observed envelope $\neq$ limit; references with their source
+- engineering $\rightarrow$ dimensionless; H is a distribution
+- split by shot
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+End of the course. Session 01 opened one discharge; session 06 put it among the
+others. The next step is the learner's own question on the database.
+:::
