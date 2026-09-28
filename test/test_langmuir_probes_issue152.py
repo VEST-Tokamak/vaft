@@ -523,6 +523,58 @@ def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
     np.testing.assert_allclose(stretch, 5.0)
 
 
+def test_samples_from_an_unfiltered_run_are_flagged_and_counted():
+    """#915: a finite run shorter than filtfilt accepts is decimated unfiltered.
+    Every target sample it contributes to must be invalid, the filtered run
+    must stay valid, and the counts must be reported for the manifest."""
+    omas = pytest.importorskip("omas")
+
+    shot = 39137
+    source_dt = 4e-6
+    time = 0.24 + source_dt * np.arange(25_000)
+    finite = np.zeros(time.size, dtype=bool)
+    finite[2_000:5_000] = True  # filtered
+    finite[10_000:10_500] = True  # too short: left unfiltered
+    finite[20_000] = True  # a stray single sample
+    solved = {
+        "time": time,
+        "vd2": np.zeros(time.size),
+        "current": np.zeros(time.size),
+        "te": np.where(finite, 5.0, np.nan),
+        "n_e": np.where(finite, 1.0e18, np.nan),
+        "solver_ok": finite,
+    }
+    fake_load = _make_fake_loader(99, 100, n=time.size)
+    report = {}
+
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load), patch.object(
+        lp, "process_triple_probe", return_value=solved
+    ), pytest.warns(RuntimeWarning, match="shorter than"):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.24, 0.34, 4e-5, report=report)
+
+    target = np.asarray(ods["langmuir_probes.embedded.0.time"], dtype=float)
+    long_run = (target > time[2_000 + 10]) & (target < time[4_999 - 10])
+    short_run = (target >= time[10_000]) & (target <= time[10_499])
+    assert long_run.any() and short_run.any()
+    for key in ("n_e", "t_e"):
+        validity = np.asarray(ods[f"langmuir_probes.embedded.0.{key}.validity_timed"])
+        assert (validity[long_run] == 0).all()
+        assert (validity[short_run] == -1).all()
+        counts = report["mid"][key]
+        assert counts["runs_unfiltered"] == 2
+        assert counts["samples_unfiltered"] == 501
+        # Only the samples the solve alone would have passed are newly
+        # invalid: the short run's interior, not the stray sample, whose
+        # neighbours already fail the solve.
+        filtered = np.zeros(time.size)
+        filtered[2_000:5_000] = 1.0
+        solver_valid = np.interp(target, time, finite.astype(float)) >= 1.0
+        newly = solver_valid & (np.interp(target, time, filtered) < 1.0)
+        assert newly.any() and not newly[~short_run].any()
+        assert counts["target_samples_invalidated"] == int(newly.sum())
+
+
 # --- the measured-position table must ship, and its absence must be audible ----
 # (cold review docs F7)
 

@@ -492,3 +492,72 @@ class TestFiltfiltLengthBoundary:
         messages = [str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)]
         assert len(messages) == 1
         assert "3 finite run(s) totalling 997 samples (lengths 1-992)" in messages[0]
+
+
+class TestFilteredMask:
+    """#915: which samples the filter actually covered must be recoverable, so
+    an unfiltered short run is not stored as the equal of a filtered one."""
+
+    def _fragmented(self):
+        source_time = _fast_grid()
+        signal = _tone(source_time, 2_000.0)
+        signal[:] = np.nan
+        signal[1_000:4_000] = 1.0  # long enough for filtfilt
+        signal[5_000:5_500] = 1.0  # shorter than 3 * numtaps + 1
+        signal[9_000] = 1.0  # a stray single sample
+        return source_time, signal
+
+    def test_mask_marks_exactly_the_filtered_runs(self):
+        source_time, signal = self._fragmented()
+        with pytest.warns(RuntimeWarning, match="2 finite run"):
+            out, mask = anti_alias_filter(
+                signal, source_rate=FS_FAST, cutoff_hz=10_000.0, stopband_hz=12_500.0, return_mask=True
+            )
+        expected = np.zeros(signal.shape, dtype=bool)
+        expected[1_000:4_000] = True
+        assert np.array_equal(mask, expected)
+        # The mask is a report, not a change: the values are the default call's.
+        with pytest.warns(RuntimeWarning):
+            plain = anti_alias_filter(signal, source_rate=FS_FAST, cutoff_hz=10_000.0, stopband_hz=12_500.0)
+        assert np.array_equal(out, plain, equal_nan=True)
+
+    def test_whole_record_paths(self):
+        signal = _tone(_fast_grid(), 2_000.0)
+        _, mask = anti_alias_filter(signal, source_rate=FS_FAST, cutoff_hz=10_000.0, return_mask=True)
+        assert mask.all()
+        with pytest.warns(RuntimeWarning, match="shorter than"):
+            _, short_mask = anti_alias_filter(
+                signal[:100], source_rate=FS_FAST, cutoff_hz=10_000.0, return_mask=True
+            )
+        assert not short_mask.any()
+
+    def test_resample_returns_the_mask_without_moving_a_value(self):
+        source_time, signal = self._fragmented()
+        target_time = _slow_grid()
+        with pytest.warns(RuntimeWarning):
+            plain = resample_to_time(source_time, signal, target_time)
+        with pytest.warns(RuntimeWarning):
+            out, mask = resample_to_time(source_time, signal, target_time, return_filter_mask=True)
+        assert np.array_equal(out, plain, equal_nan=True)
+        assert mask.shape == signal.shape
+        assert mask[1_000:4_000].all()
+        assert not mask[5_000:5_500].any()
+        assert not mask[9_000]
+
+    def test_mask_is_all_true_when_no_filter_runs(self):
+        source_time = _slow_grid()
+        signal = _tone(source_time, 100.0)
+        signal[10] = np.nan
+        out, mask = resample_to_time(source_time, signal, source_time, return_filter_mask=True)
+        assert mask.all()
+        assert np.array_equal(out, np.interp(source_time, source_time, signal), equal_nan=True)
+
+    def test_mask_follows_a_non_default_time_axis(self):
+        source_time, signal = self._fragmented()
+        stacked = np.stack([signal, signal], axis=0).T  # time on axis 0
+        with pytest.warns(RuntimeWarning):
+            _, mask = resample_to_time(
+                source_time, stacked, _slow_grid(), axis=0, return_filter_mask=True
+            )
+        assert mask.shape == stacked.shape
+        assert mask[1_000:4_000].all() and not mask[5_000:5_500].any()

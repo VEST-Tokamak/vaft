@@ -18,7 +18,7 @@ import numpy as np
 
 from vaft.database import raw as raw_db
 from vaft.process.langmuir import probe_surface_area, process_triple_probe
-from vaft.process.signal_processing import resample_to_time
+from vaft.process.signal_processing import _finite_runs, resample_to_time
 
 from .conventions import port_toroidal_angle
 from .registry import port_phi
@@ -248,7 +248,14 @@ def vfit_langmuir_probes_dynamic(
     target_time: np.ndarray | None = None,
     mid_r: float | None = None,
     upper_r: float | None = None,
+    report: dict[str, Any] | None = None,
 ) -> None:
+    """Map both triple-probe assemblies onto ``langmuir_probes.embedded``.
+
+    ``report``, when given, is filled per assembly and quantity with how many
+    finite runs and samples the anti-alias filter left unfiltered and how many
+    target samples that invalidated (#915), for the stage manifest.
+    """
     positions = {"mid_r": mid_r, "upper_r": upper_r}
 
     # embedded[] is an IMAS array of structures and must be filled
@@ -319,18 +326,41 @@ def vfit_langmuir_probes_dynamic(
             if target_time is not None
             else _build_target_time(result["time"], tstart, tend, dt)
         )
-        n_e_data = resample_to_time(result["time"], result["n_e"], time)
-        te_data = resample_to_time(result["time"], result["te"], time)
         # solver_ok is a logical mask, not a bandlimited waveform: low-passing it
         # would blur the "any contributing sample failed" rule the threshold
         # below encodes, so the anti-alias stage is opted out of explicitly.
-        validity_fraction = resample_to_time(
+        solver_fraction = resample_to_time(
             result["time"], result["solver_ok"].astype(float), time, anti_alias=False
         )
-        # IMAS validity convention: 0 = valid. Any sample whose interpolation
-        # touches a failed/nonphysical solve is marked invalid (-1) rather
-        # than silently presented as a plausible value.
-        validity = np.where(validity_fraction >= 1.0, 0, -1).astype(int)
+        quantities = {}
+        for key, source_key in (("n_e", "n_e"), ("t_e", "te")):
+            data, filtered = resample_to_time(
+                result["time"], result[source_key], time, return_filter_mask=True
+            )
+            # A finite run shorter than filtfilt accepts is decimated unfiltered
+            # and so may carry aliased content (#915). The filtered mask is
+            # projected like solver_ok, so any target sample one of those
+            # samples contributes to is flagged instead of stored beside
+            # filtered values as their equal. Nothing is padded or gap-filled.
+            filtered_fraction = resample_to_time(
+                result["time"], filtered.astype(float), time, anti_alias=False
+            )
+            # IMAS validity convention: 0 = valid. Any sample whose
+            # interpolation touches a failed/nonphysical solve or an unfiltered
+            # run is marked invalid (-1) rather than silently presented as a
+            # plausible value.
+            solver_valid = solver_fraction >= 1.0
+            validity = np.where(solver_valid & (filtered_fraction >= 1.0), 0, -1).astype(int)
+            quantities[key] = (data, validity)
+            if report is not None:
+                unfiltered = np.isfinite(result[source_key]) & ~filtered
+                report.setdefault(assembly["key"], {})[key] = {
+                    "runs_unfiltered": len(_finite_runs(unfiltered)),
+                    "samples_unfiltered": int(unfiltered.sum()),
+                    "target_samples_invalidated": int(
+                        np.count_nonzero(solver_valid & (filtered_fraction < 1.0))
+                    ),
+                }
 
         surface_area = probe_surface_area(
             tip_radius_m=float(era["tip_radius_mm"]) * 1e-3,
@@ -349,10 +379,9 @@ def vfit_langmuir_probes_dynamic(
             set_path(ods, f"{prefix}.position.r", float(position_r))
         set_path(ods, f"{prefix}.surface_area", surface_area)
         set_path(ods, f"{prefix}.time", time)
-        set_path(ods, f"{prefix}.n_e.data", n_e_data)
-        set_path(ods, f"{prefix}.n_e.validity_timed", validity)
-        set_path(ods, f"{prefix}.t_e.data", te_data)
-        set_path(ods, f"{prefix}.t_e.validity_timed", validity)
+        for key, (data, validity) in quantities.items():
+            set_path(ods, f"{prefix}.{key}.data", data)
+            set_path(ods, f"{prefix}.{key}.validity_timed", validity)
 
 
 def langmuir_probes(
@@ -367,6 +396,7 @@ def langmuir_probes(
     mid_r: float | None = None,
     upper_r: float | None = None,
     position_csv_path: str | Path | None = None,
+    report: dict[str, Any] | None = None,
 ) -> None:
     vfit_langmuir_probes_static(ods)
     vfit_langmuir_probes_dynamic(
@@ -379,6 +409,7 @@ def langmuir_probes(
         target_time=target_time,
         mid_r=mid_r,
         upper_r=upper_r,
+        report=report,
     )
     apply_langmuir_probe_measured_positions(ods, shot, csv_path=position_csv_path)
 
@@ -402,6 +433,7 @@ def langmuir_probes_from_raw_database(
         mid_r=options.get("mid_r"),
         upper_r=options.get("upper_r"),
         position_csv_path=options.get("position_csv_path"),
+        report=options.get("report"),
     )
 
 

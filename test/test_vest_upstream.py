@@ -967,3 +967,33 @@ def test_a_langmuir_configuration_bug_still_fails_the_stage(tmp_path, monkeypatc
             tend=0.005,
             dt=4e-5,
         )
+
+
+def test_langmuir_unfiltered_counts_reach_the_manifest(tmp_path, monkeypatch):
+    """#915: the counts of samples left unfiltered are visible in the manifest
+    without opening the ODS."""
+    from vaft.omas import vest_upstream
+
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+    counts = {"runs_unfiltered": 3, "samples_unfiltered": 40, "target_samples_invalidated": 4}
+
+    def fake_langmuir(component, *args, report=None, **kwargs):
+        report["mid"] = {"n_e": dict(counts), "t_e": dict(counts)}
+
+    monkeypatch.setattr(vest_upstream, "langmuir_probes", fake_langmuir)
+    _, manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=_built_static(tmp_path, shot),
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    langmuir = manifest["channel_status"]["langmuir_probes"]
+    assert langmuir["status"] == "success"
+    assert "#915" in langmuir["anti_alias"]["policy"]
+    assert langmuir["anti_alias"]["unfiltered"] == {"mid": {"n_e": counts, "t_e": counts}}
+    json.dumps(manifest)  # the manifest is written as JSON
