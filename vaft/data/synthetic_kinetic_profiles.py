@@ -305,6 +305,13 @@ class ProfileSpec:
     -- ``f(axis)/<f>_V`` -- is met by solving the core peaking exponent
     ``core_beta`` of an analytic shape, keeping its axis, pedestal-top and
     separatrix values in proportion; it is refused for the other shapes.
+    The exponent is searched in ``[1, 40]`` (below one the core gradient is
+    infinite at an endpoint), so a peaking factor below the one the shape has
+    at ``core_beta = 1`` -- or above the one at 40 -- is unreachable by design
+    and comes back ``not_reached`` with status ``constraint_not_reached``.
+    A shape's channel is checked: an ``AnalyticProfile`` must be of the slot's
+    quantity and unit, a tabulated or gradient shape in the slot's unit or
+    unitless.
     """
 
     shape: Any
@@ -363,8 +370,12 @@ class TemperatureAssumption:
             if ratio <= 0.0:
                 raise SyntheticProfileError("invalid_profile_model", f"ti_over_te must be positive, got {ratio!r}")
             object.__setattr__(self, "ti_over_te", ratio)
-        if isinstance(self.ti_over_te, TabulatedProfile) and np.any(self.ti_over_te.values <= 0.0):
-            raise SyntheticProfileError("invalid_profile_model", "a tabulated ti_over_te must be positive")
+        if isinstance(self.ti_over_te, TabulatedProfile):
+            if np.any(self.ti_over_te.values <= 0.0):
+                raise SyntheticProfileError("invalid_profile_model", "a tabulated ti_over_te must be positive")
+            if self.ti_over_te.unit not in ("", "-"):
+                raise SyntheticProfileError("invalid_profile_model",
+                                            f"ti_over_te is dimensionless, got unit {self.ti_over_te.unit!r}")
         if self.T_i is not None and not isinstance(self.T_i, ProfileSpec):
             raise SyntheticProfileError("invalid_profile_model", "T_i must be a ProfileSpec")
         if self.electron_pressure_fraction is not None:
@@ -488,6 +499,22 @@ class SyntheticKineticSpec:
 
     ``psi_norm`` is the output grid, strictly increasing from 0 to 1;
     ``None`` is 101 points uniform in ``rho_pol_norm``.
+
+    **Edge treatment of a local closure.**  Where ``p_eq`` vanishes at the
+    separatrix a local closure divides a vanishing pressure among held
+    profiles that do not vanish, and would drive the solved channel to zero
+    or below.  The *edge region* is every grid point beyond the leading run
+    of points with ``p_eq >= edge_floor * max(p_eq)``; its inner end is
+    reported as ``closure_exact_up_to_psi_n``.  Inside that point the closure
+    is exact; beyond it the solved channel (``T_e`` for ``"temperature"``,
+    ``n_e`` for ``"density"``) is carried linearly in ``psi_norm`` from its
+    last exact value to ``edge_value`` at the separatrix, or held flat at the
+    last exact value when ``edge_value`` is ``None``, and the local pressure
+    residual there is reported separately, never hidden.  ``edge_floor`` is
+    also the floor of the region over which every pressure residual is
+    judged.  A solved channel that is non-positive *inside* the exact region
+    still fails the closure.  ``edge_value`` is in the solved channel's unit
+    (eV or m^-3) and belongs only to those two closures.
     """
 
     temperature: TemperatureAssumption
@@ -499,6 +526,8 @@ class SyntheticKineticSpec:
     sqrt_split: SqrtPressureSplit | None = None
     psi_norm: np.ndarray | None = None
     label: str = "synthetic"
+    edge_floor: float = 1e-2
+    edge_value: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.temperature, TemperatureAssumption):
@@ -509,6 +538,25 @@ class SyntheticKineticSpec:
             value = getattr(self, name)
             if value is not None and not isinstance(value, ProfileSpec):
                 raise SyntheticProfileError("invalid_profile_model", f"{name} must be a ProfileSpec")
+            if value is not None:
+                _check_channel(name, value)
+        if self.temperature.T_i is not None:
+            _check_channel("T_i", self.temperature.T_i)
+        floor = _finite_scalar("edge_floor", self.edge_floor, "invalid_normalization")
+        if not 0.0 < floor < 1.0:
+            raise SyntheticProfileError("invalid_normalization", f"edge_floor must lie in (0, 1), got {floor!r}")
+        object.__setattr__(self, "edge_floor", floor)
+        if self.edge_value is not None:
+            if (self.pressure_constraint, self.closure) not in (("equilibrium", "temperature"),
+                                                                ("equilibrium", "density")):
+                raise SyntheticProfileError(
+                    "invalid_normalization",
+                    "edge_value is the separatrix value of the channel a local temperature or density "
+                    "closure solves; this closure solves none")
+            edge = _finite_scalar("edge_value", self.edge_value, "invalid_normalization")
+            if edge <= 0.0:
+                raise SyntheticProfileError("invalid_normalization", f"edge_value must be positive, got {edge!r}")
+            object.__setattr__(self, "edge_value", edge)
         if self.pressure_constraint not in PRESSURE_CONSTRAINTS:
             raise SyntheticProfileError(
                 "invalid_profile_model",
@@ -528,6 +576,27 @@ class SyntheticKineticSpec:
                 raise SyntheticProfileError("coordinate_mapping_failed",
                                             "psi_norm must be strictly increasing from exactly 0 to exactly 1")
             object.__setattr__(self, "psi_norm", grid)
+
+
+#: The unit each channel is stored in; a tabulated or gradient shape must
+#: declare it or leave its unit empty.  Nothing is converted.
+_CHANNEL_UNITS = {"n_e": "m^-3", "T_e": "eV", "T_i": "eV"}
+
+
+def _check_channel(channel: str, spec: "ProfileSpec") -> None:
+    """Refuse a shape built for another channel, or in a unit the channel is not stored in."""
+    shape = spec.shape
+    if isinstance(shape, AnalyticProfile):
+        if shape.quantity != channel or shape.unit != _CHANNEL_UNITS[channel]:
+            raise SyntheticProfileError(
+                "invalid_profile_model",
+                f"the {channel} slot got a {shape.quantity!r} profile in {shape.unit!r}; expected "
+                f"{channel!r} in {_CHANNEL_UNITS[channel]!r}")
+    elif shape.unit not in ("", _CHANNEL_UNITS[channel]):
+        raise SyntheticProfileError(
+            "invalid_profile_model",
+            f"the {channel} shape is in {shape.unit!r}; {channel} is stored in {_CHANNEL_UNITS[channel]!r} "
+            "and no unit is converted -- give the values in that unit")
 
 
 # --- results -------------------------------------------------------------------
@@ -575,9 +644,14 @@ class PressureClosureReport:
 
     ``held`` and ``solved`` name the variables the closure kept and solved.
     ``relative_residual = (p_kin - p_eq)/max(p_eq)``; the maximum and RMS are
-    over the valid region ``p_eq >= pressure_floor * max(p_eq)``.
-    ``locally_consistent`` is the local test only: an integrated agreement
-    (``thermal_energy``) never sets it.
+    over the exact region: the leading run of points with
+    ``p_eq >= pressure_floor * max(p_eq)``, which ends at
+    ``closure_exact_up_to_psi_n``.  ``edge_max_relative_residual`` is the
+    same measure beyond that point, where a local closure carries its solved
+    channel to the separatrix instead of solving it (see
+    :class:`SyntheticKineticSpec`).  ``locally_consistent`` is the local test
+    on the exact region only: an integrated agreement (``thermal_energy``)
+    never sets it.
     """
 
     mode: str
@@ -594,6 +668,8 @@ class PressureClosureReport:
     pressure_floor: float
     tolerance: float
     locally_consistent: bool
+    closure_exact_up_to_psi_n: float = float("nan")
+    edge_max_relative_residual: float = float("nan")
 
     def __post_init__(self) -> None:
         for name in ("absolute_residual", "relative_residual"):

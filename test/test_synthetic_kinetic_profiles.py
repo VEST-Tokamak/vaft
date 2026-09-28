@@ -23,6 +23,7 @@ from vaft.data import (
 from vaft.formula.constants import QE
 from vaft.process.equilibrium import as_equilibrium, solovev_example
 from vaft.process.profile import (
+    evaluate_analytic_profile,
     analytic_hmode_itb_state,
     analytic_hmode_state,
     analytic_itb_state,
@@ -105,7 +106,39 @@ def test_legacy_helpers_are_byte_identical_and_the_level0_kernel_reproduces_them
 
 
 @pytest.mark.parametrize("amplitude", [SqrtPressureSplit(te_axis=120.0), SqrtPressureSplit(ne_over_te=1.0e17)])
-def test_level0_generator_is_the_legacy_closure(eq_ods, amplitude):
+def test_level0_generator_matches_the_legacy_slice_on_the_legacy_grid(eq_ods, amplitude):
+    """Generator against core_profiles_from_eq itself, sampled on the helper's own grid.
+
+    The helper samples p linearly in the ODS's stored rho_tor_norm and the
+    generator linearly in psi_norm, so on the same points they agree to that
+    interpolation difference, not bit for bit.
+    """
+    ods = copy.deepcopy(eq_ods)
+    (core_profiles_from_eq(ods, Te0_eV=amplitude.te_axis) if amplitude.te_axis
+     else core_profiles_from_eq_ratio(ods, C_ne_over_Te=amplitude.ne_over_te))
+    ts = "equilibrium.time_slice.0"
+    rho_src = np.asarray(eq_ods[f"{ts}.profiles_1d.rho_tor_norm"], float)
+    psi_src = np.asarray(eq_ods[f"{ts}.profiles_1d.psi"], float)
+    psi_n_src = (psi_src - eq_ods[f"{ts}.global_quantities.psi_axis"]) / (
+        eq_ods[f"{ts}.global_quantities.psi_boundary"] - eq_ods[f"{ts}.global_quantities.psi_axis"])
+    order = np.argsort(rho_src)
+    rho_legacy = np.asarray(ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"], float)
+    grid = np.interp(rho_legacy, rho_src[order], psi_n_src[order])
+    grid[0], grid[-1] = 0.0, 1.0
+    spec = SyntheticKineticSpec(temperature=TemperatureAssumption(ti_over_te=1.0), pressure_constraint="equilibrium",
+                                closure="sqrt_split", sqrt_split=amplitude, psi_norm=grid)
+    result = generate(eq_ods, spec)
+    for leaf, values in (("electrons.density", result.n_e), ("electrons.temperature", result.T_e),
+                         ("ion.0.density", result.n_i), ("ion.0.temperature", result.T_i)):
+        legacy = np.asarray(ods[f"core_profiles.profiles_1d.0.{leaf}"], float)
+        assert values[0] == legacy[0], leaf  # the axis samples the same pressure: identical
+        inner = grid < 0.9
+        np.testing.assert_allclose(values[inner], legacy[inner], rtol=2e-3, err_msg=leaf)
+        np.testing.assert_allclose(values, legacy, rtol=0, atol=0.02 * legacy.max(), err_msg=leaf)
+
+
+@pytest.mark.parametrize("amplitude", [SqrtPressureSplit(te_axis=120.0), SqrtPressureSplit(ne_over_te=1.0e17)])
+def test_level0_generator_uses_the_legacy_kernel(eq_ods, amplitude):
     spec = SyntheticKineticSpec(temperature=TemperatureAssumption(ti_over_te=1.0), pressure_constraint="equilibrium",
                                 closure="sqrt_split", sqrt_split=amplitude)
     result = generate(eq_ods, spec)
@@ -160,12 +193,19 @@ def test_equilibrium_closure_reproduces_p_eq_locally_and_integrally(geqdsk, clos
     eq = as_equilibrium(geqdsk)
     psi_n = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
     np.testing.assert_array_equal(result.p_eq, np.interp(result.psi_norm, psi_n, eq.pressure))
-    np.testing.assert_allclose(result.p_total, result.p_eq, rtol=1e-12, atol=1e-12 * result.p_eq.max())
+    edge = result.pressure.closure_exact_up_to_psi_n
+    exact = result.psi_norm <= edge
+    assert 0.8 < edge < 1.0  # p_eq -> 0 at this g-file's separatrix: an edge region exists
+    assert np.all(result.p_eq[~exact] < spec.edge_floor * result.p_eq.max())
+    assert np.all(result.p_eq[exact] >= spec.edge_floor * result.p_eq.max())
+    np.testing.assert_allclose(result.p_total[exact], result.p_eq[exact], rtol=1e-12, atol=1e-12 * result.p_eq.max())
     assert result.pressure.locally_consistent and result.pressure.max_relative_residual < 1e-12
-    assert abs(result.pressure.thermal_energy_relative_difference) < 1e-12
+    # beyond it the residual is reported, bounded by the floor it lies under, and never hidden
+    assert 0.0 < result.pressure.edge_max_relative_residual < 0.05
+    assert abs(result.pressure.thermal_energy_relative_difference) < 1e-2  # the edge region is only ~0.3 %
+    assert np.all(np.isfinite(result.z_eff)) and np.all(result.n_e > 0) and np.all(result.T_e > 0)
     if temperature.electron_pressure_fraction:
-        np.testing.assert_allclose(result.p_e[:-1] / result.p_total[:-1], temperature.electron_pressure_fraction,
-                                   rtol=1e-12)
+        np.testing.assert_allclose(result.p_e / result.p_total, temperature.electron_pressure_fraction, rtol=1e-12)
     assert set(result.provenance["solved"]) and result.provenance["pressure_constraint"] == "equilibrium"
 
 
@@ -288,6 +328,53 @@ def test_ti_te_ratio_profile_and_partition_routes(geqdsk):
     result = generate(geqdsk, _spec(temperature=TemperatureAssumption(ti_over_te=ratio, source="test ratio")))
     np.testing.assert_allclose(result.T_i / result.T_e, 0.8 - 0.5 * result.psi_norm, rtol=1e-12)
     assert "test ratio" in result.provenance["channels"]["T_i"]
+    # an independent T_i profile is used as given
+    ti = compose_analytic_profile("T_i", axis_value=80.0, separatrix_value=6.0)
+    result = generate(geqdsk, _spec(temperature=TemperatureAssumption(T_i=ProfileSpec(ti)), composition=Composition("D", "C", 2.0)))
+    np.testing.assert_allclose(result.T_i, evaluate_analytic_profile(ti, result.psi_norm), rtol=1e-14)
+    assert result.provenance["temperature_route"] == "profile"
+    # a pressure partition fixes T_i from T_e and the composition, locally
+    result = generate(geqdsk, _spec(temperature=TemperatureAssumption(electron_pressure_fraction=0.65),
+                                    composition=Composition("D", "C", 2.0)))
+    np.testing.assert_allclose(result.p_e / result.p_total, 0.65, rtol=1e-12)
+    assert _target(result, "p_e/p_total").met
+
+
+def test_held_ion_temperature_now_closes_with_a_reported_edge(geqdsk):
+    """The reviewer's case: T_i held 50 -> 5 eV, p_eq = 0 at the separatrix."""
+    ti = ProfileSpec(compose_analytic_profile("T_i", axis_value=50.0, separatrix_value=5.0))
+    spec = SyntheticKineticSpec(temperature=TemperatureAssumption(T_i=ti),
+                                n_e=ProfileSpec(NE, ScalarTarget("line_average", 1e19)),
+                                pressure_constraint="equilibrium", closure="temperature", edge_value=5.0)
+    result = generate(geqdsk, spec)
+    assert result.ok, result.message
+    report = result.pressure
+    exact = result.psi_norm <= report.closure_exact_up_to_psi_n
+    np.testing.assert_allclose(result.p_total[exact], result.p_eq[exact], rtol=1e-12, atol=1e-12 * result.p_eq.max())
+    assert result.T_e[-1] == pytest.approx(5.0) and np.all(result.T_e > 0)
+    assert report.edge_max_relative_residual > 0 and "edge region" in result.message
+    assert "exact for psi_N <=" in result.provenance["channels"]["T_e"]
+    # T_i was held, so it is not listed as solved
+    assert result.provenance["solved"] == ["T_e(psi)"] and "T_i profile" in result.provenance["held"]
+    np.testing.assert_allclose(result.T_i, evaluate_analytic_profile(ti.shape, result.psi_norm), rtol=1e-14)
+
+
+def test_density_closure_never_stores_a_nan_zeff(geqdsk):
+    spec = SyntheticKineticSpec(temperature=TemperatureAssumption(ti_over_te=0.5), T_e=ProfileSpec(TE_H),
+                                composition=Composition("D", "C", 2.0), pressure_constraint="equilibrium",
+                                closure="density")
+    result = generate(geqdsk, spec, time=0.319)
+    assert result.ok and result.n_e[-1] > 0.0
+    np.testing.assert_allclose(result.z_eff, 2.0, rtol=1e-13)
+    ods = write_synthetic_core_profiles(result)
+    assert np.all(np.isfinite(ods["core_profiles.profiles_1d.0.zeff"]))
+    assert result.provenance["solved"] == ["n_e(psi)", "n_i", "n_impurity"]
+    # the Level 0 split does reach n_e = 0 at the separatrix; Z_eff there is the composition's limit
+    level0 = generate(geqdsk, SyntheticKineticSpec(
+        temperature=TemperatureAssumption(ti_over_te=0.5), composition=Composition("D", "C", 2.0),
+        pressure_constraint="equilibrium", closure="sqrt_split", sqrt_split=SqrtPressureSplit(te_axis=100.0)))
+    assert level0.n_e[-1] == 0.0 and level0.z_eff[-1] == 2.0
+    assert level0.validation["z_eff_points_at_zero_density"] == 1
 
 
 # --- Level 3 ---------------------------------------------------------------------------
@@ -440,3 +527,65 @@ def test_the_record_refuses_a_pressure_inconsistent_with_its_profiles(geqdsk):
     with pytest.raises(ValueError, match="p_e"):
         dataclasses.replace(result, p_e=2 * result.p_e)
     assert isinstance(result, SyntheticKineticProfiles) and QE * result.n_e[0] * result.T_e[0] == result.p_e[0]
+
+
+def test_writer_refuses_an_ods_the_legacy_helper_filled(eq_ods, geqdsk):
+    ods = copy.deepcopy(eq_ods)
+    core_profiles_from_eq(ods, Te0_eV=100.0)
+    before = copy.deepcopy(ods["core_profiles"])
+    result = generate(geqdsk, _spec(), time=0.319)
+    for t in (0.319, 1.319):  # neither beside it nor over its slice
+        with pytest.raises(ValueError, match="another producer"):
+            write_synthetic_core_profiles(result, ods, time=t)
+    assert "core_profiles.ids_properties.comment" not in ods  # never relabelled
+    assert len(ods["core_profiles.profiles_1d"]) == len(before["profiles_1d"])
+    np.testing.assert_array_equal(ods["core_profiles.profiles_1d.0.electrons.density"],
+                                  before["profiles_1d.0.electrons.density"])
+
+
+def test_legacy_and_measured_writers_refuse_a_synthetic_ids(geqdsk, eq_ods):
+    from vaft.process.profile import core_profiles
+
+    ods = write_synthetic_core_profiles(generate(geqdsk, _spec(), time=0.319))
+    ods["equilibrium"] = copy.deepcopy(eq_ods["equilibrium"])
+    params = ods["core_profiles.code.parameters"]
+    for call in (lambda: core_profiles_from_eq(ods, Te0_eV=100.0),
+                 lambda: core_profiles_from_eq_ratio(ods, C_ne_over_Te=1e17),
+                 lambda: core_profiles(ods, 319.0, n_e_function=lambda x: 1e19 + 0 * x,
+                                       T_e_function=lambda x: 100 + 0 * x, coordinate="psi_norm")):
+        with pytest.raises(ValueError, match="synthetic kinetic-profile generator"):
+            call()
+    assert ods["core_profiles.code.parameters"] == params and len(ods["core_profiles.profiles_1d"]) == 1
+    json.loads(params)
+
+
+def test_ods_input_uses_its_declared_cocos_for_psi(geqdsk, eq_ods):
+    from_ods = generate(eq_ods, _spec())
+    from_g = generate(as_equilibrium(geqdsk, convention=1), _spec())
+    assert "declared by the ODS" in from_ods.provenance["psi"]
+    np.testing.assert_allclose(from_ods.psi, from_g.psi, rtol=1e-9)
+    ods = write_synthetic_core_profiles(from_ods, time=0.319)
+    np.testing.assert_allclose(ods["core_profiles.profiles_1d.0.grid.psi"], from_ods.psi)
+
+
+@pytest.mark.parametrize("build", [
+    lambda: _spec(T_e=ProfileSpec(NE, ScalarTarget("axis", 100.0))),          # an n_e shape in the T_e slot
+    lambda: _spec(n_e=ProfileSpec(TabulatedProfile([0, 1], [2e19, 1e18], unit="cm^-3"))),
+    lambda: _spec(temperature=TemperatureAssumption(T_i=ProfileSpec(TE))),     # a T_e shape as T_i
+    lambda: TemperatureAssumption(ti_over_te=TabulatedProfile([0, 1], [1, 1], unit="eV")),
+    lambda: _spec(edge_value=10.0),                                            # no local closure to carry
+    lambda: _spec(edge_floor=0.0),
+])
+def test_mislabelled_channels_and_units_are_refused(build):
+    with pytest.raises(SyntheticProfileError):
+        build()
+
+
+def test_hold_extrapolation_is_recorded(geqdsk):
+    table = TabulatedProfile([0.0, 0.5, 0.9], [2e19, 1.5e19, 8e18], coordinate="rho_pol_norm", extrapolation="hold",
+                             unit="m^-3")
+    result = generate(geqdsk, _spec(n_e=ProfileSpec(table)))
+    note = result.provenance["channels"]["n_e"]
+    assert "extrapolation='hold'" in note and "held at the end values" in note
+    assert result.resolved["n_e"]["extrapolation"] in note
+    assert np.all(result.n_e[result.rho_pol_norm > 0.9] == 8e18)

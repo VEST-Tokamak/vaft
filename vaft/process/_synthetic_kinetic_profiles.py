@@ -90,12 +90,20 @@ def _check_equilibrium(eq, needs_pressure: bool) -> None:
                   f"the equilibrium pressure must be non-negative with a positive maximum (min {p.min():.4g} Pa)")
 
 
-def _psi_cocos11(eq, grid):
-    """Flux on the grid in Wb, COCOS 11, when every surviving convention candidate agrees."""
+def _psi_cocos11(eq, grid, declared=None):
+    """Flux on the grid in Wb, COCOS 11, when every surviving convention candidate agrees.
+
+    ``declared`` is a convention the *source object* states (an ODS's
+    ``cocos``); it settles the choice when it is one of the candidates the
+    signs left, and is ignored otherwise.
+    """
     from vaft.process._equilibrium_parametric import convert_cocos
 
     conv = eq.convention
     candidates = (conv.cocos,) if conv.cocos is not None else tuple(conv.candidates)
+    source_note = ""
+    if conv.cocos is None and declared is not None and declared in candidates:
+        candidates, source_note = (declared,), f" (declared by the ODS: cocos = {declared})"
     if not candidates:
         return None, "the source COCOS is unknown, so psi cannot be stated in Wb, COCOS 11"
     ends = []
@@ -108,7 +116,7 @@ def _psi_cocos11(eq, grid):
     first = np.array(ends[0])
     if not all(np.allclose(np.array(e), first, rtol=1e-12, atol=0.0) for e in ends[1:]):
         return None, f"COCOS candidates {candidates} disagree on psi in COCOS 11; declare the source convention"
-    note = (f"COCOS {candidates[0]} -> 11" if len(candidates) == 1
+    note = (f"COCOS {candidates[0]} -> 11{source_note}" if len(candidates) == 1
             else f"COCOS candidates {candidates} -> 11, identical in psi")
     return first[0] + grid * (first[1] - first[0]), note
 
@@ -133,7 +141,7 @@ def _chord(eq):
     return max(inner), min(outer), z_axis
 
 
-def _geometry(eq, grid) -> dict[str, Any]:
+def _geometry(eq, grid, declared_cocos=None) -> dict[str, Any]:
     from scipy.interpolate import RectBivariateSpline
 
     from vaft.process._equilibrium_parametric import derive_radial_coordinates
@@ -175,7 +183,7 @@ def _geometry(eq, grid) -> dict[str, Any]:
     geom["chord"] = (float(r_in), float(r_out), float(z_axis))
     geom["minor_radius"] = 0.5 * float(np.ptp(np.asarray(eq.lcfs.r, float)))
     geom["ip"] = None if eq.ip is None else float(eq.ip)
-    geom["psi"], geom["psi_note"] = _psi_cocos11(eq, grid)
+    geom["psi"], geom["psi_note"] = _psi_cocos11(eq, grid, declared_cocos)
     return geom
 
 
@@ -251,6 +259,16 @@ def _evaluate(shape, grid, geom) -> np.ndarray:
     return np.asarray(PchipInterpolator(shape.x, shape.values)(xc), dtype=float)
 
 
+def _extrapolation_note(shape: TabulatedProfile, grid, geom) -> str:
+    """What the extrapolation policy of a tabulated profile did on this grid, for provenance."""
+    x = _coordinate(shape.coordinate, grid, geom)
+    outside = int(np.sum((x < shape.x[0] - 1e-9) | (x > shape.x[-1] + 1e-9)))
+    if not outside:
+        return f"{shape.interpolation} interpolation in {shape.coordinate}, no extrapolation needed"
+    return (f"{shape.interpolation} interpolation in {shape.coordinate}; extrapolation='hold': {outside} grid "
+            f"points outside [{shape.x[0]:.4g}, {shape.x[-1]:.4g}] held at the end values")
+
+
 def _recompose(profile: AnalyticProfile, *, scale: float = 1.0, core_beta: float | None = None) -> AnalyticProfile:
     """The same #1045 composition with every value scaled and, optionally, a new core exponent."""
     kwargs = dict(axis_value=scale * profile.axis_value, separatrix_value=scale * profile.separatrix_value,
@@ -268,6 +286,8 @@ def _recompose(profile: AnalyticProfile, *, scale: float = 1.0, core_beta: float
 def _resolve_channel(name: str, spec: ProfileSpec, grid, geom, targets: list, notes: dict) -> np.ndarray:
     shape = spec.shape
     resolved: dict[str, Any] = {"shape": type(shape).__name__}
+    if isinstance(shape, TabulatedProfile):
+        resolved["extrapolation"] = _extrapolation_note(shape, grid, geom)
     if spec.peaking_factor is not None:
         from scipy.optimize import brentq
 
@@ -323,9 +343,13 @@ def _sqrt_pressure_split(P, *, te_axis=None, ne_over_te=None, k=2.0):
     """Level 0: ``n_e`` and ``T_e`` in the shape ``sqrt(P/P(0))`` with ``P = k e n_e T_e``.
 
     The operations and their order are those of the legacy helpers, so with
-    ``k = 2`` the result is bit-identical to
-    :func:`vaft.process.profile.core_profiles_from_eq` (``te_axis``) and
+    ``k = 2`` this *kernel*, given the same sampled pressure, is bit-identical
+    to :func:`vaft.process.profile.core_profiles_from_eq` (``te_axis``) and
     :func:`~vaft.process.profile.core_profiles_from_eq_ratio` (``ne_over_te``).
+    The generator's Level 0 profiles are not bit-identical to the helpers'
+    slices: the helpers sample ``p`` linearly in the ODS's stored
+    ``rho_tor_norm``, the generator linearly in ``psi_norm``, so the two agree
+    only to the interpolation difference between those grids.
     """
     e_J = 1.602176634e-19
     if te_axis is not None:
@@ -360,17 +384,22 @@ def _safe_divide(numerator, denominator):
 # --- the generator ----------------------------------------------------------------
 
 
-_HELD_SOLVED = {
-    ("equilibrium", "temperature"): (("n_e", "composition", "T_i route"), ("T_e(psi)", "T_i")),
-    ("equilibrium", "density"): (("T_e", "composition", "T_i route"), ("n_e(psi)", "n_i", "n_impurity")),
-    ("equilibrium", "sqrt_split"): (("shape sqrt(p/p(0)) for n_e and T_e", "Level 0 amplitude", "composition",
-                                     "T_i route"), ("n_e", "T_e")),
-    ("thermal_energy", "temperature_amplitude"): (("n_e", "T_e shape", "T_i shape or route", "composition"),
-                                                  ("one amplitude of T_e and T_i",)),
-    ("thermal_energy", "density_amplitude"): (("n_e shape", "T_e", "T_i route", "composition"),
-                                              ("one amplitude of n_e",)),
-    ("kinetic", None): (("n_e", "T_e", "T_i route", "composition"), ()),
-}
+def _held_solved(mode: str, closure: str | None, route: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """What a pressure constraint keeps and what it solves, for the route the ion temperature takes."""
+    ti_held = {"ratio": "T_i/T_e", "partition": "p_e/(p_e + p_i)", "profile": "T_i profile"}[route]
+    ions = ("n_i", "n_impurity")
+    if mode == "equilibrium" and closure == "temperature":
+        return ("n_e", "composition", ti_held), ("T_e(psi)",) + (() if route == "profile" else ("T_i",))
+    if mode == "equilibrium" and closure == "density":
+        return ("T_e", "composition", ti_held), ("n_e(psi)",) + ions + (("T_i",) if route == "partition" else ())
+    if closure == "sqrt_split":
+        return (("shape sqrt(p/p(0)) for n_e and T_e", "Level 0 amplitude", "composition", ti_held),
+                ("n_e", "T_e", "T_i") + ions)
+    if closure == "temperature_amplitude":
+        return ("n_e", "T_e shape", ti_held, "composition"), ("one amplitude of T_e and T_i",)
+    if closure == "density_amplitude":
+        return ("n_e shape", "T_e", ti_held, "composition"), ("one amplitude of n_e",)
+    return ("n_e", "T_e", ti_held, "composition"), ()
 
 
 def _check_spec(spec: SyntheticKineticSpec) -> None:
@@ -411,7 +440,6 @@ def generate_synthetic_kinetic_profiles(
     *,
     time: float | None = None,
     time_index: int = 0,
-    pressure_floor: float = 1e-3,
     pressure_tolerance: float = 1e-6,
 ) -> SyntheticKineticProfiles:
     r"""Generate ``n_e``, ``T_e``, ``T_i`` and the ion densities from an equilibrium and declared assumptions.
@@ -428,8 +456,6 @@ def generate_synthetic_kinetic_profiles(
         Time recorded on the result; the equilibrium's own time when omitted [s].
     time_index : int, optional
         Time slice of a multi-slice source [-].
-    pressure_floor : float, optional
-        Fraction of ``max(p_eq)`` above which the pressure residual is judged [-].
     pressure_tolerance : float, optional
         Largest relative local pressure residual a locally closed state may
         carry [-].
@@ -464,7 +490,10 @@ def generate_synthetic_kinetic_profiles(
        core exponent, then one amplitude target by linear scaling.
     3. Apply the pressure constraint: solve the closure's variable locally
        (``equilibrium``), one amplitude (``thermal_energy``), or nothing
-       (``kinetic``).
+       (``kinetic``).  A local temperature or density closure is exact up to
+       the edge region where ``p_eq < edge_floor * max(p_eq)``, and carries its
+       solved channel to ``edge_value`` across it (see
+       :class:`vaft.data.SyntheticKineticSpec`).
     4. Build the ion densities from quasi-neutrality and ``Z_eff``, the
        pressures from ``p = e n T``.
     5. Recompute every target, ``Z_eff``, quasi-neutrality and the pressure
@@ -487,7 +516,9 @@ def generate_synthetic_kinetic_profiles(
     ``rho_tor_norm`` is derived from ``q`` and never assumed equal to
     ``rho_pol_norm``.  ``psi`` is reported in Wb, COCOS 11 (the IMAS DD and
     :data:`vaft.data.cocos.VAFT_INTERNAL_COCOS`), only when every
-    convention candidate of the source gives the same value.  ``p = e n T``
+    convention candidate of the source gives the same value, or when an ODS
+    source declares its own ``cocos`` and that is one of the candidates.
+    ``p = e n T``
     in Pa with ``T`` in eV; the main ion is hydrogenic and every ion is at
     ``T_i``.  The line average is along the horizontal chord through the
     magnetic axis; the volume average uses the traced ``V(psi)``.
@@ -510,7 +541,10 @@ def generate_synthetic_kinetic_profiles(
     transport solver.  The equilibrium is not updated to the kinetic pressure
     (#123).  A local pressure closure divides by the held variable, so a held
     profile that vanishes where ``p_eq`` does not fails the closure rather
-    than being clipped.
+    than being clipped.  Across the edge region the solved channel is an
+    assumption (its declared ``edge_value``), not a closure: ``p_kin`` there
+    differs from ``p_eq`` and the difference is reported as
+    ``edge_max_relative_residual``.
 
     Provenance
     ----------
@@ -539,8 +573,38 @@ def generate_synthetic_kinetic_profiles(
         _fail("invalid_equilibrium", f"cannot adapt the equilibrium: {exc}")
     _check_equilibrium(eq, needs_pressure=mode != "kinetic")
     grid = spec.psi_norm if spec.psi_norm is not None else np.linspace(0.0, 1.0, _DEFAULT_POINTS) ** 2
-    geom = _geometry(eq, grid)
+    declared = None
+    try:
+        from omas import ODS
+
+        if isinstance(equilibrium, ODS):
+            declared = int(equilibrium.cocos)
+    except Exception:  # noqa: BLE001 - no omas, or an ODS without a cocos: nothing declared
+        declared = None
+    geom = _geometry(eq, grid, declared)
     p_eq = geom["p_eq"]
+
+    # The exact region: the leading run of points with p_eq >= edge_floor * max(p_eq).
+    k_exact = grid.size - 1
+    if np.all(np.isfinite(p_eq)) and np.max(p_eq) > 0.0:
+        below = np.flatnonzero(p_eq < spec.edge_floor * np.max(p_eq))
+        k_exact = int(below[0]) - 1 if below.size else grid.size - 1
+    local_closure = mode == "equilibrium" and closure in ("temperature", "density")
+    if local_closure and k_exact < 1:
+        _fail("invalid_equilibrium",
+              f"p_eq falls below edge_floor = {spec.edge_floor:g} of its maximum next to the axis; "
+              "there is no region to close the pressure on")
+    psi_exact = float(grid[k_exact])
+
+    def carry_edge(values):
+        """Beyond the exact region, carry a solved channel linearly to the declared separatrix value."""
+        if k_exact >= grid.size - 1:
+            return values
+        values = np.array(values, dtype=float)
+        start = values[k_exact]
+        end = spec.edge_value if spec.edge_value is not None else start
+        values[k_exact + 1:] = start + (end - start) * (grid[k_exact + 1:] - grid[k_exact]) / (1.0 - grid[k_exact])
+        return values
 
     comp, temp = spec.composition, spec.temperature
     charge = comp.impurity_charge or 0.0
@@ -600,12 +664,14 @@ def generate_synthetic_kinetic_profiles(
                 T_e = _safe_divide(f_e * p_eq, QE * n_e)
             else:
                 T_e = _safe_divide(p_eq / QE - phi * n_e * T_i, n_e)
+            T_e = carry_edge(T_e)
         elif mode == "equilibrium" and closure == "density":
             if temp.route == "partition":
                 n_e = _safe_divide(f_e * p_eq, QE * T_e)
             else:
                 T_i_here = ratio * T_e if temp.route == "ratio" else T_i
                 n_e = _safe_divide(p_eq, QE * (T_e + phi * T_i_here))
+            n_e = carry_edge(n_e)
         if T_i is None:
             T_i = ions_from_te(T_e)
         if mode == "thermal_energy":
@@ -620,10 +686,21 @@ def generate_synthetic_kinetic_profiles(
                 n_e = n_e * pressure_kin_scale
     for name in ("n_e", "T_e", "T_i"):
         channel_notes.setdefault(name, describe(name, name in notes))
+    if local_closure and k_exact < grid.size - 1:
+        solved_channel = "T_e" if closure == "temperature" else "n_e"
+        edge_text = (f"linear to edge_value = {spec.edge_value:g} at the separatrix" if spec.edge_value is not None
+                     else "held flat at its last exact value")
+        channel_notes[solved_channel] += (f"; exact for psi_N <= {psi_exact:.4g}, beyond it (p_eq < "
+                                          f"{spec.edge_floor:g} max p_eq) {edge_text}")
+    for name, value in notes.items():
+        if "extrapolation" in value:
+            channel_notes[name] += f"; {value['extrapolation']}"
     if temp.route == "ratio":
         channel_notes["T_i"] = (f"T_i = (T_i/T_e) T_e, ratio {'tabulated' if isinstance(temp.ti_over_te, TabulatedProfile) else f'{float(ratio[0]):g}'}"
                                 f" ({temp.source})")
         levels["T_i"] = 2
+        if isinstance(temp.ti_over_te, TabulatedProfile):
+            channel_notes["T_i"] += f"; {_extrapolation_note(temp.ti_over_te, grid, geom)}"
     elif temp.route == "partition":
         channel_notes["T_i"] = f"from p_e/(p_e + p_i) = {f_e:g} held locally ({temp.source})"
         levels["T_i"] = 2
@@ -636,19 +713,24 @@ def generate_synthetic_kinetic_profiles(
     p_e = QE * n_e * T_e
     p_i = QE * (n_i + n_imp) * T_i
     p_total = p_e + p_i
+    # Where n_e = 0 (the Level 0 split at a zero-pressure separatrix) the ratio is 0/0; the
+    # composition fixes n_i/n_e and n_I/n_e everywhere, so its limit is the declared Z_eff.
+    empty = ~(n_e > 0.0)
     with np.errstate(divide="ignore", invalid="ignore"):
-        z_eff = np.where(n_e > 0.0, (n_i + charge**2 * n_imp) / np.where(n_e > 0.0, n_e, 1.0), np.nan)
+        z_eff = np.where(empty, comp.z_eff, (n_i + charge**2 * n_imp) / np.where(empty, 1.0, n_e))
 
     # --- residuals ------------------------------------------------------------
-    finite = all(np.all(np.isfinite(a)) for a in (n_e, T_e, T_i, n_i, n_imp, p_total))
+    written = [n_e, T_e, T_i, n_i, n_imp, p_e, p_i, p_total, z_eff, geom["volume"], np.sqrt(grid)]
+    written += [a for a in (geom["rho_tor_norm"], geom["psi"]) if a is not None]
+    finite = all(np.all(np.isfinite(a)) for a in written)
     interior = grid < 1.0
     positive = {name: bool(np.all(a[interior] > 0.0) and np.all(a >= 0.0)) if finite else False
                 for name, a in (("n_e", n_e), ("T_e", T_e), ("T_i", T_i))}
     ions_ok = bool(finite and np.all(n_i >= 0.0) and np.all(n_imp >= 0.0))
     qn = n_e - (n_i + charge * n_imp)
     qn_rel = float(np.max(np.abs(qn)) / np.max(np.abs(n_e))) if finite and np.max(np.abs(n_e)) > 0 else np.nan
-    zeff_dev = np.nan_to_num(z_eff - comp.z_eff, nan=0.0)
-    zeff_worst = float(z_eff[np.nanargmax(np.abs(z_eff - comp.z_eff))]) if np.any(np.isfinite(z_eff)) else np.nan
+    zeff_dev = np.where(np.isfinite(z_eff), z_eff - comp.z_eff, np.inf)
+    zeff_worst = float(z_eff[np.argmax(np.abs(zeff_dev))])
 
     records = []
     for kind, name, requested, status in targets:
@@ -689,29 +771,36 @@ def generate_synthetic_kinetic_profiles(
         scale = float(np.max(p_eq))
         absolute = p_total - p_eq
         relative = absolute / scale
-        valid = p_eq >= pressure_floor * scale
+        valid = np.arange(grid.size) <= k_exact
         max_rel = float(np.max(np.abs(relative[valid])))
         rms_rel = float(np.sqrt(np.mean(relative[valid] ** 2)))
+        edge_rel = float(np.max(np.abs(relative[~valid]))) if np.any(~valid) else 0.0
         w_eq = 1.5 * _volume_integral(p_eq, geom["volume"])
         w_kin = 1.5 * _volume_integral(p_total, geom["volume"])
         w_rel = (w_kin - w_eq) / w_eq
     else:
         absolute = relative = None
-        max_rel = rms_rel = w_eq = w_rel = float("nan")
+        max_rel = rms_rel = w_eq = w_rel = edge_rel = float("nan")
         w_kin = 1.5 * _volume_integral(p_total, geom["volume"]) if finite else float("nan")
-    held, solved = _HELD_SOLVED[(mode, closure)]
+    held, solved = _held_solved(mode, closure, temp.route)
     locally = bool(np.isfinite(max_rel) and max_rel <= pressure_tolerance)
+    exact_to = psi_exact if local_closure else (1.0 if closure == "sqrt_split" else float("nan"))
     report = PressureClosureReport(mode, closure, held, solved, absolute, relative, max_rel, rms_rel, w_eq, w_kin,
-                                   w_rel, pressure_floor, pressure_tolerance, locally)
+                                   w_rel, spec.edge_floor, pressure_tolerance, locally,
+                                   closure_exact_up_to_psi_n=exact_to, edge_max_relative_residual=edge_rel)
     if mode == "thermal_energy":
         records.append(TargetResidual("thermal_energy", "W = 3/2 int p dV over the traced volume", w_eq, w_kin,
                                       w_kin - w_eq, abs(w_rel), "linear", 1e-9, bool(abs(w_rel) <= 1e-9)))
     if mode == "equilibrium":
-        records.append(TargetResidual("pressure_closure", "max |p_kin - p_eq| / max(p_eq) over p_eq >= floor",
+        records.append(TargetResidual("pressure_closure",
+                                      f"max |p_kin - p_eq| / max(p_eq) for psi_N <= {psi_exact:.4g} "
+                                      f"(p_eq >= {spec.edge_floor:g} max p_eq)",
                                       0.0, max_rel, max_rel, max_rel, "local", pressure_tolerance, locally))
 
     # --- status ------------------------------------------------------------------
-    solved_names = {"temperature": ("T_e", "T_i"), "density": ("n_e",), "sqrt_split": ("n_e", "T_e")}.get(closure, ())
+    solved_names = {"temperature": ("T_e",) + (() if temp.route == "profile" else ("T_i",)),
+                    "density": ("n_e",) + (("T_i",) if temp.route == "partition" else ()),
+                    "sqrt_split": ("n_e", "T_e", "T_i")}.get(closure, ())
     unmet = [t.name for t in records if not t.met and t.name not in ("z_eff", "quasineutrality",
                                                                      "pressure_closure")]
     if not finite:
@@ -747,6 +836,9 @@ def generate_synthetic_kinetic_profiles(
         elif mode == "thermal_energy":
             message = ("W_kin = W_eq; locally " + ("consistent" if locally else
                        f"NOT pressure-consistent (max relative residual {max_rel:.3g})"))
+        elif local_closure and k_exact < grid.size - 1:
+            message = (f"p_kin = p_eq locally for psi_N <= {psi_exact:.4g} (max relative residual {max_rel:.3g}); "
+                       f"edge region beyond it carried to the separatrix, residual {edge_rel:.3g} of max p_eq")
         else:
             message = f"p_kin = p_eq locally (max relative residual {max_rel:.3g})"
 
@@ -754,6 +846,7 @@ def generate_synthetic_kinetic_profiles(
         "finite": finite,
         "positive": positive,
         "ion_densities_nonnegative": ions_ok,
+        "z_eff_points_at_zero_density": int(np.sum(empty)),
         "quasineutrality_max_relative": qn_rel,
         "z_eff_max_abs_deviation": float(np.max(np.abs(zeff_dev))),
         "edge_values": {n: float(a[-1]) for n, a in (("n_e", n_e), ("T_e", T_e), ("T_i", T_i))},
@@ -789,6 +882,9 @@ def generate_synthetic_kinetic_profiles(
         "volume_average": _definition("volume_average", geom),
         "pressure_constraint": mode,
         "closure": closure,
+        "edge_floor": spec.edge_floor,
+        "edge_value": spec.edge_value,
+        "closure_exact_up_to_psi_n": exact_to,
         "held": list(held),
         "solved": list(solved),
         "channels": channel_notes,
@@ -887,6 +983,32 @@ def _jsonable(value):
     return value
 
 
+#: ``core_profiles.code.name`` this writer stores, and the producer tag of its JSON.
+SYNTHETIC_CODE_NAME = "vaft.process.profile.generate_synthetic_kinetic_profiles"
+_PRODUCER = "vaft synthetic kinetic profiles (#122)"
+
+
+def _owned_core_profiles(ods) -> dict:
+    """The writer's own ``code.parameters`` record, ``{}`` for an empty IDS; refuse another producer's."""
+    slices = len(ods["core_profiles.profiles_1d"]) if "core_profiles.profiles_1d" in ods else 0
+    name = str(ods["core_profiles.code.name"]) if "core_profiles.code.name" in ods else None
+    raw = str(ods["core_profiles.code.parameters"]) if "core_profiles.code.parameters" in ods else None
+    if not slices and name is None and raw is None:
+        return {}
+    record = None
+    if raw is not None:
+        try:
+            record = json.loads(raw)
+        except ValueError:
+            record = None
+    if name == SYNTHETIC_CODE_NAME and isinstance(record, dict) and record.get("producer") == _PRODUCER:
+        return record
+    raise ValueError(
+        f"core_profiles already holds {slices} slice(s) from another producer (code.name={name!r}); a synthetic "
+        "slice would share, or relabel, that IDS's ids_properties and code. Write synthetic profiles into "
+        "their own ODS.")
+
+
 def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *, time: float | None = None,
                                   time_tolerance: float = 1e-6):
     r"""Store a successful synthetic kinetic state as one ``core_profiles.profiles_1d`` slice.
@@ -912,8 +1034,12 @@ def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *,
     ------
     SyntheticProfileError
         A result whose status is not ``"success"`` (``status`` carried over),
-        no time on either the result or the call, or a ``core_profiles.code.parameters``
-        written by another producer.
+        or no time on either the result or the call.
+    ValueError
+        *ods* already holds a ``core_profiles`` IDS from another producer --
+        any slice, ``code.name`` or ``code.parameters`` this writer did not
+        write, e.g. :func:`vaft.process.profile.core_profiles_from_eq` or the
+        measured-fit :func:`vaft.process.profile.core_profiles`.
 
     Input semantics
     ---------------
@@ -937,6 +1063,19 @@ def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *,
     ``zeff``, ``pressure_thermal``, ``pressure_ion_total`` and
     ``t_i_average``.  ``code.parameters`` is a JSON object keyed by slice time,
     which survives an IMAS round trip as a string.
+
+    Assumptions
+    -----------
+    **One producer per IDS.**  ``ids_properties`` and ``code`` belong to the
+    whole ``core_profiles`` IDS, so a synthetic slice beside a measured or
+    legacy one would carry, or impose, the wrong label.  The writer therefore
+    writes only into an ODS whose ``core_profiles`` is empty or was written by
+    itself (``code.name`` is this generator and ``code.parameters`` its JSON);
+    there it appends a slice, or replaces the slice at the same time whole.
+    There is deliberately no opt-in to mix producers: store synthetic profiles
+    in their own ODS.  The measured-fit and legacy writers refuse an IDS
+    written here for the same reason.  Every array is checked finite before
+    anything is written.
 
     Applicability
     -------------
@@ -967,17 +1106,13 @@ def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *,
         from omas import ODS
 
         ods = ODS()
-    existing = {}
+    existing = _owned_core_profiles(ods)
     path = "core_profiles.code.parameters"
-    if path in ods:
-        try:
-            existing = json.loads(str(ods[path]))
-            if not isinstance(existing, dict) or existing.get("producer") != "vaft synthetic kinetic profiles (#122)":
-                raise ValueError
-        except ValueError:
-            _fail("invalid_profile_model",
-                  "core_profiles.code.parameters was written by another producer; store synthetic profiles "
-                  "in their own ODS rather than mixing them with measured slices")
+    arrays = [result.rho_pol_norm, result.volume, result.n_e, result.T_e, result.T_i, result.n_i,
+              result.n_impurity, result.z_eff, result.p_e, result.p_i, result.p_total]
+    arrays += [a for a in (result.rho_tor_norm, result.psi) if a is not None]
+    if not all(np.all(np.isfinite(a)) for a in arrays):
+        _fail("numerically_suspect", "a non-finite array would reach core_profiles; nothing was written")
     index = None
     count = len(ods["core_profiles.profiles_1d"]) if "core_profiles.profiles_1d" in ods else 0
     for i in range(count):
@@ -1021,7 +1156,7 @@ def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *,
     ods["core_profiles.ids_properties.comment"] = (
         "Synthetic, assumption-driven kinetic profiles generated from a magnetic equilibrium "
         "(vaft #122); not measured, not fitted, not transport-predicted.")
-    ods["core_profiles.code.name"] = "vaft.process.profile.generate_synthetic_kinetic_profiles"
+    ods["core_profiles.code.name"] = SYNTHETIC_CODE_NAME
     ods["core_profiles.code.version"] = str(getattr(vaft, "__version__", "unknown"))
     slices = dict(existing.get("slices", {}))
     record = dict(result.provenance)
@@ -1030,7 +1165,7 @@ def write_synthetic_core_profiles(result: SyntheticKineticProfiles, ods=None, *,
                   targets={t_.name: {"requested": t_.requested, "achieved": t_.achieved, "met": t_.met}
                            for t_ in result.targets})
     slices[f"{t:.9f}"] = _jsonable(record)
-    ods[path] = json.dumps({"producer": "vaft synthetic kinetic profiles (#122)", "slices": slices}, sort_keys=True)
+    ods[path] = json.dumps({"producer": _PRODUCER, "slices": slices}, sort_keys=True)
     n = len(ods["core_profiles.profiles_1d"])
     ods["core_profiles.time"] = np.asarray([float(ods[f"core_profiles.profiles_1d.{i}.time"]) for i in range(n)])
     return ods
