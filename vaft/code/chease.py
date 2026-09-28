@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess  # tests intercept launches through vaft.code.chease.subprocess.run
 from typing import Any, Mapping, Optional, Sequence
 import warnings
 

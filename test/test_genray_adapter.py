@@ -463,7 +463,9 @@ def test_a_stopped_genray_run_is_a_failed_result(tmp_path):
 
     executable = write_launchable_stub(tmp_path / "xgenray")
     backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, elapsed_s=9.0))
-    config = GENRAYConfig(executable=str(executable), timeout=9.0, backend=backend)
+    config = GENRAYConfig(
+        mode="X", time=0.3, executable=str(executable), timeout=9.0, backend=backend
+    )
     inputs = GENRAYInputs(
         workdir=tmp_path, genray_in=tmp_path / "genray.in", eqdsk=tmp_path / "eqdsk", provenance={}
     )
