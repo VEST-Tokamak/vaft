@@ -78,6 +78,9 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
+    "s_alpha_ballooning_eigenmode",
+    "ballooning_radial_wavenumber",
     # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
     "plasma_frequency",
     "stix_parameters",

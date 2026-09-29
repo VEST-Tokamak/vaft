@@ -5,6 +5,11 @@
       "source_sha256": "aa510487b605f02eb25a84698321e3583896af361396be86d3ea1844d09064b2",
       "svg_sha256": "0736ef937bdfba58cfda3b5f8575260c7c80a3541b8d5cac312c32a0255d8d0e"
     },
+    "ballooning_eigenfunction.svg": {
+      "call": "vaft.diagram.ballooning_eigenfunction()",
+      "source_sha256": "8f2cb87634ce76f7e54df8784d8fecdd6a3977706beead49631dc5f317999077",
+      "svg_sha256": "581d8e5f7f93ddc2fba78cc7a897d8f3013fe78ff46964ea18c5a5ef6836ec59"
+    },
     "ballooning_harmonic_envelope.svg": {
       "call": "vaft.diagram.ballooning_harmonic_envelope()",
       "source_sha256": "07f5d26e7490be187c83fd61891b8b8d5e211572373f1602f52a62967e5a06ac",
@@ -140,6 +145,11 @@
       "source_sha256": "9333b699eba075469c1a7c1a5a15e5e85adec080d1f66be5e4114be1dce81d20",
       "svg_sha256": "66e3b727371640e7a38f1bb834d3c39b68dbe19ef3e9dc42b47203454afdaa81"
     },
+    "field_aligned_basis.svg": {
+      "call": "vaft.diagram.field_aligned_basis()",
+      "source_sha256": "6187ca45c21fdbb36a3b1679b66661f27980080d2aab9be7d908b494a8caa33b",
+      "svg_sha256": "eb442cb5fb281c601b9edcb3ded1ee715d0fcad7c359018c27687163676ff4c3"
+    },
     "field_line_geometry_cylindrical.svg": {
       "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
       "source_sha256": "7479705ff3df34b033e314cbbbc5d5dc611c20a289e389429d0e7861c47d3896",
@@ -179,6 +189,11 @@
       "call": "vaft.diagram.flux_surfaces(shape='shifted')",
       "source_sha256": "2aed5fd064d9fdec4d3e8e689e14348efacb5e2a39ea1b9df7bef87788a76694",
       "svg_sha256": "0edcec3658234f9f22e1b055c264f3711307f03fcff82cd0386f734d665b607d"
+    },
+    "flux_tube_patch.svg": {
+      "call": "vaft.diagram.flux_tube_patch()",
+      "source_sha256": "f889b7e456529ac06a3f57b681d8acd06786ea357d11d61ef64dc2bccd27c239",
+      "svg_sha256": "26e4e841c0bd2db5e87a8443eabbef81d7a1fb0fb54c284457ed8d5ae0fd3f5b"
     },
     "geometry_ordering_map.svg": {
       "call": "vaft.diagram.geometry_ordering_map()",
@@ -264,6 +279,11 @@
       "call": "vaft.diagram.magnetic_reconnection()",
       "source_sha256": "2755a1af188fa86b0a453de6d24678a54c84749d42a566bd301457f5515d7f3f",
       "svg_sha256": "5c0ac140bfec9a80a7a8ad0a00bb3c0c6fe30986e6854830794cb43459fa10ba"
+    },
+    "magnetic_shear_field_aligned.svg": {
+      "call": "vaft.diagram.magnetic_shear_field_aligned()",
+      "source_sha256": "44b51a242bb858e809419bc4e14d03f2012e3a400054ace19f37c777ed2d6813",
+      "svg_sha256": "4623addc8c4e06bc83cb3693a3848e54356f088a7b2b999d22ec486ca801af5c"
     },
     "magnetization_current.svg": {
       "call": "vaft.diagram.magnetization_current()",

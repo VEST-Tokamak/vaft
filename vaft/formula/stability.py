@@ -1952,6 +1952,152 @@ def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_S
     return thetas, np.array(out)
 
 
+
+def ballooning_radial_wavenumber(k_y, s, theta, alpha=0.0, theta0=0.0):
+    r"""Radial wavenumber of a ballooning mode along the field line, in the $s$-$\alpha$ local frame.
+
+    $$k_x = k_y\,\Lambda,\qquad \Lambda = s(\theta - \theta_0) - \alpha(\sin\theta - \sin\theta_0)$$
+
+    Parameters
+    ----------
+    k_y : float or np.ndarray
+        Binormal wavenumber, set by the toroidal mode number [1/m].
+    s : float or np.ndarray
+        Magnetic shear [-].
+    theta : float or np.ndarray
+        Extended poloidal angle along the field line, the parallel
+        coordinate $z$ [rad].
+    alpha : float or np.ndarray
+        Normalised pressure gradient; zero gives the sheared-slab relation [-].
+    theta0 : float or np.ndarray
+        Ballooning angle, where $k_x$ vanishes [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $k_x$, same units as ``k_y`` [1/m].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    The $\Lambda$ of ``s_alpha_curvature_drive`` and
+    ``s_alpha_ballooning_solution``: $k_\perp^2 = k_y^2(1 + \Lambda^2)$. With
+    $\alpha = 0$ it is the sheared slab's $k_x(z) = k_{x0} + k_y\hat s z$ with
+    $z = \theta$ and $k_{x0} = -k_y\hat s\theta_0$. Constant $k_y$ along the
+    line, as in the field-aligned $(x, y, z)$ frame.
+
+    Physical interpretation
+    -----------------------
+    Magnetic shear tilts the phase fronts of a mode that is aligned with the
+    field: moving along the line, neighbouring field lines slide past each
+    other, so a fixed binormal structure acquires a growing radial
+    wavenumber -- the link between ballooning geometry and sheared-slab models.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Proc. R. Soc. A 365,
+           1 (1979).
+    """
+    vals = [np.asarray(v, dtype=float) for v in (k_y, s, theta, alpha, theta0)]
+    if not all(np.all(np.isfinite(v)) for v in vals):
+        raise ValueError("inputs must be finite")
+    k_y, s, theta, alpha, theta0 = vals
+    result = k_y * (s * (theta - theta0) - alpha * (np.sin(theta) - np.sin(theta0)))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201):
+    r"""The most unstable localised eigenmode of the $s$-$\alpha$ ballooning equation with inertia.
+
+    $$\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
+    + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = \hat\gamma^2\,(1+\Lambda^{2})\,F,\qquad
+    F(\pm\theta_\mathrm{max}) = 0$$
+
+    Parameters
+    ----------
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta_max : float
+        Half-length of the extended-angle interval, positive [rad].
+    n_points : int
+        Grid points on $[-\theta_\mathrm{max}, \theta_\mathrm{max}]$, at least 101 [-].
+
+    Returns
+    -------
+    growth_rate_squared : float
+        $\hat\gamma^2 = \gamma^2 q^2R^2/v_A^2$ of the most unstable mode;
+        positive is unstable [-].
+    theta : np.ndarray
+        Extended angle [rad].
+    F : np.ndarray
+        The eigenfunction, even, normalised to $\max|F| = 1$ with $F(0) > 0$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``theta_max`` or too few points.
+
+    Convention
+    ----------
+    $\Lambda = s\theta - \alpha\sin\theta$ and the operator of
+    ``s_alpha_ballooning_solution``; the inertia term $(1+\Lambda^2)$ is
+    $k_\perp^2$ along the line and the growth rate is in Alfvén units
+    $v_A/(qR)$, the circular large-aspect-ratio normalisation. Second-order
+    finite differences, a symmetric generalised eigenproblem, Dirichlet ends:
+    for a stable surface the largest eigenvalue is near zero and negative
+    (the discretised continuum), for an unstable one it is positive and the
+    mode decays well inside the interval.
+
+    Physical interpretation
+    -----------------------
+    The mode balloons: largest at $\theta = 0$, the outboard midplane where
+    the curvature is bad, and decaying over a few poloidal transits of the
+    extended angle -- the "ballooning" the name refers to.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``; ideal MHD, incompressible, $n \to \infty$.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Proc. R. Soc. A 365,
+           1 (1979).
+    """
+    from scipy.linalg import eigh
+
+    if not theta_max > 0.0:
+        raise ValueError("theta_max must be positive")
+    n_points = int(n_points)
+    if n_points < 101:
+        raise ValueError("n_points must be at least 101")
+    s, a = float(s), float(alpha)
+    theta = np.linspace(-theta_max, theta_max, n_points)
+    h = theta[1] - theta[0]
+    lam = lambda t: s * t - a * np.sin(t)
+    p = 1.0 + lam(theta) ** 2
+    half = 1.0 + lam(0.5 * (theta[1:] + theta[:-1])) ** 2
+    drive = a * (np.cos(theta) + lam(theta) * np.sin(theta))
+    inner = slice(1, n_points - 1)
+    diag = -(half[:-1] + half[1:]) / h**2 + drive[inner]
+    off = half[1:-1] / h**2
+    A = np.diag(diag) + np.diag(off, 1) + np.diag(off, -1)
+    M = np.diag(p[inner])
+    k = n_points - 3
+    w, v = eigh(A, M, subset_by_index=[k, k])
+    F = np.concatenate([[0.0], v[:, 0], [0.0]])
+    F = F / F[np.argmax(np.abs(F))]
+    if F[n_points // 2] < 0:
+        F = -F
+    return float(w[0]), theta, F
+
 def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     r"""First and second ballooning stability boundaries of the $s$-$\alpha$ model.
 

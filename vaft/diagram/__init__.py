@@ -143,6 +143,10 @@ __all__ = [
     "wall_conditioning_gdc",
     "wall_conditioning_boronization",
     "wall_conditioning_sequence",
+    "field_aligned_basis",
+    "flux_tube_patch",
+    "magnetic_shear_field_aligned",
+    "ballooning_eigenfunction",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -249,6 +253,10 @@ _LOCATIONS = {
     "wall_conditioning_gdc": "._wall_conditioning",
     "wall_conditioning_boronization": "._wall_conditioning",
     "wall_conditioning_sequence": "._wall_conditioning",
+    "field_aligned_basis": "._field_aligned",
+    "flux_tube_patch": "._field_aligned",
+    "magnetic_shear_field_aligned": "._field_aligned",
+    "ballooning_eigenfunction": "._field_aligned",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

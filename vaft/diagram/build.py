@@ -140,6 +140,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
     "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
+    # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
+    **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
+                                              "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
 }
 
 
