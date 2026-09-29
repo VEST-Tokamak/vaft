@@ -408,7 +408,10 @@ def test_the_plot_catalog_hashes_every_file_of_the_package(snapshots):
     recorded = {entry["path"] for entry in snapshots["plot"]["source"]}
     on_disk = {path.relative_to(ROOT).as_posix() for path in (ROOT / "vaft" / "plot").rglob("*.py")
                if "__pycache__" not in path.parts}
-    assert recorded == on_disk
+    assert on_disk <= recorded
+    # Beyond the package: the thumbnail manifest and the samples its pictures were drawn from.
+    assert all(path == "docs/assets/plots/manifest.json" or path.startswith("vaft/data/samples/")
+               for path in recorded - on_disk), recorded - on_disk
 
 
 def test_the_diagram_catalog_hashes_the_formula_modules_it_resolved(snapshots):
@@ -416,3 +419,31 @@ def test_the_diagram_catalog_hashes_the_formula_modules_it_resolved(snapshots):
     for builder in snapshots["diagram"]["builders"]:
         for f in builder["formula"]:
             assert f"vaft/formula/{f['category']}.py" in recorded
+
+
+def test_plot_rows_carry_the_committed_thumbnail(snapshots):
+    import json
+
+    manifest = ROOT / "docs" / "assets" / "plots" / "manifest.json"
+    if not manifest.is_file():
+        pytest.skip("this branch commits no plot thumbnails")
+    recorded = json.loads(manifest.read_text(encoding="utf-8"))["plots"]
+    for row in snapshots["plot"]["plots"]:
+        thumbnail = row["thumbnail"]
+        assert thumbnail["status"] == recorded[row["name"]]["status"]
+        if thumbnail["status"] == "rendered":
+            assert thumbnail["png"] == f"assets/plots/{row['name']}.png"
+            assert thumbnail["png_sha256"] == recorded[row["name"]]["png_sha256"]
+            assert thumbnail["stale"] == ""
+    recorded_sources = {entry["path"] for entry in snapshots["plot"]["source"]}
+    assert "docs/assets/plots/manifest.json" in recorded_sources
+
+
+def test_a_hand_edited_thumbnail_fails_the_coverage_check(coverage, snapshots, tmp_path):
+    root = tmp_path / "tree"
+    shutil.copytree(ROOT / "docs" / "assets" / "plots", root / "docs" / "assets" / "plots")
+    rendered = next(row["name"] for row in snapshots["plot"]["plots"] if row["thumbnail"]["status"] == "rendered")
+    png = root / "docs" / "assets" / "plots" / f"{rendered}.png"
+    png.write_bytes(png.read_bytes() + b"\0")
+    problems = coverage.check_plot_thumbnails(snapshots["plot"], root)
+    assert problems == [f"plot thumbnail {rendered}.png: does not match manifest.json (edited by hand?)"]

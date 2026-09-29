@@ -311,6 +311,29 @@ end
 if plot_snapshot
   compare_rendered(errors, "plot", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("plots", []).map { |item| item["name"] }, '[data-catalog="plot"]')
   compare_rendered(errors, "plot function", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("entry_points", []).map { |item| item["name"] }, '[data-catalog="plot-function"]')
+  # Committed thumbnails (python -m vaft.plot.docs_thumbnails): one image per
+  # rendered plot, none for any other, each resolving to the PNG the catalog
+  # recorded.  Staleness is a label on the page, not an error.
+  plots = plot_snapshot.fetch("plots", [])
+  if (ROOT / "assets" / "plots").directory? || plots.any? { |item| item.key?("thumbnail") }
+    missing_thumbnail = plots.reject { |item| item["thumbnail"].is_a?(Hash) }.map { |item| item["name"] }
+    errors << "plot entries without a thumbnail record: #{missing_thumbnail.first(5).join(', ')}" unless missing_thumbnail.empty?
+    rendered_plots = plots.select { |item| item.dig("thumbnail", "status") == "rendered" }
+    compare_rendered(errors, "plot thumbnail", "#{BASEURL}/reference/plot/", rendered_plots.map { |item| item["name"] }, "img[data-thumbnail]", "data-thumbnail")
+    rendered_plots.each do |item|
+      png = ROOT / item.dig("thumbnail", "png").to_s
+      if !png.file?
+        errors << "plot thumbnail #{item['name']} has no committed PNG at #{item.dig('thumbnail', 'png')}"
+      elsif Digest::SHA256.file(png).hexdigest != item.dig("thumbnail", "png_sha256")
+        errors << "plot thumbnail #{item['name']} does not match its recorded checksum"
+      end
+    end
+    if (built = output_path("#{BASEURL}/reference/plot/"))
+      Nokogiri::HTML(built.read).css("img[data-thumbnail]").each do |image|
+        errors << "plot thumbnail image does not resolve: #{image['src']}" unless output_path(image["src"].to_s)
+      end
+    end
+  end
 end
 if diagram_snapshot
   url = "#{BASEURL}/reference/diagram/"

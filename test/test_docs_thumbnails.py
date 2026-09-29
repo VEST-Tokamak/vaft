@@ -1,0 +1,155 @@
+"""The committed plot thumbnails of the documentation site and their freshness check.
+
+Nothing here renders the whole set: that takes minutes and is what
+``python -m vaft.plot.docs_thumbnails`` is for.  The committed manifest is
+checked structurally, every failure mode is provoked on a copy of the assets,
+and one cheap plot is rendered from the smallest packaged sample.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+import vaft
+from vaft.plot import docs_thumbnails, registry
+
+ROOT = Path(__file__).resolve().parents[1]
+ASSETS = ROOT / "docs" / "assets" / "plots"
+#: The packaged sample that loads fastest, and a plot it can draw.
+SMALL_SHOT = 48224
+CHEAP_PLOT = "equilibrium_time_li"
+
+pytestmark = pytest.mark.skipif(not ASSETS.is_dir(), reason="this branch commits no plot thumbnails")
+
+
+@pytest.fixture
+def assets(tmp_path):
+    copy = tmp_path / "plots"
+    shutil.copytree(ASSETS, copy)
+    return copy
+
+
+def _manifest(directory: Path) -> dict:
+    return json.loads((directory / docs_thumbnails.MANIFEST).read_text(encoding="utf-8"))
+
+
+def _rewrite(directory: Path, mutate) -> None:
+    document = _manifest(directory)
+    mutate(document["plots"])
+    (directory / docs_thumbnails.MANIFEST).write_text(json.dumps(document), encoding="utf-8")
+
+
+def _first_rendered(directory: Path) -> str:
+    return next(name for name, entry in sorted(_manifest(directory)["plots"].items())
+                if entry["status"] == "rendered")
+
+
+# --------------------------------------------------------------------------
+# the committed set
+# --------------------------------------------------------------------------
+
+
+def test_every_registered_plot_has_a_manifest_entry():
+    recorded = _manifest(ASSETS)["plots"]
+    assert set(recorded) == {spec.name for spec in registry.specs(status=None)}
+    for name, entry in recorded.items():
+        assert entry["status"] in ("rendered", "no_sample", "failed"), name
+        if entry["status"] == "rendered":
+            assert (ASSETS / f"{name}.png").is_file(), name
+            assert entry["shot"] in vaft.data.available_samples()
+        else:
+            assert entry["reason"], name
+
+
+def test_the_committed_thumbnails_pass_the_structural_check():
+    problems, _warnings = docs_thumbnails.check(ASSETS, full=False)
+    assert problems == []
+
+
+# --------------------------------------------------------------------------
+# what fails, and what only warns
+# --------------------------------------------------------------------------
+
+
+def test_a_missing_png_is_a_problem(assets):
+    name = _first_rendered(assets)
+    (assets / f"{name}.png").unlink()
+    problems, _ = docs_thumbnails.check(assets)
+    assert f"{name}: {docs_thumbnails.MANIFEST} records a thumbnail but {name}.png is missing" in problems
+
+
+def test_an_orphaned_png_is_a_problem(assets):
+    (assets / "no_such_plot.png").write_bytes(b"\x89PNG")
+    problems, _ = docs_thumbnails.check(assets)
+    assert "no_such_plot.png: orphaned thumbnail, not a registered plot" in problems
+
+
+def test_a_manifest_entry_for_an_unknown_plot_is_a_problem(assets):
+    _rewrite(assets, lambda plots: plots.update(no_such_plot={"status": "no_sample", "reason": "x"}))
+    problems, _ = docs_thumbnails.check(assets)
+    assert f"no_such_plot: recorded in {docs_thumbnails.MANIFEST} but no longer a registered plot" in problems
+
+
+def test_a_registered_plot_without_an_entry_is_a_problem(assets):
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots.pop(name))
+    problems, _ = docs_thumbnails.check(assets)
+    assert any(problem.startswith(f"{name}: registered plot has no entry") for problem in problems)
+    assert f"{name}.png: committed but {docs_thumbnails.MANIFEST} records it as not rendered" in problems
+
+
+def test_a_hand_edited_png_is_a_problem(assets):
+    name = _first_rendered(assets)
+    png = assets / f"{name}.png"
+    png.write_bytes(png.read_bytes() + b"\0")
+    problems, _ = docs_thumbnails.check(assets)
+    assert f"{name}.png: does not match {docs_thumbnails.MANIFEST} (edited by hand?)" in problems
+
+
+def test_a_changed_renderer_is_only_a_warning(assets):
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots[name].update(renderer_sha256="0" * 64))
+    problems, notes = docs_thumbnails.check(assets)
+    assert problems == []
+    assert any(note.startswith(f"{name}: stale (renderer or style changed)") for note in notes)
+
+
+def test_a_changed_sample_is_only_a_warning(assets):
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots[name].update(sample_sha256="0" * 64))
+    problems, notes = docs_thumbnails.check(assets)
+    assert problems == []
+    assert any(f"{name}: stale (sample" in note for note in notes)
+
+
+# --------------------------------------------------------------------------
+# rendering and the recipe hash
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def small_sample():
+    return vaft.omas.load(vaft.data.sample(SMALL_SHOT))
+
+
+def test_rendering_one_plot_writes_a_png_and_a_complete_entry(tmp_path, small_sample):
+    spec = registry.get_spec(CHEAP_PLOT)
+    first = docs_thumbnails.render_one(spec, SMALL_SHOT, small_sample, tmp_path)
+    png = (tmp_path / f"{CHEAP_PLOT}.png").read_bytes()
+    assert png.startswith(b"\x89PNG")
+    assert first["status"] == "rendered" and first["shot"] == SMALL_SHOT
+    assert first["renderer_sha256"] == docs_thumbnails.renderer_sha256(spec)
+    second = docs_thumbnails.render_one(spec, SMALL_SHOT, small_sample, tmp_path)
+    assert second == first, "rendering is deterministic on one machine"
+
+
+def test_the_view_model_hash_is_stable_and_sensitive(small_sample):
+    one = docs_thumbnails.model_sha256(vaft.plot.extract(CHEAP_PLOT, small_sample))
+    two = docs_thumbnails.model_sha256(vaft.plot.extract(CHEAP_PLOT, small_sample))
+    assert one == two
+    other = docs_thumbnails.model_sha256(vaft.plot.extract("equilibrium_time_beta_p", small_sample))
+    assert other != one
