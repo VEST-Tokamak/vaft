@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>9146be4</code>. What is described
+  <code>657d427</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -392,9 +392,14 @@ which is a different coordinate.</p>
 returned a bare $\psi_N$ array under the name “rho” and every fit was made in it. Fits are now made in
 the coordinate you select (<code class="language-plaintext highlighter-rouge">coordinate=</code>), <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> by default; pass <code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code> to
 reproduce the old numbers. A bare array is still accepted, but only together with
-<code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>, because that is the only thing it ever meant.
-Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a>.</p>
+<code class="language-plaintext highlighter-rouge">coordinate="psi_norm"</code>, because that is the only thing it ever meant.</p>
 </blockquote>
+
+<p>The same equilibrium carried through all of its representations – the four radial coordinates side
+by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
+island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
+and flux unit – is <code class="language-plaintext highlighter-rouge">notebooks/equilibrium_representation_reference.ipynb</code> (#1201).
+Building an equilibrium is covered in <a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a>.</p>
 
 <h2 id="stage-2--profile-fitting">Stage 2 — profile fitting</h2>
 
@@ -1362,7 +1367,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 02:36:53 +0000"
+        "time": "2026-09-29 02:46:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
