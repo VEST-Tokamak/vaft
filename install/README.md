@@ -85,7 +85,7 @@ git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
 bash install/linux.sh          # or install/macos.sh, install/windows_wsl.sh
                                # on native Windows, see the table above
-hsconfigure                    # only if you need the remote VEST database
+vaft hsds configure            # only if you need the remote VEST database
 conda activate vaft && jupyter lab
 ```
 
@@ -153,13 +153,19 @@ silently.
 
 ## HSDS configuration
 
-The remote VEST database is reached through HSDS. Configure it with the
-interactive tool that ships with `h5pyd`:
+The remote VEST database is reached through HSDS. Configure it with VAFT's
+credential prompt, which writes the h5pyd configuration file:
 
 ```bash
 conda activate vaft
-hsconfigure
+vaft hsds configure
 ```
+
+The password and API key are read with hidden input, an existing one is shown
+only as `[configured]` (Enter keeps it), and the file is written with mode
+`0600`. Avoid the upstream `hsconfigure`: it echoes the password as you type and
+prints a stored password as the prompt default. On Windows file modes are not
+enforced; `.hscfg` inherits the permissions of your user profile.
 
 | Field | Value |
 | --- | --- |
@@ -167,8 +173,10 @@ hsconfigure
 | Username | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 | Password | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 
-`hsconfigure` writes `~/.hscfg` in your home directory. That file holds your
-credentials and belongs **only** there.
+`vaft hsds configure` writes `~/.hscfg` in your home directory. That file holds
+your credentials and belongs **only** there. The environment check warns when a
+`.hscfg` (in your home or in the checkout) is readable by other users, with the
+`chmod 600` that fixes it.
 
 The VAFT bootstrap scripts never ask for, store, print, or transmit your
 credentials. The checker reads `~/.hscfg` only to report whether it exists and
@@ -221,7 +229,7 @@ Every failure names the corrective action:
 ```text
 [WARN] HSDS configuration
        /home/student/.hscfg does not exist; needed only for remote database access
-       -> Run `hsconfigure`, then rerun this check.
+       -> Run `vaft hsds configure`, then rerun this check.
 ```
 
 ```text
@@ -1135,8 +1143,8 @@ kernel.
 
 ### What it never removes
 
-- **`~/.hscfg`.** The bootstrap never wrote it — `hsconfigure` did, when you
-  ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
+- **`~/.hscfg`.** The bootstrap never wrote it — `vaft hsds configure` (or
+  `hsconfigure`) did, when you ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
   make you type them again.
 - **Any Conda environment whose name is not exactly `vaft`.** The removal is
   pinned to `--name vaft`, with no prefix or pattern match, so an environment
@@ -1194,8 +1202,9 @@ bash install/linux.sh
 **JupyterLab shows no "Python (vaft)" kernel** — you started Jupyter from a
 different environment. Run `conda activate vaft` first, or rerun the bootstrap.
 
-**`hsconfigure: command not found`** — the `h5pyd` command-line tools live
-inside the environment. Run `conda activate vaft` first.
+**`vaft: command not found`** or **`hsget: command not found`** — the VAFT and
+`h5pyd` command-line tools live inside the environment. Run `conda activate vaft`
+first.
 
 **A network check fails but everything else passes** — that is expected off
 campus or without credentials. The whole offline course works anyway; the HSDS

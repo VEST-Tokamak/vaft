@@ -62,6 +62,7 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -160,6 +161,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",
     "test_diagram_infrastructure.py",
+    "test_diagram_iteration_dynamics.py",
     "test_diagram_magnetic_island.py",
     "test_diagram_mhd_waves.py",
     "test_diagram_particle_motion.py",
