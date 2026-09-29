@@ -104,6 +104,11 @@ which is a different coordinate.
 > the coordinate you select (`coordinate=`), `rho_tor_norm` by default; pass `coordinate="psi_norm"` to
 > reproduce the old numbers. A bare array is still accepted, but only together with
 > `coordinate="psi_norm"`, because that is the only thing it ever meant.
+
+The same equilibrium carried through all of its representations -- the four radial coordinates side
+by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
+island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
+and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201).
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
 
 ## Stage 2 — profile fitting

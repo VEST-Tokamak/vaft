@@ -31,6 +31,7 @@ EQUILIBRIUM_NOTEBOOKS = (
     "analytic_plasma_state_presets.ipynb",
     "synthetic_kinetic_profiles_from_equilibrium.ipynb",
     "compact_equilibrium_representation.ipynb",
+    "equilibrium_representation_reference.ipynb",
     "edge_and_boundary_representation.ipynb",
 )
 
