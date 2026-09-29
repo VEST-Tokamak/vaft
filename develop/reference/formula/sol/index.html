@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>95dd033</code>. What is described
+  <code>40e566c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -289,7 +289,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sol</code>:
-<strong>8</strong> public functions. Each entry is what
+<strong>10</strong> public functions. Each entry is what
 <code>vaft.formula.describe("sol.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -331,7 +331,7 @@ overridable keyword, never a hidden constant.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 10 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="eich_integral_width"><td><a href="#eich_integral_width"><code>eich_integral_width</code></a></td><td>Integral power width of the Eich profile, mapped to the outer midplane.
@@ -341,6 +341,10 @@ overridable keyword, never a hidden constant.</p>
   <tr data-ref-row="ion_saturation_current_density"><td><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></td><td>Ion saturation current density collected by a negatively biased surface.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ion_sound_speed"><td><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></td><td>Ion sound speed with the charge and the ion closure explicit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="radiative_condensation_growth_rate"><td><a href="#radiative_condensation_growth_rate"><code>radiative_condensation_growth_rate</code></a></td><td>Growth rate of the thermal-condensation (MARFE) instability at constant pressure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="radiative_thermal_instability_growth_rate"><td><a href="#radiative_thermal_instability_growth_rate"><code>radiative_thermal_instability_growth_rate</code></a></td><td>Growth rate of the radiative thermal instability of a flute perturbation at constant density.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="sheath_heat_flux"><td><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></td><td>Parallel heat-flux density into the target sheath.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -361,7 +365,7 @@ overridable keyword, never a hidden constant.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eich_integral_width"><code>eich_integral_width</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L458" title="vaft/formula/sol.py, line 458">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L460" title="vaft/formula/sol.py, line 460">source</a>
 </header>
     <pre class="ref-signature"><code>eich_integral_width(lambda_q, S, *, flux_expansion=1.0)</code></pre>
 
@@ -436,7 +440,7 @@ the multi-machine database.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L390" title="vaft/formula/sol.py, line 390">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L392" title="vaft/formula/sol.py, line 392">source</a>
 </header>
     <pre class="ref-signature"><code>eich_target_heat_flux_profile(s, q0, lambda_q, S, *, s0=0.0, q_bg=0.0, flux_expansion=1.0)</code></pre>
 
@@ -515,7 +519,7 @@ $S$ grows at fixed $\lambda_q$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L182" title="vaft/formula/sol.py, line 182">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L184" title="vaft/formula/sol.py, line 184">source</a>
 </header>
     <pre class="ref-signature"><code>ion_saturation_current_density(n_i, c_s, *, Z=1.0)</code></pre>
 
@@ -582,7 +586,7 @@ from the I–V characteristic it gives the density.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L80" title="vaft/formula/sol.py, line 80">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L82" title="vaft/formula/sol.py, line 82">source</a>
 </header>
     <pre class="ref-signature"><code>ion_sound_speed(T_e, T_i, m_i, *, Z=1.0, gamma_i=1.0)</code></pre>
 
@@ -649,11 +653,167 @@ target particle flux and, with the sheath, the heat flux.</p>
 
   </section>
 
+  <section class="ref-entry" id="radiative_condensation_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#radiative_condensation_growth_rate"><code>radiative_condensation_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L514" title="vaft/formula/sol.py, line 514">source</a>
+</header>
+    <pre class="ref-signature"><code>radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_parallel)</code></pre>
+
+    <p>Growth rate of the thermal-condensation (MARFE) instability at constant pressure.</p>
+
+\[\gamma = \frac{2}{5\,n e}\left(\frac{2L}{T} - \frac{\partial L}{\partial T}
+  - k_\parallel^2\kappa_\parallel\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Plasma density of Drake’s one-fluid model, positive.</p>
+</td></tr>
+  <tr><td><code>T</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Temperature, positive.</p>
+</td></tr>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^3</td><td><p>Radiated power density, $L \propto n^2$, non-negative.</p>
+</td></tr>
+  <tr><td><code>dL_dT</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m^3 eV)</td><td><p>$\partial L/\partial T$ at fixed density.</p>
+</td></tr>
+  <tr><td><code>k_parallel</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>Parallel wavenumber of the perturbation, $m/(qR)$ for a poloidal harmonic $m \ge 1$, positive.</p>
+</td></tr>
+  <tr><td><code>kappa_parallel</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m eV)</td><td><p>Parallel conductivity, $\kappa_0 T^{5/2}$ in <code class="language-plaintext highlighter-rouge">spitzer_harm_parallel_heat_flux</code>’s units, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma$; positive is unstable.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Drake’s Eq. (2): the perturbation is slow against sound, $\gamma \ll
+k_\parallel c_s$, so pressure stays constant and $\tilde n/n = -\tilde T/T$
+(his Eq. 17); with $L \propto n^2$ the density rise feeds the $2L/T$
+term. Temperatures in eV and $\kappa_\parallel$ per eV, as in this module,
+so the $e$ converts the heat capacity $\tfrac52 n$ to joules. Instability
+needs $2L/T - \partial L/\partial T &gt; k_\parallel^2\kappa_\parallel$, which
+equals $-dL/dT$ at constant pressure: it does <strong>not</strong> need
+$\partial L/\partial T &lt; 0$. It needs $k_\parallel &gt; 0$: at
+$k_\parallel = 0$ no sound wave equalises pressure, the density stays
+fixed and <code class="language-plaintext highlighter-rouge">radiative_thermal_instability_growth_rate</code> applies instead.
+Perpendicular conduction is neglected here; Lipschultz finds its
+$K_\perp/\Delta^2$ small on Alcator C, while Drake’s threshold involves
+$\kappa_\perp$ (his Eqs. 7, 10, 18). The heat capacity is Drake’s one-fluid
+$\tfrac32 nT$; with electrons and ions both heated at $T_i = T_e$
+(Lipschultz’s $3\,\partial(nT)/\partial t$) $\gamma$ halves and the
+criterion is unchanged.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive density, temperature or $k_\parallel$, a negative $L$ or $\kappa_\parallel$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A cooled spot on a flux surface radiates more, is compressed by the
+surrounding pressure, radiates more still and condenses: the MARFE.
+Parallel conduction refills it and stabilises short parallel wavelengths;
+the $m = 1$ harmonic with the longest connection length goes first.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. F. Drake, Phys. Fluids 30 (1987) 2429, Eqs. (2), (16)-(18).
+</li>
+  <li>B. Lipschultz, J. Nucl. Mater. 145-147 (1987) 15, Eq. (11).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="radiative_thermal_instability_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#radiative_thermal_instability_growth_rate"><code>radiative_thermal_instability_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L588" title="vaft/formula/sol.py, line 588">source</a>
+</header>
+    <pre class="ref-signature"><code>radiative_thermal_instability_growth_rate(n, dL_dT)</code></pre>
+
+    <p>Growth rate of the radiative thermal instability of a flute perturbation at constant density.</p>
+
+\[\gamma = -\frac{2}{3\,n e}\frac{\partial L}{\partial T}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Plasma density of Drake’s one-fluid model, positive.</p>
+</td></tr>
+  <tr><td><code>dL_dT</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m^3 eV)</td><td><p>$\partial L/\partial T$ at fixed density.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma$; positive is unstable.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Drake’s Eq. (1): $k_\parallel = 0$, so no sound wave equalises pressure
+and the density does not change; only a falling radiation curve,
+$\partial L/\partial T &lt; 0$, is unstable. Compare
+<code class="language-plaintext highlighter-rouge">radiative_condensation_growth_rate</code>, where the constant-pressure
+density rise adds the $2L/T$ drive.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The poloidally symmetric counterpart of the MARFE (Drake’s Eq. 1): a
+whole flux surface cooling where the radiation curve falls with
+temperature. How it relates to detachment and to density limits is
+#1068’s, not this function’s.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. F. Drake, Phys. Fluids 30 (1987) 2429, Eq. (1).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="sheath_heat_flux" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L228" title="vaft/formula/sol.py, line 228">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L230" title="vaft/formula/sol.py, line 230">source</a>
 </header>
     <pre class="ref-signature"><code>sheath_heat_flux(gamma, n_t, T_t, c_s)</code></pre>
 
@@ -720,7 +880,7 @@ the particle flux it closes the heat balance at the target.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L135" title="vaft/formula/sol.py, line 135">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L137" title="vaft/formula/sol.py, line 137">source</a>
 </header>
     <pre class="ref-signature"><code>sheath_particle_flux(n_t, c_s, *, mach=1.0)</code></pre>
 
@@ -785,7 +945,7 @@ the sound speed: the target is a particle sink at fixed velocity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L276" title="vaft/formula/sol.py, line 276">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L278" title="vaft/formula/sol.py, line 278">source</a>
 </header>
     <pre class="ref-signature"><code>spitzer_harm_parallel_heat_flux(T_e, dT_ds, *, kappa_0=2000.0)</code></pre>
 
@@ -859,7 +1019,7 @@ length); flux limiting is not applied.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/95dd033974c86ef41e00bff850a8c2c25dfeb82a/vaft/formula/sol.py#L330" title="vaft/formula/sol.py, line 330">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/40e566c1e736704a616ba4fcfed63a1c7342522f/vaft/formula/sol.py#L332" title="vaft/formula/sol.py, line 332">source</a>
 </header>
     <pre class="ref-signature"><code>two_point_upstream_temperature(T_t, q_par, L_par, *, kappa_0=2000.0)</code></pre>
 
@@ -1151,7 +1311,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 08:15:35 +0000"
+        "time": "2026-09-29 08:51:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
