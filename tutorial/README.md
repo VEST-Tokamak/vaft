@@ -52,7 +52,7 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | 03 | Equilibrium and Kinetic Profiles | equilibrium representation, analytic shapes, EFIT constraints and weights, flux-coordinate mapping and profile-fit statistics, derived kinetic state, Grad-Shafranov residual, multi-time and multi-shot comparison | complete |
 | 04 | Fluctuation Diagnostics for Plasma Perturbations and Transient Events | lab vs plasma frame, VEST fluctuation-diagnostic coverage, Mirnov / SXR / fast-camera perturbations, cross-spectral coherence and phase, toroidal mode number with its alias step, rational surfaces, transients as sequences, multi-time and multi-shot comparison | complete |
 | 05 | MHD Stability and Perturbed Equilibria | rational surfaces, ideal stability (DCON, $\delta W$), tearing (RDCON, $\Delta'$), VEST 3-D coils and sector harmonics, vacuum field and relative phase by linearity, driven response (GPEC); solvers in lab mode | complete |
-| 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |
+| 06 | Operational Space and Data-Driven Analysis | units of analysis, coverage and validity, representative states, distributions, observed envelope vs limit, reference-limit provenance, dimensionless variables and H factors, confounding, similarity, events joined by time, planned data-driven representations | complete |
 
 Each session assumes the one before it. Session 02 starts from a discharge you
 can load and plot; session 03 from a discharge you can place in time; session 04
