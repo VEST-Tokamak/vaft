@@ -26,6 +26,14 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The operational-boundary data model (#1067): evaluation and registry
+    # plumbing. The physics and its sources live on each registered entry.
+    "boundary_value",
+    "evaluate_boundary",
+    "evaluate_window",
+    "boundary_curve",
+    "get_boundary",
+    "list_boundaries",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

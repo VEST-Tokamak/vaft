@@ -45,6 +45,7 @@ _IMPORT_ORDER = (
     "vde",
     "pwi",
     "sol",
+    "boundaries",
 )
 
 
