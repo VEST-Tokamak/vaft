@@ -90,8 +90,10 @@ def _dry_run(
             "--configfile", str(_config(tmp_path, layout)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
-            *(extra or []),
+            # Targets before the options: `--config` takes every following
+            # word as a name=value pair.
             *(targets or []),
+            *(extra or []),
         ],
         capture_output=True,
         text=True,
