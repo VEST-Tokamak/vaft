@@ -275,6 +275,16 @@
       "source_sha256": "9bdf6fb8ccbeb0ee6f63eec17db57de18380f2bad8a15ab334764b9e8e64882e",
       "svg_sha256": "ff6a13c097d183498914c1251fb5dc56332c086cfe5d6ad162cd567fad6b4a99"
     },
+    "marfe.svg": {
+      "call": "vaft.diagram.marfe()",
+      "source_sha256": "50cec207daab76eef94d797996eab586f9338a5195aa71ad0bd8200c5d637c5a",
+      "svg_sha256": "2633ffd6fcac63b124ff169dac1d5ad4e0ee62abf65b39a94b7b1214103cda70"
+    },
+    "marfe_xpoint.svg": {
+      "call": "vaft.diagram.marfe(localization='xpoint')",
+      "source_sha256": "d5795fcc5a73cfbce80e5b7c74e1e8d4b2aea2ac9b69b7d8b04e9234d26277ad",
+      "svg_sha256": "31d86eb5f7d7039fe7b601bb9ded765ee01a1cb745abd738c8344b7a5bf767a1"
+    },
     "mhd_wave_family.svg": {
       "call": "vaft.diagram.mhd_wave_family()",
       "source_sha256": "7207bc7fcfd85cf3745ee6290db6ffff63b2be1e70d777961f4a6577934fa0cb",

@@ -99,7 +99,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
         "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
         "ntv": 2,  # precession frequency and flux-torque relation (#1111)
-        "sol": 8,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951)
+        "sol": 10,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
         "boundaries": 6,  # operational-boundary data model: value, margin, window, curve, registry (#1067)

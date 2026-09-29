@@ -105,6 +105,8 @@ CONVENTION_SENSITIVE = frozenset({
     "two_point_upstream_temperature",
     "eich_target_heat_flux_profile",
     "eich_integral_width",
+    "radiative_condensation_growth_rate",
+    "radiative_thermal_instability_growth_rate",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
