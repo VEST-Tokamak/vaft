@@ -62,6 +62,16 @@ IMPA_CONFIG = config.get("impa", {}) or {}
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
+# Named EFIT configuration (vaft.code.efit.PRESETS). Empty and `routine` are
+# the routine path itself -- npprime/nffprime and no preset record -- so naming
+# the routine preset changes nothing. Checked here so a typo fails the DAG,
+# not every shot's k-file job.
+EFIT_PRESET = EFIT_CONFIG.get("preset") or None
+if EFIT_PRESET == "routine":
+    EFIT_PRESET = None
+if EFIT_PRESET:
+    from vaft.code.efit import efit_preset as _efit_preset
+    _efit_preset(EFIT_PRESET)
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
 # The lineage this run produces. `PipelinePaths` resolves every product under
@@ -609,8 +619,12 @@ rule generate_kfile:
     log:
         PATHS.shot_pattern("log", "generate_kfile")
     params:
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2)
+        # A named preset (efit.preset) carries its own profile basis, sigma
+        # and termination; without one the routine npprime/nffprime apply.
+        configuration=(
+            f"--preset {EFIT_PRESET}" if EFIT_PRESET else
+            f"--npprime {CONSTRAINTS_CONFIG.get('npprime', 2)} --nffprime {CONSTRAINTS_CONFIG.get('nffprime', 2)}"
+        )
     conda:
         CONDA if CONDA else None
     shell:
@@ -620,8 +634,7 @@ rule generate_kfile:
             --shot {wildcards.shot} \
             --constraints-ods {input.constraints} \
             --output {output.manifest} \
-            --npprime {params.npprime} \
-            --nffprime {params.nffprime} \
+            {params.configuration} \
             > {log} 2>&1
         """
 

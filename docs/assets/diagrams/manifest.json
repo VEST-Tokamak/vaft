@@ -30,6 +30,36 @@
       "source_sha256": "834b978f71e85358200d54f5b8bd895e84742b8b2bb622833a4177b08a61970d",
       "svg_sha256": "2083ee856168b857e63eb994e32744364c355c4a1943b4b7d0c6b181b46bd742"
     },
+    "blob_current_closure_inertial.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='inertial')",
+      "source_sha256": "c9ec9d9278284fa25f66330bdec35519547e3b578cf546d0e84144d35a7dd388",
+      "svg_sha256": "b624a02d621b9b424accd01cee20328d304ccb66174eba9482053f256a8ba6d7"
+    },
+    "blob_current_closure_sheath.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='sheath')",
+      "source_sha256": "e88418fcbb110400636ae638a8e5d8c40b71dd448e3fc79ebb3138bfef9c46a7",
+      "svg_sha256": "e1b89f74085325b90200600b2e45316ce5f08496191a146060373601efa4d917"
+    },
+    "blob_polarization.svg": {
+      "call": "vaft.diagram.blob_polarization()",
+      "source_sha256": "611f06b52e3a51dfa8cc7c26b6064e0e0ae9405df0a60c77ebb32685223d5f49",
+      "svg_sha256": "43f0f7825118c2811e8834626db1c3737cff927436d0c204140314627da06c17"
+    },
+    "blob_polarization_hole.svg": {
+      "call": "vaft.diagram.blob_polarization(perturbation='hole')",
+      "source_sha256": "2674db66e7e9174cc258c4c291b06aaef4dd29e299f250728a888a899486cb85",
+      "svg_sha256": "667b51c98704c2be644be4ef8e587857912582310e964a3adebaf758c685db2c"
+    },
+    "blob_regimes.svg": {
+      "call": "vaft.diagram.blob_regimes()",
+      "source_sha256": "6bde26dc208cdcee809c907c4b6a6058e1ec29d7a0af06d22b779b5f3726af09",
+      "svg_sha256": "e1461e78d0b0b4a67751ab52aa6fa69172af7ef0f42330b4b8fbe5a8b10cac3f"
+    },
+    "blob_velocity_scaling.svg": {
+      "call": "vaft.diagram.blob_velocity_scaling()",
+      "source_sha256": "64bc4a9a1a6e2360bb3582877e95cbc817238e1ae3465b8ad1b8794b54f750ac",
+      "svg_sha256": "fb20b50bcc7ae65d51c5aedb1c6268df5d11665e586434ec62a7f0c813e48d82"
+    },
     "branch_bifurcation.svg": {
       "call": "vaft.diagram.branch_bifurcation()",
       "source_sha256": "3623b6080156052bbfb2b98d38626dad203810c476ed090e1a9f77d82dc06cd9",
@@ -74,6 +104,11 @@
       "call": "vaft.diagram.complex_harmonic()",
       "source_sha256": "a5dbf32c338e46c982dd778e8e2176679b8ac9426f7142574b60ca0710b29aa0",
       "svg_sha256": "54b84c15ca711177b40c69b23089b309ebd6301bb79c4a7b027c0b37cb4337b5"
+    },
+    "coordinates_vs_cocos.svg": {
+      "call": "vaft.diagram.coordinates_vs_cocos()",
+      "source_sha256": "eb4dcb27339d7f3ad5f6a391821f82391e9bf2da9f8afad04648e67894f3f411",
+      "svg_sha256": "b27c3c8f13594d093e1439754c0160c15a60876d79eb91e0bdc04fa4e69b6c7c"
     },
     "current_sheet.svg": {
       "call": "vaft.diagram.current_sheet()",
@@ -140,6 +175,11 @@
       "source_sha256": "5a8c26c3b187bd03b6fdccb8dac525bd448eb53d3f72fbf511880779ddd667a3",
       "svg_sha256": "87249df7ecbdb12d7bc54e7a48a3f5f92583d42fa7917dd106f8c9a02fb817cd"
     },
+    "divertor_heat_footprint.svg": {
+      "call": "vaft.diagram.divertor_heat_footprint()",
+      "source_sha256": "1a119005c82761f979cbb7e82a3c527d6627b8528ffe26ca5ca825939ad98031",
+      "svg_sha256": "728f33802ed66166184a48c5ea75fbe2723a35da93a3694ec06a95dd471795b7"
+    },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
       "source_sha256": "13d016c01cc7d752585078cacfeb7edc0667abde252b218371f9331b1e299a53",
@@ -164,6 +204,11 @@
       "call": "vaft.diagram.field_aligned_basis()",
       "source_sha256": "caef79d25c4e05df9a101e73cfb028d5dd3c05152435c9502be29f682308d33c",
       "svg_sha256": "885857853830aa614e07b53e9a621467c0accf81fa87c0de7dfb49dae428c5e3"
+    },
+    "field_line_action_angle.svg": {
+      "call": "vaft.diagram.field_line_action_angle()",
+      "source_sha256": "7053c79cc5764af9fa6d815545afe78b798dcf22f67ea8358431391d43bb7cec",
+      "svg_sha256": "e864104f45ac2f3a1d758770f285e48ceb0dfeb2a0e3a30170079d9d9cf1f1c4"
     },
     "field_line_geometry_cylindrical.svg": {
       "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
@@ -320,6 +365,16 @@
       "source_sha256": "9bdf6fb8ccbeb0ee6f63eec17db57de18380f2bad8a15ab334764b9e8e64882e",
       "svg_sha256": "ff6a13c097d183498914c1251fb5dc56332c086cfe5d6ad162cd567fad6b4a99"
     },
+    "marfe.svg": {
+      "call": "vaft.diagram.marfe()",
+      "source_sha256": "f39dc1ecf15b35db65d11ee34147d7166c1b278b0b04f76f9f70e5eb9045e0f5",
+      "svg_sha256": "4f8a448b27300027eb7372c5bb060511332fa5aed49f68adfb6f912813486c29"
+    },
+    "marfe_xpoint.svg": {
+      "call": "vaft.diagram.marfe(localization='xpoint')",
+      "source_sha256": "b7bf71b637996aac242f1b07892ee705541960a07a4ef35c716236cb5d796d80",
+      "svg_sha256": "5dce8a4c63873a170e95d0a015f89718f981b4e8faef56a3a49c3fa3198961b2"
+    },
     "mhd_wave_family.svg": {
       "call": "vaft.diagram.mhd_wave_family()",
       "source_sha256": "7207bc7fcfd85cf3745ee6290db6ffff63b2be1e70d777961f4a6577934fa0cb",
@@ -329,6 +384,16 @@
       "call": "vaft.diagram.mode_number_mapping()",
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
+    },
+    "nbi_neutral_attenuation.svg": {
+      "call": "vaft.diagram.nbi_neutral_attenuation()",
+      "source_sha256": "65b4150f5527874d3076c6afdeb3a6651baf7772bf5403bdbbfcd5d2a3f08cdc",
+      "svg_sha256": "47fd2f670074b0a3f848a865e0d3c484ac77af490b4a989562a749ce42768c37"
+    },
+    "nbi_particle_lifecycle.svg": {
+      "call": "vaft.diagram.nbi_particle_lifecycle()",
+      "source_sha256": "971f992005185562d864cd383c795d601a965ae757265acb835db560591fafa2",
+      "svg_sha256": "fc7ef311a27b68255dfa48011dd73f4033918b0cca0c7107abed5943fd7c660f"
     },
     "neoclassical_collisionality.svg": {
       "call": "vaft.diagram.neoclassical_collisionality()",
@@ -475,10 +540,20 @@
       "source_sha256": "325e94912ea16f70a6fff26e5b7fcc9c2ba1434246c2cc3cea181bc8c23bbbc1",
       "svg_sha256": "ec47c7f100cd92cd36cf65ba54e9bc1131fb95792c97ef81f78c71a1c105eb57"
     },
+    "sfl_coordinate_validity.svg": {
+      "call": "vaft.diagram.sfl_coordinate_validity()",
+      "source_sha256": "60c649a87e0b132d32e18ec437c875bf3634764e3f6f57dbb514acd445668f63",
+      "svg_sha256": "1715c5201f1527af1aa6998335538e203aa1187d4a6f7c2a04951b57ac55ce8f"
+    },
     "sfl_fourier_convergence.svg": {
       "call": "vaft.diagram.sfl_fourier_convergence()",
       "source_sha256": "26aad88a8e09e6b7dfa27cad46439ff977d9969413f45f55b319603e1a27234a",
       "svg_sha256": "a44cc335e6387efb111b8787370dc0ac9c031cb5d773c19d31e874f44d9a2274"
+    },
+    "sfl_fourier_convergence_n2.svg": {
+      "call": "vaft.diagram.sfl_fourier_convergence(n=2)",
+      "source_sha256": "67a925583cd9bf82b7678f17478f5d63cb2f7a583a6c672724db43b6914fa207",
+      "svg_sha256": "76529478a143aa85fa83ea9296d29a7409422ef11cd31fa61af272f3d0b43ab6"
     },
     "shaping_family.svg": {
       "call": "vaft.diagram.shaping_family()",

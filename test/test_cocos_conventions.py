@@ -934,6 +934,119 @@ def test_a_geqdsk_survives_a_round_trip_through_an_ods():
         )
 
 
+# --- from_equilibrium writes a per-radian g-file (#1292) ---------------------------
+
+
+def _weber_record(cocos=11):
+    """The packaged g-file as a declared weber-family (COCOS 11-18) record."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, convert_cocos
+
+    return convert_cocos(as_equilibrium(sample_geqdsk(), convention=cocos - 10), cocos)
+
+
+@pytest.mark.parametrize("cocos", [11, 12])
+def test_a_weber_record_reaches_the_ods_with_its_own_flux(cocos):
+    """#1292: the full-weber flux was copied into a per-radian g-file and
+    ``to_omas`` then multiplied it by 2*pi, so it reached the ODS 2*pi too large."""
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium, to_omas
+    from vaft.omas.general import ods_cocos
+
+    eq = _weber_record(cocos)
+    geqdsk = from_equilibrium(eq)
+    assert f"COCOS={cocos - 10}" in geqdsk["CASE"] and f"COCOS={cocos}" not in geqdsk["CASE"]
+    ods = to_omas(geqdsk)
+    ts = ods["equilibrium.time_slice.0"]
+    axis, boundary = float(ts["global_quantities.psi_axis"]), float(ts["global_quantities.psi_boundary"])
+    assert axis == pytest.approx(eq.psi_axis, rel=1e-9)
+    assert boundary == pytest.approx(eq.psi_boundary, rel=1e-9)
+    assert np.sign(boundary - axis) == np.sign(eq.psi_boundary - eq.psi_axis)
+    assert np.sign(float(ts["global_quantities.ip"])) == np.sign(eq.ip)
+    assert ods_cocos(ods) == cocos
+
+
+def test_a_per_radian_record_is_written_unchanged():
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    source = sample_geqdsk()
+    written = from_equilibrium(as_equilibrium(source, convention=1))
+    assert "COCOS=1" in written["CASE"] and "COCOS=11" not in written["CASE"]
+    for key in ("PSIRZ", "SIMAG", "SIBRY", "PPRIME", "FFPRIM", "CURRENT", "FPOL"):
+        np.testing.assert_array_equal(np.asarray(written[key], dtype=float),
+                                      np.asarray(source[key], dtype=float), err_msg=key)
+
+
+def test_the_written_file_reads_back_per_radian(tmp_path):
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium, read_geqdsk, write_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    eq = _weber_record(11)
+    path = write_geqdsk(from_equilibrium(eq), tmp_path / "g_cocos11")
+    back = as_equilibrium(read_geqdsk(path))
+    assert back.convention.cocos == 1 and back.convention.psi_per_radian is True
+    assert not back.convention.contradicted
+    assert back.psi_axis * 2 * np.pi == pytest.approx(eq.psi_axis, rel=1e-6)
+    assert back.psi_boundary * 2 * np.pi == pytest.approx(eq.psi_boundary, rel=1e-6)
+
+
+def test_a_weber_ods_with_an_unresolved_index_is_still_written_per_radian():
+    """The vest_upstream path: an EFIT ODS is weber but its signs leave COCOS 11 or 12."""
+    import numpy as np
+
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    source = sample_geqdsk()
+    record = as_equilibrium(source.to_omas())
+    assert record.convention.cocos is None and record.convention.psi_per_radian is False
+    written = from_equilibrium(record)
+    assert "COCOS=UNKNOWN" in written["CASE"]
+    for key in ("PSIRZ", "SIMAG", "SIBRY", "PPRIME", "FFPRIM"):
+        original = np.asarray(source[key], dtype=float)
+        np.testing.assert_allclose(np.asarray(written[key], dtype=float), original, rtol=1e-6,
+                                   atol=1e-9 * np.max(np.abs(original)), err_msg=key)
+    assert as_equilibrium(written).convention.identified == (1, 2)
+
+
+def test_a_record_of_unknown_storage_is_written_as_given_with_a_warning():
+    import dataclasses
+
+    import numpy as np
+
+    from vaft.data.equilibrium import EquilibriumConvention
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    source = sample_geqdsk()
+    bare = dataclasses.replace(as_equilibrium(source), convention=EquilibriumConvention())
+    with pytest.warns(UserWarning, match="neither a COCOS index nor a psi storage family"):
+        written = from_equilibrium(bare)
+    assert "COCOS=UNKNOWN" in written["CASE"]
+    np.testing.assert_array_equal(np.asarray(written["PSIRZ"], dtype=float),
+                                  np.asarray(source["PSIRZ"], dtype=float))
+
+
+def test_a_record_whose_index_contradicts_its_storage_is_refused():
+    import dataclasses
+
+    from vaft.data.eqdsk import from_equilibrium
+
+    eq = _weber_record(11)
+    broken = dataclasses.replace(eq, convention=dataclasses.replace(eq.convention, psi_per_radian=True))
+    with pytest.raises(ValueError, match="contradictory"):
+        from_equilibrium(broken)
+
+
 def test_converting_an_already_weber_ods_is_refused_rather_than_repeated():
     """A declared 1-8 index sends equilibrium_psi_to_weber into another 2*pi.
 
@@ -1014,11 +1127,29 @@ def test_the_ods_virial_path_uses_one_convention_for_both_fields():
     from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
     from vaft.process.equilibrium import as_equilibrium, convert_cocos
 
+    import numpy as np
+
+    from vaft.omas.general import _PER_PSI_LEAVES, _PSI_LIKE_LEAVES
+
     def virial(cocos):
         equilibrium = as_equilibrium(sample_geqdsk(), convention=1)
         if cocos != 1:
             equilibrium = convert_cocos(equilibrium, cocos)
+        # to_omas always yields weber flux; the per-radian ODS is made by hand,
+        # so each ODS holds the flux its label declares.  Labelling both with
+        # the source index over weber data only ever compared two equally
+        # wrong ODS (before #1292 the COCOS 11 one carried an extra 2*pi).
         ods = from_equilibrium(equilibrium).to_omas()
+        if cocos < 10:
+            ts = ods["equilibrium.time_slice.0"]
+            for leaf in _PSI_LIKE_LEAVES:
+                if leaf in ts:
+                    scaled = np.asarray(ts[leaf], float) / (2 * np.pi)
+                    ts[leaf] = float(scaled) if scaled.ndim == 0 else scaled
+            for leaf in _PER_PSI_LEAVES:
+                if leaf in ts:
+                    ts[leaf] = np.asarray(ts[leaf], float) * (2 * np.pi)
+            ts["profiles_2d.0.psi"] = np.asarray(ts["profiles_2d.0.psi"], float) / (2 * np.pi)
         set_ods_cocos(ods, cocos)
         return compute_virial_equilibrium_quantities_ods(ods)[0]
 

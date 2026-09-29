@@ -338,6 +338,28 @@ def test_the_magnetic_fit_reports_chi_square_against_the_sigma_efit_used(module)
     assert np.isnan(fit["loop_chi2"])
 
 
+def test_the_magnetic_fit_covers_ip_pf_and_the_diamagnetic_flux(module):
+    """#891: every fitted family, not only probes and loops, with the chi-square
+    recomputed from the sigma rather than read from EFIT's chipasma/chidflux."""
+    variables = {
+        "plasma": np.array([80.0e3]), "cpasma": np.array([79.0e3]),
+        "fwtpasma": np.array([1.0]), "sigpasma": np.array([500.0]),
+        "fccurt": np.array([100.0, 200.0]), "ccbrsp": np.array([101.0, 200.0]),
+        "fwtfc": np.array([1.0, 0.0]), "sigfcc": np.array([0.5, 0.5]),
+        "diamag": np.array([1.5e-3]), "cdflux": np.array([1.8e-3]),
+        "fwtdia": np.array([1.0]), "sigdia": np.array([1.0e-4]),
+    }
+
+    fit = module.magnetic_fit(variables)
+
+    assert fit["ip_chi2"] == pytest.approx((1.0e3 / 500.0) ** 2)
+    assert fit["pf_n"] == 1 and fit["pf_chi2"] == pytest.approx(4.0)
+    assert fit["dia_chi2"] == pytest.approx((0.3e-3 / 1.0e-4) ** 2)
+    assert fit["dia_reduced_chi2"] == pytest.approx(9.0)
+    # A family the m-file lacks is reported absent, not zero.
+    assert fit["probe_n"] == 0 and np.isnan(fit["probe"])
+
+
 def test_the_rigid_vertical_shift_recovers_a_known_translation(module):
     reference = _mapping()
     moved = dict(reference, ZBBBS=np.asarray(reference["ZBBBS"]) - 0.0123)

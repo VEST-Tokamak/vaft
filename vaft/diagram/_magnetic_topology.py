@@ -320,9 +320,35 @@ def lobe_model(eps: float = 0.02, m: int = 8, n: int = 4, phase: float = 0.0, it
     from vaft.process.equilibrium import solovev_example
 
     eq = solovev_example("single_null", a_parameter=0.0)
-    fmap = _FieldLineMap(eq, m, n, eps, phase)
     kappa_a = 1.1 * 1.7 * 0.5 * float(eq.lcfs.r.max() - eq.lcfs.r.min())
-    x0 = _x_point_of(fmap, [float(eq.magnetic_axis[0]) - 0.1, -kappa_a])
+    return _lobe_model(eq, [float(eq.magnetic_axis[0]) - 0.1, -kappa_a], eps, m, n, phase, iterations, points)
+
+
+def lobe_model_for(equilibrium, eps: float = 0.02, m: int = 8, n: int = 4, phase: float = 0.0, iterations: int = 26,
+                   points: int = 1000) -> dict:
+    """``lobe_model`` for any lower-single-null ``EquilibriumData``: the X-point is sought next to the lowest
+    point of its boundary, and must be a saddle of the flux on the boundary value."""
+    eq = equilibrium
+    low = int(np.argmin(np.asarray(eq.lcfs.z)))
+    guess = [float(eq.lcfs.r[low]), float(eq.lcfs.z[low])]
+    fmap = _FieldLineMap(eq, m, n, 0.0, phase)
+    x0 = _x_point_of(fmap, guess)
+    sp = fmap.sp
+    psi_x, psi_ax = float(sp.ev(*x0)), float(sp.ev(*eq.magnetic_axis))
+    psi_b = float(eq.psi_boundary) / (2.0 * math.pi)
+    a_minor = 0.5 * float(np.ptp(np.asarray(eq.lcfs.r)))
+    grad = math.hypot(float(sp.ev(*x0, dx=1)), float(sp.ev(*x0, dy=1)))
+    hessian = float(sp.ev(*x0, dx=2)) * float(sp.ev(*x0, dy=2)) - float(sp.ev(*x0, dx=1, dy=1)) ** 2
+    if (x0[1] > float(eq.magnetic_axis[1]) or grad * a_minor > 1e-4 * abs(psi_ax - psi_x) or hessian >= 0.0
+            or abs(psi_x - psi_b) > 1e-2 * abs(psi_ax - psi_b)):
+        raise ValueError("separatrix_lobes needs a lower-single-null equilibrium: no saddle of the flux was found "
+                         "on the boundary below the axis")
+    return _lobe_model(eq, x0, eps, m, n, phase, iterations, points)
+
+
+def _lobe_model(eq, guess, eps, m, n, phase, iterations, points) -> dict:
+    fmap = _FieldLineMap(eq, m, n, eps, phase)
+    x0 = _x_point_of(fmap, guess)
     fmap.r_x = float(np.hypot(x0[0] - fmap.axis[0], x0[1] - fmap.axis[1]))
     xp, w, V = _fixed_point(fmap, x0)
     iu = int(np.argmax(np.abs(w)))
@@ -397,7 +423,8 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
                      labels: bool = True) -> Diagram:
     r"""Stable and unstable manifolds of a perturbed X-point, and the lobes between them.
 
-    The single-null Solov'ev equilibrium of ``solovev_example`` plus
+    ``equilibrium`` is any lower-single-null ``EquilibriumData`` (``None``: the
+    single-null Solov'ev equilibrium of ``solovev_example``) plus
     $\delta\psi = \epsilon\,\Delta\psi\,(r/r_X)^m\cos(m\vartheta - n\phi + \varphi_0)$
     ($\epsilon$ = ``perturbation``). The field-line map over one period
     $2\pi/n$ has a hyperbolic fixed point near the unperturbed X-point
@@ -408,23 +435,29 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
     Reduced Hamiltonian model: it does not reproduce a specific RMP
     discharge, whose traces belong to result plotting.
     """
-    if equilibrium is not None:
-        raise ValueError("separatrix_lobes draws the single-null Solov'ev equilibrium only, for now; pass None")
     labels = _check_labels(labels)
     if isinstance(perturbation, bool) or not (isinstance(perturbation, (int, float)) and 0.0 <= perturbation <= 0.03):
         raise ValueError(f"perturbation must lie in [0, 0.03], not {perturbation!r}")
     for name, v, top in (("m", m, 16), ("n", n, 8)):
         if isinstance(v, bool) or not isinstance(v, (int, np.integer)) or not 1 <= v <= top:
             raise ValueError(f"{name} must be an integer from 1 to {top}, not {v!r}")
-    model = lobe_model(float(perturbation), int(m), int(n), float(phase))
+    if equilibrium is None:
+        model = lobe_model(float(perturbation), int(m), int(n), float(phase))
+        size, zoom = 1.0, _S_ZOOM
+    else:
+        model = lobe_model_for(equilibrium, float(perturbation), int(m), int(n), float(phase))
+        # the window and zoom scale with the machine: sized like the default at its minor radius
+        default_eq = lobe_model(0.0)["equilibrium"]  # cached: the equilibrium the window was laid out for
+        size = float(np.ptp(np.asarray(equilibrium.lcfs.r))) / float(np.ptp(np.asarray(default_eq.lcfs.r)))
+        zoom = _S_ZOOM / size
     eq = model["equilibrium"]
     xp = np.array(model["x_point"])
-    window = (xp[0] - 0.16, xp[0] + 0.19, model["target_z"] - 0.005, xp[1] + 0.24)
-    ox, oy = -_S_ZOOM * window[0], -_S_ZOOM * window[2]
+    window = (xp[0] - 0.16 * size, xp[0] + 0.19 * size, model["target_z"] - 0.005 * size, xp[1] + 0.24 * size)
+    ox, oy = -zoom * window[0], -zoom * window[2]
 
     def cm(pts):
         pts = np.asarray(pts, dtype=float)
-        return np.stack([_S_ZOOM * pts[..., 0] + ox, _S_ZOOM * pts[..., 1] + oy], -1)
+        return np.stack([zoom * pts[..., 0] + ox, zoom * pts[..., 1] + oy], -1)
 
     items: List = []
     # the unperturbed separatrix, from the equilibrium flux
@@ -446,7 +479,7 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
     inset = None
     if hits["unstable"].size:
         c = float(np.mean(hits["unstable"]))
-        span = max(0.0025, 0.7 * float(np.ptp(hits["unstable"])))
+        span = max(0.0025 * size, 0.7 * float(np.ptp(hits["unstable"])))
         inset = (c - span, c + span, model["target_z"], model["target_z"] + 1.2 * span)
         scale = 3.2 / (2 * span)  # the inset is 3.2 cm wide
         right_edge = float(cm([window[1], 0.0])[0])
@@ -491,11 +524,13 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
                   role="x_point"),
             Label((0.5 * right, -0.3), "divertor target", "small label", anchor="north", role="target"),
             *([Label((right + 0.8 + 1.6, 0.6 + 1.2 * 3.2 / 2 + 0.1), "inset: the target strip, $\\times"
-                     f"{(3.2 / (inset[1] - inset[0])) / _S_ZOOM:.0f}$\\\\ dots: the split strike points\\\\ "
+                     f"{(3.2 / (inset[1] - inset[0])) / zoom:.0f}$\\\\ dots: the split strike points\\\\ "
                      f"({hits['unstable'].size} within {1e3 * float(np.ptp(hits['unstable'])):.1f} mm)",
                      "small label,align=center", anchor="south", role="inset")] if inset else []),
-            _note("Reduced Hamiltonian model: a prescribed $\\delta\\psi$ on an exact Solov'ev single null, field "
-                  "lines traced over one period $2\\pi/n$; not a specific RMP discharge", 0.5 * right + 2.0, -1.0),
+            _note("Reduced Hamiltonian model: a prescribed $\\delta\\psi$ on "
+                  + ("an exact Solov'ev single null" if equilibrium is None else "the supplied equilibrium")
+                  + ", field lines traced over one period $2\\pi/n$; not a specific RMP discharge",
+                  0.5 * right + 2.0, -1.0),
         ]
     out = {"classification": "reduced_hamiltonian_model", **{k: model[k] for k in (
         "x_point", "x_point_unperturbed", "multipliers", "lambda", "target_z", "psi_x", "eps")},

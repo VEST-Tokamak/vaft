@@ -544,8 +544,17 @@ def test_a_weber_family_g_file_is_converted_before_anything_reads_it(tmp_path):
     eq = as_equilibrium(sample_geqdsk())
     index = eq.convention.candidates[0]
     pinned = dataclasses.replace(eq, convention=dataclasses.replace(eq.convention, cocos=index))
-    weber = from_equilibrium(convert_cocos(pinned, index + 10))           # psi per weber, CASE says so (#1292)
-    assert f"COCOS={index + 10}" in weber["CASE"]
+    # What from_equilibrium wrote before #1292 was fixed: psi per weber under a weber CASE label. Rebuilt by
+    # hand from the per-radian export, since the exporter itself now always writes per radian.
+    weber = from_equilibrium(convert_cocos(pinned, index))
+    assert f"COCOS={index}" in weber["CASE"]
+    two_pi = 2 * np.pi
+    weber.mapping["PSIRZ"] = np.asarray(weber["PSIRZ"], dtype=float) * two_pi
+    for key in ("SIMAG", "SIBRY"):
+        weber.mapping[key] = float(weber[key]) * two_pi
+    for key in ("PPRIME", "FFPRIM"):
+        weber.mapping[key] = np.asarray(weber[key], dtype=float) / two_pi
+    weber.mapping["CASE"] = f"VAFT EquilibriumData COCOS={index + 10}"
     spec = EquilibriumKineticSpec(_kinetic(T_e=None, pressure_constraint="equilibrium", closure="temperature"),
                                   closure="equilibrium_pressure")
     state = build_consistent_state(weber, spec, workdir=tmp_path, time=TIME)

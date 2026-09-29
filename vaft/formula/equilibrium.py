@@ -1028,8 +1028,8 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
     poloidal angle is fully set here. Every member except PEST also shifts the
     toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
-    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- which this
-    function does not compute. The defaults give PEST, equal to
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- given by
+    ``sfl_toroidal_angle_shift``. The defaults give PEST, equal to
     ``straight_field_line_angle``.
 
     Physical interpretation
@@ -1068,6 +1068,68 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     weighted = np.asarray(jacobian, dtype=float) * R ** (2.0 - float(power_r)) * B_p ** float(power_bp) \
         * B ** float(power_b)
     return straight_field_line_angle(theta, weighted, R)
+
+
+
+def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
+    r"""Toroidal-angle shift $\nu$ that keeps field lines straight in a non-PEST poloidal angle.
+
+    $$\zeta = \phi + \nu, \qquad \nu(\psi, \theta) = q(\psi)\,\bigl(\theta_\mathrm{sfl} - \theta_\mathrm{PEST}\bigr)$$
+
+    Parameters
+    ----------
+    q : float or np.ndarray
+        Safety factor of the surface, signed as $d\phi/d\theta_\mathrm{PEST}$ along a
+        field line [-].
+    theta_sfl : float or np.ndarray
+        The straight-field-line poloidal angle of the chosen member of the
+        family (Boozer, Hamada, equal-arc, ...) at the surface points [rad].
+    theta_pest : float or np.ndarray
+        The PEST angle at the same points, with the same origin as
+        ``theta_sfl``, broadcast against it [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\nu$, to be added to the geometric toroidal angle $\phi$ [rad].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    PEST pairs its poloidal angle with the geometric $\phi$: along a field
+    line $d\phi = q\,d\theta_\mathrm{PEST}$. Another member straightens field
+    lines only with its own toroidal angle $\zeta$, $d\zeta = q\,d\theta_\mathrm{sfl}$;
+    subtracting gives $d\nu = q\,d(\theta_\mathrm{sfl} - \theta_\mathrm{PEST})$. $\nu$ is
+    fixed only up to a flux function; the gauge here sets $\nu = 0$ where the
+    two angles share their origin, which requires both to start at the same
+    point of the surface (as ``generalized_straight_field_line_angle`` does
+    for every member). $\nu = 0$ for PEST.
+
+    Physical interpretation
+    -----------------------
+    A perturbation $e^{-in\phi}$ reads $e^{-in\zeta}e^{in\nu}$ in the shifted
+    angle: for $n \ne 0$ the factor $e^{in\nu(\theta)}$ couples poloidal
+    harmonics, so a coordinate's Fourier cost depends on $n$ as well as on
+    how it samples the poloidal angle.
+
+    References
+    ----------
+    .. [1] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    .. [2] A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON), Sec. II.
+    """
+    q = np.asarray(q, dtype=float)
+    a = np.asarray(theta_sfl, dtype=float)
+    b = np.asarray(theta_pest, dtype=float)
+    if not (np.all(np.isfinite(q)) and np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        raise ValueError("q, theta_sfl and theta_pest must be finite")
+    result = q * (a - b)
+    return float(result) if np.ndim(result) == 0 else result
 
 
 # ------------------------------------------------------------------
