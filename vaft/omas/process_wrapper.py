@@ -4320,6 +4320,9 @@ def compute_field_line_trace(
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
         field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
+        # The slice data is already scaled to Wb/rad, which an undeclared index
+        # must not leave to the interpolator's warned default (#1313).
+        psi_per_radian=True,
     )
 
     wall_r = wall_z = None

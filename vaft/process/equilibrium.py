@@ -3340,76 +3340,52 @@ def calculate_q_profile_from_psi(
     return q_final
 
 
-def equilibrium_field_on_grid(
-    R_grid_1d: np.ndarray,
-    Z_grid_1d: np.ndarray,
-    psi_grid: np.ndarray,
-    psi_1d: np.ndarray,
-    f_1d: np.ndarray,
-    cocos=None,
-):
-    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, psi_per_radian):
+    """Arrays and Sauter prefactor for the two field builders, from a record or arrays.
 
-    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
-    caller that wants the field everywhere rather than at a point: the same
-    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
-    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
-    confined region.  Evaluating the point interpolator over a 129x129 grid
-    would be sixteen thousand Python calls; this is one spline evaluation.
-
-    Parameters
-    ----------
-    R_grid_1d, Z_grid_1d : array_like
-        Grid axes [m].
-    psi_grid : array_like
-        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
-        describes [Wb or Wb/rad].
-    psi_1d, f_1d : array_like
-        ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
-    cocos : int or None, optional
-        COCOS index of *psi_grid*. ``None`` keeps the historical
-        weber-per-radian form [-].
-
-    Returns
-    -------
-    tuple of numpy.ndarray
-        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
-
-    Raises
-    ------
-    ValueError
-        The flux map is not shaped to the two grid axes, or the two profile
-        arrays have different lengths.
-
-    Convention
-    ----------
-    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
-    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
-    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, so *psi_grid* must be
-    stored in the convention *cocos* names and a weber-stored flux can be
-    corrected only through that index. The toroidal field is the poloidal
-    current function over the major radius and inherits the sign of *f_1d*.
-    The flux map is indexed major radius first.
-
-    Applicability
-    -------------
-    Machine-independent.
-
-    Limitations
-    -----------
-    Outside the confined region the poloidal current function clips to its
-    nearest edge value, the clip-and-interpolate convention
-    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
-    function over the major radius rather than the true vacuum field. The
-    spline extrapolates beyond the grid, where the field should not be read.
-
-    Provenance
-    ----------
-    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
-    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
-       this module, which this routine is pinned to by test.
+    An :class:`~vaft.data.equilibrium.EquilibriumData` in the first slot
+    supplies the grid, the profiles *and* the flux convention, so the
+    prefactor cannot be paired with the wrong unit.  The array form carries
+    no unit, so ``cocos`` and ``psi_per_radian`` both unset is an assumption
+    -- weber per radian -- and is announced rather than taken silently
+    (#1313).
     """
+    from vaft.data.equilibrium import EquilibriumData
     from vaft.formula.equilibrium import poloidal_field_factor
+
+    if isinstance(R_grid_1d, EquilibriumData):
+        eq = R_grid_1d
+        extra = [name for name, value in (
+            ("Z_grid_1d", Z_grid_1d), ("psi_grid", psi_grid), ("psi_1d", psi_1d),
+            ("f_1d", f_1d), ("cocos", cocos), ("psi_per_radian", psi_per_radian),
+        ) if value is not None]
+        if extra:
+            raise TypeError(
+                f"{caller}: an EquilibriumData record carries its own grid, profiles and "
+                f"convention; do not also pass {', '.join(extra)}"
+            )
+        missing = [name for name in ("r", "z", "psi", "psi_1d", "f") if getattr(eq, name) is None]
+        if missing:
+            raise ValueError(f"{caller}: the equilibrium record has no {', '.join(missing)}")
+        R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d = eq.r, eq.z, eq.psi, eq.psi_1d, eq.f
+        cocos, psi_per_radian = eq.convention.cocos, eq.convention.psi_per_radian
+        what = "the equilibrium record declares neither a COCOS index nor a flux storage family"
+    else:
+        missing = [name for name, value in (
+            ("Z_grid_1d", Z_grid_1d), ("psi_grid", psi_grid), ("psi_1d", psi_1d), ("f_1d", f_1d),
+        ) if value is None]
+        if missing:
+            raise TypeError(f"{caller}: the array form needs {', '.join(missing)}")
+        what = "neither cocos nor psi_per_radian was given"
+    if cocos is None and psi_per_radian is None:
+        warnings.warn(
+            f"{caller}: {what}, so the flux is assumed to be in Wb/rad (k = -1). "
+            "A flux in Wb (COCOS 11-18, every ODS/IMAS equilibrium) then gives a "
+            "poloidal field 2*pi too large. Pass the EquilibriumData record, or "
+            "cocos=... / psi_per_radian=... for arrays.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
     Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
@@ -3423,12 +3399,109 @@ def equilibrium_field_on_grid(
     f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
     if psi_1d.size != f_1d.size:
         raise ValueError("psi_1d and f_1d must have the same length.")
+    k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
+    return R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k
+
+
+def equilibrium_field_on_grid(
+    R_grid_1d,
+    Z_grid_1d: np.ndarray | None = None,
+    psi_grid: np.ndarray | None = None,
+    psi_1d: np.ndarray | None = None,
+    f_1d: np.ndarray | None = None,
+    cocos=None,
+    *,
+    psi_per_radian: bool | None = None,
+):
+    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+
+    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
+    caller that wants the field everywhere rather than at a point: the same
+    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
+    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
+    confined region.  Evaluating the point interpolator over a 129x129 grid
+    would be sixteen thousand Python calls; this is one spline evaluation.
+
+    Called as ``equilibrium_field_on_grid(equilibrium)`` with an
+    :class:`~vaft.data.equilibrium.EquilibriumData`, the grid, profiles and
+    flux convention all come from the record, which is the form to prefer.
+
+    Parameters
+    ----------
+    R_grid_1d : array_like or EquilibriumData
+        Major-radius grid axis [m], or the whole equilibrium record, in which
+        case every other argument must be left unset [-].
+    Z_grid_1d : array_like, optional
+        Height grid axis; required with arrays [m].
+    psi_grid : array_like, optional
+        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
+        describes [Wb or Wb/rad].
+    psi_1d : array_like, optional
+        ``profiles_1d.psi`` [same psi unit].
+    f_1d : array_like, optional
+        ``profiles_1d.f`` [T m].
+    cocos : int or None, optional
+        COCOS index of *psi_grid* [-].
+    psi_per_radian : bool or None, optional
+        Storage family of the flux when the index is not known: ``False`` for
+        weber, ``True`` for weber per radian [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to the two grid axes, the two profile
+        arrays have different lengths, or the record lacks a field.
+    TypeError
+        A record is combined with array arguments, or the array form is
+        missing one.
+
+    Convention
+    ----------
+    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
+    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
+    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, evaluated by
+    :func:`vaft.formula.equilibrium.poloidal_field_factor` from *cocos* or,
+    failing that, *psi_per_radian*. A record supplies both from its
+    :attr:`~vaft.data.equilibrium.EquilibriumData.convention`. With neither,
+    the weber-per-radian ``k = -1`` is assumed, with a warning. The toroidal
+    field is the poloidal current function over the major radius and inherits
+    the sign of *f_1d*. The flux map is indexed major radius first.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With neither *cocos* nor *psi_per_radian* known, from the arguments or the
+    record, the flux is taken as weber per radian and a ``UserWarning`` says
+    so (#1313); a weber flux then gives a field ``2*pi`` too large.
+    Outside the confined region the poloidal current function clips to its
+    nearest edge value, the clip-and-interpolate convention
+    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
+    function over the major radius rather than the true vacuum field. The
+    spline extrapolates beyond the grid, where the field should not be read.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
+    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
+       this module, which this routine is pinned to by test.
+    """
+    R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k = _field_inputs(
+        "equilibrium_field_on_grid", R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d,
+        cocos, psi_per_radian,
+    )
 
     order = np.argsort(psi_1d)
     psi_sorted, f_sorted = psi_1d[order], f_1d[order]
     spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
     grid_r = R_grid_1d[:, None] * np.ones_like(Z_grid_1d)[None, :]
-    k = poloidal_field_factor(cocos)
 
     dpsi_dr = spline(R_grid_1d, Z_grid_1d, dx=1, dy=0)
     dpsi_dz = spline(R_grid_1d, Z_grid_1d, dx=0, dy=1)
@@ -3441,30 +3514,43 @@ def equilibrium_field_on_grid(
 
 
 def make_equilibrium_field_interpolator(
-    R_grid_1d: np.ndarray,
-    Z_grid_1d: np.ndarray,
-    psi_grid: np.ndarray,
-    psi_1d: np.ndarray,
-    f_1d: np.ndarray,
+    R_grid_1d,
+    Z_grid_1d: np.ndarray | None = None,
+    psi_grid: np.ndarray | None = None,
+    psi_1d: np.ndarray | None = None,
+    f_1d: np.ndarray | None = None,
     cocos=None,
+    *,
+    psi_per_radian: bool | None = None,
 ):
     """Build a callable giving the full magnetic field anywhere on one time slice.
 
+    Pass an :class:`~vaft.data.equilibrium.EquilibriumData` --
+    ``make_equilibrium_field_interpolator(equilibrium)`` -- and the grid, the
+    profiles and the flux convention are read from the record, so the unit of
+    psi cannot be mismatched. The array form remains for flux maps that have no
+    record, and then the convention must be stated.
+
     Parameters
     ----------
-    R_grid_1d : array_like
-        Major-radius grid axis [m].
-    Z_grid_1d : array_like
-        Height grid axis [m].
-    psi_grid : array_like
-        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
-    psi_1d : array_like
-        Flux abscissa the poloidal current function is given on [Wb/rad].
-    f_1d : array_like
+    R_grid_1d : array_like or EquilibriumData
+        Major-radius grid axis [m], or the whole equilibrium record, in which
+        case every other argument must be left unset [-].
+    Z_grid_1d : array_like, optional
+        Height grid axis; required with arrays [m].
+    psi_grid : array_like, optional
+        Poloidal flux on the grid, indexed ``(R, Z)``, in the convention
+        *cocos* describes [Wb or Wb/rad].
+    psi_1d : array_like, optional
+        Flux abscissa the poloidal current function is given on, in the same
+        unit as *psi_grid* [Wb or Wb/rad].
+    f_1d : array_like, optional
         Poloidal current function ``F = R*B_phi`` on that abscissa [T m].
     cocos : int, optional
-        COCOS index of *psi_grid*. ``None`` keeps the historical
-        weber-per-radian form [-].
+        COCOS index of *psi_grid* [-].
+    psi_per_radian : bool or None, optional
+        Storage family of the flux when the index is not known: ``False`` for
+        weber, ``True`` for weber per radian [-].
 
     Returns
     -------
@@ -3474,7 +3560,11 @@ def make_equilibrium_field_interpolator(
     Raises
     ------
     ValueError
-        The flux map is not shaped to the two grid axes.
+        The flux map is not shaped to the two grid axes, or the record lacks
+        a field.
+    TypeError
+        A record is combined with array arguments, or the array form is
+        missing one.
 
     Convention
     ----------
@@ -3484,10 +3574,10 @@ def make_equilibrium_field_interpolator(
     poloidal current function over the major radius. The flux map is indexed major
     radius first, matching :func:`extract_flux_surface_contours`.
 
-    Unlike :func:`poloidal_field_at_boundary`, this takes **only** the COCOS index
-    and no separate per-radian flag, so a weber-stored flux can be corrected here
-    only through the index. Supplying neither leaves the field too large by
-    ``2*pi``.
+    ``k`` comes from *cocos*, or from *psi_per_radian* when the index is open,
+    exactly as for :func:`poloidal_field_at_boundary`; a record supplies both
+    from its convention. Supplying neither assumes weber per radian and warns,
+    because a weber flux then gives a field ``2*pi`` too large (#1313).
 
     Applicability
     -------------
@@ -3495,6 +3585,10 @@ def make_equilibrium_field_interpolator(
 
     Limitations
     -----------
+    With neither *cocos* nor *psi_per_radian* known, from the arguments or the
+    record, the flux is taken as weber per radian, the historical default, and
+    a ``UserWarning`` says so (#1313); a weber flux, such as every ODS
+    equilibrium carries, then gives a field ``2*pi`` too large.
     The poloidal current function is defined only from axis to boundary. Points
     outside that range, in the scrape-off layer, clip to the nearest edge value,
     the same clip-and-interpolate convention :func:`psi_to_rz` uses. That is an
@@ -3509,28 +3603,15 @@ def make_equilibrium_field_interpolator(
     .. [2] The clip-and-interpolate convention of :func:`psi_to_rz`, kept
        deliberately the same.
     """
-    R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
-    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
-    psi_grid = np.asarray(psi_grid, dtype=float)
-    if psi_grid.shape != (R_grid_1d.size, Z_grid_1d.size):
-        raise ValueError(
-            f"psi_grid shape {psi_grid.shape} must equal "
-            f"(len(R_grid_1d), len(Z_grid_1d)) = {(R_grid_1d.size, Z_grid_1d.size)}."
-        )
-
-    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
-    f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
-    if psi_1d.size != f_1d.size:
-        raise ValueError("psi_1d and f_1d must have the same length.")
+    R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k = _field_inputs(
+        "make_equilibrium_field_interpolator", R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d,
+        cocos, psi_per_radian,
+    )
     sort_idx = np.argsort(psi_1d)
     psi_1d_sorted = psi_1d[sort_idx]
     f_1d_sorted = f_1d[sort_idx]
 
     psi_spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
-
-    from vaft.formula.equilibrium import poloidal_field_factor
-
-    k = poloidal_field_factor(cocos)
 
     def b_field(R: float, Z: float) -> tuple[float, float, float]:
         dpsi_dR = float(psi_spline.ev(R, Z, dx=1, dy=0))
