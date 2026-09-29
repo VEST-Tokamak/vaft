@@ -366,6 +366,39 @@ returns `pressure_closure_failed`. The profiles are assumptions, never measured 
 transport-predicted, and the slice says so. See
 `notebooks/synthetic_kinetic_profiles_from_equilibrium.ipynb`.
 
+### A self-consistent equilibrium and kinetic state
+
+`vaft.code.chease_kinetic_iteration.build_consistent_state` (#123) makes the equilibrium and the
+synthetic profiles agree under a declared `EquilibriumKineticSpec`. With
+`closure="equilibrium_pressure"` the equilibrium pressure is authoritative: #122 decomposes it once,
+and CHEASE is not called. With `closure="kinetic_pressure"` the kinetic pressure is authoritative.
+CHEASE re-solves the fixed-boundary equilibrium with `PRES`/`PPRIME` built from `p_kin` (a PCHIP
+interpolant and its derivative) and `FF'` from an explicit `CurrentPolicy`: the initial `FF'` shape
+or an analytic `g`, with `I_p` or `q95` held. The profiles are then regenerated on the new
+equilibrium from the same spec, and the loop repeats. Every state is kept with its residuals and
+validation, and the status names the outcome: `converged`, `max_iterations`, `diverged`,
+`oscillating`, `stagnated`, or a failure. The result is an assumption-driven self-consistent state,
+not a transport prediction or a reconstruction.
+
+```python
+from vaft.code.chease_kinetic_iteration import build_consistent_state
+from vaft.data import (EquilibriumKineticSpec, ProfileSpec, SyntheticKineticSpec,
+                       TemperatureAssumption)
+from vaft.data.resources import sample_geqdsk
+from vaft.process.profile import compose_analytic_profile
+
+n_e = ProfileSpec(compose_analytic_profile("n_e", axis_value=1e19, separatrix_value=2e18))
+decompose = EquilibriumKineticSpec(
+    SyntheticKineticSpec(n_e=n_e, temperature=TemperatureAssumption(ti_over_te=0.5),
+                         pressure_constraint="equilibrium", closure="temperature"),
+    closure="equilibrium_pressure")                              # no CHEASE solve
+state = build_consistent_state(sample_geqdsk(), decompose, time=0.319)
+state.status, state.initial.metrics["closure_max_relative"], len(state.iterations)
+```
+
+See `notebooks/self_consistent_equilibrium_kinetic_iteration.ipynb` for the `kinetic_pressure` loop
+on 39915.
+
 ## Plotting
 
 Each stage has a canonical plot, reached through the `vaft.omas.plot_*` adapters. They draw what the ODS
