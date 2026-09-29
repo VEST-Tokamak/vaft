@@ -39,14 +39,12 @@ References
 
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Callable, Mapping, Optional
 
 import numpy as np
 
-from .equilibrium import q_cyl_from_B_R_epsilon_kappa_I
 from .stability import greenwald_density
 
 __all__ = [
@@ -592,8 +590,8 @@ def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):
     Raises
     ------
     ValueError
-        From ``q_cyl_from_B_R_epsilon_kappa_I`` for a non-positive or
-        non-finite field, radius, elongation or current.
+        A negative density, or a non-positive field, radius, minor radius or
+        elongation.
 
     Convention
     ----------
@@ -603,11 +601,27 @@ def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):
     is the cylindrical $q$, not $q_{95}$. At VEST aspect ratio the two differ
     substantially, and plotting $1/q_{95}$ against this boundary is only
     approximate.
+
+    Numerical notes
+    ---------------
+    $1/q_{cyl}$ is formed directly rather than as ``1/q_cyl_from_...``, so a
+    zero current maps to the origin $y = 0$ instead of raising. A whole time
+    trace, including start-up and termination, can therefore be projected
+    without cropping.
     """
-    q_cyl = q_cyl_from_B_R_epsilon_kappa_I(
-        np.abs(B_t), R_geo, np.asarray(a, dtype=float) / R_geo, kappa_a, np.abs(np.asarray(I_p, dtype=float)) * 1e6
-    )
-    return _scalar_or_array(np.asarray(n_e, dtype=float) * R_geo / np.abs(B_t)), _scalar_or_array(1.0 / np.asarray(q_cyl))
+    n = np.asarray(n_e, dtype=float)
+    B_abs = np.abs(np.asarray(B_t, dtype=float))
+    R = np.asarray(R_geo, dtype=float)
+    a_arr = np.asarray(a, dtype=float)
+    kappa = np.asarray(kappa_a, dtype=float)
+    if np.any(n < 0):
+        raise ValueError("n_e must be non-negative")
+    for name, value in (("B_t", B_abs), ("R_geo", R), ("a", a_arr), ("kappa_a", kappa)):
+        if np.any(~(value > 0)):
+            raise ValueError(f"{name} must be positive and finite")
+    x = n * R / B_abs
+    y = np.abs(np.asarray(I_p, dtype=float)) * R / (5.0 * a_arr**2 * kappa * B_abs)
+    return _scalar_or_array(x), _scalar_or_array(y)
 
 
 # ------------------------------------------------------------------

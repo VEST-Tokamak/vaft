@@ -349,3 +349,33 @@ def test_hugill_coordinates_drop_the_current_and_field_sign():
     minus = B.hugill_coordinates(3.0, 0.4, -0.15, 0.236, 1.52, -0.08)
     assert plus == pytest.approx(minus)
     assert plus[0] == pytest.approx(3.0 * 0.4 / 0.15)
+
+
+def test_hugill_y_is_the_inverse_of_the_repository_q_cyl():
+    from vaft.formula.equilibrium import q_cyl_from_B_R_epsilon_kappa_I
+
+    R, B_t, a, kappa, I_p = 0.4, 0.15, 0.236, 1.52, np.array([0.03, 0.08])
+    _, y = B.hugill_coordinates(1.0, R, B_t, a, kappa, I_p)
+    np.testing.assert_allclose(y, 1.0 / q_cyl_from_B_R_epsilon_kappa_I(B_t, R, a / R, kappa, I_p * 1e6), rtol=1e-12)
+    assert B.hugill_coordinates(3.0, R, B_t, a, kappa, 0.08)[1] == pytest.approx(0.4 * 0.08 / (5 * 0.236**2 * 1.52 * 0.15))
+
+
+def test_hugill_coordinates_map_zero_current_to_the_origin():
+    """A VEST time trace starts and ends at I_p = 0; it must project, not raise."""
+    x, y = B.hugill_coordinates(np.array([0.0, 2.0]), 0.4, 0.15, 0.236, 1.52, np.array([0.0, 0.08]))
+    assert x[0] == 0.0 and y[0] == 0.0 and y[1] > 0
+
+
+def test_hugill_coordinates_reject_unphysical_inputs():
+    with pytest.raises(ValueError, match="n_e"):
+        B.hugill_coordinates(-1.0, 0.4, 0.15, 0.236, 1.52, 0.08)
+    with pytest.raises(ValueError, match="kappa_a"):
+        B.hugill_coordinates(1.0, 0.4, 0.15, 0.236, 0.0, 0.08)
+
+
+def test_swap_axes_maps_above_to_right():
+    boundary = _power_law(side="above")
+    curve = B.boundary_curve(boundary, "x", [1.0, 2.0], swap_axes=True, y=1.0)
+    assert curve.allowed_side == "right"
+    np.testing.assert_allclose(curve.x, [2.0, 4.0])
+    np.testing.assert_allclose(curve.y, [1.0, 2.0])
