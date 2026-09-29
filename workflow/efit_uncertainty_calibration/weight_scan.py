@@ -513,29 +513,68 @@ def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None, sta
             name = cell_setting(s["cell"], s["multipliers"])["name"]
             calibration_now = criteria.setting_calibration([r for r in batch if r.get("setting") == name
                                                             and "error" not in r])
-            medians = {f: v["median_reduced_chi2"] for f, v in calibration_now["families"].items()}
-            s["history"].append({"round": round_index, "setting": name, "multipliers": dict(s["multipliers"]),
-                                 "calibration": calibration_now})
-            if calibration_now["calibrated"]:
-                s["done"] = True
-            elif not any(v is not None and math.isfinite(v) for v in medians.values()):
-                # Nothing converged at these multipliers (a loose fit loses the
-                # boundary in `bound`): step back halfway to the last round's.
-                if len(s["history"]) < 2:
-                    s["done"] = True
-                else:
-                    s["multipliers"] = backoff_multipliers(s["history"][-2]["multipliers"], s["multipliers"])
-            else:
-                s["multipliers"] = next_multipliers(s["multipliers"], medians)
-            print(f"round {round_index} {name}: {medians} -> {s['multipliers']} done={s['done']}", flush=True)
+            advance_cell(s, round_index, name, calibration_now)
+            print(f"round {round_index} {name}: {s['history'][-1]['medians']} -> {s['multipliers']} "
+                  f"status={s['status']}", flush=True)
+    for s in state:
+        finish_cell(s)
     return {"cells": state, "records": records}
+
+
+def _finite_medians(medians: Mapping[str, Any]) -> bool:
+    return any(v is not None and math.isfinite(v) for v in medians.values())
+
+
+def advance_cell(s: dict[str, Any], round_index: int, name: str, calibration_now: Mapping[str, Any]) -> None:
+    """Record one round of a cell and choose its next multipliers, or finish it.
+
+    ``status`` ends as ``calibrated``; ``no_converged_slice`` (nothing ever
+    converged); or ``stalled`` (the next multipliers equal these, e.g. at the
+    clamp, which would rerun the same setting under the same name).  A round in
+    which nothing converged steps back halfway towards the last round that did.
+    """
+    medians = {f: v["median_reduced_chi2"] for f, v in calibration_now["families"].items()}
+    s["history"].append({"round": round_index, "setting": name, "multipliers": dict(s["multipliers"]),
+                         "medians": medians, "calibration": calibration_now})
+    s.setdefault("status", "running")
+    if calibration_now["calibrated"]:
+        s["done"], s["status"] = True, "calibrated"
+        return
+    if _finite_medians(medians):
+        proposed = next_multipliers(s["multipliers"], medians)
+    else:
+        # Nothing converged here (a loose fit loses the boundary in `bound`).
+        anchor = next((h for h in reversed(s["history"][:-1]) if _finite_medians(h["medians"])), None)
+        if anchor is None:
+            s["done"], s["status"] = True, "no_converged_slice"
+            return
+        proposed = backoff_multipliers(anchor["multipliers"], s["multipliers"])
+    if proposed == s["multipliers"]:
+        s["done"], s["status"] = True, "stalled"
+        return
+    s["multipliers"] = proposed
+
+
+def finish_cell(s: dict[str, Any]) -> None:
+    """Leave ``multipliers`` at the last multipliers actually run.
+
+    A cell still uncalibrated after the last round keeps its untested next
+    step under ``proposed_multipliers``, so ``multipliers`` is never read as a
+    solved sigma that was not run.
+    """
+    if not s["history"]:
+        return
+    if not s["done"]:
+        s["done"], s["status"] = True, "rounds_exhausted"
+        s["proposed_multipliers"] = s["multipliers"]
+    s["multipliers"] = dict(s["history"][-1]["multipliers"])
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--table", required=True, type=Path)
-    parser.add_argument("--stage", type=int, default=1)
+    parser.add_argument("--stage", type=int, default=1, choices=(1, 2, 3, 4, 5))
     parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 1/2 only)")
     # --stage 3: self-consistent sigma, SAICON-gated exit; --stage 4: the same on psi convergence alone
     parser.add_argument("--bases", default=None, help="stage 4 only: kppcur,kffcur pairs, e.g. '1,3;2,2'")
@@ -544,6 +583,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--workers", type=int, default=24, help="slices run at once (1 = serial)")
     parser.add_argument("--efit-home", default=None)
     args = parser.parse_args(argv)
+    if args.bases and args.stage != 4:
+        parser.error("--bases applies to --stage 4 only")
+    if args.settings and args.stage in (3, 4):
+        parser.error("--settings applies to stages 1, 2 and 5; stages 3 and 4 solve their own")
 
     ctx = _context(args.efit_home)
     if ctx["efit"] is None:

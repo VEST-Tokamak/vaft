@@ -201,13 +201,14 @@ def test_next_multipliers_reaches_the_band_on_a_one_over_m_squared_model(scan, c
     true_scale = {"probe": 5.3, "loop": 0.8}   # the multiplier that would give chi2r = 1
     multipliers = dict(scan.STAGE3_START)
     low, high = criteria.CRITERIA["calibration_band"]
-    for round_index in range(3):
+    steps = 0
+    while True:
         medians = {f: (true_scale[f] / m) ** 2 for f, m in multipliers.items()}
         if all(low <= v <= high for v in medians.values()):
             break
         multipliers = scan.next_multipliers(multipliers, medians)
-    medians = {f: (true_scale[f] / m) ** 2 for f, m in multipliers.items()}
-    assert all(low <= v <= high for v in medians.values()) and round_index <= 2
+        steps += 1
+        assert steps <= 3, "did not reach the band in three steps"
 
 
 def test_next_multipliers_clamps_and_keeps_a_family_without_a_median(scan):
@@ -246,6 +247,46 @@ def test_stage5_is_the_working_setting_at_two_tolerances(scan):
     assert len({s["name"] for s in study}) == 2
     assert all(s["basis"] == [2, 1] and s["psi_exit"] for s in study)
     assert scan.uncertainty_scales(study[0])["plasma_current"] == pytest.approx(0.25)
+
+
+def _calibration(probe, loop, calibrated=False):
+    return {"calibrated": calibrated, "families": {"probe": {"median_reduced_chi2": probe},
+                                                   "loop": {"median_reduced_chi2": loop}}}
+
+
+def test_a_repeated_backoff_steps_towards_the_last_round_that_converged(scan):
+    nan = float("nan")
+    s = {"multipliers": {"probe": 8.0, "loop": 2.0}, "done": False, "history": []}
+    scan.advance_cell(s, 0, "a", _calibration(2.6, 2.5))          # converged -> step out
+    stepped = dict(s["multipliers"])
+    scan.advance_cell(s, 1, "b", _calibration(nan, nan))          # nothing converged -> back off
+    first = dict(s["multipliers"])
+    assert first == scan.backoff_multipliers({"probe": 8.0, "loop": 2.0}, stepped)
+    scan.advance_cell(s, 2, "c", _calibration(nan, nan))          # again: towards round 0, not round 1
+    assert s["multipliers"] == scan.backoff_multipliers({"probe": 8.0, "loop": 2.0}, first)
+    assert s["multipliers"]["probe"] < first["probe"] and not s["done"]
+
+
+def test_cell_status_and_the_multipliers_actually_run(scan):
+    nan = float("nan")
+    never = {"multipliers": {"probe": 8.0, "loop": 2.0}, "done": False, "history": []}
+    scan.advance_cell(never, 0, "a", _calibration(nan, nan))
+    assert never["done"] and never["status"] == "no_converged_slice"
+    clamped = {"multipliers": {"probe": 64.0, "loop": 2.0}, "done": False, "history": []}
+    scan.advance_cell(clamped, 0, "a", _calibration(9.0, 1.0))    # probe wants > 64: clamped, no move
+    assert clamped["done"] and clamped["status"] == "stalled"
+    running = {"multipliers": {"probe": 4.0, "loop": 1.0}, "done": False, "history": []}
+    scan.advance_cell(running, 0, "a", _calibration(4.0, 1.0))
+    scan.finish_cell(running)
+    assert running["status"] == "rounds_exhausted"
+    assert running["multipliers"] == {"probe": 4.0, "loop": 1.0}   # what was run, not the next step
+    assert running["proposed_multipliers"] == {"probe": 8.0, "loop": 1.0}
+
+
+def test_a_slice_without_a_fit_is_not_good(criteria):
+    record = _good_record(fit=None)
+    result = criteria.evaluate(record)
+    assert result["verdicts"]["measurement"]["status"] == "not_available" and not result["good"]
 
 
 def test_backoff_steps_halfway_back_in_log(scan):

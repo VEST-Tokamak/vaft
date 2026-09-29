@@ -216,9 +216,10 @@ def evaluate(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) 
     against a slice but is reported.
     """
     verdicts = {name: CHECKS[name](record, criteria) for name in ORDER}
-    good = verdicts["admissible"]["status"] == PASS and all(
-        verdicts[name]["status"] != FAIL for name in ORDER[1:]
-    )
+    # The measurement criterion must actually pass: a slice with no fitted
+    # family (no m-file) has not been checked against the data at all.
+    good = (verdicts["admissible"]["status"] == PASS and verdicts["measurement"]["status"] == PASS
+            and all(verdicts[name]["status"] != FAIL for name in ORDER[2:]))
     return {"verdicts": verdicts, "good": bool(good)}
 
 
