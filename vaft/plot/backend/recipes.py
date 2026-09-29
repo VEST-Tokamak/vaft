@@ -680,6 +680,13 @@ class ProfileRecipe:
 
     y_path: str
     coordinate_paths: dict[str, str] = field(default_factory=dict)
+    #: How a declared coordinate leaf becomes the coordinate it is named for
+    #: (issue #1314), by coordinate name: ``"square"`` draws the square of the
+    #: leaf, for a leaf that stores the coordinate's square root (the DD
+    #: ``grid.rho_pol_norm`` is sqrt(psi_N), so ``psi_norm`` squares it).  A
+    #: coordinate not named here is drawn as stored.  The axis is always
+    #: labelled with the coordinate's name, so the value drawn must be it.
+    coordinate_forms: dict[str, str] = field(default_factory=dict)
     default_coordinate: str = "rho_tor_norm"
     slice_container: str = ""
     index: str = "time_slice"
@@ -1715,6 +1722,8 @@ RECIPES: dict[str, Any] = {
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
             "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
         },
+        # grid.rho_pol_norm is sqrt(psi_N): drawn squared under the psi_N label.
+        coordinate_forms={"psi_norm": "square"},
         slice_container="core_profiles.profiles_1d",
         y_label="Electron Temperature",
         y_unit="eV",
@@ -1725,6 +1734,8 @@ RECIPES: dict[str, Any] = {
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
             "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
         },
+        # grid.rho_pol_norm is sqrt(psi_N): drawn squared under the psi_N label.
+        coordinate_forms={"psi_norm": "square"},
         slice_container="core_profiles.profiles_1d",
         y_label="Electron Density",
         y_unit="m^-3",
@@ -7096,6 +7107,20 @@ def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     return _EQUILIBRIUM_COORDINATES.get(name)
 
 
+#: The forms :attr:`ProfileRecipe.coordinate_forms` may name.
+COORDINATE_FORMS = ("stored", "square")
+
+
+def _declared_coordinate_form(recipe: ProfileRecipe, name: str, values: Any) -> Any:
+    """``values`` of the declared leaf of ``name`` turned into ``name`` itself (#1314)."""
+    form = recipe.coordinate_forms.get(name, "stored")
+    if form not in COORDINATE_FORMS:
+        raise ValueError(f"coordinate form must be one of {', '.join(COORDINATE_FORMS)}; got {form!r}")
+    if values is None or form == "stored":
+        return values
+    return np.square(np.asarray(values, dtype=float))
+
+
 def _radial_coordinates_for(ods: Any, index: int, cache: dict | None = None) -> Any:
     """A private copy of the equilibrium with slice ``index``'s midplane radii.
 
@@ -7279,6 +7304,7 @@ def _equilibrium_trace(
         x = _array(ods, coordinate_path.format(i=time_slice)) if coordinate_path else None
         if x is not None and x.size != y.size:
             x = None
+        x = _declared_coordinate_form(recipe, coordinate, x)
         resolved = coordinate
     elif coordinate == "r_major":
         radial = _radial_arrays(ods, time_slice, y.size, cache)
