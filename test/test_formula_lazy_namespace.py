@@ -47,6 +47,7 @@ _IMPORT_ORDER = (
     "pwi",
     "sol",
     "boundaries",
+    "blob",
 )
 
 

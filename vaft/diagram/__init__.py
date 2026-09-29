@@ -143,6 +143,9 @@ __all__ = [
     "wall_conditioning_gdc",
     "wall_conditioning_boronization",
     "wall_conditioning_sequence",
+    "blob_polarization",
+    "blob_velocity_scaling",
+    "blob_regimes",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -249,6 +252,9 @@ _LOCATIONS = {
     "wall_conditioning_gdc": "._wall_conditioning",
     "wall_conditioning_boronization": "._wall_conditioning",
     "wall_conditioning_sequence": "._wall_conditioning",
+    "blob_polarization": "._blob",
+    "blob_velocity_scaling": "._blob",
+    "blob_regimes": "._blob",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

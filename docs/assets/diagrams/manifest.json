@@ -20,6 +20,21 @@
       "source_sha256": "2e5218ef8e2d4e3e660646784e5e848f36768a35443798a16a585e0748377c57",
       "svg_sha256": "ebe617934f0f61b8ca3c06cd8ceb2011ea7b6d8c355aa0f47d0047b60d0609ae"
     },
+    "blob_polarization.svg": {
+      "call": "vaft.diagram.blob_polarization()",
+      "source_sha256": "01e6448142d6b0c3aed43d5e52f06007ecea72d2d58cd61224ec290e88ef08f5",
+      "svg_sha256": "b5e257f03dc9a090ccb1dc4cc136d69b133c43a8a25d853dc1b27481e1655405"
+    },
+    "blob_regimes.svg": {
+      "call": "vaft.diagram.blob_regimes()",
+      "source_sha256": "bf7c9b71bb7ee4acb575975e0326f0ebaedfd77f93bdeb62083e449827a550ed",
+      "svg_sha256": "1a8dcc0b35673b6c34abd6c05cbf0ebeb64f3a3d40fe9623bf0768f8326e29b2"
+    },
+    "blob_velocity_scaling.svg": {
+      "call": "vaft.diagram.blob_velocity_scaling()",
+      "source_sha256": "c9f9a1c89d34edf2f97caf0813091902e58659c2bf388eef08aef840dd95d500",
+      "svg_sha256": "befe96ef0dabbae008f34987e721986217141ed5c20bf0fcf4f0cf94fdd4d066"
+    },
     "canonical_toroidal_momentum.svg": {
       "call": "vaft.diagram.canonical_toroidal_momentum()",
       "source_sha256": "c582b680226b495b7f463eb07d7c427482153e3d6395f169d49870c9f3030724",

@@ -97,6 +97,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "blob": 7,  # SOL blob reference scales, closure-limited velocities, regime scalings (#1211)
         "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
         "ntv": 2,  # precession frequency and flux-torque relation (#1111)
         "sol": 8,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951)

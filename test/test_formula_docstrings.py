@@ -78,6 +78,14 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # SOL blobs (#1211): one paper's Gaussian size convention; prefactors differ between papers
+    "blob_reference_size",
+    "blob_reference_velocity",
+    "blob_collisionality",
+    "sheath_connected_blob_velocity",
+    "inertial_blob_velocity",
+    "interpolated_blob_velocity",
+    "blob_regime_velocities",
     # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
     "plasma_frequency",
     "stix_parameters",
