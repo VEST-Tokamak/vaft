@@ -27,6 +27,7 @@ __all__ = [
     "coil_3d_geometry3d",
     "coil_3d_geometry_topview",
     "draw_geometry_layer",
+    "finite_runs",
     "equilibrium_geometry_boundary",
     "equilibrium_geometry_topview",
     "machine_geometry_poloidal",
@@ -78,7 +79,74 @@ def draw_geometry_layer(
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
         r = np.concatenate([r, r[:1]])
         z = np.concatenate([z, z[:1]])
+    runs = finite_runs(r, z)
+    if runs is not None:
+        _draw_runs(axes, runs, options)
+        return
     axes.plot(r, z, **options)
+
+
+def finite_runs(r: Any, z: Any) -> list[np.ndarray] | None:
+    """The finite stretches of a polyline, or ``None`` when it has no gap.
+
+    A layer marks a break with a non-finite sample (issue #1314): the camera
+    overlays set a sample that is behind the camera or outside the lens model
+    to NaN.  Each run is an ``(n, 2)`` array of consecutive finite samples;
+    a lone finite sample between two gaps is no segment and is dropped.
+    """
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    finite = np.isfinite(r) & np.isfinite(z)
+    if finite.all():
+        return None
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], finite.astype(np.int8), [0]])))
+    return [
+        np.column_stack([r[start:stop], z[start:stop]])
+        for start, stop in zip(edges[::2], edges[1::2])
+        if stop - start >= 2
+    ]
+
+
+#: Line2D keywords that a :class:`~matplotlib.collections.LineCollection`
+#: has no counterpart for; markers are drawn separately.
+_MARKER_KEYS = ("marker", "markersize", "ms", "markevery", "markerfacecolor", "mfc",
+                "markeredgecolor", "mec", "markeredgewidth", "mew", "fillstyle", "drawstyle", "ds")
+
+
+def _draw_runs(axes: Axes, runs: list[np.ndarray], options: dict[str, Any]) -> None:
+    """Draw ``runs`` as explicit segments, never one path across their gaps.
+
+    Matplotlib breaks a ``Line2D`` at NaN, but only while the NaN is still in
+    the line's data: anything that rewrites that data after ``plot`` -- a
+    third-party ``xlim_changed`` hook that crops each line to the view, which
+    a Jupyter startup script can install (issue #1314) -- joins the runs with
+    straight segments.  A ``LineCollection`` holds each run as its own path.
+    """
+    from matplotlib.collections import LineCollection
+
+    options = dict(options)
+    marker = {key: options.pop(key) for key in _MARKER_KEYS if key in options}
+    if options.get("color") is None and options.get("c") is None:
+        options["color"] = axes._get_lines.get_next_color()
+    kwargs: dict[str, Any] = {}
+    for key, value in options.items():
+        name = {"c": "color", "lw": "linewidth", "ls": "linestyle",
+                "solid_capstyle": "capstyle", "solid_joinstyle": "joinstyle"}.get(key, key)
+        if name in ("dash_capstyle", "dash_joinstyle"):
+            continue
+        kwargs[name] = value
+    if kwargs.get("linestyle") in ("none", "None", "", " "):
+        kwargs.pop("linestyle")
+        kwargs["linewidth"] = 0.0
+    collection = LineCollection(runs, **kwargs)
+    axes.add_collection(collection, autolim=True)
+    # Autoscale lazily, as ``plot`` does, so a later set_xlim still wins.
+    request = getattr(axes, "_request_autoscale_view", None)
+    request() if request is not None else axes.autoscale_view()
+    if marker.get("marker") not in (None, "", "none", "None") and runs:
+        points = np.concatenate(runs)
+        extra = {"zorder": kwargs["zorder"]} if "zorder" in kwargs else {}
+        axes.plot(points[:, 0], points[:, 1], linestyle="none", color=kwargs.get("color"), **extra, **marker)
 
 
 def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
