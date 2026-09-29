@@ -72,6 +72,8 @@ __all__ = [
     "shear_alfven_frequency",
     "magnetosonic_phase_speeds",
     "kadomtsev_mixing_radius",
+    "ballooning_radial_wavenumber",
+    "s_alpha_ballooning_eigenmode",
 ]
 
 
