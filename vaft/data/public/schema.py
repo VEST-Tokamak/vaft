@@ -3,7 +3,7 @@
 * :data:`CONFINEMENT_COLUMNS` -- one row per confinement record, a
   steady-state window of one discharge (ITPA DB5.2.3, VEST summaries).
 * :data:`TRANSITION_COLUMNS` -- one row per regime-transition record, with the
-  event named explicitly (TCV L-H database; TC-26 when available).
+  event named explicitly (TCV L-H database, ITPA TC-26 metal-wall database).
 
 Every analysis and plot downstream reads only these columns -- never a
 source-specific name.
@@ -100,17 +100,20 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
 TRANSITION_COLUMNS: dict[str, ColumnSpec] = {
     # identity
     "machine": ColumnSpec("str", "Canonical machine name, upper case (e.g. 'TCV')."),
-    "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time_ms>' identifier."),
+    "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time_ms>' identifier, time_ms from time_s."),
     "shot": ColumnSpec("int", "Discharge number."),
-    "time_s": ColumnSpec("s", "Time of the transition, or of the record when none was observed."),
+    "time_s": ColumnSpec("s", "Time the record's conditions were taken at (e.g. L-mode just before the transition)."),
+    "transition_time_s": ColumnSpec("s", "Time of the transition itself; missing when it was not observed or not given."),
     # event semantics
     "transition": ColumnSpec("str", "Event name, e.g. 'L_to_H'.  'H_to_L' is a different event, not its inverse."),
     "source_regime": ColumnSpec("str", "Regime before the event, e.g. 'L_mode'."),
     "target_regime": ColumnSpec("str", "Regime after the event, e.g. 'H_mode'."),
-    "transition_observed": ColumnSpec("bool", "True: the event happened at time_s; False: sought but not observed at these conditions."),
+    "transition_observed": ColumnSpec("bool", "True: the event happened (at transition_time_s); False: sought but not observed at these conditions."),
+    "source_phase": ColumnSpec("str", "The source's own phase / event label, verbatim (e.g. TC-26 'LH', 'LHL'; TCV 'ILH=1')."),
+    "selected": ColumnSpec("bool", "Source's own standard-set flag (TC-26: SELEC2024 == 1); False where the source has none."),
     # conditions at the event
     "p_loss_W": ColumnSpec("W", "Loss power at the event (see p_loss_definition)."),
-    "p_rad_W": ColumnSpec("W", "Total radiated power at the event."),
+    "p_rad_W": ColumnSpec("W", "Radiated power at the event (see p_rad_definition: total or core)."),
     "i_p_A": ColumnSpec("A", "Plasma current magnitude."),
     "b_t_T": ColumnSpec("T", "Toroidal field magnitude (see b_t_definition)."),
     "n_e_line_avg_m3": ColumnSpec("m^-3", "Line-averaged electron density (see n_e_definition)."),
@@ -121,17 +124,22 @@ TRANSITION_COLUMNS: dict[str, ColumnSpec] = {
     "delta": ColumnSpec("1", "Average triangularity."),
     "q95": ColumnSpec("1", "Safety factor at 95 % poloidal flux."),
     "z_eff": ColumnSpec("1", "Effective charge."),
-    "main_ion": ColumnSpec("str", "Main ion species, 'H', 'D', 'He' ...; missing when the source does not say."),
+    "main_ion": ColumnSpec("str", "Fuelling / main ion species the source assigns, 'H', 'D', 'He' ...; not a purity statement (see hydrogenic_mix); missing when the source does not say."),
     "main_ion_mass_amu": ColumnSpec("amu", "Main ion mass number."),
-    "hydrogen_fraction": ColumnSpec("1", "Hydrogen concentration as the source measures it (see isotope_definition)."),
-    "helium_fraction": ColumnSpec("1", "Helium concentration as the source measures it (see isotope_definition)."),
+    "hydrogen_fraction": ColumnSpec("1", "Hydrogen concentration of the hydrogenic ions, as the source measures it (see isotope_definition)."),
+    "helium_fraction": ColumnSpec("1", "Helium concentration estimate as the source gives it (see isotope_definition)."),
+    "hydrogenic_mix": ColumnSpec("str", "'D-dominated', 'H-dominated' or 'mixed H/D' for hydrogenic plasmas; missing otherwise (see isotope_definition)."),
     "divertor_configuration": ColumnSpec("str", "Magnetic configuration (e.g. 'LSN', 'USN', 'DN', 'limited'); missing when the source does not say."),
-    "divertor_closure": ColumnSpec("str", "Divertor closure / baffling as the source labels it."),
+    "divertor_closure": ColumnSpec("str", "Divertor geometry / closure / baffling as the source labels it."),
+    "grad_b_drift": ColumnSpec("str", "Ion grad-B drift direction: 'toward_x_point' or 'away_from_x_point'; missing when not given."),
+    "first_wall": ColumnSpec("str", "Plasma-facing materials as the source labels them (main chamber / divertor)."),
+    "auxiliary_heating": ColumnSpec("str", "Auxiliary heating method(s) as the source labels them (e.g. 'NB', 'IC', 'NBEC')."),
     "density_branch": ColumnSpec("str", "'low' or 'high' relative to n_e_min_m3; missing without n_e_min_m3."),
     "n_e_min_m3": ColumnSpec("m^-3", "Density of minimum threshold power (see density_branch_definition)."),
     "p_lh_scaling_W": ColumnSpec("W", "Scaling-law threshold power for this record (see p_lh_scaling_definition)."),
     # definitions and provenance
     "p_loss_definition": ColumnSpec("str", "How p_loss_W was formed, in the source's terms."),
+    "p_rad_definition": ColumnSpec("str", "Which radiated power p_rad_W is."),
     "b_t_definition": ColumnSpec("str", "Which field b_t_T is."),
     "n_e_definition": ColumnSpec("str", "Which chord or construction n_e_line_avg_m3 is."),
     "isotope_definition": ColumnSpec("str", "How main ion and concentrations were determined."),

@@ -11,16 +11,30 @@ What the file says, and what it does not
 * ``ILH`` flags whether the L-H transition was observed.  ``ILH = 0`` rows are
   L-mode records at which the transition was sought and not seen; they become
   rows with ``transition_observed = False``, not a different event.
-* ``TIME`` is the L-H transition time.  ``THL`` is labelled "time of H-L
-  transition" but is populated on ``ILH = 0`` rows too and takes a handful of
-  window-end values (2.50 s on 53 of 92 rows), so it is **not** turned into an
-  ``H_to_L`` event.
+* ``TIME`` is labelled "time of L-H transition"; on ``ILH = 0`` rows it can
+  only be the time of the no-transition window the record was evaluated at.
+  Every quantity in the file is taken at ``TIME``, so ``time_s = TIME`` and
+  ``transition_time_s = TIME`` where ``ILH = 1`` (missing otherwise).
+* ``THL`` ("time of H-L transition") is **not** turned into an ``H_to_L``
+  event: an H-L record needs the conditions at the H-L time, and the file has
+  none -- all its quantities belong to ``TIME``.  (Some ``THL`` values look like
+  real back-transitions, 0.07-0.5 s after ``TIME``; many are window ends,
+  2.50 s on 53 of 92 rows, and ``ILH = 0`` rows carry one too.)
 * ``PLH`` is the Martin 2008 scaling computed by the source (it matches
   ``0.0488 n20^0.717 B^0.803 S^0.941`` to 0.4 %, without isotope correction).
   VAFT has no L-H threshold formula yet (#670, #1066), so the source value is
   carried with that provenance rather than recomputed.
 * ``nRyter`` is the Ryter (2014) density of minimum threshold power, also
   computed by the source; the density branch is assigned against it.
+* ``A`` / ``Z`` are the fuelling species the source assigns, not the plasma's
+  purity: ``A = 1`` ("H") rows have CNPA ``cH`` of only 0.65-0.90, and four
+  ``A = 2`` rows have ``cH`` near 1.  ``main_ion`` carries ``A``/``Z``;
+  ``hydrogenic_mix`` classifies the mixture with the authors' own cuts
+  (``cH < 0.3`` D-dominated, ``cH > 0.8`` H-dominated, as in the paper's
+  notebook).
+* ``cH`` is the CNPA hydrogen concentration of the hydrogenic ions, so on He
+  plasmas it describes the hydrogenic residue, not He purity; ``cHe`` is the
+  source's helium concentration estimate.
 * The file gives no magnetic configuration, so ``divertor_configuration`` is
   missing; ``BAFFLES`` is carried as ``divertor_closure``.
 """
@@ -49,15 +63,18 @@ _MAIN_ION = {(1, 1): "H", (2, 1): "D", (3, 1): "T", (3, 2): "He3", (4, 2): "He"}
 
 TCV_LH_DEFINITIONS: dict[str, str] = {
     "p_loss_definition": (
-        "TCV PLMW, 'experimental loss power' (source definition; on this file it "
-        "agrees on average with coupled power PTOTMW_A - dW_MHD/dt); radiation "
-        "NOT subtracted"
+        "TCV PLMW = PTOTMW_A - DWMHDMW_A: ASTRA coupled power (ohmic + absorbed "
+        "NBI + ECH) minus ASTRA dW/dt, exact on this file; radiation NOT subtracted"
     ),
+    "p_rad_definition": "TCV PRAD: total radiated power",
     "b_t_definition": "TCV BT, 'toroidal magnetic field' (reference radius not stated in the file)",
     "n_e_definition": "TCV NEL, line-averaged density (interferometer)",
     "isotope_definition": (
-        "main ion from the source's A and Z; hydrogen fraction cH from CNPA; "
-        "helium fraction cHe as given by the source"
+        "main_ion = fuelling species from the source's A and Z (not purity); "
+        "hydrogen_fraction = source cH, CNPA hydrogen concentration of the "
+        "hydrogenic ions (on He plasmas: of the hydrogenic residue); "
+        "helium_fraction = source cHe estimate; hydrogenic_mix from cH with the "
+        "authors' cuts: < 0.3 D-dominated, > 0.8 H-dominated, else mixed"
     ),
     "density_branch_definition": (
         "n_e_min_m3 = source nRyter (Ryter 2014 minimum-threshold density, "
@@ -170,6 +187,11 @@ def normalize_tcv_lh(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd
     shots = col("SHOT")
     times = col("TIME")
     ilh = col("ILH")
+    if not (np.all(np.isfinite(shots)) and np.all(np.isfinite(times))):
+        raise ValueError("Every TCV record needs a SHOT and a TIME to be identified")
+    if not np.all(np.isin(ilh, (0.0, 1.0))):
+        # A blank ILH is unknown, not "sought but not observed".
+        raise ValueError("ILH must be 0 or 1 on every record")
     mass = col("A")
     charge = col("Z")
     n_e = col("NEL")
@@ -177,18 +199,22 @@ def normalize_tcv_lh(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd
 
     table = pd.DataFrame(index=raw.index)
     table["machine"] = "TCV"
-    table["shot"] = pd.array(np.where(np.isfinite(shots), shots, np.nan), dtype="Float64").astype("Int64")
+    table["shot"] = pd.array(shots.astype(np.int64), dtype="Int64")
     table["time_s"] = times
     table["record_id"] = [make_record_id("TCV", s, t) for s, t in zip(shots, times)]
     table["transition"] = "L_to_H"
     table["source_regime"] = "L_mode"
     table["target_regime"] = "H_mode"
-    if not np.all(np.isin(ilh[np.isfinite(ilh)], (0.0, 1.0))):
-        raise ValueError("ILH must be 0 or 1")
     table["transition_observed"] = ilh == 1.0
+    table["transition_time_s"] = np.where(ilh == 1.0, times, np.nan)
+    table["source_phase"] = [f"ILH={int(v)}" for v in ilh]
+    table["selected"] = False
 
     table["p_loss_W"] = col("PLMW") * 1e6
     table["p_rad_W"] = col("PRAD")
+    table["grad_b_drift"] = None
+    table["first_wall"] = None
+    table["auxiliary_heating"] = None
     table["i_p_A"] = np.abs(col("IP")) * 1e6
     table["b_t_T"] = np.abs(col("BT"))
     table["n_e_line_avg_m3"] = n_e
@@ -206,6 +232,13 @@ def normalize_tcv_lh(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd
     table["main_ion_mass_amu"] = mass
     table["hydrogen_fraction"] = col("cH")
     table["helium_fraction"] = col("cHe")
+    hydrogen = col("cH")
+    hydrogenic = np.isin(mass, (1.0, 2.0)) & np.isfinite(hydrogen)
+    table["hydrogenic_mix"] = np.where(
+        hydrogenic,
+        np.where(hydrogen < 0.3, "D-dominated", np.where(hydrogen > 0.8, "H-dominated", "mixed H/D")),
+        None,
+    )
     table["divertor_configuration"] = None
     baffles = col("BAFFLES")
     table["divertor_closure"] = [

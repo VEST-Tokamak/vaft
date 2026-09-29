@@ -63,10 +63,14 @@ def _scaled(table: pd.DataFrame, column: str) -> np.ndarray:
     return pd.to_numeric(table[column], errors="coerce").to_numpy(float) * scale
 
 
+def _group_labels(table: pd.DataFrame, by: str) -> pd.Series:
+    column = table[by].astype(object)
+    return column.where(column.notna(), "unknown").astype(str)
+
+
 def _groups(table: pd.DataFrame, by: str, highlight: str | None, max_groups: int):
     """Ordered (label, mask, color, marker) for the background population."""
-    column = table[by].astype(object)
-    labels = column.where(column.notna(), "unknown").astype(str)
+    labels = _group_labels(table, by)
     background = labels != highlight if highlight is not None else pd.Series(True, index=table.index)
     order = labels[background].value_counts().index.tolist()
     head = order[:max_groups]
@@ -166,7 +170,7 @@ def confinement_population(
         ax.scatter(xs[ok], ys[ok], s=10, color=color, marker=marker, alpha=0.55,
                    linewidth=0, label=f"{name} ({int(ok.sum())})")
     if highlight is not None:
-        mask = (table[by].astype(str) == highlight).to_numpy()
+        mask = (_group_labels(table, by) == highlight).to_numpy()
         _draw_highlight(ax, xs[mask], ys[mask], highlight)
     if log:
         ax.set_xscale("log")
@@ -223,7 +227,7 @@ def confinement_predicted_vs_measured(
         ax.scatter(pred[ok], measured[ok], s=10, color=color, marker=marker, alpha=0.55,
                    linewidth=0, label=f"{name} ({int(ok.sum())})")
     if highlight is not None:
-        mask = (table[by].astype(str) == highlight).to_numpy()
+        mask = (_group_labels(table, by) == highlight).to_numpy()
         _draw_highlight(ax, pred[mask], measured[mask], highlight)
     finite = np.concatenate([v[np.isfinite(v) & (v > 0)] for v in (measured, pred)])
     if finite.size:
@@ -281,7 +285,7 @@ def confinement_h_factor_distribution(
     """
     fig, ax = _axes(ax, figsize)
     values = _aligned(h, table, "h")
-    frame = pd.DataFrame({"group": table[by].astype(str).to_numpy(), "h": values}).dropna()
+    frame = pd.DataFrame({"group": _group_labels(table, by).to_numpy(), "h": values}).dropna()
     order = frame.groupby("group")["h"].median().sort_values().index.tolist()
     data = [frame.loc[frame.group == g, "h"].to_numpy() for g in order]
     if data:
@@ -355,7 +359,7 @@ def confinement_coverage_strip(
             jitter = position + rng.uniform(-0.25, 0.25, int(ok.sum()))
             ax.scatter(values[ok], jitter, s=6, color=color, marker=marker, alpha=0.5, linewidth=0)
         if highlight is not None:
-            mask = (table[by].astype(str) == highlight).to_numpy() & np.isfinite(values)
+            mask = (_group_labels(table, by) == highlight).to_numpy() & np.isfinite(values)
             ax.scatter(values[mask], np.full(int(mask.sum()), len(groups)), s=120, marker="*",
                        color=HIGHLIGHT_COLOR, edgecolor="white", linewidth=1.0, zorder=5)
         positive = values[np.isfinite(values) & (values > 0)]
