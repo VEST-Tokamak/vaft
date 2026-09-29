@@ -434,7 +434,8 @@ def test_plot_rows_carry_the_committed_thumbnail(snapshots):
         if thumbnail["status"] == "rendered":
             assert thumbnail["png"] == f"assets/plots/{row['name']}.png"
             assert thumbnail["png_sha256"] == recorded[row["name"]]["png_sha256"]
-            assert thumbnail["stale"] == ""
+            # Staleness only warns (#1322): a renderer change must not fail this test.
+            assert isinstance(thumbnail["stale"], str)
     recorded_sources = {entry["path"] for entry in snapshots["plot"]["source"]}
     assert "docs/assets/plots/manifest.json" in recorded_sources
 

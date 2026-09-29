@@ -331,6 +331,8 @@ if plot_snapshot
     if (built = output_path("#{BASEURL}/reference/plot/"))
       Nokogiri::HTML(built.read).css("img[data-thumbnail]").each do |image|
         errors << "plot thumbnail image does not resolve: #{image['src']}" unless output_path(image["src"].to_s)
+        expected_src = "#{BASEURL}/assets/plots/#{image['data-thumbnail']}.png"
+        errors << "plot thumbnail #{image['data-thumbnail']} shows #{image['src']}, not its own #{expected_src}" unless image["src"] == expected_src
       end
     end
   end

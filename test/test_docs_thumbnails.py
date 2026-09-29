@@ -153,3 +153,35 @@ def test_the_view_model_hash_is_stable_and_sensitive(small_sample):
     assert one == two
     other = docs_thumbnails.model_sha256(vaft.plot.extract("equilibrium_time_beta_p", small_sample))
     assert other != one
+
+
+def test_a_crlf_checkout_hashes_like_an_lf_one(tmp_path):
+    """Windows runners check out with autocrlf; the renderer hash must not notice."""
+    spec = registry.get_spec(CHEAP_PLOT)
+    for path in docs_thumbnails._drawing_sources(spec):
+        crlf = tmp_path / path.name
+        crlf.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        assert docs_thumbnails._text_bytes(crlf) == docs_thumbnails._text_bytes(path)
+
+
+def test_a_change_to_a_shared_render_body_marks_composites_stale(monkeypatch):
+    """Composite renderers draw through other modules' bodies (render_line_series, ...)."""
+    composite = next(spec for spec in registry.specs(status=None)
+                     if spec.renderer.__module__.endswith("renderers.panels"))
+    before = docs_thumbnails.renderer_sha256(composite)
+    lines = docs_thumbnails._PACKAGE / "renderers" / "lines.py"
+    original = docs_thumbnails._text_bytes
+
+    def edited(path):
+        data = original(path)
+        return data + b"\n# a change to render_line_series\n" if path == lines else data
+
+    monkeypatch.setattr(docs_thumbnails, "_text_bytes", edited)
+    assert docs_thumbnails.renderer_sha256(composite) != before
+
+
+def test_a_rendered_entry_missing_its_hashes_is_a_problem(assets):
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots[name].pop("model_sha256"))
+    problems, _ = docs_thumbnails.check(assets)
+    assert f"{name}: rendered entry lacks model_sha256" in problems

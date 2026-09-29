@@ -18,8 +18,10 @@ the bytes, because two matplotlib releases draw the same figure into different
 PNGs.  Each rendered entry records the SHA-256 of
 
 * ``sample_sha256`` -- the sample file it was drawn from;
-* ``renderer_sha256`` -- the source of the renderer's module and the shared
-  style and presentation modules;
+* ``renderer_sha256`` -- the drawing code: every module of
+  ``vaft.plot.renderers`` (composites draw through each other's bodies) and
+  ``style``, ``presentation``, ``models`` and ``intent``, with line endings
+  normalised;
 * ``model_sha256`` -- the view model ``vaft.plot.extract(name, sample)`` returned;
 * ``png_sha256`` -- the committed PNG itself.
 
@@ -36,6 +38,12 @@ warnings (the check passes)
 
 A stale thumbnail is labelled as such on the page instead of blocking the
 build, so a renderer change does not have to re-commit every picture it touches.
+
+Not hashed: the extraction layer (``vaft.omas`` adapters, ``vaft.plot.backend``)
+and packaged geometry data.  A change there shows up as a changed view model,
+which only ``--check`` (``full=True``) and a re-render compare.  Rendering runs
+under matplotlib's own defaults, not the machine's ``matplotlibrc``; the
+manifest records the matplotlib, numpy and Pillow versions it was drawn with.
 """
 
 from __future__ import annotations
@@ -43,6 +51,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import functools
 import hashlib
 import inspect
 import io
@@ -56,8 +65,9 @@ from typing import Any
 MANIFEST = "manifest.json"
 _PACKAGE = Path(__file__).resolve().parent
 _ROOT = _PACKAGE.parents[1]
-#: Shared modules every renderer draws through.
-_SHARED_SOURCES = ("style.py", "presentation.py")
+#: Modules every renderer draws through, besides the ``renderers`` package:
+#: styling, presentation, the view models, and the theme ``intent`` supplies.
+_SHARED_SOURCES = ("style.py", "presentation.py", "models.py", "intent.py")
 #: Thumbnail geometry: small enough to scan a gallery, large enough to read.
 FIGSIZE = (5.0, 3.5)
 DPI = 80
@@ -83,9 +93,26 @@ def _read_manifest(out_dir: Path) -> dict[str, dict]:
     return json.loads(path.read_text(encoding="utf-8")).get("plots", {})
 
 
-def _write_manifest(out_dir: Path, entries: Mapping[str, dict]) -> None:
+def _toolchain() -> dict[str, str]:
+    """Versions that decide the PNG bytes (not the recipe): recorded, never compared."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    found = {}
+    for package in ("matplotlib", "numpy", "pillow"):
+        try:
+            found[package] = version(package)
+        except PackageNotFoundError:  # pragma: no cover - all three ship with vaft
+            found[package] = "unknown"
+    return found
+
+
+def _write_manifest(out_dir: Path, entries: Mapping[str, dict], toolchain: Mapping[str, str] | None = None) -> None:
+    previous = {}
+    if (out_dir / MANIFEST).is_file():
+        previous = json.loads((out_dir / MANIFEST).read_text(encoding="utf-8")).get("toolchain", {})
     document = {
         "generator": "python -m vaft.plot.docs_thumbnails",
+        "toolchain": dict(toolchain or previous),
         "note": ("Freshness is judged on the recipe (sample, renderer source, view model), "
                  "not on PNG bytes; see the module docstring."),
         "plots": {name: entries[name] for name in sorted(entries)},
@@ -99,13 +126,30 @@ def _write_manifest(out_dir: Path, entries: Mapping[str, dict]) -> None:
 # --------------------------------------------------------------------------
 
 
-def renderer_sha256(spec) -> str:
-    """The renderer's module source plus the shared style and presentation modules."""
-    digest = hashlib.sha256()
+def _drawing_sources(spec) -> list[Path]:
+    """The source files whose change can alter the picture without changing the view model.
+
+    Every module of ``vaft.plot.renderers`` rather than only the renderer's own:
+    composite renderers draw through the others' shared bodies
+    (``render_line_series``, ``draw_geometry_layer``, ...).
+    """
     module = Path(inspect.getsourcefile(inspect.unwrap(spec.renderer))).resolve()
-    for path in (module, *(_PACKAGE / name for name in _SHARED_SOURCES)):
+    paths = {module, *(_PACKAGE / name for name in _SHARED_SOURCES)}
+    paths.update(path for path in (_PACKAGE / "renderers").glob("*.py"))
+    return sorted(paths, key=lambda path: path.relative_to(_ROOT).as_posix())
+
+
+def _text_bytes(path: Path) -> bytes:
+    """Source bytes with line endings normalised, so a CRLF checkout hashes the same."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
+def renderer_sha256(spec) -> str:
+    """The drawing code of ``spec``: every renderer module and the shared ones."""
+    digest = hashlib.sha256()
+    for path in _drawing_sources(spec):
         digest.update(path.relative_to(_ROOT).as_posix().encode())
-        digest.update(path.read_bytes())
+        digest.update(_text_bytes(path))
     return digest.hexdigest()
 
 
@@ -155,27 +199,38 @@ def _quiet():
         yield
 
 
-def sample_sources(names: Iterable[str]) -> dict[str, tuple[int, Any]]:
-    """``name -> (shot, ods)``: the first packaged sample that can draw each plot."""
+def sample_candidates(names: Iterable[str]) -> dict[str, list[tuple[int, Any]]]:
+    """``name -> [(shot, ods), ...]``: every packaged sample that offers each plot, in sample order."""
     import vaft
 
     wanted = set(names)
-    found: dict[str, tuple[int, Any]] = {}
+    found: dict[str, list[tuple[int, Any]]] = {}
     for shot in vaft.data.available_samples():
-        if not wanted - set(found):
-            break
         with _quiet():
             ods = vaft.omas.load(vaft.data.sample(shot))
             offered = {record.name for record in vaft.omas.available_plots(ods) if record.available}
         for name in sorted(offered & wanted):
-            found.setdefault(name, (shot, ods))
+            found.setdefault(name, []).append((shot, ods))
     return found
 
 
+def sample_sources(names: Iterable[str]) -> dict[str, tuple[int, Any]]:
+    """``name -> (shot, ods)``: the first packaged sample that offers each plot."""
+    return {name: candidates[0] for name, candidates in sample_candidates(names).items()}
+
+
+@functools.lru_cache(maxsize=None)
+def _sample_file_sha256(path: str, size: int, mtime_ns: int) -> str:
+    return _sha256(Path(path).read_bytes())
+
+
 def _sample_sha256(shot: int) -> str:
+    """Hash of a packaged sample, computed once per file state (samples are tens of MB)."""
     import vaft
 
-    return _sha256(Path(vaft.data.sample(shot)).read_bytes())
+    path = Path(vaft.data.sample(shot))
+    stat = path.stat()
+    return _sample_file_sha256(str(path), stat.st_size, stat.st_mtime_ns)
 
 
 # --------------------------------------------------------------------------
@@ -194,8 +249,10 @@ def render_one(spec, shot: int, ods, out_dir: Path) -> dict:
 
     from .style import save_figure
 
+    # Matplotlib's own defaults, not whatever matplotlibrc the machine has.
+    defaults = {key: value for key, value in matplotlib.rcParamsDefault.items() if key != "backend"}
     try:
-        with _quiet():
+        with _quiet(), matplotlib.rc_context(defaults):
             model = vaft.plot.extract(spec.name, ods)
             output = getattr(vaft.omas, f"plot_{spec.name}")(ods)
             figure = output[0] if isinstance(output, tuple) else output
@@ -233,15 +290,24 @@ def _compact_png(data: bytes) -> bytes:
     return out.getvalue()
 
 
-def _fresh(entry: dict, spec, out_dir: Path) -> bool:
+def _fresh(entry: dict, spec, ods, out_dir: Path) -> bool:
+    """Nothing the picture depends on changed: sample, drawing code or view model."""
+    import vaft
+
     path = out_dir / f"{spec.name}.png"
-    return (
+    if not (
         entry.get("status") == "rendered"
         and path.is_file()
         and entry.get("png_sha256") == _sha256(path.read_bytes())
         and entry.get("renderer_sha256") == renderer_sha256(spec)
         and entry.get("sample_sha256") == _sample_sha256(entry["shot"])
-    )
+    ):
+        return False
+    try:
+        with _quiet():
+            return entry.get("model_sha256") == model_sha256(vaft.plot.extract(spec.name, ods))
+    except Exception:
+        return False
 
 
 def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[str] | None = None) -> list[str]:
@@ -255,30 +321,35 @@ def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[st
     specs = {spec.name: spec for spec in registry.specs(status=None)}
     selected = set(specs) if only is None else set(only) & set(specs)
     entries = {name: entry for name, entry in _read_manifest(out_dir).items() if name in specs}
-    sources = sample_sources(selected)
+    candidates = sample_candidates(selected)
     written: list[str] = []
     for name in sorted(selected):
         spec = specs[name]
-        if name not in sources:
+        if name not in candidates:
             entries[name] = {"status": "no_sample",
                              "reason": "no packaged sample carries the data this plot needs"}
             (out_dir / f"{name}.png").unlink(missing_ok=True)
             continue
-        shot, ods = sources[name]
-        if not force and name in entries and entries[name].get("shot") == shot and _fresh(entries[name], spec, out_dir):
+        current = entries.get(name, {})
+        fresh = [(shot, ods) for shot, ods in candidates[name] if shot == current.get("shot")]
+        if not force and fresh and _fresh(current, spec, fresh[0][1], out_dir):
             continue
-        try:
-            entries[name] = render_one(spec, shot, ods, out_dir)
-            written.append(name)
-        except Exception as error:  # the sample offers the plot but cannot build it
-            first_line = (str(error).strip().splitlines() or [type(error).__name__])[0]
-            entries[name] = {"status": "failed", "shot": shot,
-                             "reason": f"{type(error).__name__}: {first_line}"[:300]}
+        errors = []
+        for shot, ods in candidates[name]:  # the first sample that offers it may still lack a piece
+            try:
+                entries[name] = render_one(spec, shot, ods, out_dir)
+                written.append(name)
+                break
+            except Exception as error:
+                first_line = (str(error).strip().splitlines() or [""])[0]
+                errors.append(f"shot {shot}: {type(error).__name__}: {first_line}")
+        else:
+            entries[name] = {"status": "failed", "reason": "; ".join(errors)[:400]}
             (out_dir / f"{name}.png").unlink(missing_ok=True)
     for stray in out_dir.glob("*.png"):
         if stray.stem not in specs:
             stray.unlink()
-    _write_manifest(out_dir, entries)
+    _write_manifest(out_dir, entries, _toolchain() if written else None)
     return written
 
 
@@ -337,6 +408,11 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
             if not entry.get("reason"):
                 problems.append(f"{name}: {status} entry records no reason")
             continue
+        incomplete = [key for key in ("shot", "sample_sha256", "renderer_sha256", "model_sha256", "png_sha256")
+                      if not entry.get(key)]
+        if incomplete:
+            problems.append(f"{name}: rendered entry lacks {', '.join(incomplete)}")
+            continue
         png = out_dir / f"{name}.png"
         if not png.is_file():
             problems.append(f"{name}: {MANIFEST} records a thumbnail but {png.name} is missing")
@@ -354,8 +430,14 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
         for name, entry in sorted(recorded.items()):
             if name not in specs:
                 continue
-            if entry.get("status") == "no_sample" and name in sources:
-                notes.append(f"{name}: sample {sources[name][0]} can now draw it; re-render")
+            if entry.get("status") in ("no_sample", "failed") and name in sources:
+                try:
+                    with _quiet():
+                        vaft.plot.extract(name, sources[name][1])
+                    notes.append(f"{name}: recorded as {entry['status']} but sample {sources[name][0]} "
+                                 f"can now build it; re-render")
+                except Exception:
+                    pass
             if entry.get("status") == "rendered" and name in sources:
                 try:
                     with _quiet():
@@ -364,7 +446,8 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
                     notes.append(f"{name}: extraction now fails ({type(error).__name__})")
                     continue
                 if sources[name][0] != entry.get("shot") or current != entry.get("model_sha256"):
-                    notes.append(f"{name}: stale (the data it draws changed); re-render")
+                    notes.append(f"{name}: stale (the data it draws changed); re-render with "
+                                 f"python -m vaft.plot.docs_thumbnails --only {name}")
     return problems, notes
 
 
