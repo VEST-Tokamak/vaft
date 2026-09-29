@@ -1197,6 +1197,9 @@ def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
         "equilibrium.time_slice.{i}.profiles_2d.0.psi",
         "equilibrium.time_slice.{i}.global_quantities.psi_axis",
         "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
         "core_profiles.time",
         "core_profiles.profiles_1d.{i}.time",
         f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
@@ -4396,6 +4399,49 @@ def _core_profile_slice_at(ods: Any, time_slice: int) -> int:
     return nearest
 
 
+def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndarray]:
+    """``(psi_N, rho_tor_norm)`` of one equilibrium slice, as an interpolation table.
+
+    The stored ``profiles_1d.rho_tor_norm`` when it is a real toroidal
+    coordinate, else the one integrated from ``q`` (``rho_tor_profile``).  The
+    ``sqrt(psi_N)`` proxy older files carry is refused like a missing leaf.
+    ``psi_N`` is normalised by the 1-D profile's own ends, so it runs 0 to 1
+    whatever the sign or per-radian convention of ``psi``.  Raises when the
+    slice cannot supply a toroidal coordinate: drawing the profile at
+    ``sqrt(psi_N)`` instead would place every value at the wrong radius.
+    """
+    from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    psi = _array(ods, f"{base}.psi")
+    if psi is None or psi.size < 2 or not np.all(np.isfinite(psi)) or psi[-1] == psi[0]:
+        raise ValueError(
+            f"{base}.psi is required to map a core profile's rho_tor_norm grid "
+            "onto the poloidal plane"
+        )
+    psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+    if np.any(np.diff(psi_norm) <= 0.0):
+        raise ValueError(f"{base}.psi is not monotonic from the axis to the boundary")
+    stored = _array(ods, f"{base}.rho_tor_norm")
+    if (
+        stored is not None and stored.size == psi.size and np.all(np.isfinite(stored))
+        # a coordinate at all: axis to edge, never turning back (an all-zero
+        # leaf from a failed slice would paint the plasma at Te(0))
+        and abs(stored[0]) < 1e-6 and abs(stored[-1] - 1.0) < 1e-6
+        and np.all(np.diff(stored) >= 0.0)
+        and not is_rho_pol_proxy(stored, psi_norm)
+    ):
+        return psi_norm, stored
+    q = _array(ods, f"{base}.q")
+    derived = rho_tor_profile(q, psi) if q is not None else None
+    if derived is None or derived.rho_tor_norm.size != psi.size:
+        raise ValueError(
+            f"{base} supplies no toroidal coordinate: rho_tor_norm is missing or the "
+            "sqrt(psi_N) proxy, and q cannot be integrated into toroidal flux"
+        )
+    return psi_norm, derived.rho_tor_norm
+
+
 def _build_core_profile_field(
     ods: Any, *, quantity: str, time_slice: int = 0, **_: Any
 ) -> Field2D:
@@ -4428,7 +4474,15 @@ def _build_core_profile_field(
             "rho_tor_norm grid are required"
         )
     if psi_axis is None or psi_boundary is None:
-        psi_axis, psi_boundary = float(np.nanmin(psi_2d)), float(np.nanmax(psi_2d))
+        # The profile's own ends, so the 2-D psi_N and the rho_tor table below
+        # share one normalisation; the grid's extrema lie beyond the separatrix.
+        psi_1d = _array(ods, f"equilibrium.time_slice.{time_slice}.profiles_1d.psi")
+        if psi_1d is None or psi_1d.size < 2:
+            raise ValueError(
+                f"equilibrium.time_slice.{time_slice} has neither global_quantities "
+                "psi_axis/psi_boundary nor profiles_1d.psi to normalise its flux map"
+            )
+        psi_axis, psi_boundary = float(psi_1d[0]), float(psi_1d[-1])
     span = float(psi_boundary) - float(psi_axis)
     if span == 0.0:
         raise ValueError("equilibrium psi_axis and psi_boundary are equal")
@@ -4444,8 +4498,12 @@ def _build_core_profile_field(
             f"{psi_norm.shape}, which is neither (dim1, dim2) = "
             f"{(grid_r.size, grid_z.size)} nor its transpose"
         )
-    rho_2d = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
-    values = np.interp(rho_2d.ravel(), rho, profile).reshape(rho_2d.shape)
+    # The profile lives on rho_tor_norm; each cell knows only its psi_N.  The
+    # slice's own rho_tor_norm(psi_N) carries one to the other -- sqrt(psi_N)
+    # is rho_pol, up to 0.15 away (issue #335, the last instance of #276).
+    table_psi, table_rho = _rho_tor_of_psi_norm(ods, int(time_slice))
+    rho_2d = np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)
+    values = np.interp(rho_2d, rho, profile).reshape(psi_norm.shape)
     values = np.where(psi_norm <= 1.0, values, np.nan)
     labels = {
         "temperature": "Electron Temperature [eV]",
