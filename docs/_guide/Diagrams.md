@@ -612,7 +612,7 @@ X-point.
 
 ```python
 vaft.diagram.stochastic_layer(regime="touching")   # "isolated", "overlapping"; or overlap=, perturbations=
-vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
+vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)       # or separatrix_lobes(equilibrium, ...)
 ```
 
 | | |
@@ -626,9 +626,9 @@ vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
 | Diagram | Model class | Concept |
 | --- | --- | --- |
 | `stochastic_layer` | reduced Hamiltonian | A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium's $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of `island_pendulum_hamiltonian`, width $4\sqrt{\epsilon/\lvert\iota'\rvert}$. The pair overlap $\sigma$ (`vaft.process.perturbation.chirikov`) is 0.5, 1 or 1.6. The inset shows where the section sits |
-| `separatrix_lobes` | reduced Hamiltonian | The single-null Solov'ev equilibrium plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
+| `separatrix_lobes` | reduced Hamiltonian | A lower-single-null equilibrium (by default the single-null Solov'ev) plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
 
-In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` draws the single-null Solov'ev equilibrium only, for now. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
+In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` takes any lower-single-null `EquilibriumData`: the X-point must be a saddle of the flux on the boundary value, below the axis, and the window scales with the minor radius; a limited equilibrium is refused. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
 
 The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
 $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
