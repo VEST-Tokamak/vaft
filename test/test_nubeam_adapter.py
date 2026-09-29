@@ -623,18 +623,60 @@ def test_nubeam_stages_launch_through_the_configured_backend(tmp_path):
     assert (tmp_path / "init.err").read_text(encoding="utf-8") == "warn"
 
 
-def test_nubeam_timeout_is_still_the_stdlib_exception(tmp_path):
-    import subprocess
-
+def test_a_stopped_nubeam_stage_keeps_its_partial_log_and_names_the_limit(tmp_path):
+    """#1016: ``_run`` returns the stop; the logs are this run's, not an earlier one's."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
     from vaft.code.nubeam.runner import _run
 
     (tmp_path / "step.log").write_text("an earlier run", encoding="utf-8")
     backend = RecordingBackend(
-        ExecutionResult(returncode=None, stdout="partial", timed_out=True)
+        ExecutionResult(returncode=None, stdout="partial", timed_out=True, elapsed_s=5.0)
     )
     config = nubeam.NUBEAMConfig(timeout=5.0, backend=backend)
-    with pytest.raises(subprocess.TimeoutExpired):
-        _run(tmp_path / "exe", workdir=tmp_path, env={}, log_stem="step", config=config)
+    completed = _run(tmp_path / "exe", workdir=tmp_path, env={}, log_stem="step", config=config)
+    assert completed.timed_out and completed.returncode is None
     assert (tmp_path / "step.log").read_text(encoding="utf-8") == "partial"
+    assert (tmp_path / "step.err").read_text(encoding="utf-8") == (
+        "NUBEAM step timed out after 5 s of running"
+    )
+
+
+def _stopped_nubeam(tmp_path, monkeypatch, runtime_status="timeout"):
+    """NUBEAM wired to a backend whose every launch was stopped by a limit."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    import vaft.code.nubeam.runner as runner
+
+    monkeypatch.setattr(runner, "_require", lambda *args: tmp_path / "exe")
+    monkeypatch.setattr(runner, "_reaction_database_env", lambda config: {})
+    backend = RecordingBackend(
+        ExecutionResult(
+            returncode=None, timed_out=True, elapsed_s=7.0, runtime_status=runtime_status
+        )
+    )
+    inputs = nubeam.NUBEAMInputs(workdir=tmp_path, plasma_state=tmp_path / "state.cdf")
+    return runner, inputs, nubeam.NUBEAMConfig(timeout=7.0, backend=backend)
+
+
+def test_a_stopped_nubeam_run_is_a_failed_result(tmp_path, monkeypatch):
+    runner, inputs, config = _stopped_nubeam(tmp_path, monkeypatch)
+    result = runner.run_nubeam(inputs, config)
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 7.0
+    assert [log.name for log in result.logs] == ["init.log", "init.err"]
+    assert result.stderr.endswith("NUBEAM init timed out after 7 s of running")
+
+
+def test_a_stopped_plasma_state_is_an_error_alone_and_a_result_in_a_case(tmp_path, monkeypatch):
+    """``generate_plasma_state`` returns a path, so a stop raises there; the
+    one-call case returns it as the case's result (#1016)."""
+    runner, inputs, config = _stopped_nubeam(tmp_path, monkeypatch, "queue_timeout")
+    with pytest.raises(nubeam.NUBEAMExecutionError, match="never started"):
+        runner.generate_plasma_state(inputs, config)
+    monkeypatch.setattr(runner, "prepare_nubeam_inputs", lambda *args, **kwargs: inputs)
+    result = runner.run_nubeam_case(tmp_path, gfile=tmp_path / "g", workdir=tmp_path, config=config)
+    assert (result.status, result.runtime_status, result.returncode) == (
+        "failed", "queue_timeout", None,
+    )
+    assert result.logs[-1].name == "plasma_state_test.err"

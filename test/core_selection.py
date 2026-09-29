@@ -100,7 +100,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
-    # writes, plus the canonical-IDS contract fixtures.
+    # writes, plus the canonical-IDS contract fixtures and the canonical
+    # public-database tables (synthetic rows, mocked network).
     "contracts/test_contract_legacy_rejections.py",
     "contracts/test_contract_samples.py",
     "contracts/test_contract_synthetic.py",
@@ -112,6 +113,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
+    "test_public_confinement.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
@@ -140,6 +142,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_readme_consistency.py",
+    # Operational boundaries (#1067): every published limit is called and
+    # checked against its source's numbers and its permitted side. Pure NumPy.
+    "test_formula_boundaries.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
@@ -164,9 +169,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
     "test_diagram_vde.py",
-    # Operational boundaries (#1067): every published limit is called and
-    # checked against its source's numbers and its permitted side. Pure NumPy.
-    "test_formula_boundaries.py",
+    "test_diagram_wall_conditioning.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

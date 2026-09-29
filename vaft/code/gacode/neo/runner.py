@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .._runtime import gacode_platform, require_gacode_executable
-from .._runtime import run_gacode
+from .._runtime import run_gacode, stopped_reason
 from .._profiles import GACODEProfile
 from ._types import NEOConfig, NEOResult
 from .inputs import NEOInputs, prepare_neo_case, prepare_neo_conductivity_case
@@ -71,7 +71,7 @@ def run_neo(
 
     # The launcher joins its -e argument onto $PWD, so it is run from the parent
     # with the case named relatively.
-    returncode, log = run_gacode(
+    run = run_gacode(
         executable,
         ["-e", workdir.name, "-n", str(int(configuration.n_mpi)),
          "-nomp", str(int(configuration.n_omp))],
@@ -80,6 +80,7 @@ def run_neo(
         config=configuration,
         code="neo",
     )
+    returncode, log = run
     # The parser refuses a table whose width disagrees with the species count
     # (a partial write, usually). That refusal is this run's failure, so it is
     # reported the way every other failure is -- through `ok`, and raised only
@@ -92,6 +93,8 @@ def run_neo(
         native, unreadable = None, str(error)
     result = NEOResult(
         returncode=returncode,
+        runtime_status=getattr(run, "runtime_status", "completed"),
+        elapsed_s=getattr(run, "elapsed_s", None),
         workdir=workdir,
         logs=(log,),
         outputs={"native": tuple(sorted(workdir.glob("out.neo.*")))},
@@ -118,7 +121,9 @@ def _failure_message(result: NEOResult, log: Path) -> str:
     except OSError:
         pass
     native = result.outputs_native
-    if result.returncode != 0:
+    if result.timed_out:
+        reason = stopped_reason(log, result.runtime_status)
+    elif result.returncode != 0:
         reason = f"NEO exited with status {result.returncode}"
     elif result.provenance.get("output_error"):
         reason = "NEO's output could not be read: " + str(result.provenance["output_error"])

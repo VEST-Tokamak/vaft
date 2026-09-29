@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import subprocess
 from typing import Optional
 
 from vaft.compat import is_executable, resolve_executable
 from vaft.code._executables import executable_from_home, missing_home_message
-from vaft.code.execution import ExecutionRequest, ExecutionResult, resolve_backend
+from vaft.code.execution import (
+    ExecutionRequest,
+    ExecutionResult,
+    resolve_backend,
+    timeout_reason,
+)
 
 from .config import (
     NUBEAM_GENERATOR_EXECUTABLE,
@@ -166,23 +170,61 @@ def _run(
             label=log_stem,
         )
     )
-    # Written before a timeout is raised too, so a killed run leaves what it
-    # printed rather than an earlier run's log under the same name.
-    (workdir / f"{log_stem}.log").write_text(completed.stdout or "", encoding="utf-8")
-    (workdir / f"{log_stem}.err").write_text(completed.stderr or "", encoding="utf-8")
+    # Written on a timeout too, so a stopped run leaves what it printed rather
+    # than an earlier run's log under the same name; the reason ends the .err.
+    stderr = completed.stderr or ""
     if completed.timed_out:
-        # Callers have always seen the stdlib's exception here.
-        raise subprocess.TimeoutExpired(
-            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
-        )
+        reason = timeout_reason(f"NUBEAM {log_stem}", completed, config.timeout)
+        stderr = f"{stderr}\n{reason}" if stderr else reason
+        completed.stderr = stderr
+    (workdir / f"{log_stem}.log").write_text(completed.stdout or "", encoding="utf-8")
+    (workdir / f"{log_stem}.err").write_text(stderr, encoding="utf-8")
     return completed
+
+
+def _stopped(
+    workdir: Path,
+    completed: ExecutionResult,
+    logs: tuple[Path, ...],
+    earlier_s: float = 0.0,
+) -> NUBEAMResult:
+    """The result of a run a time limit stopped (#1016): nothing is collected.
+
+    ``earlier_s`` is the wall time of the stages that finished before it.
+    """
+    return NUBEAMResult(
+        returncode=None,
+        workdir=Path(workdir),
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+        logs=logs,
+        runtime_status=completed.runtime_status,
+        elapsed_s=earlier_s + completed.elapsed_s,
+    )
 
 
 def generate_plasma_state(
     inputs: NUBEAMInputs, config: Optional[NUBEAMConfig] = None
 ) -> Path:
-    """Run ``plasma_state_test`` to build the Plasma State NUBEAM will read."""
-    config = config or NUBEAMConfig()
+    """Run ``plasma_state_test`` to build the Plasma State NUBEAM will read.
+
+    Raises :class:`NUBEAMExecutionError` when no state comes out -- including
+    a run a time limit stopped, since this returns a path, not a result.
+    :func:`run_nubeam_case` reports that stop as its result instead.
+    """
+    completed, state = _generate(inputs, config or NUBEAMConfig())
+    if state is None:
+        raise NUBEAMExecutionError(
+            f"{completed.stderr.strip().splitlines()[-1]}; see "
+            f"{inputs.workdir / 'plasma_state_test.err'}"
+        )
+    return state
+
+
+def _generate(
+    inputs: NUBEAMInputs, config: NUBEAMConfig
+) -> tuple[ExecutionResult, Optional[Path]]:
+    """Build the Plasma State; ``(execution, None)`` when a time limit stopped it."""
     executable = _require(
         find_plasma_state_generator(config),
         NUBEAM_GENERATOR_EXECUTABLE,
@@ -202,6 +244,8 @@ def generate_plasma_state(
         log_stem="plasma_state_test",
         config=config,
     )
+    if completed.timed_out:
+        return completed, None
 
     # The generator reports its own errors on stdout and still exits 0 -- a
     # missing G-EQDSK produces "?geq_init: file ... does not exist" and a zero
@@ -213,7 +257,7 @@ def generate_plasma_state(
             f"exit status was {completed.returncode}. See "
             f"{inputs.workdir / 'plasma_state_test.log'}"
         )
-    return state
+    return completed, state
 
 
 def run_nubeam(
@@ -237,6 +281,10 @@ def run_nubeam(
     init = _run(
         executable, workdir=inputs.workdir, env=init_env, log_stem="init", config=config
     )
+    if init.timed_out:
+        return _stopped(
+            inputs.workdir, init, (inputs.workdir / "init.log", inputs.workdir / "init.err")
+        )
     init_log = (inputs.workdir / "init.log").read_text(encoding="utf-8")
     if init.returncode != 0 or INIT_SUCCESS not in init_log:
         raise NUBEAMExecutionError(
@@ -255,6 +303,17 @@ def run_nubeam(
     step = _run(
         executable, workdir=inputs.workdir, env=step_env, log_stem="step", config=config
     )
+    if step.timed_out:
+        return _stopped(
+            inputs.workdir,
+            step,
+            (
+                inputs.workdir / "init.log",
+                inputs.workdir / "step.log",
+                inputs.workdir / "step.err",
+            ),
+            earlier_s=init.elapsed_s,
+        )
     step_log = (inputs.workdir / "step.log").read_text(encoding="utf-8")
     if step.returncode != 0 or STEP_SUCCESS not in step_log:
         raise NUBEAMExecutionError(
@@ -262,7 +321,9 @@ def run_nubeam(
             f"see {inputs.workdir / 'step.log'}"
         )
 
-    return collect_nubeam_outputs(inputs.workdir, config=config, returncode=0)
+    result = collect_nubeam_outputs(inputs.workdir, config=config, returncode=0)
+    result.elapsed_s = init.elapsed_s + step.elapsed_s
+    return result
 
 
 def run_nubeam_case(
@@ -286,5 +347,15 @@ def run_nubeam_case(
     inputs = prepare_nubeam_inputs(
         input_dir, gfile=gfile, workdir=workdir, config=config
     )
-    generate_plasma_state(inputs, config)
+    generated, state = _generate(inputs, config)
+    if state is None:
+        # A stopped generator is this case's result, not an exception (#1016).
+        return _stopped(
+            inputs.workdir,
+            generated,
+            (
+                inputs.workdir / "plasma_state_test.log",
+                inputs.workdir / "plasma_state_test.err",
+            ),
+        )
     return run_nubeam(inputs, config)

@@ -154,3 +154,229 @@ def test_default_run_does_not_write_into_the_working_directory(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     result = synthesize_equilibrium_from_0d(VEST)
     assert result.ok and list(tmp_path.iterdir()) == []
+
+
+def test_a_stopped_solve_is_a_timeout_not_a_non_convergence(tmp_path, monkeypatch):
+    """#1016: CHEASE returns a timeout; synthesis names it rather than 'non_converged'."""
+    import vaft.code.chease_synthesis as module
+    from vaft.code.chease import CHEASEConfig, CHEASEResult
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda source, config: CHEASEResult(
+            returncode=None, workdir=tmp_path, runtime_status="timeout",
+            stderr="CHEASE timed out after 60 s of running",
+        ),
+    )
+    result = synthesize_equilibrium_from_0d(VEST, config=CHEASEConfig(workdir=tmp_path))
+    assert (result.status, result.reason) == ("timeout", "CHEASE timed out after 60 s of running")
+    assert not result.ok and result.chease.runtime_status == "timeout"
+
+
+# --- barrier-profile sources (#1166 scope B) ------------------------------------
+
+
+def _hmode_pressure():
+    from vaft.process.profile import compose_analytic_profile
+
+    return compose_analytic_profile("p", unit="Pa", axis_value=1.0e3, separatrix_value=20.0,
+                                    pedestal_top_value=450.0, pedestal_position=0.93, pedestal_width=0.05)
+
+
+def _itb_state():
+    from vaft.process.profile import analytic_itb_state
+
+    return analytic_itb_state()
+
+
+def _profile_gradient(profile, x):
+    from vaft.data import AnalyticPlasmaState
+    from vaft.process.profile import evaluate_analytic_profile, evaluate_plasma_state
+
+    if isinstance(profile, AnalyticPlasmaState):
+        return evaluate_plasma_state(profile, x, "dp_total_dpsi_norm")
+    return evaluate_analytic_profile(profile, x, derivative=True)
+
+
+@pytest.mark.parametrize("make_profile", [_hmode_pressure, _itb_state], ids=["hmode", "itb"])
+def test_a_barrier_profile_sets_the_input_pprime_shape(make_profile):
+    from scipy.constants import mu_0
+
+    profile = make_profile()
+    spec = dataclasses.replace(VEST, pressure_profile=profile, pressure_fraction=0.4)
+    eq = build_input_equilibrium(spec, resolution=257)
+    x = np.linspace(0.0, 1.0, eq.pprime.size)
+    want = _profile_gradient(profile, x)
+    # Shape only: the input p' is dp/dpsi_N of the profile times one constant.
+    np.testing.assert_allclose(eq.pprime/eq.pprime.min(), want/want.min(), rtol=1e-12, atol=1e-14)
+    # pressure_fraction is the pressure's share of the psi_N-integrated source.
+    pp_int = np.trapezoid(mu_0*spec.major_radius**2*eq.pprime, x)
+    ff_int = np.trapezoid(eq.ffprime, x)
+    assert pp_int/(pp_int + ff_int) == pytest.approx(0.4, rel=2e-3)
+    assert np.all(eq.pprime <= 0) and np.all(eq.ffprime <= 0)
+
+
+def test_the_hmode_pedestal_sits_where_requested_in_the_input():
+    spec = dataclasses.replace(VEST, pressure_profile=_hmode_pressure())
+    eq = build_input_equilibrium(spec, resolution=257)
+    x = np.linspace(0.0, 1.0, eq.pprime.size)
+    edge = x > 0.6
+    assert x[edge][np.argmin(eq.pprime[edge])] == pytest.approx(0.93, abs=0.5/256)
+
+
+def test_an_edge_current_profile_puts_an_ffprime_bump_on_the_pedestal():
+    from vaft.process.profile import compose_analytic_profile
+
+    g = compose_analytic_profile("g", unit="", axis_value=1.0, separatrix_value=0.01, pedestal_top_value=0.3,
+                                 pedestal_position=0.93, pedestal_width=0.05)
+    eq = build_input_equilibrium(dataclasses.replace(VEST, pressure_profile=_hmode_pressure(), current_profile=g),
+                                 resolution=257)
+    x = np.linspace(0.0, 1.0, eq.ffprime.size)
+    edge = x > 0.6
+    peak = x[edge][np.argmin(eq.ffprime[edge])]
+    assert peak == pytest.approx(0.93, abs=0.5/256)
+    assert abs(eq.ffprime[edge]).max() > abs(eq.ffprime[x < 0.6]).max()      # a localized edge current
+
+
+def test_without_profiles_the_source_model_is_unchanged():
+    """The generalized-parabolic model, reproduced term by term: bit-identical input arrays."""
+    from scipy.constants import mu_0
+
+    from vaft.formula.equilibrium import generalized_parabolic_profile
+
+    spec = dataclasses.replace(VEST, pressure_fraction=0.3, current_alpha=2.0)
+    eq = build_input_equilibrium(spec)
+    x = np.linspace(0.0, 1.0, eq.pprime.size)
+    pp = 0.3*generalized_parabolic_profile(x, alpha=1.0, beta=2.0)
+    ff = 0.7*generalized_parabolic_profile(x, alpha=2.0, beta=1.0)
+    r0, a, kappa = spec.major_radius, spec.minor_radius, spec.elongation
+    amplitude = mu_0*spec.plasma_current*r0/(np.pi*a**2*kappa*float(np.mean(pp + ff)))
+    assert np.array_equal(eq.pprime, -amplitude*pp/(mu_0*r0**2)/(2*np.pi))
+    assert np.array_equal(eq.ffprime, -amplitude*ff/(2*np.pi))
+    explicit_none = build_input_equilibrium(dataclasses.replace(spec, pressure_profile=None, current_profile=None))
+    assert np.array_equal(explicit_none.pprime, eq.pprime) and np.array_equal(explicit_none.psi, eq.psi)
+
+
+def test_requested_pressure_shape_of_the_parabolic_model_is_analytic():
+    from vaft.code.chease_synthesis import requested_pressure_shape
+
+    x = np.linspace(0.0, 1.0, 51)
+    p, dp = requested_pressure_shape(VEST, x)                  # p' ~ (1 - x)**2, so p ~ (1 - x)**3
+    np.testing.assert_allclose(p, (1 - x)**3, atol=1e-8)
+    np.testing.assert_allclose(dp, -3*(1 - x)**2, atol=1e-12)
+
+
+def test_requested_pressure_shape_of_a_profile_is_the_normalized_profile():
+    from vaft.code.chease_synthesis import requested_pressure_shape
+    from vaft.process.profile import evaluate_analytic_profile
+
+    profile = _hmode_pressure()
+    x = np.linspace(0.0, 1.0, 51)
+    p, dp = requested_pressure_shape(dataclasses.replace(VEST, pressure_profile=profile), x)
+    np.testing.assert_allclose(p, (evaluate_analytic_profile(profile, x) - 20.0)/980.0, rtol=1e-12)
+    np.testing.assert_allclose(dp, evaluate_analytic_profile(profile, x, derivative=True)/980.0, rtol=1e-12)
+
+
+def _hollow_pressure():
+    from vaft.process.profile import compose_analytic_profile
+
+    return compose_analytic_profile("p", unit="Pa", axis_value=300.0, separatrix_value=20.0,
+                                    pedestal_top_value=600.0, pedestal_position=0.9, pedestal_width=0.05)
+
+
+def _rising_current():
+    from vaft.process.profile import compose_analytic_profile
+
+    return compose_analytic_profile("g", unit="", axis_value=0.1, separatrix_value=1.0)
+
+
+def _near_flat():
+    from vaft.process.profile import compose_analytic_profile
+
+    return compose_analytic_profile("g", unit="", axis_value=1.0, separatrix_value=1.0 - 1e-4)
+
+
+@pytest.mark.parametrize("change, message", [
+    (lambda: dict(pressure_profile=_hmode_pressure(), pressure_beta=3.0), "both a generalized-parabolic pressure"),
+    (lambda: dict(pressure_profile=_hmode_pressure(), pressure_alpha=2.0), "both a generalized-parabolic pressure"),
+    (lambda: dict(current_profile=_hmode_pressure(), current_beta=2.0), "both a generalized-parabolic current"),
+    (lambda: dict(pressure_profile=_hollow_pressure()), "rises outward"),
+    (lambda: dict(pressure_profile=np.ones(5)), "must be an AnalyticProfile"),
+    (lambda: dict(current_profile=_itb_state()), "current_profile must be an AnalyticProfile"),
+    (lambda: dict(current_profile=_rising_current()), "does not fall outward anywhere"),
+    (lambda: dict(current_profile=_hollow_pressure()), "current_profile rises outward"),
+    (lambda: dict(current_profile=_near_flat()), "falls by only"),
+    (lambda: dict(pressure_profile=_near_flat()), "falls by only"),
+    (lambda: dict(pressure_profile=_hmode_pressure(), pressure_fraction=0.0), "would be discarded"),
+])
+def test_inconsistent_profile_sources_are_refused(change, message):
+    result = synthesize_equilibrium_from_0d(dataclasses.replace(VEST, **change()))
+    assert result.status == "invalid_source_model" and result.chease is None
+    assert message in result.reason
+
+
+@needs_chease
+@pytest.mark.parametrize("make_profile, barrier", [(_hmode_pressure, 0.93), (_itb_state, 0.3)], ids=["hmode", "itb"])
+def test_a_barrier_pressure_profile_is_achieved_through_chease(tmp_path, make_profile, barrier):
+    from vaft.code.chease import CHEASEConfig
+
+    spec = dataclasses.replace(VEST, pressure_profile=make_profile(), pressure_fraction=0.3)
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.ok, result.reason
+    # The state tolerance is 0.02 in normalized pressure; CHEASE tracks the shape far closer.
+    assert result.residuals["pressure_shape"] < 0.005
+    assert abs(result.residuals["pprime_peak"]) < 0.05 and abs(result.residuals["pprime_peak_location"]) < 0.01
+    solved = result.achieved_profiles
+    x = solved["psi_n"]
+    near = np.abs(x - barrier) < 0.15
+    # The barrier's steepest pressure gradient is where it was requested, on the solved mesh.
+    assert x[near][np.argmin(solved["pprime_norm"][near])] == pytest.approx(barrier, abs=0.01)
+    requested = np.interp(x, result.source_profiles["psi_n"], result.source_profiles["pprime_norm"])
+    assert solved["pprime_norm"][near].min() == pytest.approx(requested[near].min(), rel=0.05)
+    assert solved["q"][-1] > solved["q"][0] > 0 and result.achieved["q95"] > result.achieved["q0"]
+
+
+def test_a_hollow_current_profile_would_reverse_the_core_current():
+    """The refusal guards the real precondition: FF' of one sign, not just g(0) > g(1)."""
+    from vaft.process.profile import evaluate_analytic_profile
+
+    g = _hollow_pressure()
+    assert evaluate_analytic_profile(g, 0.0) > evaluate_analytic_profile(g, 1.0)     # ends alone would pass
+    assert np.any(evaluate_analytic_profile(g, np.linspace(0, 1, 201), derivative=True) > 0)
+    result = synthesize_equilibrium_from_0d(dataclasses.replace(VEST, current_profile=g))
+    assert result.status == "invalid_source_model" and "rises outward" in result.reason
+
+
+def test_a_missing_executable_is_a_state_not_an_exception(tmp_path, monkeypatch):
+    from vaft.code.chease import CHEASEConfig
+
+    for name in ("CHEASE", "CHEASEHOME", "CHEASE_EXEC_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    result = synthesize_equilibrium_from_0d(VEST, config=CHEASEConfig(workdir=tmp_path))
+    assert result.status == "non_converged" and "no CHEASE executable" in result.reason and not result.ok
+
+
+@needs_chease
+def test_a_pedestal_too_narrow_for_the_mesh_is_not_reached(tmp_path):
+    """Width 0.01: the pressure shape still passes, but the lost p' peak is reported."""
+    from vaft.code.chease import CHEASEConfig
+    from vaft.process.profile import analytic_hmode_state
+
+    spec = dataclasses.replace(VEST, pressure_fraction=0.3,
+                               pressure_profile=analytic_hmode_state(pedestal_width=0.01, pedestal_position=0.98))
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.residuals["pressure_shape"] < 0.02                  # invisible to the shape residual
+    assert result.residuals["pprime_peak"] < -0.1
+    assert result.status == "constraint_not_reached" and "steepest p'" in result.reason
+
+
+@needs_chease
+def test_an_unreadable_achieved_pressure_is_named(tmp_path, monkeypatch):
+    import vaft.code.chease_synthesis as module
+    from vaft.code.chease import CHEASEConfig
+
+    monkeypatch.setattr(module, "_achieved_profiles", lambda solved: {})
+    spec = dataclasses.replace(VEST, pressure_profile=_hmode_pressure())
+    result = synthesize_equilibrium_from_0d(spec, config=CHEASEConfig(workdir=tmp_path))
+    assert result.status == "invalid_equilibrium" and "could not be read" in result.reason
+    assert "nan" not in result.reason

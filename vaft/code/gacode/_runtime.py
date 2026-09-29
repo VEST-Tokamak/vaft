@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import subprocess
-from typing import Sequence
+from typing import Optional, Sequence
 
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend, timeout_reason
 from .._executables import (
     executable_from_home,
     missing_home_message,
@@ -203,6 +202,51 @@ def gacode_environment(config: GACODEConfig | None = None, code: str = "neo") ->
     return environment
 
 
+class GACODERun(tuple):
+    """What :func:`run_gacode` returns: unpacks as ``(returncode, log)``.
+
+    ``returncode`` is ``None`` when the run was stopped by a time limit; then
+    ``runtime_status`` is ``"timeout"`` or ``"queue_timeout"`` (#1016) and the
+    reason is the log's last line. ``elapsed_s`` is the wall time [s].
+    """
+
+    runtime_status: str
+    elapsed_s: Optional[float]
+
+    def __new__(
+        cls,
+        returncode: Optional[int],
+        log: Path,
+        runtime_status: str = "completed",
+        elapsed_s: Optional[float] = None,
+    ) -> "GACODERun":
+        run = super().__new__(cls, (returncode, log))
+        run.runtime_status = runtime_status
+        run.elapsed_s = elapsed_s
+        return run
+
+    def __getnewargs__(self) -> tuple:
+        # copy/pickle rebuild through __new__, which needs the attributes too.
+        return (self[0], self[1], self.runtime_status, self.elapsed_s)
+
+    @property
+    def returncode(self) -> Optional[int]:
+        return self[0]
+
+    @property
+    def log(self) -> Path:
+        return self[1]
+
+
+def stopped_reason(log: Path, runtime_status: str) -> str:
+    """The timeout line :func:`run_gacode` appended to ``log``."""
+    try:
+        lines = [line for line in log.read_text(encoding="utf-8", errors="replace").splitlines() if line.strip()]
+    except OSError:
+        lines = []
+    return lines[-1] if lines else f"stopped ({runtime_status})"
+
+
 def run_gacode(
     executable: Path,
     arguments: Sequence[str],
@@ -211,12 +255,14 @@ def run_gacode(
     log_path: Path,
     config: GACODEConfig | None = None,
     code: str = "neo",
-) -> tuple[int, Path]:
+) -> GACODERun:
     """Run a GACODE launcher, capturing merged stdout and stderr to a log.
 
-    Returns the exit status and the log path.  A non-zero status is returned,
-    not raised: whether it is fatal is the backend's judgement, and NEO in
-    particular writes useful diagnostics alongside a failure.
+    Returns the exit status and the log path (a :class:`GACODERun`, which
+    unpacks as that pair). A non-zero status is returned, not raised: whether
+    it is fatal is the backend's judgement, and NEO in particular writes
+    useful diagnostics alongside a failure. A timeout is returned too, with
+    ``returncode=None`` (#1016); it used to raise ``TimeoutExpired``.
     """
     command = (str(executable), *[str(argument) for argument in arguments])
     timeout = None if config is None else config.timeout
@@ -234,6 +280,7 @@ def run_gacode(
         )
     )
     if execution.timed_out:
-        # Callers have always seen the stdlib's exception here.
-        raise subprocess.TimeoutExpired(list(command), timeout or execution.elapsed_s)
-    return int(execution.returncode), log_path
+        with Path(log_path).open("a", encoding="utf-8") as log:
+            log.write("\n" + timeout_reason(code.upper(), execution, timeout) + "\n")
+        return GACODERun(None, log_path, execution.runtime_status, execution.elapsed_s)
+    return GACODERun(int(execution.returncode), log_path, "completed", execution.elapsed_s)
