@@ -357,6 +357,31 @@ if result.ok:                      # returncode == 0
 result = collect_efit_outputs('/tmp/efit-run', config)
 ```
 
+#### Named configurations (presets)
+
+`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.
+
+| preset | what it is |
+| --- | --- |
+| `routine` | The production configuration: legacy weights, a (2,2) basis, EFIT's own termination. Selecting it is the same as selecting nothing. |
+| `statistical_891` | The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1). |
+
+```python
+from vaft.code.efit import efit_preset, generate_kfile
+
+preset = efit_preset("statistical_891")
+constraints, floor_changes = preset.prepare_constraints(constraints_ods)  # a floored copy
+generate_kfile(constraints, 39915, save_dir="/tmp/efit-run", config=preset.scientific)
+```
+
+**Selecting a preset in the pipelines.**
+- **Pipeline 1:** `efit.preset` selects it. The k-file stage then writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`).
+- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset.
+
+A preset run writes the same product paths as a routine one, so give it its own `base_dir`.
+
+`statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
+
 #### Channel decisions
 
 Which magnetic channels constrain the fit, and at which slices, is decided
