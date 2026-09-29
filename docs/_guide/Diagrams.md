@@ -612,7 +612,7 @@ X-point.
 
 ```python
 vaft.diagram.stochastic_layer(regime="touching")   # "isolated", "overlapping"; or overlap=, perturbations=
-vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
+vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)       # or separatrix_lobes(equilibrium, ...)
 ```
 
 | | |
@@ -626,9 +626,9 @@ vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
 | Diagram | Model class | Concept |
 | --- | --- | --- |
 | `stochastic_layer` | reduced Hamiltonian | A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium's $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of `island_pendulum_hamiltonian`, width $4\sqrt{\epsilon/\lvert\iota'\rvert}$. The pair overlap $\sigma$ (`vaft.process.perturbation.chirikov`) is 0.5, 1 or 1.6. The inset shows where the section sits |
-| `separatrix_lobes` | reduced Hamiltonian | The single-null Solov'ev equilibrium plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
+| `separatrix_lobes` | reduced Hamiltonian | A lower-single-null equilibrium (by default the single-null Solov'ev) plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
 
-In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` draws the single-null Solov'ev equilibrium only, for now. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
+In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` takes any lower-single-null `EquilibriumData`: the X-point must be a saddle of the flux on the boundary value, below the axis, and the window scales with the minor radius; a limited equilibrium is refused. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
 
 The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
 $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
@@ -663,6 +663,26 @@ vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30
 | --- | --- |
 | ![marfe]({{ '/assets/diagrams/marfe.svg' | relative_url }}) | ![marfe x-point]({{ '/assets/diagrams/marfe_xpoint.svg' | relative_url }}) |
 
+
+
+### Divertor heat-flux footprint
+
+`divertor_heat_footprint` maps an Eich target profile onto a diverted equilibrium. The geometry comes from
+the equilibrium itself: the X-point is the zero of $\nabla\psi$ next to the lowest boundary point, the
+strike point is where the separatrix leg crosses a horizontal target, and the total flux expansion
+$f_x = (\partial\psi/\partial R)_\mathrm{OMP} / (\partial\psi/\partial s)_\mathrm{target}$ is
+evaluated on the flux, not assumed. The profile is `vaft.formula.sol.eich_target_heat_flux_profile` with
+that $f_x$. $\lambda_q$ (at the outer midplane) and $S$ (at the target) are illustrative inputs: this is a
+schematic, and measured IR profiles belong in `vaft.plot`. The SOL surfaces one, two and three $\lambda_q$
+outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target. The equilibrium must be
+lower single null, with an X-point on its boundary flux and legs that reach the target inside the limiter;
+anything else is refused rather than drawn.
+
+```python
+vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="outer")
+```
+
+![footprint]({{ '/assets/diagrams/divertor_heat_footprint.svg' | relative_url }})
 ## Disruption physics: quench sequence, runaways and energy paths
 
 The chain from loss of confinement to a runaway plateau, each link a relation in the new
@@ -813,6 +833,72 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Neutral beam injection: lifecycle and reduced attenuation
+
+A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and it never replaces
+`vaft.code.nubeam`.
+- **Formulas** (`vaft.formula.nbi`): `beam_particle_rate_from_power_energy` (per energy component, in eV),
+  `neutral_beam_optical_depth`, `neutral_survival_fraction_from_optical_depth`,
+  `beam_birth_probability_density` (a density along the path, not a volumetric deposition),
+  `shine_through_fraction`, and `injected_toroidal_angular_momentum_rate`. The last is the ideal rate
+  carried in, not the torque on the plasma.
+- **Process** (`vaft.process.nbi.neutral_beam_attenuation_along_path`): composes these along a prescribed
+  1-D path and adds the particle and power bookkeeping. Births are counted per path cell as
+  $S_i - S_{i+1}$, so $\sum_i + f_\mathrm{shine} = 1$ and $P_\mathrm{birth} + P_\mathrm{shine} =
+  P_\mathrm{injected}$ hold exactly on any grid. The "power birth profile" is where neutrals become
+  fast ions, not where the plasma is heated. The process module's docstring tabulates what this layer
+  answers and what needs a full solver; related work is #265 (VEST NBI description), #592 (NUBEAM → IMAS),
+  #1064 and #1092 (scales, orbits).
+
+The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
+built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are
+not redrawn here.
+
+```python
+vaft.diagram.nbi_particle_lifecycle()      # shine-through / prompt loss / delayed loss kept apart
+vaft.diagram.nbi_neutral_attenuation()     # S(s), b(s), births and f_shine from vaft.formula.nbi
+
+## Iteration behaviour, branch bifurcation and branch selection
+
+Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.
+
+Every curve is computed:
+- the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+  and from an expanding linear map;
+- the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;
+- the basins are its exact relaxation at $\lambda = 0$.
+
+The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.
+
+```python
+vaft.diagram.iteration_behavior()       # fixed point, divergence, 2-cycle, period-4 limit cycle
+vaft.diagram.branch_bifurcation()       # stable (solid) / unstable (dashed), folds, jumps, hysteresis
+vaft.diagram.basin_of_attraction()      # initial condition selects branch A or B
+vaft.diagram.grid_induced_two_cycle()   # each re-solve lands nearer the other node: a one-cell hop
+vaft.diagram.branch_selection()         # the last two side by side under one caption
+```
+
+![iteration]({{ '/assets/diagrams/iteration_behavior.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![bifurcation]({{ '/assets/diagrams/branch_bifurcation.svg' | relative_url }}) | ![basin]({{ '/assets/diagrams/basin_of_attraction.svg' | relative_url }}) |
+
+![branch selection]({{ '/assets/diagrams/branch_selection.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (thin line) exists in every panel but is stable only in the first; guides mark the four levels of the period-4 cycle |
+| `branch_bifurcation` | Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds |
+| `basin_of_attraction` | Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch |
+| `grid_induced_two_cycle` | A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch |
+| `branch_selection` | `basin_of_attraction` beside `grid_induced_two_cycle`: physical branch structure against numerical cycling |
+
 ## Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram
 
 Each diagram is drawn from the cold-plasma equations in `vaft.formula.waves`:
@@ -871,6 +957,13 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 
 | | |
 | --- | --- |
+| ![lifecycle]({{ '/assets/diagrams/nbi_particle_lifecycle.svg' | relative_url }}) | ![attenuation]({{ '/assets/diagrams/nbi_neutral_attenuation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `nbi_particle_lifecycle` | Injection, ionisation, fast-ion birth, confinement, slowing down, heating and drive, then thermalisation. Each loss branches at its own stage: shine-through while neutral, prompt orbit loss after ionisation, delayed loss after confinement |
+| `nbi_neutral_attenuation` | Survival $e^{-\tau}$ and birth density $\alpha S$ along a path through a parabolic plasma (an illustrative $\alpha$). Births are drawn at equal probability steps, and the shine-through is marked at the exit |
+
 | ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
 | ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
 

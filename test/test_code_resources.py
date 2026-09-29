@@ -8,7 +8,9 @@ and direction, so the module stays in the develop gate.
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import sys
 import time
 import warnings
@@ -202,14 +204,35 @@ def test_rss_units_are_mebibytes():
     assert peak >= 0.9 * current
 
 
+# Run in a fresh interpreter: inside a long pytest process the allocator can
+# hand the 64 MiB block back from memory an earlier test freed but that is
+# still resident, so RSS does not move (CI saw before == after == 1548 MiB).
+# The child loads this very resources.py by path, so it measures the code
+# under test and not whichever vaft the child's sys.path would find.
+_RSS_ALLOCATION_CHILD = """
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("_vaft_resources_child", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+before = module.rss_mb()
+block = b"\\x01" * (64 * 1024**2)  # written, so every page is resident
+after = module.rss_mb()
+peak = module.peak_rss_mb()
+del block
+print(json.dumps([before, after, peak]))
+"""
+
+
 def test_rss_follows_an_allocation():
-    before = rss_mb()
-    block = b"\x01" * (64 * MIB)  # written, so every page is resident
-    after = rss_mb()
-    peak = peak_rss_mb()
+    result = subprocess.run(
+        [sys.executable, "-c", _RSS_ALLOCATION_CHILD, resources.__file__],
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    before, after, peak = json.loads(result.stdout.strip().splitlines()[-1])
     assert after - before > 48.0, (before, after)
-    assert peak >= after - 1.0
-    del block
+    assert peak >= after - 1.0, (after, peak)
 
 
 # --------------------------------------------------------------------- guard

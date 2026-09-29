@@ -31,11 +31,13 @@ _ASYMMETRIC_BASIS = _SYMMETRIC_BASIS + ((1, "C", "sin"), (2, "C", "sin"), (2, "S
 _KINDS = ("psi", "x", "y", "xx", "yy", "xy")
 
 
-def _separation_constants(eps: float, alpha: float) -> tuple[np.ndarray, np.ndarray]:
-    """Eq. (3.3): h_n and k_n, with k_n^2 = alpha^2 - h_n^2/(1 + eps^2)."""
+def _separation_constants(eps: float, alpha: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Eq. (3.3): h_n and k_n, with k_n^2 = alpha^2 - h_n^2/(1 + eps^2), along a last axis of four."""
+    alpha = np.asarray(alpha, dtype=float)
     scale = np.sqrt(1.0 + eps**2)*alpha
-    h = np.array([scale, np.sqrt(35/36)*scale, np.sqrt(13/49)*scale, 0.0])
-    k = np.array([0.0, alpha/6.0, 6.0*alpha/7.0, alpha])
+    zero = np.zeros_like(alpha)
+    h = np.stack([scale, np.sqrt(35/36)*scale, np.sqrt(13/49)*scale, zero], axis=-1)
+    k = np.stack([zero, alpha/6.0, 6.0*alpha/7.0, alpha], axis=-1)
     return h, k
 
 
@@ -62,60 +64,94 @@ def _source_polynomial(eps: float, nu: float, mach: float = 0.0, gamma: float | 
     return tuple(float(eps_hat**(j + 1)*v) for j, v in enumerate(nus))
 
 
-def _series(k: float, lam: tuple[float, float, float], eps_hat: float, sine: bool, terms: int) -> tuple[np.ndarray, np.ndarray]:
+def _series(k: Any, lam: tuple[Any, Any, Any], eps_hat: float, sine: Any, terms: int) -> tuple[np.ndarray, np.ndarray]:
     """Eqs. (A2)-(A3) of Part 1, generalized to (B3) of Part 2: power-series coefficients of X_n.
 
     ``lam`` holds ``(lambda_1**2, lambda_2**2, lambda_3**2)`` of Eq. (5.10);
-    Part 1 is ``(alpha**2 eps_hat nu, 0, 0)``.
+    Part 1 is ``(alpha**2 eps_hat nu, 0, 0)``.  ``k``, the ``lam`` entries and
+    ``sine`` may be arrays: the recursion then runs for all of them at once,
+    and the coefficients carry their broadcast shape before the term axis.
     """
-    l1, l2, l3 = lam
-    a = np.zeros(terms); b = np.zeros(terms)
-    if sine:
-        b[0] = 1.0
-    else:
-        a[0] = 1.0
+    k = np.asarray(k, dtype=float)
+    l1, l2, l3 = (np.asarray(v, dtype=float) for v in lam)
+    sine = np.asarray(sine, dtype=bool)
+    shape = np.broadcast_shapes(k.shape, l1.shape, l2.shape, l3.shape, sine.shape)
+    a = np.zeros((terms,) + shape); b = np.zeros((terms,) + shape)
+    a[0] = np.where(sine, 0.0, 1.0); b[0] = np.where(sine, 1.0, 0.0)
+    shift = l1 - eps_hat*k*k
     for m in range(3, terms):
-        am = eps_hat*(m-1)*(m-2)*a[m-1] + (l1 - eps_hat*k*k)*a[m-3] + 2*(m-1)*k*b[m-1] + 2*eps_hat*(m-2)*k*b[m-2]
-        bm = eps_hat*(m-1)*(m-2)*b[m-1] + (l1 - eps_hat*k*k)*b[m-3] - 2*(m-1)*k*a[m-1] - 2*eps_hat*(m-2)*k*a[m-2]
+        am = eps_hat*(m-1)*(m-2)*a[m-1] + shift*a[m-3] + 2*(m-1)*k*b[m-1] + 2*eps_hat*(m-2)*k*b[m-2]
+        bm = eps_hat*(m-1)*(m-2)*b[m-1] + shift*b[m-3] - 2*(m-1)*k*a[m-1] - 2*eps_hat*(m-2)*k*a[m-2]
         if m >= 4:
             am += l2*a[m-4]; bm += l2*b[m-4]
         if m >= 5:
             am += l3*a[m-5]; bm += l3*b[m-5]
         a[m] = -am/(m*(m-1)); b[m] = -bm/(m*(m-1))
-    return a, b
+    return np.moveaxis(a, 0, -1), np.moveaxis(b, 0, -1)
 
 
-def _radial(a: np.ndarray, b: np.ndarray, k: float, lam: tuple[float, float, float], eps_hat: float,
+#: The distinct radial functions X_n of the basis, by (separation index n, kind).
+_RADIAL = ((1, "C"), (2, "C"), (2, "S"), (3, "C"), (3, "S"), (4, "C"), (4, "S"))
+
+
+def _series_table(eps: float, source: tuple[float, float, float], alpha: Any, terms: int) -> tuple[np.ndarray, np.ndarray]:
+    """The series of every function in :data:`_RADIAL`, shaped ``alpha.shape + (7, terms)``.
+
+    One recursion serves a whole alpha scan; the evaluations that follow
+    reuse it through the ``series`` argument of :func:`_basis_values`.
+    """
+    alpha = np.asarray(alpha, dtype=float)
+    eps_hat = 2*eps/(1 + eps**2)
+    _, k = _separation_constants(eps, alpha)
+    k_radial = k[..., [n - 1 for n, _ in _RADIAL]]
+    lam = tuple((alpha**2*s)[..., None] for s in source)
+    return _series(k_radial, lam, eps_hat, np.array([kind == "S" for _, kind in _RADIAL]), terms)
+
+
+def _radial(a: np.ndarray, b: np.ndarray, k: Any, lam: tuple[Any, Any, Any], eps_hat: float,
             x: np.ndarray) -> tuple[np.ndarray, ...]:
-    """X, X', X'' by Eq. (A4); X'' from the ODE (5.10) itself."""
-    m = np.arange(a.size)
+    """X, X', X'' by Eq. (A4); X'' from the ODE (5.10) itself.
+
+    ``a`` and ``b`` end in the term axis; what precedes it broadcasts with
+    ``k``, the ``lam`` entries and ``x``.
+    """
+    m = np.arange(a.shape[-1])
     xm = x[..., None]**m
     dxm = np.where(m > 0, m*x[..., None]**np.maximum(m - 1, 0), 0.0)
     cos, sin = np.cos(k*x)[..., None], np.sin(k*x)[..., None]
     X = np.sum((a*cos + b*sin)*xm, axis=-1)
-    Xp = np.sum((-k*a*xm + b*dxm)*sin + (k*b*xm + a*dxm)*cos, axis=-1)
+    Xp = np.sum((-k[..., None]*a*xm + b*dxm)*sin + (k[..., None]*b*xm + a*dxm)*cos, axis=-1)
     Xpp = -(k*k + lam[0]*x + lam[1]*x**2 + lam[2]*x**3)/(1.0 + eps_hat*x)*X
     return X, Xp, Xpp
 
 
-def _basis_values(topology: str, eps: float, source: tuple[float, float, float], alpha: float, x: Any, y: Any,
-                  terms: int) -> list[dict[str, np.ndarray]]:
+def _basis_values(topology: str, eps: float, source: tuple[float, float, float], alpha: Any, x: Any, y: Any,
+                  terms: int, series: tuple[np.ndarray, np.ndarray] | None = None) -> list[dict[str, np.ndarray]]:
+    """The basis columns and their derivatives, shaped ``alpha.shape + broadcast(x, y).shape``.
+
+    ``series`` is :func:`_series_table` for this ``alpha``, reused when given.
+    """
     x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
     x, y = np.broadcast_arrays(x, y)
-    eps_hat = 2*eps/(1 + eps**2); lam = tuple(alpha**2*s for s in source)
+    alpha = np.asarray(alpha, dtype=float)
+    a_all, b_all = _series_table(eps, source, alpha, terms) if series is None else series
+    lift = alpha.shape + (1,)*x.ndim
+    eps_hat = 2*eps/(1 + eps**2); lam = tuple(np.reshape(alpha**2*s, lift) for s in source)
     h, k = _separation_constants(eps, alpha)
     radial: dict[tuple[int, str], tuple[np.ndarray, ...]] = {}
     out = []
     for n, kind, vertical in (_ASYMMETRIC_BASIS if topology == "lower_single_null" else _SYMMETRIC_BASIS):
         if (n, kind) not in radial:
-            a, b = _series(k[n-1], lam, eps_hat, kind == "S", terms)
-            radial[(n, kind)] = _radial(a, b, k[n-1], lam, eps_hat, x)
+            j = _RADIAL.index((n, kind))
+            a = np.reshape(a_all[..., j, :], lift + (terms,)); b = np.reshape(b_all[..., j, :], lift + (terms,))
+            radial[(n, kind)] = _radial(a, b, np.reshape(k[..., n-1], lift), lam, eps_hat, x)
         X, Xp, Xpp = radial[(n, kind)]
-        hy = h[n-1]*y
+        hn = np.reshape(h[..., n-1], lift)
+        hy = hn*y
         if vertical == "cos":
-            Y, Yp, Ypp = np.cos(hy), -h[n-1]*np.sin(hy), -h[n-1]**2*np.cos(hy)
+            Y, Yp, Ypp = np.cos(hy), -hn*np.sin(hy), -hn**2*np.cos(hy)
         else:
-            Y, Yp, Ypp = np.sin(hy), h[n-1]*np.cos(hy), -h[n-1]**2*np.sin(hy)
+            Y, Yp, Ypp = np.sin(hy), hn*np.cos(hy), -hn**2*np.sin(hy)
         out.append({"psi": Y*X, "x": Y*Xp, "y": Yp*X, "xx": Y*Xpp, "yy": Ypp*X, "xy": Yp*Xp})
     return out
 
@@ -162,23 +198,34 @@ def _constraints(topology: str, eps: float, kappa: float | None, delta: float | 
     return rows
 
 
-def _matrix(topology: str, eps: float, source, alpha: float, rows, terms: int) -> np.ndarray:
-    points = np.array([point for point, _ in rows])
-    columns = _basis_values(topology, eps, source, alpha, points[:, 0], points[:, 1], terms)
-    return np.array([[sum(weight*column[kind][i] for kind, weight in combo) for column in columns]
-                     for i, (_, combo) in enumerate(rows)])
+def _matrix(topology: str, eps: float, source, alpha: Any, rows, terms: int,
+            series: tuple[np.ndarray, np.ndarray] | None = None) -> np.ndarray:
+    """The matching conditions, shaped ``alpha.shape + (rows, columns)``; each point is evaluated once."""
+    points, where = np.unique(np.array([point for point, _ in rows]), axis=0, return_inverse=True)
+    where = where.ravel()
+    columns = _basis_values(topology, eps, source, alpha, points[:, 0], points[:, 1], terms, series)
+    return np.stack([np.stack([sum(weight*column[kind][..., where[i]] for kind, weight in combo) for column in columns],
+                              axis=-1)
+                     for i, (_, combo) in enumerate(rows)], axis=-2)
+
+
+def _eigen_errors(topology: str, eps: float, source, alpha: Any, rows, terms: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Eq. (3.11) for an array of alpha at once: the misses, the coefficients and the solved blocks."""
+    A = _matrix(topology, eps, source, alpha, rows, terms)
+    n = A.shape[-2]
+    sub = A[..., :n-1, 1:]
+    rest = np.linalg.solve(sub, -A[..., :n-1, 0][..., None])[..., 0]
+    terms_last = np.concatenate([A[..., n-1, :1], A[..., n-1, 1:]*rest], axis=-1)
+    denominator = np.sum(np.abs(terms_last), axis=-1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        error = np.where(denominator > 0, (np.sum(terms_last, axis=-1)/denominator)**2, 1.0)
+    return error, np.concatenate([np.ones(rest.shape[:-1] + (1,)), rest], axis=-1), sub
 
 
 def _eigen_error(topology: str, eps: float, source, alpha: float, rows, terms: int) -> tuple[float, np.ndarray, float]:
     """Eq. (3.11): c_1 = 1, the first N-1 conditions solved, the last one's normalized miss."""
-    A = _matrix(topology, eps, source, alpha, rows, terms)
-    n = A.shape[0]
-    sub = A[:n-1, 1:]
-    rest = np.linalg.solve(sub, -A[:n-1, 0])
-    terms_last = np.r_[A[n-1, 0], A[n-1, 1:]*rest]
-    denominator = np.sum(np.abs(terms_last))
-    error = float((np.sum(terms_last)/denominator)**2) if denominator > 0 else 1.0
-    return error, np.r_[1.0, rest], float(np.linalg.cond(sub))
+    error, coefficients, sub = _eigen_errors(topology, eps, source, float(alpha), rows, terms)
+    return float(error), coefficients, float(np.linalg.cond(sub))
 
 
 def solve_guazzotto_freidberg(
@@ -354,7 +401,8 @@ def solve_guazzotto_freidberg(
     terms = int(series_terms)
     source = _source_polynomial(eps, nu, mach, gamma)
     grid = np.linspace(*alpha_range, 1101)
-    errors = np.array([_eigen_error(topology, eps, source, a, rows, terms)[0] for a in grid])
+    # One vectorized pass over the whole grid: a coarser scan misses roots.
+    errors = _eigen_errors(topology, eps, source, grid, rows, terms)[0]
     alpha = None
     for i in range(1, grid.size - 1):
         if errors[i] <= errors[i-1] and errors[i] <= errors[i+1] and errors[i] < 1e-3:
@@ -376,10 +424,12 @@ def solve_guazzotto_freidberg(
         # to infinity at the pedestal-free eigenvalue, so the root lies below it.
         target = 1/(1 - f_j)
 
-        def mismatch(a: float) -> float:
+        def mismatch(a: float, series: tuple[np.ndarray, np.ndarray] | None = None) -> float:
+            if series is None:
+                series = _series_table(eps, source, a, terms)
             try:
-                u = _pedestal_coefficients(topology, eps, source, a, rows, terms, f_j/(1 - f_j))
-                _, values = _find_axis(topology, eps, source, a, u, terms)
+                u = _pedestal_coefficients(topology, eps, source, a, rows, terms, f_j/(1 - f_j), series)
+                _, values = _find_axis(topology, eps, source, a, u, terms, series)
             except (ValueError, np.linalg.LinAlgError):
                 return float("nan")
             return float(values["psi"]) - target
@@ -390,7 +440,8 @@ def solve_guazzotto_freidberg(
         # and a geometric tail keeps a small pedestal's root inside a bracket.
         tail = alpha - (alpha - low)*np.geomspace(1/120, 1e-10, 25)
         trial = np.unique(np.r_[np.linspace(low, alpha, 121)[:-1], tail])
-        signs = np.array([mismatch(a) for a in trial])
+        a_trial, b_trial = _series_table(eps, source, trial, terms)
+        signs = np.array([mismatch(a, (a_trial[i], b_trial[i])) for i, a in enumerate(trial)])
         crossing = [i for i in range(trial.size - 1)
                     if np.isfinite(signs[i]) and np.isfinite(signs[i+1]) and signs[i] < 0 <= signs[i+1]]
         if not crossing:
@@ -424,22 +475,25 @@ def _nu_max(eps: float, mach: float, gamma: float | None) -> float:
     return float(-1/g_inner)
 
 
-def _pedestal_coefficients(topology, eps, source, alpha, rows, terms, offset) -> np.ndarray:
+def _pedestal_coefficients(topology, eps, source, alpha, rows, terms, offset, series=None) -> np.ndarray:
     """Eq. (4.10): the inhomogeneous matching system, ``psi_J = offset`` at the surface points."""
-    A = _matrix(topology, eps, source, alpha, rows, terms)
+    A = _matrix(topology, eps, source, alpha, rows, terms, series)
     v = np.array([offset if combo == (("psi", 1.0),) else 0.0 for _, combo in rows])
     return np.linalg.solve(A, v)
 
 
-def _find_axis(topology, eps, source, alpha, coefficients, terms):
+def _find_axis(topology, eps, source, alpha, coefficients, terms, series=None):
     """The magnetic axis, an extremum of psi near the geometric centre, and the fields there."""
+    if series is None:
+        series = _series_table(eps, source, alpha, terms)
+
     def gradient(point: np.ndarray) -> list[float]:
-        values = _evaluate(topology, eps, source, alpha, coefficients, point[0], point[1], terms)
+        values = _evaluate(topology, eps, source, alpha, coefficients, point[0], point[1], terms, series)
         return [float(values["x"]), float(values["y"])]
 
     solved = root(gradient, [0.0, 0.0])
     axis = (float(solved.x[0]), float(solved.x[1]))
-    at_axis = _evaluate(topology, eps, source, alpha, coefficients, *axis, terms)
+    at_axis = _evaluate(topology, eps, source, alpha, coefficients, *axis, terms, series)
     if not solved.success or abs(axis[0]) > 1 or float(at_axis["xx"]*at_axis["yy"] - at_axis["xy"]**2) <= 0:
         raise ValueError("no magnetic axis (extremum of psi) was found near the geometric centre")
     return axis, at_axis
@@ -476,9 +530,9 @@ def _psi_on_grid(model: GuazzottoFreidbergEquilibrium, xs: np.ndarray, ys: np.nd
     return psi - _flux_offset(model)
 
 
-def _evaluate(topology, eps, source, alpha, coefficients, x, y, terms) -> dict[str, np.ndarray]:
+def _evaluate(topology, eps, source, alpha, coefficients, x, y, terms, series=None) -> dict[str, np.ndarray]:
     """psi_J (psi without a current pedestal) and its derivatives."""
-    columns = _basis_values(topology, eps, source, alpha, x, y, terms)
+    columns = _basis_values(topology, eps, source, alpha, x, y, terms, series)
     return {kind: sum(c*column[kind] for c, column in zip(coefficients, columns)) for kind in _KINDS}
 
 
@@ -574,15 +628,50 @@ def _plasma_region(model: GuazzottoFreidbergEquilibrium, resolution: int) -> tup
     x_edge = min(1.03, 0.999*(1 + model.inverse_aspect_ratio**2)/(2*model.inverse_aspect_ratio))
     xs = np.linspace(-x_edge, x_edge, int(resolution))
     ys = np.linspace(-height, height, int(resolution*height))
-    X, Y = np.meshgrid(xs, ys, indexing="ij")
     psi = _psi_on_grid(model, xs, ys)
     lines = contour_generator(xs, ys, psi.T).lines(1e-6)
     closing = [line for line in lines if mpath.Path(line).contains_point(model.magnetic_axis)]
     if not closing:
         raise ValueError("the psi = 0 surface does not close around the magnetic axis on the evaluation grid")
     surface = max(closing, key=len)
-    inside = mpath.Path(surface).contains_points(np.column_stack((X.ravel(), Y.ravel()))).reshape(X.shape)
-    return xs, ys, psi, inside, surface
+    return xs, ys, psi, _grid_inside(xs, ys, surface), surface
+
+
+def _grid_inside(xs: np.ndarray, ys: np.ndarray, contour: np.ndarray) -> np.ndarray:
+    """``Path(contour).contains_points`` on the tensor grid ``xs`` x ``ys``, indexed (x, y).
+
+    Grid points that are no corner of a cell the contour crosses (with a
+    margin of cells) fall into 4-connected groups that the contour does not
+    split.  Only the points near the contour and one point per group are
+    tested; the result is the full test's, at a small fraction of its cost.
+    """
+    import matplotlib.path as mpath
+    from scipy import ndimage
+
+    path = mpath.Path(contour)
+    # Points along every edge, including the closing one, no more than a cell apart.
+    closed = np.vstack((contour, contour[:1]))
+    edges = np.diff(closed, axis=0)
+    cell = np.array([xs[1] - xs[0], ys[1] - ys[0]])
+    steps = np.maximum(np.ceil(np.max(np.abs(edges)/cell, axis=1)).astype(int), 1)
+    edge = np.repeat(np.arange(steps.size), steps)
+    fraction = (np.arange(steps.sum()) - np.repeat(np.cumsum(steps) - steps, steps) + 0.5)/steps[edge]
+    trace = closed[edge] + fraction[:, None]*edges[edge]
+    i = np.floor((trace[:, 0] - xs[0])/cell[0]).astype(int)
+    j = np.floor((trace[:, 1] - ys[0])/cell[1]).astype(int)
+    near = np.zeros((xs.size, ys.size), dtype=bool)
+    for di in range(-2, 4):
+        for dj in range(-2, 4):
+            near[np.clip(i + di, 0, xs.size - 1), np.clip(j + dj, 0, ys.size - 1)] = True
+    X, Y = np.meshgrid(xs, ys, indexing="ij")
+    inside = np.zeros(near.shape, dtype=bool)
+    inside[near] = path.contains_points(np.column_stack((X[near], Y[near])))
+    groups, _ = ndimage.label(~near)
+    labels, first = np.unique(groups.ravel(), return_index=True)
+    verdict = np.zeros(labels.max() + 1, dtype=bool)
+    verdict[labels] = path.contains_points(np.column_stack((X.ravel()[first], Y.ravel()[first])))
+    inside[~near] = verdict[groups[~near]]
+    return inside
 
 
 def guazzotto_freidberg_parameters(
