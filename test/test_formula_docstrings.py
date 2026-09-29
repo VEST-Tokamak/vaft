@@ -78,6 +78,14 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
+    "plasma_frequency",
+    "stix_parameters",
+    "dielectric_tensor",
+    "cold_plasma_refractive_index_squared",
+    "perpendicular_refractive_index_squared",
+    "cma_coordinates",
+    "propagation_regime",
     # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
     "transit_frequency",
     "deeply_trapped_bounce_frequency",

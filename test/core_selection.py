@@ -148,6 +148,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
