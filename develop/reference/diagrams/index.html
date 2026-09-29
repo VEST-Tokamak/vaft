@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5bad583</code>. What is described
+  <code>5b7c117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1871,6 +1871,82 @@ points and are not loaded; ADF11 stays in <code class="language-plaintext highli
   </tbody>
 </table>
 
+<h2 id="iteration-behaviour-branch-bifurcation-and-branch-selection">Iteration behaviour, branch bifurcation and branch selection</h2>
+
+<p>Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.</p>
+
+<p>Every curve is computed:</p>
+<ul>
+  <li>the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+and from an expanding linear map;</li>
+  <li>the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;</li>
+  <li>the basins are its exact relaxation at $\lambda = 0$.</li>
+</ul>
+
+<p>The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">iteration_behavior</span><span class="p">()</span>       <span class="c1"># fixed point, divergence, 2-cycle, period-4 limit cycle
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">branch_bifurcation</span><span class="p">()</span>       <span class="c1"># stable (solid) / unstable (dashed), folds, jumps, hysteresis
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">basin_of_attraction</span><span class="p">()</span>      <span class="c1"># initial condition selects branch A or B
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">grid_induced_two_cycle</span><span class="p">()</span>   <span class="c1"># each re-solve lands nearer the other node: a one-cell hop
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">branch_selection</span><span class="p">()</span>         <span class="c1"># the last two side by side under one caption
+</span></code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/diagrams/iteration_behavior.svg" alt="iteration" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/branch_bifurcation.svg" alt="bifurcation" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/basin_of_attraction.svg" alt="basin" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/branch_selection.svg" alt="branch selection" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">iteration_behavior</code></td>
+      <td>$x_k$ against $k$ in one format. The fixed point $x^*$ (thin line) exists in every panel but is stable only in the first; guides mark the four levels of the period-4 cycle</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">branch_bifurcation</code></td>
+      <td>Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">basin_of_attraction</code></td>
+      <td>Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">grid_induced_two_cycle</code></td>
+      <td>A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">branch_selection</code></td>
+      <td><code class="language-plaintext highlighter-rouge">basin_of_attraction</code> beside <code class="language-plaintext highlighter-rouge">grid_induced_two_cycle</code>: physical branch structure against numerical cycling</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</h2>
 
 <p>Each diagram is drawn from the cold-plasma equations in <code class="language-plaintext highlighter-rouge">vaft.formula.waves</code>:</p>
@@ -2235,7 +2311,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -2353,7 +2429,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 04:07:28 +0000"
+        "time": "2026-09-29 05:36:49 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
