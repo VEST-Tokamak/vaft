@@ -17,6 +17,7 @@ __all__ = [
     "confinement_coverage",
     "h_factor",
     "predict_confinement_time",
+    "transition_margin",
 ]
 
 #: Exponent variable of ``_SCALING_COEFS`` -> (formula keyword, canonical column).
@@ -168,3 +169,30 @@ def confinement_coverage(
     counts = finite.groupby(by).sum()
     counts.insert(0, "rows", table.groupby(by).size())
     return counts
+
+
+def transition_margin(table: pd.DataFrame) -> pd.Series:
+    """Loss power over the record's scaling threshold, ``p_loss_W / p_lh_scaling_W``.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Canonical transition table [table].
+
+    Returns
+    -------
+    pandas.Series
+        Margin indexed like ``table``; ``NaN`` where either power is missing
+        or the threshold is not positive [-].
+
+    Notes
+    -----
+    The threshold is whatever ``p_lh_scaling_W`` holds -- for TCV the
+    source-computed Martin 2008 value (``p_lh_scaling_definition`` says so).
+    VAFT evaluates no L-H scaling of its own until one exists in
+    :mod:`vaft.formula` (#670, #1066).
+    """
+    loss = pd.to_numeric(table["p_loss_W"], errors="coerce")
+    threshold = pd.to_numeric(table["p_lh_scaling_W"], errors="coerce")
+    margin = loss / threshold.where(threshold > 0.0)
+    return margin.rename("transition_margin")
