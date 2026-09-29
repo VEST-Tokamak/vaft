@@ -26,6 +26,14 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The operational-boundary data model (#1067): evaluation and registry
+    # plumbing. The physics and its sources live on each registered entry.
+    "boundary_value",
+    "evaluate_boundary",
+    "evaluate_window",
+    "boundary_curve",
+    "get_boundary",
+    "list_boundaries",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -70,6 +78,16 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    "transit_frequency",
+    "deeply_trapped_bounce_frequency",
+    "trapped_particle_effective_collision_frequency",
+    "banana_width",
+    "collisions_per_transit",
+    "neoclassical_regime_boundaries",
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    "ntv_precession_frequency",
+    "nonambipolar_torque_density",
     # scrape-off layer (#951): closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
     "ion_sound_speed",
     "sheath_particle_flux",
