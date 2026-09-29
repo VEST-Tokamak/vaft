@@ -1,14 +1,18 @@
-"""Canonical confinement-state table shared by every confinement source.
+"""Canonical tables shared by every public-database source.
 
-One row is one confinement record: a steady-state time window of one discharge
-of one machine.  External databases (ITPA DB5.2.3) and VEST summaries are both
-normalised into this table, and every analysis and plot downstream reads only
-these columns -- never a source-specific name.
+* :data:`CONFINEMENT_COLUMNS` -- one row per confinement record, a
+  steady-state window of one discharge (ITPA DB5.2.3, VEST summaries).
+* :data:`TRANSITION_COLUMNS` -- one row per regime-transition record, with the
+  event named explicitly (TCV L-H database; TC-26 when available).
+
+Every analysis and plot downstream reads only these columns -- never a
+source-specific name.
 
 Rules
 -----
-* Quantities are strict SI, the units
-  :func:`vaft.formula.confinement_time_from_engineering_parameters` takes.
+* Quantities are strict SI (the units
+  :func:`vaft.formula.confinement_time_from_engineering_parameters` takes);
+  a missing label is null (``None`` / ``NaN``; test it with ``pandas.isna``).
 * Missing in the source is ``NaN`` here.  Nothing is filled with a default.
 * A quantity whose definition differs between sources (loss power, reference
   radius of the toroidal field, how ``W_th`` was measured, where the ion mass
@@ -28,9 +32,12 @@ import pandas as pd
 __all__ = [
     "CONFINEMENT_COLUMNS",
     "ColumnSpec",
+    "TRANSITION_COLUMNS",
     "empty_confinement_table",
+    "empty_transition_table",
     "make_record_id",
     "validate_confinement_table",
+    "validate_transition_table",
 ]
 
 
@@ -85,6 +92,56 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     "source_reference": ColumnSpec("str", "Citation or DOI for the source."),
 }
 
+#: One row per regime-transition record (#1205 section 5, #1066 section 17).
+#: The event is explicit -- ``transition``, ``source_regime``,
+#: ``target_regime`` -- and never hidden in an unrelated IDS.  A record where
+#: the source looked for the transition and did not see it keeps the same
+#: event columns with ``transition_observed = False``.
+TRANSITION_COLUMNS: dict[str, ColumnSpec] = {
+    # identity
+    "machine": ColumnSpec("str", "Canonical machine name, upper case (e.g. 'TCV')."),
+    "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time_ms>' identifier."),
+    "shot": ColumnSpec("int", "Discharge number."),
+    "time_s": ColumnSpec("s", "Time of the transition, or of the record when none was observed."),
+    # event semantics
+    "transition": ColumnSpec("str", "Event name, e.g. 'L_to_H'.  'H_to_L' is a different event, not its inverse."),
+    "source_regime": ColumnSpec("str", "Regime before the event, e.g. 'L_mode'."),
+    "target_regime": ColumnSpec("str", "Regime after the event, e.g. 'H_mode'."),
+    "transition_observed": ColumnSpec("bool", "True: the event happened at time_s; False: sought but not observed at these conditions."),
+    # conditions at the event
+    "p_loss_W": ColumnSpec("W", "Loss power at the event (see p_loss_definition)."),
+    "p_rad_W": ColumnSpec("W", "Total radiated power at the event."),
+    "i_p_A": ColumnSpec("A", "Plasma current magnitude."),
+    "b_t_T": ColumnSpec("T", "Toroidal field magnitude (see b_t_definition)."),
+    "n_e_line_avg_m3": ColumnSpec("m^-3", "Line-averaged electron density (see n_e_definition)."),
+    "surface_area_m2": ColumnSpec("m^2", "Surface area of the last closed flux surface."),
+    "r_geo_m": ColumnSpec("m", "Geometric major radius."),
+    "a_m": ColumnSpec("m", "Minor radius."),
+    "kappa": ColumnSpec("1", "Elongation."),
+    "delta": ColumnSpec("1", "Average triangularity."),
+    "q95": ColumnSpec("1", "Safety factor at 95 % poloidal flux."),
+    "z_eff": ColumnSpec("1", "Effective charge."),
+    "main_ion": ColumnSpec("str", "Main ion species, 'H', 'D', 'He' ...; missing when the source does not say."),
+    "main_ion_mass_amu": ColumnSpec("amu", "Main ion mass number."),
+    "hydrogen_fraction": ColumnSpec("1", "Hydrogen concentration as the source measures it (see isotope_definition)."),
+    "helium_fraction": ColumnSpec("1", "Helium concentration as the source measures it (see isotope_definition)."),
+    "divertor_configuration": ColumnSpec("str", "Magnetic configuration (e.g. 'LSN', 'USN', 'DN', 'limited'); missing when the source does not say."),
+    "divertor_closure": ColumnSpec("str", "Divertor closure / baffling as the source labels it."),
+    "density_branch": ColumnSpec("str", "'low' or 'high' relative to n_e_min_m3; missing without n_e_min_m3."),
+    "n_e_min_m3": ColumnSpec("m^-3", "Density of minimum threshold power (see density_branch_definition)."),
+    "p_lh_scaling_W": ColumnSpec("W", "Scaling-law threshold power for this record (see p_lh_scaling_definition)."),
+    # definitions and provenance
+    "p_loss_definition": ColumnSpec("str", "How p_loss_W was formed, in the source's terms."),
+    "b_t_definition": ColumnSpec("str", "Which field b_t_T is."),
+    "n_e_definition": ColumnSpec("str", "Which chord or construction n_e_line_avg_m3 is."),
+    "isotope_definition": ColumnSpec("str", "How main ion and concentrations were determined."),
+    "density_branch_definition": ColumnSpec("str", "Where n_e_min_m3 came from and how the branch was assigned."),
+    "p_lh_scaling_definition": ColumnSpec("str", "Which scaling p_lh_scaling_W is and who computed it."),
+    "source_database": ColumnSpec("str", "Database the row came from."),
+    "source_release": ColumnSpec("str", "Release / version of that source."),
+    "source_reference": ColumnSpec("str", "Citation or DOI for the source."),
+}
+
 _LABEL_UNITS = {"str", "bool", "int"}
 #: Signed quantities, exempt from the magnitude check.
 _SIGNED = {"time_s", "delta"}
@@ -111,16 +168,9 @@ def make_record_id(machine: str, shot, time_s) -> str:
     return f"{machine}:{int(shot)}:{int(round(float(time_s) * 1000.0))}"
 
 
-def empty_confinement_table() -> pd.DataFrame:
-    """An empty canonical confinement table with the right columns and dtypes.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Zero rows, every column of :data:`CONFINEMENT_COLUMNS` [table].
-    """
+def _empty(columns: dict[str, ColumnSpec]) -> pd.DataFrame:
     data = {}
-    for name, spec in CONFINEMENT_COLUMNS.items():
+    for name, spec in columns.items():
         if spec.unit == "str":
             data[name] = pd.Series([], dtype=object)
         elif spec.unit == "bool":
@@ -129,13 +179,54 @@ def empty_confinement_table() -> pd.DataFrame:
             data[name] = pd.Series([], dtype="Int64")
         else:
             data[name] = pd.Series([], dtype=float)
-    return _attach_attrs(pd.DataFrame(data))
+    return _attach_attrs(pd.DataFrame(data), columns)
 
 
-def _attach_attrs(table: pd.DataFrame) -> pd.DataFrame:
-    table.attrs["units"] = {k: v.unit for k, v in CONFINEMENT_COLUMNS.items()}
-    table.attrs["descriptions"] = {k: v.description for k, v in CONFINEMENT_COLUMNS.items()}
+def _attach_attrs(table: pd.DataFrame, columns: dict[str, ColumnSpec]) -> pd.DataFrame:
+    table.attrs["units"] = {k: v.unit for k, v in columns.items()}
+    table.attrs["descriptions"] = {k: v.description for k, v in columns.items()}
     return table
+
+
+def _validate(table: pd.DataFrame, columns: dict[str, ColumnSpec], kind: str) -> pd.DataFrame:
+    missing = [name for name in columns if name not in table.columns]
+    if missing:
+        raise ValueError(f"{kind} table is missing columns: {missing}")
+    duplicated = table["record_id"][table["record_id"].duplicated()]
+    if len(duplicated):
+        raise ValueError(f"record_id is not unique: {duplicated.unique()[:5].tolist()}")
+    for name, spec in columns.items():
+        if spec.unit in _LABEL_UNITS:
+            continue
+        values = pd.to_numeric(table[name], errors="raise").to_numpy(dtype=float)
+        if np.any(np.isinf(values)):
+            raise ValueError(f"Column {name!r} holds infinite values")
+        if name not in _SIGNED and np.any(values[np.isfinite(values)] < 0.0):
+            raise ValueError(f"Column {name!r} holds negative values; magnitudes are expected")
+    out = table.loc[:, list(columns)].reset_index(drop=True)
+    return _attach_attrs(out, columns)
+
+
+def empty_confinement_table() -> pd.DataFrame:
+    """An empty canonical confinement table with the right columns and dtypes.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Zero rows, every column of :data:`CONFINEMENT_COLUMNS` [table].
+    """
+    return _empty(CONFINEMENT_COLUMNS)
+
+
+def empty_transition_table() -> pd.DataFrame:
+    """An empty canonical transition table with the right columns and dtypes.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Zero rows, every column of :data:`TRANSITION_COLUMNS` [table].
+    """
+    return _empty(TRANSITION_COLUMNS)
 
 
 def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
@@ -159,19 +250,30 @@ def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
         column holds an infinite value, or a magnitude column (all numeric
         columns except ``time_s`` and ``delta``) holds a negative one.
     """
-    missing = [name for name in CONFINEMENT_COLUMNS if name not in table.columns]
-    if missing:
-        raise ValueError(f"Confinement table is missing columns: {missing}")
-    duplicated = table["record_id"][table["record_id"].duplicated()]
-    if len(duplicated):
-        raise ValueError(f"record_id is not unique: {duplicated.unique()[:5].tolist()}")
-    for name, spec in CONFINEMENT_COLUMNS.items():
-        if spec.unit in _LABEL_UNITS:
-            continue
-        values = pd.to_numeric(table[name], errors="raise").to_numpy(dtype=float)
-        if np.any(np.isinf(values)):
-            raise ValueError(f"Column {name!r} holds infinite values")
-        if name not in _SIGNED and np.any(values[np.isfinite(values)] < 0.0):
-            raise ValueError(f"Column {name!r} holds negative values; magnitudes are expected")
-    out = table.loc[:, list(CONFINEMENT_COLUMNS)].reset_index(drop=True)
-    return _attach_attrs(out)
+    return _validate(table, CONFINEMENT_COLUMNS, "Confinement")
+
+
+def validate_transition_table(table: pd.DataFrame) -> pd.DataFrame:
+    """Check a table against the canonical transition schema.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Candidate transition table [table].
+
+    Returns
+    -------
+    pandas.DataFrame
+        The same rows with exactly the columns of :data:`TRANSITION_COLUMNS`,
+        in order, with unit/description metadata in ``attrs`` [table].
+
+    Raises
+    ------
+    ValueError
+        As :func:`validate_confinement_table`, and when ``transition`` is
+        missing on a row -- an event record without its event is not a record.
+    """
+    out = _validate(table, TRANSITION_COLUMNS, "Transition")
+    if out["transition"].isna().any() or (out["transition"].astype(str) == "").any():
+        raise ValueError("Every transition record must name its transition")
+    return out

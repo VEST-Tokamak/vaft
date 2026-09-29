@@ -1,8 +1,8 @@
 """Population renderers for canonical multi-machine tables (#1205).
 
-These draw the canonical confinement table of :mod:`vaft.data.public` -- DB5.2.3,
-VEST summaries, any source normalised into it -- and know nothing about which
-database a row came from.  They follow the renderer contract of :mod:`vaft.plot`
+These draw the canonical confinement and transition tables of
+:mod:`vaft.data.public` -- DB5.2.3, TCV L-H, VEST summaries, any source
+normalised into them -- and know nothing about which database a row came from.  They follow the renderer contract of :mod:`vaft.plot`
 (``ax=None``, ``show=False``, return ``(Figure, Axes)``) but take the canonical
 table rather than a view model: a population is a table, not a trace.
 
@@ -22,6 +22,9 @@ __all__ = [
     "confinement_h_factor_distribution",
     "confinement_population",
     "confinement_predicted_vs_measured",
+    "lh_threshold_population",
+    "transition_margin",
+    "transition_predicted_vs_measured",
 ]
 
 #: Categorical slots in fixed order (validated default palette, light mode).
@@ -44,6 +47,9 @@ LABELS = {
     "kappa_area": (r"$\kappa_a$", "", 1.0),
     "delta": (r"$\delta$", "", 1.0),
     "m_eff_amu": ("$M_{eff}$", "amu", 1.0),
+    "p_lh_scaling_W": ("$P_{LH}$ scaling", "MW", 1e-6),
+    "surface_area_m2": ("$S$", "m$^2$", 1.0),
+    "q95": ("$q_{95}$", "", 1.0),
 }
 
 
@@ -59,7 +65,8 @@ def _scaled(table: pd.DataFrame, column: str) -> np.ndarray:
 
 def _groups(table: pd.DataFrame, by: str, highlight: str | None, max_groups: int):
     """Ordered (label, mask, color, marker) for the background population."""
-    labels = table[by].astype(str)
+    column = table[by].astype(object)
+    labels = column.where(column.notna(), "unknown").astype(str)
     background = labels != highlight if highlight is not None else pd.Series(True, index=table.index)
     order = labels[background].value_counts().index.tolist()
     head = order[:max_groups]
@@ -361,3 +368,181 @@ def confinement_coverage_strip(
     fig.tight_layout()
     _finish(fig, show)
     return fig, axes
+
+
+def _observed_legend(ax, location="best"):
+    """Groups carry colour; filled vs hollow carries whether the event occurred."""
+    from matplotlib.lines import Line2D
+
+    handles, labels = ax.get_legend_handles_labels()
+    handles += [
+        Line2D([], [], marker="o", ls="", color="#52514e", markerfacecolor="#52514e", label="transition observed"),
+        Line2D([], [], marker="o", ls="", color="#52514e", markerfacecolor="none", label="not observed"),
+    ]
+    labels += ["transition observed", "not observed"]
+    ax.legend(handles, labels, fontsize="x-small", frameon=False, loc=location)
+
+
+def _transition_scatter(ax, table, x, y, by, max_groups):
+    observed = table["transition_observed"].astype(bool).to_numpy()
+    for name, mask, color, marker in _groups(table, by, None, max_groups):
+        ok = mask & np.isfinite(x) & np.isfinite(y)
+        ax.scatter(x[ok & observed], y[ok & observed], s=36, marker=marker, color=color,
+                   edgecolor=color, linewidth=1.0, label=f"{name} ({int(ok.sum())})")
+        ax.scatter(x[ok & ~observed], y[ok & ~observed], s=36, marker=marker,
+                   facecolor="none", edgecolor=color, linewidth=1.2)
+
+
+def lh_threshold_population(
+    table: pd.DataFrame,
+    x: str = "n_e_line_avg_m3",
+    y: str = "p_loss_W",
+    *,
+    by: str = "main_ion",
+    max_groups: int = 7,
+    log: bool = False,
+    ax=None,
+    show: bool = False,
+    figsize=(6.4, 5.0),
+):
+    """L-H transition records in any two canonical columns, e.g. P_loss against density.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Canonical transition table [table].
+    x, y : str, optional
+        Canonical columns; default ``"n_e_line_avg_m3"`` and ``"p_loss_W"`` [str].
+    by : str, optional
+        Column whose values get colours, default ``"main_ion"`` [str].
+    max_groups : int, optional
+        Groups with their own colour, the rest fold into "Other"; default 7 [-].
+    log : bool, optional
+        Log-log axes, default ``False`` [bool].
+    ax, show, figsize : optional
+        Renderer contract, as in :func:`confinement_population`.
+
+    Returns
+    -------
+    tuple
+        ``(Figure, Axes)`` [matplotlib].
+
+    Notes
+    -----
+    Filled markers are records where the transition occurred; hollow ones are
+    records where the source sought it and did not see it.
+    """
+    fig, ax = _axes(ax, figsize)
+    _transition_scatter(ax, table, _scaled(table, x), _scaled(table, y), by, max_groups)
+    if log:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+    ax.set_xlabel(_label(x))
+    ax.set_ylabel(_label(y))
+    ax.grid(alpha=0.2, which="both")
+    _observed_legend(ax)
+    _finish(fig, show)
+    return fig, ax
+
+
+def transition_predicted_vs_measured(
+    table: pd.DataFrame,
+    *,
+    by: str = "main_ion",
+    max_groups: int = 7,
+    band: float = 2.0,
+    ax=None,
+    show: bool = False,
+    figsize=(5.6, 5.4),
+):
+    """Measured loss power at the transition against the record's scaling threshold.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Canonical transition table; plots ``p_loss_W`` against
+        ``p_lh_scaling_W`` [table].
+    by, max_groups : optional
+        Grouping as in :func:`lh_threshold_population`.
+    band : float, optional
+        Factor of the dashed band around unity, default 2 [-].
+    ax, show, figsize : optional
+        Renderer contract, as in :func:`confinement_population`.
+
+    Returns
+    -------
+    tuple
+        ``(Figure, Axes)`` [matplotlib].
+    """
+    fig, ax = _axes(ax, figsize)
+    predicted = _scaled(table, "p_lh_scaling_W")
+    measured = _scaled(table, "p_loss_W")
+    _transition_scatter(ax, table, predicted, measured, by, max_groups)
+    finite = np.concatenate([v[np.isfinite(v) & (v > 0)] for v in (measured, predicted)])
+    if finite.size:
+        lo, hi = finite.min() / 1.5, finite.max() * 1.5
+        line = np.array([lo, hi])
+        ax.plot(line, line, color="#52514e", lw=1.0)
+        ax.plot(line, line * band, color="#52514e", lw=0.8, ls="--")
+        ax.plot(line, line / band, color="#52514e", lw=0.8, ls="--")
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(lo, hi)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel(r"$P_{LH}$ scaling [MW]")
+    ax.set_ylabel(r"$P_{loss}$ at the record [MW]")
+    ax.grid(alpha=0.2, which="both")
+    _observed_legend(ax, "upper left")
+    _finish(fig, show)
+    return fig, ax
+
+
+def transition_margin(
+    table: pd.DataFrame,
+    margin: pd.Series,
+    x: str = "n_e_line_avg_m3",
+    *,
+    by: str = "main_ion",
+    max_groups: int = 7,
+    ax=None,
+    show: bool = False,
+    figsize=(6.4, 4.6),
+):
+    """Transition margin ``P_loss / P_LH`` against a canonical column.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Canonical transition table [table].
+    margin : pandas.Series
+        Margin computed on ``table`` itself (identical index), e.g. by
+        :func:`vaft.data.public.transition_margin` [-].
+    x : str, optional
+        Canonical column on the horizontal axis, default ``"n_e_line_avg_m3"``
+        [str].
+    by, max_groups : optional
+        Grouping as in :func:`lh_threshold_population`.
+    ax, show, figsize : optional
+        Renderer contract, as in :func:`confinement_population`.
+
+    Returns
+    -------
+    tuple
+        ``(Figure, Axes)`` [matplotlib].
+    """
+    fig, ax = _axes(ax, figsize)
+    _transition_scatter(ax, table, _scaled(table, x), _aligned(margin, table, "margin"), by, max_groups)
+    from matplotlib.ticker import FuncFormatter
+
+    ax.axhline(1.0, color="#52514e", lw=1.0, ls="--")
+    ax.set_yscale("log")
+    plain = FuncFormatter(lambda value, _: f"{value:g}")
+    ax.yaxis.set_major_formatter(plain)
+    ax.yaxis.set_minor_formatter(plain)
+    ax.set_xlabel(_label(x))
+    ax.set_ylabel(r"$P_{loss}\,/\,P_{LH}$ scaling")
+    ax.grid(alpha=0.2, which="both")
+    _observed_legend(ax)
+    _finish(fig, show)
+    return fig, ax
