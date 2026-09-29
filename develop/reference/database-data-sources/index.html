@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5b7c117</code>. What is described
+  <code>f13fb70</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -356,12 +356,19 @@ are reachable flat:</p>
 <h2 id="connecting-to-hsds">Connecting to HSDS</h2>
 
 <p><code class="language-plaintext highlighter-rouge">h5pyd</code> is a declared VAFT dependency on <code class="language-plaintext highlighter-rouge">develop</code>; a normal <code class="language-plaintext highlighter-rouge">pip install .</code> installs the compatible
-client and its <code class="language-plaintext highlighter-rouge">hsconfigure</code> command. Do not install a separately pinned <code class="language-plaintext highlighter-rouge">--no-deps</code> copy.</p>
+client and its command-line tools. Do not install a separately pinned <code class="language-plaintext highlighter-rouge">--no-deps</code> copy.</p>
 
-<p>Then write your credentials with <code class="language-plaintext highlighter-rouge">hsconfigure</code>:</p>
+<p>Then write your credentials with <code class="language-plaintext highlighter-rouge">vaft hsds configure</code>:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hsconfigure
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft hsds configure
 </code></pre></div></div>
+
+<blockquote>
+  <p>Do not use the upstream <code class="language-plaintext highlighter-rouge">hsconfigure</code> for this: it reads the password as visible text and
+prints an already-stored password as the prompt default. <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> writes the same
+h5pyd <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with hidden input and mode <code class="language-plaintext highlighter-rouge">0600</code> (on Windows file modes are not enforced; the
+file inherits your user-profile permissions). Never commit a <code class="language-plaintext highlighter-rouge">.hscfg</code>.</p>
+</blockquote>
 
 <table>
   <thead>
@@ -382,7 +389,10 @@ client and its <code class="language-plaintext highlighter-rouge">hsconfigure</c
   </tbody>
 </table>
 
-<p>This writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code>; <code class="language-plaintext highlighter-rouge">h5pyd</code> also recognizes a project-local <code class="language-plaintext highlighter-rouge">.hscfg</code>. Never commit that file.
+<p>This writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with mode <code class="language-plaintext highlighter-rouge">0600</code>; <code class="language-plaintext highlighter-rouge">h5pyd</code> reads a <code class="language-plaintext highlighter-rouge">.hscfg</code> in the working directory instead
+when one exists, and <code class="language-plaintext highlighter-rouge">HS_ENDPOINT</code>/<code class="language-plaintext highlighter-rouge">HS_USERNAME</code>/<code class="language-plaintext highlighter-rouge">HS_PASSWORD</code>/<code class="language-plaintext highlighter-rouge">HS_API_KEY</code> override either file.
+<code class="language-plaintext highlighter-rouge">python install/check_vaft_environment.py</code> warns when a <code class="language-plaintext highlighter-rouge">.hscfg</code> is readable by other users. Never
+commit that file.
 Check the connection from Python:</p>
 
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
@@ -1170,7 +1180,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 05:36:49 +0000"
+        "time": "2026-09-29 07:00:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

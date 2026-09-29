@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5b7c117</code>. What is described
+  <code>f13fb70</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -395,20 +395,29 @@ the public database below.</p>
 
 <h2 id="3-configure-read-only-public-hsds-access">3. Configure read-only public HSDS access</h2>
 
-<p>Run <code class="language-plaintext highlighter-rouge">hsconfigure</code> and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
+<p>Run <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
 in the user configuration and must never be committed to a notebook or documentation asset.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;</span> hsconfigure
-Enter new values or accept defaults <span class="k">in </span>brackets with Enter.
-
-Server endpoint <span class="o">[]</span>: http://147.46.36.244:5101
-Username <span class="o">[]</span>: <span class="o">[</span>assigned_username]
-Password <span class="o">[]</span>: <span class="o">[</span>assigned_password]
-API Key <span class="o">[</span>None]: 
-Testing connection...
-connection ok
-Quit? <span class="o">(</span>Y/N<span class="o">)</span>Y
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;</span> vaft hsds configure
+Configuring HSDS credentials <span class="k">in</span> /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: <span class="o">[</span>assigned_username]
+Password <span class="o">(</span>input hidden, Enter keeps it<span class="o">)</span>:
+API key <span class="o">(</span>input hidden, Enter keeps it<span class="o">)</span>:
+Updated hs_endpoint, hs_password, hs_username <span class="k">in</span> /home/you/.hscfg <span class="o">(</span>mode 0600<span class="o">)</span><span class="nb">.</span>
 </code></pre></div></div>
+
+<blockquote>
+  <p>Do not use the upstream <code class="language-plaintext highlighter-rouge">hsconfigure</code> for this: it reads the password as visible text and
+prints an already-stored password as the prompt default. <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> writes the same
+h5pyd <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with hidden input and mode <code class="language-plaintext highlighter-rouge">0600</code> (on Windows file modes are not enforced; the
+file inherits your user-profile permissions). Never commit a <code class="language-plaintext highlighter-rouge">.hscfg</code>.</p>
+</blockquote>
+
+<p>For CI, HPC jobs and containers, skip the file: export <code class="language-plaintext highlighter-rouge">HS_ENDPOINT</code>, <code class="language-plaintext highlighter-rouge">HS_USERNAME</code> and
+<code class="language-plaintext highlighter-rouge">HS_PASSWORD</code> (or <code class="language-plaintext highlighter-rouge">HS_API_KEY</code>), which h5pyd reads directly, or run
+<code class="language-plaintext highlighter-rouge">vaft hsds configure --endpoint URL --username NAME --password-stdin &lt; secret-file</code>. Secrets are never
+accepted as command-line arguments.</p>
 
 <p>A successful read uses the public namespace and does not modify the database:</p>
 
@@ -840,7 +849,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 05:36:49 +0000"
+        "time": "2026-09-29 07:00:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

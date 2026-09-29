@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5b7c117</code>. What is described
+  <code>f13fb70</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -334,7 +334,7 @@ back electron temperature/density.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_current"><code>calibrate_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L160" title="vaft/process/langmuir.py, line 160">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L160" title="vaft/process/langmuir.py, line 160">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_current(raw, *, divisor=100.0)</code></pre>
 
@@ -392,7 +392,7 @@ carries a VEST number, and a caller on another machine passes its own.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_voltage"><code>calibrate_voltage</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L127" title="vaft/process/langmuir.py, line 127">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L127" title="vaft/process/langmuir.py, line 127">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_voltage(raw, *, gain=22.0)</code></pre>
 
@@ -442,7 +442,7 @@ carries a VEST number, and a caller on another machine passes its own.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_density"><code>electron_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L358" title="vaft/process/langmuir.py, line 358">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L358" title="vaft/process/langmuir.py, line 358">source</a>
 </header>
     <pre class="ref-signature"><code>electron_density(vd2, te, current, *, tip_radius_m, tip_length_m, ion_mass_kg, e=1.602176634e-19)</code></pre>
 
@@ -523,7 +523,7 @@ mask must be honoured. Inherits the assumptions of
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#median_filter_signal"><code>median_filter_signal</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L87" title="vaft/process/langmuir.py, line 87">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L87" title="vaft/process/langmuir.py, line 87">source</a>
 </header>
     <pre class="ref-signature"><code>median_filter_signal(data, kernel_size)</code></pre>
 
@@ -581,7 +581,7 @@ A feature narrower than half the kernel is removed whether or not it is noise.</
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#probe_surface_area"><code>probe_surface_area</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L200" title="vaft/process/langmuir.py, line 200">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L200" title="vaft/process/langmuir.py, line 200">source</a>
 </header>
     <pre class="ref-signature"><code>probe_surface_area(*, tip_radius_m, tip_length_m)</code></pre>
 
@@ -648,7 +648,7 @@ overestimate.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#process_triple_probe"><code>process_triple_probe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L446" title="vaft/process/langmuir.py, line 446">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L446" title="vaft/process/langmuir.py, line 446">source</a>
 </header>
     <pre class="ref-signature"><code>process_triple_probe(time_v, vd2_raw, time_i, i_raw, vd3, *, tip_radius_m, tip_length_m, ion_mass_kg, voltage_gain=22.0, current_divisor=100.0, n_baseline_samples=500, median_kernel=None, time_rtol=1e-06, time_atol=1e-09)</code></pre>
 
@@ -759,7 +759,7 @@ either is invalid in the result.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#remove_offset"><code>remove_offset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L32" title="vaft/process/langmuir.py, line 32">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L32" title="vaft/process/langmuir.py, line 32">source</a>
 </header>
     <pre class="ref-signature"><code>remove_offset(data, *, n_baseline_samples=500)</code></pre>
 
@@ -830,7 +830,7 @@ at the start of the record has its baseline biased by that current.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#solve_electron_temperature"><code>solve_electron_temperature</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5b7c1171fcd92d70018ae483dd2cef2ee94a5d0f/vaft/process/langmuir.py#L261" title="vaft/process/langmuir.py, line 261">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f13fb7031254b2ccac39d61eb74a666227f3e28a/vaft/process/langmuir.py#L261" title="vaft/process/langmuir.py, line 261">source</a>
 </header>
     <pre class="ref-signature"><code>solve_electron_temperature(vd2, vd3, *, te_bounds=(0.1, 500.0), rtol=1e-06)</code></pre>
 
@@ -1131,7 +1131,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 05:36:49 +0000"
+        "time": "2026-09-29 07:00:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
