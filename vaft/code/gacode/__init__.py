@@ -41,6 +41,7 @@ from ._runtime import (
     gacode_platform,
     launcher_relative_path,
     require_gacode_executable,
+    GACODERun,
     run_gacode,
 )
 from ._types import (
@@ -68,6 +69,7 @@ __all__ = [
     "gacode_platform",
     "launcher_relative_path",
     "require_gacode_executable",
+    "GACODERun",
     "run_gacode",
 ]
 

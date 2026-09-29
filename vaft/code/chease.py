@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
+import subprocess  # tests intercept launches through vaft.code.chease.subprocess.run
 from typing import Any, Mapping, Optional, Sequence
 import warnings
 
@@ -18,8 +18,14 @@ from vaft.formula.statistics import rms
 
 from ..compat import is_executable, resolve_executable
 from ._executables import ExecutableNotLaunchable, executable_from_home, missing_home_message
-from .execution import ExecutionBackend, ExecutionRequest, ExecutionResult, resolve_backend
-from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
+from .execution import (
+    ExecutionBackend,
+    ExecutionRequest,
+    ExecutionResult,
+    resolve_backend,
+    timeout_reason,
+)
+from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner, RunOutcome
 
 MU0 = 4.0e-7 * np.pi
 NCHEASE = 401
@@ -310,7 +316,7 @@ class CHEASEInputs:
 
 
 @dataclass
-class CHEASEResult:
+class CHEASEResult(RunOutcome):
     """CHEASE run status, produced files, and parsed refined equilibrium."""
 
     returncode: Optional[int]
@@ -328,6 +334,11 @@ class CHEASEResult:
     #: What this run handed CHEASE, when it came through :func:`run_chease`;
     #: see :class:`CHEASEMaterializedInput`.
     materialized: Optional["CHEASEMaterializedInput"] = None
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:
@@ -1541,12 +1552,28 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
             stderr=f"CHEASE could not be launched ({executable}): {error.__cause__ or error}",
             launcher=command,
         )
-    if completed.timed_out:
-        # Callers have always seen the stdlib's exception here.
-        raise subprocess.TimeoutExpired(
-            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
-        )
     log_path = inputs.workdir / "chease.log"
+    if completed.timed_out:
+        # A result, not an exception (#1016): one stopped case must not end a
+        # scan. Nothing is collected -- files already in the directory are an
+        # earlier run's or half-written, not this run's refined equilibrium.
+        reason = timeout_reason("CHEASE", completed, config.timeout)
+        stderr = f"{completed.stderr}\n{reason}" if completed.stderr else reason
+        stdout = completed.stdout or ""
+        if stdout and not stdout.endswith("\n"):
+            stdout += "\n"
+        log_path.write_text(stdout + stderr + "\n", encoding="utf-8")
+        return CHEASEResult(
+            returncode=None,
+            workdir=Path(inputs.workdir),
+            input_geqdsk=inputs.input_geqdsk,
+            logs=(log_path,),
+            stdout=completed.stdout,
+            stderr=stderr,
+            materialized=inputs.materialized,
+            runtime_status=completed.runtime_status,
+            elapsed_s=completed.elapsed_s,
+        )
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
 
     raw = inputs.workdir / "EQDSK_COCOS_02.OUT"
@@ -1591,6 +1618,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
+    result.elapsed_s = completed.elapsed_s
     if config.cleanup and result.ok:
         # Keep the returned paths meaningful only for non-cleanup workflows; cleanup is
         # intended for fire-and-forget integration jobs.
