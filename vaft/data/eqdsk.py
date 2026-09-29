@@ -178,15 +178,102 @@ def _trailing_namelists(lines: list[str]) -> dict[str, dict[str, Any]]:
         return {}
 
 
+def _per_radian_record(eq: Any) -> Any:
+    """The record with its flux per radian, the storage every g-file uses (#1292).
+
+    A g-file is weber per radian by the EFIT convention and :func:`to_omas`
+    reads it that way, so a weber-family record (COCOS 11-18) is moved to its
+    per-radian twin (index - 10) before it is written.  The two differ only in
+    the flux exponent: psi-like fields lose ``2*pi``, the psi-derivative
+    profiles gain it, and no sign changes.  That transform is the same for
+    every twin pair, which is why a weber record whose index is known only to a
+    set of weber candidates can still be converted exactly.
+
+    A record whose storage family is unknown -- neither ``psi_per_radian`` nor
+    an index says -- is returned unchanged with a warning: the package's
+    fallback for an undeclared family is the historical per-radian form (see
+    :func:`vaft.process.equilibrium.as_equilibrium`), and that is also what
+    this exporter always did.
+    """
+    import dataclasses
+
+    from vaft.process.equilibrium import convert_cocos
+
+    conv = eq.convention
+    declared = conv.cocos
+    if declared is None and len(conv.candidates) == 1:
+        declared = conv.candidates[0]
+    family = conv.psi_per_radian
+    if family is None and declared is not None:
+        family = declared < 10
+    if family is None:
+        warnings.warn(
+            "from_equilibrium: the record declares neither a COCOS index nor a psi storage "
+            "family, so its flux is written as given and assumed to be weber per radian; "
+            "pass the record through as_equilibrium(..., convention=N) to make that explicit",
+            UserWarning, stacklevel=3,
+        )
+        return eq
+    if declared is not None and (declared < 10) != family:
+        raise ValueError(
+            f"cannot export GEQDSK; the record declares COCOS {declared} but stores psi "
+            f"{'per radian' if family else 'in weber'}, so the flux unit is contradictory"
+        )
+    if family:
+        return eq
+    if declared is not None:
+        return convert_cocos(eq, declared - 10)
+    # Weber family with an unresolved index: every candidate converts by the
+    # same exponent-only factors, so a nominal 11 -> 1 transform is exact.
+    weber = tuple(index for index in conv.candidates if index > 10)
+    converted = convert_cocos(dataclasses.replace(eq, convention=dataclasses.replace(conv, cocos=11)), 1)
+    return dataclasses.replace(converted, convention=dataclasses.replace(
+        conv, cocos=None, psi_per_radian=True,
+        candidates=tuple(index - 10 for index in weber),
+        identified=tuple(index - 10 for index in conv.identified if index > 10),
+        ip_sign=converted.convention.ip_sign, bt_sign=converted.convention.bt_sign,
+        q_sign=converted.convention.q_sign,
+        source=f"{conv.source}; moved to per radian for the g-file",
+    ))
+
+
 def from_equilibrium(equilibrium: Any) -> GEQDSK:
     """Create a GEQDSK from a complete lightweight equilibrium model.
 
     GEQDSK requires profiles that ``EquilibriumData`` may legitimately lack;
     this exporter fails explicitly instead of manufacturing defaults.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData or any source ``as_equilibrium`` accepts
+        The record to write.  Its convention decides how the flux is stored [-].
+
+    Returns
+    -------
+    GEQDSK
+        The g-file, with psi, ``SIMAG``/``SIBRY``, ``PPRIME`` and ``FFPRIM``
+        per radian, and ``CASE`` naming the COCOS index actually written, or
+        ``UNKNOWN`` when the record does not pin one [-].
+
+    Raises
+    ------
+    ValueError
+        A required field is missing or misshaped, or the record's declared
+        index and storage family contradict each other.
+
+    Convention
+    ----------
+    A g-file is weber per radian (EFIT), and :func:`to_omas` multiplies its
+    flux by ``2*pi`` on the way into an ODS.  A COCOS 11-18 record is therefore
+    converted to its per-radian twin, index - 10, before writing (#1292);
+    before that fix its full-weber flux reached the ODS ``2*pi`` too large.  A
+    per-radian record is written unchanged.  A record whose storage family is
+    unknown is written as given, as the per-radian fallback the rest of the
+    package applies to undeclared records, with a ``UserWarning``.
     """
     from vaft.process.equilibrium import as_equilibrium
 
-    eq = as_equilibrium(equilibrium)
+    eq = _per_radian_record(as_equilibrium(equilibrium))
     required = {
         "r": eq.r, "z": eq.z, "psi": eq.psi, "psi_axis": eq.psi_axis,
         "psi_boundary": eq.psi_boundary, "magnetic_axis": eq.magnetic_axis,
@@ -205,6 +292,7 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
     limiter_r = np.asarray(eq.limiter.r) if eq.limiter is not None else np.array([])
     limiter_z = np.asarray(eq.limiter.z) if eq.limiter is not None else np.array([])
     mapping = {
+        # What was written: always per radian unless the family was unknown.
         "CASE": f"VAFT EquilibriumData COCOS={eq.convention.cocos or 'UNKNOWN'}",
         "NW": int(eq.r.size), "NH": int(eq.z.size),
         "RDIM": float(np.ptp(eq.r)), "ZDIM": float(np.ptp(eq.z)),

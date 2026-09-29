@@ -588,8 +588,9 @@ def _drifting_signals(window: list[IterationState], criteria: ConvergenceCriteri
 # --- the workflow --------------------------------------------------------------------------
 
 
-#: A CASE label declaring a weber-family COCOS index (11-18): a ``from_equilibrium`` product whose psi is
-#: stored per weber, which the per-radian g-file readers (``to_omas``, the CHEASE adapter) would misread (#1292).
+#: A CASE label declaring a weber-family COCOS index (11-18): a g-file whose psi is stored per weber, which the
+#: per-radian g-file readers (``to_omas``, the CHEASE adapter) would misread.  ``from_equilibrium`` has written
+#: per-radian files since #1292 was fixed, so this now guards files written before the fix, or by hand.
 _WEBER_CASE = re.compile(r"COCOS\s*=\s*(1[1-8])\b")
 
 
@@ -599,7 +600,6 @@ def _per_radian(geqdsk) -> tuple[Any, str | None]:
     if match is None:
         return geqdsk, None
     from vaft.data.eqdsk import from_equilibrium
-    from vaft.process._equilibrium_parametric import convert_cocos
     from vaft.process.equilibrium import as_equilibrium
 
     index = int(match.group(1))
@@ -607,7 +607,9 @@ def _per_radian(geqdsk) -> tuple[Any, str | None]:
         eq = as_equilibrium(geqdsk)
         if eq.convention.cocos != index:
             raise ValueError(f"the file declares COCOS {index} but reads as {eq.convention.cocos}")
-        converted = from_equilibrium(convert_cocos(eq, index - 10))
+        converted = from_equilibrium(eq)   # moves a weber record to its per-radian twin (#1292)
+        if re.search(rf"COCOS={index - 10}\b", str(converted["CASE"])) is None:
+            raise ValueError(f"the export wrote {converted['CASE']!r}, not COCOS {index - 10}")
     except Exception as error:  # noqa: BLE001 - refused with the reason, never read with the wrong 2*pi
         raise ValueError(
             f"the equilibrium declares COCOS {index} (psi per weber) and could not be converted to the "

@@ -97,7 +97,7 @@ def test_baseline_descriptors_are_finite_and_match_the_target_shape():
 
 
 def test_cocos1_export_round_trip_keeps_the_flux_span():
-    """Guard for the #1292 workaround: a per-radian record reaches the ODS in weber once."""
+    """A per-radian record reaches the ODS in weber exactly once."""
     _, eq = _baseline()
     ods = to_omas(from_equilibrium(convert_cocos(eq, 1)))
     gq = ods["equilibrium.time_slice.0.global_quantities"]
@@ -105,12 +105,15 @@ def test_cocos1_export_round_trip_keeps_the_flux_span():
     assert gq["ip"] == pytest.approx(eq.ip, rel=1e-6)
 
 
-@pytest.mark.xfail(strict=True, reason="#1292: from_equilibrium writes full-weber flux into a per-radian g-file")
 def test_direct_cocos11_export_keeps_the_flux_span():
+    """#1292 fixed: the COCOS 11 record is written per radian, so no stray 2*pi reaches the ODS."""
     _, eq = _baseline()
-    ods = to_omas(from_equilibrium(eq))
+    geqdsk = from_equilibrium(eq)
+    assert "COCOS=1" in geqdsk["CASE"] and "COCOS=11" not in geqdsk["CASE"]
+    ods = to_omas(geqdsk)
     gq = ods["equilibrium.time_slice.0.global_quantities"]
     assert gq["psi_boundary"] - gq["psi_axis"] == pytest.approx(eq.psi_boundary - eq.psi_axis, rel=1e-6)
+    assert gq["ip"] == pytest.approx(eq.ip, rel=1e-6)
 
 
 def test_miller_fits_accept_the_interior_and_reach_the_target_at_the_edge():
