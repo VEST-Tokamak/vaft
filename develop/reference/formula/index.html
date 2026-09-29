@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>657d427</code>. What is described
+  <code>5ecb74c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -359,7 +359,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="neoclassical">
     <td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td>
-    <td><code>vaft.formula.neoclassical</code></td><td>12</td><td>Analytic neoclassical transport formulas: Sauter and Redl.</td>
+    <td><code>vaft.formula.neoclassical</code></td><td>18</td><td>Analytic neoclassical transport formulas: Sauter and Redl.</td>
   </tr>
   <tr id="startup">
     <td><a href="/vaft/develop/reference/formula/startup/">startup</a></td>
@@ -384,6 +384,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   <tr id="disruption">
     <td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td>
     <td><code>vaft.formula.disruption</code></td><td>11</td><td>Disruption reference relations: thermal and current quench, induced field, runaway electrons.</td>
+  </tr>
+  <tr id="ntv">
+    <td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td>
+    <td><code>vaft.formula.ntv</code></td><td>2</td><td>Neoclassical toroidal viscosity: the analytic relations of transport in broken toroidal symmetry.</td>
   </tr>
   <tr id="vde">
     <td><a href="/vaft/develop/reference/formula/vde/">vde</a></td>
@@ -458,7 +462,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 338 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 346 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -956,13 +960,21 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="project_poloidal_field magnetics"><td><a href="/vaft/develop/reference/formula/magnetics/#project_poloidal_field"><code>project_poloidal_field</code></a></td><td><a href="/vaft/develop/reference/formula/magnetics/">magnetics</a></td><td>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.
 </td></tr>
+  <tr data-ref-row="banana_width neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#banana_width"><code>banana_width</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Radial width of a thermal banana orbit, the conventional estimate.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="collisions_per_transit neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#collisions_per_transit"><code>collisions_per_transit</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Collision frequency in units of the transit frequency, $\hat\nu = qR_0\nu/v$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="coulomb_logarithm_electron_sauter neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="coulomb_logarithm_ion_sauter neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="deeply_trapped_bounce_frequency neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#deeply_trapped_bounce_frequency"><code>deeply_trapped_bounce_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Bounce frequency of a deeply trapped particle, the small-amplitude limit of the banana orbit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="electron_collisionality_sauter neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Normalised electron collisionality $\nu_e^*$ in the Sauter convention.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ion_collisionality_sauter neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Normalised ion collisionality $\nu_i^*$ in the Sauter convention.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="neoclassical_regime_boundaries neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#neoclassical_regime_boundaries"><code>neoclassical_regime_boundaries</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Banana–plateau and plateau–Pfirsch–Schl"uter orderings in $\hat\nu$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="redl_bootstrap_coefficients neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>The Redl 2021 bootstrap coefficients $L_{31}$, $L_{32}$, $L_{34}$, $\alpha$.
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -978,6 +990,10 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="sauter_spitzer_conductivity neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="transit_frequency neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#transit_frequency"><code>transit_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Poloidal transit frequency of a passing particle on a large-aspect-ratio circular surface.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="trapped_particle_effective_collision_frequency neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#trapped_particle_effective_collision_frequency"><code>trapped_particle_effective_collision_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Rate at which pitch-angle scattering detraps a trapped particle.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="trapped_particle_fraction neoclassical"><td><a href="/vaft/develop/reference/formula/neoclassical/#trapped_particle_fraction"><code>trapped_particle_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/neoclassical/">neoclassical</a></td><td>Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="atomic_inventory_from_molecular_gas startup"><td><a href="/vaft/develop/reference/formula/startup/#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a></td><td><a href="/vaft/develop/reference/formula/startup/">startup</a></td><td>Atom inventory of a molecular gas fill.
@@ -1152,6 +1168,10 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="thermal_quench_temperature disruption"><td><a href="/vaft/develop/reference/formula/disruption/#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Prescribed exponential thermal quench of the electron temperature.
 </td></tr>
+  <tr data-ref-row="nonambipolar_torque_density ntv"><td><a href="/vaft/develop/reference/formula/ntv/#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></td><td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td><td>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ntv_precession_frequency ntv"><td><a href="/vaft/develop/reference/formula/ntv/#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td><td>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="halo_current_fraction vde"><td><a href="/vaft/develop/reference/formula/vde/#halo_current_fraction"><code>halo_current_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Halo-current fraction: peak poloidal halo current over the pre-disruption plasma current.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="thin_wall_time vde"><td><a href="/vaft/develop/reference/formula/vde/#thin_wall_time"><code>thin_wall_time</code></a></td><td><a href="/vaft/develop/reference/formula/vde/">vde</a></td><td>Resistive time of a thin cylindrical wall, $\tau_w = \mu_0\sigma db$.
@@ -1460,7 +1480,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 02:46:24 +0000"
+        "time": "2026-09-29 02:57:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

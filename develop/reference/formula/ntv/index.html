@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: ntv · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/virial/" />
+            <link rel="prev" href="/vaft/develop/reference/diagram/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/signal_processing/" />
+            <link rel="next" href="/vaft/develop/reference/formula/sol/" />
         
     </head>
     <body>
@@ -157,7 +157,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
                     </li>
@@ -250,7 +250,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference</a>
+                            <a href="." >Formula reference: ntv</a>
                         
                     </h1>
                 </div>
@@ -276,276 +276,268 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/Process_reference">Process reference</h1>
+                        <h1 id="/reference/formula/Formula_reference_ntv">Formula reference: ntv</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Index of the generated per-function reference for the vaft.process computation layer.</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ntv, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Which submodule holds a routine, whether it is machine-independent or VEST policy, what it does to its input, and where its method and defaults came from.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the <strong>computation layer</strong> of VAFT.  Almost every function in it takes plain NumPy
-arrays and scalars and returns arrays, tuples or dataclasses; it does not read or write ODS.  The
-ODS-aware layer lives in <code class="language-plaintext highlighter-rouge">vaft.omas</code> (mainly <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper</code>), which pulls geometry and
-signals out of an ODS, calls into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and writes the results back.</p>
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.ntv</code>:
+<strong>2</strong> public functions. Each entry is what
+<code>vaft.formula.describe("ntv.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
-<blockquote>
-  <p>Rule of thumb: <strong><code class="language-plaintext highlighter-rouge">vaft.process</code> is the math, <code class="language-plaintext highlighter-rouge">vaft.omas.compute_*</code> is the API you usually call.</strong></p>
-</blockquote>
+<h2 id="overview">Overview</h2>
 
-<p>Every public processing function is documented under one contract, and these pages are generated
-from those docstrings by <code class="language-plaintext highlighter-rouge">python -m vaft.process.catalog</code>.  Where a formula page answers <em>what is
-this quantity and when is it valid</em>, a process page answers <em>how is this input turned into this
-output</em>: the parameters and returns with their units, the processing steps in order, the defaults
-that change the result and what kind of value each is, the conventions assumed, the machine scope,
-the limitations, and the provenance of the method.  Nothing here is written by hand, so the site
-and <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code> always agree.</p>
+<p>A non-axisymmetric $\delta B$ makes the radial particle flux of each species
+non-ambipolar. Quasineutrality forces a return (polarisation) current that
+cancels the net radial current, and its $\mathbf J\times\mathbf B$ is the
+toroidal torque on the plasma – NTV, equal and opposite to the
+$\mathbf J\times\mathbf B$ of the non-ambipolar current itself. The <em>size</em> of
+the flux needs the bounce-averaged drift-kinetic response (PENT/PENTRC, NEO,
+kinetic GPEC; <code class="language-plaintext highlighter-rouge">vaft.code</code>). What is here is the part that is exact and
+convention-bearing: the precession frequency whose zero is the
+superbanana-plateau resonance, and the flux-force relation that turns
+non-ambipolar fluxes into torque.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.process</span> <span class="k">as</span> <span class="n">P</span>
+<p>Shaing’s asymptotic regimes lie on two branches, in order of decreasing
+collisionality:</p>
 
-<span class="nf">print</span><span class="p">(</span><span class="n">P</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">repair_clipped_interval</span><span class="sh">"</span><span class="p">))</span>     <span class="c1"># one routine, rendered
-</span><span class="n">P</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="sh">"</span><span class="s">vest.yaml</span><span class="sh">"</span><span class="p">)</span>                             <span class="c1"># every routine whose text mentions it
-</span><span class="n">P</span><span class="p">.</span><span class="nf">list_processes</span><span class="p">(</span><span class="n">category</span><span class="o">=</span><span class="sh">"</span><span class="s">signal_processing</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># imports only that submodule
-</span></code></pre></div></div>
+<ul>
+  <li>non-resonant ($\omega_d$ bounded away from zero): $1/\nu$ while
+$\nu_\mathrm{eff}$ exceeds the precession, flux $\propto 1/\nu$; then the
+$\nu$–$\sqrt\nu$ regime, a collisional boundary layer at the
+trapped-passing boundary, whose $\sqrt\nu$ part dominates as $\nu \to 0$;</li>
+  <li>resonant ($\omega_d \to 0$ for some trapped particles): $1/\nu$, then the
+superbanana plateau, flux independent of $\nu$, then the superbanana
+regime, flux $\propto\nu$, at the lowest collisionality.</li>
+</ul>
 
-<p>The discovery layer is loaded on first use only; <code class="language-plaintext highlighter-rouge">import vaft.process.signal_processing</code> never
-touches it.</p>
+<p>Shaing states the $1/\nu$ boundary as $\nu/\epsilon$ against $|q\omega_E|$
+with the magnetic precession neglected; with it kept the comparison is with
+$|\omega_d|$. The connected formula that joins the regimes (Shaing, Sun and
+Sabbagh 2010) is not implemented: its kernels need the bounce-averaged
+$\delta B$ spectrum and source-specific normalisations. The diagrams draw the
+exponents only.</p>
 
-<h2 id="categories">Categories</h2>
-
-<p>The layer is being brought under the contract one submodule at a time
-(<a href="https://github.com/VEST-Tokamak/vaft/issues/252">#252</a>).  A category gets a reference page when
-every function in it conforms; until then its count is shown and its page is absent.</p>
-
-<table class="ref-table">
-  <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Under contract</th><th>Contents</th></tr></thead>
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/profile/">profile</a></td>
-    <td><code>vaft.process.profile</code></td>
-    <td>28</td>
-    <td>yes</td>
-    <td>Kinetic profiles: from diagnostic points to a stored ``core_profiles`` slice.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.process.equilibrium</code></td>
-    <td>77</td>
-    <td>yes</td>
-    <td>Axisymmetric equilibrium: from a flux map to the quantities derived from it.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/camera_geometry/">camera_geometry</a></td>
-    <td><code>vaft.process.camera_geometry</code></td>
-    <td>4</td>
-    <td>yes</td>
-    <td>Pinhole camera projection math for the VEST FAST camera.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/signal_processing/">signal_processing</a></td>
-    <td><code>vaft.process.signal_processing</code></td>
-    <td>27</td>
-    <td>yes</td>
-    <td>Conditioning of one waveform on a plain time axis.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/fluctuation/">fluctuation</a></td>
-    <td><code>vaft.process.fluctuation</code></td>
-    <td>8</td>
-    <td>yes</td>
-    <td>Diagnostic-independent spectral analysis of scalar fluctuation time series.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/soft_x_rays/">soft_x_rays</a></td>
-    <td><code>vaft.process.soft_x_rays</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>VEST soft X-ray fluctuation and two-filter analysis routines.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/electromagnetics/">electromagnetics</a></td>
-    <td><code>vaft.process.electromagnetics</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>Axisymmetric electromagnetic response: what a current does elsewhere, and how the vessel answers.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/numerical/">numerical</a></td>
-    <td><code>vaft.process.numerical</code></td>
-    <td>1</td>
-    <td>yes</td>
-    <td>Numerical primitives on plain arrays.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/magnetics/">magnetics</a></td>
-    <td><code>vaft.process.magnetics</code></td>
-    <td>16</td>
-    <td>yes</td>
-    <td>Magnetic diagnostics: from a coil voltage to a current, a flux, or a mode number.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/perturbation/">perturbation</a></td>
-    <td><code>vaft.process.perturbation</code></td>
-    <td>27</td>
-    <td>yes</td>
-    <td>Resonant response at the rational surfaces: windows, reductions, ratios.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/statistical_analysis/">statistical_analysis</a></td>
-    <td><code>vaft.process.statistical_analysis</code></td>
-    <td>11</td>
-    <td>yes</td>
-    <td>Log-linear regression of confinement time against engineering parameters.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/atomic/">atomic</a></td>
-    <td><code>vaft.process.atomic</code></td>
-    <td>5</td>
-    <td>yes</td>
-    <td>Atomic-radiation processing on OMAS data structures.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/langmuir/">langmuir</a></td>
-    <td><code>vaft.process.langmuir</code></td>
-    <td>8</td>
-    <td>yes</td>
-    <td>Backend-independent VEST triple Langmuir probe physics.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/impa/">impa</a></td>
-    <td><code>vaft.process.impa</code></td>
-    <td>14</td>
-    <td>yes</td>
-    <td>Generic algorithms for the VEST Internal Magnetic Probe Array.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/onset/">onset</a></td>
-    <td><code>vaft.process.onset</code></td>
-    <td>13</td>
-    <td>yes</td>
-    <td>Onset and active-window primitives on plain arrays (issue #409).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/wall_modes/">wall_modes</a></td>
-    <td><code>vaft.process.wall_modes</code></td>
-    <td>22</td>
-    <td>yes</td>
-    <td>Segment-wise eigenmode basis of a passive wall, with global coupling (vaft #473).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/coils_non_axisymmetric/">coils_non_axisymmetric</a></td>
-    <td><code>vaft.process.coils_non_axisymmetric</code></td>
-    <td>2</td>
-    <td>yes</td>
-    <td>Kernels on non-axisymmetric coil sets: toroidal mode content and vacuum field.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/camera_fluctuation/">camera_fluctuation</a></td>
-    <td><code>vaft.process.camera_fluctuation</code></td>
-    <td>7</td>
-    <td>yes</td>
-    <td>Fluctuation analysis of FAST-camera image sequences.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/line_of_sight/">line_of_sight</a></td>
-    <td><code>vaft.process.line_of_sight</code></td>
-    <td>3</td>
-    <td>yes</td>
-    <td>Line integrals of a poloidal-plane field along diagnostic sightlines (issue #886).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/magnetic_island/">magnetic_island</a></td>
-    <td><code>vaft.process.magnetic_island</code></td>
-    <td>4</td>
-    <td>yes</td>
-    <td>An analytic magnetic island placed on an axisymmetric equilibrium (issue #886).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/field_line_topology/">field_line_topology</a></td>
-    <td><code>vaft.process.field_line_topology</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>Relative heat-load proxies from field-line tracing products (issue #1099).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/ml/">ml</a></td>
-    <td><code>vaft.process.ml</code></td>
-    <td>21</td>
-    <td>yes</td>
-    <td>Backend-neutral machine-learning processing: data to published model (#669).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/transients/">transients</a></td>
-    <td><code>vaft.process.transients</code></td>
-    <td>2</td>
-    <td>yes</td>
-    <td>Measurements of a plasma-current transient on plain arrays.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/cocos/">cocos</a></td>
-    <td><code>vaft.process.cocos</code></td>
-    <td>6</td>
-    <td>yes</td>
-    <td>Operational COCOS handling: consistency checking against Sauter Eq. 23.</td>
-  </tr>
+  <tr><td>omega_exb</td><td>toroidal E x B rotation frequency, $-d\Phi/d\psi_\mathrm{out}$</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>omega_magnetic</td><td>bounce-averaged toroidal magnetic-drift precession</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>omega_d</td><td>bounce-averaged toroidal precession</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>Z_s</td><td>charge number of species s</td><td class="ref-unit">-</td></tr>
+  <tr><td>Gamma_s</td><td>$\langle\Gamma_s\cdot\nabla V\rangle$, particles of species s crossing the surface</td><td class="ref-unit">1/s</td></tr>
+  <tr><td>psi</td><td>$RA_\phi$, poloidal flux per radian, IMAS $\phi$</td><td class="ref-unit">Wb/rad</td></tr>
+  <tr><td>V</td><td>volume enclosed by the surface</td><td class="ref-unit">m^3</td></tr>
   </tbody>
-</table>
+</table></div>
 
-<h2 id="machine-independent-or-vest-policy">Machine-independent or VEST policy</h2>
+<p>Precession frequencies are toroidal and positive along the plasma current,
+as VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code> is ($-d\Phi/d\psi_\mathrm{out}$ with
+$\psi_\mathrm{out}$ the poloidal flux per radian increasing outward, e.g.
+TRANSP <code class="language-plaintext highlighter-rouge">PLFLX</code>); <code class="language-plaintext highlighter-rouge">omega_exb</code> is never the toroidal fluid rotation
+<code class="language-plaintext highlighter-rouge">omega_tor</code>. The torque is positive along the IMAS $\phi$ (counter-clockwise
+from above), with $\psi = RA_\phi$ as
+<code class="language-plaintext highlighter-rouge">vaft.formula.particle.psi_per_radian_from_cocos</code> returns it.</p>
 
-<p>Every function’s <strong>Applicability</strong> section opens with one of two sentences, and each page badges
-it.  <em>Machine-independent</em> means the caller supplies every machine-specific number – an
-acquisition rail, a chord length, a processing window – and the routine infers nothing about the
-hardware; the VEST values are read from <code class="language-plaintext highlighter-rouge">vest.yaml</code> by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, never here.
-<em>VEST-specific</em> means the routine embeds a VEST constant, a VEST column name or a VEST
-acquisition-era rule, and its page says which and for what shot range.</p>
+<h2 id="functions">Functions</h2>
 
-<h2 id="where-a-default-came-from">Where a default came from</h2>
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="nonambipolar_torque_density"><td><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></td><td>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ntv_precession_frequency"><td><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></td><td>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
 
-<p>A default that changes the result is classified on its page as one of: physical constant,
-literature value, diagnostic calibration, empirical estimate, validated-workflow default,
-machine-specific setting, acquisition-era policy, legacy compatibility value, or numerical
-convenience.  A legacy compatibility value is one that arrived with a ported routine and whose
-derivation is not recorded; the page says so rather than inventing one.</p>
+<div class="ref-entries">
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+  <section class="ref-entry" id="nonambipolar_torque_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5ecb74cbdb53d92a6e98a63c8c6050bad86561d4/vaft/formula/ntv.py#L148" title="vaft/formula/ntv.py, line 148">source</a>
+</header>
+    <pre class="ref-signature"><code>nonambipolar_torque_density(charge_numbers, particle_flux, dpsi_dV)</code></pre>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+    <p>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+\[T_\phi = \frac{d\psi}{dV}\sum_s Z_s e\,\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle\]
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file, the private
-<code class="language-plaintext highlighter-rouge">_equilibrium_parametric.py</code> included; documentation validation compares them when
-<code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.  The same text is available
-offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>, <code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and
-<code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>charge_numbers</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>$Z_s$ of each species, electrons $-1$, shape <code class="language-plaintext highlighter-rouge">(S,)</code>.</p>
+</td></tr>
+  <tr><td><code>particle_flux</code></td><td class="ref-type">array_like</td><td class="ref-unit">1/s</td><td><p>$\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$ of each species along axis 0, shape <code class="language-plaintext highlighter-rouge">(S, ...)</code>: particles crossing the surface outward per second.</p>
+</td></tr>
+  <tr><td><code>dpsi_dV</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb/(rad m^3)</td><td><p>$d\psi/dV$ of $\psi = RA_\phi$, broadcast against the trailing axes of <code class="language-plaintext highlighter-rouge">particle_flux</code>; negative for a plasma current along $+\phi$</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">N m/m^3</td><td><p>Torque density on the plasma about the symmetry axis, positive along the IMAS $\phi$, averaged over the surface.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>With $\mathbf B = \nabla\psi\times\nabla\phi + F\nabla\phi$ and
+$\psi = RA_\phi$ per radian (<code class="language-plaintext highlighter-rouge">psi_per_radian_from_cocos</code>; IMAS COCOS 11
+stores $-2\pi\psi$), $R\hat\phi\cdot(\mathbf J\times\mathbf B)
+= -\mathbf J\cdot\nabla\psi$ exactly. The non-ambipolar current
+$\mathbf J_\mathrm{na} = \sum_s Z_se\boldsymbol\Gamma_s$ is cancelled by a
+return current $-\mathbf J_\mathrm{na}$, whose $\mathbf J\times\mathbf B$
+– equivalently, the sum of each species’ toroidal viscous force – is
+the torque on the plasma: $T_\phi = +\langle\mathbf J_\mathrm{na}\cdot
+\nabla\psi\rangle = (d\psi/dV)\sum_s Z_se\langle\boldsymbol\Gamma_s\cdot
+\nabla V\rangle$. In Shaing’s $\psi = -RA_\phi$ this reads
+$-(d\psi/dV)\sum_s Z_se\Gamma_s$. A torque <em>density</em>; integrate over $V$
+for the torque. Ambipolar fluxes give zero.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Species counts differ, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>An outward non-ambipolar ion flux in a plasma with current along $+\phi$
+($d\psi/dV &lt; 0$) drives rotation against the current – the
+counter-current torque of fast-ion ripple loss and of ion-root NTV.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Steady state on the transport time scale, quasineutrality; the fluxes
+are the non-ambipolar parts from a kinetic calculation this function
+does not make. No phenomenological $-\nu_\mathrm{NTV}(\Omega - \Omega_0)$
+damping model is implied.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+</li>
+  <li>P. Helander and D. J. Sigmar, <em>Collisional Transport in Magnetized Plasmas</em>, Cambridge University Press (2002), Ch. 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ntv_precession_frequency" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5ecb74cbdb53d92a6e98a63c8c6050bad86561d4/vaft/formula/ntv.py#L82" title="vaft/formula/ntv.py, line 82">source</a>
+</header>
+    <pre class="ref-signature"><code>ntv_precession_frequency(omega_exb, omega_magnetic)</code></pre>
+
+    <p>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.</p>
+
+\[\omega_d = \omega_E + \omega_B \qquad (= q\,\omega_E^\mathrm{Shaing} + \omega_B)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>omega_exb</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Toroidal E x B rotation frequency $\omega_E = -d\Phi/d\psi_\mathrm{out}$, $\psi_\mathrm{out}$ the poloidal flux per radian increasing outward – VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code>, positive along the plasma current, not the toroidal fluid rotation.</p>
+</td></tr>
+  <tr><td><code>omega_magnetic</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Bounce-averaged toroidal precession by the grad-B and curvature drifts, for the species and energy considered, positive along the plasma current.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>$\omega_d$, positive along the plasma current; zero on the superbanana-plateau resonance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Both inputs must be measured in the same toroidal orientation; VAFT’s
+is along the plasma current, the orientation of <code class="language-plaintext highlighter-rouge">omega_exb</code>. A rigid
+rotation $\omega\hat\phi$ has $\mathbf E = -\omega\nabla(RA_\phi)$, so
+$-d\Phi/d\psi_\mathrm{out}$ is the rotation along the current whichever
+way the current flows. Shaing writes $q\omega_E + \omega_B$ with his
+$\omega_E$ taken against the <em>toroidal</em> flux; since $d\psi_t = q\,d\psi$,
+his $q\omega_E$ is this <code class="language-plaintext highlighter-rouge">omega_exb</code>. The toroidal rotation
+$\omega_\phi$ differs from $\omega_E$ by the diamagnetic and
+poloidal-flow terms of radial force balance, and substituting it moves
+the resonance. $\omega_B \propto$ energy over charge, so each species and
+energy has its own $\omega_d$. This is the $\ell = 0$ case of
+<code class="language-plaintext highlighter-rouge">vaft.formula.particle.bounce_harmonic_detuning</code> with $n = -1$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A trapped orbit precessing at $\omega_d$ sees a static $\delta B$ at a
+Doppler-shifted frequency; where $\omega_d \to 0$ it sits in a fixed
+phase of the perturbation and its radial step accumulates – the
+superbanana plateau, whose flux no longer depends on collisions.
+Away from it, $\nu_\mathrm{eff}$ against $|\omega_d|$ separates the
+$1/\nu$ regime from the $\nu$–$\sqrt\nu$ regime.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Bounce-averaged guiding-centre motion; $\omega_E$ constant across the
+banana width.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+</li>
+  <li>J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102 (2009) 065002.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="confinement-scaling">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -553,27 +545,11 @@ offline as <code class="language-plaintext highlighter-rouge">vaft.process.descr
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
-        
-          
           <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
         
-          
-          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
-        
       </ul>
     </div>
     
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-      </ul>
-    </div>
     
     
   </div>
@@ -635,13 +611,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/virial/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: virial">
+                        <a href="/vaft/develop/reference/diagram/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Diagram gallery">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/signal_processing/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: signal_processing">
+                        <a href="/vaft/develop/reference/formula/sol/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: sol">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -657,7 +633,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#machine-independent-or-vest-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine-independent or VEST policy</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-a-default-came-from" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where a default came from</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
     </nav>
 </aside>
 
@@ -673,11 +649,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: signal_processing",
+            "title": "Formula reference: sol",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_signal_processing.md",
-            "ref": "_guide/Process_reference_signal_processing.md",
+            "path": "_guide/Formula_reference_sol.md",
+            "ref": "_guide/Formula_reference_sol.md",
             "articles": []
         },
         
@@ -769,8 +745,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference.md",
-        "mtime": "2026-09-03 10:00:00 +0000",
+        "path": "_guide/Formula_reference_ntv.md",
+        "mtime": "2026-09-28 10:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
