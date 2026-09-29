@@ -129,7 +129,7 @@ installation inside it, and the user-level "Python (vaft)" Jupyter kernelspec.
 It did not modify your repository checkout or any other Conda environment.
 
 Next:
-  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
+  1. Run `vaft hsds configure` if your HSDS credentials are not configured yet.
      This script never asks for, stores, or transmits your credentials.
   2. Run `conda activate vaft && jupyter lab`, and choose the "Python (vaft)" kernel.
 NEXT
@@ -193,7 +193,8 @@ Run this script without --check-only to create it."
 # it has to go before the environment that provides that interpreter.
 #
 # `~/.hscfg` is deliberately left alone. The bootstrap never writes it --
-# `hsconfigure` does, run by the student -- and it holds HSDS credentials.
+# `vaft hsds configure` (or `hsconfigure`) does, run by the student -- and it
+# holds HSDS credentials.
 # ---------------------------------------------------------------------------
 
 vaft_dry_run=0
