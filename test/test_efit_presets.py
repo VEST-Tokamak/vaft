@@ -33,7 +33,7 @@ def _key(text, name):
 def test_the_routine_preset_is_the_production_configuration(tmp_path):
     routine = efit_preset("routine")
     assert routine.scientific == EFITScientificConfig()
-    assert routine.scientific.sha256() == EFITScientificConfig().sha256()
+    assert routine.scientific.sha256 == EFITScientificConfig().sha256
     assert routine.sigma_floor == 0.0
     ods = _constraints_ods(tmp_path)
     legacy = _kfile(tmp_path / "legacy", ods, npprime=2, nffprime=2)
@@ -107,7 +107,7 @@ def test_generate_kfile_records_the_preset_beside_its_manifest(tmp_path):
     assert result.returncode == 0, result.stderr[-2000:]
     record = json.loads((manifest.parent / PRESET_RECORD).read_text())
     assert record["name"] == "statistical_891"
-    assert record["scientific_sha256"] == efit_preset("statistical_891").scientific.sha256()
+    assert record["scientific_sha256"] == efit_preset("statistical_891").scientific.sha256
     kfile = Path(manifest.read_text().split()[0]).read_text()
     assert int(_key(kfile, "KFFCUR")) == 1
 

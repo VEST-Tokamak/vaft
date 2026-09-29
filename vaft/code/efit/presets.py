@@ -75,7 +75,7 @@ class EFITPreset:
             "sigma_floor": self.sigma_floor,
             "floor_families": list(self.floor_families),
             "scientific": self.scientific.to_dict(),
-            "scientific_sha256": self.scientific.sha256(),
+            "scientific_sha256": self.scientific.sha256,
         }
 
 

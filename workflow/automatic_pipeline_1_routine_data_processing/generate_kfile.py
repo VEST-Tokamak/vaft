@@ -82,7 +82,7 @@ def main() -> int:
         ods, floor_changes = preset.prepare_constraints(ods)
         scientific_config = preset.scientific
         LOGGER.info("EFIT preset %s (scientific sha256 %s); sigma floor raised %d channel(s)",
-                    preset.name, preset.scientific.sha256()[:12], sum(c["raised"] for c in floor_changes))
+                    preset.name, preset.scientific.sha256[:12], sum(c["raised"] for c in floor_changes))
         record_path.write_text(
             json.dumps({**preset.record(), "sigma_floor_changes": floor_changes}, indent=1) + "\n",
             encoding="utf-8",
