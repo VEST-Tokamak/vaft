@@ -127,6 +127,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
+                                              "grid_induced_two_cycle", "branch_selection")},
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
