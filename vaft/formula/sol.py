@@ -520,7 +520,7 @@ def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_paralle
     Parameters
     ----------
     n : float or np.ndarray
-        Electron density, positive [m^-3].
+        Plasma density of Drake's one-fluid model, positive [m^-3].
     T : float or np.ndarray
         Temperature, positive [eV].
     L : float or np.ndarray
@@ -529,7 +529,7 @@ def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_paralle
         $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
     k_parallel : float or np.ndarray
         Parallel wavenumber of the perturbation, $m/(qR)$ for a poloidal
-        harmonic $m$ [1/m].
+        harmonic $m \ge 1$, positive [1/m].
     kappa_parallel : float or np.ndarray
         Parallel conductivity, $\kappa_0 T^{5/2}$ in ``spitzer_harm_parallel_heat_flux``'s
         units, non-negative [W/(m eV)].
@@ -542,7 +542,8 @@ def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_paralle
     Raises
     ------
     ValueError
-        A non-positive density or temperature, a negative $L$ or $\kappa_\parallel$.
+        A non-positive density, temperature or $k_\parallel$, a negative $L$ or
+        $\kappa_\parallel$.
 
     Convention
     ----------
@@ -553,8 +554,15 @@ def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_paralle
     so the $e$ converts the heat capacity $\tfrac52 n$ to joules. Instability
     needs $2L/T - \partial L/\partial T > k_\parallel^2\kappa_\parallel$, which
     equals $-dL/dT$ at constant pressure: it does **not** need
-    $\partial L/\partial T < 0$. Perpendicular conduction (Lipschultz's
-    $K_\perp/\Delta^2$) is neglected, as Drake and Lipschultz find it small.
+    $\partial L/\partial T < 0$. It needs $k_\parallel > 0$: at
+    $k_\parallel = 0$ no sound wave equalises pressure, the density stays
+    fixed and ``radiative_thermal_instability_growth_rate`` applies instead.
+    Perpendicular conduction is neglected here; Lipschultz finds its
+    $K_\perp/\Delta^2$ small on Alcator C, while Drake's threshold involves
+    $\kappa_\perp$ (his Eqs. 7, 10, 18). The heat capacity is Drake's one-fluid
+    $\tfrac32 nT$; with electrons and ions both heated at $T_i = T_e$
+    (Lipschultz's $3\,\partial(nT)/\partial t$) $\gamma$ halves and the
+    criterion is unchanged.
 
     Physical interpretation
     -----------------------
@@ -571,9 +579,10 @@ def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_paralle
     n = _positive(n, "n")
     T = _positive(T, "T")
     L = _non_negative(L, "L")
+    k = _positive(k_parallel, "k_parallel")
     kappa = _non_negative(kappa_parallel, "kappa_parallel")
     drive = 2.0 * L / T - np.asarray(dL_dT, dtype=float)
-    return _out(2.0 / (5.0 * n * QE) * (drive - np.asarray(k_parallel, dtype=float) ** 2 * kappa))
+    return _out(2.0 / (5.0 * n * QE) * (drive - k**2 * kappa))
 
 
 def radiative_thermal_instability_growth_rate(n, dL_dT):
@@ -584,7 +593,7 @@ def radiative_thermal_instability_growth_rate(n, dL_dT):
     Parameters
     ----------
     n : float or np.ndarray
-        Electron density, positive [m^-3].
+        Plasma density of Drake's one-fluid model, positive [m^-3].
     dL_dT : float or np.ndarray
         $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
 
@@ -608,9 +617,10 @@ def radiative_thermal_instability_growth_rate(n, dL_dT):
 
     Physical interpretation
     -----------------------
-    The axisymmetric counterpart of the MARFE: a whole flux surface cooling
-    where the radiation curve falls with temperature -- the poloidally
-    symmetric radiation collapse behind detachment and the density limit.
+    The poloidally symmetric counterpart of the MARFE (Drake's Eq. 1): a
+    whole flux surface cooling where the radiation curve falls with
+    temperature. How it relates to detachment and to density limits is
+    #1068's, not this function's.
 
     References
     ----------

@@ -1,17 +1,18 @@
 """MARFE: a localized radiation condensation on an equilibrium, and the condition that makes it (#1209).
 
-Left, a prescribed MARFE on the equilibrium's edge: a band just inside the
-last closed surface, about 30 degrees wide poloidally and a tenth of the minor
-radius deep, on the high-field side or next to the X-point -- the location,
-size and state Lipschultz (1987) reports. Right, Drake's (1987) constant-
-pressure condensation condition in dimensionless form, computed from
-``vaft.formula.sol.radiative_condensation_growth_rate``; the constant-density
-flute limit from ``radiative_thermal_instability_growth_rate``.
+Left, a prescribed MARFE on the equilibrium's edge. On the high-field side
+(the usual location, Lipschultz 1987) the band straddles the last closed
+surface, about 30 degrees wide poloidally and a tenth of the minor radius
+deep, as Lipschultz reports; next to the X-point (Greenwald 2002, p. R35) it
+is drawn on the closed side above the X-point with the same, borrowed,
+sizes. Right, Drake's (1987) constant-pressure condensation condition in
+dimensionless form, computed from
+``vaft.formula.sol.radiative_condensation_growth_rate``, with the
+constant-density flute limit of ``radiative_thermal_instability_growth_rate``
+on its $k_\\parallel = 0$ axis.
 
 The MARFE is prescribed, not solved: no reaction-diffusion problem, no
-cooling curve, no density-limit formula (those belong to #1068). The
-diagram explains why a cool, dense, strongly radiating spot forms and where,
-and what stabilises it.
+cooling curve, no density-limit formula (those belong to #1068).
 """
 
 from __future__ import annotations
@@ -59,19 +60,36 @@ def _surface(eq, level):
     return max(around, key=len)
 
 
-def _arc(loop, axis, centre, half):
-    """The part of a closed loop within +-half of poloidal angle centre (radians, from the outboard midplane)."""
-    theta = np.arctan2(loop[:, 1] - axis[1], loop[:, 0] - axis[0])
-    rel = (theta - centre + math.pi) % (2.0 * math.pi) - math.pi
-    keep = np.abs(rel) <= half
-    pts, rel = loop[keep], rel[keep]
-    order = np.argsort(rel)
-    return pts[order]
+def _arc(eq, level, axis, centre, half, near):
+    """The piece of the psi_N = level contour within +-half of poloidal angle centre, closest to ``near``.
+
+    Works on closed surfaces and on open ones outside the separatrix alike."""
+    from contourpy import LineType, contour_generator
+
+    gen = contour_generator(x=eq.r, y=eq.z, z=_psi_n(eq).T, line_type=LineType.Separate)
+    best, best_d = None, np.inf
+    for line in gen.lines(level):
+        line = np.asarray(line)
+        theta = np.arctan2(line[:, 1] - axis[1], line[:, 0] - axis[0])
+        rel = (theta - centre + math.pi) % (2.0 * math.pi) - math.pi
+        keep = np.abs(rel) <= half
+        if keep.sum() < 3:
+            continue
+        pts, rel = line[keep], rel[keep]
+        d = float(np.min(np.hypot(pts[:, 0] - near[0], pts[:, 1] - near[1])))
+        if d < best_d:
+            best, best_d = pts[np.argsort(rel)], d
+    if best is None:
+        raise ValueError(f"no flux surface psi_N = {level:.4f} in the band's angular window")
+    return best
 
 
 def marfe_region(equilibrium=None, *, localization: str = "hfs", poloidal_width_deg: float = POLOIDAL_WIDTH_DEG,
                  radial_fraction: float = RADIAL_FRACTION) -> dict:
     """The prescribed MARFE band: equilibrium, its LCFS, and the band's outline and centre."""
+    from scipy.interpolate import RectBivariateSpline
+    from scipy.optimize import brentq
+
     from vaft.process.equilibrium import solovev_example
 
     if localization not in ("hfs", "xpoint"):
@@ -87,33 +105,36 @@ def marfe_region(equilibrium=None, *, localization: str = "hfs", poloidal_width_
     lcfs = _surface(eq, 0.999)
     a_minor = 0.5 * float(np.ptp(lcfs[:, 0]))
     low = lcfs[int(np.argmin(lcfs[:, 1]))]
-    if localization == "hfs":
-        centre = math.pi
-    else:
-        centre = math.atan2(low[1] - axis[1], low[0] - axis[0])
-    # the inner edge: the surface a radial_fraction of the minor radius inside the LCFS along the band's centre
-    ray = np.array([math.cos(centre), math.sin(centre)])
-    from scipy.interpolate import RectBivariateSpline
-    from scipy.optimize import brentq
-
     sp = RectBivariateSpline(eq.r, eq.z, _psi_n(eq))
     if localization == "hfs":
-        edge = brentq(lambda t: float(sp.ev(axis[0] + t * ray[0], axis[1] + t * ray[1])) - 0.999, 1e-3,
+        centre = math.pi
+        ray = np.array([math.cos(centre), math.sin(centre)])
+        edge = brentq(lambda t: float(sp.ev(axis[0] + t * ray[0], axis[1] + t * ray[1])) - 1.0, 1e-3,
                       2.0 * a_minor)
+        # straddles r = a (Lipschultz p. 16): half the depth inside, half outside
+        t_in, t_out = edge - 0.5 * radial_fraction * a_minor, edge + 0.5 * radial_fraction * a_minor
     else:
+        centre = math.atan2(low[1] - axis[1], low[0] - axis[0])
+        ray = np.array([math.cos(centre), math.sin(centre)])
         # toward the X-point psi_N peaks at the saddle (the private region lies on the core's side of it), so the
-        # edge is the boundary point the ray was drawn through
+        # band is drawn on the closed side, ending at the boundary point the ray was drawn through
         edge = float(np.hypot(*(low - np.asarray(axis))))
-    t_in = edge - radial_fraction * a_minor
-    level_in = float(sp.ev(axis[0] + t_in * ray[0], axis[1] + t_in * ray[1]))
-    inner = _surface(eq, level_in)
+        t_in, t_out = edge - radial_fraction * a_minor, None
+    point = lambda t: (axis[0] + t * ray[0], axis[1] + t * ray[1])
     half = math.radians(0.5 * poloidal_width_deg)
-    outer_arc, inner_arc = _arc(lcfs, axis, centre, half), _arc(inner, axis, centre, half)
+    level_in = float(sp.ev(*point(t_in)))
+    inner_arc = _arc(eq, level_in, axis, centre, half, point(t_in))
+    if t_out is None:
+        level_out, outer_arc = 0.999, _arc(eq, 0.999, axis, centre, half, point(edge))
+    else:
+        level_out = float(sp.ev(*point(t_out)))
+        outer_arc = _arc(eq, level_out, axis, centre, half, point(t_out))
     outline = np.concatenate([outer_arc, inner_arc[::-1]])
+    t_mid = 0.5 * (t_in + (t_out if t_out is not None else edge))
     return {"equilibrium": eq, "lcfs": lcfs, "axis": axis, "outline": outline, "centre_angle": centre,
-            "inner_level": level_in, "minor_radius": a_minor, "localization": localization,
-            "poloidal_width_deg": float(poloidal_width_deg), "radial_fraction": float(radial_fraction),
-            "centre_point": tuple(np.asarray(axis) + (edge - 0.5 * radial_fraction * a_minor) * ray)}
+            "inner_level": level_in, "outer_level": level_out, "minor_radius": a_minor,
+            "localization": localization, "poloidal_width_deg": float(poloidal_width_deg),
+            "radial_fraction": float(radial_fraction), "centre_point": point(t_mid), "x_point_side": tuple(low)}
 
 
 def condensation_boundary(slopes: np.ndarray) -> np.ndarray:
@@ -134,15 +155,18 @@ def marfe(equilibrium=None, *, localization: str = "hfs", poloidal_width_deg: fl
           radial_fraction: float = RADIAL_FRACTION, labels: bool = True) -> Diagram:
     r"""A MARFE on the edge of an equilibrium, and Drake's condensation condition.
 
-    Left: a prescribed radiating band inside the last closed surface, on the
-    high-field side (``localization="hfs"``) or next to the X-point
-    (``"xpoint"``); width and depth default to Lipschultz's ~30 degrees and
-    ~10 % of $a$. Inside, $T_e$ falls to a few eV and the density rises at
-    constant pressure; the band is toroidally symmetric, a ring. Right: the
-    plane of radiation slope $\partial\ln L/\partial\ln T$ and conduction
-    ratio $k_\parallel^2\kappa_\parallel T/L$, with the condensation boundary
-    where ``radiative_condensation_growth_rate`` vanishes and the flute
-    boundary where ``radiative_thermal_instability_growth_rate`` does.
+    Left: a prescribed radiating band. On the high-field side
+    (``localization="hfs"``) it straddles the last closed surface, ~30
+    degrees wide and ~10 % of $a$ deep (Lipschultz 1987); next to the X-point
+    (``"xpoint"``, Greenwald 2002 p. R35) it sits on the closed side with the
+    same borrowed sizes. Its $T_e$ is below ~10 eV (Greenwald p. R34); the
+    density rise at constant pressure is Drake's model (his Eq. 17); it is
+    toroidally symmetric, a ring. Right: the plane of radiation slope
+    $\partial\ln L/\partial\ln T$ and conduction ratio
+    $k_\parallel^2\kappa_\parallel T/L$, with the condensation boundary where
+    ``radiative_condensation_growth_rate`` vanishes; on the $k_\parallel = 0$
+    axis, where the flute limit applies, the segment on which
+    ``radiative_thermal_instability_growth_rate`` is positive.
     """
     labels = _check_labels(labels)
     m = marfe_region(equilibrium, localization=localization, poloidal_width_deg=poloidal_width_deg,
@@ -156,6 +180,7 @@ def marfe(equilibrium=None, *, localization: str = "hfs", poloidal_width_deg: fl
 
     items: List = [Polyline.of(cm(lcfs), "lcfs", role="lcfs", closed=True),
                    Polyline.of(cm(m["outline"]), "layer", role="marfe", closed=True),
+                   Polyline.of(cm(m["outline"]), "inner solution", role="marfe_edge", closed=True),
                    Marker(tuple(cm(axis)), "o", "opoint", role="magnetic_axis")]
     left_width = float(cm([np.max(lcfs[:, 0]), 0.0])[0]) + 0.6
     if labels:
@@ -163,29 +188,30 @@ def marfe(equilibrium=None, *, localization: str = "hfs", poloidal_width_deg: fl
         side = -1.0 if math.cos(m["centre_angle"]) < 0 else 1.0
         # outside the plasma, on the MARFE's own side, so the label never covers the boundary
         tip = (float(c[0]) + side * 0.9, float(c[1]) - 1.6)
+        name = "MARFE" if localization == "hfs" else "X-point MARFE"
         items += [Polyline.of([tuple(c), tip], "leader line", role="marfe"),
-                  Label(tip, "\\begin{tabular}{c}MARFE: $T_e < 10$ eV,\\\\ $n_e$ up at constant $p$,\\\\"
-                        " strongly radiating,\\\\ a toroidal ring\\end{tabular}", "small label",
+                  Label(tip, f"\\begin{{tabular}}{{c}}{name}: $T_e < 10$ eV,\\\\ strongly radiating,\\\\"
+                        " a toroidal ring\\end{tabular}", "small label",
                         anchor="north east" if side < 0 else "north west", role="marfe")]
-    # right: the condensation plane
+    # right: the condensation plane (k_parallel > 0) and the flute limit on its k_parallel = 0 axis
     x = np.linspace(-3.0, 3.0, 241)
     y_marg = condensation_boundary(x)
     chart = Chart(x_range=(-3.0, 3.0), y_range=(0.0, 5.0))
     chart.curves["condensation"] = np.stack([x, y_marg], -1)
-    # the flute limit: unstable where dL/dT < 0, whatever the conduction (it has no k_parallel)
-    flute_zero = -radiative_thermal_instability_growth_rate(1e19, 0.0)  # = 0: the boundary is dL/dT = 0
-    chart.curves["flute"] = np.array([[flute_zero, 0.0], [flute_zero, 5.0]])
-    chart.labels.update({"stable": (1.6, 3.6), "unstable": (-1.6, 1.4), "flute": (-1.0, 4.6)})
+    # the flute growth rate at slope x (any L/T > 0): unstable where it is positive
+    flute_growth = np.array([radiative_thermal_instability_growth_rate(1e19, xi * 1e5 / 5.0) for xi in x])
+    # drawn just above the k_parallel = 0 axis so the axis line does not hide it
+    chart.curves["flute"] = np.stack([x[flute_growth > 0], np.full(int(np.sum(flute_growth > 0)), 0.1)], -1)
+    chart.labels.update({"stable": (1.6, 3.6), "unstable": (-1.6, 1.6), "flute": (-1.5, 0.42)})
     chart.parameters.update({"poloidal_width_deg": m["poloidal_width_deg"], "radial_fraction": m["radial_fraction"]})
     scene = render_chart(
         chart, x_label="$\\partial\\ln L/\\partial\\ln T$", y_label="$k_\\parallel^2\\kappa_\\parallel T/L$",
-        curve_styles={"flute": "approx", "condensation": "boundary"},
+        curve_styles={"condensation": "boundary", "flute": "inner solution"},
         region_text={"stable": "stable", "unstable": "\\begin{tabular}{c}condensation\\\\(MARFE)\\end{tabular}",
-                     "flute": "\\small flute unstable ($k_\\parallel = 0$)"}
-        if labels else {},
+                     "flute": "\\small flute, $k_\\parallel = 0$"} if labels else {},
         x_ticks=[-2.0, 0.0, 2.0], y_ticks=[0.0, 2.0, 4.0],
-        note=("Drake: unstable below $2 - \\partial\\ln L/\\partial\\ln T$; dashed: flute limit, unstable left of it"
-              if labels else ""),
+        note=("Drake: for $k_\\parallel > 0$ unstable below $2 - \\partial\\ln L/\\partial\\ln T$; red on the axis: "
+              "the flute ($k_\\parallel = 0$) limit, unstable where $L$ falls with $T$" if labels else ""),
     )
     items += list(scene.transformed(offset=(left_width + 2.0, 0.4)).items)
     model = {k: v for k, v in m.items() if k != "equilibrium"}

@@ -635,19 +635,25 @@ $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals 
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
 
-
 ### MARFE
 
 `marfe` puts a prescribed radiation condensation on the edge of an equilibrium and shows the condition that
-makes it. The band sits just inside the last closed surface, about 30° wide poloidally and 0.1$a$ deep, on
-the high-field side (`localization="hfs"`) or next to the X-point (`"xpoint"`). These are the location,
-size and state Lipschultz (1987) reports: $T_e$ below about 10 eV, the density raised at constant pressure,
-toroidally symmetric. The right panel is Drake's (1987) constant-pressure criterion in dimensionless form,
-computed from `vaft.formula.sol.radiative_condensation_growth_rate`. The boundary is
+makes it.
+- On the high-field side (`localization="hfs"`, the usual location) the band straddles the last closed
+  surface. It is about 30° wide poloidally and 0.1$a$ deep, as Lipschultz (1987) reports.
+- Next to the X-point (`"xpoint"`, Greenwald 2002 p. R35) the band is drawn on the closed side with the same
+  sizes, which are borrowed, not measured there.
+- Its $T_e$ is below about 10 eV (Greenwald p. R34), and it is toroidally symmetric: a ring.
+
+The right panel is Drake's (1987) constant-pressure criterion in dimensionless form, computed from
+`vaft.formula.sol.radiative_condensation_growth_rate`. For $k_\parallel > 0$ the boundary is
 $k_\parallel^2\kappa_\parallel T/L = 2 - \partial\ln L/\partial\ln T$, so condensation does not need a
-falling radiation curve. The dashed line is the constant-density flute limit
-(`radiative_thermal_instability_growth_rate`), which does. The band is prescribed, not solved, and no cooling
-curve or density-limit formula is built in; MARFE density-limit semantics belong to #1068.
+falling radiation curve. On the $k_\parallel = 0$ axis only the constant-density flute limit
+(`radiative_thermal_instability_growth_rate`) applies, and it is unstable where $L$ falls with $T$.
+
+The band is prescribed, not solved, and no cooling curve or density-limit formula is built in; MARFE onset
+and density-limit semantics belong to #1068. The API names its sizes `poloidal_width_deg` and
+`radial_fraction`; the issue's `"prescribed"` localization is not implemented.
 
 ```python
 vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30, radial_fraction=0.1
@@ -656,6 +662,7 @@ vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30
 | | |
 | --- | --- |
 | ![marfe]({{ '/assets/diagrams/marfe.svg' | relative_url }}) | ![marfe x-point]({{ '/assets/diagrams/marfe_xpoint.svg' | relative_url }}) |
+
 ## Disruption physics: quench sequence, runaways and energy paths
 
 The chain from loss of confinement to a runaway plateau, each link a relation in the new

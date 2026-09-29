@@ -14,17 +14,21 @@ from vaft.formula.sol import radiative_condensation_growth_rate, radiative_therm
 
 def test_drake_growth_rates():
     n, T, L = 2e19, 5.0, 3e5
-    # flat radiation curve, no conduction: gamma = (2/5ne) 2L/T > 0 -- condensation needs no falling L(T)
-    assert radiative_condensation_growth_rate(n, T, L, 0.0, 0.0, 0.0) == pytest.approx(4 * L / T / (5 * n * QE))
-    # the flute limit is unstable only where L falls with T
-    assert radiative_thermal_instability_growth_rate(n, 0.0) == 0.0
-    assert radiative_thermal_instability_growth_rate(n, -1e4) > 0 > radiative_thermal_instability_growth_rate(n, 1e4)
-    # parallel conduction stabilises: gamma falls linearly in k^2 kappa and crosses zero at the drive
-    drive = 2 * L / T - 1e4
-    k = 0.8
-    assert radiative_condensation_growth_rate(n, T, L, 1e4, k, drive / k**2) == pytest.approx(0.0, abs=1e-6)
+    # an independent SI evaluation of Drake's Eq. (2): T in joules, kappa per joule, (5/2) n dT/dt in J
+    T_J, dLdT, k, kappa = T * QE, -1e4, 0.8, 50.0  # dL/dT per eV, kappa in W/(m eV)
+    gamma_si = 2.0 / (5.0 * n) * (2 * L / T_J - dLdT / QE - k**2 * kappa / QE)
+    assert radiative_condensation_growth_rate(n, T, L, dLdT, k, kappa) == pytest.approx(gamma_si, rel=1e-12)
+    # a flat radiation curve and weak conduction still condense: the constant-pressure density rise drives it
+    assert radiative_condensation_growth_rate(n, T, L, 0.0, k, 1e-6) > 0.0
+    # parallel conduction stabilises: gamma crosses zero where k^2 kappa equals the drive
+    drive = 2 * L / T - dLdT
+    assert radiative_condensation_growth_rate(n, T, L, dLdT, k, drive / k**2) == pytest.approx(0.0, abs=1e-6)
+    # k_parallel = 0 is the flute limit, not this formula
     with pytest.raises(ValueError):
-        radiative_condensation_growth_rate(n, 0.0, L, 0.0, 1.0, 1.0)
+        radiative_condensation_growth_rate(n, T, L, dLdT, 0.0, kappa)
+    # Drake's Eq. (1): only a falling radiation curve is unstable at constant density
+    assert radiative_thermal_instability_growth_rate(n, dLdT) == pytest.approx(-2.0 * dLdT / (3.0 * n * QE))
+    assert radiative_thermal_instability_growth_rate(n, -dLdT) < 0.0
 
 
 def test_the_chart_boundary_is_where_the_growth_rate_vanishes():
@@ -34,28 +38,28 @@ def test_the_chart_boundary_is_where_the_growth_rate_vanishes():
     chart = vaft.diagram.marfe().model["chart"]
     xs, ys = chart.curves["condensation"].T
     np.testing.assert_allclose(ys, mf.condensation_boundary(xs))
-    assert chart.curves["flute"][0, 0] == 0.0
+    # the flute segment lies on the k_parallel = 0 axis exactly where its growth rate is positive (L falls with T)
+    fx, fy = chart.curves["flute"].T
+    assert np.all(fx < 0) and fx.max() > -0.05 and np.allclose(fy, fy[0]) and fy[0] < 0.2
 
 
-@pytest.mark.parametrize("localization", ["hfs", "xpoint"])
-def test_the_band_sits_just_inside_the_boundary_where_asked(localization):
-    m = mf.marfe_region(localization=localization)
+def test_the_hfs_band_straddles_the_boundary():
+    m = mf.marfe_region(localization="hfs")
     axis, out = np.asarray(m["axis"]), m["outline"]
     theta = np.arctan2(out[:, 1] - axis[1], out[:, 0] - axis[0])
-    rel = (theta - m["centre_angle"] + math.pi) % (2 * math.pi) - math.pi
+    rel = (theta - math.pi + math.pi) % (2 * math.pi) - math.pi
     assert np.max(np.abs(rel)) <= math.radians(15.0) + 1e-9  # Lipschultz: ~30 degrees wide
-    if localization == "hfs":
-        assert m["centre_angle"] == pytest.approx(math.pi)
-        assert np.all(out[:, 0] < axis[0])  # high-field side
-    else:
-        assert m["centre_angle"] < 0  # below the axis, towards the X-point
-    # inside the last closed surface: psi_N between the inner level and the boundary
-    from scipy.interpolate import RectBivariateSpline
+    assert np.all(out[:, 0] < axis[0])  # high-field side
+    # "this radial extent straddles r = a" (Lipschultz p. 16): one edge inside the LCFS, the other outside
+    assert m["inner_level"] < 1.0 < m["outer_level"]
 
-    eq = m["equilibrium"]
-    sp = RectBivariateSpline(eq.r, eq.z, mf._psi_n(eq))
-    psin = sp.ev(out[:, 0], out[:, 1])
-    assert np.all(psin <= 1.0 + 1e-3) and np.all(psin >= m["inner_level"] - 1e-3)
+
+def test_the_xpoint_band_sits_above_the_x_point_on_the_closed_side():
+    m = mf.marfe_region(localization="xpoint")
+    out, low = m["outline"], np.asarray(m["x_point_side"])
+    assert m["centre_angle"] < 0
+    assert np.min(np.hypot(out[:, 0] - low[0], out[:, 1] - low[1])) < 0.02 * m["minor_radius"]
+    assert m["inner_level"] < m["outer_level"] <= 1.0
 
 
 def test_inputs_and_labels():

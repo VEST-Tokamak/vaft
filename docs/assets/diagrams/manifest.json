@@ -277,13 +277,13 @@
     },
     "marfe.svg": {
       "call": "vaft.diagram.marfe()",
-      "source_sha256": "50cec207daab76eef94d797996eab586f9338a5195aa71ad0bd8200c5d637c5a",
-      "svg_sha256": "2633ffd6fcac63b124ff169dac1d5ad4e0ee62abf65b39a94b7b1214103cda70"
+      "source_sha256": "f39dc1ecf15b35db65d11ee34147d7166c1b278b0b04f76f9f70e5eb9045e0f5",
+      "svg_sha256": "4f8a448b27300027eb7372c5bb060511332fa5aed49f68adfb6f912813486c29"
     },
     "marfe_xpoint.svg": {
       "call": "vaft.diagram.marfe(localization='xpoint')",
-      "source_sha256": "d5795fcc5a73cfbce80e5b7c74e1e8d4b2aea2ac9b69b7d8b04e9234d26277ad",
-      "svg_sha256": "31d86eb5f7d7039fe7b601bb9ded765ee01a1cb745abd738c8344b7a5bf767a1"
+      "source_sha256": "b7bf71b637996aac242f1b07892ee705541960a07a4ef35c716236cb5d796d80",
+      "svg_sha256": "5dce8a4c63873a170e95d0a015f89718f981b4e8faef56a3a49c3fa3198961b2"
     },
     "mhd_wave_family.svg": {
       "call": "vaft.diagram.mhd_wave_family()",
