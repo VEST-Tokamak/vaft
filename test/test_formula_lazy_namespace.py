@@ -43,6 +43,7 @@ _IMPORT_ORDER = (
     "disruption",
     "vde",
     "pwi",
+    "sol",
     "boundaries",
 )
 

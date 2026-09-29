@@ -41,6 +41,7 @@ _SUBMODULES = {
     "disruption": ".disruption",
     "vde": ".vde",
     "pwi": ".pwi",
+    "sol": ".sol",
     "boundaries": ".boundaries",
 }
 
@@ -70,6 +71,7 @@ _IMPORT_ORDER = (
     "disruption",
     "vde",
     "pwi",
+    "sol",
     "boundaries",
 )
 
