@@ -645,7 +645,9 @@ $f_x = (\partial\psi/\partial R)_\mathrm{OMP} / (\partial\psi/\partial s)_\mathr
 evaluated on the flux, not assumed. The profile is `vaft.formula.sol.eich_target_heat_flux_profile` with
 that $f_x$. $\lambda_q$ (at the outer midplane) and $S$ (at the target) are illustrative inputs: this is a
 schematic, and measured IR profiles belong in `vaft.plot`. The SOL surfaces one, two and three $\lambda_q$
-outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target.
+outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target. The equilibrium must be
+lower single null, with an X-point on its boundary flux and legs that reach the target inside the limiter;
+anything else is refused rather than drawn.
 
 ```python
 vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="outer")
