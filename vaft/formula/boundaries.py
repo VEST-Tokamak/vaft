@@ -46,6 +46,7 @@ from typing import Callable, Mapping, Optional
 
 import numpy as np
 
+from .equilibrium import q_cyl_from_B_R_epsilon_kappa_I
 from .stability import greenwald_density
 
 __all__ = [
@@ -64,6 +65,7 @@ __all__ = [
     "boundary_curve",
     "get_boundary",
     "list_boundaries",
+    "hugill_coordinates",
 ]
 
 _FORMS = ("power_law", "threshold", "function")
@@ -287,8 +289,9 @@ class BoundaryCurve:
     """A boundary sampled on a 2-D projection, ready to overlay.
 
     ``allowed_side`` says where permitted operating points lie relative to
-    the curve: ``"below"`` or ``"above"`` it along y. The ``x`` and ``y``
-    arrays are read-only.
+    the curve: ``"below"`` or ``"above"`` it along y, or ``"left"`` or
+    ``"right"`` of it along x when the boundary's target is on the x axis.
+    The ``x`` and ``y`` arrays are read-only.
     """
 
     key: str
@@ -503,7 +506,7 @@ def evaluate_window(window: BoundaryWindow, operating_value, **inputs) -> Window
     )
 
 
-def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryCurve:
+def boundary_curve(boundary: Boundary, sweep: str, values, swap_axes: bool = False, **fixed) -> BoundaryCurve:
     r"""A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
 
     $$y_k = b\left(x_\mathrm{sweep} = v_k,\ \text{other inputs fixed}\right)$$
@@ -516,6 +519,9 @@ def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryC
         Name of the input placed on the x axis [-].
     values : array_like
         Values of the swept input, in its declared unit [varies].
+    swap_axes : bool
+        Put the boundary's target on x and the swept input on y, as in a
+        Hugill diagram, whose x axis is the density-like quantity [-].
 
     Returns
     -------
@@ -536,6 +542,8 @@ def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryC
     ----------
     The permitted side is the boundary's own ``allowed_side``, read along the
     y axis: ``"below"`` means operating points under the curve are permitted.
+    With ``swap_axes`` the target is read along x, so ``"below"`` becomes
+    ``"left"`` and ``"above"`` becomes ``"right"``.
     """
     x_quantity = boundary.input(sweep)
     if sweep in fixed:
@@ -547,15 +555,59 @@ def boundary_curve(boundary: Boundary, sweep: str, values, **fixed) -> BoundaryC
     if x.ndim != 1:
         raise TypeError("values must be a 1-D sequence")
     y = np.broadcast_to(np.asarray(boundary_value(boundary, **{sweep: x}, **fixed), dtype=float), x.shape)
-    return BoundaryCurve(
-        key=boundary.key,
-        x=x,
-        y=y,
-        x_quantity=x_quantity,
-        y_quantity=boundary.target,
-        allowed_side=boundary.allowed_side,
-        fixed={name: float(value) for name, value in fixed.items()},
+    fixed = {name: float(value) for name, value in fixed.items()}
+    if swap_axes:
+        side = {"below": "left", "above": "right"}[boundary.allowed_side]
+        return BoundaryCurve(key=boundary.key, x=y, y=x, x_quantity=boundary.target, y_quantity=x_quantity,
+                             allowed_side=side, fixed=fixed)
+    return BoundaryCurve(key=boundary.key, x=x, y=y, x_quantity=x_quantity, y_quantity=boundary.target,
+                         allowed_side=boundary.allowed_side, fixed=fixed)
+
+
+def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):
+    r"""Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
+
+    $$x = \frac{\bar n_e R_{geo}}{B_T},\qquad y = \frac{1}{q_{cyl}} = \frac{R_{geo}\,|I_p|}{5\,a^2\kappa_a B_T}\quad(I_p\ \mathrm{in\ MA})$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density [1e19 m^-3].
+    R_geo : float or np.ndarray
+        Geometric major radius [m].
+    B_t : float or np.ndarray
+        Vacuum toroidal field at ``R_geo``, magnitude [T].
+    a : float or np.ndarray
+        Minor radius [m].
+    kappa_a : float or np.ndarray
+        Area elongation $S/(\pi a^2)$ [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q_{cyl}$ [-].
+
+    Raises
+    ------
+    ValueError
+        From ``q_cyl_from_B_R_epsilon_kappa_I`` for a non-positive or
+        non-finite field, radius, elongation or current.
+
+    Convention
+    ----------
+    $q_{cyl}$ is ``equilibrium.q_cyl_from_B_R_epsilon_kappa_I`` with
+    $\varepsilon = a/R_{geo}$. The ``"greenwald_hugill"`` boundary uses the
+    same convention, so a state at $\bar n_e = n_G$ lies exactly on it. This
+    is the cylindrical $q$, not $q_{95}$. At VEST aspect ratio the two differ
+    substantially, and plotting $1/q_{95}$ against this boundary is only
+    approximate.
+    """
+    q_cyl = q_cyl_from_B_R_epsilon_kappa_I(
+        np.abs(B_t), R_geo, np.asarray(a, dtype=float) / R_geo, kappa_a, np.abs(np.asarray(I_p, dtype=float)) * 1e6
     )
+    return _scalar_or_array(np.asarray(n_e, dtype=float) * R_geo / np.abs(B_t)), _scalar_or_array(1.0 / np.asarray(q_cyl))
 
 
 # ------------------------------------------------------------------
@@ -653,4 +705,48 @@ _register(Boundary(
         BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Sec. 2"),
     ),
     notes="Evaluated by vaft.formula.stability.greenwald_density; coefficients are not restated here.",
+))
+
+_MURAKAMI_PARAMETER = BoundaryQuantity(
+    "murakami_parameter", r"\bar n_e R/B_T", "1e19 m^-2 T^-1",
+    "Line-averaged electron density times geometric major radius over the vacuum toroidal field there.",
+)
+_INVERSE_Q_CYL = BoundaryQuantity(
+    "inverse_cylindrical_q", "1/q_cyl", "-",
+    "Inverse cylindrical safety factor in the equilibrium.q_cyl_from_B_R_epsilon_kappa_I convention.",
+)
+_AREA_ELONGATION = BoundaryQuantity("area_elongation", "kappa_a", "-", "Area elongation S/(pi a^2).")
+
+_register(Boundary(
+    key="greenwald_hugill",
+    family="density_limit",
+    target=_MURAKAMI_PARAMETER,
+    inputs=(_INVERSE_Q_CYL, _AREA_ELONGATION),
+    form="power_law",
+    coefficient=50.0 / np.pi,
+    exponents={"inverse_cylindrical_q": 1.0, "area_elongation": 1.0},
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "the Greenwald limit rewritten in Hugill-diagram coordinates; carries every Greenwald assumption",
+            "y axis is the cylindrical q of equilibrium.q_cyl_from_B_R_epsilon_kappa_I, not q95",
+            "R and B_T in the Murakami parameter are the same R_geo and B_T used for q_cyl",
+        ),
+    ),
+    sources=(
+        BoundarySource(
+            "Derived in VAFT: stability.greenwald_density, n_G[1e19] = 10 I_p/(pi a^2), with "
+            "equilibrium.q_cyl_from_B_R_epsilon_kappa_I, q_cyl = 5 a^2 kappa_a B_T/(R I_p[MA]); "
+            "a, R and B_T cancel, leaving nR/B = (50 kappa_a/pi)(1/q_cyl)",
+        ),
+        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Eq. (1)"),
+        BoundarySource("G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006", equation="Sec. 2",
+                       note="q_cyl convention"),
+    ),
+    notes="Same line as vaft.diagram hugill(); the Murakami limit and the low-q line are not yet registered (source needed, #1297).",
 ))

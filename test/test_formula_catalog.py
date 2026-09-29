@@ -99,7 +99,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 6,  # operational-boundary data model: value, margin, window, curve, registry (#1067)
+        "boundaries": 7,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

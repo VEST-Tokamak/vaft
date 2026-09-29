@@ -307,3 +307,45 @@ def test_registry_lists_and_resolves():
 def test_registered_keys_are_unique():
     with pytest.raises(ValueError, match="already registered"):
         B._register(B.get_boundary("greenwald"))
+
+
+# ------------------------------------------------------------------
+# Hugill diagram (#1068): the Greenwald line in (nR/B, 1/q_cyl)
+# ------------------------------------------------------------------
+
+def test_greenwald_hugill_slope_is_50_kappa_over_pi():
+    entry = B.get_boundary("greenwald_hugill")
+    inv_q = np.linspace(0.05, 0.5, 10)
+    curve = B.boundary_curve(entry, "inverse_cylindrical_q", inv_q, swap_axes=True, area_elongation=1.7)
+    np.testing.assert_allclose(curve.x / curve.y, 50.0 * 1.7 / np.pi)
+    assert curve.x_quantity.name == "murakami_parameter" and curve.y_quantity.name == "inverse_cylindrical_q"
+    assert curve.allowed_side == "left"
+
+
+@pytest.mark.parametrize("kappa", [1.0, 1.7])
+def test_greenwald_hugill_is_the_diagram_line(kappa):
+    from vaft.diagram._stability_space import hugill
+
+    xy = hugill(elongation=kappa, labels=False).model.curves["greenwald"][1:]
+    entry = B.get_boundary("greenwald_hugill")
+    np.testing.assert_allclose(
+        B.boundary_value(entry, inverse_cylindrical_q=xy[:, 1], area_elongation=kappa), xy[:, 0], rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("R, B_t, a, kappa", [(0.4, 0.15, 0.236, 1.52), (1.7, 2.0, 0.6, 1.8)])
+def test_a_state_at_the_greenwald_density_lies_on_the_hugill_line(R, B_t, a, kappa):
+    """Any machine size and shape: a, R, B_T and kappa_a cancel, so n = n_G(I_p, a) is exactly on the line."""
+    I_p = np.linspace(0.03, 0.12, 7) * (a / 0.236) ** 2
+    x, y = B.hugill_coordinates(greenwald_density(I_p, a), R, B_t, a, kappa, I_p)
+    result = B.evaluate_boundary(B.get_boundary("greenwald_hugill"), x, inverse_cylindrical_q=y, area_elongation=kappa)
+    np.testing.assert_allclose(result.ratio, 1.0)
+    below = B.evaluate_boundary(B.get_boundary("greenwald_hugill"), 0.5 * x, inverse_cylindrical_q=y, area_elongation=kappa)
+    assert np.all(below.allowed) and np.allclose(below.margin, 0.5)
+
+
+def test_hugill_coordinates_drop_the_current_and_field_sign():
+    plus = B.hugill_coordinates(3.0, 0.4, 0.15, 0.236, 1.52, 0.08)
+    minus = B.hugill_coordinates(3.0, 0.4, -0.15, 0.236, 1.52, -0.08)
+    assert plus == pytest.approx(minus)
+    assert plus[0] == pytest.approx(3.0 * 0.4 / 0.15)
