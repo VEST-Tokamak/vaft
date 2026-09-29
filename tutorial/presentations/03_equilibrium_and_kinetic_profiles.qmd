@@ -140,12 +140,61 @@ boundary's makes the plasma diverted. Real VEST maps have many saddles, far
 outside the plasma; none of them is on the boundary.
 :::
 
+## One flux function, three regions
+
+$$\Delta^*\psi = -\mu_0 R J_\phi \quad\text{everywhere}$$
+
+| region | equation |
+| --- | --- |
+| plasma | $\Delta^*\psi = -\mu_0R^2p'(\psi) - FF'(\psi)$ |
+| vacuum | $\Delta^*\psi = 0$ (homogeneous) |
+| coils, vessel | $\Delta^*\psi = -\mu_0 R J_{\phi,\mathrm{ext}}$ |
+
+$\psi = \psi_{\mathrm{plasma}} + \psi_{\mathrm{coil}} + \psi_{\mathrm{passive}}$: same flux, different sources.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Ampère's law is the common start; force balance is what adds physics inside
+the plasma, by forcing the current to be built from two flux functions. In the
+vacuum the equation is source-free. The notebook builds a flux map from a
+plasma and two coil pairs and checks both region equations on it.
+
+TRANSITION:
+Where does the plasma end? That depends on who is asked to decide.
+:::
+
+## The boundary: input or output
+
+- **fixed boundary**: $\psi|_{\partial\Omega_p} = \psi_b$ --- the boundary is an input
+- **free boundary**: coils and sources given --- the boundary is **part of the solution**
+- LCFS = separatrix through an X-point ($\nabla\psi = 0$), or the last closed surface touching the limiter
+- same plasma, add a shaping coil pair: two X-points appear, the topology changes
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Name the magnetic axis, the separatrix, the scrape-off layer and the private
+flux region on the notebook's figure. Stress that the example is a
+superposition with the current held fixed: its axis does not sit where the
+current is centred, and removing that mismatch is what a free-boundary solver
+iterates for.
+
+TRANSITION:
+Which is why the problem class has two axes.
+:::
+
 ## Two axes of numerical problems
 
 |                | fixed boundary | free boundary        |
 |----------------|----------------|----------------------|
 | forward        | CHEASE         | TES, TokaMaker       |
 | reconstruction | ---            | EFIT                 |
+
+Free-boundary and inverse are **not** synonyms. DCON, RDCON, GPEC sit outside
+the table: they take any of these equilibria as input.
 
 ::: {.notes}
 [3 min]
