@@ -55,6 +55,11 @@
       "source_sha256": "a5dbf32c338e46c982dd778e8e2176679b8ac9426f7142574b60ca0710b29aa0",
       "svg_sha256": "54b84c15ca711177b40c69b23089b309ebd6301bb79c4a7b027c0b37cb4337b5"
     },
+    "coordinates_vs_cocos.svg": {
+      "call": "vaft.diagram.coordinates_vs_cocos()",
+      "source_sha256": "eb4dcb27339d7f3ad5f6a391821f82391e9bf2da9f8afad04648e67894f3f411",
+      "svg_sha256": "b27c3c8f13594d093e1439754c0160c15a60876d79eb91e0bdc04fa4e69b6c7c"
+    },
     "current_sheet.svg": {
       "call": "vaft.diagram.current_sheet()",
       "source_sha256": "cd818f62344ced1b53a03c67d80b9561b6bf7b5e90fd58c398eaf48f38dfd4a1",
@@ -139,6 +144,11 @@
       "call": "vaft.diagram.fast_magnetosonic_wave()",
       "source_sha256": "9333b699eba075469c1a7c1a5a15e5e85adec080d1f66be5e4114be1dce81d20",
       "svg_sha256": "66e3b727371640e7a38f1bb834d3c39b68dbe19ef3e9dc42b47203454afdaa81"
+    },
+    "field_line_action_angle.svg": {
+      "call": "vaft.diagram.field_line_action_angle()",
+      "source_sha256": "89c4324356c4e61ea292df6cbb77e15e6ce55955336dfbab8bbe3e76af50fb32",
+      "svg_sha256": "681a66b762177135f4cdcf8080b995908d2074d8486f09978273391f777f6704"
     },
     "field_line_geometry_cylindrical.svg": {
       "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
@@ -430,10 +440,20 @@
       "source_sha256": "325e94912ea16f70a6fff26e5b7fcc9c2ba1434246c2cc3cea181bc8c23bbbc1",
       "svg_sha256": "ec47c7f100cd92cd36cf65ba54e9bc1131fb95792c97ef81f78c71a1c105eb57"
     },
+    "sfl_coordinate_validity.svg": {
+      "call": "vaft.diagram.sfl_coordinate_validity()",
+      "source_sha256": "27e1173dd869366d0906b618e2fb36c5258fb04efae39a3bf1b4524e21c70534",
+      "svg_sha256": "2159d264f008df332ceb7b906d2db267fb8a807c3e4758cc58a041a818270055"
+    },
     "sfl_fourier_convergence.svg": {
       "call": "vaft.diagram.sfl_fourier_convergence()",
       "source_sha256": "26aad88a8e09e6b7dfa27cad46439ff977d9969413f45f55b319603e1a27234a",
       "svg_sha256": "a44cc335e6387efb111b8787370dc0ac9c031cb5d773c19d31e874f44d9a2274"
+    },
+    "sfl_fourier_convergence_n2.svg": {
+      "call": "vaft.diagram.sfl_fourier_convergence(n=2)",
+      "source_sha256": "594c40566d75d6084015df92d04fbbbce7fb1179a8a5b85ffab71c0fe30a3bf1",
+      "svg_sha256": "d89e549109fa3cd151718f31cd33f9e9ffc1f46a93123769dff160128693ce07"
     },
     "shaping_family.svg": {
       "call": "vaft.diagram.shaping_family()",

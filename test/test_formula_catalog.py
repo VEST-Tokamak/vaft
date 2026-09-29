@@ -70,7 +70,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
         # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
-        "equilibrium": 98,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 99,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 35,  # +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,

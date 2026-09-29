@@ -387,6 +387,45 @@ vaft.diagram.sfl_fourier_convergence()
 * **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
   taxonomy, independently of which angle is chosen.
 
+
+### Toroidal shift, action angles, validity, and COCOS
+
+Every straight-field-line angle except PEST needs its own toroidal angle $\zeta = \phi + \nu$.
+`vaft.formula.equilibrium.sfl_toroidal_angle_shift` gives the shift as $\nu = q(\theta_\mathrm{sfl} -
+\theta_\mathrm{PEST})$, which follows from $d\phi = q\,d\theta_\mathrm{PEST}$ and $d\zeta = q\,d\theta_\mathrm{sfl}$
+along a field line. For a toroidal mode number $n \neq 0$, the factor $e^{in\nu}$ couples poloidal harmonics.
+`sfl_fourier_convergence(n=2)` shows the result: Hamada and equal-arc spectra broaden with $n$, while PEST's does
+not.
+
+- `field_line_action_angle` follows one field line over a poloidal turn. Against the geometric angles
+  $(\phi, \vartheta)$ it bends; against $(\zeta, \theta_\mathrm{PEST})$ it is the straight line of slope $1/q$.
+  Nested surfaces make the field-line flow integrable, so SFL coordinates are its action-angle variables.
+  Canonical SFL coordinates, which also give the guiding-centre Hamiltonian its canonical form, stay a branch of
+  `sfl_coordinate_taxonomy`; no transformation is implemented here.
+- `sfl_coordinate_validity` computes $|q|$ toward the last closed surface. On a limited Solov'ev equilibrium it
+  settles; on a single-null one it grows as $\ln(1 - \psi_N)$, because $B_p \to 0$ at the X-point and $\theta^*$
+  degenerates there. Islands and stochastic fields have no global surfaces at all (see `magnetic_island` and
+  `stochastic_layer`).
+- `coordinates_vs_cocos` draws the coordinate choice and the COCOS convention as orthogonal axes: every
+  combination is valid, and a coordinate system is not a COCOS convention.
+
+DCON and GPEC use the generalized family (PEST, Boozer, Hamada, equal-arc, and $J \propto R^{p_R}/(B_p^{p_{B_p}}
+B^{p_B})$). An input or output handled in VAFT should therefore keep four things together: the coordinate type,
+its powers, the Fourier convention $e^{i(m\theta - n\zeta)}$, and where the mapping came from. Two analyses in
+different SFL coordinates describe the same equilibrium with different harmonic content.
+
+```python
+vaft.diagram.sfl_fourier_convergence(n=2)
+vaft.diagram.field_line_action_angle()
+vaft.diagram.sfl_coordinate_validity()
+vaft.diagram.coordinates_vs_cocos()
+```
+
+| | |
+| --- | --- |
+| ![n = 2]({{ '/assets/diagrams/sfl_fourier_convergence_n2.svg' | relative_url }}) | ![action angle]({{ '/assets/diagrams/field_line_action_angle.svg' | relative_url }}) |
+| ![validity]({{ '/assets/diagrams/sfl_coordinate_validity.svg' | relative_url }}) | ![cocos]({{ '/assets/diagrams/coordinates_vs_cocos.svg' | relative_url }}) |
+
 ## Clebsch labels and the ballooning representation
 
 These figures go from straight-field-line coordinates to the local, field-aligned and ballooning

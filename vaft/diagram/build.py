@@ -140,6 +140,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
     "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
+    # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
+    "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
+    # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
+    **{f"{name}.svg": (name, {}) for name in ("field_line_action_angle", "sfl_coordinate_validity",
+                                              "coordinates_vs_cocos")},
 }
 
 

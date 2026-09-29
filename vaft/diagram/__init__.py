@@ -143,6 +143,9 @@ __all__ = [
     "wall_conditioning_gdc",
     "wall_conditioning_boronization",
     "wall_conditioning_sequence",
+    "field_line_action_angle",
+    "sfl_coordinate_validity",
+    "coordinates_vs_cocos",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -249,6 +252,9 @@ _LOCATIONS = {
     "wall_conditioning_gdc": "._wall_conditioning",
     "wall_conditioning_boronization": "._wall_conditioning",
     "wall_conditioning_sequence": "._wall_conditioning",
+    "field_line_action_angle": "._sfl_coordinates",
+    "sfl_coordinate_validity": "._sfl_coordinates",
+    "coordinates_vs_cocos": "._sfl_coordinates",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

@@ -78,6 +78,8 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # toroidal shift of the generalized SFL family: signed q, paired with the PEST angle (#1074)
+    "sfl_toroidal_angle_shift",
     # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
     "plasma_frequency",
     "stix_parameters",
