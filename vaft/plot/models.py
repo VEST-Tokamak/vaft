@@ -517,7 +517,22 @@ class GeometryLayers(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayer(ViewModel):
-    """One polyline or point cloud drawn in machine Cartesian coordinates."""
+    """One polyline or point cloud drawn in machine Cartesian coordinates.
+
+    ``x``/``y``/``z`` are metres on the right-handed axes of
+    :func:`vaft.machine_mapping.conventions.cylindrical_to_cartesian` (IMAS
+    ``phi`` counter-clockwise from above).  ``label`` is the legend entry --
+    usually set on one layer of a set only -- while ``group`` names the
+    subsystem the layer belongs to as a ``/``-separated path
+    (``"coils_non_axisymmetric/RMP/sector 3"``): the Plotly legend group, the
+    block tree of a VTK multiblock export and the K3D object name.
+
+    This model is the *lightweight* 3-D contract: points and polylines --
+    filaments, rings, diagnostic positions, sight lines, trajectories.
+    Surfaces, structured or unstructured grids and fields on them are not
+    layers; they belong to the scientific mesh representation (#909, #1100),
+    and are not to be faked by stacking polylines into a surface.
+    """
 
     x: np.ndarray
     y: np.ndarray
@@ -525,6 +540,7 @@ class Geometry3DLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    group: str = ""
 
     KINDS = ("polyline", "points")
 
@@ -546,6 +562,7 @@ class Geometry3DLayer(ViewModel):
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "group", str(self.group).strip("/"))
 
     def to_xarray(self, **attrs: Any) -> Any:
         """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
@@ -560,7 +577,13 @@ class Geometry3DLayer(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayers(ViewModel):
-    """A stack of 3D geometry layers drawn into one machine-coordinate view."""
+    """A stack of 3D geometry layers drawn into one machine-coordinate view.
+
+    Rendered by Matplotlib and Plotly through ``backend=``; converted to
+    PyVista/VTK (and so ParaView) by :mod:`vaft.plot.pyvista` and to K3D by
+    :mod:`vaft.plot.k3d`, which keep each layer's ``group`` as its
+    block/object identity.
+    """
 
     layers: tuple[Geometry3DLayer, ...]
     x_label: str = "x [m]"

@@ -108,6 +108,13 @@ tokamaker = ["openfusiontoolkit"]
 # Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
 # the CPU wheel explicitly instead (package-ci.yml).
 ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
+# 3-D scenes beyond Matplotlib and Plotly (#1087). vaft.plot.pyvista converts
+# Geometry3DLayers to PyVista/VTK and writes .vtm/.vtp files ParaView opens
+# (ParaView itself is never a dependency); vaft.plot.k3d draws them in Jupyter.
+# Both are imported only when a function asks for them: VTK is a large wheel
+# most 1-D/2-D workflows never need, and K3D matters only in a notebook.
+vtk = ["pyvista>=0.44"]
+jupyter3d = ["k3d>=2.16"]
 # Numba is reserved for measured acceleration work (#1013) and is not a runtime
 # dependency: no VAFT module imports it yet. It used to be required, but
 # electromagnetics.py only checked whether it imported and printed a warning when

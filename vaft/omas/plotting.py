@@ -915,6 +915,21 @@ def plot_machine_geometry_poloidal(
     )
 
 
+def plot_machine_geometry3d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Composed 3D machine scene: wall and boundary cuts, PF rings, 3D coils and diagnostics.
+
+    Renders with :func:`vaft.plot.machine_geometry3d`.
+    """
+    return render("machine_geometry3d", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_machine_geometry_topview(
     source: Any,
     *,
@@ -1531,6 +1546,7 @@ __all__ = [
     "plot_equilibrium_overview_verification",
     "plot_interferometer_spectrum",
     "plot_machine_geometry_poloidal",
+    "plot_machine_geometry3d",
     "plot_machine_geometry_topview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
