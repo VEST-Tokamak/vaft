@@ -145,6 +145,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
     "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
+    # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
+    "marfe.svg": ("marfe", {}),
+    "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
     # Eich target profile on a diverted equilibrium (#1209)
     "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
 }
