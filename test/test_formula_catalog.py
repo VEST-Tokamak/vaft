@@ -79,7 +79,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
         "transformer": 8,   # +Romero first-order closure (#781 child C)
-        "neoclassical": 12,
+        "neoclassical": 18,  # +orbit scales and regime orderings (#1111)
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
         # flux-closure kernels and the limiter-aperture geometry, comment 2
@@ -98,6 +98,8 @@ def test_the_catalog_counts_the_known_public_surface():
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
         "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
+        "ntv": 2,  # precession frequency and flux-torque relation (#1111)
+        "sol": 8,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
     }

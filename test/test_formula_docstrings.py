@@ -78,6 +78,25 @@ CONVENTION_SENSITIVE = frozenset({
     "perpendicular_refractive_index_squared",
     "cma_coordinates",
     "propagation_regime",
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    "transit_frequency",
+    "deeply_trapped_bounce_frequency",
+    "trapped_particle_effective_collision_frequency",
+    "banana_width",
+    "collisions_per_transit",
+    "neoclassical_regime_boundaries",
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    "ntv_precession_frequency",
+    "nonambipolar_torque_density",
+    # scrape-off layer (#951): closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
+    "ion_sound_speed",
+    "sheath_particle_flux",
+    "ion_saturation_current_density",
+    "sheath_heat_flux",
+    "spitzer_harm_parallel_heat_flux",
+    "two_point_upstream_temperature",
+    "eich_target_heat_flux_profile",
+    "eich_integral_width",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -259,6 +278,8 @@ CONVENTION_SENSITIVE = frozenset({
 
 #: Fitted coefficients or scalings: the source dataset must be named.
 EMPIRICAL = frozenset({
+    # Makowski 2012 fit of the Eich profile integral (#951)
+    "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
     "empirical_li_qa",

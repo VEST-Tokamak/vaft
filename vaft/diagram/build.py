@@ -130,6 +130,16 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
+    # neoclassical and NTV collisionality regimes (#1111)
+    "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
+    "ntv_collisionality.svg": ("ntv_collisionality", {}),
+    "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
+    # wall conditioning as wall-state transitions (#1051)
+    "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
+    "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
+    "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
+    "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
+    "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
 }
 
 

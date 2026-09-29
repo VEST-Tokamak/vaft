@@ -285,10 +285,25 @@
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
     },
+    "neoclassical_collisionality.svg": {
+      "call": "vaft.diagram.neoclassical_collisionality()",
+      "source_sha256": "941c9b09f1f58ae89a033a82210258c97aecd7ce4e231ee22f4126cf418152c7",
+      "svg_sha256": "cc64b30ef5e5889b94cc3ef518ad644a04b835428fb6fd3ab9fd9de882a90c9b"
+    },
     "normal_field_component.svg": {
       "call": "vaft.diagram.normal_field_component()",
       "source_sha256": "74665ff0fbd487dfcc80515d8a119fa281250d8c38c33a34a8bdb596e3ed8cbe",
       "svg_sha256": "4f4aa9871de375ea1409a827ca5c3d9e392ddfbfb17c046cdb00e03132f689d8"
+    },
+    "ntv_collisionality.svg": {
+      "call": "vaft.diagram.ntv_collisionality()",
+      "source_sha256": "3d30af96af3a909ebca6e989c2500de60908e87b239d44bf5db0ebcd748517a9",
+      "svg_sha256": "5f799572001cdf20ea553edded7d2d77dd40fb85388ad5c447fbd8acf2fae617"
+    },
+    "ntv_precession_regimes.svg": {
+      "call": "vaft.diagram.ntv_precession_regimes()",
+      "source_sha256": "c83004fbc400eb029a6966c090f04c0d331eaf74cb407e5a47eec0ed2f05efe5",
+      "svg_sha256": "ff3882917fb7d2727149e34311355ebddcaaf5692b6a94e7465338242e91a694"
     },
     "o_mode_cutoff.svg": {
       "call": "vaft.diagram.o_mode_cutoff()",
@@ -574,6 +589,31 @@
       "call": "vaft.diagram.vde_timescales()",
       "source_sha256": "736b3a760e5c68f042d1caf9e98f16f96efdb1178ca24b4e03508c67475496a4",
       "svg_sha256": "af9bde3702fafac6b6ffada2e877c6dd699510b5a092d9fba7d354a229a196d8"
+    },
+    "wall_conditioning_baking.svg": {
+      "call": "vaft.diagram.wall_conditioning_baking()",
+      "source_sha256": "e9f969eb82cfcbc9353c37aaebe29e290b497d1ce34b61a57244a4bb5f13a15f",
+      "svg_sha256": "ee8057164e7930dbc1f737af645dcc88cf2c526bb2f74f8195d2e94f3b71898b"
+    },
+    "wall_conditioning_boronization.svg": {
+      "call": "vaft.diagram.wall_conditioning_boronization()",
+      "source_sha256": "1dce2568780aad4efd2217162408cc4b92f23ae97145ee60e32edfadbb7ca94c",
+      "svg_sha256": "8969496f2b85d744ea5ead37bcb40220c70029b9f81620f216a3b6e55c503bcb"
+    },
+    "wall_conditioning_gdc_deuterium.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='D2')",
+      "source_sha256": "add2ca3f1c75eb3739a093361e1867f60ac773b17a1ec8c79a4689f19a23d7cb",
+      "svg_sha256": "23b30c8e5e3dc3a6d386ef0a66932b84a4d97182d3174ee05c0a43723d630888"
+    },
+    "wall_conditioning_gdc_helium.svg": {
+      "call": "vaft.diagram.wall_conditioning_gdc(gas='He')",
+      "source_sha256": "a22e77fe4b37161359f9c00201b9c352d063db6d5a257bc7bdf78e76e9d951d7",
+      "svg_sha256": "a2b268bef9eca70d37f1dea7fba941c26d12bf881e4bd11998587fdffed8d7a6"
+    },
+    "wall_conditioning_sequence.svg": {
+      "call": "vaft.diagram.wall_conditioning_sequence()",
+      "source_sha256": "58b21ea7aff600595111c0c104802aa4c4be9ce8b7a7855d554dda433b177ca8",
+      "svg_sha256": "185d50d596b7755b4e1c4debd14c9428c01830c007939b0f3428b73cf0db3d07"
     },
     "x_mode_dispersion.svg": {
       "call": "vaft.diagram.x_mode_dispersion()",

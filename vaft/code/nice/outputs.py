@@ -562,4 +562,7 @@ def collect_nice_outputs(
         tuple(errors),
         provenance,
         ods,
+        # A manifest from before #1016 has neither; a stop there was 124.
+        runtime_status=str(provenance.get("process_runtime_status") or "completed"),
+        elapsed_s=provenance.get("process_elapsed_s"),
     )

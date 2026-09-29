@@ -42,8 +42,10 @@ _IMPORT_ORDER = (
     "ripple",
     "disruption",
     "waves",
+    "ntv",
     "vde",
     "pwi",
+    "sol",
 )
 
 

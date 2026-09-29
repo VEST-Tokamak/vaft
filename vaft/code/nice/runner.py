@@ -13,7 +13,7 @@ from .._executables import (
     executable_from_home,
     missing_home_message,
 )
-from ..execution import ExecutionRequest, resolve_backend
+from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .config import NiceConfig, NiceInputs, NiceResult
 from .outputs import collect_nice_outputs
 
@@ -105,12 +105,15 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
     stdout_file.write_text(stdout, encoding="utf-8")
     stderr_file.write_text(stderr, encoding="utf-8")
     timed_out = execution.timed_out
-    returncode = 124 if timed_out else int(execution.returncode)
+    # returncode=None and runtime_status="timeout" on a stop (#1016; it was 124).
+    returncode = None if timed_out else int(execution.returncode)
     manifest = dict(inputs.manifest)
     manifest["nice_executable"] = str(exe)
     manifest["nice_executable_sha256"] = hashlib.sha256(exe.read_bytes()).hexdigest()
     manifest["process_returncode"] = returncode
     manifest["process_timed_out"] = timed_out
+    manifest["process_runtime_status"] = execution.runtime_status
+    manifest["process_elapsed_s"] = execution.elapsed_s
     inputs.manifest_file.write_text(
         json.dumps(manifest, indent=2, sort_keys=True, allow_nan=True), encoding="utf-8"
     )
@@ -118,10 +121,17 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
     result.returncode = returncode
     result.process_succeeded = returncode == 0
     result.stdout, result.stderr = stdout, stderr
+    result.runtime_status = execution.runtime_status
+    result.elapsed_s = execution.elapsed_s
     if returncode != 0:
         result.converged = False
         result.scientifically_usable = False
         result.termination_reason = (
-            "NICE timed out" if timed_out else f"NICE exited with status {returncode}"
+            timeout_reason("NICE", execution, config.timeout)
+            if timed_out
+            else f"NICE exited with status {returncode}"
         )
+        if timed_out:
+            reason = result.termination_reason
+            result.stderr = f"{stderr}\n{reason}" if stderr else reason
     return result
