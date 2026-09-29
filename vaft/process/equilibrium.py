@@ -978,8 +978,8 @@ def poloidal_field_at_boundary(
         COCOS index of *psi_grid*. ``None`` keeps the historical
         weber-per-radian form [-].
     psi_per_radian : bool, optional
-        Whether *psi_grid* is per radian, when the index alone does not settle it
-        [-].
+        Whether *psi_grid* is per radian, when the index alone does not settle it;
+        given together with *cocos* it must agree with that index [-].
 
     Returns
     -------
@@ -989,6 +989,12 @@ def poloidal_field_at_boundary(
         Its major-radius component [T].
     B_Z_bdry : np.ndarray
         Its height component [T].
+
+    Raises
+    ------
+    ValueError
+        *cocos* and *psi_per_radian* are both given and disagree on the
+        storage family.
 
     Convention
     ----------
@@ -1041,6 +1047,7 @@ def poloidal_field_at_boundary(
     #    그대로 두고 2*pi 정규화만 적용합니다 (Wb 저장 psi 에 필요).
     from vaft.formula.equilibrium import poloidal_field_factor
 
+    _check_flux_family("poloidal_field_at_boundary", cocos, psi_per_radian)
     k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
 
     # B_R = k * (1/R) * dPsi/dZ
@@ -3340,19 +3347,67 @@ def calculate_q_profile_from_psi(
     return q_final
 
 
+def _check_flux_family(caller, cocos, psi_per_radian):
+    """Refuse a COCOS index and a storage family that contradict each other."""
+    if cocos is None or psi_per_radian is None:
+        return
+    from vaft.data.cocos import cocos_spec
+
+    declared = cocos_spec(int(cocos)).psi_per_radian
+    if bool(psi_per_radian) != declared:
+        raise ValueError(
+            f"{caller}: cocos={int(cocos)} stores psi in "
+            f"{'Wb/rad' if declared else 'Wb'}, but psi_per_radian={psi_per_radian!r} "
+            "says otherwise; pass one or make them agree"
+        )
+
+
+def _record_bp_factor(caller, convention):
+    """Sauter prefactor from a record's convention, or ``None`` to fall back.
+
+    A declared index settles it.  An open index is settled when every
+    remaining candidate (in the record's storage family, if known) gives the
+    same prefactor; candidates that disagree on the orientation cannot be
+    resolved by assuming one, so that is refused (#1313).
+    """
+    from vaft.data.cocos import cocos_spec
+
+    if convention.cocos is not None:
+        return None
+    candidates = tuple(int(c) for c in (convention.candidates or ()) if c)
+    if convention.psi_per_radian is not None:
+        candidates = tuple(
+            c for c in candidates if cocos_spec(c).psi_per_radian == bool(convention.psi_per_radian)
+        )
+    if not candidates:
+        return None
+    factors = {cocos_spec(c).bp_factor for c in candidates}
+    if len({np.sign(k) for k in factors}) > 1:
+        raise ValueError(
+            f"{caller}: the equilibrium record leaves COCOS open between {candidates}, "
+            "which disagree on the direction of the poloidal field; declare the index "
+            "(as_equilibrium(source, convention=N), or equilibrium.code.parameters.cocos "
+            "on the ODS)"
+        )
+    if len(factors) == 1:
+        return factors.pop()
+    return None
+
+
 def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, psi_per_radian):
     """Arrays and Sauter prefactor for the two field builders, from a record or arrays.
 
     An :class:`~vaft.data.equilibrium.EquilibriumData` in the first slot
     supplies the grid, the profiles *and* the flux convention, so the
-    prefactor cannot be paired with the wrong unit.  The array form carries
-    no unit, so ``cocos`` and ``psi_per_radian`` both unset is an assumption
-    -- weber per radian -- and is announced rather than taken silently
-    (#1313).
+    prefactor follows the record rather than the caller's memory.  The array
+    form carries no unit, so what the arguments leave unstated -- the storage
+    family, the orientation -- is an assumption, announced rather than taken
+    silently (#1313).  Contradictory or unresolvable conventions raise.
     """
     from vaft.data.equilibrium import EquilibriumData
     from vaft.formula.equilibrium import poloidal_field_factor
 
+    k = None
     if isinstance(R_grid_1d, EquilibriumData):
         eq = R_grid_1d
         extra = [name for name, value in (
@@ -3369,20 +3424,32 @@ def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, p
             raise ValueError(f"{caller}: the equilibrium record has no {', '.join(missing)}")
         R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d = eq.r, eq.z, eq.psi, eq.psi_1d, eq.f
         cocos, psi_per_radian = eq.convention.cocos, eq.convention.psi_per_radian
-        what = "the equilibrium record declares neither a COCOS index nor a flux storage family"
+        k = _record_bp_factor(caller, eq.convention)
+        what = "the equilibrium record declares"
     else:
         missing = [name for name, value in (
             ("Z_grid_1d", Z_grid_1d), ("psi_grid", psi_grid), ("psi_1d", psi_1d), ("f_1d", f_1d),
         ) if value is None]
         if missing:
             raise TypeError(f"{caller}: the array form needs {', '.join(missing)}")
-        what = "neither cocos nor psi_per_radian was given"
-    if cocos is None and psi_per_radian is None:
+        what = "the arguments give"
+    _check_flux_family(caller, cocos, psi_per_radian)
+    if k is None and cocos is None:
+        if psi_per_radian is None:
+            assumption = (
+                "neither a COCOS index nor a flux storage family, so the flux is assumed "
+                "to be in Wb/rad with k = -1. A flux in Wb (COCOS 11-18, every ODS/IMAS "
+                "equilibrium) then gives a poloidal field 2*pi too large"
+            )
+        else:
+            assumption = (
+                "a flux storage family but no COCOS index, so the orientation is assumed "
+                "(k < 0, the COCOS 2/3/6/7 or 12/13/16/17 form); for the other half of "
+                "the indices B_R and B_Z come out reversed"
+            )
         warnings.warn(
-            f"{caller}: {what}, so the flux is assumed to be in Wb/rad (k = -1). "
-            "A flux in Wb (COCOS 11-18, every ODS/IMAS equilibrium) then gives a "
-            "poloidal field 2*pi too large. Pass the EquilibriumData record, or "
-            "cocos=... / psi_per_radian=... for arrays.",
+            f"{caller}: {what} {assumption}. Pass an EquilibriumData record with a "
+            "resolved convention, or cocos=... for arrays.",
             UserWarning,
             stacklevel=3,
         )
@@ -3399,7 +3466,8 @@ def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, p
     f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
     if psi_1d.size != f_1d.size:
         raise ValueError("psi_1d and f_1d must have the same length.")
-    k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
+    if k is None:
+        k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
     return R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k
 
 
@@ -3424,7 +3492,9 @@ def equilibrium_field_on_grid(
 
     Called as ``equilibrium_field_on_grid(equilibrium)`` with an
     :class:`~vaft.data.equilibrium.EquilibriumData`, the grid, profiles and
-    flux convention all come from the record, which is the form to prefer.
+    flux convention all come from the record, which is the form to prefer;
+    the record is only as right as its convention, which nothing checks
+    against the arrays.
 
     Parameters
     ----------
@@ -3455,7 +3525,9 @@ def equilibrium_field_on_grid(
     ------
     ValueError
         The flux map is not shaped to the two grid axes, the two profile
-        arrays have different lengths, or the record lacks a field.
+        arrays have different lengths, the record lacks a field, *cocos*
+        and *psi_per_radian* contradict each other, or the record's open
+        COCOS candidates disagree on the field direction.
     TypeError
         A record is combined with array arguments, or the array form is
         missing one.
@@ -3480,7 +3552,10 @@ def equilibrium_field_on_grid(
     -----------
     With neither *cocos* nor *psi_per_radian* known, from the arguments or the
     record, the flux is taken as weber per radian and a ``UserWarning`` says
-    so (#1313); a weber flux then gives a field ``2*pi`` too large.
+    so (#1313); a weber flux then gives a field ``2*pi`` too large. With the
+    storage family but no index, the orientation is assumed (``k < 0``) and
+    the warning says that instead; a record's open candidates settle it when
+    they agree and raise when they do not.
     Outside the confined region the poloidal current function clips to its
     nearest edge value, the clip-and-interpolate convention
     :func:`psi_to_rz` uses, so the toroidal field there is that clipped
@@ -3527,9 +3602,11 @@ def make_equilibrium_field_interpolator(
 
     Pass an :class:`~vaft.data.equilibrium.EquilibriumData` --
     ``make_equilibrium_field_interpolator(equilibrium)`` -- and the grid, the
-    profiles and the flux convention are read from the record, so the unit of
-    psi cannot be mismatched. The array form remains for flux maps that have no
-    record, and then the convention must be stated.
+    profiles and the flux convention are read from the record, so the caller
+    need not restate the unit of psi. The record is only as right as its
+    convention, which nothing checks against the arrays. The array form
+    remains for flux maps that have no record, and then the convention must be
+    stated.
 
     Parameters
     ----------
@@ -3560,8 +3637,9 @@ def make_equilibrium_field_interpolator(
     Raises
     ------
     ValueError
-        The flux map is not shaped to the two grid axes, or the record lacks
-        a field.
+        The flux map is not shaped to the two grid axes, the record lacks a
+        field, *cocos* and *psi_per_radian* contradict each other, or the
+        record's open COCOS candidates disagree on the field direction.
     TypeError
         A record is combined with array arguments, or the array form is
         missing one.
@@ -3588,7 +3666,10 @@ def make_equilibrium_field_interpolator(
     With neither *cocos* nor *psi_per_radian* known, from the arguments or the
     record, the flux is taken as weber per radian, the historical default, and
     a ``UserWarning`` says so (#1313); a weber flux, such as every ODS
-    equilibrium carries, then gives a field ``2*pi`` too large.
+    equilibrium carries, then gives a field ``2*pi`` too large. With the
+    storage family but no index, the orientation is assumed (``k < 0``) and
+    the warning says that instead; a record's open candidates settle it when
+    they agree and raise when they do not.
     The poloidal current function is defined only from axis to boundary. Points
     outside that range, in the scrape-off layer, clip to the nearest edge value,
     the same clip-and-interpolate convention :func:`psi_to_rz` uses. That is an

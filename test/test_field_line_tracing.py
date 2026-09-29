@@ -31,7 +31,8 @@ def _build_field_interpolator(n_grid: int = 81):
     psi_1d = np.linspace(0.0, LCFS_RADIUS**2, 50)
     f_1d = np.full_like(psi_1d, F0)
     return make_equilibrium_field_interpolator(
-        R, Z, psi_grid, psi_1d, f_1d, psi_per_radian=True,
+        # Wb/rad with k = -1: the COCOS 2 form this fixture was written for.
+        R, Z, psi_grid, psi_1d, f_1d, cocos=2,
     ), R, Z
 
 
@@ -201,7 +202,11 @@ def _build_ods(n_frames: int = 4, shape: tuple[int, int] = (12, 16)) -> ODS:
     theta_wall = np.linspace(0, 2 * np.pi, 64, endpoint=False)
     ods["wall.description_2d.0.limiter.unit.0.outline.r"] = r0 + 0.35 * np.cos(theta_wall)
     ods["wall.description_2d.0.limiter.unit.0.outline.z"] = 0.35 * np.sin(theta_wall)
+    # Declared, so the tracer does not have to assume an orientation (#1313):
+    # 12 is the weber sibling of COCOS 2, the k = -1 form this fixture assumes.
+    from vaft.omas.general import set_ods_cocos
 
+    set_ods_cocos(ods, 12)
     return ods
 
 
@@ -599,3 +604,76 @@ def test_the_traced_line_has_the_pitch_of_its_surface(ods_equilibrium):
     ))
     # 12 toroidal turns end mid-orbit, so the angle ratio carries ~1/(2*12*q) of slack.
     assert q_traced == pytest.approx(q_surface, rel=0.01)
+
+
+@pytest.fixture(scope="module")
+def undeclared_ods():
+    """The 39915 sample with its declared COCOS removed: signs leave (11, 12) open."""
+    import vaft
+
+    ods = vaft.omas.load(vaft.data.sample(SHOT, representation="omas"))
+    del ods["equilibrium.code.parameters"]["cocos"]
+    return ods
+
+
+def test_a_record_whose_candidates_disagree_on_the_field_direction_is_refused(undeclared_ods):
+    """Review repro: cocos=None, candidates (11, 12), Wb -- B_p used to come out reversed."""
+    from vaft.process.equilibrium import as_equilibrium, equilibrium_field_on_grid
+
+    eq = as_equilibrium(undeclared_ods, time_index=0)
+    assert eq.convention.cocos is None and set(eq.convention.candidates) == {11, 12}
+    assert eq.convention.psi_per_radian is False
+    with pytest.raises(ValueError, match=r"\(11, 12\)"):
+        make_equilibrium_field_interpolator(eq)
+    with pytest.raises(ValueError, match="direction"):
+        equilibrium_field_on_grid(eq)
+
+
+def test_a_record_whose_candidates_agree_uses_their_common_factor(ods_equilibrium):
+    from dataclasses import replace
+
+    from vaft.data.equilibrium import EquilibriumConvention
+
+    eq = ods_equilibrium
+    # COCOS 11 and 15 have the same B_p factor (+1/2pi); they differ elsewhere.
+    open_record = replace(eq, convention=EquilibriumConvention(
+        cocos=None, candidates=(11, 15), psi_per_radian=False,
+    ))
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        open_field = make_equilibrium_field_interpolator(open_record)
+    declared = make_equilibrium_field_interpolator(eq)
+    for r, z in _points_inside(eq):
+        np.testing.assert_allclose(open_field(r, z), declared(r, z), rtol=1e-12)
+
+
+def test_the_array_form_with_only_a_storage_family_warns_about_orientation(ods_equilibrium):
+    eq = ods_equilibrium
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        make_equilibrium_field_interpolator(eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, psi_per_radian=False)
+
+
+def test_the_ods_tracer_warns_rather_than_guesses_when_cocos_is_open(undeclared_ods):
+    from vaft.omas.process_wrapper import compute_field_line_trace
+
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        compute_field_line_trace(undeclared_ods, r0=0.55, z0=0.0, max_length_m=0.5)
+
+
+def test_a_cocos_index_and_a_contradicting_storage_family_are_refused(ods_equilibrium):
+    from vaft.process.equilibrium import equilibrium_field_on_grid, poloidal_field_at_boundary
+
+    eq = ods_equilibrium
+    arrays = (eq.r, eq.z, eq.psi, eq.psi_1d, eq.f)
+    with pytest.raises(ValueError, match="cocos=11"):
+        make_equilibrium_field_interpolator(*arrays, cocos=11, psi_per_radian=True)
+    with pytest.raises(ValueError, match="cocos=1"):
+        equilibrium_field_on_grid(*arrays, cocos=1, psi_per_radian=False)
+    r_b, z_b = eq.lcfs.r, eq.lcfs.z
+    with pytest.raises(ValueError, match="cocos=11"):
+        poloidal_field_at_boundary(eq.r, eq.z, eq.psi, r_b, z_b, cocos=11, psi_per_radian=True)
+    # Agreeing pairs are accepted.
+    make_equilibrium_field_interpolator(*arrays, cocos=11, psi_per_radian=False)
+    poloidal_field_at_boundary(eq.r, eq.z, eq.psi, r_b, z_b, cocos=1, psi_per_radian=True)
