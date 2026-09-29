@@ -11,6 +11,7 @@ from pathlib import Path
 from omas import ODS, load_omas_json
 
 from vaft.code.efit import EFITConfig, collect_efit_outputs
+from vaft.code.efit.presets import PRESET_RECORD
 from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
 from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import write_manifest
@@ -36,6 +37,7 @@ def efit_collection_parameters(
     artifact_hashes,
     artifact_manifest,
     mapping_source_revision=EFIT_MAPPING_SOURCE_REVISION,
+    efit_preset=None,
 ) -> str:
     """Serialize the EFIT collection payload for `equilibrium.code.parameters`.
 
@@ -49,20 +51,28 @@ def efit_collection_parameters(
     cache stays on the local product (#642), and a revision read back from the
     reader's own constant would describe the reader rather than the run -- so
     it is recorded here, where it replicates (#728).
+
+    `efit_preset` is the record the k-file stage wrote when a named EFIT
+    configuration built the k-files (#891); a routine run has none, and then
+    the payload is exactly what it was before presets existed.
     """
-    return json.dumps(
-        {
-            "efit_collection": {
-                "status": status,
-                "slice_statuses": [s.to_dict() for s in slice_statuses],
-                "mapping_diagnostics": list(mapping_diagnostics),
-                "artifact_hashes": dict(artifact_hashes),
-                "artifact_manifest": artifact_manifest,
-                "mapping_source_revision": str(mapping_source_revision),
-            }
-        },
-        sort_keys=True,
-    )
+    collection = {
+        "status": status,
+        "slice_statuses": [s.to_dict() for s in slice_statuses],
+        "mapping_diagnostics": list(mapping_diagnostics),
+        "artifact_hashes": dict(artifact_hashes),
+        "artifact_manifest": artifact_manifest,
+        "mapping_source_revision": str(mapping_source_revision),
+    }
+    if efit_preset is not None:
+        collection["efit_preset"] = efit_preset
+    return json.dumps({"efit_collection": collection}, sort_keys=True)
+
+
+def _preset_record(kfile_manifest: Path):
+    """The preset record the k-file stage left beside its manifest, if any."""
+    path = kfile_manifest.parent / PRESET_RECORD
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
 
 def main() -> int:
@@ -115,6 +125,7 @@ def main() -> int:
             artifact_manifest=json.loads(
                 args.artifact_manifest.read_text(encoding="utf-8")
             ),
+            efit_preset=_preset_record(args.kfile_manifest),
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

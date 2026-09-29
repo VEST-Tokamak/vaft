@@ -76,7 +76,8 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
 
 
 def _dry_run(
-    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb"
+    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb",
+    extra: list[str] | None = None,
 ):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
@@ -89,6 +90,7 @@ def _dry_run(
             "--configfile", str(_config(tmp_path, layout)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
+            *(extra or []),
             *(targets or []),
         ],
         capture_output=True,
@@ -105,6 +107,24 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
     finally:
         sys.path.remove(str(WORKFLOW))
     return PipelinePaths(str(tmp_path / "filedb"), layout)
+
+
+def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
+    """#891: `efit.preset` selects a named configuration for every shot's k-files."""
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    preset = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "statistical_891"}'])
+    assert preset.returncode == 0, preset.stderr[-3000:]
+    assert "--preset statistical_891" in preset.stdout
+    assert "--npprime" not in preset.stdout
+    routine = _dry_run(tmp_path, target, extra=["-p"])
+    assert routine.returncode == 0, routine.stderr[-3000:]
+    assert "--npprime 2 --nffprime 2" in routine.stdout and "--preset" not in routine.stdout
+
+
+def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'efit={"preset": "statistical"}'])
+    assert result.returncode != 0
+    assert "unknown EFIT preset" in (result.stderr + result.stdout)
 
 
 def test_the_snakefile_parses_under_the_canonical_layout(tmp_path):

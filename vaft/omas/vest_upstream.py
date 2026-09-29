@@ -2044,6 +2044,7 @@ def build_kinetic_efit_ods(
     executable: str | None = None,
     encoding: str = "raw6",
     run: int = 1,
+    efit_preset: str | None = None,
 ) -> tuple[ODS, dict[str, Any]]:
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
@@ -2084,6 +2085,11 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
+    if efit_preset:
+        # Only when set, so a routine manifest is what it was before presets.
+        from vaft.code.efit.presets import efit_preset as _efit_preset
+
+        manifest["configuration"]["efit_preset"] = _efit_preset(efit_preset).record()
 
     out = ODS(consistency_check=False)
     dataset_description(
@@ -2218,6 +2224,7 @@ def build_kinetic_efit_ods(
             # 'auto' is the VEST policy ratio, and it only applies when the ODS
             # has no ion data -- which is exactly the electron_efit case.
             ti_te_ratio="auto",
+            efit_preset=efit_preset or None,
         )
         try:
             chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
