@@ -306,17 +306,21 @@ def _coils_3d_ods():
 def test_the_3d_coils_agree_between_the_libraries():
     """#1087: one Scatter3d per Matplotlib line, one legend entry and one legend group per coil set."""
     ods = _coils_3d_ods()
-    mpl_figure, axes = vaft.omas.plot_coil_3d_geometry3d(ods)
-    figure = vaft.omas.plot_coil_3d_geometry3d(ods, backend="plotly")
-    traces = _traces(figure)
-    assert all(isinstance(trace, go.Scatter3d) for trace in traces)
-    assert len(traces) == len(axes.lines) == 18
-    for line, trace in zip(axes.lines, traces):
-        x, y, z = line.get_data_3d()
-        assert np.allclose(x, trace.x) and np.allclose(y, trace.y) and np.allclose(z, trace.z)
-        assert matplotlib.colors.to_hex(line.get_color()) == trace.line.color
-    legend = [trace.name for trace in traces if trace.showlegend]
-    assert legend == [text.get_text() for text in axes.get_legend().get_texts()] == ["UP", "MID", "LOW"]
+    # "C<n>" follows Matplotlib's *current* cycle -- a line keeps the literal
+    # "C0" and to_hex resolves it when called, and another test may have set
+    # seaborn's cycle -- while Plotly maps it to tab10, Matplotlib's default.
+    with plt.style.context("default"):
+        mpl_figure, axes = vaft.omas.plot_coil_3d_geometry3d(ods)
+        figure = vaft.omas.plot_coil_3d_geometry3d(ods, backend="plotly")
+        traces = _traces(figure)
+        assert all(isinstance(trace, go.Scatter3d) for trace in traces)
+        assert len(traces) == len(axes.lines) == 18
+        for line, trace in zip(axes.lines, traces):
+            x, y, z = line.get_data_3d()
+            assert np.allclose(x, trace.x) and np.allclose(y, trace.y) and np.allclose(z, trace.z)
+            assert matplotlib.colors.to_hex(line.get_color()) == trace.line.color
+        legend = [trace.name for trace in traces if trace.showlegend]
+        assert legend == [text.get_text() for text in axes.get_legend().get_texts()] == ["UP", "MID", "LOW"]
     groups = {}
     for trace in traces:
         groups.setdefault(trace.legendgroup, set()).add(trace.meta["group"].split("/")[1])
