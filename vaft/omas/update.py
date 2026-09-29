@@ -1739,18 +1739,18 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
     from vaft.plot import Profile1D, Panels, Series, render_panels
 
     axis_r = ts["global_quantities.magnetic_axis.r"]
-    axis_style = {"marker": ".", "linestyle": "none", "color": "k"}
+    axis_style = {"marker": ".", "linestyle": "none", "color": "feature:axis"}
 
     psi_panel = Profile1D(
         series=(
-            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "r"}),
+            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_inboard"], y=psi_1d, label="Inboard",
-                   style={"color": "b", "linestyle": "--"}),
+                   style={"color": "palette:0", "linestyle": "--"}),
             Series(x=[axis_r], y=[ts["global_quantities.psi_axis"]],
                    label="Magnetic Axis", style=axis_style),
-            Series(x=r_out, y=psi_out, label="2D Outboard", style={"color": "g"}),
+            Series(x=r_out, y=psi_out, label="2D Outboard", style={"color": "palette:3"}),
             Series(x=ts["profiles_1d.r_outboard"], y=psi_1d, label="Outboard",
-                   style={"color": "m", "linestyle": "--"}),
+                   style={"color": "palette:2", "linestyle": "--"}),
         ),
         coordinate_label="R [m]", y_label="Psi",
     )
@@ -1758,9 +1758,9 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
     def _inboard_outboard(quantity, label, unit="", axis_value=None):
         series = [
             Series(x=ts["profiles_1d.r_inboard"], y=ts[f"profiles_1d.{quantity}"],
-                   label="Inboard", style={"color": "r"}),
+                   label="Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_outboard"], y=ts[f"profiles_1d.{quantity}"],
-                   label="Outboard", style={"color": "g"}),
+                   label="Outboard", style={"color": "palette:3"}),
         ]
         if axis_value is not None:
             series.insert(
@@ -1804,7 +1804,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     psi_theta = LineSeries(
         series=tuple(
             Series(x=theta, y=np.full_like(theta, prof2d["psi"][i_surf, 0]),
-                   style={"color": "k", "lw": 0.5})
+                   style={"color": "palette:0", "lw": 0.5})
             for i_surf in range(nr)
         ),
         x_label=r"$\theta_{\rm SFL}$", x_unit="rad",
@@ -1820,13 +1820,13 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     layers = [
         GeometryLayer(r=prof2d["r"][i_surf, :], z=prof2d["z"][i_surf, :],
                       label="Flux Surface" if i_surf == 0 else "",
-                      style={"color": "b", "lw": 0.7}, role=EQUILIBRIUM_ROLE)
+                      style={"color": "palette:0", "lw": 0.7}, role=EQUILIBRIUM_ROLE)
         for i_surf in range(nr)
     ]
     layers += [
         GeometryLayer(r=prof2d["r"][:, j_theta], z=prof2d["z"][:, j_theta],
                       label="SFL theta line" if j_theta == 0 else "",
-                      style={"color": "r", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
+                      style={"color": "palette:1", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
         for j_theta in range(0, nt, max(1, nt // 16))
     ]
     global_quantities = ts.get("global_quantities", {})
@@ -1836,7 +1836,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
                 r=[global_quantities["magnetic_axis.r"]],
                 z=[global_quantities["magnetic_axis.z"]],
                 kind="points", label="Mag. Axis",
-                style={"marker": "x", "color": "k", "markersize": 10, "mew": 2},
+                style={"marker": "x", "color": "feature:axis", "markersize": 10, "mew": 2},
                 role=EQUILIBRIUM_ROLE,
             )
         )
