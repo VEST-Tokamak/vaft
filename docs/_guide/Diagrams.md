@@ -785,6 +785,49 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Neoclassical and NTV collisionality regimes
+
+Two different regime families that share the word "collisionality". Axisymmetric neoclassical transport
+orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
+viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
+$\omega_d = \omega_E + \omega_B$:
+
+```text
+Coulomb collisions -> transit / bounce motion -> nu_hat = qR nu/v -> banana / plateau / Pfirsch-Schlueter
+3-D delta B + precession omega_d -> 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -> NTV torque
+```
+
+The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (`collisions_per_transit`), not a $\nu_*$. VAFT's
+several $\nu_*$ conventions (issue 353) share the symbol but not the value. The boundaries
+$\hat\nu = \epsilon^{3/2}$ and $1$ come from `neoclassical_regime_boundaries`. The orbit scales behind
+them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
+`trapped_particle_effective_collision_frequency` and `banana_width` in `vaft.formula.neoclassical`.
+
+`vaft.formula.ntv` holds the exact, convention-bearing relations:
+- `ntv_precession_frequency`, whose zero is the superbanana-plateau resonance. $\omega_E$ is the
+  $E\times B$ frequency `omega_exb`, never the toroidal rotation, and both $\omega_E$ and $\omega_B$ are measured along the plasma current;
+- `nonambipolar_torque_density`, the torque on the plasma: the $\mathbf J\times\mathbf B$ of the return current that cancels the non-ambipolar flux. Ion loss in a co-current plasma drives counter-current rotation.
+
+The size of the flux needs a drift-kinetic code (`vaft.code`), and Shaing's connected formula is not
+implemented, so the NTV regime diagram shows slopes only.
+
+```python
+vaft.diagram.neoclassical_collisionality(epsilon=0.1)
+vaft.diagram.ntv_collisionality()
+vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
+```
+
+| | |
+| --- | --- |
+| ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
+| ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |
+
+| Diagram | Concept |
+| --- | --- |
+| `neoclassical_collisionality` | $D/D_\mathrm{plateau}$ against $\hat\nu$: asymptotes $\hat\nu/\epsilon^{3/2}$, 1 and $\hat\nu$ meeting at the formula's boundaries. Orderings, not phase boundaries |
+| `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
+| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
+
 ## Wall conditioning
 
 Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
