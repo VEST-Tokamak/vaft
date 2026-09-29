@@ -97,7 +97,7 @@ def test_baseline_descriptors_are_finite_and_match_the_target_shape():
 
 
 def test_cocos1_export_round_trip_keeps_the_flux_span():
-    """Guard for the #1292 workaround: a per-radian record reaches the ODS in weber once."""
+    """A per-radian record reaches the ODS in weber exactly once."""
     _, eq = _baseline()
     ods = to_omas(from_equilibrium(convert_cocos(eq, 1)))
     gq = ods["equilibrium.time_slice.0.global_quantities"]
@@ -105,12 +105,15 @@ def test_cocos1_export_round_trip_keeps_the_flux_span():
     assert gq["ip"] == pytest.approx(eq.ip, rel=1e-6)
 
 
-@pytest.mark.xfail(strict=True, reason="#1292: from_equilibrium writes full-weber flux into a per-radian g-file")
 def test_direct_cocos11_export_keeps_the_flux_span():
+    """#1292 fixed: the COCOS 11 record is written per radian, so no stray 2*pi reaches the ODS."""
     _, eq = _baseline()
-    ods = to_omas(from_equilibrium(eq))
+    geqdsk = from_equilibrium(eq)
+    assert "COCOS=1" in geqdsk["CASE"] and "COCOS=11" not in geqdsk["CASE"]
+    ods = to_omas(geqdsk)
     gq = ods["equilibrium.time_slice.0.global_quantities"]
     assert gq["psi_boundary"] - gq["psi_axis"] == pytest.approx(eq.psi_boundary - eq.psi_axis, rel=1e-6)
+    assert gq["ip"] == pytest.approx(eq.ip, rel=1e-6)
 
 
 def test_miller_fits_accept_the_interior_and_reach_the_target_at_the_edge():
@@ -169,7 +172,7 @@ def _solve_sources(pprime, ffprime, r=None, z=None, bt_sign=1.0):
     r0, z0 = _grid()
     model = solve_solovev_constraints(
         solovev_shape_constraints(**target), basis="cerfon_freidberg_even", rref=target["major_radius"],
-        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]), f_sign=int(bt_sign),
+        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]),  # F's sign follows (#1307)
         pprime=pprime, ffprime=ffprime)
     return model, solovev_to_equilibrium(model, r0 if r is None else r, z0 if z is None else z, limiter=wall)
 
@@ -250,7 +253,9 @@ def test_delta_phi_tor_keeps_its_paramagnetic_positive_meaning_when_the_field_is
     pp0, ff0 = _baseline_sources()
     forward_model, forward = _solve_sources(pp0, ff0)
     reversed_model, reversed_eq = _solve_sources(pp0, ff0, bt_sign=-1.0)
-    assert reversed_model.f_boundary < 0
+    assert reversed_model.f_boundary < 0 and reversed_model.f_sign == -1
+    # Negating F_boundary alone reverses both F and bt0 (#1307): the record agrees with itself.
+    assert reversed_eq.bt0 < 0 and np.all(reversed_eq.f < 0)
     # psi depends on FF' only, so the reversed baseline is the same plasma with B_phi -> -B_phi ...
     assert _delta_phi_tor(reversed_model, reversed_eq) == pytest.approx(_delta_phi_tor(forward_model, forward), rel=1e-9)
     assert _delta_phi_tor(reversed_model, reversed_eq) > 0

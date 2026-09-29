@@ -550,7 +550,11 @@ class SolovevEquilibrium:
     psi_boundary: float = 0.0
     pressure_boundary: float = 0.0
     f_boundary: float = 1.0
-    f_sign: int = 1
+    #: Sign of F(psi) = R B_phi.  ``None`` derives it from ``f_boundary`` (and
+    #: +1 for a zero ``f_boundary``); an explicit sign that contradicts a
+    #: non-zero ``f_boundary`` is refused, since ``bt0`` follows ``f_boundary``
+    #: (#1307).
+    f_sign: int | None = None
     rank: int | None = None
     residual_norm: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -566,6 +570,38 @@ class SolovevEquilibrium:
         if self.rref <= 0:
             raise ValueError("rref must be positive")
         object.__setattr__(self, "coefficients", coefficients)
+        object.__setattr__(self, "f_sign", _resolve_solovev_f_sign(self.f_boundary, self.f_sign, allow_zero=True))
+
+
+def _resolve_solovev_f_sign(f_boundary: float, f_sign: int | None, *, allow_zero: bool = False) -> int:
+    """The sign of F(psi) implied by ``f_boundary``, checked against an explicit ``f_sign``.
+
+    ``f_boundary`` is the one source of truth for the sign of B_phi: the record's
+    ``bt0`` is ``f_boundary/rref``.  ``f_sign=None`` takes ``sign(f_boundary)``;
+    an explicit sign must be +1 or -1 and agree with it (#1307).  A zero
+    ``f_boundary`` is refused unless *allow_zero*, in which case the sign is the
+    explicit one, or +1.
+    """
+
+    f_boundary = float(f_boundary)
+    if f_sign is not None and f_sign not in (1, -1):
+        raise ValueError(f"f_sign must be +1, -1 or None, got {f_sign!r}")
+    if not np.isfinite(f_boundary):
+        raise ValueError(f"f_boundary must be finite, got {f_boundary!r}")
+    if f_boundary == 0.0:
+        if not allow_zero:
+            raise ValueError("f_boundary must be non-zero: its sign sets the direction of B_phi and of F(psi)")
+        return 1 if f_sign is None else int(f_sign)
+    implied = 1 if f_boundary > 0 else -1
+    if f_sign is None:
+        return implied
+    if int(f_sign) != implied:
+        raise ValueError(
+            f"f_sign={int(f_sign):+d} contradicts f_boundary={f_boundary:g}: F(psi) would take the sign of "
+            "f_sign while bt0 = f_boundary/rref takes the sign of f_boundary.  Reverse B_phi by negating "
+            "f_boundary and leave f_sign=None"
+        )
+    return implied
 
 
 @dataclass(frozen=True)

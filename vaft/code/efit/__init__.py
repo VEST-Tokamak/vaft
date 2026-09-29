@@ -30,6 +30,7 @@ from .config import (
     EFITScientificConfig,
     efit_parameter_grid,
 )
+from .presets import PRESETS, EFITPreset, apply_sigma_floor, efit_preset
 from .termination import EFIT_LOG_PATTERNS, parse_slices
 from .iteration_history import (
     ITERATION_HISTORY_LEVELS,
@@ -132,6 +133,10 @@ __all__ = [
     "EFITProfileConfig",
     "EFITScientificConfig",
     "efit_parameter_grid",
+    "EFITPreset",
+    "PRESETS",
+    "apply_sigma_floor",
+    "efit_preset",
     "EFIT_FAILURE_CODES",
     "EFITSliceStatus",
     "EFITValidationConfig",

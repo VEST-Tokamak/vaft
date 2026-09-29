@@ -95,21 +95,28 @@ the public database below.
 
 ## 3. Configure read-only public HSDS access
 
-Run `hsconfigure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
+Run `vaft hsds configure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
 in the user configuration and must never be committed to a notebook or documentation asset.
 
 ```bash
->> hsconfigure
-Enter new values or accept defaults in brackets with Enter.
-
-Server endpoint []: http://147.46.36.244:5101
-Username []: [assigned_username]
-Password []: [assigned_password]
-API Key [None]: 
-Testing connection...
-connection ok
-Quit? (Y/N)Y
+>> vaft hsds configure
+Configuring HSDS credentials in /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: [assigned_username]
+Password (input hidden, Enter keeps it):
+API key (input hidden, Enter keeps it):
+Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
+
+For CI, HPC jobs and containers, skip the file: export `HS_ENDPOINT`, `HS_USERNAME` and
+`HS_PASSWORD` (or `HS_API_KEY`), which h5pyd reads directly, or run
+`vaft hsds configure --endpoint URL --username NAME --password-stdin < secret-file`. Secrets are never
+accepted as command-line arguments.
 
 A successful read uses the public namespace and does not modify the database:
 

@@ -25,6 +25,36 @@
       "source_sha256": "834b978f71e85358200d54f5b8bd895e84742b8b2bb622833a4177b08a61970d",
       "svg_sha256": "2083ee856168b857e63eb994e32744364c355c4a1943b4b7d0c6b181b46bd742"
     },
+    "blob_current_closure_inertial.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='inertial')",
+      "source_sha256": "c9ec9d9278284fa25f66330bdec35519547e3b578cf546d0e84144d35a7dd388",
+      "svg_sha256": "b624a02d621b9b424accd01cee20328d304ccb66174eba9482053f256a8ba6d7"
+    },
+    "blob_current_closure_sheath.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='sheath')",
+      "source_sha256": "e88418fcbb110400636ae638a8e5d8c40b71dd448e3fc79ebb3138bfef9c46a7",
+      "svg_sha256": "e1b89f74085325b90200600b2e45316ce5f08496191a146060373601efa4d917"
+    },
+    "blob_polarization.svg": {
+      "call": "vaft.diagram.blob_polarization()",
+      "source_sha256": "611f06b52e3a51dfa8cc7c26b6064e0e0ae9405df0a60c77ebb32685223d5f49",
+      "svg_sha256": "43f0f7825118c2811e8834626db1c3737cff927436d0c204140314627da06c17"
+    },
+    "blob_polarization_hole.svg": {
+      "call": "vaft.diagram.blob_polarization(perturbation='hole')",
+      "source_sha256": "2674db66e7e9174cc258c4c291b06aaef4dd29e299f250728a888a899486cb85",
+      "svg_sha256": "667b51c98704c2be644be4ef8e587857912582310e964a3adebaf758c685db2c"
+    },
+    "blob_regimes.svg": {
+      "call": "vaft.diagram.blob_regimes()",
+      "source_sha256": "6bde26dc208cdcee809c907c4b6a6058e1ec29d7a0af06d22b779b5f3726af09",
+      "svg_sha256": "e1461e78d0b0b4a67751ab52aa6fa69172af7ef0f42330b4b8fbe5a8b10cac3f"
+    },
+    "blob_velocity_scaling.svg": {
+      "call": "vaft.diagram.blob_velocity_scaling()",
+      "source_sha256": "64bc4a9a1a6e2360bb3582877e95cbc817238e1ae3465b8ad1b8794b54f750ac",
+      "svg_sha256": "fb20b50bcc7ae65d51c5aedb1c6268df5d11665e586434ec62a7f0c813e48d82"
+    },
     "branch_bifurcation.svg": {
       "call": "vaft.diagram.branch_bifurcation()",
       "source_sha256": "3623b6080156052bbfb2b98d38626dad203810c476ed090e1a9f77d82dc06cd9",
@@ -139,6 +169,11 @@
       "call": "vaft.diagram.disruption_timeline()",
       "source_sha256": "5a8c26c3b187bd03b6fdccb8dac525bd448eb53d3f72fbf511880779ddd667a3",
       "svg_sha256": "87249df7ecbdb12d7bc54e7a48a3f5f92583d42fa7917dd106f8c9a02fb817cd"
+    },
+    "divertor_heat_footprint.svg": {
+      "call": "vaft.diagram.divertor_heat_footprint()",
+      "source_sha256": "1a119005c82761f979cbb7e82a3c527d6627b8528ffe26ca5ca825939ad98031",
+      "svg_sha256": "728f33802ed66166184a48c5ea75fbe2723a35da93a3694ec06a95dd471795b7"
     },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
@@ -310,6 +345,16 @@
       "source_sha256": "9bdf6fb8ccbeb0ee6f63eec17db57de18380f2bad8a15ab334764b9e8e64882e",
       "svg_sha256": "ff6a13c097d183498914c1251fb5dc56332c086cfe5d6ad162cd567fad6b4a99"
     },
+    "marfe.svg": {
+      "call": "vaft.diagram.marfe()",
+      "source_sha256": "f39dc1ecf15b35db65d11ee34147d7166c1b278b0b04f76f9f70e5eb9045e0f5",
+      "svg_sha256": "4f8a448b27300027eb7372c5bb060511332fa5aed49f68adfb6f912813486c29"
+    },
+    "marfe_xpoint.svg": {
+      "call": "vaft.diagram.marfe(localization='xpoint')",
+      "source_sha256": "b7bf71b637996aac242f1b07892ee705541960a07a4ef35c716236cb5d796d80",
+      "svg_sha256": "5dce8a4c63873a170e95d0a015f89718f981b4e8faef56a3a49c3fa3198961b2"
+    },
     "mhd_wave_family.svg": {
       "call": "vaft.diagram.mhd_wave_family()",
       "source_sha256": "7207bc7fcfd85cf3745ee6290db6ffff63b2be1e70d777961f4a6577934fa0cb",
@@ -319,6 +364,16 @@
       "call": "vaft.diagram.mode_number_mapping()",
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
+    },
+    "nbi_neutral_attenuation.svg": {
+      "call": "vaft.diagram.nbi_neutral_attenuation()",
+      "source_sha256": "65b4150f5527874d3076c6afdeb3a6651baf7772bf5403bdbbfcd5d2a3f08cdc",
+      "svg_sha256": "47fd2f670074b0a3f848a865e0d3c484ac77af490b4a989562a749ce42768c37"
+    },
+    "nbi_particle_lifecycle.svg": {
+      "call": "vaft.diagram.nbi_particle_lifecycle()",
+      "source_sha256": "971f992005185562d864cd383c795d601a965ae757265acb835db560591fafa2",
+      "svg_sha256": "fc7ef311a27b68255dfa48011dd73f4033918b0cca0c7107abed5943fd7c660f"
     },
     "neoclassical_collisionality.svg": {
       "call": "vaft.diagram.neoclassical_collisionality()",

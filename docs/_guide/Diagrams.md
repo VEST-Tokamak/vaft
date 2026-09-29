@@ -655,7 +655,7 @@ X-point.
 
 ```python
 vaft.diagram.stochastic_layer(regime="touching")   # "isolated", "overlapping"; or overlap=, perturbations=
-vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
+vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)       # or separatrix_lobes(equilibrium, ...)
 ```
 
 | | |
@@ -669,15 +669,63 @@ vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)
 | Diagram | Model class | Concept |
 | --- | --- | --- |
 | `stochastic_layer` | reduced Hamiltonian | A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium's $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of `island_pendulum_hamiltonian`, width $4\sqrt{\epsilon/\lvert\iota'\rvert}$. The pair overlap $\sigma$ (`vaft.process.perturbation.chirikov`) is 0.5, 1 or 1.6. The inset shows where the section sits |
-| `separatrix_lobes` | reduced Hamiltonian | The single-null Solov'ev equilibrium plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
+| `separatrix_lobes` | reduced Hamiltonian | A lower-single-null equilibrium (by default the single-null Solov'ev) plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
 
-In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` draws the single-null Solov'ev equilibrium only, for now. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
+In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` takes any lower-single-null `EquilibriumData`: the X-point must be a saddle of the flux on the boundary value, below the axis, and the window scales with the minor radius; a limited equilibrium is refused. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
 
 The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
 $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
 
+### MARFE
+
+`marfe` puts a prescribed radiation condensation on the edge of an equilibrium and shows the condition that
+makes it.
+- On the high-field side (`localization="hfs"`, the usual location) the band straddles the last closed
+  surface. It is about 30° wide poloidally and 0.1$a$ deep, as Lipschultz (1987) reports.
+- Next to the X-point (`"xpoint"`, Greenwald 2002 p. R35) the band is drawn on the closed side with the same
+  sizes, which are borrowed, not measured there.
+- Its $T_e$ is below about 10 eV (Greenwald p. R34), and it is toroidally symmetric: a ring.
+
+The right panel is Drake's (1987) constant-pressure criterion in dimensionless form, computed from
+`vaft.formula.sol.radiative_condensation_growth_rate`. For $k_\parallel > 0$ the boundary is
+$k_\parallel^2\kappa_\parallel T/L = 2 - \partial\ln L/\partial\ln T$, so condensation does not need a
+falling radiation curve. On the $k_\parallel = 0$ axis only the constant-density flute limit
+(`radiative_thermal_instability_growth_rate`) applies, and it is unstable where $L$ falls with $T$.
+
+The band is prescribed, not solved, and no cooling curve or density-limit formula is built in; MARFE onset
+and density-limit semantics belong to #1068. The API names its sizes `poloidal_width_deg` and
+`radial_fraction`; the issue's `"prescribed"` localization is not implemented.
+
+```python
+vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30, radial_fraction=0.1
+```
+
+| | |
+| --- | --- |
+| ![marfe]({{ '/assets/diagrams/marfe.svg' | relative_url }}) | ![marfe x-point]({{ '/assets/diagrams/marfe_xpoint.svg' | relative_url }}) |
+
+
+
+### Divertor heat-flux footprint
+
+`divertor_heat_footprint` maps an Eich target profile onto a diverted equilibrium. The geometry comes from
+the equilibrium itself: the X-point is the zero of $\nabla\psi$ next to the lowest boundary point, the
+strike point is where the separatrix leg crosses a horizontal target, and the total flux expansion
+$f_x = (\partial\psi/\partial R)_\mathrm{OMP} / (\partial\psi/\partial s)_\mathrm{target}$ is
+evaluated on the flux, not assumed. The profile is `vaft.formula.sol.eich_target_heat_flux_profile` with
+that $f_x$. $\lambda_q$ (at the outer midplane) and $S$ (at the target) are illustrative inputs: this is a
+schematic, and measured IR profiles belong in `vaft.plot`. The SOL surfaces one, two and three $\lambda_q$
+outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target. The equilibrium must be
+lower single null, with an X-point on its boundary flux and legs that reach the target inside the limiter;
+anything else is refused rather than drawn.
+
+```python
+vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="outer")
+```
+
+![footprint]({{ '/assets/diagrams/divertor_heat_footprint.svg' | relative_url }})
 ## Disruption physics: quench sequence, runaways and energy paths
 
 The chain from loss of confinement to a runaway plateau, each link a relation in the new
@@ -828,6 +876,31 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Neutral beam injection: lifecycle and reduced attenuation
+
+A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and it never replaces
+`vaft.code.nubeam`.
+- **Formulas** (`vaft.formula.nbi`): `beam_particle_rate_from_power_energy` (per energy component, in eV),
+  `neutral_beam_optical_depth`, `neutral_survival_fraction_from_optical_depth`,
+  `beam_birth_probability_density` (a density along the path, not a volumetric deposition),
+  `shine_through_fraction`, and `injected_toroidal_angular_momentum_rate`. The last is the ideal rate
+  carried in, not the torque on the plasma.
+- **Process** (`vaft.process.nbi.neutral_beam_attenuation_along_path`): composes these along a prescribed
+  1-D path and adds the particle and power bookkeeping. Births are counted per path cell as
+  $S_i - S_{i+1}$, so $\sum_i + f_\mathrm{shine} = 1$ and $P_\mathrm{birth} + P_\mathrm{shine} =
+  P_\mathrm{injected}$ hold exactly on any grid. The "power birth profile" is where neutrals become
+  fast ions, not where the plasma is heated. The process module's docstring tabulates what this layer
+  answers and what needs a full solver; related work is #265 (VEST NBI description), #592 (NUBEAM → IMAS),
+  #1064 and #1092 (scales, orbits).
+
+The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
+built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are
+not redrawn here.
+
+```python
+vaft.diagram.nbi_particle_lifecycle()      # shine-through / prompt loss / delayed loss kept apart
+vaft.diagram.nbi_neutral_attenuation()     # S(s), b(s), births and f_shine from vaft.formula.nbi
+
 ## Iteration behaviour, branch bifurcation and branch selection
 
 Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
@@ -927,6 +1000,13 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 
 | | |
 | --- | --- |
+| ![lifecycle]({{ '/assets/diagrams/nbi_particle_lifecycle.svg' | relative_url }}) | ![attenuation]({{ '/assets/diagrams/nbi_neutral_attenuation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `nbi_particle_lifecycle` | Injection, ionisation, fast-ion birth, confinement, slowing down, heating and drive, then thermalisation. Each loss branches at its own stage: shine-through while neutral, prompt orbit loss after ionisation, delayed loss after confinement |
+| `nbi_neutral_attenuation` | Survival $e^{-\tau}$ and birth density $\alpha S$ along a path through a parabolic plasma (an illustrative $\alpha$). Births are drawn at equal probability steps, and the shine-through is marked at the exit |
+
 | ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
 | ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
 
@@ -984,6 +1064,46 @@ vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boroniza
 | `wall_conditioning_gdc` | One glow-discharge template. H$_2$/D$_2$: O and C leave as volatile products. He: He$^+$ bombardment releases retained H/D |
 | `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
 | `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
+
+## SOL blobs and filaments
+
+A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a
+negative one. The filament is the field-aligned structure whose perpendicular cross-section is the blob.
+
+How a blob moves:
+- curvature and $\nabla B$ drift ions and electrons apart;
+- the density monopole becomes a charge dipole, $+$ above and $-$ below;
+- the dipole's $E$ field drives an $E\times B$ drift outward on the low-field side, down $\nabla B$ (a hole
+  moves inward).
+
+How fast it moves depends on where the polarization current closes:
+- along the field to the sheaths (sheath-connected, $v \propto \delta^{-2}$);
+- across the field by ion inertia (inertial or resistive-ballooning, $v \propto \delta^{1/2}$);
+- with resistivity and X-point fanning, in between.
+
+`vaft.formula.sol` holds the prescribed filament state `blob_density_perturbation` (a blob, or a hole below
+the background), the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
+reference velocity $v_*$, the collisionality $\Lambda$, both limits, the interpolation, and the four regime
+scalings. All follow D'Ippolito, Myra and Zweben (2011), with a Gaussian of radius $\delta$. The $O(1)$
+prefactors in Krasheninnikov (2001) and Theiler et al. (2011) belong to their own size definitions. The NSTX
+parameters of Myra et al. (2006) give $\hat a \approx 1.3$, as in their Fig. 1, and $v_* \approx 3$ km/s from their
+symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_s = (T_e/m_i)^{1/2}$.
+
+```python
+vaft.diagram.blob_polarization()        # the mechanism: dipole, E, E x B; perturbation="hole" reverses it
+vaft.diagram.blob_current_closure(regime="sheath")   # or "inertial": where the current closes
+vaft.diagram.blob_velocity_scaling()    # v/v* against delta/delta*: both limits and Eq. (9)
+vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/2}: RB, RX, C_i, C_s
+```
+
+| | |
+| --- | --- |
+| ![polarization]({{ '/assets/diagrams/blob_polarization.svg' | relative_url }}) | ![hole]({{ '/assets/diagrams/blob_polarization_hole.svg' | relative_url }}) |
+| ![sheath closure]({{ '/assets/diagrams/blob_current_closure_sheath.svg' | relative_url }}) | ![inertial closure]({{ '/assets/diagrams/blob_current_closure_inertial.svg' | relative_url }}) |
+
+| | |
+| --- | --- |
+| ![velocity]({{ '/assets/diagrams/blob_velocity_scaling.svg' | relative_url }}) | ![regimes]({{ '/assets/diagrams/blob_regimes.svg' | relative_url }}) |
 
 ## Using the committed assets
 

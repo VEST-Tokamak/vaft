@@ -274,7 +274,7 @@ installation inside it, and the user-level "Python (vaft)" Jupyter kernelspec.
 It did not modify your repository checkout or any other Conda environment.
 
 Next:
-  1. Run `hsconfigure` if your HSDS credentials are not configured yet.
+  1. Run `vaft hsds configure` if your HSDS credentials are not configured yet.
      This script never asks for, stores, or transmits your credentials.
   2. Run `conda activate vaft; jupyter lab`, and choose the "Python (vaft)" kernel.
 '@

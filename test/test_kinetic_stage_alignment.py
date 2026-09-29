@@ -160,3 +160,29 @@ def test_an_unreadable_efit_product_is_named_not_blamed_on_the_time_base(tmp_pat
     assert manifest["status"] == "unavailable"
     assert "no equilibrium.time" in manifest["error"]
     assert manifest.get("slices") is None, "it never reached the per-time loop"
+
+
+def test_the_core_profile_psi_grid_is_the_equilibrium_s_own_weber(tmp_path):
+    """#1292: the psi map built from the EFIT product is a per-radian g-file.
+
+    ``from_equilibrium`` used to copy the ODS's weber flux into the g-file, and
+    ``core_profiles`` takes its ``grid.psi`` from ``geq.to_omas()``, which
+    multiplies by 2*pi -- so the stage published a psi grid 2*pi too large.
+    """
+    from vaft.omas.sample import sample_ods
+
+    try:
+        source = sample_ods(48224)
+    except FileNotFoundError:
+        pytest.skip("the 48224 sample is repository-only")
+    product = tmp_path / "48224.json"
+    source.save(str(product))
+
+    out, manifest = vu.build_core_profiles_ods(
+        shot=48224, thomson_product=product, ces_product=product, efit_product=product
+    )
+    assert manifest["status"] == "success", manifest.get("error")
+    grid = np.asarray(out["core_profiles.profiles_1d.0.grid.psi"], dtype=float)
+    ts = source["equilibrium.time_slice.0"]
+    assert grid[0] == pytest.approx(float(ts["global_quantities.psi_axis"]), rel=1e-6)
+    assert grid[-1] == pytest.approx(float(ts["global_quantities.psi_boundary"]), rel=1e-6)

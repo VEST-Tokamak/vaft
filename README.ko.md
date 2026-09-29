@@ -182,12 +182,12 @@ modified로 표시됩니다. 단계별 설명과 `git pull`이나 `git stash pop
 
 #### 레거시 NumPy 1 설치
 
-NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.20.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
+NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.24.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
 
 ```bash
 python -m pip install -e .
 python -m pip install --force-reinstall --no-deps "numpy>=1.26.4,<2"
-python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
+python -m pip install --force-reinstall --no-deps h5pyd==0.24.0
 ```
 
 이는 레거시 호환성 옵션이며, `pip check`는 의도적으로 우회한 NumPy 요구 사항을 보고할 수 있습니다.
@@ -213,10 +213,15 @@ pip install vaft
 원격 VEST HSDS 데이터베이스를 사용하려면 HSDS 자격 증명을 설정하세요.
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
 
-프롬프트에 다음 값을 입력합니다.
+> upstream `hsconfigure`는 쓰지 마세요. 비밀번호 입력이 화면에 그대로 보이고, 이미 저장된 비밀번호를
+> 프롬프트 기본값으로 출력합니다. `vaft hsds configure`는 같은 h5pyd `~/.hscfg`를 숨김 입력과 `0600`
+> 권한으로 씁니다. Windows에서는 파일 권한이 적용되지 않으며, 파일은 사용자 프로필의 권한을 따릅니다.
+> `.hscfg`는 절대 커밋하지 마세요.
+
+프롬프트에 다음 값을 입력합니다. 비밀번호는 화면에 표시되지 않습니다.
 
 | 항목 | 값 |
 | --- | --- |

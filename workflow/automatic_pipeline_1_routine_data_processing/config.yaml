@@ -119,6 +119,12 @@ constraints:
   - 0.01
 efit:
   run: true
+  # Named EFIT configuration from vaft.code.efit.PRESETS. Empty or `routine` is
+  # the production path with constraints.npprime/nffprime above;
+  # statistical_891 is the #891 working setting (statistical sigma, diamagnetic
+  # flux fitted, (2,1) basis, psi-only exit), which ignores npprime/nffprime.
+  # A preset run writes over the same products: give it its own base_dir.
+  preset: ""
   executable: ${EFIT}
   table_dir: ${VAFT_DATA_DIR}/efit/
   args: "129"
