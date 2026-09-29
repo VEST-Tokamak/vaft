@@ -1022,6 +1022,46 @@ vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boroniza
 | `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
 | `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
 
+## SOL blobs and filaments
+
+A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a
+negative one. The filament is the field-aligned structure whose perpendicular cross-section is the blob.
+
+How a blob moves:
+- curvature and $\nabla B$ drift ions and electrons apart;
+- the density monopole becomes a charge dipole, $+$ above and $-$ below;
+- the dipole's $E$ field drives an $E\times B$ drift outward on the low-field side, down $\nabla B$ (a hole
+  moves inward).
+
+How fast it moves depends on where the polarization current closes:
+- along the field to the sheaths (sheath-connected, $v \propto \delta^{-2}$);
+- across the field by ion inertia (inertial or resistive-ballooning, $v \propto \delta^{1/2}$);
+- with resistivity and X-point fanning, in between.
+
+`vaft.formula.sol` holds the prescribed filament state `blob_density_perturbation` (a blob, or a hole below
+the background), the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
+reference velocity $v_*$, the collisionality $\Lambda$, both limits, the interpolation, and the four regime
+scalings. All follow D'Ippolito, Myra and Zweben (2011), with a Gaussian of radius $\delta$. The $O(1)$
+prefactors in Krasheninnikov (2001) and Theiler et al. (2011) belong to their own size definitions. The NSTX
+parameters of Myra et al. (2006) give $\hat a \approx 1.3$, as in their Fig. 1, and $v_* \approx 3$ km/s from their
+symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_s = (T_e/m_i)^{1/2}$.
+
+```python
+vaft.diagram.blob_polarization()        # the mechanism: dipole, E, E x B; perturbation="hole" reverses it
+vaft.diagram.blob_current_closure(regime="sheath")   # or "inertial": where the current closes
+vaft.diagram.blob_velocity_scaling()    # v/v* against delta/delta*: both limits and Eq. (9)
+vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/2}: RB, RX, C_i, C_s
+```
+
+| | |
+| --- | --- |
+| ![polarization]({{ '/assets/diagrams/blob_polarization.svg' | relative_url }}) | ![hole]({{ '/assets/diagrams/blob_polarization_hole.svg' | relative_url }}) |
+| ![sheath closure]({{ '/assets/diagrams/blob_current_closure_sheath.svg' | relative_url }}) | ![inertial closure]({{ '/assets/diagrams/blob_current_closure_inertial.svg' | relative_url }}) |
+
+| | |
+| --- | --- |
+| ![velocity]({{ '/assets/diagrams/blob_velocity_scaling.svg' | relative_url }}) | ![regimes]({{ '/assets/diagrams/blob_regimes.svg' | relative_url }}) |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

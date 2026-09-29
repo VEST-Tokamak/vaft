@@ -78,6 +78,16 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # SOL blobs (#1211): one paper's Gaussian size convention; prefactors differ between papers
+    "blob_reference_size",
+    "blob_reference_velocity",
+    "blob_collisionality",
+    "sheath_connected_blob_velocity",
+    "inertial_blob_velocity",
+    "interpolated_blob_velocity",
+    "blob_regime_velocities",
+    "blob_density_perturbation",
+    "blob_crossover_size",
     # NBI: per-component energy in eV, path density not volumetric, signed tangency radius (#1136)
     "beam_particle_rate_from_power_energy",
     "neutral_beam_optical_depth",
