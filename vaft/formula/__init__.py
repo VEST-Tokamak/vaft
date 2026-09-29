@@ -41,6 +41,7 @@ _SUBMODULES = {
     "disruption": ".disruption",
     "vde": ".vde",
     "pwi": ".pwi",
+    "sol": ".sol",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -69,6 +70,7 @@ _IMPORT_ORDER = (
     "disruption",
     "vde",
     "pwi",
+    "sol",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

@@ -97,6 +97,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "sol": 8,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
     }
