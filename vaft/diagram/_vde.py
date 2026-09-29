@@ -74,7 +74,7 @@ def hot_vde_frames() -> dict:
     the limiter polygon (what is outside has been scraped off). Its half
     midplane width is the minor radius $a$, and the new edge's $q$ is the
     frozen equilibrium's $q$ on that surface -- the edge-current-loss picture:
-    the current outside it is gone, so this is an upper bound on $q_\mathrm{edge}$
+    the current outside it is gone, so this is an upper bound on $q_\\mathrm{edge}$
     at fixed $I_p$, which is lower still. ``q_cyl`` is the cylindrical
     estimate at fixed $I_p$ (``cylindrical_safety_factor_from_r_B`` of
     ``cylindrical_poloidal_field``), without elongation or toroidal factors:
