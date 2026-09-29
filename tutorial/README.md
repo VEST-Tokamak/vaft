@@ -48,7 +48,7 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | Session | Topic | Workflow role | Status |
 | --- | --- | --- | --- |
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
-| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, multi-shot comparison | complete |
+| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, reduced models of burn-through, shielding, current penetration, ramp and flux closure, multi-shot comparison | complete |
 | 03 | Equilibrium and Kinetic Profiles | equilibrium representation, analytic shapes, EFIT constraints and weights, flux-coordinate mapping and profile-fit statistics, derived kinetic state, Grad-Shafranov residual, multi-time and multi-shot comparison | complete |
 | 04 | Fluctuation Diagnostics for Plasma Perturbations and Transient Events | lab vs plasma frame, VEST fluctuation-diagnostic coverage, Mirnov / SXR / fast-camera perturbations, cross-spectral coherence and phase, toroidal mode number with its alias step, rational surfaces, transients as sequences, multi-time and multi-shot comparison | complete |
 | 05 | MHD Stability and Perturbed Equilibria | rational surfaces, ideal stability (DCON, $\delta W$), tearing (RDCON, $\Delta'$), VEST 3-D coils and sector harmonics, vacuum field and relative phase by linearity, driven response (GPEC); solvers in lab mode | complete |
