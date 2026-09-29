@@ -276,16 +276,19 @@ def test_virial_theorem_sums_the_three_energies_and_ratios_the_last_two():
     assert ratio == pytest.approx((W_kin + W_th) / W_mag, rel=1e-13, abs=0.0)
 
 
-def test_stability_criterion_is_the_virial_ratio_offset_by_the_threshold():
+def test_stability_criterion_is_deprecated_with_unchanged_numbers():
+    """#366: the 0.5 threshold has no source; the shim keeps its old results and warns."""
     W_mag, W_kin, W_th = 4.0e5, 1.0e5, 3.0e5
-    margin, critical = virial_stability_criterion(W_mag, W_kin, W_th)
+    with pytest.warns(DeprecationWarning, match="virial_theorem"):
+        margin, critical = virial_stability_criterion(W_mag, W_kin, W_th)
     assert critical == 0.5
     assert margin == pytest.approx(virial_theorem(W_mag, W_kin, W_th)[1] - 0.5)
 
 
 def test_stability_margin_is_zero_exactly_at_the_threshold():
     # W_kin + W_th = W_mag / 2 puts the plasma on the heuristic boundary.
-    margin, _ = virial_stability_criterion(4.0e5, 1.0e5, 1.0e5)
+    with pytest.warns(DeprecationWarning):
+        margin, _ = virial_stability_criterion(4.0e5, 1.0e5, 1.0e5)
     assert margin == pytest.approx(0.0, abs=1e-15)
 
 

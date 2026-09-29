@@ -88,6 +88,12 @@ CONVENTION_SENSITIVE = frozenset({
     "blob_regime_velocities",
     "blob_density_perturbation",
     "blob_crossover_size",
+    # NBI: per-component energy in eV, path density not volumetric, signed tangency radius (#1136)
+    "beam_particle_rate_from_power_energy",
+    "neutral_beam_optical_depth",
+    "beam_birth_probability_density",
+    "shine_through_fraction",
+    "injected_toroidal_angular_momentum_rate",
     # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
     "plasma_frequency",
     "stix_parameters",
@@ -115,6 +121,8 @@ CONVENTION_SENSITIVE = frozenset({
     "two_point_upstream_temperature",
     "eich_target_heat_flux_profile",
     "eich_integral_width",
+    "radiative_condensation_growth_rate",
+    "radiative_thermal_instability_growth_rate",
     # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

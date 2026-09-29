@@ -165,6 +165,7 @@ from vaft.process.equilibrium import (
 
 B_p_bdry, B_R_bdry, B_Z_bdry = poloidal_field_at_boundary(
     R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry,
+    cocos=cocos,  # the flux convention: 11 for ODS/IMAS psi in Wb; omitting it assumes Wb/rad
 )
 
 S1, S2, S3, alpha = shafranov_integrals(

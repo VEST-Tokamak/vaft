@@ -24,15 +24,9 @@ cd vaft
 python -m pip install -e .
 ```
 
-`h5pyd`, the client for the remote HSDS database, is deliberately left out of the dependency
-list: there is no packaging extra for it, and it must be installed with `--no-deps` so that its
-own pins do not conflict with the ones VAFT already resolves. Without this step the
-Configuration, Load and Save sections below cannot work.
-
-```bash
-# HSDS database client (required for remote data access)
-python -m pip install --no-deps h5pyd==0.20.0
-```
+`h5pyd`, the client for the remote HSDS database, is a declared dependency (pinned to the
+release qualified against the VEST server), so the install above already provides it and its
+command-line tools. Do not install a separate `--no-deps` copy.
 
 Development tooling (tests, formatters, notebook kernel) lives in the only declared extra:
 
@@ -44,7 +38,6 @@ Install from PyPI (obsolete — prefer the source install above):
 
 ```bash
 python -m pip install vaft
-python -m pip install --no-deps h5pyd==0.20.0
 ```
 
 Update
@@ -66,17 +59,19 @@ username : reader
 password : test
 
 ```bash
->> hsconfigure
-Enter new values or accept defaults in brackets with Enter.
-
-Server endpoint []: http://147.46.36.244:5101
-Username []: $your_username$
-Password []: $your_password$
-API Key [None]: 
-Testing connection...
-connection ok
-Quit? (Y/N)Y
+>> vaft hsds configure
+Configuring HSDS credentials in /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: $your_username$
+Password (input hidden, Enter keeps it):
+API key (input hidden, Enter keeps it):
+Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
 
 Load
 =====

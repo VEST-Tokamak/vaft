@@ -9,7 +9,7 @@
     editable install leaves in the checkout.
 
     It never removes `~\.hscfg`. That file holds your HSDS credentials and the
-    bootstrap never created it -- `hsconfigure` did, run by you.
+    bootstrap never created it -- `vaft hsds configure` did, run by you.
 
     It never touches a Conda environment whose name is not exactly `vaft`, your
     repository checkout, or Conda and Git themselves. Like the bootstrap, it

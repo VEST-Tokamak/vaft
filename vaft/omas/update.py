@@ -439,7 +439,7 @@ def update_equilibrium_profiles_2d_b_field(ods, time_slice=None):
         try:
             b_r, b_z, b_tor = equilibrium_field_on_grid(
                 frame["r_grid"], frame["z_grid"], frame["psi_2d_radian"],
-                psi_1d, f_1d, cocos=per_radian,
+                psi_1d, f_1d, cocos=per_radian, psi_per_radian=True,
             )
         except Exception as error:  # noqa: BLE001 - a degenerate grid is skipped, not fatal
             logger.warning("2-D field failed for time slice %s (%s); skipping.", idx, error)

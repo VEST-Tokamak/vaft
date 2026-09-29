@@ -4317,9 +4317,25 @@ def compute_field_line_trace(
         )
 
     field_data = _equilibrium_field_slice_data(time_slice)
+    per_radian_cocos = _per_radian_cocos(ods)
+    if per_radian_cocos is None:
+        # Nothing declared: take the index the slice's own signs resolve to, so
+        # the orientation is not guessed.  Still None when they leave it open,
+        # and the interpolator then warns that it assumes one (#1313).
+        from vaft.omas.update import _per_radian_cocos as _resolved_per_radian_cocos
+        from vaft.process.equilibrium import as_equilibrium
+
+        try:
+            per_radian_cocos = _resolved_per_radian_cocos(
+                as_equilibrium(ods, time_index=equilibrium_time_index).convention
+            )
+        except Exception:  # noqa: BLE001 - identification is best effort here
+            per_radian_cocos = None
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
+        field_data["psi_1d"], field_data["f_1d"], cocos=per_radian_cocos,
+        # The slice data is already scaled to Wb/rad (#1313).
+        psi_per_radian=True,
     )
 
     wall_r = wall_z = None

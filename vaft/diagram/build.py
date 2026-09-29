@@ -127,6 +127,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # neutral beam injection: lifecycle and reduced attenuation (#1136)
+    **{f"{name}.svg": (name, {}) for name in ("nbi_particle_lifecycle", "nbi_neutral_attenuation")},
+    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
+                                              "grid_induced_two_cycle", "branch_selection")},
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
@@ -144,6 +149,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
+    "marfe.svg": ("marfe", {}),
+    "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
+    # Eich target profile on a diverted equilibrium (#1209)
+    "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
 }
 
 

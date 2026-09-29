@@ -67,10 +67,10 @@ def _note(text: str, x: float, y: float) -> Label:
 
 @lru_cache(maxsize=1)
 def hot_vde_frames() -> dict:
-    """For each downward shift: the largest surface of the shifted plasma inside the limiter, its a and edge q.
+    r"""For each downward shift: the largest surface of the shifted plasma inside the limiter, its a and edge q.
 
     The equilibrium is moved rigidly down by the shift; the limiting surface
-    is the largest $\\rho = \\sqrt{\\psi_N}$ whose shifted contour lies inside
+    is the largest $\rho = \sqrt{\psi_N}$ whose shifted contour lies inside
     the limiter polygon (what is outside has been scraped off). Its half
     midplane width is the minor radius $a$, and the new edge's $q$ is the
     frozen equilibrium's $q$ on that surface -- the edge-current-loss picture:

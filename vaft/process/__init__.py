@@ -57,6 +57,7 @@ _SUBMODULES = {
     "wall_modes": ".wall_modes",
     "coils_non_axisymmetric": ".coils_non_axisymmetric",
     "ml": ".ml",
+    "nbi": ".nbi",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -97,6 +98,8 @@ _IMPORT_ORDER = (
     # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
     "ml",
     "transients",
+    # The reduced NBI reference layer (#1136); nothing it exports collides.
+    "nbi",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

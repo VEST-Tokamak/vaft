@@ -55,6 +55,8 @@ __all__ = [
     "two_point_upstream_temperature",
     "eich_target_heat_flux_profile",
     "eich_integral_width",
+    "radiative_condensation_growth_rate",
+    "radiative_thermal_instability_growth_rate",
     "BlobRegimeVelocities",
     "blob_reference_size",
     "blob_reference_velocity",
@@ -979,3 +981,123 @@ def blob_crossover_size(*, relative_amplitude=1.0):
            (2011) 060501, p. 060501-25.
     """
     return _out(_amplitude(relative_amplitude) ** 0.2)
+
+
+def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_parallel):
+    r"""Growth rate of the thermal-condensation (MARFE) instability at constant pressure.
+
+    $$\gamma = \frac{2}{5\,n e}\left(\frac{2L}{T} - \frac{\partial L}{\partial T}
+      - k_\parallel^2\kappa_\parallel\right)$$
+
+    Parameters
+    ----------
+    n : float or np.ndarray
+        Plasma density of Drake's one-fluid model, positive [m^-3].
+    T : float or np.ndarray
+        Temperature, positive [eV].
+    L : float or np.ndarray
+        Radiated power density, $L \propto n^2$, non-negative [W/m^3].
+    dL_dT : float or np.ndarray
+        $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
+    k_parallel : float or np.ndarray
+        Parallel wavenumber of the perturbation, $m/(qR)$ for a poloidal
+        harmonic $m \ge 1$, positive [1/m].
+    kappa_parallel : float or np.ndarray
+        Parallel conductivity, $\kappa_0 T^{5/2}$ in ``spitzer_harm_parallel_heat_flux``'s
+        units, non-negative [W/(m eV)].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma$; positive is unstable [1/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive density, temperature or $k_\parallel$, a negative $L$ or
+        $\kappa_\parallel$.
+
+    Convention
+    ----------
+    Drake's Eq. (2): the perturbation is slow against sound, $\gamma \ll
+    k_\parallel c_s$, so pressure stays constant and $\tilde n/n = -\tilde T/T$
+    (his Eq. 17); with $L \propto n^2$ the density rise feeds the $2L/T$
+    term. Temperatures in eV and $\kappa_\parallel$ per eV, as in this module,
+    so the $e$ converts the heat capacity $\tfrac52 n$ to joules. Instability
+    needs $2L/T - \partial L/\partial T > k_\parallel^2\kappa_\parallel$, which
+    equals $-dL/dT$ at constant pressure: it does **not** need
+    $\partial L/\partial T < 0$. It needs $k_\parallel > 0$: at
+    $k_\parallel = 0$ no sound wave equalises pressure, the density stays
+    fixed and ``radiative_thermal_instability_growth_rate`` applies instead.
+    Perpendicular conduction is neglected here; Lipschultz finds its
+    $K_\perp/\Delta^2$ small on Alcator C, while Drake's threshold involves
+    $\kappa_\perp$ (his Eqs. 7, 10, 18). The heat capacity is Drake's one-fluid
+    $\tfrac32 nT$; with electrons and ions both heated at $T_i = T_e$
+    (Lipschultz's $3\,\partial(nT)/\partial t$) $\gamma$ halves and the
+    criterion is unchanged.
+
+    Physical interpretation
+    -----------------------
+    A cooled spot on a flux surface radiates more, is compressed by the
+    surrounding pressure, radiates more still and condenses: the MARFE.
+    Parallel conduction refills it and stabilises short parallel wavelengths;
+    the $m = 1$ harmonic with the longest connection length goes first.
+
+    References
+    ----------
+    .. [1] J. F. Drake, Phys. Fluids 30 (1987) 2429, Eqs. (2), (16)-(18).
+    .. [2] B. Lipschultz, J. Nucl. Mater. 145-147 (1987) 15, Eq. (11).
+    """
+    n = _positive(n, "n")
+    T = _positive(T, "T")
+    L = _non_negative(L, "L")
+    k = _positive(k_parallel, "k_parallel")
+    kappa = _non_negative(kappa_parallel, "kappa_parallel")
+    drive = 2.0 * L / T - np.asarray(dL_dT, dtype=float)
+    return _out(2.0 / (5.0 * n * QE) * (drive - k**2 * kappa))
+
+
+def radiative_thermal_instability_growth_rate(n, dL_dT):
+    r"""Growth rate of the radiative thermal instability of a flute perturbation at constant density.
+
+    $$\gamma = -\frac{2}{3\,n e}\frac{\partial L}{\partial T}$$
+
+    Parameters
+    ----------
+    n : float or np.ndarray
+        Plasma density of Drake's one-fluid model, positive [m^-3].
+    dL_dT : float or np.ndarray
+        $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma$; positive is unstable [1/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive density.
+
+    Convention
+    ----------
+    Drake's Eq. (1): $k_\parallel = 0$, so no sound wave equalises pressure
+    and the density does not change; only a falling radiation curve,
+    $\partial L/\partial T < 0$, is unstable. Compare
+    ``radiative_condensation_growth_rate``, where the constant-pressure
+    density rise adds the $2L/T$ drive.
+
+    Physical interpretation
+    -----------------------
+    The poloidally symmetric counterpart of the MARFE (Drake's Eq. 1): a
+    whole flux surface cooling where the radiation curve falls with
+    temperature. How it relates to detachment and to density limits is
+    #1068's, not this function's.
+
+    References
+    ----------
+    .. [1] J. F. Drake, Phys. Fluids 30 (1987) 2429, Eq. (1).
+    """
+    n = _positive(n, "n")
+    return _out(-2.0 / (3.0 * n * QE) * np.asarray(dL_dT, dtype=float))
+
