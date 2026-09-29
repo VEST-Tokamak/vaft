@@ -238,6 +238,16 @@ def test_stage4_exits_on_psi_alone_over_five_bases(scan):
     assert scan.exit_chi_squared(stage3, 60) == pytest.approx(60 + 3 * (120 ** 0.5))
 
 
+def test_stage5_is_the_working_setting_at_two_tolerances(scan):
+    settings = scan.working_settings()
+    assert settings[0]["routine"]
+    study = settings[1:]
+    assert [s["error_minimum"] for s in study] == [1.0e-4, 1.0e-3]
+    assert len({s["name"] for s in study}) == 2
+    assert all(s["basis"] == [2, 1] and s["psi_exit"] for s in study)
+    assert scan.uncertainty_scales(study[0])["plasma_current"] == pytest.approx(0.25)
+
+
 def test_backoff_steps_halfway_back_in_log(scan):
     assert scan.backoff_multipliers({"probe": 8.0, "loop": 2.0}, {"probe": 12.9, "loop": 3.18}) == {
         "probe": 10.2, "loop": 2.52}

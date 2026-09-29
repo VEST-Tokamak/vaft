@@ -70,6 +70,8 @@ BASES = ((1, 1), (2, 1), (1, 2))
 #: The calibration's best region (#891, PR #1182): probes x16 with a 2 % floor
 #: bring the probe chi2r near 1; loops already sit at 1.2-2.4 at x1.
 STAGE1_PROBE, STAGE1_LOOP, STAGE1_FLOOR = 16, 2, 0.02
+#: The psi convergence every stage runs at unless a setting names its own.
+ERRMIN = 1.0e-4
 
 
 def setting_name(basis: Sequence[int], probe: float, loop: float, dia: float | None, floor: float,
@@ -78,6 +80,22 @@ def setting_name(basis: Sequence[int], probe: float, loop: float, dia: float | N
     ip_tag = "" if ip == 1.0 else f"_ip_x{ip:g}"
     return (f"p{basis[0]}f{basis[1]}_probe_x{probe:g}_loop_x{loop:g}_dia_{dia_tag}{ip_tag}"
             f"_floor{round(100 * floor)}pct")
+
+
+def working_settings() -> list[dict[str, Any]]:
+    """Stage 5: the working setting (2,1) chosen 2026-09-29, at ERRMIN 1e-4 and 1e-3.
+
+    The stage-4 calibration of that basis (probe x3.62, loop x2.15, diamagnetic
+    x16, Ip 20 %, psi-only exit).  The looser ERRMIN asks how much of the
+    ramp-up and ramp-down divergence is the tolerance rather than the fit.
+    """
+    base = {"basis": [2, 1], "probe": 3.62, "loop": 2.15, "dia": 16, "ip": 4.0, "floor": STAGE1_FLOOR,
+            "psi_exit": True}
+    name = setting_name(base["basis"], base["probe"], base["loop"], base["dia"], base["floor"], base["ip"])
+    return [{"name": "routine", "routine": True}] + [
+        {**base, "name": f"{name}_psiexit_errmin{tag}", "error_minimum": value}
+        for tag, value in (("1e-4", 1.0e-4), ("1e-3", 1.0e-3))
+    ]
 
 
 def stage1_settings() -> list[dict[str, Any]]:
@@ -226,7 +244,7 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
         target = exit_chi_squared(setting, calibration.fitted_constraint_count(built, families=fitted_families(setting)))
         case = {
             "grid": study.ROUTINE_GRID, "table": study.PACKAGED, "inner_iterations": 1,
-            "error_minimum": 1.0e-4, "max_iterations": calibration.MAX_ITERATIONS,
+            "error_minimum": float(setting.get("error_minimum", ERRMIN)), "max_iterations": calibration.MAX_ITERATIONS,
             "kppcur": setting["basis"][0], "kffcur": setting["basis"][1],
             "chi_squared_target": target, "name": setting["name"],
         }
@@ -553,7 +571,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload.update(cells=result["cells"])
     else:
         settings = (json.loads(args.settings.read_text()) if args.settings
-                    else {1: stage1_settings, 2: stage2_settings}[args.stage]())
+                    else {1: stage1_settings, 2: stage2_settings, 5: working_settings}[args.stage]())
         records = run_all(slices, settings, output, workers=args.workers, efit_home=args.efit_home)
         payload.update(settings=settings)
     payload.update(
