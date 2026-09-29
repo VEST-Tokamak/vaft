@@ -82,6 +82,16 @@ DEFINITIONAL = frozenset({
 CONVENTION_SENSITIVE = frozenset({
     # cylindrical q, not q95, on the Hugill y axis (#1068)
     "hugill_coordinates",
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    "transit_frequency",
+    "deeply_trapped_bounce_frequency",
+    "trapped_particle_effective_collision_frequency",
+    "banana_width",
+    "collisions_per_transit",
+    "neoclassical_regime_boundaries",
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    "ntv_precession_frequency",
+    "nonambipolar_torque_density",
     # scrape-off layer (#951): closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
     "ion_sound_speed",
     "sheath_particle_flux",
