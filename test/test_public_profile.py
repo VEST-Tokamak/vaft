@@ -81,21 +81,25 @@ def discharge_dir(tmp_path):
         _block_2d("QRAD", "W/m3", RHO_C, TIMES, _profile(2.0e3)),
         _block_2d("QOHM", "W/m3", RHO_C, TIMES, _profile(5.0e4)),
         # boundary grid: its own equilibrium block
-        _block_2d("Q", "0", RHO_B, TIMES, _profile(-2.0, RHO_B)),
+        _block_2d("Q", "0", RHO_B, TIMES, _profile(2.0, RHO_B)),  # PR08 gives |q|
+        _block_2d("CURTOT", "A/m2", RHO_C, TIMES, _profile(-3.0e5)),  # abutting negatives
         _block_2d("VOLUME", "m3", RHO_B, TIMES, _profile(3.0, RHO_B)),
         _block_2d("CHIE", "m2/s", RHO_B, TIMES, _profile(1.5, RHO_B)),
         # centre grid, but the equilibrium block is on the boundary grid
         _block_2d("PRES", "Pa", RHO_C, TIMES, _profile(1.0e4)),
         # measured profile on its own grid, with a missing point
         _block_2d("TEXP", "eV", [0.1, 0.6], TIMES[:1], [[900.0, -9.999e-09]]),
+        _block_2d("NEEB", "m-3", [0.1, 0.6], TIMES[:1], [[1.0e18, 1.0e18]]),  # off-grid error bar
         _block_2d("VROT", "rad/s", RHO_C, TIMES, _profile(1.0e4)),
     ])
-    one_d = _block_1d("IP", "Amps", [0.19, 0.25], [8.0e5, 8.1e5])
+    one_d = _block_1d("IP", "Amps", [0.19, 0.25], [8.0e5, 8.1e5]) + _block_1d(
+        "BT", "Tesla", [0.19, 0.20], [-0.5, -0.5]
+    )
     (tmp_path / "pr08_test_9999_2d.dat").write_text(two_d)
     (tmp_path / "pr08_test_9999_1d.dat").write_text(one_d)
     (tmp_path / "pr08_test_9999_0d.dat").write_text(
-        "TOK,SHOT,TIME,PGASA,PGASZ,EVAP,BT,IP\n"
-        "TEST,9999,1.900E-01,2.000E+00,1.000E+00,????????,-9.999E-09,8.000E+05\n"
+        "TOK,SHOT,TIME,PGASA,PGASZ,EVAP,BT,IP,RGEO\n"
+        "TEST,9999,1.900E-01,2.000E+00,1.000E+00,????????,-9.999E-09,8.000E+05,1.000E+00\n"
     )
     (tmp_path / "pr08_test_9999_com.dat").write_text("  synthetic discharge for tests\n")
     return tmp_path
@@ -119,7 +123,7 @@ def test_ufile_2d_is_time_by_rho_with_x_fastest(discharge):
 
 
 def test_ufile_negative_numbers_that_abut_are_split(discharge):
-    np.testing.assert_allclose(discharge.two_d["Q"].values, _profile(-2.0, RHO_B))
+    np.testing.assert_allclose(discharge.two_d["CURTOT"].values, _profile(-3.0e5))
 
 
 def test_ufile_missing_marker_becomes_nan(discharge):
@@ -148,6 +152,23 @@ def test_0d_csv_missing_markers(discharge):
     assert row["EVAP"] is None          # ????????
     assert np.isnan(row["BT"])          # -9.999E-09
     assert row["PGASA"] == pytest.approx(2.0)
+
+
+def test_0d_fixed_width_wraps_seven_to_a_line(tmp_path):
+    # The DIII-D layout: names wrapped seven per line, then values the same way,
+    # including a blank cell that must stay in its column.
+    names = [f"V{i:02d}" for i in range(9)]
+    values = ["1.000E+00", "2.000E+00", "", "4.000E+00", "????????", "6.000E+00", "7.000E+00",
+              "8.000E+00", "9.000E+00"]
+    def wrap(cells):
+        return "\n".join("".join(f"{c:>11}" for c in cells[i:i + 7]) for i in range(0, len(cells), 7))
+    path = tmp_path / "wrapped_0d.dat"
+    path.write_text(wrap(names) + "\n" + wrap(values) + "\n")
+    row = read_pr08_0d(path).iloc[0]
+    assert row["V01"] == pytest.approx(2.0)
+    assert row["V02"] is None                 # blank cell stays in place
+    assert row["V03"] == pytest.approx(4.0)
+    assert row["V08"] == pytest.approx(9.0)   # second line lands in the right columns
 
 
 def test_0d_fixed_width_with_name_like_values(tmp_path):
@@ -189,17 +210,40 @@ def test_core_profiles_on_the_reference_grid(discharge):
 
 def test_equilibrium_keeps_its_own_grid_and_skips_off_grid_signals(discharge):
     ods = pr08_to_omas(discharge)
-    prof = "equilibrium.time_slice.1.profiles_1d"
+    prof = "equilibrium.time_slice.0.profiles_1d"
     np.testing.assert_allclose(ods[f"{prof}.rho_tor_norm"], RHO_B)
-    np.testing.assert_allclose(ods[f"{prof}.q"], _profile(-2.0, RHO_B)[1])
+    np.testing.assert_allclose(ods[f"{prof}.volume"], _profile(3.0, RHO_B)[0])
     assert f"{prof}.pressure" not in ods  # PRES is on the centre grid: not interpolated
     assert "equilibrium.time_slice.0.profiles_1d.psi" not in ods  # nothing invented
 
 
-def test_one_d_scalars_attach_only_at_matching_times(discharge):
+def test_q_is_signed_by_current_and_field_under_cocos_11(discharge):
+    # IP > 0, BT < 0: q = sign(Ip) sign(B0) |q| < 0.
     ods = pr08_to_omas(discharge)
+    np.testing.assert_allclose(ods["equilibrium.time_slice.0.profiles_1d.q"], -_profile(2.0, RHO_B)[0])
+    # 0.20 s has BT but no IP sample: no sign, so no q and no ip there.
+    assert "equilibrium.time_slice.1.profiles_1d.q" not in ods
+    assert "equilibrium.time_slice.1.global_quantities.ip" not in ods
     assert ods["equilibrium.time_slice.0.global_quantities.ip"] == pytest.approx(8.0e5)
-    assert "equilibrium.time_slice.1.global_quantities.ip" not in ods  # 0.20 s has no IP sample
+
+
+def test_contradicting_current_signs_leave_sign_bearing_quantities_out(discharge_dir):
+    # As in MAST 8302: the 0D IP is negative, the 1D IP positive.
+    path = discharge_dir / "pr08_test_9999_0d.dat"
+    path.write_text(path.read_text().replace("8.000E+05,1.000E+00", "-8.000E+05,1.000E+00"))
+    discharge = read_pr08(discharge_dir, "test", 9999)
+    ods = pr08_to_omas(discharge)
+    assert "equilibrium.time_slice.0.profiles_1d.q" not in ods
+    assert "equilibrium.time_slice.0.global_quantities.ip" not in ods
+    coverage = pr08_mapping_coverage(discharge).set_index("variable")
+    assert coverage.loc["Q", "status"] == "unmapped"
+    assert "IP sign differs" in coverage.loc["Q", "reason"]
+
+
+def test_curtot_is_the_toroidal_current_density(discharge):
+    ods = pr08_to_omas(discharge)
+    np.testing.assert_allclose(ods["core_profiles.profiles_1d.0.j_tor"], _profile(-3.0e5)[0])
+    assert "core_profiles.profiles_1d.0.j_total" not in ods
 
 
 def test_source_signs(discharge):
@@ -219,7 +263,7 @@ def test_source_signs(discharge):
 def test_transport_diffusivity(discharge):
     ods = pr08_to_omas(discharge)
     root = "core_transport.model.0"
-    assert ods[f"{root}.identifier.name"] == "database"
+    assert ods[f"{root}.identifier.name"] == "transport_solver"
     np.testing.assert_allclose(ods[f"{root}.profiles_1d.0.grid_d.rho_tor_norm"], RHO_B)
     np.testing.assert_allclose(ods[f"{root}.profiles_1d.0.electrons.energy.d"], _profile(1.5, RHO_B)[0])
 
@@ -243,8 +287,18 @@ def test_coverage_lists_every_variable_with_a_reason(discharge):
     assert "not interpolated" in coverage.loc["PRES", "reason"]
     assert "own grid" in coverage.loc["TEXP", "reason"]
     assert "species" in coverage.loc["VROT", "reason"]
-    assert (coverage["status"].isin({"mapped", "unmapped"})).all()
-    assert not (coverage.loc[coverage.status == "unmapped", "reason"] == "").any()
+    assert (coverage["status"].isin({"mapped", "partial", "unmapped"})).all()
+    assert not (coverage.loc[coverage.status != "mapped", "reason"] == "").any()
+
+
+def test_coverage_is_honest_about_error_bars_and_partial_slices(discharge):
+    coverage = pr08_mapping_coverage(discharge).set_index("variable")
+    # NE is mapped, but its error bar sits on another grid and was not written.
+    assert coverage.loc["NE", "status"] == "mapped"
+    assert coverage.loc["NEEB", "status"] == "unmapped"
+    # IP exists at 0.19 s only: one of two slices.
+    assert coverage.loc["IP", "status"] == "partial"
+    assert coverage.loc["IP", "slices"] == "1/2"
 
 
 def test_mapped_ods_renders_with_the_canonical_profile_plots(discharge):
@@ -262,8 +316,32 @@ def test_mapped_ods_renders_with_the_canonical_profile_plots(discharge):
 
 
 def test_fetch_refuses_an_unpinned_discharge(tmp_path):
-    with pytest.raises(KeyError, match="pinned"):
+    with pytest.raises(KeyError, match="No hash"):
         fetch_pr08("jet", "12345", cache=tmp_path)
+
+
+def test_fetch_refuses_a_partial_pin_set(tmp_path):
+    with pytest.raises(KeyError, match="com"):
+        fetch_pr08("jet", "12345", cache=tmp_path, sha256={"0d": "0" * 64, "1d": "0" * 64, "2d": "0" * 64})
+
+
+def test_unpinned_fetch_marks_files_unverified(tmp_path, discharge_dir):
+    target = tmp_path / "pr08" / "test" / "9999"
+
+    def fake_download(url, destination, timeout, sha256):
+        assert sha256 is None
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((discharge_dir / destination.name).read_bytes())
+
+    with mock.patch("vaft.data.public._fetch._download", side_effect=fake_download):
+        with pytest.warns(UserWarning, match="without a known hash"):
+            result = fetch_pr08("test", 9999, cache=tmp_path, allow_unpinned=True)
+    assert set(result.verification.values()) == {"unverified"}
+    assert "unverified" in pr08_to_omas(result)["dataset_description.ids_properties.provenance.node.0.sources"][0]
+    # A second call reuses the cache but still says it is unverified.
+    with pytest.warns(UserWarning, match="cached file"):
+        fetch_pr08("test", 9999, cache=tmp_path, allow_unpinned=True)
+    assert (target / "pr08_test_9999_2d.dat").exists()
 
 
 def test_fetch_uses_the_pinned_hashes(tmp_path, discharge_dir):
@@ -283,6 +361,7 @@ def test_fetch_uses_the_pinned_hashes(tmp_path, discharge_dir):
         result = fetch_pr08("test", 9999, cache=tmp_path, sha256=pins)
     assert fetched.call_count == 4
     assert "TE" in result.two_d
+    assert set(result.verification.values()) == {"pinned"}
 
 
 def test_pinned_registry_is_complete():
@@ -300,6 +379,10 @@ def test_real_mast_discharge():
     ods = pr08_to_omas(discharge)
     te = np.asarray(ods["core_profiles.profiles_1d.0.electrons.temperature"])
     assert te[0] > te[-1] > 0.0  # peaked
-    coverage = pr08_mapping_coverage(discharge)
-    assert int((coverage.status == "mapped").sum()) == 18
-    assert isinstance(coverage, pd.DataFrame)
+    coverage = pr08_mapping_coverage(discharge).set_index("variable")
+    assert int((coverage.status == "mapped").sum()) == 16
+    # The release contradicts itself on the current direction (0D IP < 0,
+    # 1D IP > 0), so q, ip and b0 stay out.
+    assert coverage.loc["Q", "status"] == "unmapped"
+    assert "IP sign differs" in coverage.loc["Q", "reason"]
+    assert "equilibrium.time_slice.0.profiles_1d.q" not in ods

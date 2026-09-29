@@ -148,6 +148,9 @@ class Pr08Discharge:
         Content of the comment file.
     files : dict of str to str
         SHA-256 of each file read, keyed by kind (``"0d"`` ...).
+    verification : dict of str to str
+        Per kind, ``"pinned"`` (checked against a known hash) or
+        ``"unverified"`` (downloaded without one); empty for a local read.
     """
 
     machine: str
@@ -157,6 +160,7 @@ class Pr08Discharge:
     two_d: dict[str, UFileSignal]
     comments: str = ""
     files: dict[str, str] = field(default_factory=dict)
+    verification: dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- UFILE reader
@@ -282,7 +286,10 @@ def read_pr08_0d(path: str | os.PathLike[str]) -> pd.DataFrame:
     # holds only identifiers; the first line with a number or a missing-string
     # marker starts the values (a value such as 'D3D' alone looks like a name).
     def fields(line: str) -> list[str]:
-        return [line[i:i + 11].strip() for i in range(0, len(line), 11) if line[i:i + 11].strip()]
+        # A blank cell inside a line is a value (missing), not a gap to skip;
+        # only the padding after the last field is dropped.
+        cells = [line[i:i + 11].strip() for i in range(0, len(line.rstrip()), 11)]
+        return cells
 
     def is_value_line(line: str) -> bool:
         return any(
@@ -290,7 +297,7 @@ def read_pr08_0d(path: str | os.PathLike[str]) -> pd.DataFrame:
         )
 
     split = next((i for i, line in enumerate(lines) if is_value_line(line)), len(lines))
-    names = [token for line in lines[:split] for token in fields(line)]
+    names = [token for line in lines[:split] for token in fields(line) if token]
     values = [token for line in lines[split:] for token in fields(line)]
     if not names or len(values) % len(names):
         raise ValueError(f"{path}: {len(names)} names but {len(values)} values")
@@ -370,8 +377,10 @@ def fetch_pr08(
         Hashes by kind (``"0d"``, ``"1d"``, ``"2d"``, ``"com"``); default
         ``None`` uses :data:`PR08_PINNED` [str].
     allow_unpinned : bool, optional
-        Accept a discharge with no pinned hashes, recording (not checking) the
-        hashes of what was downloaded; default ``False`` [bool].
+        Accept files with no known hash -- all of them for an unpinned
+        discharge, or the kinds a partial ``sha256`` leaves out -- recording
+        (not checking) their hashes and marking them ``"unverified"`` in the
+        provenance; default ``False`` [bool].
     timeout : float, optional
         Network timeout per file, default 120 [s].
 
@@ -383,54 +392,63 @@ def fetch_pr08(
     Raises
     ------
     KeyError
-        No hashes are known and ``allow_unpinned`` is false.
+        A file has no known hash and ``allow_unpinned`` is false.
     vaft.data.public.FetchError
         The upstream was unreachable.
     vaft.data.public.ChecksumError
         A file does not match its pinned hash.
     """
+    from ._fetch import _download
+
     machine, shot = str(machine).lower(), str(shot)
-    pins = sha256 if sha256 is not None else PR08_PINNED.get((machine, shot))
-    if pins is None and not allow_unpinned:
+    pins = dict(sha256 if sha256 is not None else PR08_PINNED.get((machine, shot), {}))
+    unpinned = [kind for kind in PR08_KINDS if kind not in pins]
+    if unpinned and not allow_unpinned:
         raise KeyError(
-            f"No pinned hashes for PR08 {machine} {shot}; pass sha256= or allow_unpinned=True"
+            f"No hash for PR08 {machine} {shot} files {unpinned}; pass sha256= or allow_unpinned=True"
         )
     directory = cache_dir(cache) / "pr08" / machine / shot
+    verification: dict[str, str] = {}
     for kind in PR08_KINDS:
         name = f"pr08_{machine}_{shot}_{kind}.dat"
         url = f"{PR08_BASE_URL}/{machine}/{shot}/{name}"
-        if pins is not None and kind in pins:
+        if kind in pins:
             fetch(url, sha256=pins[kind], filename=name, cache=directory, timeout=timeout)
+            verification[kind] = "pinned"
             continue
         target = directory / name
         if target.exists():
+            warnings.warn(f"PR08 {name}: using a cached file that no hash verifies", stacklevel=2)
+            verification[kind] = "unverified"
             continue
         try:
-            from ._fetch import _download
-
             _download(url, target, timeout, sha256=None)
-        except FetchError:
+        except FetchError as exc:
             if kind == "2d":
                 raise
-        else:
-            warnings.warn(f"PR08 {name} was downloaded without a pinned hash", stacklevel=2)
-    return read_pr08(directory, machine, shot)
+            warnings.warn(f"PR08 {name} could not be downloaded ({exc}); continuing without it", stacklevel=2)
+            continue
+        warnings.warn(f"PR08 {name} was downloaded without a known hash", stacklevel=2)
+        verification[kind] = "unverified"
+    discharge = read_pr08(directory, machine, shot)
+    discharge.verification = verification
+    return discharge
 
 
 # ---------------------------------------------------------------- ODS mapping
 
-#: (PR08 2D name, block, relative path, factor, note).  Block keys name the
-#: ODS target group; each block's first entry is its reference grid.
+#: (PR08 2D name, relative path, factor, note).  Each block's grid and time
+#: base are its reference signal's; see :func:`_fill_all`.
 _CORE_PROFILES = (
     ("TE", "electrons.temperature", 1.0, ""),
     ("NE", "electrons.density", 1.0, ""),
     ("TI", "ion.0.temperature", 1.0, "main ion (ion.0), species from 0D PGASA/PGASZ"),
     ("NM1", "ion.0.density", 1.0, "main ion density"),
     ("ZEFFR", "zeff", 1.0, ""),
-    ("CURTOT", "j_total", 1.0, "+ve anti-clockwise from above, as IMAS COCOS 11 phi"),
+    ("CURTOT", "j_tor", 1.0, "toroidal current density, +ve anti-clockwise from above = IMAS phi"),
 )
+#: Q is handled separately: PR08 gives |q|, IMAS COCOS 11 wants sign(Ip B0) |q|.
 _EQUILIBRIUM = (
-    ("Q", "profiles_1d.q", 1.0, ""),
     ("VOLUME", "profiles_1d.volume", 1.0, ""),
     ("SURF", "profiles_1d.surface", 1.0, ""),
     ("KAPPAR", "profiles_1d.elongation", 1.0, ""),
@@ -480,7 +498,7 @@ _UNMAPPED_REASONS = {
     "QWALLI": "wall-neutral loss: no agreed core_sources identifier",
     "SWALL": "wall-neutral particle source: no agreed core_sources identifier",
     "SNBII": "ion particle source needs a species; not assumed",
-    "CURNBI": "beam-driven current: parallel vs toroidal not stated",
+    "CURNBI": "beam-driven toroidal current density; core_sources carries j_parallel only",
     "NFAST1": "fast-ion density: species in 0D NFAST1A/Z, not mapped yet",
     "NFAST2": "fast-ion density: species in 0D NFAST2A/Z, not mapped yet",
     "NM2": "second ion density: species in 0D, not mapped yet",
@@ -489,16 +507,26 @@ _UNMAPPED_REASONS = {
 }
 
 
+@dataclass
+class _Outcome:
+    """Where one PR08 variable went: slices written out of slices targeted."""
+
+    target: str
+    written: int
+    total: int
+    reason: str = ""
+
+
 def _same(a: np.ndarray, b: np.ndarray) -> bool:
     return a.shape == b.shape and np.allclose(a, b, rtol=0.0, atol=1e-6)
 
 
-def _provenance(ods, ids: str, entries: list[tuple[str, str]], discharge: Pr08Discharge) -> None:
+def _provenance(ods, ids: str, entries: list[tuple[str, str]], discharge: Pr08Discharge, extra: str = "") -> None:
     ods[f"{ids}.ids_properties.homogeneous_time"] = 1
     ods[f"{ids}.ids_properties.comment"] = (
         f"Mapped by vaft.data.public.itpa_profile from ITPA PR08 {discharge.machine} "
         f"{discharge.shot}; {PR08_REFERENCE}.  No interpolation: only signals on the "
-        "reference radial grid of each block are mapped."
+        "reference radial grid and time base of each block are mapped." + extra
     )
     for i, (path, source) in enumerate(entries):
         ods[f"{ids}.ids_properties.provenance.node.{i}.path"] = path
@@ -506,7 +534,8 @@ def _provenance(ods, ids: str, entries: list[tuple[str, str]], discharge: Pr08Di
 
 
 def _source_label(discharge: Pr08Discharge, signal: UFileSignal) -> str:
-    return f"PR08 {discharge.machine}/{discharge.shot} {signal.name} [{signal.unit}]"
+    unit = signal.unit or "unit not given in the file"
+    return f"PR08 {discharge.machine}/{discharge.shot} {signal.name} [{unit}]"
 
 
 def _zero_d_value(discharge: Pr08Discharge, name: str):
@@ -517,12 +546,37 @@ def _zero_d_value(discharge: Pr08Discharge, name: str):
     return unique[0] if len(unique) == 1 else None
 
 
-def _map(discharge: Pr08Discharge, ods) -> dict[str, str]:
-    """Fill ``ods``; return {PR08 variable: 'ids:path'} for what was mapped."""
-    two_d = discharge.two_d
-    mapped: dict[str, str] = {}
-    _fill_all(discharge, ods, two_d, mapped)
-    return mapped
+def _at_times(signal: UFileSignal | None, times: np.ndarray) -> np.ndarray:
+    """1D values at exactly matching times; NaN where there is no sample."""
+    out = np.full(len(times), np.nan)
+    if signal is None:
+        return out
+    for index, time in enumerate(times):
+        match = np.flatnonzero(np.isclose(signal.time, time, rtol=0.0, atol=1e-6))
+        if match.size == 1:
+            out[index] = signal.values[match[0]]
+    return out
+
+
+def _sign_check(discharge: Pr08Discharge, name: str, values: np.ndarray) -> str:
+    """Empty if every finite 1D sample and the 0D value(s) share one sign."""
+    signs = set(np.sign(values[np.isfinite(values) & (values != 0.0)]).tolist())
+    if not discharge.zero_d.empty and name in discharge.zero_d.columns:
+        zero = pd.to_numeric(discharge.zero_d[name], errors="coerce").to_numpy(float)
+        zero_signs = set(np.sign(zero[np.isfinite(zero) & (zero != 0.0)]).tolist())
+        if signs and zero_signs and signs != zero_signs:
+            return f"{name} sign differs between the 0D ({sorted(zero_signs)}) and 1D ({sorted(signs)}) files"
+        signs |= zero_signs
+    if len(signs) > 1:
+        return f"{name} changes sign within the release"
+    return ""
+
+
+def _map(discharge: Pr08Discharge, ods) -> dict[str, _Outcome]:
+    """Fill ``ods``; return what happened to each PR08 variable that was targeted."""
+    outcomes: dict[str, _Outcome] = {}
+    _fill_all(discharge, ods, discharge.two_d, outcomes)
+    return outcomes
 
 
 def pr08_to_omas(discharge: Pr08Discharge, ods=None):
@@ -546,11 +600,17 @@ def pr08_to_omas(discharge: Pr08Discharge, ods=None):
     Notes
     -----
     * Times are the 2D file's; each block keeps only its reference signal's
-      times, and 1D scalars are attached only at exactly matching times.
+      grid and times, and 1D scalars are attached only at exactly matching
+      times.
     * ``rho_tor_norm`` is PR08's ``sqrt(Phi/Phi_a)`` unchanged.
     * Error bars (``<NAME>EB`` on the same grid) go to ``*_error_upper``.
     * Signs: ``QRAD`` enters the ``radiation`` source negative; ``QEI``
-      leaves the electrons and enters the ions.
+      leaves the electrons and enters the ions; ``CURTOT`` is the toroidal
+      current density (``j_tor``), anti-clockwise positive as IMAS phi.
+    * PR08 ``Q`` is ``|q|``.  It is written as ``sign(Ip) sign(B0) |q|``
+      (COCOS 11) only where ``Ip`` and ``B0`` are known at that time and their
+      signs agree across the 0D and 1D files; otherwise q, ``ip`` and ``b0``
+      are left out and the coverage table says why.
     * The equilibrium carries profiles only -- no psi, no boundary, no 2D
       field; it is not a reconstruction.
     """
@@ -562,7 +622,7 @@ def pr08_to_omas(discharge: Pr08Discharge, ods=None):
     return ods
 
 
-def _fill_all(discharge: Pr08Discharge, ods, two_d, mapped) -> None:
+def _fill_all(discharge: Pr08Discharge, ods, two_d, outcomes: dict[str, _Outcome]) -> None:
     ods["dataset_description.data_entry.machine"] = discharge.machine.upper()
     try:
         ods["dataset_description.data_entry.pulse"] = int(discharge.shot)
@@ -575,111 +635,177 @@ def _fill_all(discharge: Pr08Discharge, ods, two_d, mapped) -> None:
         "not raw measurements.  Comment file follows.\n" + discharge.comments
     )
 
-    def fill(block, prefix_of, reference_name, entries, ids):
-        """Write entries on the reference signal's grid; return provenance."""
-        reference = two_d.get(reference_name)
-        if reference is None:
-            return []
+    def fill(block, prefix_of, reference, entries, ids):
+        """Write entries on the reference signal's grid and times; return provenance."""
         provenance = []
+        n = len(reference.time)
         for t_index, time in enumerate(reference.time):
             prefix = prefix_of(t_index)
             ods[f"{prefix}.{block}"] = reference.rho
             ods[f"{prefix}.time"] = float(time)
         for name, path, factor, _note in entries:
             signal = two_d.get(name)
-            if signal is None or not _same(signal.rho, reference.rho) or not _same(signal.time, reference.time):
+            if signal is None:
                 continue
-            for t_index in range(len(reference.time)):
-                prefix = prefix_of(t_index)
-                ods[f"{prefix}.{path}"] = factor * signal.values[t_index]
-                error = two_d.get(f"{name}EB")
-                if error is not None and _same(error.rho, reference.rho) and _same(error.time, reference.time):
-                    ods[f"{prefix}.{path}_error_upper"] = np.abs(error.values[t_index])
-            mapped.setdefault(name, f"{ids}:{path}")
+            if not (_same(signal.rho, reference.rho) and _same(signal.time, reference.time)):
+                outcomes.setdefault(name, _Outcome(
+                    f"{ids}:{path}", 0, n,
+                    f"on a different radial grid or time base than {reference.name}; not interpolated",
+                ))
+                continue
+            for t_index in range(n):
+                ods[f"{prefix_of(t_index)}.{path}"] = factor * signal.values[t_index]
+            outcomes[name] = _Outcome(f"{ids}:{path}", n, n)
             provenance.append((f"{prefix_of(':')}.{path}", _source_label(discharge, signal)))
+            error = two_d.get(f"{name}EB")
+            if error is not None:
+                if _same(error.rho, reference.rho) and _same(error.time, reference.time):
+                    for t_index in range(n):
+                        ods[f"{prefix_of(t_index)}.{path}_error_upper"] = np.abs(error.values[t_index])
+                    outcomes[error.name] = _Outcome(f"{ids}:{path}_error_upper", n, n)
+                    provenance.append((f"{prefix_of(':')}.{path}_error_upper", _source_label(discharge, error)))
+                else:
+                    outcomes[error.name] = _Outcome(
+                        f"{ids}:{path}_error_upper", 0, n, "error bar on a different grid than its value; not interpolated"
+                    )
         return provenance
 
     # core_profiles
     reference = two_d.get("TE") or two_d.get("NE")
     if reference is not None:
-        ref_name = reference.name
         ods["core_profiles.time"] = reference.time
         provenance = fill(
-            "grid.rho_tor_norm", lambda t: f"core_profiles.profiles_1d.{t}", ref_name, _CORE_PROFILES, "core_profiles"
+            "grid.rho_tor_norm", lambda t: f"core_profiles.profiles_1d.{t}", reference, _CORE_PROFILES, "core_profiles"
         )
+        extra = ""
         mass, charge = _zero_d_value(discharge, "PGASA"), _zero_d_value(discharge, "PGASZ")
-        if "TI" in mapped or "NM1" in mapped:
+        if (outcomes.get("TI") and outcomes["TI"].written) or (outcomes.get("NM1") and outcomes["NM1"].written):
+            known = mass is not None and charge is not None and np.isfinite(mass) and np.isfinite(charge)
+            integer = known and abs(mass - round(mass)) < 1e-6
+            label = _ION_SPECIES.get((int(round(mass)), int(round(charge)))) if integer else None
             for t_index in range(len(reference.time)):
                 prefix = f"core_profiles.profiles_1d.{t_index}.ion.0"
-                if mass is not None and np.isfinite(mass):
+                if known:
                     ods[f"{prefix}.element.0.a"] = float(mass)
-                if charge is not None and np.isfinite(charge):
                     ods[f"{prefix}.element.0.z_n"] = float(charge)
                     ods[f"{prefix}.z_ion"] = float(charge)
-                label = _ION_SPECIES.get((int(round(mass)), int(round(charge)))) if (
-                    mass is not None and charge is not None and np.isfinite(mass) and np.isfinite(charge)
-                    and abs(mass - round(mass)) < 1e-6
-                ) else None
                 if label:
                     ods[f"{prefix}.label"] = label
-        _provenance(ods, "core_profiles", provenance, discharge)
+            if known and not integer:
+                extra = (
+                    f"  ion.0 is a lumped main-ion pseudo-element: A = PGASA = {mass:g} is an "
+                    "effective mass of a fuel mixture, so no species label is given."
+                )
+        _provenance(ods, "core_profiles", provenance, discharge, extra)
 
-    # equilibrium profiles subset
+    # equilibrium profiles subset, on Q's grid
     if "Q" in two_d:
         q = two_d["Q"]
+        n = len(q.time)
         ods["equilibrium.time"] = q.time
         provenance = fill(
-            "profiles_1d.rho_tor_norm", lambda t: f"equilibrium.time_slice.{t}", "Q", _EQUILIBRIUM, "equilibrium"
+            "profiles_1d.rho_tor_norm", lambda t: f"equilibrium.time_slice.{t}", q, _EQUILIBRIUM, "equilibrium"
         )
-        # 1D scalars only at exactly matching times; no interpolation.
-        for name, path in (("IP", "global_quantities.ip"),):
-            signal = discharge.one_d.get(name)
-            if signal is None:
-                continue
-            for t_index, time in enumerate(q.time):
-                match = np.flatnonzero(np.isclose(signal.time, time, rtol=0.0, atol=1e-6))
-                if match.size != 1 or not np.isfinite(signal.values[match[0]]):
-                    continue
-                ods[f"equilibrium.time_slice.{t_index}.{path}"] = float(signal.values[match[0]])
-                mapped.setdefault(name, f"equilibrium:{path}")
+        ip = _at_times(discharge.one_d.get("IP"), q.time)
+        bt = _at_times(discharge.one_d.get("BT"), q.time)
+        problems = [p for p in (_sign_check(discharge, "IP", ip), _sign_check(discharge, "BT", bt)) if p]
+        if problems:
+            reason = "; ".join(problems) + "; current direction ambiguous, so sign-bearing quantities are left out"
+            outcomes["Q"] = _Outcome("equilibrium:profiles_1d.q", 0, n, reason)
+            outcomes["IP"] = _Outcome("equilibrium:global_quantities.ip", 0, n, reason)
+            outcomes["BT"] = _Outcome("equilibrium:vacuum_toroidal_field.b0", 0, n, reason)
+        else:
+            written = 0
+            for t_index in range(n):
+                if np.isfinite(ip[t_index]):
+                    ods[f"equilibrium.time_slice.{t_index}.global_quantities.ip"] = float(ip[t_index])
+                if np.isfinite(ip[t_index]) and np.isfinite(bt[t_index]):
+                    magnitude = np.abs(q.values[t_index]) if np.nanmin(q.values) >= 0.0 else q.values[t_index]
+                    ods[f"equilibrium.time_slice.{t_index}.profiles_1d.q"] = (
+                        np.sign(ip[t_index]) * np.sign(bt[t_index]) * magnitude
+                    )
+                    written += 1
+            missing = "no IP/BT sample at some equilibrium times"
+            outcomes["Q"] = _Outcome("equilibrium:profiles_1d.q", written, n, "" if written == n else missing)
+            outcomes["IP"] = _Outcome(
+                "equilibrium:global_quantities.ip", int(np.isfinite(ip).sum()), n,
+                "" if np.isfinite(ip).all() else missing,
+            )
+            if written:
+                provenance.append((
+                    "equilibrium.time_slice.:.profiles_1d.q",
+                    _source_label(discharge, q) + " as |q|, signed sign(IP) sign(BT) (COCOS 11)",
+                ))
+            if np.isfinite(ip).any():
+                provenance.append(("equilibrium.time_slice.:.global_quantities.ip",
+                                   _source_label(discharge, discharge.one_d["IP"])))
+            rgeo = _zero_d_value(discharge, "RGEO")
+            if np.isfinite(bt).all() and rgeo is not None and np.isfinite(rgeo):
+                # PR08 0D follows the H-mode database conventions: BT at RGEO.
+                ods["equilibrium.vacuum_toroidal_field.b0"] = bt
+                ods["equilibrium.vacuum_toroidal_field.r0"] = float(rgeo)
+                outcomes["BT"] = _Outcome("equilibrium:vacuum_toroidal_field.b0", n, n)
+                provenance.append(("equilibrium.vacuum_toroidal_field.b0",
+                                   _source_label(discharge, discharge.one_d["BT"]) + " at 0D RGEO"))
+            elif "BT" in discharge.one_d:
+                outcomes["BT"] = _Outcome(
+                    "equilibrium:vacuum_toroidal_field.b0", 0, n,
+                    "b0 needs a BT sample at every equilibrium time and a single 0D RGEO",
+                )
         _provenance(ods, "equilibrium", provenance, discharge)
 
-    # core_sources
+    # core_sources: one time base for the IDS
     source_index = 0
     source_provenance = []
+    source_time = None
     for (index, label), entries in _SOURCES.items():
         present = [entry for entry in entries if entry[0] in two_d]
         if not present:
             continue
-        reference_name = present[0][0]
-        prefix_root = f"core_sources.source.{source_index}"
-        ods[f"{prefix_root}.identifier.index"] = index
-        ods[f"{prefix_root}.identifier.name"] = label
+        reference = two_d[present[0][0]]
+        if source_time is None:
+            source_time = reference.time
+        elif not _same(reference.time, source_time):
+            for name, path, _factor, _note in present:
+                outcomes[name] = _Outcome(
+                    f"core_sources:{path}", 0, len(reference.time),
+                    "source on a different time base than core_sources.time; not interpolated",
+                )
+            continue
+        root = f"core_sources.source.{source_index}"
+        ods[f"{root}.identifier.index"] = index
+        ods[f"{root}.identifier.name"] = label
         source_provenance += fill(
-            "grid.rho_tor_norm", lambda t, r=prefix_root: f"{r}.profiles_1d.{t}", reference_name, present, "core_sources"
+            "grid.rho_tor_norm", lambda t, r=root: f"{r}.profiles_1d.{t}", reference, present, "core_sources"
         )
         source_index += 1
     if source_index:
-        ods["core_sources.time"] = two_d[next(e[0] for es in _SOURCES.values() for e in es if e[0] in two_d)].time
+        ods["core_sources.time"] = source_time
         _provenance(ods, "core_sources", source_provenance, discharge)
 
     # core_transport
     if "CHIE" in two_d or "CHII" in two_d:
-        reference_name = "CHIE" if "CHIE" in two_d else "CHII"
+        reference = two_d["CHIE"] if "CHIE" in two_d else two_d["CHII"]
         root = "core_transport.model.0"
-        ods[f"{root}.identifier.index"] = 4
-        ods[f"{root}.identifier.name"] = "database"
-        ods[f"{root}.identifier.description"] = "ITPA PR08 power-balance diffusivities"
-        ods["core_transport.time"] = two_d[reference_name].time
+        ods[f"{root}.identifier.index"] = 2
+        ods[f"{root}.identifier.name"] = "transport_solver"
+        ods[f"{root}.identifier.description"] = (
+            "Interpretive power-balance diffusivities from the contributor's analysis "
+            "(e.g. TRANSP), as released in ITPA PR08"
+        )
+        ods["core_transport.time"] = reference.time
         provenance = fill(
-            "grid_d.rho_tor_norm", lambda t: f"{root}.profiles_1d.{t}", reference_name, _TRANSPORT, "core_transport"
+            "grid_d.rho_tor_norm", lambda t: f"{root}.profiles_1d.{t}", reference, _TRANSPORT, "core_transport"
         )
         _provenance(ods, "core_transport", provenance, discharge)
 
     ods["dataset_description.ids_properties.provenance.node.0.path"] = "dataset_description"
     ods["dataset_description.ids_properties.provenance.node.0.sources"] = [
         f"{PR08_BASE_URL}/{discharge.machine}/{discharge.shot}/ sha256 "
-        + ", ".join(f"{kind}={digest[:12]}" for kind, digest in sorted(discharge.files.items()))
+        + ", ".join(
+            f"{kind}={digest[:12]} ({discharge.verification.get(kind, 'read locally')})"
+            for kind, digest in sorted(discharge.files.items())
+        )
     ]
 
 
@@ -695,31 +821,34 @@ def pr08_mapping_coverage(discharge: Pr08Discharge) -> pd.DataFrame:
     -------
     pandas.DataFrame
         One row per 2D and 1D variable: ``kind``, ``variable``, ``unit``,
-        ``n_rho``, ``status`` (``mapped`` / ``unmapped``), ``target`` and
-        ``reason`` [table].
+        ``n_rho``, ``status`` (``mapped``, ``partial`` or ``unmapped``),
+        ``target``, ``slices`` (``"written/targeted"``) and ``reason`` [table].
     """
     import omas
 
-    mapped = _map(discharge, omas.ODS())
-    known_targets = {e[0] for e in _CORE_PROFILES + _EQUILIBRIUM + _TRANSPORT} | {
-        e[0] for entries in _SOURCES.values() for e in entries
-    }
+    outcomes = _map(discharge, omas.ODS())
     rows = []
     for kind, signals in (("2d", discharge.two_d), ("1d", discharge.one_d)):
         for name, signal in signals.items():
-            if name in mapped:
-                status, target, reason = "mapped", mapped[name], ""
-            elif name.endswith("EB"):
-                base = name[:-2]
-                status, target = ("mapped", f"{mapped[base]}_error_upper") if base in mapped else ("unmapped", "")
-                reason = "" if base in mapped else "error bar of an unmapped or off-grid variable"
-            elif name.endswith("XP"):
-                status, target, reason = "unmapped", "", "measured profile on its own grid; not interpolated"
-            elif name in known_targets:
-                status, target, reason = "unmapped", "", "on a different radial grid or time base than its block; not interpolated"
+            outcome = outcomes.get(name)
+            if outcome is not None:
+                if outcome.written == outcome.total and outcome.total:
+                    status = "mapped"
+                elif outcome.written:
+                    status = "partial"
+                else:
+                    status = "unmapped"
+                target, slices, reason = outcome.target, f"{outcome.written}/{outcome.total}", outcome.reason
             else:
-                status, target = "unmapped", ""
-                reason = _UNMAPPED_REASONS.get(name, "no mapping defined" if kind == "2d" else "global trace; see 0D/summary")
+                target, slices, status = "", "", "unmapped"
+                if name.endswith("XP") or name.endswith("XPEB"):
+                    reason = "measured profile on its own grid; not interpolated"
+                elif name.endswith("EB"):
+                    reason = "error bar of an unmapped variable"
+                else:
+                    reason = _UNMAPPED_REASONS.get(
+                        name, "no mapping defined" if kind == "2d" else "global trace; see the 0D file"
+                    )
             rows.append({
                 "kind": kind,
                 "variable": name,
@@ -727,6 +856,7 @@ def pr08_mapping_coverage(discharge: Pr08Discharge) -> pd.DataFrame:
                 "n_rho": None if signal.rho is None else len(signal.rho),
                 "status": status,
                 "target": target,
+                "slices": slices,
                 "reason": reason,
             })
-    return pd.DataFrame(rows, columns=["kind", "variable", "unit", "n_rho", "status", "target", "reason"])
+    return pd.DataFrame(rows, columns=["kind", "variable", "unit", "n_rho", "status", "target", "slices", "reason"])
