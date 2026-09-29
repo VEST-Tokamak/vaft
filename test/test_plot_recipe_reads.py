@@ -55,6 +55,9 @@ NEUTRAL = frozenset({
     # issue #952: the constraint weights and the pressure-weight scan read
     # through vaft.omas.efit_quality, which reads through vaft.ods_access.
     "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
+    # issue #1099: the FLARE connection-length map reads plasma_initiation
+    # through the accessor only.
+    "field_line_topology_field_connection_length",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode",
