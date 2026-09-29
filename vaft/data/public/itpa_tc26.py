@@ -18,19 +18,28 @@ What the file says, and what it does not
 * Every record is an L-H transition point: ``PHASE = 'LH'`` is L-mode just
   before the transition, taken at ``TIME``; ``LHTIME`` is the transition time.
   Other labels (``LHblip``, ``LHL``, ``LHLH``, ``LHST``, ``LHLHST``; AUG only)
-  are carried verbatim in ``source_phase``; on some of them ``LHTIME`` precedes
-  ``TIME`` by up to 3.75 s, which is kept as given.
-* Missing values are written three ways: blank, ``-`` (``ZEFF``,
-  ``PRADCORE``) and ``-1e-08`` (``LHTIME``, ``FRACNMIN``).  All become missing.
+  are carried verbatim in ``source_phase``.  On 14 rows ``LHTIME`` precedes
+  ``TIME`` (by up to 0.877 s), 9 of them labelled plain ``'LH'``; there the
+  conditions were taken after the recorded transition.  This is kept as given
+  and visible as ``transition_time_s < time_s``.
+* Missing values are written four ways: blank, ``-`` (``ZEFF``, ``PRADCORE``),
+  ``-1e-08`` (``LHTIME``, ``FRACNMIN``) and ``0`` in quantities that cannot be
+  zero -- ``ZEFF`` (all AUG rows, 25 C-Mod rows; Z_eff >= 1), ``PRADCORE``
+  (29 AUG rows; the smallest AUG value otherwise is 38.8 kW) and ``FRACNMIN``
+  (all JET rows).  All become missing.  ``PFLOSS = 0`` is a real zero (no
+  beam) and is kept.
 * ``PLTH`` is the loss power the TC-26 scalings use.  The definition file says
-  ``PLTH = PL - PFLOSS``; that holds on every JET and C-Mod row but not on 192
-  AUG rows (``PFLOSS = 0`` there while ``PLTH`` differs from ``PL`` by up to
-  49 %).  ``PLTH`` is carried as given.
+  ``PLTH = PL - PFLOSS``; that holds (to 0.1 %) on every JET and C-Mod row but
+  not on 192 AUG rows (67 of them with ``PFLOSS = 0``), where ``PLTH`` differs
+  by up to 49 % of itself -- 98 % of ``PL`` -- and exceeds ``PL`` on 74 rows,
+  which a loss-corrected power cannot.  ``PLTH`` is carried as given, being
+  what the paper's scalings were fitted on.
 * ``PRADCORE`` is core radiation (to r/a = 0.95 for JET/AUG, 1 for C-Mod), not
   total radiation.
 * ``PGASA`` is the effective fuel mass (1-3, fractional for mixtures, incl.
   JET T and DT).  ``main_ion`` is 'H', 'D' or 'T' within 0.05 of 1, 2, 3 and
-  'mixed' otherwise.
+  'mixed' otherwise; ``hydrogenic_mix`` then says from the mass alone which
+  range it lies in ('M_eff 1-2' or 'M_eff 2-3') -- it cannot tell H/D from H/T.
 * ``FRACNMIN`` is not defined in the definition file; it is not mapped.  The
   density branch is 'high' where ``SELEC2024 = 1`` ("selected for the TC-26
   high density branch scalings") and missing otherwise -- a row outside the
@@ -75,6 +84,9 @@ TC26_REFERENCE = (
 
 _MISSING_TEXT = {"", "-"}
 _SENTINEL = -1.0e-08
+#: Quantities that are strictly positive physically; a non-positive value is
+#: the release's "not measured".
+_POSITIVE_ONLY = ("ZEFF", "PRADCORE", "FRACNMIN")
 _STRING_COLUMNS = (
     "TOK", "PHASE", "CONFIG", "WALMAT", "DIVMAT", "LIMMAT", "EVAP", "DIVNAME",
     "DIVCON", "AUXHEAT",
@@ -88,15 +100,16 @@ _NUMERIC_COLUMNS = (
 TC26_DEFINITIONS: dict[str, str] = {
     "p_loss_definition": (
         "TC-26 PLTH, loss power corrected for charge-exchange and unconfined-orbit "
-        "losses, as given (stated PLTH = PL - PFLOSS does not hold on 192 AUG rows); "
-        "radiation NOT subtracted"
+        "losses, as given (stated PLTH = PL - PFLOSS fails on 192 AUG rows, PLTH > PL "
+        "on 74); radiation NOT subtracted"
     ),
     "p_rad_definition": "TC-26 PRADCORE: CORE radiation from bolometry (r/a < 0.95 JET/AUG, < 1 C-Mod), not total",
     "b_t_definition": "TC-26 BT: vacuum toroidal field at RGEO",
     "n_e_definition": "TC-26 NEL: line-averaged density from a core interferometer chord",
     "isotope_definition": (
         "main_ion from TC-26 PGASA (effective fuel mass): 'H'/'D'/'T' within 0.05 "
-        "of 1/2/3, else 'mixed'; main_ion_mass_amu = PGASA; no concentrations given"
+        "of 1/2/3, else 'mixed' with hydrogenic_mix 'M_eff 1-2' or 'M_eff 2-3' "
+        "(mass only); main_ion_mass_amu = PGASA; no concentrations given"
     ),
     "density_branch_definition": (
         "'high' where TC-26 SELEC2024 = 1 (selected for the high-density-branch "
@@ -119,8 +132,9 @@ def read_tc26(path: str | os.PathLike[str]) -> pd.DataFrame:
     -------
     pandas.DataFrame
         One row per source row, source names and units (SI), strings stripped,
-        blank / ``-`` / ``-1e-08`` as missing.  ``attrs["sha256"]`` holds the
-        file hash [table].
+        blank / ``-`` / ``-1e-08`` and non-positive ``ZEFF``, ``PRADCORE``,
+        ``FRACNMIN`` as missing.  ``attrs["sha256"]`` holds the file hash
+        [table].
 
     Raises
     ------
@@ -151,7 +165,10 @@ def read_tc26(path: str | os.PathLike[str]) -> pd.DataFrame:
     for column in _NUMERIC_COLUMNS:
         text = raw[column].where(~raw[column].isin(_MISSING_TEXT))
         values = pd.to_numeric(text, errors="raise").astype(float)
-        raw[column] = values.where(values != _SENTINEL)
+        values = values.where(values != _SENTINEL)
+        if column in _POSITIVE_ONLY:
+            values = values.where(~(values <= 0.0))
+        raw[column] = values
     raw.attrs["sha256"] = digest
     return raw
 
@@ -160,9 +177,16 @@ def _main_ion(mass: float):
     if not np.isfinite(mass):
         return None
     for label, number in (("H", 1.0), ("D", 2.0), ("T", 3.0)):
-        if abs(mass - number) <= 0.05:
+        # Rounded first so 1.05, 1.95 and 2.95 are all inside the band.
+        if round(abs(mass - number), 6) <= 0.05:
             return label
     return "mixed"
+
+
+def _mass_range(mass: float, label):
+    if label != "mixed":
+        return None
+    return "M_eff 1-2" if mass < 2.0 else "M_eff 2-3"
 
 
 def normalize_tc26(raw: pd.DataFrame, *, release: str | None = None) -> pd.DataFrame:
@@ -234,7 +258,7 @@ def normalize_tc26(raw: pd.DataFrame, *, release: str | None = None) -> pd.DataF
     table["main_ion_mass_amu"] = mass
     table["hydrogen_fraction"] = np.nan
     table["helium_fraction"] = np.nan
-    table["hydrogenic_mix"] = None
+    table["hydrogenic_mix"] = [_mass_range(m, label) for m, label in zip(mass, table["main_ion"])]
     table["divertor_configuration"] = "LSN"
     table["divertor_closure"] = [
         " ".join(part for part in (name, config) if part) or None

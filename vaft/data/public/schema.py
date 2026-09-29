@@ -102,7 +102,7 @@ TRANSITION_COLUMNS: dict[str, ColumnSpec] = {
     "machine": ColumnSpec("str", "Canonical machine name, upper case (e.g. 'TCV')."),
     "record_id": ColumnSpec("str", "Unique '<machine>:<shot>:<time_ms>' identifier, time_ms from time_s."),
     "shot": ColumnSpec("int", "Discharge number."),
-    "time_s": ColumnSpec("s", "Time the record's conditions were taken at (e.g. L-mode just before the transition)."),
+    "time_s": ColumnSpec("s", "Time the record's conditions were taken at: normally L-mode just before the transition (TC-26), or the transition time itself (TCV); a source may place it after transition_time_s, kept as given."),
     "transition_time_s": ColumnSpec("s", "Time of the transition itself; missing when it was not observed or not given."),
     # event semantics
     "transition": ColumnSpec("str", "Event name, e.g. 'L_to_H'.  'H_to_L' is a different event, not its inverse."),
@@ -128,7 +128,7 @@ TRANSITION_COLUMNS: dict[str, ColumnSpec] = {
     "main_ion_mass_amu": ColumnSpec("amu", "Main ion mass number."),
     "hydrogen_fraction": ColumnSpec("1", "Hydrogen concentration of the hydrogenic ions, as the source measures it (see isotope_definition)."),
     "helium_fraction": ColumnSpec("1", "Helium concentration estimate as the source gives it (see isotope_definition)."),
-    "hydrogenic_mix": ColumnSpec("str", "'D-dominated', 'H-dominated' or 'mixed H/D' for hydrogenic plasmas; missing otherwise (see isotope_definition)."),
+    "hydrogenic_mix": ColumnSpec("str", "Hydrogenic mixture class, e.g. 'D-dominated', 'H-dominated', 'mixed H/D' (TCV, from cH) or 'M_eff 1-2' / 'M_eff 2-3' (TC-26, from mass); missing otherwise (see isotope_definition)."),
     "divertor_configuration": ColumnSpec("str", "Magnetic configuration (e.g. 'LSN', 'USN', 'DN', 'limited'); missing when the source does not say."),
     "divertor_closure": ColumnSpec("str", "Divertor geometry / closure / baffling as the source labels it."),
     "grad_b_drift": ColumnSpec("str", "Ion grad-B drift direction: 'toward_x_point' or 'away_from_x_point'; missing when not given."),

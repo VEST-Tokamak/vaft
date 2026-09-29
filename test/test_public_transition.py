@@ -52,6 +52,8 @@ _VARIABLES = {
     "BAFFLES": ([0.0, 33.0, 0.0], ""),
     "nRyter": ([0.34, 0.60, np.nan], "10^20 m^-3"),
     "PLH": ([0.273, 0.40, 0.30], "MW"),
+    "PNBI": ([4.2e5, 7.0e5, 0.0], "W"),
+    "PECH": ([0.0, 3.0e5, 0.0], "W"),
 }
 
 
@@ -111,7 +113,11 @@ def test_units_become_si_and_signs_become_magnitudes(tcv):
     assert first["n_e_line_avg_m3"] == pytest.approx(3.5e19)
     assert first["surface_area_m2"] == pytest.approx(10.25)
     assert "radiation NOT subtracted" in first["p_loss_definition"]
+    assert "PTOTMW_A - DWMHDMW_A" in first["p_loss_definition"]
     assert "source-computed" in first["p_lh_scaling_definition"]
+    assert first["p_rad_W"] == pytest.approx(1.2e5)
+    # Derived from which heating powers are non-zero.
+    assert tcv["auxiliary_heating"].tolist() == ["NB", "NBEC", "NONE"]
 
 
 def test_every_row_names_its_event_and_a_miss_is_not_a_different_event(tcv):
@@ -121,10 +127,39 @@ def test_every_row_names_its_event_and_a_miss_is_not_a_different_event(tcv):
     assert tcv["transition_observed"].tolist() == [True, False, True]
 
 
-def test_thl_does_not_become_an_h_to_l_event(tcv):
-    # THL is filled on no-transition rows too, so it is not event evidence.
-    assert len(tcv) == 3
-    assert "H_to_L" not in set(tcv["transition"])
+def test_event_time_is_time_not_thl(tcv):
+    # Every quantity belongs to TIME; THL has no conditions of its own and
+    # must not leak into the record time.
+    assert tcv["time_s"].tolist() == pytest.approx([0.910, 2.03, 1.5])
+    # The transition time exists only where the transition was observed.
+    assert tcv["transition_time_s"].iloc[0] == pytest.approx(0.910)
+    assert np.isnan(tcv["transition_time_s"].iloc[1])
+    assert tcv["source_phase"].tolist() == ["ILH=1", "ILH=0", "ILH=1"]
+
+
+def test_a_blank_ilh_is_unknown_not_a_miss(tmp_path):
+    variables = dict(_VARIABLES, ILH=([1.0, np.nan, 0.0], ""))
+    with pytest.raises(ValueError, match="ILH"):
+        normalize_tcv_lh(read_tcv_lh(_write(tmp_path / "blank.h5", variables)))
+
+
+def test_a_record_without_shot_or_time_is_rejected(tmp_path):
+    variables = dict(_VARIABLES, TIME=([0.9, np.nan, 1.5], "s"))
+    with pytest.raises(ValueError, match="SHOT and a TIME"):
+        normalize_tcv_lh(read_tcv_lh(_write(tmp_path / "notime.h5", variables)))
+
+
+def test_hydrogenic_mixture_uses_the_authors_cuts(tmp_path):
+    # A=2 with cH=0.5 is fuelled with D but is not a D plasma.
+    variables = dict(_VARIABLES, cH=([0.5, 0.9, 0.0], ""))
+    table = normalize_tcv_lh(read_tcv_lh(_write(tmp_path / "mix.h5", variables)))
+    assert table["main_ion"].tolist()[:2] == ["D", "H"]
+    assert table["hydrogenic_mix"].tolist()[:2] == ["mixed H/D", "H-dominated"]
+    assert pd.isna(table["hydrogenic_mix"].iloc[2])  # not hydrogenic
+
+
+def test_default_hydrogenic_mix(tcv):
+    assert tcv["hydrogenic_mix"].tolist()[:2] == ["D-dominated", "H-dominated"]
 
 
 def test_ilh_outside_zero_one_is_rejected(tmp_path):
@@ -235,8 +270,13 @@ def test_margin_plot_refuses_a_margin_from_another_table(tcv):
     reason="set VAFT_NETWORK_TESTS=1 to fetch the real TCV L-H release from Zenodo",
 )
 def test_real_tcv_release_matches_its_own_martin_scaling():
-    table = normalize_tcv_lh(read_tcv_lh())
+    raw = read_tcv_lh()
+    table = normalize_tcv_lh(raw)
     assert len(table) == 92
+    # p_loss_definition claims PLMW = PTOTMW_A - DWMHDMW_A exactly.
+    rebuilt = raw["PTOTMW_A"] - raw["DWMHDMW_A"]
+    finite = raw["PLMW"].notna()
+    assert np.allclose(raw.loc[finite, "PLMW"], rebuilt[finite], rtol=1e-9, atol=0.0)
     assert int(table["transition_observed"].sum()) == 84
     # The source's PLH is Martin 2008 in 1e20 m^-3, T and m^2: recomputing it
     # from the normalised SI columns pins the density, field and area units.
@@ -262,9 +302,13 @@ _TC26_ROWS = (
     "JET,98969,50.135, LH,2.5,2.88557,0.951136,1.63504,138.813, SN(B),1, Be, W, Be, NONE,"
     "-2.98159,-2459620,3.66265,3.13E+19,-, MkII-HD,2880580,2822080,58506,287455, V5,0,"
     "50.17,NB,0",
-    # AUG: back transition phase, LHTIME sentinel, '-' PRADCORE
+    # AUG: back transition phase, LHTIME sentinel, '-' PRADCORE, ZEFF 0 as
+    # every real AUG row has it
     "AUG,26359,3.75, LHL,1.0,1.65,0.5,1.7,43.0, SN(L),1, W, W, W, BOR,-2.5,1.0e6,4.0,"
-    "4.0e19,1.3, DIV-IIc,1.5e6,1.3e6,0,-, STANDARD,0.9,-1.00E-08,EC,1",
+    "4.0e19,0, DIV-IIc,1.5e6,1.3e6,0,-, STANDARD,0.9,-1.00E-08,EC,1",
+    # AUG plain 'LH' whose LHTIME precedes TIME; PRADCORE 0; mass on the band edge
+    "AUG,35241,2.27, LH,1.95,1.65,0.5,1.7,43.0, SN(L),1, W, W, W, BOR,-2.5,1.0e6,4.0,"
+    "3.0e19,0, DIV-III,1.2e6,1.2e6,0,0, STANDARD,0,2.057,NB,0",
 )
 
 
@@ -283,10 +327,29 @@ def tc26(tmp_path):
 
 
 def test_tc26_missing_markers_become_missing(tc26):
-    by_machine = tc26.set_index("machine")
-    assert np.isnan(by_machine.loc["JET", "z_eff"])          # '-'
-    assert np.isnan(by_machine.loc["AUG", "p_rad_W"])        # '-'
-    assert np.isnan(by_machine.loc["AUG", "transition_time_s"])  # -1e-08
+    rows = tc26.set_index("record_id")
+    assert np.isnan(rows.loc["JET:98969:50135", "z_eff"])          # '-'
+    assert np.isnan(rows.loc["AUG:26359:3750", "p_rad_W"])         # '-'
+    assert np.isnan(rows.loc["AUG:26359:3750", "transition_time_s"])  # -1e-08
+    assert np.isnan(rows.loc["AUG:26359:3750", "z_eff"])           # 0: Z_eff >= 1
+    assert np.isnan(rows.loc["AUG:35241:2270", "p_rad_W"])         # 0: not measured
+
+
+def test_tc26_a_real_zero_stays_zero(tmp_path):
+    # PFLOSS = 0 means no beam loss; it is data, not a marker.  Only quantities
+    # that cannot be zero (ZEFF, PRADCORE, FRACNMIN) treat 0 as missing.
+    from vaft.data.public import read_tc26
+
+    with pytest.warns(UserWarning):
+        raw = read_tc26(_tc26_csv(tmp_path / "zero.csv"))
+    assert raw["PFLOSS"].tolist()[0] == 0.0
+    assert pd.isna(raw["FRACNMIN"].iloc[3])  # 0 -> missing
+
+
+def test_tc26_conditions_may_follow_the_recorded_transition(tc26):
+    row = tc26.set_index("record_id").loc["AUG:35241:2270"]
+    assert row["source_phase"] == "LH"
+    assert row["transition_time_s"] < row["time_s"]  # kept as given
 
 
 def test_tc26_times_keep_conditions_and_transition_apart(tc26):
@@ -309,8 +372,8 @@ def test_tc26_is_si_with_magnitudes_and_core_radiation(tc26):
 def test_tc26_event_labels_and_selection(tc26):
     assert set(tc26["transition"]) == {"L_to_H"}
     assert tc26["transition_observed"].all()
-    assert tc26["source_phase"].tolist() == ["LH", "LH", "LHL"]
-    assert tc26["selected"].tolist() == [True, False, True]
+    assert tc26["source_phase"].tolist() == ["LH", "LH", "LHL", "LH"]
+    assert tc26["selected"].tolist() == [True, False, True, False]
     # Outside the selection is not thereby low-density.
     assert tc26["density_branch"].iloc[0] == "high"
     assert pd.isna(tc26["density_branch"].iloc[1])
@@ -318,8 +381,11 @@ def test_tc26_event_labels_and_selection(tc26):
 
 
 def test_tc26_mass_maps_to_species_or_mixed(tc26):
-    assert tc26["main_ion"].tolist() == ["D", "mixed", "H"]
+    # 1.95 sits on the band edge and must count as D.
+    assert tc26["main_ion"].tolist() == ["D", "mixed", "H", "D"]
     assert tc26["main_ion_mass_amu"].iloc[1] == pytest.approx(2.5)
+    assert tc26["hydrogenic_mix"].iloc[1] == "M_eff 2-3"
+    assert pd.isna(tc26["hydrogenic_mix"].iloc[0])
 
 
 def test_tc26_has_no_threshold_so_no_margin(tc26):
@@ -332,7 +398,7 @@ def test_tc26_exact_duplicates_drop_and_conflicts_raise(tmp_path):
 
     with pytest.warns(UserWarning):
         raw = read_tc26(_tc26_csv(tmp_path / "dup.csv", _TC26_ROWS + (_TC26_ROWS[1],)))
-    assert len(normalize_tc26(raw)) == 3
+    assert len(normalize_tc26(raw)) == 4
     conflicting = _TC26_ROWS[1].replace("2880580", "2880581")
     with pytest.warns(UserWarning):
         raw = read_tc26(_tc26_csv(tmp_path / "clash.csv", _TC26_ROWS + (conflicting,)))
@@ -368,3 +434,8 @@ def test_real_tc26_release():
         table = normalize_tc26(read_tc26(os.environ["VAFT_TC26_CSV"]))
     assert len(table) == 688  # 689 rows, one exact duplicate
     assert table.groupby("machine")["selected"].sum().to_dict() == {"AUG": 162, "CMOD": 59, "JET": 260}
+    # The traps of this release, pinned.
+    assert table.loc[table.machine == "AUG", "z_eff"].isna().all()     # ZEFF 0
+    assert not (table["p_rad_W"] == 0.0).any()                         # PRADCORE 0
+    assert int((table["transition_time_s"] < table["time_s"]).sum()) == 14
+    assert table["main_ion"].value_counts().to_dict() == {"D": 520, "mixed": 77, "H": 75, "T": 16}

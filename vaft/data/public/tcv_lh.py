@@ -37,6 +37,10 @@ What the file says, and what it does not
   source's helium concentration estimate.
 * The file gives no magnetic configuration, so ``divertor_configuration`` is
   missing; ``BAFFLES`` is carried as ``divertor_closure``.
+* ``auxiliary_heating`` is derived: 'NB' where ``PNBI > 0``, 'EC' where
+  ``PECH > 0`` (combined 'NBEC'), 'NONE' when both are zero.
+* ``time_s`` and ``transition_time_s`` are both ``TIME`` here: the conditions
+  are those at the transition, not in the L-mode just before it as in TC-26.
 """
 
 from __future__ import annotations
@@ -89,7 +93,7 @@ TCV_LH_DEFINITIONS: dict[str, str] = {
 _REQUIRED = (
     "SHOT", "TIME", "ILH", "PLMW", "PRAD", "IP", "BT", "NEL", "SPLASMA", "RGEO",
     "AMIN", "KAPPA", "DELTA", "Q95", "ZEFF", "A", "Z", "cH", "cHe", "BAFFLES",
-    "nRyter", "PLH",
+    "nRyter", "PLH", "PNBI", "PECH",
 )
 
 
@@ -214,7 +218,13 @@ def normalize_tcv_lh(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd
     table["p_rad_W"] = col("PRAD")
     table["grad_b_drift"] = None
     table["first_wall"] = None
-    table["auxiliary_heating"] = None
+    # Heating labels in TC-26's vocabulary, from which powers are non-zero.
+    nbi, ech = col("PNBI"), col("PECH")
+    table["auxiliary_heating"] = [
+        ("".join(tag for tag, power in (("NB", n), ("EC", e)) if power > 0.0) or "NONE")
+        if np.isfinite(n) and np.isfinite(e) else None
+        for n, e in zip(nbi, ech)
+    ]
     table["i_p_A"] = np.abs(col("IP")) * 1e6
     table["b_t_T"] = np.abs(col("BT"))
     table["n_e_line_avg_m3"] = n_e
