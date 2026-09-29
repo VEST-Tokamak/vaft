@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: sol · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: waves · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/waves/" />
+            <link rel="prev" href="/vaft/develop/reference/formula/ntv/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+            <link rel="next" href="/vaft/develop/reference/formula/sol/" />
         
     </head>
     <body>
@@ -250,7 +250,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: sol</a>
+                            <a href="." >Formula reference: waves</a>
                         
                     </h1>
                 </div>
@@ -276,79 +276,73 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_sol">Formula reference: sol</h1>
+                        <h1 id="/reference/formula/Formula_reference_waves">Formula reference: waves</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.sol, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.waves, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sol</code>:
-<strong>8</strong> public functions. Each entry is what
-<code>vaft.formula.describe("sol.&lt;name&gt;")</code> prints.
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.waves</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.formula.describe("waves.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
-<p>The small, independently testable relations of the open-field-line edge
-(issue #951, first slice): the ion sound speed with its closure explicit,
-the sheath-limited particle flux and ion saturation current, the sheath heat
-transmission, Spitzer–Harm parallel electron conduction and its integrated
-two-point form, and the Eich target heat-flux profile with its integral width.
-Reduced models built on them (the two-point model with loss factors,
-equilibrium-derived connection length and flux expansion, named lambda_q
-scalings) are later slices of #951; SOLPS-ITER and UEDGE are not replaced.</p>
+<p>The canonical cold-plasma dielectric model and what follows from it
+directly: the Stix parameters $R, L, S, D, P$, the Appleton–Hartree-type
+roots $n^2$ of the oblique dispersion relation $An^4 - Bn^2 + C = 0$, the
+perpendicular O and X modes, the CMA coordinates $(X, Y)$, and a sign
+classification of $n^2$. Warm-plasma, kinetic and damping effects, ray
+tracing and full-wave solutions are out of scope; they build on this layer.</p>
 
 <div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>T_e, T_i</td><td>electron and ion temperature</td><td class="ref-unit">eV</td></tr>
-  <tr><td>n</td><td>density at the location named (target t, upstream u) [m^-3]</td><td class="ref-unit"></td></tr>
-  <tr><td>m_i</td><td>ion mass</td><td class="ref-unit">kg</td></tr>
-  <tr><td>Z</td><td>ion charge number</td><td class="ref-unit">-</td></tr>
-  <tr><td>c_s</td><td>ion sound speed</td><td class="ref-unit">m/s</td></tr>
-  <tr><td>gamma</td><td>sheath heat-transmission coefficient</td><td class="ref-unit">-</td></tr>
-  <tr><td>q_par</td><td>parallel heat-flux density</td><td class="ref-unit">W/m^2</td></tr>
-  <tr><td>L_par</td><td>parallel connection length between named endpoints [m]</td><td class="ref-unit"></td></tr>
-  <tr><td>kappa_0</td><td>Spitzer--Harm coefficient, kappa = kappa_0 T_e^{5/2} [W/(m eV^{7/2})]</td><td class="ref-unit"></td></tr>
-  <tr><td>lambda_q</td><td>heat-flux decay length at the outer midplane (Eich fit); lambda_q f_x at the target [m]</td><td class="ref-unit"></td></tr>
-  <tr><td>S</td><td>Gaussian spreading width at the target, not mapped [m]</td><td class="ref-unit"></td></tr>
-  <tr><td>lambda_int</td><td>integral power width, mapped to the outer midplane [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>omega</td><td>wave angular frequency, positive</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>omega_p</td><td>plasma frequency of a species</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>Omega</td><td>signed cyclotron frequency q B / m</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>n, q, m</td><td>species density, signed charge, mass</td><td class="ref-unit">m^-3, C, kg</td></tr>
+  <tr><td>B</td><td>magnetic-field magnitude</td><td class="ref-unit">T</td></tr>
+  <tr><td>R, L, S, D, P</td><td>Stix parameters</td><td class="ref-unit">-</td></tr>
+  <tr><td>theta</td><td>angle between k and B</td><td class="ref-unit">rad</td></tr>
+  <tr><td>n2</td><td>refractive index squared, c^2 k^2 / omega^2</td><td class="ref-unit">-</td></tr>
+  <tr><td>X, Y</td><td>omega_pe^2 / omega^2 and |Omega_e| / omega</td><td class="ref-unit">-</td></tr>
   </tbody>
 </table></div>
 
-<p>Temperatures in electronvolts; “upstream” is the outer-midplane SOL unless a
-function says otherwise, and is not the separatrix. The parallel coordinate
-$s$ runs from upstream to the target. Every coefficient that is a model
-choice – $\gamma$, $\gamma_i$, $\kappa_0$ – is an input or a documented,
-overridable keyword, never a hidden constant.</p>
+<p>Cyclotron frequencies are <em>signed</em> (<code class="language-plaintext highlighter-rouge">vaft.formula.particle.gyrofrequency</code>):
+$\Omega_e &lt; 0$. Stix’s $R$ and $L$ are then the right- and left-hand
+circularly polarised waves with respect to $\mathbf B_0 \parallel \hat z$,
+and $R$ has the electron cyclotron resonance. The CMA coordinate $Y$ is the
+positive magnitude $|\Omega_e|/\omega$. Species arrays carry the species
+along axis 0; frequencies and field broadcast against the rest.</p>
 
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr data-ref-row="eich_integral_width"><td><a href="#eich_integral_width"><code>eich_integral_width</code></a></td><td>Integral power width of the Eich profile, mapped to the outer midplane.
- <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="eich_target_heat_flux_profile"><td><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></td><td>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.
+  <tr data-ref-row="cma_coordinates"><td><a href="#cma_coordinates"><code>cma_coordinates</code></a></td><td>CMA-diagram coordinates of a cold electron plasma.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="ion_saturation_current_density"><td><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></td><td>Ion saturation current density collected by a negatively biased surface.
+  <tr data-ref-row="cold_plasma_refractive_index_squared"><td><a href="#cold_plasma_refractive_index_squared"><code>cold_plasma_refractive_index_squared</code></a></td><td>The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="ion_sound_speed"><td><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></td><td>Ion sound speed with the charge and the ion closure explicit.
+  <tr data-ref-row="dielectric_tensor"><td><a href="#dielectric_tensor"><code>dielectric_tensor</code></a></td><td>Cold-plasma dielectric tensor in the frame with $\mathbf B_0 \parallel \hat z$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="sheath_heat_flux"><td><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></td><td>Parallel heat-flux density into the target sheath.
+  <tr data-ref-row="perpendicular_refractive_index_squared"><td><a href="#perpendicular_refractive_index_squared"><code>perpendicular_refractive_index_squared</code></a></td><td>Ordinary and extraordinary modes at perpendicular propagation.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="sheath_particle_flux"><td><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></td><td>Particle flux density into the target sheath.
+  <tr data-ref-row="plasma_frequency"><td><a href="#plasma_frequency"><code>plasma_frequency</code></a></td><td>Plasma frequency of one species.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="spitzer_harm_parallel_heat_flux"><td><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></td><td>Classical parallel electron heat conduction.
+  <tr data-ref-row="propagation_regime"><td><a href="#propagation_regime"><code>propagation_regime</code></a></td><td>Classify a refractive index squared: propagating, evanescent, cutoff or resonance.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="two_point_upstream_temperature"><td><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></td><td>Upstream temperature from conduction at constant parallel heat flux.
+  <tr data-ref-row="stix_parameters"><td><a href="#stix_parameters"><code>stix_parameters</code></a></td><td>Stix parameters of a cold, multi-species, magnetised plasma.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -357,116 +351,31 @@ overridable keyword, never a hidden constant.</p>
 
 <div class="ref-entries">
 
-  <section class="ref-entry" id="eich_integral_width" data-catalog="formula">
+  <section class="ref-entry" id="cma_coordinates" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#eich_integral_width"><code>eich_integral_width</code></a></h3>
-<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L458" title="vaft/formula/sol.py, line 458">source</a>
-</header>
-    <pre class="ref-signature"><code>eich_integral_width(lambda_q, S, *, flux_expansion=1.0)</code></pre>
-
-    <p>Integral power width of the Eich profile, mapped to the outer midplane.</p>
-
-\[\lambda_\mathrm{int} \simeq \lambda_q + 1.64\,S/f_x\]
-
-    <div class="ref-table-wrap"><table class="ref-table">
-  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody class="ref-params">
-  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
-</td></tr>
-  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
-</td></tr>
-  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target, positive.</p>
-</td></tr>
-  </tbody>
-  <tbody class="ref-returns">
-  <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda_\mathrm{int}$ at the outer midplane.</p>
-</td></tr>
-  </tbody>
-</table></div>
-
-    <div class="ref-callout ref-callout-convention">
-      <p class="ref-label">Convention</p>
-
-      <p>Integral width $\int(q - q_\mathrm{bg})\,ds / (q_\mathrm{peak} f_x)$ with
-$s$ along the target, i.e. mapped to the midplane; 1.64 is
-Makowski’s fit to the exact integral of the Eich profile, accurate to a
-few per cent over the fitted range, so this is an approximation, not a
-definition.</p>
-
-    </div>
-
-    <div class="ref-callout ref-callout-raises">
-<p class="ref-label">Raises</p>
-<ul class="ref-raises">
-  <li><code>ValueError</code> A non-positive input.
-</li>
-</ul>
-</div>
-
-    <details class="ref-more">
-      <summary>Physical interpretation · Validity · References</summary>
-
-      <h4 class="ref-label no_toc">Physical interpretation</h4>
-
-      <p>The width over which the target actually receives the power: the
-engineering quantity for peak loading, $q_\mathrm{peak} \approx
-P/(2\pi R\,\lambda_\mathrm{int} f_x)$.</p>
-
-      <h4 class="ref-label no_toc">Validity</h4>
-
-      <p>Empirical fit. Makowski et al. (2012), over the $S/\lambda_q$ range of
-the multi-machine database.</p>
-
-      <h4 class="ref-label no_toc">References</h4>
-
-      <ol class="ref-cites">
-  <li>M. A. Makowski et al., Phys. Plasmas 19 (2012) 056122.
-</li>
-  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
-</li>
-</ol>
-
-    </details>
-
-  </section>
-
-  <section class="ref-entry" id="eich_target_heat_flux_profile" data-catalog="formula">
-    <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#cma_coordinates"><code>cma_coordinates</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L390" title="vaft/formula/sol.py, line 390">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L379" title="vaft/formula/waves.py, line 379">source</a>
 </header>
-    <pre class="ref-signature"><code>eich_target_heat_flux_profile(s, q0, lambda_q, S, *, s0=0.0, q_bg=0.0, flux_expansion=1.0)</code></pre>
+    <pre class="ref-signature"><code>cma_coordinates(omega, n_e, B)</code></pre>
 
-    <p>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.</p>
+    <p>CMA-diagram coordinates of a cold electron plasma.</p>
 
-\[q(\bar s) = \frac{q_0}{2}\exp\!\left[\left(\frac{S}{2\lambda_q f_x}\right)^2
-  - \frac{\bar s}{\lambda_q f_x}\right]\mathrm{erfc}\!\left(\frac{S}{2\lambda_q f_x}
-  - \frac{\bar s}{S}\right) + q_\mathrm{bg},\qquad \bar s = s - s_0\]
+\[X = \frac{\omega_{pe}^2}{\omega^2},\qquad Y = \frac{|\Omega_e|}{\omega}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Coordinate along the target, increasing into the SOL.</p>
+  <tr><td><code>omega</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Wave angular frequency, positive.</p>
 </td></tr>
-  <tr><td><code>q0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Peak of the unspread exponential at the strike point.</p>
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, non-negative.</p>
 </td></tr>
-  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
-</td></tr>
-  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
-</td></tr>
-  <tr><td><code>s0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Strike-point position.</p>
-</td></tr>
-  <tr><td><code>q_bg</code></td><td class="ref-type">float</td><td class="ref-unit">W/m^2</td><td><p>Background heat flux.</p>
-</td></tr>
-  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target along <code class="language-plaintext highlighter-rouge">s</code>, positive.</p>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Heat-flux density at the target.</p>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of float or np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(X, Y)</code>, both non-negative.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -474,17 +383,17 @@ the multi-machine database.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>$\lambda_q$ is the <em>midplane</em> value and $f_x$ maps it to the target;
-$S$ is measured at the target. The profile is the exponential
-$q_0 e^{-\bar s/\lambda_q f_x}$ for $\bar s &gt; 0$ convolved with a
-Gaussian of width $S$: private-flux spreading, not a second exponential.</p>
+      <p>$Y$ is the positive magnitude $|\Omega_e|/\omega$, the usual CMA axis;
+<code class="language-plaintext highlighter-rouge">stix_parameters</code> uses the signed $\Omega_e$. For electrons only,
+$P = 1 - X$, $R = 1 - X/(1 - Y)$, $L = 1 - X/(1 + Y)$ and
+$S = 1 - X/(1 - Y^2)$.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">lambda_q</code>, <code class="language-plaintext highlighter-rouge">S</code> or <code class="language-plaintext highlighter-rouge">flux_expansion</code>.
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">omega</code> or a negative density.
 </li>
 </ul>
 </div>
@@ -494,16 +403,14 @@ Gaussian of width $S$: private-flux spreading, not a second exponential.</p>
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>What IR thermography and target probes fit: $\lambda_q$ is set upstream,
-$S$ by diffusion in the divertor leg, and the peak heat flux falls as
-$S$ grows at fixed $\lambda_q$.</p>
+      <p>A point $(X, Y)$ is a local plasma at one frequency: moving along a
+profile at fixed $\omega$ traces a curve in the CMA plane, and each
+boundary it crosses is a cutoff or resonance of some mode.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
-</li>
-  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 2-2.
 </li>
 </ol>
 
@@ -511,31 +418,35 @@ $S$ grows at fixed $\lambda_q$.</p>
 
   </section>
 
-  <section class="ref-entry" id="ion_saturation_current_density" data-catalog="formula">
+  <section class="ref-entry" id="cold_plasma_refractive_index_squared" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#cold_plasma_refractive_index_squared"><code>cold_plasma_refractive_index_squared</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L182" title="vaft/formula/sol.py, line 182">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L258" title="vaft/formula/waves.py, line 258">source</a>
 </header>
-    <pre class="ref-signature"><code>ion_saturation_current_density(n_i, c_s, *, Z=1.0)</code></pre>
+    <pre class="ref-signature"><code>cold_plasma_refractive_index_squared(R, L, P, theta)</code></pre>
 
-    <p>Ion saturation current density collected by a negatively biased surface.</p>
+    <p>The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.</p>
 
-\[j_\mathrm{sat} = Z e\,n_i\,c_s\]
+    <p>\(An^4 - Bn^2 + C = 0,\qquad n^2_\pm = \frac{B \pm F}{2A}\)
+\(A = S\sin^2\theta + P\cos^2\theta,\quad B = RL\sin^2\theta + PS(1 + \cos^2\theta),\quad C = PRL,\)
+\(F^2 = (RL - PS)^2\sin^4\theta + 4P^2D^2\cos^2\theta\)</p>
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>n_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $R$.</p>
 </td></tr>
-  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge.</p>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $L$.</p>
 </td></tr>
-  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+  <tr><td><code>P</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $P$.</p>
+</td></tr>
+  <tr><td><code>theta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Angle between $\mathbf k$ and $\mathbf B_0$.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A/m^2</td><td><p>$j_\mathrm{sat}$.</p>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of float or np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(n2_plus, n2_minus)</code> $= ((B + F)/2A,\ (B - F)/2A)$; where $A = 0$ (a resonance cone) one root is infinite and the other finite, $C/B$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -543,18 +454,22 @@ $S$ grows at fixed $\lambda_q$.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Sheath-edge density with Mach one. From the unperturbed density
-$n_\infty$ the presheath drop is $\tfrac12$ in Stangeby’s isothermal
-fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
-<code class="language-plaintext highlighter-rouge">vaft.process.langmuir</code> uses $e^{-1/2}$ with $T_i = 0$: pass
-<code class="language-plaintext highlighter-rouge">n_inf * np.exp(-0.5)</code> and <code class="language-plaintext highlighter-rouge">ion_sound_speed(T_e, 0, m_i)</code> to match it.</p>
+      <p>$F$ is written in Stix’s non-negative form, so $F^2 = B^2 - 4AC \ge 0$
+and both roots are real for real Stix parameters. The roots are
+evaluated as $q/A$ and $C/q$ with $q = (B + \mathrm{sign}(B)F)/2$, so the
+finite root stays accurate as $A \to 0$; in the degenerate parallel case
+$P = 0$ ($A = B = C = 0$) they are $R$ and $L$. The $\pm$ labels are
+the algebraic branches, not O/X or R/L: which physical mode a branch is
+changes across $A = 0$ and $\theta$, so name modes from a tracked root
+(<code class="language-plaintext highlighter-rouge">perpendicular_refractive_index_squared</code> at $\theta = \pi/2$; $R$
+and $L$ at $\theta = 0$).</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A negative density, a non-positive sound speed or charge.
+  <li><code>ValueError</code> A non-finite <code class="language-plaintext highlighter-rouge">theta</code>.
 </li>
 </ul>
 </div>
@@ -564,13 +479,14 @@ fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>What a Langmuir probe or divertor tile measures directly; with $T_e$
-from the I–V characteristic it gives the density.</p>
+      <p>$n^2 &gt; 0$ propagates, $n^2 &lt; 0$ is evanescent, $n^2 = 0$ is a cutoff
+(reflection) and $n^2 \to \infty$ a resonance (absorption, or mode
+conversion) – <code class="language-plaintext highlighter-rouge">propagation_regime</code>.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.6.
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-3.
 </li>
 </ol>
 
@@ -578,35 +494,31 @@ from the I–V characteristic it gives the density.</p>
 
   </section>
 
-  <section class="ref-entry" id="ion_sound_speed" data-catalog="formula">
+  <section class="ref-entry" id="dielectric_tensor" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#dielectric_tensor"><code>dielectric_tensor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L80" title="vaft/formula/sol.py, line 80">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L213" title="vaft/formula/waves.py, line 213">source</a>
 </header>
-    <pre class="ref-signature"><code>ion_sound_speed(T_e, T_i, m_i, *, Z=1.0, gamma_i=1.0)</code></pre>
+    <pre class="ref-signature"><code>dielectric_tensor(R, L, P)</code></pre>
 
-    <p>Ion sound speed with the charge and the ion closure explicit.</p>
+    <p>Cold-plasma dielectric tensor in the frame with $\mathbf B_0 \parallel \hat z$.</p>
 
-\[c_s = \sqrt{\frac{e\,(Z T_e + \gamma_i T_i)}{m_i}}\]
+\[\boldsymbol\epsilon = \begin{pmatrix} S &amp; -iD &amp; 0\\ iD &amp; S &amp; 0\\ 0 &amp; 0 &amp; P\end{pmatrix}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $R$.</p>
 </td></tr>
-  <tr><td><code>T_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Ion temperature, non-negative.</p>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $L$.</p>
 </td></tr>
-  <tr><td><code>m_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Ion mass, positive.</p>
-</td></tr>
-  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
-</td></tr>
-  <tr><td><code>gamma_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion adiabatic index: 1 isothermal, 3 one-dimensional adiabatic, 5/3 three-dimensional.</p>
+  <tr><td><code>P</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $P$.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$c_s$.</p>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Complex relative permittivity, shape <code class="language-plaintext highlighter-rouge">broadcast + (3, 3)</code>.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -614,18 +526,133 @@ from the I–V characteristic it gives the density.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Electrons isothermal. Stangeby’s working choice is $\gamma_i = 1$
-(isothermal ions); $\gamma_i = 3$ is the one-dimensional adiabatic,
-collisionless case. The choice moves $c_s$ by up to $\sqrt2$ at
-$T_i = T_e$, so it is a keyword, not a constant. <code class="language-plaintext highlighter-rouge">vaft.formula.stability.c_s_from_Te_Ti_mi</code> is the case
-$Z = \gamma_i = 1$ with temperatures in keV.</p>
+      <p>Fields $\propto e^{i(\mathbf k\cdot\mathbf x - \omega t)}$, $\hat z$ along
+$\mathbf B_0$; with the opposite time convention the off-diagonal signs
+flip. $S = (R + L)/2$, $D = (R - L)/2$ as <code class="language-plaintext highlighter-rouge">stix_parameters</code> returns them.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Hermitian for real Stix parameters: a collisionless cold plasma is
+lossless. The antisymmetric $\pm iD$ is the gyrotropy that makes the
+circular polarisations $R$ and $L$ the eigenmodes along $\mathbf B_0$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="perpendicular_refractive_index_squared" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#perpendicular_refractive_index_squared"><code>perpendicular_refractive_index_squared</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L335" title="vaft/formula/waves.py, line 335">source</a>
+</header>
+    <pre class="ref-signature"><code>perpendicular_refractive_index_squared(R, L, P)</code></pre>
+
+    <p>Ordinary and extraordinary modes at perpendicular propagation.</p>
+
+\[n_O^2 = P,\qquad n_X^2 = \frac{RL}{S}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $R$.</p>
+</td></tr>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $L$.</p>
+</td></tr>
+  <tr><td><code>P</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Stix $P$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of float or np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(n2_O, n2_X)</code>; $n_X^2$ is infinite at $S = 0$, the hybrid resonances.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\theta = \pi/2$: the O mode has $\mathbf E \parallel \mathbf B_0$ and
+feels only $P$; the X mode has $\mathbf E \perp \mathbf B_0$. These are
+the two roots of <code class="language-plaintext highlighter-rouge">cold_plasma_refractive_index_squared</code> at
+$\theta = \pi/2$, named by polarisation.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>O-mode cutoff: $P = 0$, $\omega = \omega_{pe}$ (with cold ions). X-mode
+cutoffs: $R = 0$ and $L = 0$; its resonance $S = 0$ is the upper (and
+lower) hybrid layer, reached from the high-field side or by tunnelling.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="plasma_frequency" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#plasma_frequency"><code>plasma_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L70" title="vaft/formula/waves.py, line 70">source</a>
+</header>
+    <pre class="ref-signature"><code>plasma_frequency(n, q, m)</code></pre>
+
+    <p>Plasma frequency of one species.</p>
+
+\[\omega_{ps} = \sqrt{\frac{n_sq_s^2}{\epsilon_0m_s}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Density, non-negative.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">C</td><td><p>Charge, either sign.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Mass, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>$\omega_{ps}$, non-negative.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>An angular frequency: divide by $2\pi$ for hertz ($f_{pe} \approx
+8.98\sqrt{n_e}$ Hz with $n_e$ in m$^{-3}$). The charge enters squared,
+so its sign does not matter here; it does in <code class="language-plaintext highlighter-rouge">stix_parameters</code>.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A negative temperature, a non-positive mass, charge or index.
+  <li><code>ValueError</code> A negative density, a non-positive mass, or a non-finite input.
 </li>
 </ul>
 </div>
@@ -635,13 +662,14 @@ $Z = \gamma_i = 1$ with temperatures in keV.</p>
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>The speed at which plasma flows into the sheath (Bohm): it sets the
-target particle flux and, with the sheath, the heat flux.</p>
+      <p>The frequency at which the species oscillates about a neutralising
+background when displaced; waves below $\omega_{pe}$ without a magnetic
+field cannot propagate.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.2.
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-2.
 </li>
 </ol>
 
@@ -649,33 +677,38 @@ target particle flux and, with the sheath, the heat flux.</p>
 
   </section>
 
-  <section class="ref-entry" id="sheath_heat_flux" data-catalog="formula">
+  <section class="ref-entry" id="propagation_regime" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#propagation_regime"><code>propagation_regime</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L228" title="vaft/formula/sol.py, line 228">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L428" title="vaft/formula/waves.py, line 428">source</a>
 </header>
-    <pre class="ref-signature"><code>sheath_heat_flux(gamma, n_t, T_t, c_s)</code></pre>
+    <pre class="ref-signature"><code>propagation_regime(n2, *, atol=0.0)</code></pre>
 
-    <p>Parallel heat-flux density into the target sheath.</p>
+    <p>Classify a refractive index squared: propagating, evanescent, cutoff or resonance.</p>
 
-\[q_{\parallel,t} = \gamma\,n_t\,e T_t\,c_s\]
+\[n^2 &gt; 0: \text{propagating},\quad n^2 &lt; 0: \text{evanescent},\quad
+  n^2 = 0: \text{cutoff},\quad |n^2| \to \infty: \text{resonance}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>gamma</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Sheath heat-transmission coefficient, a model input (typically 7–8 for a floating D target with $T_i = T_e$), positive.</p>
+  <tr><td><code>n2</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Refractive index squared.</p>
 </td></tr>
-  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Sheath-edge density, non-negative.</p>
-</td></tr>
-  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Sheath-edge electron temperature, non-negative.</p>
-</td></tr>
-  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Sheath-edge sound speed.</p>
+  <tr><td><code>atol</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><table>
+  <tbody>
+    <tr>
+      <td>Half-width of the band $</td>
+      <td>n^2</td>
+      <td>\le$ <code class="language-plaintext highlighter-rouge">atol</code> counted as a cutoff; zero by default.</td>
+    </tr>
+  </tbody>
+</table>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,t}$.</p>
+  <tr><td>&mdash;</td><td class="ref-type">str or np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"propagating"</code>, <code class="language-plaintext highlighter-rouge">"evanescent"</code>, <code class="language-plaintext highlighter-rouge">"cutoff"</code> or <code class="language-plaintext highlighter-rouge">"resonance"</code> per element.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -683,32 +716,29 @@ target particle flux and, with the sheath, the heat flux.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>$\gamma$ is per electron temperature: it absorbs $T_i/T_e$, secondary
-emission and the sheath potential, so it is supplied, never a universal
-constant. Surface recombination energy is not included.</p>
+      <p>A resonance is $\pm\infty$ (as <code class="language-plaintext highlighter-rouge">cold_plasma_refractive_index_squared</code>
+returns at $A = 0$); a large finite $n^2$ near it is still
+“propagating” or “evanescent”. Cutoff and resonance are layers of zero
+width, so on a sampled profile they appear only through <code class="language-plaintext highlighter-rouge">atol</code> or as
+sign changes between samples.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">gamma</code> or <code class="language-plaintext highlighter-rouge">c_s</code>, a negative density or temperature.
+  <li><code>ValueError</code> A negative <code class="language-plaintext highlighter-rouge">atol</code>, or a NaN in <code class="language-plaintext highlighter-rouge">n2</code>.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Physical interpretation · References</summary>
-
-      <h4 class="ref-label no_toc">Physical interpretation</h4>
-
-      <p>The sheath lets through a fixed energy per particle, a few $T_e$: with
-the particle flux it closes the heat balance at the target.</p>
+      <summary>References</summary>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.8.
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-3.
 </li>
 </ol>
 
@@ -716,31 +746,46 @@ the particle flux it closes the heat balance at the target.</p>
 
   </section>
 
-  <section class="ref-entry" id="sheath_particle_flux" data-catalog="formula">
+  <section class="ref-entry" id="stix_parameters" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#stix_parameters"><code>stix_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L135" title="vaft/formula/sol.py, line 135">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/waves.py#L120" title="vaft/formula/waves.py, line 120">source</a>
 </header>
-    <pre class="ref-signature"><code>sheath_particle_flux(n_t, c_s, *, mach=1.0)</code></pre>
+    <pre class="ref-signature"><code>stix_parameters(omega, n, q, m, B)</code></pre>
 
-    <p>Particle flux density into the target sheath.</p>
+    <p>Stix parameters of a cold, multi-species, magnetised plasma.</p>
 
-\[\Gamma_t = M\,n_t\,c_s\]
+\[R = 1 - \sum_s\frac{\omega_{ps}^2}{\omega(\omega + \Omega_s)},\quad
+  L = 1 - \sum_s\frac{\omega_{ps}^2}{\omega(\omega - \Omega_s)},\quad
+  P = 1 - \sum_s\frac{\omega_{ps}^2}{\omega^2},\quad
+  S = \frac{R + L}{2},\quad D = \frac{R - L}{2}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
+  <tr><td><code>omega</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Wave angular frequency, positive, broadcast against the trailing axes</p>
 </td></tr>
-  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge (<code class="language-plaintext highlighter-rouge">ion_sound_speed</code>).</p>
+  <tr><td><code>n</code></td><td class="ref-type">array_like</td><td class="ref-unit">m^-3</td><td><p>Species densities along axis 0, non-negative.</p>
 </td></tr>
-  <tr><td><code>mach</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Parallel Mach number at the sheath edge; one is the Bohm criterion satisfied marginally.</p>
+  <tr><td><code>q</code></td><td class="ref-type">array_like</td><td class="ref-unit">C</td><td><p>Signed species charges, shape <code class="language-plaintext highlighter-rouge">(S,)</code>.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">array_like</td><td class="ref-unit">kg</td><td><p>Species masses, shape <code class="language-plaintext highlighter-rouge">(S,)</code>, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude, broadcast against the trailing axes.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_t$, along the field.</p>
+  <tr><td>&mdash;</td><td class="ref-type">StixParameters</td><td class="ref-unit">-</td><td><table>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">(R, L, S, D, P)</code>; infinite at a cyclotron resonance $\omega =</td>
+      <td>\Omega_s</td>
+      <td>$ of a species with non-zero density.</td>
+    </tr>
+  </tbody>
+</table>
 </td></tr>
   </tbody>
 </table></div>
@@ -748,83 +793,19 @@ the particle flux it closes the heat balance at the target.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Parallel to $\mathbf B$ at the sheath <em>edge</em>; the flux onto the target
-surface is this times $\sin$ of the field-line incidence angle. $n_t$
-is the sheath-edge density, not the upstream one.</p>
+      <p>$\Omega_s = q_sB/m_s$ is signed (<code class="language-plaintext highlighter-rouge">gyrofrequency</code>), $\Omega_e &lt; 0$, with
+$\mathbf B_0 \parallel \hat z$. The dielectric tensor is
+$\begin{pmatrix} S &amp; -iD &amp; 0\ iD &amp; S &amp; 0\ 0 &amp; 0 &amp; P\end{pmatrix}$ for
+fields $\propto e^{i(\mathbf k\cdot\mathbf x - \omega t)}$. With the
+signed $\Omega_e$, $R$ carries the electron cyclotron resonance and $L$
+the ion ones. $P$ does not depend on $B$.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A negative density, a non-positive sound speed or Mach number.
-</li>
-</ul>
-</div>
-
-    <details class="ref-more">
-      <summary>Physical interpretation · References</summary>
-
-      <h4 class="ref-label no_toc">Physical interpretation</h4>
-
-      <p>The sheath removes ions at the rate the presheath accelerates them to
-the sound speed: the target is a particle sink at fixed velocity.</p>
-
-      <h4 class="ref-label no_toc">References</h4>
-
-      <ol class="ref-cites">
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.3.
-</li>
-</ol>
-
-    </details>
-
-  </section>
-
-  <section class="ref-entry" id="spitzer_harm_parallel_heat_flux" data-catalog="formula">
-    <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></h3>
-<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L276" title="vaft/formula/sol.py, line 276">source</a>
-</header>
-    <pre class="ref-signature"><code>spitzer_harm_parallel_heat_flux(T_e, dT_ds, *, kappa_0=2000.0)</code></pre>
-
-    <p>Classical parallel electron heat conduction.</p>
-
-\[q_{\parallel,e} = -\kappa_0\,T_e^{5/2}\,\frac{dT_e}{ds}\]
-
-    <div class="ref-table-wrap"><table class="ref-table">
-  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody class="ref-params">
-  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
-</td></tr>
-  <tr><td><code>dT_ds</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV/m</td><td><p>Temperature gradient along $s$.</p>
-</td></tr>
-  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient; the default is Stangeby’s $Z = 1$ working value 2000.</p>
-</td></tr>
-  </tbody>
-  <tbody class="ref-returns">
-  <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,e}$, positive along $+s$.</p>
-</td></tr>
-  </tbody>
-</table></div>
-
-    <div class="ref-callout ref-callout-convention">
-      <p class="ref-label">Convention</p>
-
-      <p>$\kappa_0$ depends on $Z_\mathrm{eff}$ and on the Coulomb logarithm:
-$3.16\,nT\tau_e/m_e$ gives 2040 at $Z = 1$, $\ln\Lambda = 15$, and the
-default 2000 is Stangeby’s rounded working value; pass another for
-impure plasmas or another $\ln\Lambda$. The flux is along $+s$, upstream to target, when the
-temperature falls towards the target.</p>
-
-    </div>
-
-    <div class="ref-callout ref-callout-raises">
-<p class="ref-label">Raises</p>
-<ul class="ref-raises">
-  <li><code>ValueError</code> A negative temperature or a non-positive <code class="language-plaintext highlighter-rouge">kappa_0</code>.
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">omega</code>, species arrays of different length, or an invalid density or mass.
 </li>
 </ul>
 </div>
@@ -834,96 +815,21 @@ temperature falls towards the target.</p>
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>$\kappa \propto T_e^{5/2}$ makes a hot SOL nearly isothermal along the
-field and concentrates the temperature drop near the target.</p>
+      <p>$R$ and $L$ are the dielectric responses to right- and left-hand
+circular polarisation, $P$ to a field along $\mathbf B_0$, $S$ and $D$
+their mean and half-difference; every cold-plasma cutoff is a zero of
+$P$, $R$ or $L$, and every resonance a pole of $R$ or $L$ or a zero of
+$S$ (at perpendicular propagation).</p>
 
       <h4 class="ref-label no_toc">Assumptions</h4>
 
-      <p>Collisional (the electron mean free path short against the gradient
-length); flux limiting is not applied.</p>
+      <p>Cold species (thermal speeds negligible against $\omega/k$),
+collisionless, uniform on the wavelength, no equilibrium flows.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
-</li>
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 4.10.
-</li>
-</ol>
-
-    </details>
-
-  </section>
-
-  <section class="ref-entry" id="two_point_upstream_temperature" data-catalog="formula">
-    <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></h3>
-<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/5bad583764d41fa1057f0ff30da3d0bb36e0f8a8/vaft/formula/sol.py#L330" title="vaft/formula/sol.py, line 330">source</a>
-</header>
-    <pre class="ref-signature"><code>two_point_upstream_temperature(T_t, q_par, L_par, *, kappa_0=2000.0)</code></pre>
-
-    <p>Upstream temperature from conduction at constant parallel heat flux.</p>
-
-\[T_u = \left(T_t^{7/2} + \frac{7}{2}\,\frac{q_\parallel L_\parallel}{\kappa_0}\right)^{2/7}\]
-
-    <div class="ref-table-wrap"><table class="ref-table">
-  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody class="ref-params">
-  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Target (sheath-edge) electron temperature, non-negative.</p>
-</td></tr>
-  <tr><td><code>q_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Parallel heat-flux density, constant along the flux tube, non-negative.</p>
-</td></tr>
-  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Parallel connection length from upstream to the target, positive.</p>
-</td></tr>
-  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient.</p>
-</td></tr>
-  </tbody>
-  <tbody class="ref-returns">
-  <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>$T_u$.</p>
-</td></tr>
-  </tbody>
-</table></div>
-
-    <div class="ref-callout ref-callout-convention">
-      <p class="ref-label">Convention</p>
-
-      <p>The integral of <code class="language-plaintext highlighter-rouge">spitzer_harm_parallel_heat_flux</code> at constant
-$q_\parallel$ from the target ($s = L_\parallel$) back to upstream; the
-endpoints are the declared upstream point and the target. With a
-uniform source from the stagnation point ($q = 0$) to the target,
-$q_\parallel$ the target value and $L_\parallel$ measured from the
-stagnation point, the $\tfrac72$ becomes $\tfrac74$.</p>
-
-    </div>
-
-    <div class="ref-callout ref-callout-raises">
-<p class="ref-label">Raises</p>
-<ul class="ref-raises">
-  <li><code>ValueError</code> A negative temperature or heat flux, a non-positive length or <code class="language-plaintext highlighter-rouge">kappa_0</code>.
-</li>
-</ul>
-</div>
-
-    <details class="ref-more">
-      <summary>Physical interpretation · Assumptions · References</summary>
-
-      <h4 class="ref-label no_toc">Physical interpretation</h4>
-
-      <p>The two-point model’s conduction leg: $T_u$ depends on $q_\parallel L$
-only to the $2/7$ power, so upstream temperatures are robust while the
-target temperature is not.</p>
-
-      <h4 class="ref-label no_toc">Assumptions</h4>
-
-      <p>Conduction only, no convection or volumetric losses between the two
-points, $q_\parallel$ constant along the tube.</p>
-
-      <h4 class="ref-label no_toc">References</h4>
-
-      <ol class="ref-cites">
-  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 5.2.
+  <li>T. H. Stix, <em>Waves in Plasmas</em>, AIP (1992), Sec. 1-2.
 </li>
 </ol>
 
@@ -1011,13 +917,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/waves/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: waves">
+                        <a href="/vaft/develop/reference/formula/ntv/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: ntv">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                        <a href="/vaft/develop/reference/formula/sol/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: sol">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -1049,11 +955,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "VEST diagnostics and data availability",
+            "title": "Formula reference: sol",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/VEST_diagnostics.md",
-            "ref": "_guide/VEST_diagnostics.md",
+            "path": "_guide/Formula_reference_sol.md",
+            "ref": "_guide/Formula_reference_sol.md",
             "articles": []
         },
         
@@ -1145,8 +1051,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_sol.md",
-        "mtime": "2026-09-28 13:00:00 +0000",
+        "path": "_guide/Formula_reference_waves.md",
+        "mtime": "2026-09-28 11:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

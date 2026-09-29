@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c875701</code>. What is described
+  <code>5bad583</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -385,6 +385,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td>
     <td><code>vaft.formula.disruption</code></td><td>11</td><td>Disruption reference relations: thermal and current quench, induced field, runaway electrons.</td>
   </tr>
+  <tr id="waves">
+    <td><a href="/vaft/develop/reference/formula/waves/">waves</a></td>
+    <td><code>vaft.formula.waves</code></td><td>7</td><td>Cold-plasma waves: characteristic frequencies, Stix parameters, refractive indices, cutoffs and resonances.</td>
+  </tr>
   <tr id="ntv">
     <td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td>
     <td><code>vaft.formula.ntv</code></td><td>2</td><td>Neoclassical toroidal viscosity: the analytic relations of transport in broken toroidal symmetry.</td>
@@ -466,7 +470,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 352 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 359 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1172,6 +1176,20 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="thermal_quench_temperature disruption"><td><a href="/vaft/develop/reference/formula/disruption/#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Prescribed exponential thermal quench of the electron temperature.
 </td></tr>
+  <tr data-ref-row="cma_coordinates waves"><td><a href="/vaft/develop/reference/formula/waves/#cma_coordinates"><code>cma_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>CMA-diagram coordinates of a cold electron plasma.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cold_plasma_refractive_index_squared waves"><td><a href="/vaft/develop/reference/formula/waves/#cold_plasma_refractive_index_squared"><code>cold_plasma_refractive_index_squared</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dielectric_tensor waves"><td><a href="/vaft/develop/reference/formula/waves/#dielectric_tensor"><code>dielectric_tensor</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>Cold-plasma dielectric tensor in the frame with $\mathbf B_0 \parallel \hat z$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="perpendicular_refractive_index_squared waves"><td><a href="/vaft/develop/reference/formula/waves/#perpendicular_refractive_index_squared"><code>perpendicular_refractive_index_squared</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>Ordinary and extraordinary modes at perpendicular propagation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="plasma_frequency waves"><td><a href="/vaft/develop/reference/formula/waves/#plasma_frequency"><code>plasma_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>Plasma frequency of one species.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="propagation_regime waves"><td><a href="/vaft/develop/reference/formula/waves/#propagation_regime"><code>propagation_regime</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>Classify a refractive index squared: propagating, evanescent, cutoff or resonance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="stix_parameters waves"><td><a href="/vaft/develop/reference/formula/waves/#stix_parameters"><code>stix_parameters</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>Stix parameters of a cold, multi-species, magnetised plasma.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="nonambipolar_torque_density ntv"><td><a href="/vaft/develop/reference/formula/ntv/#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></td><td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td><td>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ntv_precession_frequency ntv"><td><a href="/vaft/develop/reference/formula/ntv/#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/ntv/">ntv</a></td><td>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
@@ -1496,7 +1514,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 03:07:05 +0000"
+        "time": "2026-09-29 04:07:28 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

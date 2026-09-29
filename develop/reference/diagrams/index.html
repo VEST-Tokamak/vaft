@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c875701</code>. What is described
+  <code>5bad583</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1871,15 +1871,51 @@ points and are not loaded; ADF11 stays in <code class="language-plaintext highli
   </tbody>
 </table>
 
-<h2 id="neoclassical-and-ntv-collisionality-regimes">Neoclassical and NTV collisionality regimes</h2>
+<h2 id="cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</h2>
 
-<p>Two different regime families that share the word “collisionality”. Axisymmetric neoclassical transport
-orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
-viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
-$\omega_d = \omega_E + \omega_B$:</p>
+<p>Each diagram is drawn from the cold-plasma equations in <code class="language-plaintext highlighter-rouge">vaft.formula.waves</code>:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">plasma_frequency</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">stix_parameters</code>, giving $R, L, S, D, P$ with the signed cyclotron frequency, so $\Omega_e &lt; 0$, and
+<code class="language-plaintext highlighter-rouge">dielectric_tensor</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">cold_plasma_refractive_index_squared</code>, the two roots of $An^4 - Bn^2 + C = 0$, in a cancellation-free
+form that keeps the finite root at a resonance cone;</li>
+  <li><code class="language-plaintext highlighter-rouge">perpendicular_refractive_index_squared</code>, giving $n_O^2 = P$ and $n_X^2 = RL/S$;</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td><code class="language-plaintext highlighter-rouge">cma_coordinates</code>, giving $X = \omega_{pe}^2/\omega^2$ and $Y =</td>
+          <td>\Omega_e</td>
+          <td>/\omega$;</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">propagation_regime</code>, which classifies propagating, evanescent, cutoff and resonance.</li>
+</ul>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Coulomb collisions -&gt; transit / bounce motion -&gt; nu_hat = qR nu/v -&gt; banana / plateau / Pfirsch-Schlueter
-3-D delta B + precession omega_d -&gt; 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -&gt; NTV torque
+<p>Boundaries are zeros or poles of the Stix parameters, located by bracketing the formulas; no closed form
+is typed into a drawing. The $\pm$ roots are algebraic branches, not mode names, so O/X and R/L are named
+only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons only, ions immobile:
+the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
+scope.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">o_mode_cutoff</span><span class="p">()</span>                                  <span class="c1"># n_O^2 = P, cutoff at omega_pe
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">x_mode_dispersion</span><span class="p">(</span><span class="n">omega_pe_over_omega_ce</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>    <span class="c1"># L, R cutoffs; upper-hybrid resonance
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">cma_diagram</span><span class="p">()</span>                                    <span class="c1"># P, R, L, S = 0 and Y = 1 in (X, Y)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">profile_propagation</span><span class="p">()</span>                            <span class="c1"># layers along an example midplane
+</span>
+<span class="c1">## Neoclassical and NTV collisionality regimes
+</span>
+<span class="n">Two</span> <span class="n">different</span> <span class="n">regime</span> <span class="n">families</span> <span class="n">that</span> <span class="n">share</span> <span class="n">the</span> <span class="n">word</span> <span class="sh">"</span><span class="s">collisionality</span><span class="sh">"</span><span class="p">.</span> <span class="n">Axisymmetric</span> <span class="n">neoclassical</span> <span class="n">transport</span>
+<span class="n">orders</span> <span class="n">the</span> <span class="n">collision</span> <span class="n">frequency</span> <span class="n">against</span> <span class="n">the</span> <span class="n">transit</span> <span class="ow">and</span> <span class="n">bounce</span> <span class="n">frequencies</span><span class="p">.</span> <span class="n">Neoclassical</span> <span class="n">toroidal</span>
+<span class="nf">viscosity </span><span class="p">(</span><span class="n">NTV</span><span class="p">)</span> <span class="ow">in</span> <span class="n">broken</span> <span class="n">symmetry</span> <span class="n">orders</span> <span class="n">it</span> <span class="n">against</span> <span class="n">the</span> <span class="n">bounce</span><span class="o">-</span><span class="n">averaged</span> <span class="n">precession</span>
+<span class="err">$</span>\<span class="n">omega_d</span> <span class="o">=</span> \<span class="n">omega_E</span> <span class="o">+</span> \<span class="n">omega_B</span><span class="err">$</span><span class="p">:</span>
+
+<span class="sb">``</span><span class="err">`</span><span class="n">text</span>
+<span class="n">Coulomb</span> <span class="n">collisions</span> <span class="o">-&gt;</span> <span class="n">transit</span> <span class="o">/</span> <span class="n">bounce</span> <span class="n">motion</span> <span class="o">-&gt;</span> <span class="n">nu_hat</span> <span class="o">=</span> <span class="n">qR</span> <span class="n">nu</span><span class="o">/</span><span class="n">v</span> <span class="o">-&gt;</span> <span class="n">banana</span> <span class="o">/</span> <span class="n">plateau</span> <span class="o">/</span> <span class="n">Pfirsch</span><span class="o">-</span><span class="n">Schlueter</span>
+<span class="mi">3</span><span class="o">-</span><span class="n">D</span> <span class="n">delta</span> <span class="n">B</span> <span class="o">+</span> <span class="n">precession</span> <span class="n">omega_d</span> <span class="o">-&gt;</span> <span class="mi">1</span><span class="o">/</span><span class="n">nu</span> <span class="o">/</span> <span class="n">nu</span><span class="o">-</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">nu</span><span class="p">)</span> <span class="o">/</span> <span class="n">superbanana</span><span class="o">-</span><span class="n">plateau</span> <span class="o">/</span> <span class="n">nu</span> <span class="o">-&gt;</span> <span class="n">NTV</span> <span class="n">torque</span>
 </code></pre></div></div>
 
 <p>The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (<code class="language-plaintext highlighter-rouge">collisions_per_transit</code>), not a $\nu_<em>$. VAFT’s
@@ -1910,6 +1946,46 @@ implemented, so the NTV regime diagram shows slopes only.</p>
       <th> </th>
     </tr>
   </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/o_mode_cutoff.svg" alt="O mode" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/x_mode_dispersion.svg" alt="X mode" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/cma_diagram.svg" alt="CMA" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/profile_propagation.svg" alt="profile" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">o_mode_cutoff</code></td>
+      <td>Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">x_mode_dispersion</code></td>
+      <td>Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cma_diagram</code></td>
+      <td>Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">profile_propagation</code></td>
+      <td>$n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (<code class="language-plaintext highlighter-rouge">propagation_regime</code>), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
   <tbody>
     <tr>
       <td><img src="/vaft/develop/assets/diagrams/neoclassical_collisionality.svg" alt="neoclassical" /></td>
@@ -2159,7 +2235,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -2277,7 +2353,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 03:07:05 +0000"
+        "time": "2026-09-29 04:07:28 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
