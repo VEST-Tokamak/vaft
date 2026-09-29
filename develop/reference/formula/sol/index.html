@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: langmuir · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: sol · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/soft_x_rays/" />
+            <link rel="prev" href="/vaft/develop/reference/diagram/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/camera_geometry/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -250,7 +250,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference: langmuir</a>
+                            <a href="." >Formula reference: sol</a>
                         
                     </h1>
                 </div>
@@ -276,30 +276,57 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/process/Process_reference_langmuir">Process reference: langmuir</h1>
+                        <h1 id="/reference/formula/Formula_reference_sol">Formula reference: sol</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.langmuir, read from the standardized docstrings (issue 252).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.sol, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p class="ref-intro">Generated from the docstrings of <code>vaft.process.langmuir</code>:
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sol</code>:
 <strong>8</strong> public functions. Each entry is what
-<code>vaft.process.describe("langmuir.&lt;name&gt;")</code> prints.
-<a href="/vaft/develop/reference/process/">All process categories</a></p>
+<code>vaft.formula.describe("sol.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
-<p>This module is machine-independent: raw VEST field selection, shot-era bias
-voltage/tip geometry, and ODS population belong in
-<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.langmuir_probes</code>. Callers here pass already-selected
-physical signals (or raw counts plus explicit calibration factors) and get
-back electron temperature/density.</p>
+<p>The small, independently testable relations of the open-field-line edge
+(issue #951, first slice): the ion sound speed with its closure explicit,
+the sheath-limited particle flux and ion saturation current, the sheath heat
+transmission, Spitzer–Harm parallel electron conduction and its integrated
+two-point form, and the Eich target heat-flux profile with its integral width.
+Reduced models built on them (the two-point model with loss factors,
+equilibrium-derived connection length and flux expansion, named lambda_q
+scalings) are later slices of #951; SOLPS-ITER and UEDGE are not replaced.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>T_e, T_i</td><td>electron and ion temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>n</td><td>density at the location named (target t, upstream u) [m^-3]</td><td class="ref-unit"></td></tr>
+  <tr><td>m_i</td><td>ion mass</td><td class="ref-unit">kg</td></tr>
+  <tr><td>Z</td><td>ion charge number</td><td class="ref-unit">-</td></tr>
+  <tr><td>c_s</td><td>ion sound speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>gamma</td><td>sheath heat-transmission coefficient</td><td class="ref-unit">-</td></tr>
+  <tr><td>q_par</td><td>parallel heat-flux density</td><td class="ref-unit">W/m^2</td></tr>
+  <tr><td>L_par</td><td>parallel connection length between named endpoints [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>kappa_0</td><td>Spitzer--Harm coefficient, kappa = kappa_0 T_e^{5/2} [W/(m eV^{7/2})]</td><td class="ref-unit"></td></tr>
+  <tr><td>lambda_q</td><td>heat-flux decay length at the outer midplane (Eich fit); lambda_q f_x at the target [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>S</td><td>Gaussian spreading width at the target, not mapped [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>lambda_int</td><td>integral power width, mapped to the outer midplane [m]</td><td class="ref-unit"></td></tr>
+  </tbody>
+</table></div>
+
+<p>Temperatures in electronvolts; “upstream” is the outer-midplane SOL unless a
+function says otherwise, and is not the separatrix. The parallel coordinate
+$s$ runs from upstream to the target. Every coefficient that is a model
+choice – $\gamma$, $\gamma_i$, $\kappa_0$ – is an input or a documented,
+overridable keyword, never a hidden constant.</p>
 
 <h2 id="functions">Functions</h2>
 
@@ -307,21 +334,21 @@ back electron temperature/density.</p>
 <input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr data-ref-row="calibrate_current"><td><a href="#calibrate_current"><code>calibrate_current</code></a></td><td>Convert a raw probe current record to amperes.
-</td></tr>
-  <tr data-ref-row="calibrate_voltage"><td><a href="#calibrate_voltage"><code>calibrate_voltage</code></a></td><td>Convert a raw probe voltage record to physical volts.
-</td></tr>
-  <tr data-ref-row="electron_density"><td><a href="#electron_density"><code>electron_density</code></a></td><td>Electron density from the ion saturation current and the solved temperature.
+  <tr data-ref-row="eich_integral_width"><td><a href="#eich_integral_width"><code>eich_integral_width</code></a></td><td>Integral power width of the Eich profile, mapped to the outer midplane.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="eich_target_heat_flux_profile"><td><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></td><td>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="median_filter_signal"><td><a href="#median_filter_signal"><code>median_filter_signal</code></a></td><td>Median-filter a waveform along its only axis.
+  <tr data-ref-row="ion_saturation_current_density"><td><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></td><td>Ion saturation current density collected by a negatively biased surface.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="probe_surface_area"><td><a href="#probe_surface_area"><code>probe_surface_area</code></a></td><td>Collection area of a cylindrical probe tip.
+  <tr data-ref-row="ion_sound_speed"><td><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></td><td>Ion sound speed with the charge and the ion closure explicit.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="process_triple_probe"><td><a href="#process_triple_probe"><code>process_triple_probe</code></a></td><td>Run the full triple-probe chain on one voltage and current channel pair.
+  <tr data-ref-row="sheath_heat_flux"><td><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></td><td>Parallel heat-flux density into the target sheath.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="remove_offset"><td><a href="#remove_offset"><code>remove_offset</code></a></td><td>Subtract a signal’s pre-plasma baseline, taken as its leading samples.
+  <tr data-ref-row="sheath_particle_flux"><td><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></td><td>Particle flux density into the target sheath.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="solve_electron_temperature"><td><a href="#solve_electron_temperature"><code>solve_electron_temperature</code></a></td><td>Solve the classical triple-probe relation for the electron temperature.
+  <tr data-ref-row="spitzer_harm_parallel_heat_flux"><td><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></td><td>Classical parallel electron heat conduction.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="two_point_upstream_temperature"><td><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></td><td>Upstream temperature from conduction at constant parallel heat flux.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -330,147 +357,31 @@ back electron temperature/density.</p>
 
 <div class="ref-entries">
 
-  <section class="ref-entry" id="calibrate_current" data-catalog="process">
+  <section class="ref-entry" id="eich_integral_width" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#calibrate_current"><code>calibrate_current</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L160" title="vaft/process/langmuir.py, line 160">source</a>
+<h3 class="ref-name no_toc"><a href="#eich_integral_width"><code>eich_integral_width</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L458" title="vaft/formula/sol.py, line 458">source</a>
 </header>
-    <pre class="ref-signature"><code>calibrate_current(raw, *, divisor=100.0)</code></pre>
+    <pre class="ref-signature"><code>eich_integral_width(lambda_q, S, *, flux_expansion=1.0)</code></pre>
 
-    <p>Convert a raw probe current record to amperes.</p>
+    <p>Integral power width of the Eich profile, mapped to the outer midplane.</p>
+
+\[\lambda_\mathrm{int} \simeq \lambda_q + 1.64\,S/f_x\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Digitized probe signal.</p>
+  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
 </td></tr>
-  <tr><td><code>divisor</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Shunt or amplifier divisor, non-zero.</p>
+  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
 </td></tr>
-  </tbody>
-  <tbody class="ref-returns">
-  <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">A</td><td><p>Probe current.</p>
-</td></tr>
-  </tbody>
-</table></div>
-
-    <div class="ref-callout ref-callout-raises">
-<p class="ref-label">Raises</p>
-<ul class="ref-raises">
-  <li><code>ValueError</code> The divisor is zero.
-</li>
-</ul>
-</div>
-
-    <details class="ref-more">
-      <summary>Defaults · Applicability · Provenance</summary>
-
-      <h4 class="ref-label no_toc">Defaults</h4>
-
-      <p><code class="language-plaintext highlighter-rouge">divisor = 100.0</code> is machine-specific, the VEST current divisor mirrored
-from <code class="language-plaintext highlighter-rouge">vest.yaml</code>, and carries the same caveat as the voltage gain: a caller
-on another machine must supply its own.</p>
-
-      <h4 class="ref-label no_toc">Applicability</h4>
-
-      <p>Machine-independent.  The arithmetic is a scale factor; only the default
-carries a VEST number, and a caller on another machine passes its own.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
-
-      <ol class="ref-cites">
-  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> current divisor.
-</li>
-</ol>
-
-    </details>
-
-  </section>
-
-  <section class="ref-entry" id="calibrate_voltage" data-catalog="process">
-    <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#calibrate_voltage"><code>calibrate_voltage</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L127" title="vaft/process/langmuir.py, line 127">source</a>
-</header>
-    <pre class="ref-signature"><code>calibrate_voltage(raw, *, gain=22.0)</code></pre>
-
-    <p>Convert a raw probe voltage record to physical volts.</p>
-
-    <div class="ref-table-wrap"><table class="ref-table">
-  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody class="ref-params">
-  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Digitized probe signal.</p>
-</td></tr>
-  <tr><td><code>gain</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Multiplicative divider gain.</p>
+  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target, positive.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">V</td><td><p>Probe voltage.</p>
-</td></tr>
-  </tbody>
-</table></div>
-
-    <details class="ref-more">
-      <summary>Defaults · Applicability · Provenance</summary>
-
-      <h4 class="ref-label no_toc">Defaults</h4>
-
-      <p><code class="language-plaintext highlighter-rouge">gain = 22.0</code> is machine-specific: it is the VEST probe divider, mirrored
-from <code class="language-plaintext highlighter-rouge">vest.yaml</code>. This module is otherwise machine-independent, so a caller
-on another machine must pass its own value rather than inherit this one.</p>
-
-      <h4 class="ref-label no_toc">Applicability</h4>
-
-      <p>Machine-independent.  The arithmetic is a scale factor; only the default
-carries a VEST number, and a caller on another machine passes its own.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
-
-      <ol class="ref-cites">
-  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> voltage gain.
-</li>
-</ol>
-
-    </details>
-
-  </section>
-
-  <section class="ref-entry" id="electron_density" data-catalog="process">
-    <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#electron_density"><code>electron_density</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L358" title="vaft/process/langmuir.py, line 358">source</a>
-</header>
-    <pre class="ref-signature"><code>electron_density(vd2, te, current, *, tip_radius_m, tip_length_m, ion_mass_kg, e=1.602176634e-19)</code></pre>
-
-    <p>Electron density from the ion saturation current and the solved temperature.</p>
-
-    <div class="ref-table-wrap"><table class="ref-table">
-  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
-  <tbody class="ref-params">
-  <tr><td><code>vd2</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Voltage difference between the first probe pair.</p>
-</td></tr>
-  <tr><td><code>te</code></td><td class="ref-type">array_like</td><td class="ref-unit">eV</td><td><p>Electron temperature per sample, same shape.</p>
-</td></tr>
-  <tr><td><code>current</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>Probe current, same shape.</p>
-</td></tr>
-  <tr><td><code>tip_radius_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Tip radius.</p>
-</td></tr>
-  <tr><td><code>tip_length_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Exposed tip length.</p>
-</td></tr>
-  <tr><td><code>ion_mass_kg</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Ion mass; required, with no assumed species.</p>
-</td></tr>
-  <tr><td><code>e</code></td><td class="ref-type">float, optional</td><td class="ref-unit">C</td><td><p>Elementary charge.</p>
-</td></tr>
-  </tbody>
-  <tbody class="ref-returns">
-  <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td><code>n_e</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, NaN where non-physical.</p>
-</td></tr>
-  <tr><td><code>valid</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where the density is finite and positive.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda_\mathrm{int}$ at the outer midplane.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -478,40 +389,42 @@ carries a VEST number, and a caller on another machine passes its own.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p><code class="language-plaintext highlighter-rouge">n_e = sqrt(m_i) * I * exp(1/2) / (S * e * sqrt(e*Te) * (exp(Vd2/Te) - 1))</code>.
-Everything is SI except the temperature, which is in electron-volts and is
-converted where the formula needs joules. <strong>The ion mass has no default</strong>: the
-density scales as its square root, so assuming a species would put a silent
-factor into every result.</p>
+      <p>Integral width $\int(q - q_\mathrm{bg})\,ds / (q_\mathrm{peak} f_x)$ with
+$s$ along the target, i.e. mapped to the midplane; 1.64 is
+Makowski’s fit to the exact integral of the Eich profile, accurate to a
+few per cent over the fitted range, so this is an approximation, not a
+definition.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> The ion mass is not positive, or the three arrays differ in shape.
+  <li><code>ValueError</code> A non-positive input.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · Validity · References</summary>
 
-      <h4 class="ref-label no_toc">Applicability</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>Machine-independent.</p>
+      <p>The width over which the target actually receives the power: the
+engineering quantity for peak loading, $q_\mathrm{peak} \approx
+P/(2\pi R\,\lambda_\mathrm{int} f_x)$.</p>
 
-      <h4 class="ref-label no_toc">Limitations</h4>
+      <h4 class="ref-label no_toc">Validity</h4>
 
-      <p>Non-physical or non-finite results are flagged rather than replaced, so the
-mask must be honoured. Inherits the assumptions of
-<code class="language-plaintext highlighter-rouge">solve_electron_temperature</code> and the thin-sheath geometric area of
-<code class="language-plaintext highlighter-rouge">probe_surface_area</code>.</p>
+      <p>Empirical fit. Makowski et al. (2012), over the $S/\lambda_q$ range of
+the multi-machine database.</p>
 
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>The ion-saturation-current form of the triple-probe density relation; see issue #152 for the port’s history.
+  <li>M. A. Makowski et al., Phys. Plasmas 19 (2012) 056122.
+</li>
+  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
 </li>
 </ol>
 
@@ -519,27 +432,41 @@ mask must be honoured. Inherits the assumptions of
 
   </section>
 
-  <section class="ref-entry" id="median_filter_signal" data-catalog="process">
+  <section class="ref-entry" id="eich_target_heat_flux_profile" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#median_filter_signal"><code>median_filter_signal</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L87" title="vaft/process/langmuir.py, line 87">source</a>
+<h3 class="ref-name no_toc"><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L390" title="vaft/formula/sol.py, line 390">source</a>
 </header>
-    <pre class="ref-signature"><code>median_filter_signal(data, kernel_size)</code></pre>
+    <pre class="ref-signature"><code>eich_target_heat_flux_profile(s, q0, lambda_q, S, *, s0=0.0, q_bg=0.0, flux_expansion=1.0)</code></pre>
 
-    <p>Median-filter a waveform along its only axis.</p>
+    <p>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.</p>
+
+\[q(\bar s) = \frac{q_0}{2}\exp\!\left[\left(\frac{S}{2\lambda_q f_x}\right)^2
+  - \frac{\bar s}{\lambda_q f_x}\right]\mathrm{erfc}\!\left(\frac{S}{2\lambda_q f_x}
+  - \frac{\bar s}{S}\right) + q_\mathrm{bg},\qquad \bar s = s - s_0\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The waveform.</p>
+  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Coordinate along the target, increasing into the SOL.</p>
 </td></tr>
-  <tr><td><code>kernel_size</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Width of the median window in samples; must be odd.</p>
+  <tr><td><code>q0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Peak of the unspread exponential at the strike point.</p>
+</td></tr>
+  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
+</td></tr>
+  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
+</td></tr>
+  <tr><td><code>s0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Strike-point position.</p>
+</td></tr>
+  <tr><td><code>q_bg</code></td><td class="ref-type">float</td><td class="ref-unit">W/m^2</td><td><p>Background heat flux.</p>
+</td></tr>
+  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target along <code class="language-plaintext highlighter-rouge">s</code>, positive.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>The filtered waveform, same length.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Heat-flux density at the target.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -547,29 +474,36 @@ mask must be honoured. Inherits the assumptions of
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>A median filter is zero phase: it moves no feature in time, unlike a causal
-low-pass. It removes isolated spikes without the smoothing a mean filter
-applies to a real edge, which is why a probe trace uses it.</p>
+      <p>$\lambda_q$ is the <em>midplane</em> value and $f_x$ maps it to the target;
+$S$ is measured at the target. The profile is the exponential
+$q_0 e^{-\bar s/\lambda_q f_x}$ for $\bar s &gt; 0$ convolved with a
+Gaussian of width $S$: private-flux spreading, not a second exponential.</p>
 
     </div>
 
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">lambda_q</code>, <code class="language-plaintext highlighter-rouge">S</code> or <code class="language-plaintext highlighter-rouge">flux_expansion</code>.
+</li>
+</ul>
+</div>
+
     <details class="ref-more">
-      <summary>Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · References</summary>
 
-      <h4 class="ref-label no_toc">Applicability</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>Machine-independent.</p>
+      <p>What IR thermography and target probes fit: $\lambda_q$ is set upstream,
+$S$ by diffusion in the divertor leg, and the peak heat flux falls as
+$S$ grows at fixed $\lambda_q$.</p>
 
-      <h4 class="ref-label no_toc">Limitations</h4>
-
-      <p>The kernel must be odd; SciPy raises otherwise. Edges are handled by zero
-padding, so the first and last half-kernel of samples are pulled toward zero.
-A feature narrower than half the kernel is removed whether or not it is noise.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li><code class="language-plaintext highlighter-rouge">scipy.signal.medfilt</code>. Issue #152 does not record the kernel size the original workflow used, which is why the pipeline leaves this unset rather than guessing one; see <code class="language-plaintext highlighter-rouge">process_triple_probe</code>.
+  <li>T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
+</li>
+  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
 </li>
 </ol>
 
@@ -577,27 +511,31 @@ A feature narrower than half the kernel is removed whether or not it is noise.</
 
   </section>
 
-  <section class="ref-entry" id="probe_surface_area" data-catalog="process">
+  <section class="ref-entry" id="ion_saturation_current_density" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#probe_surface_area"><code>probe_surface_area</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L200" title="vaft/process/langmuir.py, line 200">source</a>
+<h3 class="ref-name no_toc"><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L182" title="vaft/formula/sol.py, line 182">source</a>
 </header>
-    <pre class="ref-signature"><code>probe_surface_area(*, tip_radius_m, tip_length_m)</code></pre>
+    <pre class="ref-signature"><code>ion_saturation_current_density(n_i, c_s, *, Z=1.0)</code></pre>
 
-    <p>Collection area of a cylindrical probe tip.</p>
+    <p>Ion saturation current density collected by a negatively biased surface.</p>
+
+\[j_\mathrm{sat} = Z e\,n_i\,c_s\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>tip_radius_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Tip radius, strictly positive.</p>
+  <tr><td><code>n_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
 </td></tr>
-  <tr><td><code>tip_length_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Exposed tip length, strictly positive.</p>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">m^2</td><td><p>The collecting surface area.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A/m^2</td><td><p>$j_\mathrm{sat}$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -605,38 +543,34 @@ A feature narrower than half the kernel is removed whether or not it is noise.</
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>The lateral area of a cylinder, <code class="language-plaintext highlighter-rouge">2*pi*r*l</code>. The end cap is excluded, which
-is the usual convention for a probe whose length far exceeds its radius, and
-the sheath is assumed thin enough that the collecting area is the geometric
-one.</p>
+      <p>Sheath-edge density with Mach one. From the unperturbed density
+$n_\infty$ the presheath drop is $\tfrac12$ in Stangeby’s isothermal
+fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
+<code class="language-plaintext highlighter-rouge">vaft.process.langmuir</code> uses $e^{-1/2}$ with $T_i = 0$: pass
+<code class="language-plaintext highlighter-rouge">n_inf * np.exp(-0.5)</code> and <code class="language-plaintext highlighter-rouge">ion_sound_speed(T_e, 0, m_i)</code> to match it.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> Either dimension is not positive.
+  <li><code>ValueError</code> A negative density, a non-positive sound speed or charge.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · References</summary>
 
-      <h4 class="ref-label no_toc">Applicability</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>Machine-independent.</p>
+      <p>What a Langmuir probe or divertor tile measures directly; with $T_e$
+from the I–V characteristic it gives the density.</p>
 
-      <h4 class="ref-label no_toc">Limitations</h4>
-
-      <p>A thick sheath at low density collects over an area larger than the geometric
-one, which this does not model; the density inferred from it is then an
-overestimate.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>The standard cylindrical-probe collection area used by the triple-probe density relation in <code class="language-plaintext highlighter-rouge">electron_density</code>.
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.6.
 </li>
 </ol>
 
@@ -644,51 +578,35 @@ overestimate.</p>
 
   </section>
 
-  <section class="ref-entry" id="process_triple_probe" data-catalog="process">
+  <section class="ref-entry" id="ion_sound_speed" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#process_triple_probe"><code>process_triple_probe</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L446" title="vaft/process/langmuir.py, line 446">source</a>
+<h3 class="ref-name no_toc"><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L80" title="vaft/formula/sol.py, line 80">source</a>
 </header>
-    <pre class="ref-signature"><code>process_triple_probe(time_v, vd2_raw, time_i, i_raw, vd3, *, tip_radius_m, tip_length_m, ion_mass_kg, voltage_gain=22.0, current_divisor=100.0, n_baseline_samples=500, median_kernel=None, time_rtol=1e-06, time_atol=1e-09)</code></pre>
+    <pre class="ref-signature"><code>ion_sound_speed(T_e, T_i, m_i, *, Z=1.0, gamma_i=1.0)</code></pre>
 
-    <p>Run the full triple-probe chain on one voltage and current channel pair.</p>
+    <p>Ion sound speed with the charge and the ion closure explicit.</p>
+
+\[c_s = \sqrt{\frac{e\,(Z T_e + \gamma_i T_i)}{m_i}}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>time_v</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base of the voltage record.</p>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
 </td></tr>
-  <tr><td><code>vd2_raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw voltage record.</p>
+  <tr><td><code>T_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Ion temperature, non-negative.</p>
 </td></tr>
-  <tr><td><code>time_i</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base of the current record; must agree with <em>time_v</em>.</p>
+  <tr><td><code>m_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Ion mass, positive.</p>
 </td></tr>
-  <tr><td><code>i_raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw current record.</p>
+  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
 </td></tr>
-  <tr><td><code>vd3</code></td><td class="ref-type">float</td><td class="ref-unit">V</td><td><p>The second pair’s voltage difference, constant over the record.</p>
-</td></tr>
-  <tr><td><code>tip_radius_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Tip radius.</p>
-</td></tr>
-  <tr><td><code>tip_length_m</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Exposed tip length.</p>
-</td></tr>
-  <tr><td><code>ion_mass_kg</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Ion mass; required.</p>
-</td></tr>
-  <tr><td><code>voltage_gain</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Divider gain for the voltage channel.</p>
-</td></tr>
-  <tr><td><code>current_divisor</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Divisor for the current channel.</p>
-</td></tr>
-  <tr><td><code>n_baseline_samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Leading samples forming the baseline.</p>
-</td></tr>
-  <tr><td><code>median_kernel</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Median filter width; no filtering when unset.</p>
-</td></tr>
-  <tr><td><code>time_rtol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Relative tolerance on the time-base comparison.</p>
-</td></tr>
-  <tr><td><code>time_atol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Absolute tolerance on that comparison.</p>
+  <tr><td><code>gamma_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion adiabatic index: 1 isothermal, 3 one-dimensional adiabatic, 5/3 three-dimensional.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">dict of str to np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">time</code> in seconds, <code class="language-plaintext highlighter-rouge">vd2</code> in volts, <code class="language-plaintext highlighter-rouge">current</code> in amperes, <code class="language-plaintext highlighter-rouge">te</code> in electron-volts, <code class="language-plaintext highlighter-rouge">n_e</code> in inverse cubic metres, and <code class="language-plaintext highlighter-rouge">solver_ok</code> as the combined validity mask.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$c_s$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -696,58 +614,34 @@ overestimate.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Mismatched time bases are an error, not something to fix by truncating to the
-shorter record; index-truncating two differently sampled channels silently
-misaligns them. The second pair’s voltage is a scalar broadcast over the
-record, since it is a fixed bias rather than a measurement.</p>
+      <p>Electrons isothermal. Stangeby’s working choice is $\gamma_i = 1$
+(isothermal ions); $\gamma_i = 3$ is the one-dimensional adiabatic,
+collisionless case. The choice moves $c_s$ by up to $\sqrt2$ at
+$T_i = T_e$, so it is a keyword, not a constant. <code class="language-plaintext highlighter-rouge">vaft.formula.stability.c_s_from_Te_Ti_mi</code> is the case
+$Z = \gamma_i = 1$ with temperatures in keV.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> The two time bases do not agree.
+  <li><code>ValueError</code> A negative temperature, a non-positive mass, charge or index.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · References</summary>
 
-      <h4 class="ref-label no_toc">Processing steps</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <ol>
-        <li>Verify that the voltage and current time bases agree, and refuse if not.</li>
-        <li>Remove the leading-sample baseline from both records.</li>
-        <li>Optionally median-filter both.</li>
-        <li>Calibrate to volts and amperes.</li>
-        <li>Solve the triple-probe relation for the temperature.</li>
-        <li>Compute the density, and combine the two validity masks.</li>
-      </ol>
+      <p>The speed at which plasma flows into the sheath (Bohm): it sets the
+target particle flux and, with the sheath, the heat flux.</p>
 
-      <h4 class="ref-label no_toc">Defaults</h4>
-
-      <p>The gain, divisor and baseline length are machine-specific VEST values
-mirrored from <code class="language-plaintext highlighter-rouge">vest.yaml</code>. <code class="language-plaintext highlighter-rouge">median_kernel</code> is deliberately unset:
-issue #152 does not record the kernel the original workflow used, so no
-filtering is applied rather than a guessed width. The time tolerances are
-numerical conveniences.</p>
-
-      <h4 class="ref-label no_toc">Applicability</h4>
-
-      <p>Machine-independent.  The chain is generic; the calibration, baseline and
-geometry arguments carry VEST defaults that another machine overrides.</p>
-
-      <h4 class="ref-label no_toc">Limitations</h4>
-
-      <p>Inherits every assumption of the two inference steps. The returned mask is the
-conjunction of the temperature and density masks, so a sample invalid in
-either is invalid in the result.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>Issue #152, the port of the VEST triple-probe workflow that this chain reproduces, including the decisions it left unresolved.
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.2.
 </li>
 </ol>
 
@@ -755,27 +649,33 @@ either is invalid in the result.</p>
 
   </section>
 
-  <section class="ref-entry" id="remove_offset" data-catalog="process">
+  <section class="ref-entry" id="sheath_heat_flux" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#remove_offset"><code>remove_offset</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L32" title="vaft/process/langmuir.py, line 32">source</a>
+<h3 class="ref-name no_toc"><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L228" title="vaft/formula/sol.py, line 228">source</a>
 </header>
-    <pre class="ref-signature"><code>remove_offset(data, *, n_baseline_samples=500)</code></pre>
+    <pre class="ref-signature"><code>sheath_heat_flux(gamma, n_t, T_t, c_s)</code></pre>
 
-    <p>Subtract a signal’s pre-plasma baseline, taken as its leading samples.</p>
+    <p>Parallel heat-flux density into the target sheath.</p>
+
+\[q_{\parallel,t} = \gamma\,n_t\,e T_t\,c_s\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The waveform, in whatever unit it has.</p>
+  <tr><td><code>gamma</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Sheath heat-transmission coefficient, a model input (typically 7–8 for a floating D target with $T_i = T_e$), positive.</p>
 </td></tr>
-  <tr><td><code>n_baseline_samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>How many leading samples make up the baseline.</p>
+  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Sheath-edge density, non-negative.</p>
+</td></tr>
+  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Sheath-edge electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Sheath-edge sound speed.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>The waveform with its baseline mean removed.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,t}$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -783,42 +683,32 @@ either is invalid in the result.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>The mean of the leading window, not a fitted trend, so a baseline that drifts
-during the shot is not removed.</p>
+      <p>$\gamma$ is per electron temperature: it absorbs $T_i/T_e$, secondary
+emission and the sheath potential, so it is supplied, never a universal
+constant. Surface recombination energy is not included.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> The record is shorter than the requested baseline.
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">gamma</code> or <code class="language-plaintext highlighter-rouge">c_s</code>, a negative density or temperature.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · References</summary>
 
-      <h4 class="ref-label no_toc">Defaults</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p><code class="language-plaintext highlighter-rouge">n_baseline_samples = 500</code> is an acquisition-era value carried from the VEST
-probe digitizer settings, where the leading samples precede the discharge. It
-is a sample count, not a duration, so it means a different interval on a
-different sample rate.</p>
+      <p>The sheath lets through a fixed energy per particle, a few $T_e$: with
+the particle flux it closes the heat balance at the target.</p>
 
-      <h4 class="ref-label no_toc">Applicability</h4>
-
-      <p>Machine-independent.</p>
-
-      <h4 class="ref-label no_toc">Limitations</h4>
-
-      <p>Assumes the leading window is signal-free. A probe already collecting current
-at the start of the record has its baseline biased by that current.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">langmuir_probes</code> processing, which carries the VEST sample count this default mirrors.
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.8.
 </li>
 </ol>
 
@@ -826,33 +716,31 @@ at the start of the record has its baseline biased by that current.</p>
 
   </section>
 
-  <section class="ref-entry" id="solve_electron_temperature" data-catalog="process">
+  <section class="ref-entry" id="sheath_particle_flux" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#solve_electron_temperature"><code>solve_electron_temperature</code></a></h3>
-<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/process/langmuir.py#L261" title="vaft/process/langmuir.py, line 261">source</a>
+<h3 class="ref-name no_toc"><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L135" title="vaft/formula/sol.py, line 135">source</a>
 </header>
-    <pre class="ref-signature"><code>solve_electron_temperature(vd2, vd3, *, te_bounds=(0.1, 500.0), rtol=1e-06)</code></pre>
+    <pre class="ref-signature"><code>sheath_particle_flux(n_t, c_s, *, mach=1.0)</code></pre>
 
-    <p>Solve the classical triple-probe relation for the electron temperature.</p>
+    <p>Particle flux density into the target sheath.</p>
+
+\[\Gamma_t = M\,n_t\,c_s\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>vd2</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Voltage difference between the first probe pair.</p>
+  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
 </td></tr>
-  <tr><td><code>vd3</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Voltage difference between the second pair, same shape.</p>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge (<code class="language-plaintext highlighter-rouge">ion_sound_speed</code>).</p>
 </td></tr>
-  <tr><td><code>te_bounds</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">eV</td><td><p>Bracket the root is searched in.</p>
-</td></tr>
-  <tr><td><code>rtol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Relative tolerance of the root finder.</p>
+  <tr><td><code>mach</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Parallel Mach number at the sheath edge; one is the Bohm criterion satisfied marginally.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td><code>te</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature per sample, NaN where no root was found.</p>
-</td></tr>
-  <tr><td><code>solver_ok</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> where a root was found inside the bracket.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_t$, along the field.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -860,50 +748,182 @@ at the start of the record has its baseline biased by that current.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Solves <code class="language-plaintext highlighter-rouge">(1 - exp(-Vd2/Te)) / (1 - exp(-Vd3/Te)) = 1/2</code>, the theoretical
-triple-probe relation, sample by sample by bracketed root finding. The one
-half on the right is the definition of the technique, not a tunable.</p>
+      <p>Parallel to $\mathbf B$ at the sheath <em>edge</em>; the flux onto the target
+surface is this times $\sin$ of the field-line incidence angle. $n_t$
+is the sheath-edge density, not the upstream one.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> The two voltage arrays do not have the same shape.
+  <li><code>ValueError</code> A negative density, a non-positive sound speed or Mach number.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+      <summary>Physical interpretation · References</summary>
 
-      <h4 class="ref-label no_toc">Defaults</h4>
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>The bracket and the tolerance are numerical conveniences: the bracket spans
-the range a probe measurement can plausibly occupy, and the tolerance is far
-below the scatter of the voltages that feed it.</p>
+      <p>The sheath removes ions at the rate the presheath accelerates them to
+the sound speed: the target is a particle sink at fixed velocity.</p>
 
-      <h4 class="ref-label no_toc">Applicability</h4>
-
-      <p>Machine-independent.</p>
-
-      <h4 class="ref-label no_toc">Limitations</h4>
-
-      <p>A sample with no root inside the bracket yields NaN and a false flag rather
-than a substituted value, so a caller must honour the mask. The relation
-assumes a Maxwellian electron distribution, equal collecting areas on the
-three tips, and a thin sheath.</p>
-
-      <p>The implemented relation is the theoretically correct one. The MATLAB
-expression quoted by issue #152 parses as a different equation, a
-<code class="language-plaintext highlighter-rouge">1 - a/b</code> transcription of <code class="language-plaintext highlighter-rouge">(1-a)/b</code>, and no reference data was available
-to arbitrate; this deliberately does not reproduce that apparent transcription
-error.</p>
-
-      <h4 class="ref-label no_toc">Provenance</h4>
+      <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>The classical triple-probe relation; the transcription discrepancy is recorded in issue #152.
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="spitzer_harm_parallel_heat_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L276" title="vaft/formula/sol.py, line 276">source</a>
+</header>
+    <pre class="ref-signature"><code>spitzer_harm_parallel_heat_flux(T_e, dT_ds, *, kappa_0=2000.0)</code></pre>
+
+    <p>Classical parallel electron heat conduction.</p>
+
+\[q_{\parallel,e} = -\kappa_0\,T_e^{5/2}\,\frac{dT_e}{ds}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>dT_ds</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV/m</td><td><p>Temperature gradient along $s$.</p>
+</td></tr>
+  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient; the default is Stangeby’s $Z = 1$ working value 2000.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,e}$, positive along $+s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\kappa_0$ depends on $Z_\mathrm{eff}$ and on the Coulomb logarithm:
+$3.16\,nT\tau_e/m_e$ gives 2040 at $Z = 1$, $\ln\Lambda = 15$, and the
+default 2000 is Stangeby’s rounded working value; pass another for
+impure plasmas or another $\ln\Lambda$. The flux is along $+s$, upstream to target, when the
+temperature falls towards the target.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative temperature or a non-positive <code class="language-plaintext highlighter-rouge">kappa_0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\kappa \propto T_e^{5/2}$ makes a hot SOL nearly isothermal along the
+field and concentrates the temperature drop near the target.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Collisional (the electron mean free path short against the gradient
+length); flux limiting is not applied.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
+</li>
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 4.10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="two_point_upstream_temperature" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9146be4719449365bc62a4aff7de267546756ad4/vaft/formula/sol.py#L330" title="vaft/formula/sol.py, line 330">source</a>
+</header>
+    <pre class="ref-signature"><code>two_point_upstream_temperature(T_t, q_par, L_par, *, kappa_0=2000.0)</code></pre>
+
+    <p>Upstream temperature from conduction at constant parallel heat flux.</p>
+
+\[T_u = \left(T_t^{7/2} + \frac{7}{2}\,\frac{q_\parallel L_\parallel}{\kappa_0}\right)^{2/7}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Target (sheath-edge) electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>q_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Parallel heat-flux density, constant along the flux tube, non-negative.</p>
+</td></tr>
+  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Parallel connection length from upstream to the target, positive.</p>
+</td></tr>
+  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>$T_u$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The integral of <code class="language-plaintext highlighter-rouge">spitzer_harm_parallel_heat_flux</code> at constant
+$q_\parallel$ from the target ($s = L_\parallel$) back to upstream; the
+endpoints are the declared upstream point and the target. With a
+uniform source from the stagnation point ($q = 0$) to the target,
+$q_\parallel$ the target value and $L_\parallel$ measured from the
+stagnation point, the $\tfrac72$ becomes $\tfrac74$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative temperature or heat flux, a non-positive length or <code class="language-plaintext highlighter-rouge">kappa_0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The two-point model’s conduction leg: $T_u$ depends on $q_\parallel L$
+only to the $2/7$ power, so upstream temperatures are robust while the
+target temperature is not.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Conduction only, no convection or volumetric losses between the two
+points, $q_\parallel$ constant along the tube.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 5.2.
 </li>
 </ol>
 
@@ -925,7 +945,7 @@ error.</p>
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
         
       </ul>
     </div>
@@ -991,13 +1011,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/soft_x_rays/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: soft_x_rays">
+                        <a href="/vaft/develop/reference/diagram/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Diagram gallery">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/camera_geometry/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: camera_geometry">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -1029,11 +1049,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: camera_geometry",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_camera_geometry.md",
-            "ref": "_guide/Process_reference_camera_geometry.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -1125,8 +1145,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference_langmuir.md",
-        "mtime": "2026-09-03 10:07:00 +0000",
+        "path": "_guide/Formula_reference_sol.md",
+        "mtime": "2026-09-28 13:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
