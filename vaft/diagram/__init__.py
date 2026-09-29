@@ -136,6 +136,7 @@ __all__ = [
     "wall_conditioning_gdc",
     "wall_conditioning_boronization",
     "wall_conditioning_sequence",
+    "divertor_heat_footprint",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -235,6 +236,7 @@ _LOCATIONS = {
     "wall_conditioning_gdc": "._wall_conditioning",
     "wall_conditioning_boronization": "._wall_conditioning",
     "wall_conditioning_sequence": "._wall_conditioning",
+    "divertor_heat_footprint": "._divertor_footprint",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

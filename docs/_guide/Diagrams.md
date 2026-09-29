@@ -635,6 +635,23 @@ $\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals 
 $1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
 crash.
 
+
+### Divertor heat-flux footprint
+
+`divertor_heat_footprint` maps an Eich target profile onto a diverted equilibrium. The geometry comes from
+the equilibrium itself: the X-point is the zero of $\nabla\psi$ next to the lowest boundary point, the
+strike point is where the separatrix leg crosses a horizontal target, and the total flux expansion
+$f_x = (\partial\psi/\partial R)_\mathrm{OMP} / (\partial\psi/\partial s)_\mathrm{target}$ is
+evaluated on the flux, not assumed. The profile is `vaft.formula.sol.eich_target_heat_flux_profile` with
+that $f_x$. $\lambda_q$ (at the outer midplane) and $S$ (at the target) are illustrative inputs: this is a
+schematic, and measured IR profiles belong in `vaft.plot`. The SOL surfaces one, two and three $\lambda_q$
+outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target.
+
+```python
+vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="outer")
+```
+
+![footprint]({{ '/assets/diagrams/divertor_heat_footprint.svg' | relative_url }})
 ## Disruption physics: quench sequence, runaways and energy paths
 
 The chain from loss of confinement to a runaway plateau, each link a relation in the new
