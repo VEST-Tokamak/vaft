@@ -4,8 +4,9 @@ The four criteria agreed on #891 after the diamagnetic sign was corrected
 (#1196), behind a physical-admissibility veto:
 
 * **admissible** -- converged, positive pressure everywhere, beta_p and W > 0,
-  q95 above a floor, reconstructed/measured Ip in [0.3, 1.03] (the ramp-up's
-  closed-surface current can be 30-80 % of the Rogowski's).  A slice that fails
+  q95 above a floor, reconstructed/measured Ip in [0.3, 1 + 2 sigma_Ip] (the
+  ramp-up's closed-surface current can be 30-80 % of the Rogowski's; above it,
+  no further than the Ip sigma the fit was given allows).  A slice that fails
   is *not reconstructed*, whatever its chi-square.
 * **measurement** -- against the sigma EFIT fitted with: probes and loops by
   their reduced chi-square in a band, Ip and the diamagnetic flux (one channel
@@ -48,8 +49,13 @@ CRITERIA: dict[str, Any] = {
     # closed flux surfaces can be only 30-80 % of the measured Ip (an earlier
     # convergence study that lowered the Ip input), so the band is one-sided
     # in practice: the reconstruction may fall well short of the Rogowski but
-    # not exceed it.  Adopted 2026-09-28, to be revisited on the results.
-    "ip_ratio_band": (0.3, 1.03),
+    # not exceed it by more than the Ip sigma the fit was given: the upper
+    # edge is 1 + ip_ratio_sigmas * sigma_Ip/|Ip| (2026-09-29; 1.03 before,
+    # which was tighter than a 5 % sigma itself).  A record without a
+    # statistical Ip sigma (the routine's legacy weights) uses the reference.
+    "ip_ratio_min": 0.3,
+    "ip_ratio_sigmas": 2.0,
+    "ip_sigma_reference": 0.05,
     # Per-slice reduced chi-square of the multi-channel families.
     "reduced_chi2_band": (0.5, 2.0),
     "multi_channel_families": ("probe", "loop"),
@@ -80,6 +86,30 @@ def _finite(value: Any) -> float:
     return number if math.isfinite(number) else float("nan")
 
 
+def ip_sigma_relative(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) -> float:
+    """The relative Ip sigma the fit was given on this slice.
+
+    ``ip_sigma_relative`` when the record carries it; else, for a statistical
+    setting, the fitted sigma over |Ip|; else (the routine's legacy weights,
+    which are not a sigma) the reference.
+    """
+    value = _finite(record.get("ip_sigma_relative"))
+    if math.isfinite(value) and value > 0:
+        return value
+    if record.get("setting") != "routine":
+        sigma = _finite((record.get("fit") or {}).get("ip_sigma_median"))
+        ip = abs(_finite(record.get("ip_measured")))
+        if sigma > 0 and ip > 0:
+            return sigma / ip
+    return float(criteria["ip_sigma_reference"])
+
+
+def ip_ratio_band(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) -> tuple[float, float]:
+    """``(0.3, 1 + 2 sigma_Ip/|Ip|)`` for this slice."""
+    return (float(criteria["ip_ratio_min"]),
+            1.0 + float(criteria["ip_ratio_sigmas"]) * ip_sigma_relative(record, criteria))
+
+
 def admissible(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) -> dict[str, Any]:
     """The veto: a slice that fails this is not a reconstruction."""
     reasons = []
@@ -94,7 +124,7 @@ def admissible(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA
     if not (_finite(scalars.get("q95")) > criteria["q95_min"]):
         reasons.append(f"q95 {scalars.get('q95')}")
     ip_measured, ip_mhd = _finite(record.get("ip_measured")), _finite(scalars.get("ipmhd"))
-    low, high = criteria["ip_ratio_band"]
+    low, high = ip_ratio_band(record, criteria)
     ratio = ip_mhd / ip_measured if ip_measured else float("nan")
     if not (low <= ratio <= high):
         reasons.append(f"ip ratio {ratio:.3g} ({ip_mhd} vs {ip_measured})")
@@ -249,6 +279,34 @@ def setting_calibration(records: Sequence[Mapping[str, Any]], criteria: Mapping[
     return out
 
 
+def slice_labels(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, Any] = CRITERIA) -> list[dict[str, Any]]:
+    """Per (shot, time): the best any study setting did, and the routine's verdict.
+
+    ``good`` when some setting is good there, ``admissible`` when some setting
+    is admissible but none good, else ``unreconstructible``: no setting in
+    the study gives a physical magnetics-only reconstruction of that slice.
+    The routine is reported beside it, never counted towards the label.
+    """
+    by_slice: dict[tuple[int, int], list[Mapping[str, Any]]] = {}
+    for record in records:
+        if "error" not in record:
+            by_slice.setdefault((int(record["shot"]), int(record["time_ms"])), []).append(record)
+    out = []
+    for (shot, time_ms), group in sorted(by_slice.items()):
+        study = [r for r in group if r.get("setting") != "routine"]
+        evaluated = [(r["setting"], evaluate(r, criteria)) for r in study]
+        good = sorted({name for name, e in evaluated if e["good"]})
+        admissible_settings = sorted({name for name, e in evaluated
+                                      if e["verdicts"]["admissible"]["status"] == PASS})
+        label = "good" if good else "admissible" if admissible_settings else "unreconstructible"
+        routine = next((r for r in group if r.get("setting") == "routine"), None)
+        out.append({
+            "shot": shot, "time_ms": time_ms, "label": label, "good": good, "admissible": admissible_settings,
+            "routine": None if routine is None else evaluate(routine, criteria)["verdicts"]["admissible"]["status"],
+        })
+    return out
+
+
 def good_fraction(row: Mapping[str, Any]) -> float:
     return row["good"] / row["slices"] if row["slices"] else float("nan")
 
@@ -256,5 +314,5 @@ def good_fraction(row: Mapping[str, Any]) -> float:
 __all__: Iterable[str] = (
     "CRITERIA", "FAMILIES", "ORDER", "PASS", "FAIL", "INDETERMINATE", "NOT_AVAILABLE",
     "admissible", "measurement", "virial", "grad_shafranov", "thomson", "evaluate",
-    "summarize", "setting_calibration", "good_fraction",
+    "summarize", "setting_calibration", "good_fraction", "ip_sigma_relative", "ip_ratio_band", "slice_labels",
 )

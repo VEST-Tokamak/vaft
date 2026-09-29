@@ -202,6 +202,17 @@ def _shape(mapping: Mapping[str, Any]) -> dict[str, float] | None:
             "delta": 0.5 * ((r0 - r[top]) + (r0 - r[bottom])) / a, "zc": 0.5 * (z[top] + z[bottom])}
 
 
+def _ip_sigma(record: Mapping[str, Any], built) -> float | None:
+    sigma = (record.get("fit") or {}).get("ip_sigma_median")
+    ip = abs(float(built["equilibrium.time_slice.0.constraints.ip.measured"]))
+    return float(sigma) / ip if sigma and ip else None
+
+
+def exit_chi_squared(setting: Mapping[str, Any], fitted: int) -> float:
+    """The SAICON a setting runs with: the statistical target, or out of reach on a psi-only exit."""
+    return PSI_EXIT_SAICON if setting.get("psi_exit") else calibration.chi_squared_target(fitted)
+
+
 def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics, thomson_check, baseline):
     """One setting on one slice; returns the record and the (possibly new) baseline fingerprint."""
     ods = copy.deepcopy(built)
@@ -212,11 +223,7 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
     else:
         if setting["floor"]:
             calibration.apply_sigma_floor(ods, setting["floor"])
-        target = calibration.chi_squared_target(
-            calibration.fitted_constraint_count(built, families=fitted_families(setting))
-        )
-        if setting.get("psi_exit"):
-            target = PSI_EXIT_SAICON
+        target = exit_chi_squared(setting, calibration.fitted_constraint_count(built, families=fitted_families(setting)))
         case = {
             "grid": study.ROUTINE_GRID, "table": study.PACKAGED, "inner_iterations": 1,
             "error_minimum": 1.0e-4, "max_iterations": calibration.MAX_ITERATIONS,
@@ -243,6 +250,9 @@ def run_slice(study, built, *, shot, chosen, setting, output, efit, diagnostics,
         "dia_measured": float(built["equilibrium.time_slice.0.constraints.diamagnetic_flux.measured"])
         if "equilibrium.time_slice.0.constraints.diamagnetic_flux.measured" in built else None,
         "inactive_families": list(inactive_families(setting)),
+        # the Ip sigma the fit was given (the admissible Ip ratio's upper edge);
+        # the routine's legacy weight is not a sigma
+        "ip_sigma_relative": None if setting.get("routine") else _ip_sigma(record, built),
         "fingerprint": fingerprint,
         "afile": _afile_extras(workdir),
     }
@@ -277,6 +287,9 @@ MULTIPLIER_CLAMP = (0.5, 64.0)
 # exit is ERRMIN plus a chi-square stall; chi-square is judged by the criteria.
 # The diamagnetic and Ip sigma axes moved nothing in stage 3 and are fixed.
 PSI_EXIT_SAICON = 1.0e10
+# (1,3) and (2,2) added 2026-09-29: the (1,1) basis pins li near 0.93, so a
+# slice whose magnetics want a broader current is fitted with beta_p < 0.
+STAGE4_BASES = STAGE3_BASES + ((1, 3), (2, 2))
 STAGE4_DIA = 16
 STAGE4_IP = 4.0
 STAGE4_START = {"probe": 8.0, "loop": 2.0}
@@ -318,10 +331,10 @@ def stage3_cells() -> list[dict[str, Any]]:
     ]
 
 
-def stage4_cells() -> list[dict[str, Any]]:
-    """The three bases at diamagnetic x16 and Ip 20 %, stopping on psi convergence."""
+def stage4_cells(bases: Sequence[Sequence[int]] = STAGE4_BASES) -> list[dict[str, Any]]:
+    """The bases at diamagnetic x16 and Ip 20 %, stopping on psi convergence."""
     return [{"basis": list(basis), "dia": STAGE4_DIA, "ip": STAGE4_IP, "floor": STAGE1_FLOOR, "psi_exit": True}
-            for basis in STAGE3_BASES]
+            for basis in bases]
 
 
 def cell_setting(cell: Mapping[str, Any], multipliers: Mapping[str, float]) -> dict[str, Any]:
@@ -460,9 +473,10 @@ def _write(table: Path, payload: Mapping[str, Any], study) -> None:
     print(f"wrote {table}", flush=True)
 
 
-def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None, stage: int = 3) -> dict[str, Any]:
+def run_stage3(slices, output: Path, *, workers: int, efit_home: str | None, stage: int = 3,
+               bases: Sequence[Sequence[int]] | None = None) -> dict[str, Any]:
     """Probe/loop multipliers per cell by self-consistency, all cells a round at a time."""
-    cells, start, rounds = ((stage4_cells(), STAGE4_START, STAGE4_ROUNDS) if stage == 4
+    cells, start, rounds = ((stage4_cells(bases or STAGE4_BASES), STAGE4_START, STAGE4_ROUNDS) if stage == 4
                             else (stage3_cells(), STAGE3_START, STAGE3_ROUNDS))
     state = [{"cell": c, "multipliers": dict(start), "done": False, "history": []} for c in cells]
     records: list[dict[str, Any]] = []
@@ -506,6 +520,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--stage", type=int, default=1)
     parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 1/2 only)")
     # --stage 3: self-consistent sigma, SAICON-gated exit; --stage 4: the same on psi convergence alone
+    parser.add_argument("--bases", default=None, help="stage 4 only: kppcur,kffcur pairs, e.g. '1,3;2,2'")
     parser.add_argument("--shots", default="39915,41524,41672")
     parser.add_argument("--times", default=None, help="comma-separated ms subset (smoke runs)")
     parser.add_argument("--workers", type=int, default=24, help="slices run at once (1 = serial)")
@@ -531,7 +546,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "criteria": criteria.CRITERIA, "workers": args.workers,
     }
     if args.stage in (3, 4):
-        result = run_stage3(slices, output, workers=args.workers, efit_home=args.efit_home, stage=args.stage)
+        bases = [tuple(int(k) for k in pair.split(",")) for pair in args.bases.split(";")] if args.bases else None
+        result = run_stage3(slices, output, workers=args.workers, efit_home=args.efit_home, stage=args.stage,
+                            bases=bases)
         records = result["records"]
         payload.update(cells=result["cells"])
     else:
@@ -542,6 +559,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     payload.update(
         initialization_fingerprint=check_fingerprints(records),
         summary=criteria.summarize([r for r in records if "error" not in r]),
+        slices=criteria.slice_labels(records),
         records=records,
     )
     _write(args.table.expanduser(), payload, ctx["study"])

@@ -87,7 +87,9 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
    - converged, with p ≥ 0 everywhere;
    - βp > 0 and W > 0;
    - q95 > 2;
-   - **0.3 ≤ Ip_MHD / Ip_measured ≤ 1.03**. In the ramp-up the current on closed flux surfaces can be only 30–80 % of the Rogowski's Ip. An earlier convergence study that lowered the Ip input showed it. So the reconstruction may fall well short of the measurement but not exceed it. This band is to be revisited on the results.
+   - **0.3 ≤ Ip_MHD / Ip_measured ≤ 1 + 2σ_Ip**, with σ_Ip the relative Ip σ the fit was given on that slice. In the ramp-up the current on closed flux surfaces can be only 30–80 % of the Rogowski's Ip. An earlier convergence study that lowered the Ip input showed it. So the reconstruction may fall well short of the measurement, but may exceed it only within its own Ip σ.
+     - Until 2026-09-29 the upper edge was 1.03. In stage 3 every Ip-ratio failure was on that side (1.03–1.17, none below 0.3), and at a 5 % Ip σ a ratio of 1.04–1.07 is z ≈ 0.9–1.3. The edge was tighter than the σ itself.
+     - The routine's legacy weight is not a σ, so the routine is judged at the 5 % reference (edge 1.10).
 2. **Measurement.** Each family is judged against the σ EFIT fitted with.
    - **Probes and flux loops:** reduced χ² in [0.5, 2].
    - **Ip and the diamagnetic flux:** one channel each, judged by **|z| ≤ 2**. A single channel's χ² is one z². Even with the right σ it lands in [0.5, 2] only 32 % of the time, and two such families together only 10 %.
@@ -103,6 +105,8 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
 
 A slice is **good** when it is admissible and no other criterion fails. A criterion that cannot be evaluated on a slice is reported and never counted against it.
 
+Across settings each slice is labelled (`criteria.slice_labels`): **good** when some study setting is good there, **admissible** when some is admissible but none good, otherwise **unreconstructible** — no setting in the study gives a physical magnetics-only reconstruction of it. Such a slice is reported as that, not forced. The routine's verdict is shown beside the label and never counts towards it.
+
 ### Per setting: the σ is calibrated, not gridded
 
 **Stage 3 (`--stage 3`) grids only the axes that need a judgement:**
@@ -117,6 +121,12 @@ A slice is **good** when it is admissible and no other criterion fails. A criter
 - At fixed residuals χ²r scales as 1/m², so one step suffices; a few are needed when the fit moves.
 
 The record keeps every round.
+
+**Stage 4 (`--stage 4`, 2026-09-29) replaces stage 3's exit and axes.**
+- *The exit.* Stage 3 let SAICON = N + 3√(2N) gate EFIT's exit. At a calibrated σ most slices fit the probes at χ²r ≈ 7, so they ran all 514 iterations with ψ converged to ~2×10⁻⁸ and were reported unconverged. The median that set σ then came only from the few slices that fitted: the calibration was circular. Stage 4 writes SAICON = 10¹⁰, so EFIT stops on ERRMIN and a χ² stall. χ² is judged by the criteria above, not by the exit.
+- *The axes.* Diamagnetic and Ip σ moved nothing in stage 3 and are fixed at ×16 and 20 %.
+- *The bases.* (1,1), (2,1), (1,2), (1,3), (2,2). In stage 3 the (1,1) basis pinned li at 0.88–1.04 (routine: 0.64–0.75), and 20 of its ψ-converged slices had βp < 0 and W < 0. The magnetics fix Λ = βp + li/2, and with li pinned the only way to a smaller Λ is negative pressure. The extra FF′ terms let the current profile broaden instead. A positivity constraint was not taken: in (1,1) it would only pin βp at 0 and move the misfit into the probes.
+- *A round with no converged slice* (a loose fit can lose the boundary in `bound`) steps the multipliers back to the geometric midpoint of the last two rounds. It starts at probe ×8, loop ×2, for at most six rounds.
 
 ### How it runs
 

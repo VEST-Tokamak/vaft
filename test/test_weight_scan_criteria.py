@@ -151,10 +151,37 @@ def test_single_channel_families_are_judged_by_z_not_by_a_chi2_band(criteria):
     assert verdict["status"] == "fail" and verdict["reasons"] == ["dia |z| 2.1"]
 
 
-@pytest.mark.parametrize("ratio, status", [(0.5, "pass"), (0.3, "pass"), (1.03, "pass"), (0.25, "fail"), (1.05, "fail")])
-def test_the_ip_ratio_band_admits_a_ramp_up_closed_surface_current_below_the_rogowski(criteria, ratio, status):
+@pytest.mark.parametrize("ratio, sigma, status", [
+    (0.5, 0.05, "pass"), (0.3, 0.05, "pass"), (0.25, 0.05, "fail"),
+    (1.09, 0.05, "pass"), (1.11, 0.05, "fail"),  # upper edge 1 + 2 sigma
+    (1.39, 0.20, "pass"), (1.41, 0.20, "fail"),
+])
+def test_the_ip_ratio_band_is_0p3_to_one_plus_two_sigma(criteria, ratio, sigma, status):
     scalars = {"betap": 0.2, "wmhd": 150.0, "q95": 6.0, "ipmhd": ratio * 80.0e3}
-    assert criteria.admissible(_good_record(scalars=scalars))["status"] == status
+    record = _good_record(scalars=scalars, ip_sigma_relative=sigma)
+    assert criteria.admissible(record)["status"] == status
+
+
+def test_ip_sigma_comes_from_the_fit_and_the_routine_uses_the_reference(criteria):
+    record = _good_record()
+    record["fit"] = dict(record["fit"], ip_sigma_median=16.0e3)  # 20 % of 80 kA
+    assert criteria.ip_sigma_relative(record) == pytest.approx(0.20)
+    # the routine's legacy weight is not a sigma, however large
+    routine = dict(record, setting="routine")
+    assert criteria.ip_sigma_relative(routine) == pytest.approx(0.05)
+    assert criteria.ip_ratio_band(routine) == pytest.approx((0.3, 1.10))
+
+
+def test_slice_labels_name_the_unreconstructible_slices(criteria):
+    good = dict(_good_record(), shot=1, time_ms=10)
+    negative = dict(_good_record(pressure_min=-5.0), shot=1, time_ms=11)
+    routine = dict(_good_record(), shot=1, time_ms=11, setting="routine")
+    thomson_fail = dict(_good_record(thomson={"log_ratio": -2.0}), shot=1, time_ms=12)
+    labels = criteria.slice_labels([good, negative, routine, thomson_fail])
+    assert [(x["time_ms"], x["label"]) for x in labels] == [
+        (10, "good"), (11, "unreconstructible"), (12, "admissible")]
+    # the routine is reported, never counted towards the label
+    assert labels[1]["routine"] == "pass"
 
 
 def test_setting_calibration_is_the_median_over_admissible_slices(criteria):
@@ -196,6 +223,19 @@ def test_stage3_grids_basis_dia_and_ip_and_solves_probe_and_loop(scan):
     setting = scan.cell_setting(cells[0], scan.STAGE3_START)
     assert setting["probe"] == 4.0 and setting["loop"] == 1.0
     assert scan.uncertainty_scales(setting)["plasma_current"] == pytest.approx(1.0 / cells[0]["ip"])
+
+
+def test_stage4_exits_on_psi_alone_over_five_bases(scan):
+    cells = scan.stage4_cells()
+    assert [c["basis"] for c in cells] == [[1, 1], [2, 1], [1, 2], [1, 3], [2, 2]]
+    assert {(c["dia"], c["ip"]) for c in cells} == {(16, 4.0)}
+    assert [c["basis"] for c in scan.stage4_cells([(1, 3)])] == [[1, 3]]
+    setting = scan.cell_setting(cells[0], scan.STAGE4_START)
+    assert setting["name"].endswith("_psiexit") and setting["psi_exit"]
+    assert scan.exit_chi_squared(setting, 60) == scan.PSI_EXIT_SAICON
+    stage3 = scan.cell_setting(scan.stage3_cells()[0], scan.STAGE3_START)
+    assert "psi_exit" not in stage3
+    assert scan.exit_chi_squared(stage3, 60) == pytest.approx(60 + 3 * (120 ** 0.5))
 
 
 def test_backoff_steps_halfway_back_in_log(scan):
