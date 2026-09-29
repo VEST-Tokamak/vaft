@@ -25,6 +25,36 @@
       "source_sha256": "834b978f71e85358200d54f5b8bd895e84742b8b2bb622833a4177b08a61970d",
       "svg_sha256": "2083ee856168b857e63eb994e32744364c355c4a1943b4b7d0c6b181b46bd742"
     },
+    "blob_current_closure_inertial.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='inertial')",
+      "source_sha256": "c9ec9d9278284fa25f66330bdec35519547e3b578cf546d0e84144d35a7dd388",
+      "svg_sha256": "b624a02d621b9b424accd01cee20328d304ccb66174eba9482053f256a8ba6d7"
+    },
+    "blob_current_closure_sheath.svg": {
+      "call": "vaft.diagram.blob_current_closure(regime='sheath')",
+      "source_sha256": "e88418fcbb110400636ae638a8e5d8c40b71dd448e3fc79ebb3138bfef9c46a7",
+      "svg_sha256": "e1b89f74085325b90200600b2e45316ce5f08496191a146060373601efa4d917"
+    },
+    "blob_polarization.svg": {
+      "call": "vaft.diagram.blob_polarization()",
+      "source_sha256": "611f06b52e3a51dfa8cc7c26b6064e0e0ae9405df0a60c77ebb32685223d5f49",
+      "svg_sha256": "43f0f7825118c2811e8834626db1c3737cff927436d0c204140314627da06c17"
+    },
+    "blob_polarization_hole.svg": {
+      "call": "vaft.diagram.blob_polarization(perturbation='hole')",
+      "source_sha256": "2674db66e7e9174cc258c4c291b06aaef4dd29e299f250728a888a899486cb85",
+      "svg_sha256": "667b51c98704c2be644be4ef8e587857912582310e964a3adebaf758c685db2c"
+    },
+    "blob_regimes.svg": {
+      "call": "vaft.diagram.blob_regimes()",
+      "source_sha256": "6bde26dc208cdcee809c907c4b6a6058e1ec29d7a0af06d22b779b5f3726af09",
+      "svg_sha256": "e1461e78d0b0b4a67751ab52aa6fa69172af7ef0f42330b4b8fbe5a8b10cac3f"
+    },
+    "blob_velocity_scaling.svg": {
+      "call": "vaft.diagram.blob_velocity_scaling()",
+      "source_sha256": "64bc4a9a1a6e2360bb3582877e95cbc817238e1ae3465b8ad1b8794b54f750ac",
+      "svg_sha256": "fb20b50bcc7ae65d51c5aedb1c6268df5d11665e586434ec62a7f0c813e48d82"
+    },
     "branch_bifurcation.svg": {
       "call": "vaft.diagram.branch_bifurcation()",
       "source_sha256": "3623b6080156052bbfb2b98d38626dad203810c476ed090e1a9f77d82dc06cd9",

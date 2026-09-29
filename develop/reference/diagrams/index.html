@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>40e566c</code>. What is described
+  <code>3f2518e</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2289,6 +2289,74 @@ interaction</a> section.</p>
   </tbody>
 </table>
 
+<h2 id="sol-blobs-and-filaments">SOL blobs and filaments</h2>
+
+<p>A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a
+negative one. The filament is the field-aligned structure whose perpendicular cross-section is the blob.</p>
+
+<p>How a blob moves:</p>
+<ul>
+  <li>curvature and $\nabla B$ drift ions and electrons apart;</li>
+  <li>the density monopole becomes a charge dipole, $+$ above and $-$ below;</li>
+  <li>the dipole’s $E$ field drives an $E\times B$ drift outward on the low-field side, down $\nabla B$ (a hole
+moves inward).</li>
+</ul>
+
+<p>How fast it moves depends on where the polarization current closes:</p>
+<ul>
+  <li>along the field to the sheaths (sheath-connected, $v \propto \delta^{-2}$);</li>
+  <li>across the field by ion inertia (inertial or resistive-ballooning, $v \propto \delta^{1/2}$);</li>
+  <li>with resistivity and X-point fanning, in between.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.formula.sol</code> holds the prescribed filament state <code class="language-plaintext highlighter-rouge">blob_density_perturbation</code> (a blob, or a hole below
+the background), the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
+reference velocity $v_<em>$, the collisionality $\Lambda$, both limits, the interpolation, and the four regime
+scalings. All follow D’Ippolito, Myra and Zweben (2011), with a Gaussian of radius $\delta$. The $O(1)$
+prefactors in Krasheninnikov (2001) and Theiler et al. (2011) belong to their own size definitions. The NSTX
+parameters of Myra et al. (2006) give $\hat a \approx 1.3$, as in their Fig. 1, and $v_</em> \approx 3$ km/s from their
+symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_s = (T_e/m_i)^{1/2}$.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">blob_polarization</span><span class="p">()</span>        <span class="c1"># the mechanism: dipole, E, E x B; perturbation="hole" reverses it
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">blob_current_closure</span><span class="p">(</span><span class="n">regime</span><span class="o">=</span><span class="sh">"</span><span class="s">sheath</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># or "inertial": where the current closes
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">blob_velocity_scaling</span><span class="p">()</span>    <span class="c1"># v/v* against delta/delta*: both limits and Eq. (9)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">blob_regimes</span><span class="p">(</span><span class="n">epsilon_x</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># Lambda against Theta = delta_hat^{5/2}: RB, RX, C_i, C_s
+</span></code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/blob_polarization.svg" alt="polarization" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/blob_polarization_hole.svg" alt="hole" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/blob_current_closure_sheath.svg" alt="sheath closure" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/blob_current_closure_inertial.svg" alt="inertial closure" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/blob_velocity_scaling.svg" alt="velocity" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/blob_regimes.svg" alt="regimes" /></td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -2421,7 +2489,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -2539,7 +2607,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 08:51:03 +0000"
+        "time": "2026-09-29 09:05:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
