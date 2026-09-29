@@ -310,6 +310,16 @@
       "source_sha256": "12b0d89cb1ac951b0ac40fd6476beae68da0ab40fc7f4717db1b521e7c9e231b",
       "svg_sha256": "8e0a6cc8962a5d8ccf6213b22eb71f2dea19f50f9476dde4c972cd42bfa22193"
     },
+    "nbi_neutral_attenuation.svg": {
+      "call": "vaft.diagram.nbi_neutral_attenuation()",
+      "source_sha256": "65b4150f5527874d3076c6afdeb3a6651baf7772bf5403bdbbfcd5d2a3f08cdc",
+      "svg_sha256": "47fd2f670074b0a3f848a865e0d3c484ac77af490b4a989562a749ce42768c37"
+    },
+    "nbi_particle_lifecycle.svg": {
+      "call": "vaft.diagram.nbi_particle_lifecycle()",
+      "source_sha256": "971f992005185562d864cd383c795d601a965ae757265acb835db560591fafa2",
+      "svg_sha256": "fc7ef311a27b68255dfa48011dd73f4033918b0cca0c7107abed5943fd7c660f"
+    },
     "neoclassical_collisionality.svg": {
       "call": "vaft.diagram.neoclassical_collisionality()",
       "source_sha256": "941c9b09f1f58ae89a033a82210258c97aecd7ce4e231ee22f4126cf418152c7",
