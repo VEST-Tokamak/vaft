@@ -127,6 +127,16 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
+                                              "grid_induced_two_cycle", "branch_selection")},
+    # cold-plasma waves from their equations (#1113)
+    **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
+                                              "profile_propagation")},
+    # neoclassical and NTV collisionality regimes (#1111)
+    "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
+    "ntv_collisionality.svg": ("ntv_collisionality", {}),
+    "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
     # wall conditioning as wall-state transitions (#1051)
     "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
     "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
