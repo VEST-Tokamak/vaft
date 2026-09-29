@@ -135,6 +135,11 @@
       "source_sha256": "5a8c26c3b187bd03b6fdccb8dac525bd448eb53d3f72fbf511880779ddd667a3",
       "svg_sha256": "87249df7ecbdb12d7bc54e7a48a3f5f92583d42fa7917dd106f8c9a02fb817cd"
     },
+    "divertor_heat_footprint.svg": {
+      "call": "vaft.diagram.divertor_heat_footprint()",
+      "source_sha256": "1a119005c82761f979cbb7e82a3c527d6627b8528ffe26ca5ca825939ad98031",
+      "svg_sha256": "728f33802ed66166184a48c5ea75fbe2723a35da93a3694ec06a95dd471795b7"
+    },
     "equilibrium_problem_taxonomy.svg": {
       "call": "vaft.diagram.equilibrium_problem_taxonomy()",
       "source_sha256": "13d016c01cc7d752585078cacfeb7edc0667abde252b218371f9331b1e299a53",
