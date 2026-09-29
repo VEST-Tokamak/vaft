@@ -38,6 +38,7 @@ from vaft.data.equilibrium import (
     MillerSurface,
     SolovevConstraint,
     SolovevEquilibrium,
+    _resolve_solovev_f_sign,
     StationaryPoint,
     StrikePoint,
     Topology,
@@ -1675,7 +1676,7 @@ def evaluate_solovev(
 def solve_solovev_constraints(
     constraints: Sequence[SolovevConstraint], *, pprime: float, ffprime: float,
     rref: float, psi_boundary: float = 0.0, pressure_boundary: float = 0.0,
-    f_boundary: float = 1.0, f_sign: int = 1, basis: str = "classic",
+    f_boundary: float = 1.0, f_sign: int | None = None, basis: str = "classic",
     max_condition_number: float = 1.0e12,
 ) -> SolovevEquilibrium:
     """Solve for the Solov'ev coefficients that satisfy a set of geometric constraints.
@@ -1706,9 +1707,13 @@ def solve_solovev_constraints(
     pressure_boundary : float, optional
         Pressure at that boundary [Pa].
     f_boundary : float, optional
-        Poloidal current function at that boundary [T m].
-    f_sign : int, optional
-        Sign given to the poloidal current when the square root is taken [-].
+        Poloidal current function at that boundary, signed: its sign is the
+        direction of B_phi, both in F(psi) and in ``bt0 = f_boundary/rref``.
+        Must be non-zero [T m].
+    f_sign : int or None, optional
+        Sign given to the poloidal current when the square root is taken.
+        ``None`` takes ``sign(f_boundary)``; an explicit +1 or -1 must agree
+        with it [-].
     basis : str, optional
         ``"classic"`` (five up-down symmetric terms), ``"cerfon_freidberg_even"``
         (seven symmetric terms, enough for a double null) or
@@ -1728,9 +1733,11 @@ def solve_solovev_constraints(
     Raises
     ------
     ValueError
-        An unknown basis, fewer constraints than basis terms, an unrecognized
-        constraint kind, a constraint set whose rank is below the basis size,
-        or one whose condition number exceeds *max_condition_number*.
+        A zero *f_boundary*, an *f_sign* that contradicts the sign of
+        *f_boundary* (#1307), an unknown basis, fewer constraints than basis
+        terms, an unrecognized constraint kind, a constraint set whose rank is
+        below the basis size, or one whose condition number exceeds
+        *max_condition_number*.
 
     Processing steps
     ----------------
@@ -1748,6 +1755,8 @@ def solve_solovev_constraints(
     --------
     The boundary values default to a zero-flux, zero-pressure, unit-current
     reference, which is the natural normalization for a shape-only model.
+    ``f_sign=None`` makes *f_boundary* the single source of the B_phi sign, so
+    reversing the toroidal field is a matter of negating *f_boundary* alone.
     ``basis="classic"`` keeps the original five-term model.  The condition
     limit of 1e12 is a numerical convenience: about four digits short of
     double precision, below which the least-squares answer still means
@@ -1785,6 +1794,7 @@ def solve_solovev_constraints(
 
     if basis not in SOLOVEV_BASIS_SIZES:
         raise ValueError(f"basis must be one of {tuple(SOLOVEV_BASIS_SIZES)}, got {basis!r}")
+    f_sign = _resolve_solovev_f_sign(f_boundary, f_sign)
     size = SOLOVEV_BASIS_SIZES[basis]
     if len(constraints) < size:
         count = {5: "five", 7: "seven", 12: "twelve"}[size]
