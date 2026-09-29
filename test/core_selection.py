@@ -114,6 +114,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
     "test_public_confinement.py",
+    "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
