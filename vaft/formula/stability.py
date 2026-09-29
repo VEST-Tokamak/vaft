@@ -1987,8 +1987,11 @@ def ballooning_radial_wavenumber(k_y, s, theta, alpha=0.0, theta0=0.0):
     The $\Lambda$ of ``s_alpha_curvature_drive`` and
     ``s_alpha_ballooning_solution``: $k_\perp^2 = k_y^2(1 + \Lambda^2)$. With
     $\alpha = 0$ it is the sheared slab's $k_x(z) = k_{x0} + k_y\hat s z$ with
-    $z = \theta$ and $k_{x0} = -k_y\hat s\theta_0$. Constant $k_y$ along the
-    line, as in the field-aligned $(x, y, z)$ frame.
+    $z = \theta$ and $k_{x0} = -k_y\hat s\theta_0$; in physical length
+    $z_\mathrm{phys} = qR\theta$ and $\hat s = qR/L_s$. Constant $k_y$ along
+    the line, as in the field-aligned $(x, y, z)$ frame. Codes differ in the
+    sign of $\theta_0$: gyrokinetic flux-tube codes (GS2, GENE) define it
+    through $k_{x0}/(\hat s k_y)$, which is $-\theta_0$ here.
 
     Physical interpretation
     -----------------------
@@ -2052,7 +2055,9 @@ def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201)
     finite differences, a symmetric generalised eigenproblem, Dirichlet ends:
     for a stable surface the largest eigenvalue is near zero and negative
     (the discretised continuum), for an unstable one it is positive and the
-    mode decays well inside the interval.
+    mode decays well inside the interval. The matrix is scaled by
+    $M^{-1/2}$ to a symmetric tridiagonal one, so the cost is linear in
+    ``n_points``.
 
     Physical interpretation
     -----------------------
@@ -2064,6 +2069,19 @@ def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201)
     -----------
     As ``s_alpha_ballooning_stable``; ideal MHD, incompressible, $n \to \infty$.
 
+    Validity
+    --------
+    The unstable mode decays over $\sim 1/\hat\gamma$ in $\theta$, so the
+    Dirichlet box needs $\theta_\mathrm{max} \gg 1/\hat\gamma$; near a
+    stability boundary $\hat\gamma \to 0$ and the box stabilises the marginal
+    mode. With the default $6\pi$ a verdict within about $0.015$ of the
+    boundary in $\alpha$ is unreliable (at $s = 1$ the modes for
+    $\alpha \in (0.61, 0.625)$ come out stable while
+    ``s_alpha_ballooning_stable`` finds them unstable); use
+    ``s_alpha_ballooning_stable`` for the verdict and this function for the
+    mode structure and growth rate away from the boundary. Like that
+    function it needs $s \gtrsim 0.05$ to resolve the envelope.
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
@@ -2071,7 +2089,7 @@ def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201)
     .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Proc. R. Soc. A 365,
            1 (1979).
     """
-    from scipy.linalg import eigh
+    from scipy.linalg import eigh_tridiagonal
 
     if not theta_max > 0.0:
         raise ValueError("theta_max must be positive")
@@ -2088,15 +2106,16 @@ def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201)
     inner = slice(1, n_points - 1)
     diag = -(half[:-1] + half[1:]) / h**2 + drive[inner]
     off = half[1:-1] / h**2
-    A = np.diag(diag) + np.diag(off, 1) + np.diag(off, -1)
-    M = np.diag(p[inner])
+    # A F = w M F with M = diag(p) -> the symmetric tridiagonal M^{-1/2} A M^{-1/2} u = w u, F = M^{-1/2} u
+    root = np.sqrt(p[inner])
     k = n_points - 3
-    w, v = eigh(A, M, subset_by_index=[k, k])
-    F = np.concatenate([[0.0], v[:, 0], [0.0]])
+    w, v = eigh_tridiagonal(diag / p[inner], off / (root[:-1] * root[1:]), select="i", select_range=(k, k))
+    F = np.concatenate([[0.0], v[:, 0] / root, [0.0]])
     F = F / F[np.argmax(np.abs(F))]
     if F[n_points // 2] < 0:
         F = -F
     return float(w[0]), theta, F
+
 
 def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     r"""First and second ballooning stability boundaries of the $s$-$\alpha$ model.

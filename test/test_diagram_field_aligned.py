@@ -7,9 +7,10 @@ import pytest
 
 import vaft.diagram
 from vaft.diagram import _field_aligned as fa
-from vaft.diagram._scene import Label
+from vaft.diagram._scene import Label, Polyline
 from vaft.formula.stability import (
     ballooning_radial_wavenumber,
+    field_line_label,
     s_alpha_ballooning_eigenmode,
     s_alpha_ballooning_stable,
     s_alpha_curvature_drive,
@@ -23,11 +24,21 @@ def test_the_eigenmode_agrees_with_newcomb_and_localises_when_unstable(s, alpha)
     assert (g < 0.0) == stable  # an independent integrator decides the same way
     np.testing.assert_allclose(F, F[::-1], atol=1e-6)  # even
     tail = np.max(np.abs(F[np.abs(theta) > 4 * math.pi]))
+    assert np.all(F >= -1e-9)  # the top mode is nodeless
     if not stable:
         assert F[len(F) // 2] == pytest.approx(1.0)  # peaked at the outboard midplane
         assert tail < 0.05  # it balloons: localised near theta = 0
-    else:
-        assert tail > 0.1  # the stable top eigenvector is continuum-like, it fills the interval
+
+
+def test_the_growth_rate_is_converged_in_the_box_and_the_grid():
+    # CHT s-alpha at (1, 1.2): an independent tridiagonal solve gives 0.3867
+    g, _, _ = s_alpha_ballooning_eigenmode(1.0, 1.2)
+    assert g == pytest.approx(0.3867, abs=2e-4)
+    assert s_alpha_ballooning_eigenmode(1.0, 1.2, theta_max=12 * math.pi, n_points=4801)[0] == pytest.approx(g, abs=2e-4)
+    # a stable surface: the top of the continuum approaches zero from below as the box grows
+    small = s_alpha_ballooning_eigenmode(1.0, 0.3)[0]
+    large = s_alpha_ballooning_eigenmode(1.0, 0.3, theta_max=12 * math.pi, n_points=2401)[0]
+    assert small < large < 0.0
 
 
 def test_the_radial_wavenumber_is_the_lambda_of_the_s_alpha_model():
@@ -44,16 +55,36 @@ def test_the_radial_wavenumber_is_the_lambda_of_the_s_alpha_model():
 
 
 def test_the_basis_has_b_along_the_lines_and_grad_alpha_across():
-    model = vaft.diagram.field_aligned_basis(q=3.0).model
+    q = 3.0
+    model = vaft.diagram.field_aligned_basis(q=q).model
     b, g = np.asarray(model["B_direction"]), np.asarray(model["grad_alpha_direction"])
-    assert np.dot(b, g) == pytest.approx(0.0, abs=1e-12)  # in (phi, theta) coordinates: grad alpha . B = 0
-    assert b[1] / b[0] == pytest.approx(1.0 / 3.0)  # d theta / d phi = 1/q along the line
+    # derive both from the formula: d_i alpha by finite differences, B^i from integrating d phi / d theta = q
+    phi, theta, h = 0.7, 0.4, 1e-6
+    d_alpha = np.array([(field_line_label(phi + h, theta, q) - field_line_label(phi - h, theta, q)) / (2 * h),
+                        (field_line_label(phi, theta + h, q) - field_line_label(phi, theta - h, q)) / (2 * h)])
+    step = 1e-3
+    line = np.array([phi + q * step, theta + step]) - np.array([phi, theta])  # one step along B
+    assert field_line_label(*(np.array([phi, theta]) + line), q) == pytest.approx(field_line_label(phi, theta, q))
+    np.testing.assert_allclose(b, line / np.linalg.norm(line), atol=1e-9)
+    np.testing.assert_allclose(g, d_alpha / np.linalg.norm(d_alpha), atol=1e-6)
+    assert np.dot(line, d_alpha) == pytest.approx(0.0, abs=1e-9)  # B^i d_i alpha = 0
 
 
-def test_shear_rotates_the_phase_fronts():
-    model = vaft.diagram.magnetic_shear_field_aligned(shear=1.5).model
-    np.testing.assert_allclose(model["k_x"], 1.5 * np.asarray(model["theta"]))
-    assert model["k_x"][2] == 0.0  # untilted at theta = 0
+def test_shear_rotates_the_drawn_fronts_at_fixed_binormal_period():
+    diagram = vaft.diagram.magnetic_shear_field_aligned(shear=1.5)
+    model = diagram.model
+    for i, (theta, k_x) in enumerate(zip(model["theta"], model["k_x"])):
+        assert k_x == pytest.approx(ballooning_radial_wavenumber(model["k_y"], 1.5, theta))
+        fronts = [np.asarray(p.points) for p in diagram.scene.items
+                  if isinstance(p, Polyline) and p.role == f"front_{i}"]
+        assert len(fronts) >= 3
+        k = np.array([k_x, model["k_y"]])
+        # each drawn front is normal to (k_x, k_y), i.e. a line of constant phase k . r
+        for f in fronts:
+            assert np.dot(f[1] - f[0], k) == pytest.approx(0.0, abs=1e-9)
+        # consecutive fronts differ in phase by one binormal wavelength: fixed k_y period in every plane
+        phases = np.sort([np.dot(f[0], k) for f in fronts])
+        np.testing.assert_allclose(np.diff(phases), model["k_y"] * model["wavelength_y"], rtol=1e-9)
 
 
 def test_the_figure_contrasts_an_unstable_and_a_stable_surface():

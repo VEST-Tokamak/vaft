@@ -26,7 +26,7 @@ from typing import List
 
 import numpy as np
 
-from vaft.formula.stability import ballooning_radial_wavenumber, field_line_label, s_alpha_ballooning_eigenmode
+from vaft.formula.stability import ballooning_radial_wavenumber, s_alpha_ballooning_eigenmode
 
 from ._chart import Chart, render_chart
 from ._concept import box, connector
@@ -48,8 +48,16 @@ def field_aligned_basis(q: float = 2.5, *, labels: bool = True) -> Diagram:
 
     The flux surface unrolled onto $(\phi, \theta) \in [0, 2\pi)^2$; its field
     lines are the lines of constant $\alpha = \phi - q\theta$ (``field_line_label``),
-    here eight of them. At one point: $\mathbf B$ along the line,
-    $\nabla\alpha$ across it within the surface, $\nabla\psi$ out of the page.
+    here eight of them. At one point: $\mathbf B$ along the line, the
+    components $\partial_i\alpha = (1, -q)$ across it, $\nabla\psi$ out of
+    the page. The right angle is drawn in $(\phi, \theta)$ coordinate space:
+    $\mathbf B\cdot\nabla\alpha = B^\phi\partial_\phi\alpha + B^\theta\partial_\theta\alpha
+    = 0$ pairs contravariant with covariant components and holds with any
+    metric, while the true gradient $g^{ij}\partial_j\alpha$ is not at right
+    angles on the page. It is the in-surface part at $\theta = 0$ only:
+    $\nabla\alpha = \nabla\phi - q\nabla\theta - \theta q'\nabla\psi$ has a
+    radial part that grows secularly along the line -- the magnetic shear of
+    ``magnetic_shear_field_aligned``.
     With $x = \psi$, $y = \alpha$, $z = \theta$: $\mathbf B\cdot\nabla x = 0$,
     $\mathbf B\cdot\nabla y = 0$, $\mathbf B\cdot\nabla z \ne 0$, so the parallel
     derivative is one partial derivative.
@@ -66,14 +74,13 @@ def field_aligned_basis(q: float = 2.5, *, labels: bool = True) -> Diagram:
         alpha0 = 2.0 * math.pi * k / 8
         # alpha = phi - q theta = alpha0  ->  phi = alpha0 + q theta, wrapped into the square
         phi = alpha0 + q * theta
-        assert np.allclose(field_line_label(phi, theta, q), alpha0)
         wrapped = np.mod(phi, 2.0 * math.pi)
         breaks = np.where(np.diff(wrapped) < 0)[0] + 1
         for seg_phi, seg_theta in zip(np.split(wrapped, breaks), np.split(theta, breaks)):
             if len(seg_phi) > 1:
                 items.append(Polyline.of(np.stack([seg_phi * sc, seg_theta * sc], -1), "surface",
                                          role="field_line"))
-    # at a point: B along (q, 1) in (phi, theta); grad alpha along (1, -q), orthogonal in these coordinates
+    # at a point: B^i along (q, 1) in (phi, theta); the covariant d_i alpha = (1, -q): B^i d_i alpha = 0
     P = np.array([0.5 * size, 0.42 * size])
     b = np.array([q, 1.0]) / math.hypot(q, 1.0)
     g = np.array([1.0, -q]) / math.hypot(1.0, q)
@@ -97,6 +104,9 @@ def field_aligned_basis(q: float = 2.5, *, labels: bool = True) -> Diagram:
                         role="conditions"),
                   Label((size / 2, -0.75), f"one flux surface unrolled, $q = {q:g}$: lines of constant "
                         "$\\alpha = \\phi - q\\theta$ are the field lines", "note", anchor="north", role="note")]
+    if labels:
+        items.append(Label((size / 2, -1.25), "$\\nabla\\alpha = \\nabla\\phi - q\\nabla\\theta - \\theta q'\\nabla\\psi$: "
+                           "the last term grows along the line (shear)", "note", anchor="north", role="secular"))
     return Diagram("field_aligned_basis", Scene(tuple(items)),
                    model={"q": q, "B_direction": tuple(b), "grad_alpha_direction": tuple(g)})
 
@@ -131,13 +141,22 @@ def flux_tube_patch(*, labels: bool = True) -> Diagram:
     items.append(Polyline.of([(x3, 0.3), (x3 + 2.6, 2.1), (x3 + 2.6, 2.5), (x3, 0.7)], "layer", role="neighbourhood",
                              closed=True))
     items.append(Polyline.of([(x3, 0.5), (x3 + 2.6, 2.3)], "field line", role="field_line"))
-    # 4. the local box, ends sheared
+    # 4. the local box in oblique projection: an x-y end face, elongated along z; the far face is
+    #    sheared (its x position shifts with y) relative to the near one
     x4 = 10.6
-    box_pts = [(x4, 0.4), (x4 + 2.4, 0.4), (x4 + 2.8, 2.0), (x4 + 0.4, 2.0)]
-    items.append(Polyline.of(box_pts, "surface", role="flux_tube", closed=True))
-    items += [Arrow((x4, 0.4), (x4 + 0.9, 0.4), "vector", role="x_axis"),
-              Arrow((x4, 0.4), (x4 + 0.2, 1.2), "vector", role="y_axis"),
-              Arrow((x4 + 1.2, 1.2), (x4 + 2.4, 1.2), "drift ion", role="z_axis")]
+    o = np.array([x4, 0.2])
+    ex, ey, ez = np.array([0.8, 0.0]), np.array([0.0, 0.8]), np.array([1.9, 1.1])
+    shear_shift = 0.35 * ex
+    near = [o, o + ex, o + ex + ey, o + ey]
+    far = [o + ez, o + ez + ex, o + ez + ex + ey + shear_shift, o + ez + ey + shear_shift]
+    items.append(Polyline.of(near, "surface", role="flux_tube_end", closed=True))
+    items.append(Polyline.of(far, "surface", role="flux_tube_end", closed=True))
+    for a, b in zip(near, far):
+        items.append(Polyline.of([a, b], "surface", role="flux_tube"))
+    items += [Arrow(tuple(o), tuple(o + 1.2 * ex), "vector", role="x_axis"),
+              Arrow(tuple(o), tuple(o + 1.25 * ey), "vector", role="y_axis"),
+              Arrow(tuple(o + 0.5 * (ex + ey)), tuple(o + 0.5 * (ex + ey) + 0.75 * ez), "drift ion",
+                    role="z_axis")]
     for a, b in ((c1 + np.array([1.35, 0.0]), (x2 - 0.15, 1.3)), ((x2 + 2.75, 1.3), (x3 - 0.15, 1.3)),
                  ((x3 + 2.75, 1.3), (x4 - 0.15, 1.2))):
         items.append(Arrow(tuple(a), tuple(b), "connector", role="step"))
@@ -147,9 +166,10 @@ def flux_tube_patch(*, labels: bool = True) -> Diagram:
                   Label((x3 + 1.3, -0.3), "its thin neighbourhood", "small label", anchor="north",
                         role="neighbourhood"),
                   Label((x4 + 1.4, -0.3), "local box: $x, y, z$", "small label", anchor="north", role="flux_tube"),
-                  Label((x4 + 0.95, 0.4), "$x$ radial", "small label", anchor="west", role="x_axis"),
-                  Label((x4 + 0.2, 1.25), "$y$", "small label", anchor="south east", role="y_axis"),
-                  Label((x4 + 2.45, 1.2), "$z \\parallel \\mathbf B$", "small label", anchor="west", role="z_axis"),
+                  Label(tuple(o + 1.25 * ex), "$x$", "small label", anchor="north west", role="x_axis"),
+                  Label(tuple(o + 1.3 * ey), "$y$", "small label", anchor="south east", role="y_axis"),
+                  Label(tuple(o + ez + ex + 0.05 * ey), "$z \\parallel \\mathbf B$", "small label",
+                        anchor="west", role="z_axis"),
                   Label((6.9, -1.0), "Flux-tube and sheared-slab frame; the ends are sheared, joined by a shifted "
                         "(twist-and-shift) condition", "note", anchor="north", role="note")]
     return Diagram("flux_tube_patch", Scene(tuple(items)), model={"steps": ("surface", "field_line",
@@ -159,15 +179,19 @@ def flux_tube_patch(*, labels: bool = True) -> Diagram:
 def magnetic_shear_field_aligned(*, shear: float = 1.0, labels: bool = True) -> Diagram:
     r"""Magnetic shear rotates the phase fronts of a field-aligned mode as it is followed along the line.
 
-    Five local $(x, y)$ planes at $z = \theta = -2\pi, -\pi, 0, \pi, 2\pi$ with
-    the fronts of a mode of fixed $k_y$: the radial wavenumber is
+    Five local $(x, y)$ planes at $z = \theta = -\pi, -\pi/2, 0, \pi/2, \pi$
+    with the fronts of a mode of fixed $k_y$: the radial wavenumber is
     ``ballooning_radial_wavenumber`` ($\alpha = 0$, $\theta_0 = 0$),
     $k_x = k_y\hat s\theta$, so the fronts tilt by $\arctan(\hat s\theta)$ -- the
-    sheared-slab $k_x(z) = k_{x0} + k_y\hat s z$ seen in the tokamak.
+    sheared-slab $k_x(z) = k_{x0} + k_y\hat s z$ seen in the tokamak. The
+    binormal period $2\pi/k_y$ is the same in every plane (the fronts cross
+    each vertical line at the same spacing), so the spacing across the fronts
+    shrinks as $1/\sqrt{1 + \hat s^2\theta^2}$: $k_\perp$ grows along the line,
+    the $(1 + \Lambda^2)$ of line bending and inertia.
     """
     labels = _check_labels(labels)
-    k_y, size, pitch = 1.0, 2.0, 2.8
-    zs = [-2.0 * math.pi, -math.pi, 0.0, math.pi, 2.0 * math.pi]
+    k_y, size, pitch, wavelength_y = 1.0, 2.0, 2.8, 0.6
+    zs = [-math.pi, -0.5 * math.pi, 0.0, 0.5 * math.pi, math.pi]
     items: List = []
     kxs = []
     for i, z in enumerate(zs):
@@ -176,14 +200,15 @@ def magnetic_shear_field_aligned(*, shear: float = 1.0, labels: bool = True) -> 
         x0 = i * pitch
         items.append(Polyline.of([(x0, 0), (x0 + size, 0), (x0 + size, size), (x0, size)], "inset frame",
                                  role="plane", closed=True))
-        # fronts k_x x + k_y y = const, clipped to the square
+        # fronts k_x x + k_y y = const, one per binormal wavelength along y, clipped to the square
         kk = math.hypot(k_x, k_y)
-        nx, ny = k_x / kk, k_y / kk  # unit normal; fronts spaced by 0.35 along it
+        d = np.array([k_y, -k_x]) / kk  # along a front, normal to (k_x, k_y)
         c = np.array([x0 + size / 2, size / 2])
-        for j in range(-6, 7):
-            p0 = c + j * 0.35 * np.array([nx, ny])
-            d = np.array([-ny, nx])
-            seg = np.array([p0 - 3 * d, p0 + 3 * d])
+        reach = 0.5 * size * (1.0 + abs(k_x / k_y))  # y-span of the fronts that cross the square
+        n_front = int(math.ceil(reach / wavelength_y))
+        for j in range(-n_front, n_front + 1):
+            p0 = c + np.array([0.0, j * wavelength_y])
+            seg = np.array([p0 - 2 * size * d, p0 + 2 * size * d])
             clipped = _clip_segment(seg, (x0, 0.0, x0 + size, size))
             if clipped is not None:
                 items.append(Polyline.of(clipped, "surface", role=f"front_{i}"))
@@ -200,12 +225,13 @@ def magnetic_shear_field_aligned(*, shear: float = 1.0, labels: bool = True) -> 
                         "(ballooning\\_radial\\_wavenumber), the sheared slab along the field line", "note",
                         anchor="north", role="note")]
     return Diagram("magnetic_shear_field_aligned", Scene(tuple(items)),
-                   model={"shear": shear, "theta": tuple(zs), "k_x": tuple(kxs), "k_y": k_y})
+                   model={"shear": shear, "theta": tuple(zs), "k_x": tuple(kxs), "k_y": k_y,
+                          "wavelength_y": wavelength_y})
 
 
 def _pi_text(z: float) -> str:
-    k = round(z / math.pi)
-    return {0: "0", 1: "\\pi", -1: "-\\pi"}.get(k, f"{k}\\pi")
+    k = round(2.0 * z / math.pi)  # in units of pi/2
+    return {0: "0", 1: "\\pi/2", -1: "-\\pi/2", 2: "\\pi", -2: "-\\pi"}.get(k, f"{k}\\pi/2")
 
 
 def _clip_segment(seg: np.ndarray, box_):
@@ -246,10 +272,10 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
     g_u, th, F_u = s_alpha_ballooning_eigenmode(*UNSTABLE)
     g_s, _, F_s = s_alpha_ballooning_eigenmode(*STABLE)
     x = th / math.pi
-    chart = Chart(x_range=(float(x[0]), float(x[-1])), y_range=(-1.1, 1.15))
+    chart = Chart(x_range=(float(x[0]), float(x[-1])), y_range=(-0.1, 1.15))
     chart.curves["unstable"] = np.stack([x, F_u], -1)
     chart.curves["stable"] = np.stack([x, F_s], -1)
-    chart.labels.update({"unstable": (2.6, -0.3), "stable": (-4.2, 0.6)})
+    chart.labels.update({"unstable": (3.8, 0.85), "stable": (-4.2, 0.6)})
     chart.parameters.update({"growth_rate_squared_unstable": g_u, "growth_rate_squared_stable": g_s,
                              "unstable": UNSTABLE, "stable": STABLE})
     ticks = [float(k) for k in range(-6, 7, 2)]
@@ -258,7 +284,7 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
         curve_styles={"stable": "approx", "unstable": "boundary"},
         region_text={"unstable": f"\\small unstable $(1, 1.2)$: $\\hat\\gamma^2 = {g_u:.2f}$",
                      "stable": "\\small stable $(1, 0.3)$"} if labels else {},
-        x_ticks=ticks, x_tick_text=[f"${int(t)}$" for t in ticks], y_ticks=[-1.0, 0.0, 1.0],
+        x_ticks=ticks, x_tick_text=[f"${int(t)}$" for t in ticks], y_ticks=[0.0, 0.5, 1.0],
         note=("Even ticks: the outboard midplane (bad curvature) on each transit; the unstable mode balloons "
               "there and decays" if labels else ""),
     )
