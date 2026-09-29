@@ -222,3 +222,21 @@ def test_a_generated_page_without_its_data_is_caught(site, tmp_path):
     assert result.returncode != 0
     assert "_guide/Plot_reference.md is published but _data/plot_catalog.yml was not generated" in (
         result.stderr + result.stdout)
+
+
+def test_a_thumbnail_missing_from_the_page_is_caught(site, tmp_path):
+    source, builds = site
+    destination, baseurl = builds["development"]
+    if not (source / "assets" / "plots").is_dir():
+        pytest.skip("this branch commits no plot thumbnails")
+    mutated = tmp_path / "site"
+    shutil.copytree(destination, mutated)
+    page = mutated / "reference" / "plot" / "index.html"
+    html = page.read_text(encoding="utf-8")
+    marker = 'data-thumbnail="plasma_current_time"'
+    assert marker in html
+    page.write_text(html.replace(marker, 'data-thumbnail-removed="plasma_current_time"'), encoding="utf-8")
+    result = _validate(source, mutated, baseurl)
+    assert result.returncode != 0
+    assert "plot thumbnail plasma_current_time is in the catalog but not rendered on /vaft/develop/reference/plot/" in (
+        result.stderr + result.stdout)

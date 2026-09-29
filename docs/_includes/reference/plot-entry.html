@@ -19,7 +19,9 @@ in the catalog.
 
 {{ p.description | escape }}
 
-<pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
+{% if p.thumbnail %}<p class="ref-note">{% if p.thumbnail.status == "rendered" %}Thumbnail drawn from sample shot {{ p.thumbnail.shot }}{% if p.thumbnail.stale != "" %}, <strong>stale</strong>: {{ p.thumbnail.stale | escape }}{% endif %}.{% else %}No thumbnail: {{ p.thumbnail.reason | escape }}.{% endif %}</p>
+
+{% endif %}<pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
 vaft.plot.{{ p.name }}(model)   # from a {{ p.model }}</code></pre>
 
 <div class="ref-table-wrap"><table class="ref-table">

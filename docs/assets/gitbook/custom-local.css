@@ -892,6 +892,27 @@
   object-fit: contain;
 }
 
+.ref-plot-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(12em, 1fr));
+}
+
+.ref-figure-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--vaft-surface);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-figure-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7em;
+  color: #777;
+  font-size: 0.85em;
+  text-decoration: none;
+}
+
 .book .book-body .page-wrapper .page-inner section.normal .ref-figure figcaption {
   margin-top: 0.4em;
   font-size: 0.8em;
