@@ -44,6 +44,7 @@ _IMPORT_ORDER = (
     "ntv",
     "vde",
     "pwi",
+    "sol",
 )
 
 

@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
+from ..base import RunOutcome
+
 if TYPE_CHECKING:
     from ..execution import ExecutionBackend
 
@@ -131,7 +133,7 @@ class TESInputs:
 
 
 @dataclass
-class TESResult:
+class TESResult(RunOutcome):
     """Collected TES run status, output files, and parsed equilibrium."""
 
     returncode: Optional[int]
@@ -146,6 +148,11 @@ class TESResult:
     geqdsk: tuple[Any, ...] = ()
     ods: Any = None
     scalars: Mapping[str, Any] = field(default_factory=dict)
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:

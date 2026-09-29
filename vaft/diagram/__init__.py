@@ -135,6 +135,10 @@ __all__ = [
     "neoclassical_collisionality",
     "ntv_collisionality",
     "ntv_precession_regimes",
+    "wall_conditioning_baking",
+    "wall_conditioning_gdc",
+    "wall_conditioning_boronization",
+    "wall_conditioning_sequence",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -233,6 +237,10 @@ _LOCATIONS = {
     "neoclassical_collisionality": "._transport_regimes",
     "ntv_collisionality": "._transport_regimes",
     "ntv_precession_regimes": "._transport_regimes",
+    "wall_conditioning_baking": "._wall_conditioning",
+    "wall_conditioning_gdc": "._wall_conditioning",
+    "wall_conditioning_boronization": "._wall_conditioning",
+    "wall_conditioning_sequence": "._wall_conditioning",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
