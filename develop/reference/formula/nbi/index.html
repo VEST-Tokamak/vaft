@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: ntv · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: nbi · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/boundaries/" />
+            <link rel="prev" href="/vaft/develop/reference/formula/waves/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/waves/" />
+            <link rel="next" href="/vaft/develop/reference/process/nbi/" />
         
     </head>
     <body>
@@ -250,7 +250,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Formula reference: ntv</a>
+                            <a href="." >Formula reference: nbi</a>
                         
                     </h1>
                 </div>
@@ -276,86 +276,75 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/formula/Formula_reference_ntv">Formula reference: ntv</h1>
+                        <h1 id="/reference/formula/Formula_reference_nbi">Formula reference: nbi</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ntv, read from the standardized docstrings (issue 248).</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.nbi, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.ntv</code>:
-<strong>2</strong> public functions. Each entry is what
-<code>vaft.formula.describe("ntv.&lt;name&gt;")</code> prints.
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.nbi</code>:
+<strong>6</strong> public functions. Each entry is what
+<code>vaft.formula.describe("nbi.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
 
-<p>A non-axisymmetric $\delta B$ makes the radial particle flux of each species
-non-ambipolar. Quasineutrality forces a return (polarisation) current that
-cancels the net radial current, and its $\mathbf J\times\mathbf B$ is the
-toroidal torque on the plasma – NTV, equal and opposite to the
-$\mathbf J\times\mathbf B$ of the non-ambipolar current itself. The <em>size</em> of
-the flux needs the bounce-averaged drift-kinetic response (PENT/PENTRC, NEO,
-kinetic GPEC; <code class="language-plaintext highlighter-rouge">vaft.code</code>). What is here is the part that is exact and
-convention-bearing: the precession frequency whose zero is the
-superbanana-plateau resonance, and the flux-force relation that turns
-non-ambipolar fluxes into torque.</p>
+<p>The NBI-specific relations of a one-dimensional neutral-attenuation model:
+the injected particle rate of a monoenergetic component, the optical depth of
+a prescribed attenuation coefficient, the neutral survival fraction, the
+fast-ion birth probability density along the path, the shine-through
+fraction, and the ideal injected toroidal angular-momentum rate.</p>
 
-<p>Shaing’s asymptotic regimes lie on two branches, in order of decreasing
-collisionality:</p>
-
-<ul>
-  <li>non-resonant ($\omega_d$ bounded away from zero): $1/\nu$ while
-$\nu_\mathrm{eff}$ exceeds the precession, flux $\propto 1/\nu$; then the
-$\nu$–$\sqrt\nu$ regime, a collisional boundary layer at the
-trapped-passing boundary, whose $\sqrt\nu$ part dominates as $\nu \to 0$;</li>
-  <li>resonant ($\omega_d \to 0$ for some trapped particles): $1/\nu$, then the
-superbanana plateau, flux independent of $\nu$, then the superbanana
-regime, flux $\propto\nu$, at the lowest collisionality.</li>
-</ul>
-
-<p>Shaing states the $1/\nu$ boundary as $\nu/\epsilon$ against $|q\omega_E|$
-with the magnetic precession neglected; with it kept the comparison is with
-$|\omega_d|$. The connected formula that joins the regimes (Shaing, Sun and
-Sabbagh 2010) is not implemented: its kernels need the bounce-averaged
-$\delta B$ spectrum and source-specific normalisations. The diagrams draw the
-exponents only.</p>
+<p>The attenuation coefficient $\alpha(s) = \sum_j n_j\sigma_j$ is an <em>input</em>:
+beam-stopping cross sections and effective stopping coefficients are atomic
+data this module does not own, and no universal stopping model is built in.
+Generic orbit and characteristic-scale quantities (Larmor radius, magnetic
+moment, $P_\phi$) belong to <code class="language-plaintext highlighter-rouge">vaft.formula.particle</code>. This is a reference
+layer, not NUBEAM, ASCOT5 or BEAMS3D: no orbits, no slowing down, no 3-D
+deposition.</p>
 
 <div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
   <tbody>
-  <tr><td>omega_exb</td><td>toroidal E x B rotation frequency, $-d\Phi/d\psi_\mathrm{out}$</td><td class="ref-unit">rad/s</td></tr>
-  <tr><td>omega_magnetic</td><td>bounce-averaged toroidal magnetic-drift precession</td><td class="ref-unit">rad/s</td></tr>
-  <tr><td>omega_d</td><td>bounce-averaged toroidal precession</td><td class="ref-unit">rad/s</td></tr>
-  <tr><td>Z_s</td><td>charge number of species s</td><td class="ref-unit">-</td></tr>
-  <tr><td>Gamma_s</td><td>$\langle\Gamma_s\cdot\nabla V\rangle$, particles of species s crossing the surface</td><td class="ref-unit">1/s</td></tr>
-  <tr><td>psi</td><td>$RA_\phi$, poloidal flux per radian, IMAS $\phi$</td><td class="ref-unit">Wb/rad</td></tr>
-  <tr><td>V</td><td>volume enclosed by the surface</td><td class="ref-unit">m^3</td></tr>
+  <tr><td>P_b</td><td>beam power of one energy component</td><td class="ref-unit">W</td></tr>
+  <tr><td>E_b</td><td>energy per beam particle of that component</td><td class="ref-unit">eV</td></tr>
+  <tr><td>Ndot_b</td><td>injected particle rate</td><td class="ref-unit">1/s</td></tr>
+  <tr><td>s</td><td>distance along the beam path from entry</td><td class="ref-unit">m</td></tr>
+  <tr><td>alpha</td><td>attenuation coefficient sum_j n_j sigma_j</td><td class="ref-unit">1/m</td></tr>
+  <tr><td>tau</td><td>optical depth</td><td class="ref-unit">-</td></tr>
+  <tr><td>S</td><td>neutral survival fraction</td><td class="ref-unit">-</td></tr>
+  <tr><td>b</td><td>birth probability density per unit path</td><td class="ref-unit">1/m</td></tr>
   </tbody>
 </table></div>
 
-<p>Precession frequencies are toroidal and positive along the plasma current,
-as VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code> is ($-d\Phi/d\psi_\mathrm{out}$ with
-$\psi_\mathrm{out}$ the poloidal flux per radian increasing outward, e.g.
-TRANSP <code class="language-plaintext highlighter-rouge">PLFLX</code>); <code class="language-plaintext highlighter-rouge">omega_exb</code> is never the toroidal fluid rotation
-<code class="language-plaintext highlighter-rouge">omega_tor</code>. The torque is positive along the IMAS $\phi$ (counter-clockwise
-from above), with $\psi = RA_\phi$ as
-<code class="language-plaintext highlighter-rouge">vaft.formula.particle.psi_per_radian_from_cocos</code> returns it.</p>
+<p>Energies are per particle in electronvolts at the API boundary, the energy
+of the component considered (full, half or third). The path coordinate
+starts at the beam’s entry into the attenuating region and increases along
+the beam.</p>
 
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
-  <tr data-ref-row="nonambipolar_torque_density"><td><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></td><td>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+  <tr data-ref-row="beam_birth_probability_density"><td><a href="#beam_birth_probability_density"><code>beam_birth_probability_density</code></a></td><td>Fast-ion birth probability per unit path length along the beam.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="ntv_precession_frequency"><td><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></td><td>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+  <tr data-ref-row="beam_particle_rate_from_power_energy"><td><a href="#beam_particle_rate_from_power_energy"><code>beam_particle_rate_from_power_energy</code></a></td><td>Injected particle rate of one monoenergetic beam component.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="injected_toroidal_angular_momentum_rate"><td><a href="#injected_toroidal_angular_momentum_rate"><code>injected_toroidal_angular_momentum_rate</code></a></td><td>Toroidal angular momentum carried into the machine per second by the injected particles.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="neutral_beam_optical_depth"><td><a href="#neutral_beam_optical_depth"><code>neutral_beam_optical_depth</code></a></td><td>Optical depth accumulated along the beam path, by the trapezoidal rule.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="neutral_survival_fraction_from_optical_depth"><td><a href="#neutral_survival_fraction_from_optical_depth"><code>neutral_survival_fraction_from_optical_depth</code></a></td><td>Fraction of the injected neutrals not yet ionised.
+</td></tr>
+  <tr data-ref-row="shine_through_fraction"><td><a href="#shine_through_fraction"><code>shine_through_fraction</code></a></td><td>Fraction of the injected neutrals that leave the path un-ionised.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -364,31 +353,29 @@ from above), with $\psi = RA_\phi$ as
 
 <div class="ref-entries">
 
-  <section class="ref-entry" id="nonambipolar_torque_density" data-catalog="formula">
+  <section class="ref-entry" id="beam_birth_probability_density" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#beam_birth_probability_density"><code>beam_birth_probability_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/ntv.py#L148" title="vaft/formula/ntv.py, line 148">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L213" title="vaft/formula/nbi.py, line 213">source</a>
 </header>
-    <pre class="ref-signature"><code>nonambipolar_torque_density(charge_numbers, particle_flux, dpsi_dV)</code></pre>
+    <pre class="ref-signature"><code>beam_birth_probability_density(s, alpha)</code></pre>
 
-    <p>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).</p>
+    <p>Fast-ion birth probability per unit path length along the beam.</p>
 
-\[T_\phi = \frac{d\psi}{dV}\sum_s Z_s e\,\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle\]
+\[b(s) = -\frac{dS}{ds} = \alpha(s)\,e^{-\tau(s)}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>charge_numbers</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>$Z_s$ of each species, electrons $-1$, shape <code class="language-plaintext highlighter-rouge">(S,)</code>.</p>
+  <tr><td><code>s</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Path coordinate from the entry, strictly increasing.</p>
 </td></tr>
-  <tr><td><code>particle_flux</code></td><td class="ref-type">array_like</td><td class="ref-unit">1/s</td><td><p>$\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$ of each species along axis 0, shape <code class="language-plaintext highlighter-rouge">(S, ...)</code>: particles crossing the surface outward per second.</p>
-</td></tr>
-  <tr><td><code>dpsi_dV</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb/(rad m^3)</td><td><p>$d\psi/dV$ of $\psi = RA_\phi$, broadcast against the trailing axes of <code class="language-plaintext highlighter-rouge">particle_flux</code>; negative for a plasma current along $+\phi$</p>
+  <tr><td><code>alpha</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">1/m</td><td><p>Attenuation coefficient at each <code class="language-plaintext highlighter-rouge">s</code>, non-negative.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">N m/m^3</td><td><p>Torque density on the plasma about the symmetry axis, positive along the IMAS $\phi$, averaged over the surface.</p>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">1/m</td><td><p>$b(s)$: probability that an injected neutral is ionised per unit length at $s$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -396,51 +383,33 @@ from above), with $\psi = RA_\phi$ as
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>With $\mathbf B = \nabla\psi\times\nabla\phi + F\nabla\phi$ and
-$\psi = RA_\phi$ per radian (<code class="language-plaintext highlighter-rouge">psi_per_radian_from_cocos</code>; IMAS COCOS 11
-stores $-2\pi\psi$), $R\hat\phi\cdot(\mathbf J\times\mathbf B)
-= -\mathbf J\cdot\nabla\psi$ exactly. The non-ambipolar current
-$\mathbf J_\mathrm{na} = \sum_s Z_se\boldsymbol\Gamma_s$ is cancelled by a
-return current $-\mathbf J_\mathrm{na}$, whose $\mathbf J\times\mathbf B$
-– equivalently, the sum of each species’ toroidal viscous force – is
-the torque on the plasma: $T_\phi = +\langle\mathbf J_\mathrm{na}\cdot
-\nabla\psi\rangle = (d\psi/dV)\sum_s Z_se\langle\boldsymbol\Gamma_s\cdot
-\nabla V\rangle$. In Shaing’s $\psi = -RA_\phi$ this reads
-$-(d\psi/dV)\sum_s Z_se\Gamma_s$. A torque <em>density</em>; integrate over $V$
-for the torque. Ambipolar fluxes give zero.</p>
+      <p>A density along the 1-D path coordinate, not a volumetric deposition:
+$\int b\,ds + S(s_\mathrm{exit}) = 1$ over the whole path. Mapping it to
+flux surfaces or $(R, Z)$ needs the beam geometry and footprint.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> Species counts differ, or an input is not finite.
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">neutral_beam_optical_depth</code>.
 </li>
 </ul>
 </div>
 
     <details class="ref-more">
-      <summary>Physical interpretation · Assumptions · References</summary>
+      <summary>Physical interpretation · References</summary>
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>An outward non-ambipolar ion flux in a plasma with current along $+\phi$
-($d\psi/dV &lt; 0$) drives rotation against the current – the
-counter-current torque of fast-ion ripple loss and of ion-root NTV.</p>
-
-      <h4 class="ref-label no_toc">Assumptions</h4>
-
-      <p>Steady state on the transport time scale, quasineutrality; the fluxes
-are the non-ambipolar parts from a kinetic calculation this function
-does not make. No phenomenological $-\nu_\mathrm{NTV}(\Omega - \Omega_0)$
-damping model is implied.</p>
+      <p>Largest where $\alpha$ is large <em>and</em> the beam has not yet been
+depleted: a dense edge ionises the beam early, which is why a
+high-density plasma deposits NBI off-axis.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
-</li>
-  <li>P. Helander and D. J. Sigmar, <em>Collisional Transport in Magnetized Plasmas</em>, Cambridge University Press (2002), Ch. 8.
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
 </li>
 </ol>
 
@@ -448,29 +417,29 @@ damping model is implied.</p>
 
   </section>
 
-  <section class="ref-entry" id="ntv_precession_frequency" data-catalog="formula">
+  <section class="ref-entry" id="beam_particle_rate_from_power_energy" data-catalog="formula">
     <header class="ref-head">
-<h3 class="ref-name no_toc"><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></h3>
+<h3 class="ref-name no_toc"><a href="#beam_particle_rate_from_power_energy"><code>beam_particle_rate_from_power_energy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/ntv.py#L82" title="vaft/formula/ntv.py, line 82">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L75" title="vaft/formula/nbi.py, line 75">source</a>
 </header>
-    <pre class="ref-signature"><code>ntv_precession_frequency(omega_exb, omega_magnetic)</code></pre>
+    <pre class="ref-signature"><code>beam_particle_rate_from_power_energy(P_b, E_b_eV)</code></pre>
 
-    <p>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.</p>
+    <p>Injected particle rate of one monoenergetic beam component.</p>
 
-\[\omega_d = \omega_E + \omega_B \qquad (= q\,\omega_E^\mathrm{Shaing} + \omega_B)\]
+\[\dot N_b = \frac{P_b}{E_b}\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>omega_exb</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Toroidal E x B rotation frequency $\omega_E = -d\Phi/d\psi_\mathrm{out}$, $\psi_\mathrm{out}$ the poloidal flux per radian increasing outward – VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code>, positive along the plasma current, not the toroidal fluid rotation.</p>
+  <tr><td><code>P_b</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W</td><td><p>Power carried by the component, non-negative.</p>
 </td></tr>
-  <tr><td><code>omega_magnetic</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Bounce-averaged toroidal precession by the grad-B and curvature drifts, for the species and energy considered, positive along the plasma current.</p>
+  <tr><td><code>E_b_eV</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Energy per particle of that component, positive.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>$\omega_d$, positive along the plasma current; zero on the superbanana-plateau resonance.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>Particles injected per second.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -478,25 +447,207 @@ damping model is implied.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Both inputs must be measured in the same toroidal orientation; VAFT’s
-is along the plasma current, the orientation of <code class="language-plaintext highlighter-rouge">omega_exb</code>. A rigid
-rotation $\omega\hat\phi$ has $\mathbf E = -\omega\nabla(RA_\phi)$, so
-$-d\Phi/d\psi_\mathrm{out}$ is the rotation along the current whichever
-way the current flows. Shaing writes $q\omega_E + \omega_B$ with his
-$\omega_E$ taken against the <em>toroidal</em> flux; since $d\psi_t = q\,d\psi$,
-his $q\omega_E$ is this <code class="language-plaintext highlighter-rouge">omega_exb</code>. The toroidal rotation
-$\omega_\phi$ differs from $\omega_E$ by the diamagnetic and
-poloidal-flow terms of radial force balance, and substituting it moves
-the resonance. $\omega_B \propto$ energy over charge, so each species and
-energy has its own $\omega_d$. This is the $\ell = 0$ case of
-<code class="language-plaintext highlighter-rouge">vaft.formula.particle.bounce_harmonic_detuning</code> with $n = -1$.</p>
+      <p>$E_b$ is the energy <em>per particle of this component</em>: a source at
+accelerating voltage $V$ delivers full-, half- and third-energy
+components at $eV$, $eV/2$ and $eV/3$ (from D$^+$, D$_2^+$, D$_3^+$), each
+with its own power, so the rates are computed per component and summed.
+No species is implied; the energy converts from eV with the elementary
+charge.</p>
 
     </div>
 
     <div class="ref-callout ref-callout-raises">
 <p class="ref-label">Raises</p>
 <ul class="ref-raises">
-  <li><code>ValueError</code> A non-finite input.
+  <li><code>ValueError</code> A negative or non-finite power, or a non-positive energy.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The source term for particle bookkeeping: at fixed power a lower-energy
+component injects more particles.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="injected_toroidal_angular_momentum_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#injected_toroidal_angular_momentum_rate"><code>injected_toroidal_angular_momentum_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L299" title="vaft/formula/nbi.py, line 299">source</a>
+</header>
+    <pre class="ref-signature"><code>injected_toroidal_angular_momentum_rate(Ndot_b, m, R_tan, v)</code></pre>
+
+    <p>Toroidal angular momentum carried into the machine per second by the injected particles.</p>
+
+\[\dot L_\phi = \dot N_b\,m\,R_\mathrm{tan}\,v\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Ndot_b</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>Injected particle rate, non-negative.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Beam-particle mass, positive.</p>
+</td></tr>
+  <tr><td><code>R_tan</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Tangency radius of the beam line, signed: positive for injection along $+\phi$ (counter-clockwise from above), negative for the opposite direction.</p>
+</td></tr>
+  <tr><td><code>v</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Beam-particle speed, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">N m</td><td><p>Angular-momentum injection rate about the symmetry axis, positive along $+\phi$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>For a straight beam $m\,\mathbf R\times\mathbf v$ about the axis is
+$mR_\mathrm{tan}v$ at every point of the line, so the tangency radius
+carries the geometry and its sign the direction. IMAS <code class="language-plaintext highlighter-rouge">nbi</code> stores an
+unsigned <code class="language-plaintext highlighter-rouge">beamlets_group.tangency_radius</code> and a separate
+<code class="language-plaintext highlighter-rouge">direction</code> ($\pm1$, counter-clockwise from above): pass
+<code class="language-plaintext highlighter-rouge">direction * tangency_radius</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative rate or speed, a non-positive mass, or a non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The ideal rate at which the beam brings angular momentum in – an upper
+bound, not the torque on the plasma: shine-through, prompt and delayed
+losses, and the $\mathbf J\times\mathbf B$ torque of fast-ion radial
+currents decide how much of it the plasma receives and where.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="neutral_beam_optical_depth" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#neutral_beam_optical_depth"><code>neutral_beam_optical_depth</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L125" title="vaft/formula/nbi.py, line 125">source</a>
+</header>
+    <pre class="ref-signature"><code>neutral_beam_optical_depth(s, alpha)</code></pre>
+
+    <p>Optical depth accumulated along the beam path, by the trapezoidal rule.</p>
+
+\[\tau(s) = \int_0^s \alpha(l)\,dl\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Path coordinate from the entry, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">1/m</td><td><p>Attenuation coefficient $\sum_j n_j\sigma_j$ at each <code class="language-plaintext highlighter-rouge">s</code>, non-negative; leading axes are independent beams.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>$\tau$ at each <code class="language-plaintext highlighter-rouge">s</code>, zero at <code class="language-plaintext highlighter-rouge">s[0]</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\alpha$ is prescribed: the caller composes it from densities and
+beam-stopping cross sections (or effective stopping coefficients) for
+the beam energy and species. Trapezoidal quadrature, so $\tau$ is exact
+for piecewise-linear $\alpha$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">s</code> not strictly increasing, shapes that differ, a negative or non-finite <code class="language-plaintext highlighter-rouge">alpha</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The number of e-foldings of the neutral flux: a beam with
+$\tau_\mathrm{exit} \approx 3$ deposits 95 % of its particles.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="neutral_survival_fraction_from_optical_depth" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#neutral_survival_fraction_from_optical_depth"><code>neutral_survival_fraction_from_optical_depth</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L171" title="vaft/formula/nbi.py, line 171">source</a>
+</header>
+    <pre class="ref-signature"><code>neutral_survival_fraction_from_optical_depth(tau)</code></pre>
+
+    <p>Fraction of the injected neutrals not yet ionised.</p>
+
+\[S = e^{-\tau}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>tau</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Optical depth, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$S \in (0, 1]$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative or NaN optical depth.
 </li>
 </ul>
 </div>
@@ -506,24 +657,82 @@ energy has its own $\omega_d$. This is the $\ell = 0$ case of
 
       <h4 class="ref-label no_toc">Physical interpretation</h4>
 
-      <p>A trapped orbit precessing at $\omega_d$ sees a static $\delta B$ at a
-Doppler-shifted frequency; where $\omega_d \to 0$ it sits in a fixed
-phase of the perturbation and its radial step accumulates – the
-superbanana plateau, whose flux no longer depends on collisions.
-Away from it, $\nu_\mathrm{eff}$ against $|\omega_d|$ separates the
-$1/\nu$ regime from the $\nu$–$\sqrt\nu$ regime.</p>
+      <p>The neutral flux at depth $\tau$ over the injected flux. Every neutral
+removed from it has become a fast ion, by ionisation or by charge
+exchange with a plasma ion; the thermal neutral that charge exchange
+leaves behind is not followed.</p>
 
       <h4 class="ref-label no_toc">Assumptions</h4>
 
-      <p>Bounce-averaged guiding-centre motion; $\omega_E$ constant across the
-banana width.</p>
+      <p>Straight-line neutral flight, no re-neutralisation feeding the beam.</p>
 
       <h4 class="ref-label no_toc">References</h4>
 
       <ol class="ref-cites">
-  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
 </li>
-  <li>J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102 (2009) 065002.
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="shine_through_fraction" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#shine_through_fraction"><code>shine_through_fraction</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/af77abec0d4511531cd138062b08cc9a20524cb6/vaft/formula/nbi.py#L257" title="vaft/formula/nbi.py, line 257">source</a>
+</header>
+    <pre class="ref-signature"><code>shine_through_fraction(s, alpha)</code></pre>
+
+    <p>Fraction of the injected neutrals that leave the path un-ionised.</p>
+
+\[f_\mathrm{shine} = S(s_\mathrm{exit}) = e^{-\tau(s_\mathrm{exit})}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Path coordinate from entry to exit, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>alpha</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">1/m</td><td><p>Attenuation coefficient at each <code class="language-plaintext highlighter-rouge">s</code>, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$f_\mathrm{shine} \in (0, 1]$, one per beam.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The reduced neutral-attenuation result along the prescribed path, not a
+NUBEAM-equivalent shine-through: no beam divergence, footprint, multiple
+energy components or re-neutralisation.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">neutral_beam_optical_depth</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Power that reaches the far wall as neutrals: the low-density limit of
+NBI heating, and a wall-load constraint on low-density operation.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
 </li>
 </ol>
 
@@ -611,13 +820,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/boundaries/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: boundaries">
+                        <a href="/vaft/develop/reference/formula/waves/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: waves">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/waves/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: waves">
+                        <a href="/vaft/develop/reference/process/nbi/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: nbi">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -649,11 +858,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: waves",
+            "title": "Process reference: nbi",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_waves.md",
-            "ref": "_guide/Formula_reference_waves.md",
+            "path": "_guide/Process_reference_nbi.md",
+            "ref": "_guide/Process_reference_nbi.md",
             "articles": []
         },
         
@@ -745,8 +954,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Formula_reference_ntv.md",
-        "mtime": "2026-09-28 10:00:00 +0000",
+        "path": "_guide/Formula_reference_nbi.md",
+        "mtime": "2026-09-28 12:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

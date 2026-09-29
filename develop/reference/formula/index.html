@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f13fb70</code>. What is described
+  <code>af77abe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -385,6 +385,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td>
     <td><code>vaft.formula.disruption</code></td><td>11</td><td>Disruption reference relations: thermal and current quench, induced field, runaway electrons.</td>
   </tr>
+  <tr id="nbi">
+    <td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td>
+    <td><code>vaft.formula.nbi</code></td><td>6</td><td>Neutral beam injection: particle rate, neutral attenuation along a path, birth density, shine-through.</td>
+  </tr>
   <tr id="waves">
     <td><a href="/vaft/develop/reference/formula/waves/">waves</a></td>
     <td><code>vaft.formula.waves</code></td><td>7</td><td>Cold-plasma waves: characteristic frequencies, Stix parameters, refractive indices, cutoffs and resonances.</td>
@@ -470,7 +474,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 359 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 365 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1176,6 +1180,18 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="thermal_quench_temperature disruption"><td><a href="/vaft/develop/reference/formula/disruption/#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></td><td><a href="/vaft/develop/reference/formula/disruption/">disruption</a></td><td>Prescribed exponential thermal quench of the electron temperature.
 </td></tr>
+  <tr data-ref-row="beam_birth_probability_density nbi"><td><a href="/vaft/develop/reference/formula/nbi/#beam_birth_probability_density"><code>beam_birth_probability_density</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Fast-ion birth probability per unit path length along the beam.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="beam_particle_rate_from_power_energy nbi"><td><a href="/vaft/develop/reference/formula/nbi/#beam_particle_rate_from_power_energy"><code>beam_particle_rate_from_power_energy</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Injected particle rate of one monoenergetic beam component.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="injected_toroidal_angular_momentum_rate nbi"><td><a href="/vaft/develop/reference/formula/nbi/#injected_toroidal_angular_momentum_rate"><code>injected_toroidal_angular_momentum_rate</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Toroidal angular momentum carried into the machine per second by the injected particles.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="neutral_beam_optical_depth nbi"><td><a href="/vaft/develop/reference/formula/nbi/#neutral_beam_optical_depth"><code>neutral_beam_optical_depth</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Optical depth accumulated along the beam path, by the trapezoidal rule.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="neutral_survival_fraction_from_optical_depth nbi"><td><a href="/vaft/develop/reference/formula/nbi/#neutral_survival_fraction_from_optical_depth"><code>neutral_survival_fraction_from_optical_depth</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Fraction of the injected neutrals not yet ionised.
+</td></tr>
+  <tr data-ref-row="shine_through_fraction nbi"><td><a href="/vaft/develop/reference/formula/nbi/#shine_through_fraction"><code>shine_through_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/nbi/">nbi</a></td><td>Fraction of the injected neutrals that leave the path un-ionised.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cma_coordinates waves"><td><a href="/vaft/develop/reference/formula/waves/#cma_coordinates"><code>cma_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>CMA-diagram coordinates of a cold electron plasma.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cold_plasma_refractive_index_squared waves"><td><a href="/vaft/develop/reference/formula/waves/#cold_plasma_refractive_index_squared"><code>cold_plasma_refractive_index_squared</code></a></td><td><a href="/vaft/develop/reference/formula/waves/">waves</a></td><td>The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.
@@ -1514,7 +1530,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-29 07:00:45 +0000"
+        "time": "2026-09-29 07:13:52 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
