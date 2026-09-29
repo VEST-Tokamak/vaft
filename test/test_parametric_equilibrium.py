@@ -985,3 +985,53 @@ def test_stationary_points_of_a_record_without_psi_are_empty():
     from vaft.process.equilibrium import find_stationary_points
 
     assert find_stationary_points(EquilibriumData()) == ()
+
+
+# --- #1307: one source of truth for the sign of B_phi -------------------------------------------------------------
+
+def _field_sign_record(f_boundary, f_sign):
+    from vaft.process.equilibrium import solovev_shape_constraints, solovev_to_equilibrium
+
+    constraints = solovev_shape_constraints(major_radius=0.4, minor_radius=0.2, elongation=1.5, triangularity=0.3)
+    model = solve_solovev_constraints(constraints, pprime=-1e4, ffprime=-0.01, rref=0.4,
+                                      f_boundary=f_boundary, f_sign=f_sign)
+    return model, solovev_to_equilibrium(model, np.linspace(0.15, 0.65, 65), np.linspace(-0.4, 0.4, 97))
+
+
+@pytest.mark.parametrize("f_boundary, f_sign", [(0.04, None), (-0.04, None), (0.04, 1), (-0.04, -1)])
+def test_solovev_field_sign_is_consistent_between_f_and_bt0(f_boundary, f_sign):
+    model, eq = _field_sign_record(f_boundary, f_sign)
+    expected = np.sign(f_boundary)
+    assert model.f_sign == expected and isinstance(model.f_sign, int)
+    assert np.all(np.sign(eq.f) == expected)
+    assert np.sign(eq.bt0) == expected
+    assert np.sign(evaluate_solovev(model, 0.4, 0.0)["b_phi"]) == expected
+
+
+@pytest.mark.parametrize("f_boundary, f_sign", [(-0.04, 1), (0.04, -1)])
+def test_solovev_contradictory_field_sign_is_refused(f_boundary, f_sign):
+    with pytest.raises(ValueError, match="contradicts f_boundary"):
+        _field_sign_record(f_boundary, f_sign)
+    with pytest.raises(ValueError, match="contradicts f_boundary"):
+        SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=f_boundary, f_sign=f_sign)
+
+
+def test_solovev_zero_or_invalid_field_sign_inputs_are_refused():
+    with pytest.raises(ValueError, match="non-zero"):
+        _field_sign_record(0.0, None)
+    with pytest.raises(ValueError, match=r"\+1, -1 or None"):
+        _field_sign_record(0.04, 2)
+    # The record type itself derives the sign, and keeps +1 for a zero boundary current.
+    assert SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=-2.0).f_sign == -1
+    assert SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=0.0).f_sign == 1
+
+
+def test_solovev_default_field_sign_path_is_unchanged_for_positive_f_boundary():
+    # f_sign=+1 was the old default: the derived-sign path must reproduce it bit for bit.
+    derived_model, derived = _field_sign_record(0.04, None)
+    explicit_model, explicit = _field_sign_record(0.04, 1)
+    assert derived_model.f_sign == explicit_model.f_sign == 1
+    assert derived_model.coefficients.tobytes() == explicit_model.coefficients.tobytes()
+    for name in ("psi", "psi_1d", "f", "pressure", "pprime", "ffprime"):
+        assert np.asarray(getattr(derived, name)).tobytes() == np.asarray(getattr(explicit, name)).tobytes(), name
+    assert (derived.bt0, derived.ip, derived.psi_axis) == (explicit.bt0, explicit.ip, explicit.psi_axis)

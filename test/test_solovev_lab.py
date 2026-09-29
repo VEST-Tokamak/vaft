@@ -169,7 +169,7 @@ def _solve_sources(pprime, ffprime, r=None, z=None, bt_sign=1.0):
     r0, z0 = _grid()
     model = solve_solovev_constraints(
         solovev_shape_constraints(**target), basis="cerfon_freidberg_even", rref=target["major_radius"],
-        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]), f_sign=int(bt_sign),
+        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]),  # F's sign follows (#1307)
         pprime=pprime, ffprime=ffprime)
     return model, solovev_to_equilibrium(model, r0 if r is None else r, z0 if z is None else z, limiter=wall)
 
@@ -250,7 +250,9 @@ def test_delta_phi_tor_keeps_its_paramagnetic_positive_meaning_when_the_field_is
     pp0, ff0 = _baseline_sources()
     forward_model, forward = _solve_sources(pp0, ff0)
     reversed_model, reversed_eq = _solve_sources(pp0, ff0, bt_sign=-1.0)
-    assert reversed_model.f_boundary < 0
+    assert reversed_model.f_boundary < 0 and reversed_model.f_sign == -1
+    # Negating F_boundary alone reverses both F and bt0 (#1307): the record agrees with itself.
+    assert reversed_eq.bt0 < 0 and np.all(reversed_eq.f < 0)
     # psi depends on FF' only, so the reversed baseline is the same plasma with B_phi -> -B_phi ...
     assert _delta_phi_tor(reversed_model, reversed_eq) == pytest.approx(_delta_phi_tor(forward_model, forward), rel=1e-9)
     assert _delta_phi_tor(reversed_model, reversed_eq) > 0
