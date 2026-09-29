@@ -86,6 +86,8 @@ CONVENTION_SENSITIVE = frozenset({
     "inertial_blob_velocity",
     "interpolated_blob_velocity",
     "blob_regime_velocities",
+    "blob_density_perturbation",
+    "blob_crossover_size",
     # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
     "plasma_frequency",
     "stix_parameters",

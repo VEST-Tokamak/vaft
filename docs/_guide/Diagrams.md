@@ -917,19 +917,25 @@ How fast it moves depends on where the polarization current closes:
 - across the field by ion inertia (inertial or resistive-ballooning, $v \propto \delta^{1/2}$);
 - with resistivity and X-point fanning, in between.
 
-`vaft.formula.blob` holds the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
+`vaft.formula.sol` holds the prescribed filament state `blob_density_perturbation` (a blob, or a hole below
+the background), the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
 reference velocity $v_*$, the collisionality $\Lambda$, both limits, the interpolation, and the four regime
 scalings. All follow D'Ippolito, Myra and Zweben (2011), with a Gaussian of radius $\delta$. The $O(1)$
 prefactors in Krasheninnikov (2001) and Theiler et al. (2011) belong to their own size definitions. The NSTX
-parameters of Myra et al. (2006) give $v_* \approx 3$ km/s and $\hat a \approx 1.3$, as in their Fig. 1.
+parameters of Myra et al. (2006) give $\hat a \approx 1.3$, as in their Fig. 1, and $v_* \approx 3$ km/s from their
+symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_s = (T_e/m_i)^{1/2}$.
 
 ```python
-vaft.diagram.blob_polarization()        # the mechanism: dipole, E, E x B, the two closures
+vaft.diagram.blob_polarization()        # the mechanism: dipole, E, E x B; perturbation="hole" reverses it
+vaft.diagram.blob_current_closure(regime="sheath")   # or "inertial": where the current closes
 vaft.diagram.blob_velocity_scaling()    # v/v* against delta/delta*: both limits and Eq. (9)
 vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/2}: RB, RX, C_i, C_s
 ```
 
-![polarization]({{ '/assets/diagrams/blob_polarization.svg' | relative_url }})
+| | |
+| --- | --- |
+| ![polarization]({{ '/assets/diagrams/blob_polarization.svg' | relative_url }}) | ![hole]({{ '/assets/diagrams/blob_polarization_hole.svg' | relative_url }}) |
+| ![sheath closure]({{ '/assets/diagrams/blob_current_closure_sheath.svg' | relative_url }}) | ![inertial closure]({{ '/assets/diagrams/blob_current_closure_inertial.svg' | relative_url }}) |
 
 | | |
 | --- | --- |

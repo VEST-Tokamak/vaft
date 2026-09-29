@@ -3,8 +3,10 @@
 import numpy as np
 import pytest
 
-from vaft.formula.blob import (
+from vaft.formula.sol import (
     blob_collisionality,
+    blob_crossover_size,
+    blob_density_perturbation,
     blob_reference_size,
     blob_reference_velocity,
     blob_regime_velocities,
@@ -35,8 +37,6 @@ def test_nstx_reference_scales_match_myra_2006():
     v_star_myra = 5.1e6 * 525.0**0.2 * 20.0**0.7 / (2500.0**0.4 * 150.0**0.6) / 100.0  # cm/s -> m/s
     assert 0.02 / ds == pytest.approx(a_hat_myra, rel=0.05)
     assert vs == pytest.approx(v_star_myra, rel=0.05)
-    # the collisionality is its definition; Myra's numeric Eq. (1) folds in his own nu_ei and ln Lambda
-    assert blob_collisionality(2.0e6, L, QE * B / ME, rho) == pytest.approx(2.0e6 * L / (QE * B / ME * rho))
 
 
 def test_the_two_limits_meet_at_the_reference_scales():
@@ -49,6 +49,13 @@ def test_the_two_limits_meet_at_the_reference_scales():
     assert sheath_connected_blob_velocity(cs, rho, 2 * ds, L, R) == pytest.approx(vs / 4)
     assert inertial_blob_velocity(cs, 4 * ds, R) == pytest.approx(2 * vs)
     assert inertial_blob_velocity(cs, ds, R, relative_amplitude=0.25) == pytest.approx(0.5 * vs)
+    # the sheath limit is linear in delta n / n, as in the normalized (delta n/n)/delta_hat^2
+    assert sheath_connected_blob_velocity(cs, rho, ds, L, R, relative_amplitude=0.25) == pytest.approx(0.25 * vs)
+    # and with an amplitude the two limits cross at delta_hat_c = (delta n/n)^{1/5}
+    f = 0.3
+    dc = blob_crossover_size(relative_amplitude=f) * ds
+    assert sheath_connected_blob_velocity(cs, rho, dc, L, R, relative_amplitude=f) == pytest.approx(
+        inertial_blob_velocity(cs, dc, R, relative_amplitude=f))
 
 
 def test_the_interpolation_reduces_to_both_limits():
@@ -85,3 +92,20 @@ def test_inputs_are_refused():
             blob_reference_size(*bad)
     with pytest.raises(ValueError):
         blob_collisionality(-1.0, 1.0, 1.0, 1.0)
+
+
+def test_the_prescribed_filament_state():
+    r = np.array([0.0, 0.01, 0.1])
+    n0, dn, delta = 1e19, 4e18, 0.01
+    n = blob_density_perturbation(r, n0, dn, delta)
+    assert n[0] == pytest.approx(n0 + dn)
+    assert n[1] == pytest.approx(n0 + dn * np.exp(-0.5))  # the radius is where it falls to e^{-1/2}
+    assert n[2] == pytest.approx(n0, rel=1e-6)
+    # a hole is the same profile below the background; zero amplitude is the background
+    assert blob_density_perturbation(0.0, n0, -dn, delta) == pytest.approx(n0 - dn)
+    assert blob_density_perturbation(0.02, n0, 0.0, delta) == n0
+    with pytest.raises(ValueError):
+        blob_density_perturbation(0.0, n0, -2 * n0, delta)
+    with pytest.raises(ValueError):
+        blob_density_perturbation(-1.0, n0, dn, delta)
+

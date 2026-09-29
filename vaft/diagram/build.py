@@ -142,6 +142,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
     # SOL blobs and filaments: mechanism, velocity scaling, regimes (#1211)
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
+    "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
+    **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
 }
 
 
