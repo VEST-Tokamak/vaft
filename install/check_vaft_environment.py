@@ -7,7 +7,8 @@ Run from the VAFT checkout::
 
 The default run is completely offline: it never contacts HSDS and never reads a
 credential value. Pass ``--include-network`` to additionally probe the HSDS
-endpoint using the credentials already configured in ``~/.hscfg``.
+endpoint using the credentials already configured in ``~/.hscfg`` (or the
+``HS_*`` environment variables). Credential values never appear in the report.
 
 Every failing check reports a concrete corrective action rather than only a
 traceback. The exit status is 0 only when no check failed.
@@ -261,21 +262,74 @@ def check_vaft_kernel(
     )
 
 
+HSDS_CONFIGURE = "vaft hsds configure"
+SECRET_HSCFG_KEYS = ("hs_password", "hs_api_key")
+
+
+def _hscfg_pairs(config: Path) -> Iterable[tuple[str, str]]:
+    """``(key, value)`` pairs exactly as h5pyd parses them (split on ``=``)."""
+    for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        fields = stripped.split("=")
+        yield fields[0].strip(), fields[1].strip()
+
+
+def hscfg_candidates(cwd: Optional[Path] = None, home: Optional[Path] = None) -> list[Path]:
+    """Every ``.hscfg`` h5pyd could read here: project-local ones, then ``~``.
+
+    h5pyd itself reads ``./.hscfg`` when it exists and ``~/.hscfg`` otherwise.
+    The repository root is listed too, because notebooks and scripts are run
+    from it, and a credential file there is one ``git add`` from being
+    committed.
+    """
+    home = Path(home) if home is not None else Path.home()
+    cwd = Path(cwd) if cwd is not None else Path.cwd()
+    found: list[Path] = []
+    for candidate in (cwd / ".hscfg", REPOSITORY_ROOT / ".hscfg", home / ".hscfg"):
+        if candidate.is_file() and all(
+            candidate.resolve() != other.resolve() for other in found
+        ):
+            found.append(candidate)
+    return found
+
+
 def check_hsds_configuration(
-    path: Optional[Path] = None, *, required: bool = False
+    path: Optional[Path] = None,
+    *,
+    required: bool = False,
+    cwd: Optional[Path] = None,
+    environ: Optional[dict] = None,
 ) -> CheckResult:
-    """``~/.hscfg`` exists and names the keys h5pyd needs.
+    """h5pyd can find an HSDS endpoint: in ``.hscfg`` or in ``HS_ENDPOINT``.
 
     Missing credentials are a warning, not a failure: the whole offline course
     -- including Tutorial 01 -- runs from data packaged in the repository. They
     become a failure only when a network probe was explicitly requested.
 
-    Only key names are reported. Credential values are never read into the
-    report, printed, or returned.
+    Only key and variable names are reported. Credential values are never read
+    into the report, printed, or returned.
     """
-    config = Path(path) if path is not None else Path.home() / ".hscfg"
-    remediation = "Run `hsconfigure`, then rerun this check."
+    environ = os.environ if environ is None else environ
+    remediation = f"Run `{HSDS_CONFIGURE}`, then rerun this check."
     missing_status = FAIL if required else WARN
+    variables = sorted(
+        name
+        for name in ("HS_ENDPOINT", "HS_USERNAME", "HS_PASSWORD", "HS_API_KEY")
+        if environ.get(name)
+    )
+    if path is not None:
+        config = Path(path)
+    else:
+        local = Path(cwd if cwd is not None else Path.cwd()) / ".hscfg"
+        config = local if local.is_file() else Path.home() / ".hscfg"
+    if "HS_ENDPOINT" in variables:
+        return CheckResult(
+            "HSDS configuration",
+            PASS,
+            f"set by environment variables: {', '.join(variables)}",
+        )
     if not config.is_file():
         return CheckResult(
             "HSDS configuration",
@@ -283,14 +337,9 @@ def check_hsds_configuration(
             f"{config} does not exist; needed only for remote database access",
             remediation,
         )
-    present = []
-    for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key = stripped.split("=", 1)[0].strip()
-        if key in HSCFG_KEYS and stripped.split("=", 1)[1].strip():
-            present.append(key)
+    present = sorted(
+        {key for key, value in _hscfg_pairs(config) if key in HSCFG_KEYS and value}
+    )
     if "hs_endpoint" not in present:
         return CheckResult(
             "HSDS configuration",
@@ -299,32 +348,127 @@ def check_hsds_configuration(
             remediation,
         )
     return CheckResult(
-        "HSDS configuration", PASS, f"{config} sets: {', '.join(sorted(present))}"
+        "HSDS configuration", PASS, f"{config} sets: {', '.join(present)}"
     )
 
 
-def check_hsds_connection(probe: Optional[Callable[[], bool]] = None) -> CheckResult:
+def check_hscfg_permissions(
+    paths: Optional[Sequence[Path]] = None, *, platform: Optional[str] = None
+) -> CheckResult:
+    """No ``.hscfg`` is readable or writable by the group or other users.
+
+    ``.hscfg`` holds the HSDS password in plain text. The upstream
+    ``hsconfigure`` writes it with the default umask (often ``0644`` or
+    ``0664``); ``vaft hsds configure`` writes ``0600``. POSIX only: Windows
+    file modes do not describe who can read a file.
+    """
+    platform = os.name if platform is None else platform
+    if platform == "nt":
+        return CheckResult(
+            "HSDS credential file permissions",
+            SKIP,
+            "not checked on Windows; .hscfg inherits the user-profile ACL",
+        )
+    paths = hscfg_candidates() if paths is None else [Path(p) for p in paths]
+    if not paths:
+        return CheckResult("HSDS credential file permissions", SKIP, "no .hscfg found")
+    loose = []
+    for config in paths:
+        mode = config.stat().st_mode & 0o777
+        if mode & 0o077:
+            loose.append((config, mode))
+    if not loose:
+        listed = ", ".join(str(config) for config in paths)
+        return CheckResult("HSDS credential file permissions", PASS, f"owner-only: {listed}")
+    detail = "; ".join(f"{config} is mode {mode:04o}" for config, mode in loose)
+    commands = " && ".join(f"chmod 600 {config}" for config, _mode in loose)
+    return CheckResult(
+        "HSDS credential file permissions",
+        WARN,
+        f"{detail} -- other users on this machine can read the HSDS password",
+        f"Run `{commands}`.",
+    )
+
+
+# Greedy up to the last "@" before the path, so a password containing an
+# unencoded "@" is still dropped whole.
+_URL_USERINFO = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/\s]*@")
+
+
+def _secret_values(environ: Optional[dict] = None, paths: Optional[Sequence[Path]] = None) -> list[str]:
+    """Configured secrets, collected only so they can be scrubbed from messages."""
+    environ = os.environ if environ is None else environ
+    values = [environ.get(name, "") for name in ("HS_PASSWORD", "HS_API_KEY")]
+    for config in hscfg_candidates() if paths is None else paths:
+        try:
+            values += [value for key, value in _hscfg_pairs(Path(config)) if key in SECRET_HSCFG_KEYS]
+        except OSError:
+            continue
+    user = environ.get("HS_USERNAME", "")
+    for config in hscfg_candidates() if paths is None else paths:
+        try:
+            user = user or next(
+                (value for key, value in _hscfg_pairs(Path(config)) if key == "hs_username"), ""
+            )
+        except OSError:
+            continue
+    import base64
+    from urllib.parse import quote
+
+    forms = set()
+    for value in values:
+        if not value:
+            continue
+        forms |= {value, quote(value, safe=""), repr(value)[1:-1]}
+        forms.add(base64.b64encode(f"{user}:{value}".encode()).decode())
+    # Longest first, so a secret containing another is replaced whole.
+    return sorted(forms, key=len, reverse=True)
+
+
+def redact(text: str, secrets: Iterable[str]) -> str:
+    """*text* with URL user-info and every known secret value replaced by ``***``."""
+    # Known values first: the URL pattern could otherwise split a secret
+    # that contains "/" or "@" and leave its tail behind.
+    for secret in secrets:
+        text = text.replace(secret, "***")
+    return _URL_USERINFO.sub(r"\g<scheme>***@", text)
+
+
+def check_hsds_connection(
+    probe: Optional[Callable[[], bool]] = None,
+    *,
+    secrets: Optional[Iterable[str]] = None,
+) -> CheckResult:
     """The configured HSDS endpoint answers and reports READY.
 
     Delegates to :func:`vaft.database.utils.is_connect`, the helper the rest of
-    VAFT already uses, rather than reimplementing the probe.
+    VAFT already uses, rather than reimplementing the probe. Error messages from
+    the transport layer are scrubbed of credentials before they are reported.
     """
     remediation = (
-        "Check the endpoint and credentials with `hsconfigure`, confirm network "
+        f"Check the endpoint and credentials with `{HSDS_CONFIGURE}`, confirm network "
         "access to the VEST HSDS server, then rerun with --include-network."
     )
+
+    def failure(error: BaseException) -> CheckResult:
+        scrub = _secret_values() if secrets is None else list(secrets)
+        return CheckResult(
+            "HSDS connection",
+            FAIL,
+            redact(f"{type(error).__name__}: {error}", scrub),
+            remediation,
+        )
+
     if probe is None:
         try:
             from vaft.database.utils import is_connect  # noqa: PLC0415 - optional, network path
         except Exception as error:  # noqa: BLE001
-            return CheckResult(
-                "HSDS connection", FAIL, f"{type(error).__name__}: {error}", remediation
-            )
+            return failure(error)
         probe = is_connect
     try:
         connected = bool(probe())
     except Exception as error:  # noqa: BLE001 - any transport failure is reportable
-        return CheckResult("HSDS connection", FAIL, f"{type(error).__name__}: {error}", remediation)
+        return failure(error)
     if connected:
         return CheckResult("HSDS connection", PASS, "server state is READY")
     return CheckResult("HSDS connection", FAIL, "the server did not report READY", remediation)
@@ -375,6 +519,7 @@ def run_checks(*, include_network: bool = False) -> list[CheckResult]:
             "per-platform instructions.",
         ),
         check_hsds_configuration(required=include_network),
+        check_hscfg_permissions(),
     ]
     if include_network:
         results.append(check_hsds_connection())
@@ -424,7 +569,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--include-network",
         action="store_true",
-        help="also probe the configured HSDS endpoint (requires ~/.hscfg)",
+        help="also probe the configured HSDS endpoint (requires ~/.hscfg or HS_ENDPOINT)",
     )
     parser.add_argument(
         "--json", action="store_true", dest="as_json", help="emit machine-readable JSON"

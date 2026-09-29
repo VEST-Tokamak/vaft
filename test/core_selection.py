@@ -62,6 +62,7 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -148,6 +149,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
@@ -159,8 +161,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",
     "test_diagram_infrastructure.py",
+    "test_diagram_iteration_dynamics.py",
     "test_diagram_magnetic_island.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_pwi.py",
     "test_diagram_ripple.py",
