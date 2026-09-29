@@ -153,15 +153,9 @@ def headless_matplotlib():
         matplotlib.use(previous, force=True)
 
 
-#: Notebooks whose cells assume content the packaged sample no longer has.
-#: The 39915 sample regenerated in #923 dropped the six source-flagged voltage
-#: channels, and the plotting notebook's validity demo indexes the first of
-#: them (tracked in #920).  Remove an entry when its notebook is repaired.
-_KNOWN_STALE_NOTEBOOKS = {
-    "plotting_sample_using_vaft_plot_module.ipynb":
-        "validity demo needs a source-flagged channel the regenerated 39915 "
-        "sample (#923) no longer has (tracked in #920)",
-}
+#: Notebooks whose cells assume content the packaged sample no longer has,
+#: mapped to the reason.  Remove an entry when its notebook is repaired.
+_KNOWN_STALE_NOTEBOOKS: dict[str, str] = {}
 
 
 @pytest.mark.parametrize(
