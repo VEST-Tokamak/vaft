@@ -32,6 +32,7 @@ EQUILIBRIUM_NOTEBOOKS = (
     "synthetic_kinetic_profiles_from_equilibrium.ipynb",
     "self_consistent_equilibrium_kinetic_iteration.ipynb",
     "compact_equilibrium_representation.ipynb",
+    "equilibrium_representation_reference.ipynb",
     "edge_and_boundary_representation.ipynb",
 )
 
