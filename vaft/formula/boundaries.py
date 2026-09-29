@@ -37,6 +37,7 @@ Greenwald limit on the Hugill diagram, and one operating state on it
 (``test/test_formula_boundaries_vest_sample.py`` does this for the packaged
 VEST sample)::
 
+    import numpy as np
     from vaft.formula import boundaries as B
     line = B.get_boundary("greenwald_hugill")
     curve = B.boundary_curve(line, "inverse_cylindrical_q", np.linspace(0, 0.6, 61),

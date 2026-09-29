@@ -20,11 +20,13 @@ def _equilibrium_inputs(ods):
     eq = ods["equilibrium"]
     r0 = float(eq["vacuum_toroidal_field.r0"])
     b0 = np.asarray(eq["vacuum_toroidal_field.b0"], dtype=float)
+    # b0 must share the time_slice time base; for another ODS, interpolate it at each slice's time.
+    assert b0.size == len(eq["time_slice"]), "vacuum_toroidal_field.b0 is not on the time_slice time base"
     rows = []
     for i in range(len(eq["time_slice"])):
         ts = eq["time_slice"][i]
         ip = abs(float(ts["global_quantities.ip"])) / 1e6
-        if ip <= 0:
+        if not ip > 0:  # zero or NaN current: no Greenwald density
             continue
         r = np.asarray(ts["boundary.outline.r"], dtype=float)
         z = np.asarray(ts["boundary.outline.z"], dtype=float)
@@ -53,14 +55,17 @@ def test_sample_gives_physical_inputs(vest_inputs):
 def test_greenwald_density_for_vest(vest_inputs):
     _, _, a, _, ip, _ = vest_inputs.T
     n_G = B.boundary_value(B.get_boundary("greenwald"), plasma_current=ip, minor_radius=a)
-    # a few 1e19 m^-3 for 50-80 kA over a ~0.15-0.25 m minor radius
+    # the sample gives ~3-8e19 m^-3 for 46-80 kA over a 0.14-0.29 m minor radius
     assert np.all((n_G > 1.0) & (n_G < 20.0))
 
 
 def test_operating_points_on_the_hugill_diagram(vest_inputs):
     R_geo, B_t, a, kappa_a, ip, q95 = vest_inputs.T
     n_G = B.boundary_value(B.get_boundary("greenwald"), plasma_current=ip, minor_radius=a)
-    f_G = 0.3  # stand-in for a measured line-averaged density
+    # Placeholder: points sit at a chosen Greenwald fraction, so ratio == f_G and "allowed"
+    # hold by construction. Replace with the measured line-averaged density; do not
+    # publish these points.
+    f_G = 0.3
     x, y = B.hugill_coordinates(f_G * n_G, R_geo, B_t, a, kappa_a, ip)
 
     line = B.get_boundary("greenwald_hugill")
