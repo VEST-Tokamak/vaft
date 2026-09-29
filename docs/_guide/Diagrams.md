@@ -785,6 +785,124 @@ vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spec
 | `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
 | `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
 
+## Iteration behaviour, branch bifurcation and branch selection
+
+Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.
+
+Every curve is computed:
+- the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+  and from an expanding linear map;
+- the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;
+- the basins are its exact relaxation at $\lambda = 0$.
+
+The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.
+
+```python
+vaft.diagram.iteration_behavior()       # fixed point, divergence, 2-cycle, period-4 limit cycle
+vaft.diagram.branch_bifurcation()       # stable (solid) / unstable (dashed), folds, jumps, hysteresis
+vaft.diagram.basin_of_attraction()      # initial condition selects branch A or B
+vaft.diagram.grid_induced_two_cycle()   # each re-solve lands nearer the other node: a one-cell hop
+vaft.diagram.branch_selection()         # the last two side by side under one caption
+```
+
+![iteration]({{ '/assets/diagrams/iteration_behavior.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![bifurcation]({{ '/assets/diagrams/branch_bifurcation.svg' | relative_url }}) | ![basin]({{ '/assets/diagrams/basin_of_attraction.svg' | relative_url }}) |
+
+![branch selection]({{ '/assets/diagrams/branch_selection.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (thin line) exists in every panel but is stable only in the first; guides mark the four levels of the period-4 cycle |
+| `branch_bifurcation` | Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds |
+| `basin_of_attraction` | Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch |
+| `grid_induced_two_cycle` | A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch |
+| `branch_selection` | `basin_of_attraction` beside `grid_induced_two_cycle`: physical branch structure against numerical cycling |
+
+## Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram
+
+Each diagram is drawn from the cold-plasma equations in `vaft.formula.waves`:
+- `plasma_frequency`;
+- `stix_parameters`, giving $R, L, S, D, P$ with the signed cyclotron frequency, so $\Omega_e < 0$, and
+  `dielectric_tensor`;
+- `cold_plasma_refractive_index_squared`, the two roots of $An^4 - Bn^2 + C = 0$, in a cancellation-free
+  form that keeps the finite root at a resonance cone;
+- `perpendicular_refractive_index_squared`, giving $n_O^2 = P$ and $n_X^2 = RL/S$;
+- `cma_coordinates`, giving $X = \omega_{pe}^2/\omega^2$ and $Y = |\Omega_e|/\omega$;
+- `propagation_regime`, which classifies propagating, evanescent, cutoff and resonance.
+
+Boundaries are zeros or poles of the Stix parameters, located by bracketing the formulas; no closed form
+is typed into a drawing. The $\pm$ roots are algebraic branches, not mode names, so O/X and R/L are named
+only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons only, ions immobile:
+the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
+scope.
+
+```python
+vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
+vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
+vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
+vaft.diagram.profile_propagation()                            # layers along an example midplane
+
+## Neoclassical and NTV collisionality regimes
+
+Two different regime families that share the word "collisionality". Axisymmetric neoclassical transport
+orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
+viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
+$\omega_d = \omega_E + \omega_B$:
+
+```text
+Coulomb collisions -> transit / bounce motion -> nu_hat = qR nu/v -> banana / plateau / Pfirsch-Schlueter
+3-D delta B + precession omega_d -> 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -> NTV torque
+```
+
+The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (`collisions_per_transit`), not a $\nu_*$. VAFT's
+several $\nu_*$ conventions (issue 353) share the symbol but not the value. The boundaries
+$\hat\nu = \epsilon^{3/2}$ and $1$ come from `neoclassical_regime_boundaries`. The orbit scales behind
+them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
+`trapped_particle_effective_collision_frequency` and `banana_width` in `vaft.formula.neoclassical`.
+
+`vaft.formula.ntv` holds the exact, convention-bearing relations:
+- `ntv_precession_frequency`, whose zero is the superbanana-plateau resonance. $\omega_E$ is the
+  $E\times B$ frequency `omega_exb`, never the toroidal rotation, and both $\omega_E$ and $\omega_B$ are measured along the plasma current;
+- `nonambipolar_torque_density`, the torque on the plasma: the $\mathbf J\times\mathbf B$ of the return current that cancels the non-ambipolar flux. Ion loss in a co-current plasma drives counter-current rotation.
+
+The size of the flux needs a drift-kinetic code (`vaft.code`), and Shaing's connected formula is not
+implemented, so the NTV regime diagram shows slopes only.
+
+```python
+vaft.diagram.neoclassical_collisionality(epsilon=0.1)
+vaft.diagram.ntv_collisionality()
+vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
+```
+
+| | |
+| --- | --- |
+| ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
+| ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `o_mode_cutoff` | Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$ |
+| `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
+| `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
+| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR |
+
+| ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
+| ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |
+
+| Diagram | Concept |
+| --- | --- |
+| `neoclassical_collisionality` | $D/D_\mathrm{plateau}$ against $\hat\nu$: asymptotes $\hat\nu/\epsilon^{3/2}$, 1 and $\hat\nu$ meeting at the formula's boundaries. Orderings, not phase boundaries |
+| `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
+| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
+
 ## Wall conditioning
 
 Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
