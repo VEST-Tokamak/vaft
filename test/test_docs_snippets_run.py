@@ -319,7 +319,7 @@ def test_signature_markers_mean_what_they_say():
 #: limitation outside VAFT stops them.  Keyed by (page, line); the entry is the
 #: limitation, so a fix upstream can retire it.
 WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
-    ("README.ko.md", 256): (
+    ("README.ko.md", 261): (
         "imas_core cannot close the HDF5 entry it just wrote on Windows "
         "(al_close_pulse, ALBackendException); the same limitation is why "
         "vaft.imas scratch cleanup is best-effort there (0.6.2 notes)"

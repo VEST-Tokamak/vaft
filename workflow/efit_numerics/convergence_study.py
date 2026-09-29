@@ -514,9 +514,15 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 #: (measured, reconstructed, weight, sigma) m-file variables of each magnetic family.
+#: Ip, the PF currents and the diamagnetic flux follow meqdsk's
+#: EFIT_K_TO_M_TRANSFORMS; their chi-square is recomputed from the sigma
+#: here rather than read from EFIT's chipasma/chifcc/chidflux (#891).
 MAGNETIC_FAMILIES = {
     "probe": ("expmpi", "cmpr2", "fwtmp2", "sigmpi"),
     "loop": ("silopt", "csilop", "fwtsi", "sigsil"),
+    "ip": ("plasma", "cpasma", "fwtpasma", "sigpasma"),
+    "pf": ("fccurt", "ccbrsp", "fwtfc", "sigfcc"),
+    "dia": ("diamag", "cdflux", "fwtdia", "sigdia"),
 }
 
 
@@ -811,6 +817,10 @@ def _scientific(
         scales = {**constraints.uncertainty_scales, **{k: float(v) for k, v in uncertainty_scales.items()}}
         constraints = replace(constraints, uncertainty_scales=scales)
     scientific = replace(scientific, constraints=constraints)
+    # The routine reference: the production configuration's own numerics
+    # (EFIT's defaults where it sets none), for comparison only (#891).
+    if case.get("routine"):
+        return scientific
     # A case may pin the profile basis and the chi-square target too (#891,
     # #1027); a case that does not leaves the routine values.
     if "kppcur" in case or "kffcur" in case:

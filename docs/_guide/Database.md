@@ -67,20 +67,28 @@ The supported high-level remote API is `load`, `open`, and `save`. The `raw`, `f
 ## Connecting to HSDS
 
 `h5pyd` is a declared VAFT dependency on `develop`; a normal `pip install .` installs the compatible
-client and its `hsconfigure` command. Do not install a separately pinned `--no-deps` copy.
+client and its command-line tools. Do not install a separately pinned `--no-deps` copy.
 
-Then write your credentials with `hsconfigure`:
+Then write your credentials with `vaft hsds configure`:
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
 
 | Field | Value |
 | --- | --- |
 | Server endpoint | `http://147.46.36.244:5101` |
 | Username / Password | `reader` / `test` (read-only public account) |
 
-This writes `~/.hscfg`; `h5pyd` also recognizes a project-local `.hscfg`. Never commit that file.
+This writes `~/.hscfg` with mode `0600`; `h5pyd` reads a `.hscfg` in the working directory instead
+when one exists, and `HS_ENDPOINT`/`HS_USERNAME`/`HS_PASSWORD`/`HS_API_KEY` override either file.
+`python install/check_vaft_environment.py` warns when a `.hscfg` is readable by other users. Never
+commit that file.
 Check the connection from Python:
 
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->

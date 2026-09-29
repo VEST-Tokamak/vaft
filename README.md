@@ -208,13 +208,13 @@ which commands never to run while recovering.
 #### Legacy NumPy 1 installation
 
 Use this only for an external package that still requires NumPy 1. Because
-`h5pyd==0.20.0` declares a NumPy 2 requirement, install it with `--no-deps`
+`h5pyd==0.24.0` declares a NumPy 2 requirement, install it with `--no-deps`
 after replacing NumPy:
 
 ```bash
 python -m pip install -e .
 python -m pip install --force-reinstall --no-deps "numpy>=1.26.4,<2"
-python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
+python -m pip install --force-reinstall --no-deps h5pyd==0.24.0
 ```
 
 This is a legacy compatibility option; `pip check` may report the intentionally
@@ -286,10 +286,15 @@ for layouts, compatibility variables, FileDB configuration, and validation, and
 If you will use the remote VEST HSDS database, configure your HSDS credentials:
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
 
-Enter the following when prompted:
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
+
+Enter the following when prompted (the password is not echoed):
 
 
 | Field           | Value                                                             |
