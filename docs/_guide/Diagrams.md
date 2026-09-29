@@ -463,6 +463,43 @@ vaft.diagram.ballooning_workflow()
 The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).
 The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
 
+
+### Field-aligned basis, flux tube, shear, and the ballooning eigenfunction
+
+- `field_aligned_basis` unrolls one flux surface. Its field lines are the lines of constant
+  $\alpha = \phi - q\theta$. With $x = \psi$, $y = \alpha$ and $z = \theta$, two coordinates are constant along
+  $\mathbf B$, so $\mathbf B\cdot\nabla = (\mathbf B\cdot\nabla z)\,\partial_z$.
+- `flux_tube_patch` goes from a flux surface to one field line, then to its thin neighbourhood, then to the
+  local $(x, y, z)$ box used by flux-tube gyrokinetic codes and by the sheared slab.
+- `magnetic_shear_field_aligned` follows a mode along the line. With
+  $k_x = k_y\hat s\theta$ (`ballooning_radial_wavenumber` at $\alpha = 0$, the $\Lambda$ of the $s$-$\alpha$ model),
+  its phase fronts rotate: the sheared slab's $k_x(z) = k_{x0} + k_y\hat s z$, seen in the tokamak. The binormal
+  period stays fixed, so the spacing across the fronts shrinks as $1/\sqrt{1+\hat s^2\theta^2}$; that growth of
+  $k_\perp$ is the $(1+\Lambda^2)$ of line bending and inertia.
+- `ballooning_eigenfunction` solves the $s$-$\alpha$ equation with inertia on the extended angle
+  (`s_alpha_ballooning_eigenmode`). An unstable surface has a mode peaked at the outboard midplane (bad
+  curvature) that decays within a few transits; a stable surface has only the continuum.
+
+Boundary conditions differ between the two pictures. The ballooning representation requires decay on the
+extended angle, while flux-tube codes join the sheared ends of the box (twist and shift, not derived here).
+Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordinates distort; see
+`sfl_coordinate_validity` (#1074) and X-point-adapted coordinates for the edge.
+
+```python
+vaft.diagram.field_aligned_basis(q=2.5)
+vaft.diagram.flux_tube_patch()
+vaft.diagram.magnetic_shear_field_aligned(shear=1.0)
+vaft.diagram.ballooning_eigenfunction()
+```
+
+| | |
+| --- | --- |
+| ![basis]({{ '/assets/diagrams/field_aligned_basis.svg' | relative_url }}) | ![eigenfunction]({{ '/assets/diagrams/ballooning_eigenfunction.svg' | relative_url }}) |
+
+![flux tube]({{ '/assets/diagrams/flux_tube_patch.svg' | relative_url }})
+
+![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
+
 ## Slab resonant layers: tearing and twisting parity
 
 How a global harmonic becomes a local layer response. The mapping $(m, n) \to (k_y, k_z)$ and

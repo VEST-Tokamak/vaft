@@ -78,6 +78,9 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
+    "s_alpha_ballooning_eigenmode",
+    "ballooning_radial_wavenumber",
     # toroidal shift of the generalized SFL family: signed q, paired with the PEST angle (#1074)
     "sfl_toroidal_angle_shift",
     # SOL blobs (#1211): one paper's Gaussian size convention; prefactors differ between papers
