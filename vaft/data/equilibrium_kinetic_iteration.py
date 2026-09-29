@@ -74,6 +74,7 @@ ITERATION_STATUSES = (
     "diverged",
     "oscillating",
     "stagnated",
+    "drifting",
     "kinetic_generation_failed",
     "invalid_pressure_source",
     "chease_failed",
@@ -126,7 +127,14 @@ class CurrentPolicy:
 
     ``normalization`` is the one quantity CHEASE imposes (``NCSCAL``):
     ``"plasma_current"`` (2) holds the initial equilibrium's ``I_p``;
-    ``"q95"`` (1) holds ``q`` at ``psi_N = 0.95``.  CHEASE rescales ``p'`` and
+    ``"q95"`` (1) holds ``q`` at ``psi_N = 0.95``.  Both targets are taken
+    once from the initial equilibrium and written into every CHEASE input as
+    the requested value: ``I_p`` as the input ``CURRENT`` (read as
+    ``CURRT``), ``q95`` by rescaling the input ``QPSI`` so the adapter's
+    ``QSPEC`` sample at 0.95 equals the target (``QPSI`` reaches ``EXPEQ``
+    only through ``QSPEC`` and its sign).  Neither is carried from the
+    previous solve, so a solver bias cannot accumulate; the achieved value is
+    checked against the target on every update.  CHEASE rescales ``p'`` and
     ``FF'`` together to meet it, so the ``FF'`` amplitude -- and with it the
     split of the current between the pressure and ``FF'`` terms -- is
     re-solved; q is always an output, never written after a solve.
@@ -207,7 +215,21 @@ class ConvergenceCriteria:
     * ``oscillating`` -- ``s`` alternated in sign over the last
       ``oscillation_window`` states and ``|s_n| >= oscillation_ratio
       |s_{n-2}|`` (an alternating but decaying residual is convergence);
-    * ``stagnated`` -- ``r_n >= stagnation_ratio r_{n - stagnation_window}``.
+    * ``drifting`` -- some criterion is unmet and an equilibrium scalar
+      (``q0``, ``q95``, ``l_i``, ``beta_p``, ``W_th``, ``W_kin``, the axis,
+      ``I_p``) moved in one direction over the last ``stagnation_window``
+      updates by relative steps above ``scalar_rtol`` that are not decaying
+      (``|step_n| >= stagnation_ratio |step_first|``): a runaway, whatever
+      the pressure residual says;
+    * ``stagnated`` -- no drift, and every *unmet* criterion's worst metric
+      satisfies ``m_n >= stagnation_ratio m_{n - stagnation_window}``.  Met
+      criteria never count, so a pressure residual sitting at its floor does
+      not make a stagnation.
+
+    ``monotone_rtol`` is the largest outward rise of the pressure handed to
+    CHEASE, relative to its maximum, that is removed (by a running minimum
+    from the axis, and counted in the source's provenance) rather than
+    refused; above it the source is ``invalid_pressure_source``.
     """
 
     pressure_rtol: float | None = 1e-3
@@ -225,6 +247,7 @@ class ConvergenceCriteria:
     oscillation_ratio: float = 0.9
     stagnation_window: int = 3
     stagnation_ratio: float = 0.95
+    monotone_rtol: float = 1e-6
 
     def __post_init__(self) -> None:
         for name in ("pressure_rtol", "profile_rtol", "q_rtol", "coordinate_atol", "scalar_rtol", "axis_atol"):
@@ -234,6 +257,8 @@ class ConvergenceCriteria:
         for name in ("normalization_rtol", "boundary_rtol"):
             if not getattr(self, name) > 0.0:
                 raise ValueError(f"{name} must be positive")
+        if not 0.0 <= float(self.monotone_rtol) < 1e-2:
+            raise ValueError("monotone_rtol must lie in [0, 1e-2)")
         if int(self.max_iterations) < 1:
             raise ValueError("max_iterations must be at least 1")
         if not 0.0 < float(self.relaxation) <= 1.0:
@@ -264,10 +289,14 @@ class EquilibriumKineticSpec:
       generator decomposes ``p_eq`` into kinetic channels.  One pass, no
       CHEASE solve.
     * ``"kinetic_pressure"`` -- the kinetic pressure is authoritative;
-      ``kinetic`` uses ``pressure_constraint="kinetic"`` (every channel as
-      declared) or ``"thermal_energy"`` (declared shapes, stored energy held
-      to the current equilibrium's).  ``"equilibrium"`` is refused: it makes
-      ``p_kin = p_eq`` by construction and the update would be an identity.
+      ``kinetic`` must use ``pressure_constraint="kinetic"`` (every channel
+      as declared).  ``"equilibrium"`` is refused: it makes ``p_kin = p_eq``
+      by construction and the update would be an identity.
+      ``"thermal_energy"`` is refused too: it scales ``W_kin`` to the
+      *current* equilibrium's ``W_eq``, which the update then sets from
+      ``p_kin``, so the amplitude is a neutral mode and the converged ``W``
+      depends on the path.  It needs a ``W`` target fixed in the spec, which
+      is not implemented.
 
     ``kinetic`` is re-applied unchanged to every new equilibrium, so shape
     functions are regenerated on the new coordinates, never re-interpolated
@@ -298,7 +327,14 @@ class EquilibriumKineticSpec:
             raise ValueError(
                 "closure='kinetic_pressure' makes the kinetic pressure authoritative; a kinetic spec with "
                 "pressure_constraint='equilibrium' sets p_kin = p_eq by construction, so the CHEASE update "
-                "would be an identity. Use 'kinetic' or 'thermal_energy'")
+                "would be an identity. Use 'kinetic'")
+        if self.closure == "kinetic_pressure" and constraint == "thermal_energy":
+            raise ValueError(
+                "closure='kinetic_pressure' with pressure_constraint='thermal_energy' is ill-posed: W_kin is "
+                "normalized to the evolving equilibrium's W_eq, which the update sets from W_kin, so the "
+                "amplitude is a neutral mode and the converged W depends on the iteration path. It needs a W "
+                "target fixed in the spec (not implemented); declare the amplitude with a ScalarTarget and "
+                "use pressure_constraint='kinetic'")
 
 
 @dataclass(frozen=True, eq=False)
@@ -310,9 +346,13 @@ class PressureSource:
     for ``relaxation = 1``).  ``psi_norm`` is the g-file's uniform grid on
     which ``pressure`` (``PRES``) and ``pprime`` (``PPRIME = dp/dpsi``) were
     written; ``psi_span = psi_boundary - psi_axis`` of the equilibrium the
-    derivative was taken on.  ``roundtrip_max_relative`` is
-    ``max|p - (p(1) - int_psi^1 p' dpsi)| / max p`` by the trapezoidal rule on
-    that grid, an independent check of the derivative.
+    derivative was taken on.  ``rise_max_relative`` is the largest outward
+    rise of the used pressure relative to its maximum, and
+    ``rise_points_removed`` how many points a running minimum lowered to
+    remove rises below ``ConvergenceCriteria.monotone_rtol`` (zero for a
+    monotone pressure).  The round trip ``p -> p' -> p`` is checked on the
+    g-file actually handed to CHEASE
+    (:func:`vaft.code.chease_kinetic_iteration.pressure_roundtrip`), not here.
     """
 
     kinetic_psi_norm: np.ndarray
@@ -325,7 +365,8 @@ class PressureSource:
     pprime: np.ndarray
     psi_span: float
     method: str
-    roundtrip_max_relative: float
+    rise_max_relative: float = 0.0
+    rise_points_removed: int = 0
 
     def __post_init__(self) -> None:
         for name in ("kinetic_psi_norm", "raw_pressure", "relaxed_pressure", "psi_norm", "pressure",
@@ -435,7 +476,11 @@ class SelfConsistentState:
     one when nothing was accepted, ``None`` when the initial state itself
     failed).  ``ods`` holds that final state's ``equilibrium`` and
     ``core_profiles`` when the final state has a valid kinetic state, else
-    ``None``.
+    ``None``; an equilibrium this workflow did not solve (the initial one)
+    keeps its own ``code`` and comment.  ``baseline``, when requested, is a
+    CHEASE re-solve of the initial equilibrium with its *own* ``p'`` and
+    ``FF'``: it separates the change of solver (EFIT to CHEASE) from the
+    change of pressure.
 
     Nothing here is transport-predicted or reconstructed: the kinetic
     profiles are declared assumptions and the equilibrium is re-solved for
@@ -452,6 +497,7 @@ class SelfConsistentState:
     ods: Any
     policy: Mapping[str, Any]
     provenance: Mapping[str, Any]
+    baseline: IterationState | None = None
 
     def __post_init__(self) -> None:
         if self.status not in ITERATION_STATUSES:

@@ -37,6 +37,7 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
+import re
 import tempfile
 from typing import Any, Mapping
 
@@ -60,6 +61,7 @@ __all__ = [
     "PressureSourceError",
     "build_consistent_state",
     "current_source_for_update",
+    "pressure_roundtrip",
     "pressure_source_from_kinetic",
     "validate_chease_update",
 ]
@@ -75,6 +77,7 @@ PRESSURE_METHOD = (
 _FIXED_SETTINGS = {
     "target_psin": "1.0: the EXPEQ boundary is RBBBS itself, the initial boundary restored every solve (#887)",
     "edge_zero": "False: p' is built one-signed here, so no edge sample is zeroed behind the source's back",
+    "cleanup": "False: the adapter would delete the working directory, and the solution, after a good solve",
     "preserve_boundary_limiter": "True: RBBBS/limiter restored from the input, i.e. the initial boundary",
     "output_cocos": "input: the refined g-file keeps the source orientation",
 }
@@ -98,7 +101,7 @@ def _uniform_psi_norm(geqdsk) -> np.ndarray:
 
 
 def pressure_source_from_kinetic(kinetic_psi_norm, p_kin, geqdsk, *, previous=None,
-                                 relaxation: float = 1.0) -> PressureSource:
+                                 relaxation: float = 1.0, monotone_rtol: float = 0.0) -> PressureSource:
     """Build the ``PRES``/``PPRIME`` pair CHEASE reads from a kinetic pressure.
 
     Parameters
@@ -115,12 +118,16 @@ def pressure_source_from_kinetic(kinetic_psi_norm, p_kin, geqdsk, *, previous=No
         base of under-relaxation; ``None`` means no relaxation base [Pa].
     relaxation : float, optional
         ``alpha`` of ``p = previous + alpha (p_kin - previous)`` [-].
+    monotone_rtol : float, optional
+        Outward rises up to this fraction of ``max p`` (e.g. a slightly
+        non-monotone relaxation base) are removed by a running minimum from the
+        axis and counted; larger ones are refused [-].
 
     Returns
     -------
     PressureSource
         The raw and relaxed pressure, ``PRES`` and ``PPRIME`` on the g-file
-        grid, the method and a trapezoidal round-trip check [-].
+        grid, the method and the outward rise that was removed, if any [-].
 
     Raises
     ------
@@ -147,7 +154,15 @@ def pressure_source_from_kinetic(kinetic_psi_norm, p_kin, geqdsk, *, previous=No
     if scale <= 0.0 or used.min() < -1e-12 * scale:
         raise PressureSourceError(f"the kinetic pressure must be non-negative with a positive maximum "
                                   f"(min {used.min():.4g} Pa)")
-    rises = np.flatnonzero(np.diff(used) > 1e-12 * scale)
+    steps = np.diff(used)
+    rise = float(max(np.max(np.maximum.accumulate(used[::-1])[::-1] - used), 0.0)) / scale
+    rises = np.flatnonzero(steps > 1e-12 * scale)
+    removed = 0
+    if rises.size and rise <= monotone_rtol:
+        monotone = np.minimum.accumulate(used)
+        removed = int(np.count_nonzero(monotone != used))
+        used = monotone
+        rises = rises[:0]
     if rises.size:
         where = float(x[rises[0]])
         raise PressureSourceError(
@@ -163,15 +178,10 @@ def pressure_source_from_kinetic(kinetic_psi_norm, p_kin, geqdsk, *, previous=No
     if span == 0.0 or not np.isfinite(span):
         raise PressureSourceError("the equilibrium's flux span SIBRY - SIMAG is zero or not finite")
     pprime = dp / span
-    from scipy.integrate import cumulative_trapezoid
-
-    # p(x) = p(1) - int_x^1 p' dpsi_N; integrating along the reversed grid gives -int_x^1 directly.
-    rebuilt = pressure[-1] + cumulative_trapezoid(dp[::-1], grid[::-1], initial=0.0)[::-1]
-    roundtrip = float(np.max(np.abs(rebuilt - pressure)) / scale)
     return PressureSource(
         kinetic_psi_norm=x, raw_pressure=raw, relaxed_pressure=used, relaxation=float(relaxation),
         psi_norm=grid, pressure=pressure, dpressure_dpsi_norm=dp, pprime=pprime, psi_span=span,
-        method=PRESSURE_METHOD, roundtrip_max_relative=roundtrip)
+        method=PRESSURE_METHOD, rise_max_relative=rise, rise_points_removed=removed)
 
 
 def _ffprime_shape(policy: CurrentPolicy, initial, grid: np.ndarray) -> tuple[np.ndarray, str]:
@@ -297,7 +307,8 @@ def validate_chease_update(run: CHEASEResult, *, initial, policy: CurrentPolicy,
     ``finite`` (``PSIRZ``, ``PRES``, ``PPRIME``, ``FFPRIM``, ``QPSI``, ``FPOL``),
     ``pressure_nonnegative``, ``axis_inside`` the solved boundary,
     ``boundary_preserved`` (the largest distance of CHEASE's own solved
-    ``RBBBS`` from the ``EXPEQ`` boundary, in half radial extents),
+    ``RBBBS`` and the ``EXPEQ`` boundary, the symmetric Hausdorff distance in
+    half radial extents),
     ``normalization`` (the held ``I_p`` or ``q95``, relative), ``orientation``
     (``I_p`` and ``B0`` signs of the refined file equal the initial's) and
     ``vacuum_field`` (``|F_edge|`` held).
@@ -334,7 +345,9 @@ def validate_chease_update(run: CHEASEResult, *, initial, policy: CurrentPolicy,
     if run.materialized is not None:
         requested = _closed(run.materialized.boundary[:, 0], run.materialized.boundary[:, 1])
         half_width = 0.5 * float(np.ptp(requested[:, 0]))
-        worst = float(np.max(_boundary_distance(solved_rz[:-1], requested)) / half_width)
+        # Symmetric (Hausdorff) distance: neither curve may stray from the other.
+        worst = float(max(np.max(_boundary_distance(solved_rz[:-1], requested)),
+                          np.max(_boundary_distance(requested[:-1], solved_rz))) / half_width)
         checks["boundary_preserved"] = _check(worst, criteria.boundary_rtol, worst <= criteria.boundary_rtol)
     else:
         checks["boundary_preserved"] = _check(None, criteria.boundary_rtol, False)
@@ -406,7 +419,7 @@ def _relative_change(new, old) -> float:
     return float(np.max(np.abs(new - old)) / scale) if scale > 0 else float("nan")
 
 
-def _metrics(kin, p_eq, q, rho_tor, scalars, previous: IterationState | None, mode: str) -> dict[str, float]:
+def _metrics(kin, p_eq, q, rho_tor, scalars, previous: IterationState | None) -> dict[str, float]:
     p_kin = np.asarray(kin.p_total, dtype=float)
     metrics: dict[str, float] = {
         "closure_max_relative": float(kin.pressure.max_relative_residual),
@@ -420,9 +433,6 @@ def _metrics(kin, p_eq, q, rho_tor, scalars, previous: IterationState | None, mo
         metrics["pressure_rms_relative"] = float(np.sqrt(np.mean(diff * diff)))
     else:
         metrics["pressure_max_relative"] = metrics["pressure_rms_relative"] = float("nan")
-    if mode == "equilibrium_pressure":
-        # The closure is exact on its declared region; the carried edge is reported separately.
-        metrics["pressure_max_relative"] = metrics["closure_max_relative"]
     if previous is None or previous.kinetic is None:
         return metrics
     old = previous.kinetic
@@ -457,7 +467,7 @@ def _generate(geqdsk, spec: EquilibriumKineticSpec, time):
 
 
 def _state(index, geqdsk, path, spec, time, previous, *, criteria: ConvergenceCriteria | None = None,
-           **extra) -> IterationState:
+           status_override: str | None = None, message_override: str | None = None, **extra) -> IterationState:
     """Regenerate the kinetic state on *geqdsk* and measure it against the equilibrium and *previous*."""
     kin, failure = _generate(geqdsk, spec, time)
     scalars = _scalars(geqdsk)
@@ -473,7 +483,7 @@ def _state(index, geqdsk, path, spec, time, previous, *, criteria: ConvergenceCr
     q = np.interp(kin.psi_norm, np.linspace(0.0, 1.0, q_file.size), q_file)
     p_eq = np.asarray(kin.p_eq, dtype=float)
     scalars["w_th"] = float(kin.pressure.thermal_energy_eq)
-    metrics = _metrics(kin, p_eq, q, kin.rho_tor_norm, scalars, previous, spec.closure)
+    metrics = _metrics(kin, p_eq, q, kin.rho_tor_norm, scalars, previous)
     metrics["w_eq"] = scalars["w_th"]
     if criteria is not None and previous is not None:
         metrics.update({f"met_{name}": float(ok) for name, ok in _criteria_met_metrics(metrics, criteria).items()})
@@ -482,8 +492,9 @@ def _state(index, geqdsk, path, spec, time, previous, *, criteria: ConvergenceCr
                              "targets": {t.name: {"requested": t.requested, "achieved": t.achieved, "met": t.met}
                                          for t in kin.targets},
                              "checks": dict(kin.validation)}
-    status = "initial" if index == 0 else "accepted"
-    return IterationState(status=status, message=kin.message if index == 0 else "accepted", kinetic=kin,
+    status = status_override or ("initial" if index == 0 else "accepted")
+    message = message_override or (kin.message if index == 0 else "accepted")
+    return IterationState(status=status, message=message, kinetic=kin,
                           psi_norm=kin.psi_norm, p_eq=p_eq, p_kin=kin.p_total, q=q,
                           rho_tor_norm=kin.rho_tor_norm, metrics=metrics, validation=validation, **base)
 
@@ -536,31 +547,162 @@ def _decide(states: list[IterationState], criteria: ConvergenceCriteria) -> tupl
             return "oscillating", (f"the thermal-energy residual alternates in sign over {w} states without "
                                    f"decaying (|s_n|/|s_n-2| = {abs(tail[-1]) / abs(tail[-3]):.3g})")
     k = int(criteria.stagnation_window)
-    if n >= k and np.isfinite(r[-1]) and r[-1] >= criteria.stagnation_ratio * r[-1 - k]:
-        return "stagnated", (f"the pressure residual fell by less than {1 - criteria.stagnation_ratio:.0%} over "
-                             f"{k} updates ({r[-1 - k]:.3g} -> {r[-1]:.3g}); unmet: "
-                             + ", ".join(name for name, ok in met.items() if not ok))
+    unmet = [name for name, ok in met.items() if not ok]
+    if n < k or not unmet:
+        return None, ""
+    drifting = _drifting_signals(states[-1 - k:], criteria)
+    if drifting:
+        return "drifting", (f"unmet: {', '.join(unmet)}; " + ", ".join(drifting)
+                            + f" changed in the same direction by a non-decaying step over the last {k} updates")
+    # Stagnation is judged only on the metrics that are still unmet.
+    worst = {name: [max(st.metrics.get(m, np.nan) for m in _CRITERIA_METRICS[name]) for st in states[-1 - k:]]
+             for name in unmet}
+    if all(np.isfinite(v[-1]) and np.isfinite(v[0]) and v[-1] >= criteria.stagnation_ratio * v[0]
+           for v in worst.values()):
+        return "stagnated", (f"no unmet metric fell by {1 - criteria.stagnation_ratio:.0%} over {k} updates: "
+                             + ", ".join(f"{name} {v[0]:.3g} -> {v[-1]:.3g}" for name, v in worst.items()))
     return None, ""
+
+
+#: Signed quantities watched for a monotone runaway: scalars of the equilibrium and the two energies.
+_DRIFT_SIGNALS = ("q0", "q95", "li", "beta_p", "w_th", "magnetic_axis_r", "magnetic_axis_z", "ip")
+
+
+def _drifting_signals(window: list[IterationState], criteria: ConvergenceCriteria) -> list[str]:
+    """Signals that moved monotonically, by steps above the scalar tolerance that are not decaying."""
+    scale = criteria.scalar_rtol if criteria.scalar_rtol is not None else 1e-3
+    found = []
+    for name in _DRIFT_SIGNALS + ("w_kin",):
+        source = [st.metrics if name == "w_kin" else st.scalars for st in window]
+        values = np.array([float(src.get(name, np.nan)) for src in source])
+        if not np.all(np.isfinite(values)):
+            continue
+        steps = np.diff(values)
+        size = np.abs(steps) / np.maximum(np.abs(values[1:]), 1e-300)
+        monotone = np.all(steps > 0) or np.all(steps < 0)
+        if monotone and np.all(size > scale) and abs(steps[-1]) >= criteria.stagnation_ratio * abs(steps[0]):
+            found.append(name)
+    return found
 
 
 # --- the workflow --------------------------------------------------------------------------
 
 
+#: A CASE label declaring a weber-family COCOS index (11-18): a ``from_equilibrium`` product whose psi is
+#: stored per weber, which the per-radian g-file readers (``to_omas``, the CHEASE adapter) would misread (#1292).
+_WEBER_CASE = re.compile(r"COCOS\s*=\s*(1[1-8])\b")
+
+
+def _per_radian(geqdsk) -> tuple[Any, str | None]:
+    """The g-file with psi per radian: a declared weber-family file is converted, never read as per radian."""
+    match = _WEBER_CASE.search(str(geqdsk.mapping.get("CASE", "")))
+    if match is None:
+        return geqdsk, None
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.process._equilibrium_parametric import convert_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    index = int(match.group(1))
+    try:
+        eq = as_equilibrium(geqdsk)
+        if eq.convention.cocos != index:
+            raise ValueError(f"the file declares COCOS {index} but reads as {eq.convention.cocos}")
+        converted = from_equilibrium(convert_cocos(eq, index - 10))
+    except Exception as error:  # noqa: BLE001 - refused with the reason, never read with the wrong 2*pi
+        raise ValueError(
+            f"the equilibrium declares COCOS {index} (psi per weber) and could not be converted to the "
+            f"per-radian COCOS {index - 10} a g-file stores: {error}") from error
+    return converted, f"converted from the declared COCOS {index} (psi per weber) to COCOS {index - 10} (#1292)"
+
+
 def _coerce_initial(equilibrium):
-    """A GEQDSK from a path, GEQDSK, mapping, ODS or a #120 ``SyntheticEquilibriumResult``."""
+    """A per-radian GEQDSK from a path, GEQDSK, mapping, ODS or a #120 ``SyntheticEquilibriumResult``."""
     refined = getattr(equilibrium, "refined_geqdsk", None)
     if hasattr(equilibrium, "spec") and hasattr(equilibrium, "achieved_profiles"):
         if not equilibrium.ok or refined is None:
             raise ValueError(f"the #120 synthesis did not succeed ({equilibrium.status}); nothing to iterate from")
-        return _coerce_geqdsk(refined), f"#120 synthesized equilibrium ({refined})"
-    return _coerce_geqdsk(equilibrium), str(getattr(equilibrium, "source", "") or type(equilibrium).__name__)
+        geqdsk, label = _coerce_geqdsk(refined), f"#120 synthesized equilibrium ({refined})"
+    else:
+        geqdsk = _coerce_geqdsk(equilibrium)
+        label = str(getattr(equilibrium, "source", "") or type(equilibrium).__name__)
+    geqdsk, note = _per_radian(geqdsk)
+    return geqdsk, label, note
 
 
 def _solve_config(config: CHEASEConfig | None, policy: CurrentPolicy, workdir: Path) -> CHEASEConfig:
     base = config or CHEASEConfig(create_plot=False)
+    # cleanup=False: the adapter would delete the directory -- and the solution -- after a good solve.
     return replace(base, workdir=workdir, target_psin=1.0, ncscal=policy.ncscal,
                    q_constraint_psi_norm=0.95 if policy.normalization == "q95" else None,
-                   edge_zero=False, preserve_boundary_limiter=True, output_cocos="input")
+                   edge_zero=False, preserve_boundary_limiter=True, output_cocos="input", cleanup=False)
+
+
+def _fresh_dir(root: Path, name: str) -> Path:
+    """``root/name``, or ``root/name_attempt_k`` when that already holds files (a resumed or reused root)."""
+    candidate, attempt = root / name, 1
+    while candidate.exists() and any(candidate.iterdir()):
+        attempt += 1
+        candidate = root / f"{name}_attempt_{attempt}"
+    return candidate
+
+
+def pressure_roundtrip(geqdsk) -> float:
+    r"""``max|PRES - (PRES(1) - int PPRIME dpsi)| / max PRES`` of a g-file, by the trapezoidal rule.
+
+    Parameters
+    ----------
+    geqdsk : GEQDSK
+        The g-file as handed to CHEASE [-].
+
+    Returns
+    -------
+    float
+        The relative round-trip error of ``p -> p' -> p`` using the file's own
+        ``PPRIME`` and flux span ``SIBRY - SIMAG``, so a wrong span, sign or
+        derivative shows up as an order-one error [-].
+    """
+    from scipy.integrate import cumulative_trapezoid
+
+    pres = np.asarray(geqdsk["PRES"], dtype=float)
+    pprime = np.asarray(geqdsk["PPRIME"], dtype=float)
+    span = float(geqdsk["SIBRY"]) - float(geqdsk["SIMAG"])
+    psi = float(geqdsk["SIMAG"]) + np.linspace(0.0, 1.0, pres.size) * span
+    # p(psi) = p(psi_b) - int_psi^psi_b p' dpsi; integrating along the reversed grid gives -int directly.
+    rebuilt = pres[-1] + cumulative_trapezoid(pprime[::-1], psi[::-1], initial=0.0)[::-1]
+    return float(np.max(np.abs(rebuilt - pres)) / max(float(np.max(np.abs(pres))), 1e-300))
+
+
+#: Largest written-file round-trip error accepted before a source is refused.
+_ROUNDTRIP_LIMIT = 1e-2
+
+
+def _normalized_input(previous, initial, policy: CurrentPolicy, target: float):
+    """A copy of *previous* whose normalization fields request the held target."""
+    modified = _copy_geqdsk(previous)
+    if policy.normalization == "plasma_current":
+        modified["CURRENT"] = float(np.sign(float(initial["CURRENT"])) * target)
+    else:
+        # The adapter samples QSPEC from the input QPSI at psi_N = 0.95; rescale it to the target so the
+        # request is the held value, not the last solve's (whose bias would accumulate).
+        modified["QPSI"] = np.asarray(previous["QPSI"], dtype=float) * (target / _q_at(previous, 0.95))
+    return modified
+
+
+def _solve(modified, solve: CHEASEConfig, *, initial, policy, target, criteria):
+    """One adapter solve and its validation: ``(verdict, message, checks, run)``."""
+    try:
+        run = refine_equilibrium(modified, solve)
+    except FileNotFoundError as error:
+        from .chease import find_chease_executable
+
+        reason = ("no CHEASE executable (set CHEASE, CHEASEHOME or CHEASE_EXEC_DIR); nothing was solved"
+                  if find_chease_executable(solve) is None else f"{error}")
+        return "chease_failed", reason, {}, None
+    except Exception as error:  # noqa: BLE001 - the adapter's failure, named and kept with the history
+        return "chease_failed", f"CHEASE adapter raised {type(error).__name__}: {error}", {}, None
+    verdict, why, checks = validate_chease_update(run, initial=initial, policy=policy, target=target,
+                                                  criteria=criteria)
+    return verdict, why, checks, run
 
 
 def _write_ods(final: IterationState, spec: EquilibriumKineticSpec, status: str, time, policy_record) -> Any:
@@ -570,16 +712,17 @@ def _write_ods(final: IterationState, spec: EquilibriumKineticSpec, status: str,
         ods["equilibrium.time"] = np.asarray([float(t)])
         ods["equilibrium.time_slice.0.time"] = float(t)
     write_synthetic_core_profiles(final.kinetic, ods, time=t)
+    if final.index == 0:
+        # The given equilibrium: this workflow did not produce it, so its own code and comment stay.
+        return ods
     ods["equilibrium.ids_properties.comment"] = (
-        "Assumption-driven self-consistent equilibrium/kinetic state (vaft #123): "
-        + ("the given equilibrium, decomposed into synthetic kinetic profiles" if spec.closure == "equilibrium_pressure"
-           else "a CHEASE fixed-boundary equilibrium re-solved for the pressure of declared synthetic kinetic "
-                "profiles")
-        + "; not transport-predicted, not reconstructed from measurements.")
+        "Assumption-driven self-consistent equilibrium/kinetic state (vaft #123): a CHEASE fixed-boundary "
+        "equilibrium re-solved for the pressure of declared synthetic kinetic profiles; not transport-predicted, "
+        "not reconstructed from measurements.")
     ods["equilibrium.code.name"] = "vaft.code.chease_kinetic_iteration"
     ods["equilibrium.code.parameters"] = json.dumps(
         {"producer": "vaft self-consistent equilibrium-kinetic iteration (#123)", "status": status,
-         "closure": spec.closure, "iteration": final.index, "policy": policy_record,
+         "closure": spec.closure, "iteration": final.index, "policy": policy_record, "solver": "CHEASE",
          "geqdsk": None if final.geqdsk_path is None else str(final.geqdsk_path)},
         sort_keys=True, default=str)
     return ods
@@ -587,14 +730,17 @@ def _write_ods(final: IterationState, spec: EquilibriumKineticSpec, status: str,
 
 def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config: CHEASEConfig | None = None,
                            workdir: str | Path | None = None, time: float | None = None,
-                           resume: SelfConsistentState | None = None) -> SelfConsistentState:
+                           resume: SelfConsistentState | None = None,
+                           baseline: bool = False) -> SelfConsistentState:
     """Iterate an equilibrium and synthetic kinetic profiles until they are mutually consistent.
 
     Parameters
     ----------
     equilibrium : GEQDSK, path, ODS or SyntheticEquilibriumResult
         The initial equilibrium; a #120 result contributes its refined g-file.
-        Ignored when *resume* is given [-].
+        A g-file whose CASE declares a weber-family COCOS (11-18) is converted
+        to its per-radian twin first, and refused when that fails.  Ignored
+        when *resume* is given [-].
     spec : EquilibriumKineticSpec
         Closure mode, #122 kinetic spec, current policy and convergence
         criteria [-].
@@ -602,39 +748,46 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
         CHEASE numerics (mesh, output box, executable, timeout).  The
         iteration fixes ``target_psin = 1``, ``ncscal`` and
         ``q_constraint_psi_norm`` from the policy, ``edge_zero = False``,
-        ``preserve_boundary_limiter = True`` and ``output_cocos = "input"``,
-        and records that it did [-].
+        ``preserve_boundary_limiter = True``, ``output_cocos = "input"`` and
+        ``cleanup = False``, and records that it did [-].
     workdir : path, optional
-        Root of the per-update CHEASE directories ``iteration_NN``; a fresh
+        Root of the per-update CHEASE directories ``iteration_NN`` (a directory
+        already holding files gets ``iteration_NN_attempt_k`` instead); a fresh
         temporary directory when omitted [-].
     time : float, optional
         Time stamped on the kinetic profiles and the output ODS [s].
     resume : SelfConsistentState, optional
         Continue a previous run from its last accepted state, keeping its
-        history and relaxation base; ``max_iterations`` counts the whole
-        history [-].
+        whole history (a failed last attempt included) and its relaxation
+        base; ``max_iterations`` counts every attempt [-].
+    baseline : bool, optional
+        Also re-solve the initial equilibrium with CHEASE at its *own* ``p'``
+        and ``FF'`` (same normalization, same config) and return it as
+        ``baseline``, to separate the change of solver from the change of
+        pressure; ``kinetic_pressure`` only [-].
 
     Returns
     -------
     SelfConsistentState
-        Status, every state (initial, accepted and the failed one that
-        stopped the loop), the final accepted state, the ``equilibrium`` +
-        ``core_profiles`` ODS of that state, the recorded policy and the
-        provenance [-].
+        Status, every state (initial, accepted and failed attempts), the final
+        accepted state, the ``equilibrium`` + ``core_profiles`` ODS of that
+        state, the optional baseline, the recorded policy and the provenance [-].
 
     Raises
     ------
     ValueError
-        *spec* is not an :class:`~vaft.data.EquilibriumKineticSpec`, or a
-        #120 result that did not succeed.
+        *spec* is not an :class:`~vaft.data.EquilibriumKineticSpec`, a #120
+        result that did not succeed, a rising analytic current profile, or a
+        weber-family g-file that cannot be converted.
 
     Notes
     -----
     ``equilibrium_pressure`` generates the kinetic state once on the given
     equilibrium and never calls CHEASE.  ``kinetic_pressure`` repeats: build
     ``PRES``/``PPRIME`` from ``p_kin`` of the latest state and ``FF'`` from the
-    policy, write the held ``I_p`` as the input ``CURRENT`` (``q95`` is read by
-    the adapter from the latest solved ``q``), solve, validate, regenerate the
+    policy, request the held target (``I_p`` as ``CURRENT``, ``q95`` through
+    the rescaled ``QPSI`` the adapter samples ``QSPEC`` from), check the
+    written ``p -> p' -> p`` round trip, solve, validate, regenerate the
     kinetic state on the solution from the same spec, measure, decide.  A
     missing CHEASE executable is a ``chease_failed`` state, not an exception.
     """
@@ -648,12 +801,14 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
                                  "FF' = -dg/dpsi_N would change sign, a reversed current")
         if problem is not None:
             raise ValueError(f"{problem[0]}: {problem[1]}")
+    cocos_note = None
     if resume is not None:
         initial_state = resume.initial
         initial = initial_state.equilibrium
         source_label = resume.provenance.get("initial_equilibrium", "resumed")
+        cocos_note = resume.provenance.get("initial_cocos_conversion")
     else:
-        initial, source_label = _coerce_initial(equilibrium)
+        initial, source_label, cocos_note = _coerce_initial(equilibrium)
         initial_state = _state(0, _copy_geqdsk(initial), None, spec, time, None)
     if policy.normalization == "plasma_current":
         target = abs(float(initial["CURRENT"]))
@@ -661,6 +816,8 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
         target = _q_at(initial, 0.95)
     policy_record = {"kind": policy.kind, "normalization": policy.normalization, "ncscal": policy.ncscal,
                      "held_target": target, "held_target_unit": "A" if policy.normalization == "plasma_current" else "-",
+                     "held_target_written_as": ("input CURRENT (CURRT)" if policy.normalization == "plasma_current"
+                                                else "input QPSI rescaled so QSPEC(0.95) = target"),
                      "current_profile": None if policy.current_profile is None else repr(policy.current_profile),
                      **policy.describe()}
     root = Path(workdir) if workdir is not None else (
@@ -676,14 +833,18 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
         "kinetic_generator": "vaft.process.profile.generate_synthetic_kinetic_profiles (#122), same spec every state",
         "kinetic_pressure_constraint": spec.kinetic.pressure_constraint,
         "initial_equilibrium": source_label,
+        "initial_cocos_conversion": cocos_note,
         "pressure_source_method": PRESSURE_METHOD,
+        "pressure_residual_definition": "max|p_kin - p_eq| / max p_kin over the whole kinetic grid",
         "chease_fixed_settings": dict(_FIXED_SETTINGS),
         "relaxation": criteria.relaxation,
+        "relaxation_base": "the pressure used in the previous update; the initial equilibrium's p_eq for the first",
         "tolerances": criteria.enabled(),
         "max_iterations": int(criteria.max_iterations),
         "workdir": str(root),
         "resumed_from_iteration": None if resume is None else (resume.final.index if resume.final else None),
     }
+    baseline_state = resume.baseline if resume is not None else None
 
     def finish(status, message, states, final):
         ods = None
@@ -692,9 +853,12 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
                 ods = _write_ods(final, spec, status, time, policy_record)
             except Exception as error:  # noqa: BLE001 - recorded, the history is still returned
                 provenance["ods_error"] = f"{type(error).__name__}: {error}"
+        if final is not None and final.index == 0:
+            provenance["ods_note"] = ("the final state is the given equilibrium: its equilibrium IDS keeps its own "
+                                      "code and comment; only core_profiles was generated here")
         return SelfConsistentState(spec=spec, status=status, message=message, initial=states[0],
                                    iterations=tuple(states[1:]), final=final, ods=ods, policy=policy_record,
-                                   provenance=provenance)
+                                   provenance=provenance, baseline=baseline_state)
 
     states: list[IterationState] = [initial_state] + (list(resume.iterations) if resume is not None else [])
     if not initial_state.accepted:
@@ -703,19 +867,31 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
     if spec.closure == "equilibrium_pressure":
         report = initial_state.kinetic.pressure
         message = (f"the given equilibrium's pressure is decomposed by the #122 closure {spec.kinetic.closure!r}: "
-                   f"max|p_kin - p_eq|/max p_eq = {report.max_relative_residual:.3g} up to psi_N = "
+                   f"closure residual max|p_kin - p_eq|/max p_eq = {report.max_relative_residual:.3g} up to psi_N = "
                    f"{report.closure_exact_up_to_psi_n:.4g}; no CHEASE update is requested")
         return finish("converged", message, states, initial_state)
 
+    root.mkdir(parents=True, exist_ok=True)
+    solve_kwargs = dict(initial=initial, policy=policy, target=target, criteria=criteria)
+    if baseline and baseline_state is None:
+        workdir_b = _fresh_dir(root, "baseline")
+        verdict, why, checks, run = _solve(_normalized_input(initial, initial, policy, target),
+                                           _solve_config(config, policy, workdir_b), **solve_kwargs)
+        if verdict == "accepted":
+            from vaft.data.eqdsk import read_geqdsk
+
+            baseline_state = _state(0, read_geqdsk(run.refined_geqdsk), Path(run.refined_geqdsk), spec, time,
+                                    initial_state, chease_workdir=workdir_b, validation={"chease": checks},
+                                    status_override="accepted",
+                                    message_override="CHEASE re-solve of the initial equilibrium at its own p' and FF'")
+        else:
+            baseline_state = IterationState(index=0, status=verdict, message=why, chease_workdir=workdir_b,
+                                            validation={"chease": checks})
+
     accepted = [s for s in states if s.accepted]
     last = accepted[-1]
-    if resume is not None and states[-1] is not last:
-        # A resumed run restarts from the last accepted state, not from the failure.
-        states = [s for s in states if s.accepted]
     base_pressure = (last.pressure_source.relaxed_pressure if last.pressure_source is not None
                      else initial_state.p_eq)
-    solve_root = root
-    solve_root.mkdir(parents=True, exist_ok=True)
     status, message = None, ""
     while status is None:
         index = len(states)
@@ -724,11 +900,12 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
             message = (f"{criteria.max_iterations} updates without meeting every criterion; unmet: "
                        + ", ".join(k for k, ok in _criteria_met(last, criteria).items() if not ok))
             break
-        workdir_n = solve_root / f"iteration_{index:02d}"
+        workdir_n = _fresh_dir(root, f"iteration_{index:02d}")
         previous_g = last.equilibrium
         try:
             psrc = pressure_source_from_kinetic(last.kinetic.psi_norm, last.kinetic.p_total, previous_g,
-                                                previous=base_pressure, relaxation=criteria.relaxation)
+                                                previous=base_pressure, relaxation=criteria.relaxation,
+                                                monotone_rtol=criteria.monotone_rtol)
         except PressureSourceError as error:
             states.append(IterationState(index=index, status="invalid_pressure_source", message=str(error)))
             status, message = "invalid_pressure_source", str(error)
@@ -740,42 +917,33 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
                                          message=f"FF' source: {error}"))
             status, message = "invalid_pressure_source", f"FF' source: {error}"
             break
-        modified = _copy_geqdsk(previous_g)
+        modified = _normalized_input(previous_g, initial, policy, target)
         modified["PRES"] = psrc.pressure.copy()
         modified["PPRIME"] = psrc.pprime.copy()
         modified["FFPRIM"] = csrc.ffprime.copy()
-        if policy.normalization == "plasma_current":
-            modified["CURRENT"] = float(np.sign(float(initial["CURRENT"])) * target)
         solve = _solve_config(config, policy, workdir_n)
+        roundtrip = pressure_roundtrip(modified)
         chease_inputs = {"workdir": str(workdir_n), "ncscal": solve.ncscal, "target_psin": solve.target_psin,
                          "q_constraint_psi_norm": solve.q_constraint_psi_norm, "edge_zero": solve.edge_zero,
-                         "mesh": solve.resolved_mesh, "nw": int(solve.nw),
-                         "current_input": float(modified["CURRENT"])}
+                         "mesh": solve.resolved_mesh, "nw": int(solve.nw), "cleanup": solve.cleanup,
+                         "current_input": float(modified["CURRENT"]),
+                         "q95_input": _q_at(modified, 0.95),
+                         "pressure_roundtrip_max_relative": roundtrip}
         common = dict(pressure_source=psrc, current_source=csrc, chease_workdir=workdir_n,
                       chease_inputs=chease_inputs)
-        try:
-            run = refine_equilibrium(modified, solve)
-        except FileNotFoundError as error:
-            from .chease import find_chease_executable
-
-            reason = ("no CHEASE executable (set CHEASE, CHEASEHOME or CHEASE_EXEC_DIR); nothing was solved"
-                      if find_chease_executable(solve) is None else f"{error}")
-            states.append(IterationState(index=index, status="chease_failed", message=reason, **common))
-            status, message = "chease_failed", reason
+        if not roundtrip <= _ROUNDTRIP_LIMIT:
+            why = (f"the written PRES/PPRIME do not round-trip (p -> p' -> p error {roundtrip:.3g} > "
+                   f"{_ROUNDTRIP_LIMIT:g}): wrong span, sign or derivative")
+            states.append(IterationState(index=index, status="invalid_pressure_source", message=why, **common))
+            status, message = "invalid_pressure_source", why
             break
-        except Exception as error:  # noqa: BLE001 - the adapter's failure, named and kept with the history
-            reason = f"CHEASE adapter raised {type(error).__name__}: {error}"
-            states.append(IterationState(index=index, status="chease_failed", message=reason, **common))
-            status, message = "chease_failed", reason
-            break
-        if run.materialized is not None:
+        verdict, why, checks, run = _solve(modified, solve, **solve_kwargs)
+        if run is not None and run.materialized is not None:
             chease_inputs["qspec"] = float(run.materialized.qspec)
             chease_inputs["expeq_edge_modified_samples"] = int(np.count_nonzero(run.materialized.edge_modified))
-        verdict, why, checks = validate_chease_update(run, initial=initial, policy=policy, target=target,
-                                                      criteria=criteria)
         if verdict != "accepted":
             states.append(IterationState(index=index, status=verdict, message=why, validation={"chease": checks},
-                                         geqdsk_path=run.refined_geqdsk, **common))
+                                         geqdsk_path=None if run is None else run.refined_geqdsk, **common))
             status, message = verdict, why
             break
         from vaft.data.eqdsk import read_geqdsk

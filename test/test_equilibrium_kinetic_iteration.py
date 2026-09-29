@@ -10,17 +10,18 @@ and is skipped without one, like the other CHEASE integration tests.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
+import re
 
 import numpy as np
 import pytest
 
 import vaft.code.chease_kinetic_iteration as module
-from vaft.code.chease import CHEASEConfig, CHEASEResult, _copy_geqdsk, prepare_chease_inputs
+from vaft.code.chease import CHEASEConfig, CHEASEResult, _copy_geqdsk, find_chease_executable, prepare_chease_inputs
 from vaft.code.chease_kinetic_iteration import (
     PressureSourceError,
     build_consistent_state,
+    pressure_roundtrip,
     pressure_source_from_kinetic,
 )
 from vaft.data import (
@@ -39,8 +40,8 @@ from vaft.data.resources import sample_geqdsk
 from vaft.process.profile import compose_analytic_profile, generate_synthetic_kinetic_profiles
 
 needs_chease = pytest.mark.skipif(
-    not (os.environ.get("CHEASEHOME") or os.environ.get("CHEASE_EXEC_DIR") or os.environ.get("CHEASE")),
-    reason="CHEASE kinetic-iteration integration test requires CHEASEHOME, CHEASE_EXEC_DIR or CHEASE",
+    find_chease_executable() is None,
+    reason="CHEASE kinetic-iteration integration test needs a CHEASE executable (CHEASEHOME, CHEASE or CHEASE_EXEC_DIR)",
 )
 
 TIME = 0.319
@@ -65,28 +66,39 @@ def _spec(**overrides) -> EquilibriumKineticSpec:
 
 
 class FakeCHEASE:
-    """Writes the real CHEASE input, then returns the input equilibrium with its pressure scaled.
+    """Writes the real CHEASE input, then "solves" it from the written ``PPRIME`` and ``FFPRIM``.
 
-    ``factor(n)`` scales ``PRES``/``PPRIME`` of update ``n`` (read from the
-    ``iteration_NN`` directory, so a resumed run sees the same sequence);
-    ``mutate(g, n)`` edits the output further; ``returncode`` != 0 writes
-    nothing.
+    The output pressure is ``factor(n) * (PRES(1) - int PPRIME dpsi)`` -- the
+    written derivative integrated with the file's own span, so a wrong
+    ``PPRIME`` shows up offline -- with ``PPRIME`` scaled alike and ``FFPRIM``
+    passed through.  ``n`` is read from the ``iteration_NN`` directory, so a
+    resumed run sees the same sequence; ``mutate(g, n)`` edits the output
+    further; ``returncode`` != 0 writes nothing.
     """
 
-    def __init__(self, factor=lambda n: 1.0, mutate=None, returncode=0):
-        self.factor, self.mutate, self.returncode = factor, mutate, returncode
+    def __init__(self, factor=lambda n: 1.0, mutate=None, returncode=0, fail_at=None):
+        self.factor, self.mutate, self.returncode, self.fail_at = factor, mutate, returncode, fail_at
         self.calls: list[tuple] = []
 
     def __call__(self, geqdsk, config):
         inputs = prepare_chease_inputs(geqdsk, config)
         workdir = Path(config.workdir)
-        n = int(workdir.name.split("_")[-1])
+        match = re.search(r"iteration_(\d+)", workdir.name)
+        n = int(match.group(1)) if match else 0
         self.calls.append((geqdsk, config))
-        if self.returncode != 0:
-            return CHEASEResult(returncode=self.returncode, workdir=workdir, materialized=inputs.materialized)
+        if self.returncode != 0 or n == self.fail_at:
+            return CHEASEResult(returncode=self.returncode or 1, workdir=workdir, materialized=inputs.materialized)
+        from scipy.integrate import cumulative_trapezoid
+
         out = _copy_geqdsk(geqdsk)
-        out["PRES"] = np.asarray(geqdsk["PRES"], float) * self.factor(n)
-        out["PPRIME"] = np.asarray(geqdsk["PPRIME"], float) * self.factor(n)
+        pprime = np.asarray(geqdsk["PPRIME"], float)
+        span = float(geqdsk["SIBRY"]) - float(geqdsk["SIMAG"])
+        psi = float(geqdsk["SIMAG"]) + np.linspace(0.0, 1.0, pprime.size) * span
+        edge = float(np.asarray(geqdsk["PRES"], float)[-1])
+        solved = edge + cumulative_trapezoid(pprime[::-1], psi[::-1], initial=0.0)[::-1]
+        out["PRES"] = solved * self.factor(n)
+        out["PPRIME"] = pprime * self.factor(n)
+        out["FFPRIM"] = np.asarray(geqdsk["FFPRIM"], float)
         if self.mutate is not None:
             self.mutate(out, n)
         refined = workdir / "input_chease.geqdsk"
@@ -122,7 +134,13 @@ def test_the_pressure_source_is_regular_and_round_trips():
     assert abs(source.dpressure_dpsi_norm[0]) < 0.02 * np.max(np.abs(exact_dp))   # axis: bounded, near 0
     span = float(g["SIBRY"]) - float(g["SIMAG"])
     np.testing.assert_allclose(source.pprime * span, source.dpressure_dpsi_norm)
-    assert source.roundtrip_max_relative < 1e-3                          # p -> p' -> p
+    written = _copy_geqdsk(g)
+    written["PRES"], written["PPRIME"] = source.pressure, source.pprime
+    assert pressure_roundtrip(written) < 1e-3                             # p -> p' -> p on the file
+    written["PPRIME"] = -source.pprime                                    # a sign error is caught
+    assert pressure_roundtrip(written) > 0.5
+    written["PPRIME"] = 2 * np.pi * source.pprime                         # so is a per-weber span
+    assert pressure_roundtrip(written) > 0.5
     assert "PCHIP" in source.method and source.relaxation == 1.0
 
 
@@ -168,6 +186,8 @@ def test_the_closure_mode_must_match_the_kinetic_constraint():
         CurrentPolicy(kind="analytic_ffprime_shape")
     with pytest.raises(ValueError, match="relaxation"):
         ConvergenceCriteria(relaxation=0.0)
+    with pytest.raises(ValueError, match="neutral mode"):
+        EquilibriumKineticSpec(_kinetic(pressure_constraint="thermal_energy", closure="temperature_amplitude"))
 
 
 # --- modes, states and convergence ----------------------------------------------------------
@@ -183,7 +203,11 @@ def test_equilibrium_pressure_mode_never_calls_chease(monkeypatch, tmp_path):
     state = build_consistent_state(sample_geqdsk(), spec, workdir=tmp_path, time=TIME)
     assert state.status == "converged" and state.iterations == ()
     assert state.final is state.initial and state.initial.status == "initial"
-    assert state.initial.metrics["pressure_max_relative"] < 1e-6
+    assert state.initial.metrics["closure_max_relative"] < 1e-6          # exact region, / max p_eq
+    assert "ods_note" in state.provenance
+    assert state.ods["equilibrium.ids_properties.comment"] == sample_geqdsk().to_omas()[
+        "equilibrium.ids_properties.comment"]                            # the input is never relabelled
+    assert "equilibrium.code.name" not in state.ods
     assert "core_profiles.profiles_1d.0.electrons.temperature" in state.ods
     assert not list(tmp_path.iterdir())
     assert any(role.startswith("held (no CHEASE") for _, role in state.assumption_table())
@@ -330,6 +354,9 @@ def test_a_missing_executable_is_chease_failed_not_an_exception(monkeypatch, tmp
     (lambda g, n: g.__setitem__("CURRENT", 1.1 * float(g["CURRENT"])), "normalization"),
     (lambda g, n: g.__setitem__("RBBBS", 1.05 * np.asarray(g["RBBBS"], float)), "boundary_preserved"),
     (lambda g, n: g.__setitem__("RMAXIS", 5.0), "axis_inside"),
+    (lambda g, n: g.__setitem__("CURRENT", -float(g["CURRENT"])), "orientation"),
+    (lambda g, n: g.__setitem__("FPOL", 1.01 * np.asarray(g["FPOL"], float)), "vacuum_field"),
+    (lambda g, n: g.__setitem__("PRES", np.asarray(g["PRES"], float) - 1e3), "pressure_nonnegative"),
 ])
 def test_a_solution_that_fails_a_check_is_validation_failed(fake, tmp_path, mutate, check):
     fake(mutate=mutate)
@@ -419,3 +446,123 @@ def test_under_relaxation_keeps_raw_and_relaxed_pressures_and_still_converges(tm
     np.testing.assert_allclose(first.relaxed_pressure,
                                state.initial.p_eq + 0.6 * (state.initial.p_kin - state.initial.p_eq))
     assert not np.allclose(first.relaxed_pressure, first.raw_pressure)
+
+
+def test_a_non_finite_solution_is_refused(fake, monkeypatch, tmp_path):
+    import vaft.data.eqdsk as eqdsk
+
+    fake()
+    real = eqdsk.read_geqdsk
+
+    def poisoned(path):
+        g = real(path)
+        if Path(path).name == "input_chease.geqdsk":                     # the refined file only
+            q = np.asarray(g["QPSI"], float).copy()
+            q[5] = np.nan                                                  # a g-file cannot carry NaN as text
+            g["QPSI"] = q
+        return g
+
+    monkeypatch.setattr(eqdsk, "read_geqdsk", poisoned)
+    state = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME)
+    assert state.status == "validation_failed" and "finite" in state.message
+
+
+def test_a_runaway_at_a_small_pressure_residual_is_not_stagnation(fake, tmp_path):
+    # The pressure closes at once, but q keeps growing by 2 % a solve: a runaway, not a floor.
+    fake(mutate=lambda g, n: g.__setitem__("QPSI", 1.02 * np.asarray(g["QPSI"], float)))
+    state = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME)
+    assert state.iterations[-1].metrics["pressure_max_relative"] < 1e-3
+    assert state.status == "drifting", state.message
+    assert "q0" in state.message and "q_rtol" in state.message
+
+
+def test_a_held_q95_is_requested_every_update_so_a_solver_bias_does_not_accumulate(fake, tmp_path):
+    fake(mutate=lambda g, n: g.__setitem__("QPSI", (1 + 3e-4) * np.asarray(g["QPSI"], float)))
+    criteria = ConvergenceCriteria(pressure_rtol=1e-12, max_iterations=6, stagnation_window=10)
+    state = build_consistent_state(sample_geqdsk(), _spec(current_policy=CurrentPolicy(normalization="q95"),
+                                                          convergence=criteria), workdir=tmp_path, time=TIME)
+    assert state.status == "max_iterations" and len(state.iterations) == 6
+    target = state.policy["held_target"]
+    for s in state.iterations:
+        assert s.chease_inputs["q95_input"] == pytest.approx(target, rel=1e-12)
+        assert s.validation["chease"]["normalization"]["value"] == pytest.approx(3e-4, rel=1e-2)   # no n*delta
+
+
+def test_cleanup_in_the_callers_config_does_not_delete_the_solutions(fake, tmp_path):
+    solver = fake()
+    state = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME,
+                                   config=CHEASEConfig(cleanup=True, create_plot=False))
+    assert state.status == "converged"
+    assert all(config.cleanup is False for _, config in solver.calls)
+    assert all(s.geqdsk_path.exists() for s in state.iterations)
+
+
+def test_a_reused_root_never_reads_a_stale_solution(fake, tmp_path):
+    fake()
+    first = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME)
+    fake(returncode=1)
+    second = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME)
+    assert first.status == "converged"
+    assert second.status == "chease_failed"                               # the old EQDSK_COCOS_02.OUT is not used
+    assert second.iterations[0].chease_workdir.name == "iteration_01_attempt_2"
+
+
+def test_a_resumed_run_keeps_the_failed_attempt_and_uses_a_fresh_directory(fake, tmp_path):
+    fake(fail_at=2)
+    failed = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME)
+    assert failed.status == "chease_failed" and failed.iterations[-1].status == "chease_failed"
+    fake()
+    resumed = build_consistent_state(None, _spec(), resume=failed, time=TIME)
+    assert resumed.status == "converged"
+    assert resumed.iterations[1].status == "chease_failed"                # the failure stays in the history
+    names = [s.chease_workdir.name for s in resumed.iterations]
+    assert len(set(names)) == len(names)
+
+
+def test_a_slightly_non_monotone_relaxation_base_is_documented_not_refused():
+    g = sample_geqdsk()
+    x = np.linspace(0.0, 1.0, 51)
+    base = 500.0 * (1.0 - x)
+    base[30] = base[29] + 2e-4                                            # a 4e-7 rise, as an EFIT p may carry
+    raw = 400.0 * (1.0 - x)
+    raw[30] = raw[29]                                                     # a flat step, so the blend rises
+    source = pressure_source_from_kinetic(x, raw, g, previous=base, relaxation=0.5, monotone_rtol=1e-6)
+    assert source.rise_points_removed >= 1 and 0.0 < source.rise_max_relative <= 1e-6
+    assert np.all(np.diff(source.relaxed_pressure) <= 0.0)
+    base[30] = base[29] + 5.0
+    with pytest.raises(PressureSourceError, match="rises outward"):
+        pressure_source_from_kinetic(x, raw, g, previous=base, relaxation=0.5, monotone_rtol=1e-6)
+
+
+def test_a_weber_family_g_file_is_converted_before_anything_reads_it(tmp_path):
+    import dataclasses
+
+    from vaft.data.eqdsk import from_equilibrium
+    from vaft.process._equilibrium_parametric import convert_cocos
+    from vaft.process.equilibrium import as_equilibrium
+
+    eq = as_equilibrium(sample_geqdsk())
+    index = eq.convention.candidates[0]
+    pinned = dataclasses.replace(eq, convention=dataclasses.replace(eq.convention, cocos=index))
+    weber = from_equilibrium(convert_cocos(pinned, index + 10))           # psi per weber, CASE says so (#1292)
+    assert f"COCOS={index + 10}" in weber["CASE"]
+    spec = EquilibriumKineticSpec(_kinetic(T_e=None, pressure_constraint="equilibrium", closure="temperature"),
+                                  closure="equilibrium_pressure")
+    state = build_consistent_state(weber, spec, workdir=tmp_path, time=TIME)
+    assert state.status == "converged", state.message
+    g, source = state.initial.equilibrium, sample_geqdsk()
+    assert f"COCOS={index}" in g["CASE"] and f"COCOS={index + 10}" not in g["CASE"]
+    assert float(g["SIBRY"]) - float(g["SIMAG"]) == pytest.approx(
+        float(source["SIBRY"]) - float(source["SIMAG"]), rel=1e-6)
+    assert "#1292" in state.provenance["initial_cocos_conversion"]
+    key = "equilibrium.time_slice.0.global_quantities.psi_axis"
+    assert float(state.ods[key]) == pytest.approx(float(source.to_omas()[key]), rel=1e-6)   # no stray 2*pi
+
+
+def test_a_baseline_resolve_separates_the_solver_change(fake, tmp_path):
+    fake()
+    state = build_consistent_state(sample_geqdsk(), _spec(), workdir=tmp_path, time=TIME, baseline=True)
+    assert state.baseline is not None and state.baseline.status == "accepted"
+    assert state.baseline.chease_workdir.name == "baseline"
+    # Same pressure as the initial equilibrium: the baseline differs from it by the solver only.
+    np.testing.assert_allclose(state.baseline.p_eq, state.initial.p_eq, atol=1e-2 * state.initial.p_eq.max())

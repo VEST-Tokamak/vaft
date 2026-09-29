@@ -393,7 +393,7 @@ decompose = EquilibriumKineticSpec(
                          pressure_constraint="equilibrium", closure="temperature"),
     closure="equilibrium_pressure")                              # no CHEASE solve
 state = build_consistent_state(sample_geqdsk(), decompose, time=0.319)
-state.status, state.initial.metrics["pressure_max_relative"], len(state.iterations)
+state.status, state.initial.metrics["closure_max_relative"], len(state.iterations)
 ```
 
 See `notebooks/self_consistent_equilibrium_kinetic_iteration.ipynb` for the `kinetic_pressure` loop
