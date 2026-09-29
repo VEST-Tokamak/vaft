@@ -147,8 +147,8 @@
     },
     "field_line_action_angle.svg": {
       "call": "vaft.diagram.field_line_action_angle()",
-      "source_sha256": "89c4324356c4e61ea292df6cbb77e15e6ce55955336dfbab8bbe3e76af50fb32",
-      "svg_sha256": "681a66b762177135f4cdcf8080b995908d2074d8486f09978273391f777f6704"
+      "source_sha256": "7053c79cc5764af9fa6d815545afe78b798dcf22f67ea8358431391d43bb7cec",
+      "svg_sha256": "e864104f45ac2f3a1d758770f285e48ceb0dfeb2a0e3a30170079d9d9cf1f1c4"
     },
     "field_line_geometry_cylindrical.svg": {
       "call": "vaft.diagram.field_line_geometry(geometry='cylindrical')",
@@ -442,8 +442,8 @@
     },
     "sfl_coordinate_validity.svg": {
       "call": "vaft.diagram.sfl_coordinate_validity()",
-      "source_sha256": "27e1173dd869366d0906b618e2fb36c5258fb04efae39a3bf1b4524e21c70534",
-      "svg_sha256": "2159d264f008df332ceb7b906d2db267fb8a807c3e4758cc58a041a818270055"
+      "source_sha256": "60c649a87e0b132d32e18ec437c875bf3634764e3f6f57dbb514acd445668f63",
+      "svg_sha256": "1715c5201f1527af1aa6998335538e203aa1187d4a6f7c2a04951b57ac55ce8f"
     },
     "sfl_fourier_convergence.svg": {
       "call": "vaft.diagram.sfl_fourier_convergence()",
@@ -452,8 +452,8 @@
     },
     "sfl_fourier_convergence_n2.svg": {
       "call": "vaft.diagram.sfl_fourier_convergence(n=2)",
-      "source_sha256": "594c40566d75d6084015df92d04fbbbce7fb1179a8a5b85ffab71c0fe30a3bf1",
-      "svg_sha256": "d89e549109fa3cd151718f31cd33f9e9ffc1f46a93123769dff160128693ce07"
+      "source_sha256": "67a925583cd9bf82b7678f17478f5d63cb2f7a583a6c672724db43b6914fa207",
+      "svg_sha256": "76529478a143aa85fa83ea9296d29a7409422ef11cd31fa61af272f3d0b43ab6"
     },
     "shaping_family.svg": {
       "call": "vaft.diagram.shaping_family()",

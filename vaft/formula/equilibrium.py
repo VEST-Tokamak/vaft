@@ -1028,8 +1028,8 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
     poloidal angle is fully set here. Every member except PEST also shifts the
     toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
-    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- which this
-    function does not compute. The defaults give PEST, equal to
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- given by
+    ``sfl_toroidal_angle_shift``. The defaults give PEST, equal to
     ``straight_field_line_angle``.
 
     Physical interpretation
@@ -1070,11 +1070,6 @@ def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0
     return straight_field_line_angle(theta, weighted, R)
 
 
-# ------------------------------------------------------------------
-# Current Density
-# ------------------------------------------------------------------
-
-
 
 def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
     r"""Toroidal-angle shift $\nu$ that keeps field lines straight in a non-PEST poloidal angle.
@@ -1090,7 +1085,8 @@ def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
         The straight-field-line poloidal angle of the chosen member of the
         family (Boozer, Hamada, equal-arc, ...) at the surface points [rad].
     theta_pest : float or np.ndarray
-        The PEST angle at the same points, broadcast against ``theta_sfl`` [rad].
+        The PEST angle at the same points, with the same origin as
+        ``theta_sfl``, broadcast against it [rad].
 
     Returns
     -------
@@ -1107,10 +1103,11 @@ def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
     PEST pairs its poloidal angle with the geometric $\phi$: along a field
     line $d\phi = q\,d\theta_\mathrm{PEST}$. Another member straightens field
     lines only with its own toroidal angle $\zeta$, $d\zeta = q\,d\theta_\mathrm{sfl}$;
-    subtracting gives $d\nu = q\,d(\theta_\mathrm{sfl} - \theta_\mathrm{PEST})$, and the
-    two angles agree at the outboard midplane where both start, so $\nu$ is
-    this product with no integration constant. $\nu = 0$ for PEST. Pair it
-    with ``generalized_straight_field_line_angle`` on the same points.
+    subtracting gives $d\nu = q\,d(\theta_\mathrm{sfl} - \theta_\mathrm{PEST})$. $\nu$ is
+    fixed only up to a flux function; the gauge here sets $\nu = 0$ where the
+    two angles share their origin, which requires both to start at the same
+    point of the surface (as ``generalized_straight_field_line_angle`` does
+    for every member). $\nu = 0$ for PEST.
 
     Physical interpretation
     -----------------------
@@ -1133,6 +1130,12 @@ def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
         raise ValueError("q, theta_sfl and theta_pest must be finite")
     result = q * (a - b)
     return float(result) if np.ndim(result) == 0 else result
+
+
+# ------------------------------------------------------------------
+# Current Density
+# ------------------------------------------------------------------
+
 
 def current_density_from_B(B: Union[float, np.ndarray],
                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:

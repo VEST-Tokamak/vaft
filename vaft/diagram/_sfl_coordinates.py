@@ -225,23 +225,17 @@ _R_SPECTRUM, _WIDTH = 0.8, 0.35
 _M_MAX = 40
 
 
-def perturbation_spectra(centre: float = 0.0, n: int = 0) -> Dict[str, Dict]:
+def perturbation_spectra(centre: float = 0.0) -> Dict[str, Dict]:
     """$|f_m|$ of one physical perturbation in each angle, and the harmonics that hold 99 % of its power.
 
     The perturbation is fixed in space and axisymmetric ($n = 0$): a Gaussian
     in the geometric polar angle $\\vartheta$ from the magnetic axis,
     $f = \\exp[-((\\vartheta - \\vartheta_0)/w)^2]$, centred outboard ($\\vartheta_0 = 0$)
     or anywhere else. It is sampled on an even grid of each coordinate's angle
-    and transformed. For a toroidal mode number $n \\ne 0$ the perturbation is
-    $f(\\vartheta)e^{-in\\phi}$; at fixed $\\zeta$ each member but PEST sees the
-    extra factor $e^{in\\nu(\\theta)}$ of ``sfl_toroidal_angle_shift``, which
-    couples poloidal harmonics, and the spectrum then runs over negative and
-    positive $m$.
+    and transformed; $n \\ne 0$ is ``spectra_with_toroidal_mode``.
     """
     s = _surface(_R_SPECTRUM)
     out = {}
-    if n:
-        return _spectra_with_shift(s, centre, int(n))
     for name in COORDINATES:
         grid = np.linspace(0.0, 2.0 * math.pi, 512, endpoint=False)
         th = np.interp(grid, s["angles"][name], s["theta"])
@@ -257,10 +251,38 @@ def perturbation_spectra(centre: float = 0.0, n: int = 0) -> Dict[str, Dict]:
     return out
 
 
-def _spectra_with_shift(s, centre: float, n: int) -> Dict[str, Dict]:
-    """The n != 0 spectra: the physical f(vartheta) e^{-i n phi} read at fixed zeta in each coordinate."""
-    out = {}
+def _two_sided(signal: np.ndarray) -> Dict:
+    """Two-sided poloidal spectrum with its power centroid, rms width and 99 %-power half-width about the centroid."""
+    coeff = np.fft.fft(signal) / len(signal)
+    m = np.fft.fftfreq(len(signal), 1.0 / len(signal)).astype(int)
+    order = np.argsort(m)
+    m, amp = m[order], np.abs(coeff[order])
+    power = amp**2
+    total = power.sum()
+    centroid = float(np.sum(m * power) / total)
+    width = float(np.sqrt(np.sum((m - centroid) ** 2 * power) / total))
+    c = int(round(centroid))
+    by_m = np.array([power[np.abs(m - c) <= M].sum() for M in range(len(signal) // 2)])
+    return {"m": m, "amplitude": amp, "centroid": centroid, "width": width,
+            "m99": int(np.searchsorted(by_m / total, 0.99))}
+
+
+def spectra_with_toroidal_mode(n: int, *, centre: float = 0.0) -> Dict[str, Dict[str, Dict]]:
+    """Two-sided spectra at toroidal mode number ``n`` of two perturbations, read at fixed $\\zeta$ in each angle.
+
+    ``"field_aligned"``: $f(\\vartheta)e^{-i(n\\phi - m_0\\theta_\\mathrm{PEST})}$ with $m_0$ the
+    integer nearest $nq$ -- a mode aligned with the nearest rational surface, single-valued on the torus;
+    ``"geometric"``: $f(\\vartheta)e^{-in\\phi}$, fixed in the geometric angle. At fixed $\\zeta$,
+    $\\phi = -\\nu$ (``sfl_toroidal_angle_shift``), so the first reads
+    $f\\,e^{i[nq\\theta_\\mathrm{sfl} + (m_0 - nq)\\theta_\\mathrm{PEST}]}$ in every angle -- the $n = 0$
+    spectrum moved to $m \\approx m_0$ -- and the second $f\\,e^{in\\nu}$: shifted by the angle-dependent
+    $\\nu$, not moved to $m_0$, and unshifted only in PEST ($\\nu = 0$).
+    """
+    if isinstance(n, bool) or not isinstance(n, (int, np.integer)) or n < 0:
+        raise ValueError(f"n must be a non-negative integer, not {n!r}")
+    s = _surface(_R_SPECTRUM)
     grid = np.linspace(0.0, 2.0 * math.pi, 512, endpoint=False)
+    out: Dict[str, Dict[str, Dict]] = {"field_aligned": {}, "geometric": {}}
     for name in COORDINATES:
         th = np.interp(grid, s["angles"][name], s["theta"])
         R, Z = _section(_R_SPECTRUM, th)
@@ -268,16 +290,11 @@ def _spectra_with_shift(s, centre: float, n: int) -> Dict[str, Dict]:
         f = np.exp(-(np.angle(np.exp(1j * (polar - centre))) / _WIDTH) ** 2)
         theta_pest = np.interp(th, s["theta"], s["angles"]["PEST"])
         nu = np.asarray(sfl_toroidal_angle_shift(s["q"], grid, theta_pest))
-        coeff = np.fft.fft(f * np.exp(1j * n * nu)) / len(grid)
-        m = np.fft.fftfreq(len(grid), 1.0 / len(grid)).astype(int)
-        order = np.argsort(m)
-        m, amp = m[order], np.abs(coeff[order])
-        keep = np.abs(m) <= _M_MAX
-        power = amp**2
-        # as for n = 0: the smallest M with 99 % of the power in |m| <= M
-        by_m = np.array([power[np.abs(m) <= M].sum() for M in range(len(grid) // 2)])
-        m99 = int(np.searchsorted(by_m / power.sum(), 0.99))
-        out[name] = {"m": m[keep], "amplitude": amp[keep], "m99": m99, "nu": nu}
+        phi = -nu  # at zeta = 0
+        # aligned with the nearest rational surface m0/n, so the helical phase is single-valued on the torus
+        m0 = int(round(n * s["q"]))
+        out["field_aligned"][name] = _two_sided(f * np.exp(-1j * (n * phi - m0 * theta_pest)))
+        out["geometric"][name] = _two_sided(f * np.exp(-1j * n * phi))
     return out
 
 
@@ -330,33 +347,40 @@ def sfl_fourier_convergence(*, n: int = 0, labels: bool = True) -> Diagram:
 
 
 def _fourier_convergence_shifted(n: int, labels: bool) -> Diagram:
-    spectra = perturbation_spectra(n=n)
-    base = perturbation_spectra()
+    spectra = spectra_with_toroidal_mode(n)["field_aligned"]
+    base = spectra_with_toroidal_mode(0)["field_aligned"]
+    q = _surface(_R_SPECTRUM)["q"]
     top = max(float(v["amplitude"].max()) for v in spectra.values())
     styles = {"PEST": "orbit ion", "Boozer": "orbit electron", "Hamada": "boundary", "equal-arc": "approx"}
     keys = {"PEST": "light", "Boozer": "dark", "Hamada": "thick", "equal-arc": "dashed"}
-    chart = Chart(x_range=(-float(_M_MAX) - 0.5, float(_M_MAX) + 0.5), y_range=(-5.0, math.log10(1.5 * top)))
+    lo, hi = -20.0, float(_M_MAX) + 0.5
+    chart = Chart(x_range=(lo, hi), y_range=(-5.0, math.log10(1.5 * top)))
     for name, v in spectra.items():
-        chart.curves[name] = np.stack([v["m"].astype(float), np.log10(np.maximum(v["amplitude"], 1e-6))], -1)
-    chart.parameters.update({name: v["m99"] for name, v in spectra.items()})
-    chart.parameters["n"] = n
-    chart.parameters["n0"] = {name: v["m99"] for name, v in base.items()}
+        keep = (v["m"] >= lo) & (v["m"] <= hi)
+        chart.curves[name] = np.stack([v["m"][keep].astype(float), np.log10(np.maximum(v["amplitude"][keep], 1e-6))],
+                                      -1)
+    m0 = int(round(n * q))
+    chart.curves["nq"] = np.array([[m0, -5.0], [m0, math.log10(1.5 * top)]])
+    chart.parameters.update({name: {"centroid": v["centroid"], "width": v["width"], "m99": v["m99"]}
+                             for name, v in spectra.items()})
+    chart.parameters.update({"n": n, "q": q, "m0": m0, "n0": {name: v["width"] for name, v in base.items()}})
     scene = render_chart(chart, x_label="poloidal harmonic $m$", y_label="$\\log_{10}|f_m|$",
-                         curve_styles=styles, region_text={}, x_ticks=(-40.0, -20.0, 0.0, 20.0, 40.0),
-                         y_ticks=(-4.0, -2.0))
+                         curve_styles={**styles, "nq": "leader line"}, region_text={},
+                         x_ticks=(-20.0, 0.0, 20.0, 40.0), y_ticks=(-4.0, -2.0))
     items: List = []
     if labels:
-        items.append(Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.1), f"$M_{{99}}$: $n = 0$ / $n = {n}$",
+        items.append(Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.1), f"rms width about the centre, $n = 0$ / ${n}$",
                            "small label", anchor="north west", role="legend"))
         for i, (name, v) in enumerate(spectra.items()):
             items.append(Label((CHART_WIDTH + 0.9, CHART_HEIGHT - 0.6 - 0.45 * i),
-                               f"{name} ({keys[name]}): {base[name]['m99']} / {v['m99']}", "small label",
+                               f"{name} ({keys[name]}): {base[name]['width']:.1f} / {v['width']:.1f}", "small label",
                                anchor="north west", role=f"legend:{name}"))
-        items.append(Label((CHART_WIDTH / 2, -1.45), f"The outboard bump times $e^{{-in\\phi}}$, $n = {n}$: read at "
-                           "fixed $\\zeta$, each shifted angle adds $e^{in\\nu}$; PEST has $\\nu = 0$", "note",
-                           anchor="north", role="note"))
+        items.append(Label((float(chart.to_cm(np.array([n * q, 0.0]))[0]), CHART_HEIGHT + 0.1),
+                           f"$m_0 = {m0}$ ($nq = {n * q:.1f}$)", "small label", anchor="south", role="nq"))
+        items.append(Label((CHART_WIDTH / 2, -1.45), f"A mode aligned with $q = m_0/n$, $n = {n}$: in every angle "
+                           "the $n = 0$ spectrum moved to $m_0$; the toroidal shift $\\nu$ is what keeps it there",
+                           "note", anchor="north", role="note"))
     return Diagram("sfl_fourier_convergence", scene + Scene(tuple(items)), model=chart)
-
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +408,7 @@ def field_line_action_angle(*, labels: bool = True) -> Diagram:
     R, Z = s["R"], s["Z"]
     polar = np.unwrap(np.arctan2(Z, R - _R0))
     chain = [("surfaces", "nested flux surfaces"), ("integrable", "integrable field-line flow"),
-             ("action_angle", "action $\\psi$, angles: uniform flow"), ("sfl", "straight-field-line coordinates")]
+             ("action_angle", "action: toroidal flux $\\psi_t$; angles: uniform flow"), ("sfl", "straight-field-line coordinates")]
     items: List = []
     boxes = {}
     for k, (role, text) in enumerate(chain):
@@ -463,11 +487,11 @@ def sfl_coordinate_validity(*, labels: bool = True) -> Diagram:
         if labels else {},
         x_ticks=[-3.0, -2.0, -1.0], x_tick_text=["$10^{-3}$", "$10^{-2}$", "$10^{-1}$"],
         y_ticks=[2.0, 3.0, 4.0],
-        note="Solov'ev equilibria, $q$ from contour integration; the separatrix is to the left" if labels else "",
+        note="Solov'ev equilibria, $q$ from contour integration; the last closed surface is to the left" if labels else "",
     )
     items: List = list(scene.items)
     cases = [("valid", "nested closed surfaces: standard SFL coordinates hold"),
-             ("singular", "separatrix, X-point: $B_p \\to 0$, $q \\to \\infty$, special treatment"),
+             ("singular", "separatrix, X-point: $B_p \\to 0$, $q \\to \\infty$; X-point-adapted coordinates"),
              ("fails", "islands, stochastic field: no global flux surfaces")]
     boxes = {}
     for k, (role, text) in enumerate(cases):

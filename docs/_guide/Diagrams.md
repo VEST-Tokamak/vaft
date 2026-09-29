@@ -393,17 +393,20 @@ vaft.diagram.sfl_fourier_convergence()
 Every straight-field-line angle except PEST needs its own toroidal angle $\zeta = \phi + \nu$.
 `vaft.formula.equilibrium.sfl_toroidal_angle_shift` gives the shift as $\nu = q(\theta_\mathrm{sfl} -
 \theta_\mathrm{PEST})$, which follows from $d\phi = q\,d\theta_\mathrm{PEST}$ and $d\zeta = q\,d\theta_\mathrm{sfl}$
-along a field line. For a toroidal mode number $n \neq 0$, the factor $e^{in\nu}$ couples poloidal harmonics.
-`sfl_fourier_convergence(n=2)` shows the result: Hamada and equal-arc spectra broaden with $n$, while PEST's does
-not.
+along a field line. For a toroidal mode number $n \neq 0$, a mode aligned with the nearest rational surface
+$q = m_0/n$, read at fixed $\zeta$, has in every angle the $n = 0$ spectrum moved to $m \approx m_0$ with its width
+unchanged. `sfl_fourier_convergence(n=2)` shows this: the shift $\nu$ is what keeps such a mode compact. A
+structure fixed in the geometric $\phi$ is instead moved by the angle-dependent $\nu$, and stays unshifted only
+in PEST (`spectra_with_toroidal_mode`).
 
 - `field_line_action_angle` follows one field line over a poloidal turn. Against the geometric angles
   $(\phi, \vartheta)$ it bends; against $(\zeta, \theta_\mathrm{PEST})$ it is the straight line of slope $1/q$.
-  Nested surfaces make the field-line flow integrable, so SFL coordinates are its action-angle variables.
+  Nested surfaces make the field-line flow integrable, so SFL coordinates are its action-angle variables; the
+  action is the toroidal flux, and the poloidal flux is the Hamiltonian.
   Canonical SFL coordinates, which also give the guiding-centre Hamiltonian its canonical form, stay a branch of
   `sfl_coordinate_taxonomy`; no transformation is implemented here.
 - `sfl_coordinate_validity` computes $|q|$ toward the last closed surface. On a limited Solov'ev equilibrium it
-  settles; on a single-null one it grows as $\ln(1 - \psi_N)$, because $B_p \to 0$ at the X-point and $\theta^*$
+  settles; on a single-null one it grows as $-\ln(1 - \psi_N)$, because $B_p \to 0$ at the X-point and $\theta^*$
   degenerates there. Islands and stochastic fields have no global surfaces at all (see `magnetic_island` and
   `stochastic_layer`).
 - `coordinates_vs_cocos` draws the coordinate choice and the COCOS convention as orthogonal axes: every
@@ -412,7 +415,8 @@ not.
 DCON and GPEC use the generalized family (PEST, Boozer, Hamada, equal-arc, and $J \propto R^{p_R}/(B_p^{p_{B_p}}
 B^{p_B})$). An input or output handled in VAFT should therefore keep four things together: the coordinate type,
 its powers, the Fourier convention $e^{i(m\theta - n\zeta)}$, and where the mapping came from. Two analyses in
-different SFL coordinates describe the same equilibrium with different harmonic content.
+different SFL coordinates describe the same equilibrium with different harmonic content. DCON output
+already keeps `jac_type` and the powers (`vaft.code.gpec`).
 
 ```python
 vaft.diagram.sfl_fourier_convergence(n=2)
