@@ -128,6 +128,30 @@ The record keeps every round.
 - *The bases.* (1,1), (2,1), (1,2), (1,3), (2,2). In stage 3 the (1,1) basis pinned li at 0.88–1.04 (routine: 0.64–0.75), and 20 of its ψ-converged slices had βp < 0 and W < 0. The magnetics fix Λ = βp + li/2, and with li pinned the only way to a smaller Λ is negative pressure. The extra FF′ terms let the current profile broaden instead. A positivity constraint was not taken: in (1,1) it would only pin βp at 0 and move the misfit into the probes.
 - *A round with no converged slice* (a loose fit can lose the boundary in `bound`) steps the multipliers back to the geometric midpoint of the last two rounds. It starts at probe ×8, loop ×2, for at most six rounds.
 
+### Result and the working setting (2026-09-29)
+
+Stage 4 over 77 plasma slices; the other 12 are vacuum, |Ip| < 15 kA:
+
+| basis | converged | admissible | good | probe / loop σ | |
+|---|---|---|---|---|---|
+| (1,1) | 40 | 17 | 6 | ×4.46 / ×1.65 | li pinned, 17 slices with βp < 0 and W < 0 |
+| **(2,1)** | 20 | 16 | 4 | ×3.62 / ×2.15 | Thomson p_recon/p_e 1.5–1.9 |
+| (1,2) | 25 | 19 | 5 | ×3.79 / ×1.95 | Thomson p_recon/p_e 2.7–3.7 |
+| (1,3), (2,2) | 3, 6 | 1, 1 | 1, 1 | — | diverge (ψ residual ~0.4) |
+
+**The working setting is (2,1)**, with probe ×3.62, loop ×2.15, diamagnetic ×16, Ip σ 20 %, the ψ-only exit and ERRMIN 10⁻⁴. `--stage 5` runs it.
+
+**Stage 5** asked whether the unreconstructible ramp-up and ramp-down slices are a tolerance problem. They are not:
+- ERRMIN 10⁻³ gives the same 20 / 16 / 4 on half the iterations.
+- But βp and W then move by up to 9 %.
+
+**Every symptom follows the shot's magnetics quality** (`workflow/magnetics_quality`). As the condemned probes go 2 → 10 → 17 across 39915 → 41524 → 41672:
+- the outboard witnesses fall 20 → 14 → 11;
+- (2,1) convergence falls 13/22 → 5/20 → 2/35;
+- probe χ²r rises 1.1 → 5.7 → 12.7.
+
+So the calibrated σ is effectively 39915's flat-top σ. The basis choice rests on 39915.
+
 ### How it runs
 
 - **Parallelism.** Slices run in parallel (`--workers`, 24 on vestserver, which leaves 8 of 32 cores to the HSDS pipeline).
