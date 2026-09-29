@@ -123,6 +123,13 @@ def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
     assert "--npprime 2 --nffprime 2" in routine.stdout and "--preset" not in routine.stdout
 
 
+def test_naming_the_routine_preset_is_the_routine_path(tmp_path):
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    result = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "routine"}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "--npprime 2 --nffprime 2" in result.stdout and "--preset" not in result.stdout
+
+
 def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'efit={"preset": "statistical"}'])
     assert result.returncode != 0

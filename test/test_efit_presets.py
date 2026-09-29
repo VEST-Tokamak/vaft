@@ -95,8 +95,16 @@ def _run_generate_kfile(tmp_path, *extra):
     constraints = tmp_path / "constraints.json"
     save_omas_json(_constraints_ods(tmp_path), str(constraints))
     manifest = tmp_path / "efit" / "manifest" / "kfiles.txt"
+    # Run the script as a path-run would, but importing this checkout's vaft:
+    # an editable install of another checkout sits on sys.meta_path, ahead of
+    # sys.path, so its finder is dropped as well as the path put first.
+    shim = ("import runpy, sys; "
+            "sys.meta_path[:] = [f for f in sys.meta_path if '__editable__' not in type(f).__module__]; "
+            "sys.path.insert(0, sys.argv[1]); import vaft; "
+            "assert vaft.__file__.startswith(sys.argv[1]), vaft.__file__; "
+            "script = sys.argv[2]; sys.argv = sys.argv[2:]; runpy.run_path(script, run_name='__main__')")
     return manifest, subprocess.run(
-        [sys.executable, str(PIPELINE1 / "generate_kfile.py"), "--shot", "39915",
+        [sys.executable, "-c", shim, str(REPOSITORY), str(PIPELINE1 / "generate_kfile.py"), "--shot", "39915",
          "--constraints-ods", str(constraints), "--output", str(manifest), *extra],
         capture_output=True, text=True, cwd=REPOSITORY,
     )
@@ -138,3 +146,15 @@ def test_the_efit_collection_records_a_preset_only_when_one_was_used():
     record = efit_preset("statistical_891").record()
     with_preset = json.loads(efit_collection_parameters(**common, efit_preset=record))["efit_collection"]
     assert with_preset["efit_preset"]["name"] == "statistical_891"
+
+
+@pytest.mark.parametrize("preset, kffcur", [(None, 2), ("statistical_891", 1)])
+def test_the_kinetic_base_kfile_follows_the_preset(tmp_path, monkeypatch, preset, kffcur):
+    from vaft.code.efit import kinetic
+
+    # The pressure points need a real equilibrium; only the base k-file is under test here.
+    monkeypatch.setattr(kinetic, "kinetic_pressure_points", lambda *a, **k: None)
+    config = kinetic.KineticEFITConfig(workdir=tmp_path, shot=39915, time_ms=319.0, efit_preset=preset)
+    inputs = kinetic.prepare_kinetic_efit_inputs(_constraints_ods(tmp_path), None, config)
+    assert int(_key(inputs.base_kfile_text, "KFFCUR")) == kffcur
+    assert ("SAICON" in inputs.base_kfile_text) == (preset is not None)
