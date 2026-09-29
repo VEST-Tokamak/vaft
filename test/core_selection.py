@@ -171,6 +171,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_pwi.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
+    "test_diagram_sfl_coordinates_part2.py",
     "test_diagram_slab_parity.py",
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
