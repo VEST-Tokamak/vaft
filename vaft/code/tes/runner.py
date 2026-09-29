@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
-from ..execution import ExecutionRequest, resolve_backend
+from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs
 
@@ -73,17 +73,19 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
         )
     )
     if execution.timed_out:
+        # returncode=None and runtime_status="timeout" (#1016; it was 124).
         result = collect_tes_outputs(inputs.workdir, config)
-        result.returncode = 124
-        timeout_msg = f"rtes timed out after {config.timeout} seconds"
+        result.returncode = None
+        reason = timeout_reason("rtes", execution, config.timeout)
         result.stdout = execution.stdout
-        result.stderr = (
-            f"{execution.stderr}\n{timeout_msg}" if execution.stderr else timeout_msg
-        )
+        result.stderr = f"{execution.stderr}\n{reason}" if execution.stderr else reason
+        result.runtime_status = execution.runtime_status
+        result.elapsed_s = execution.elapsed_s
         return result
 
     result = collect_tes_outputs(inputs.workdir, config)
     result.returncode = execution.returncode
     result.stdout = execution.stdout
     result.stderr = execution.stderr
+    result.elapsed_s = execution.elapsed_s
     return result

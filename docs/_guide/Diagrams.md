@@ -826,6 +826,122 @@ vaft.diagram.branch_selection()         # the last two side by side under one ca
 | `grid_induced_two_cycle` | A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch |
 | `branch_selection` | `basin_of_attraction` beside `grid_induced_two_cycle`: physical branch structure against numerical cycling |
 
+## Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram
+
+Each diagram is drawn from the cold-plasma equations in `vaft.formula.waves`:
+- `plasma_frequency`;
+- `stix_parameters`, giving $R, L, S, D, P$ with the signed cyclotron frequency, so $\Omega_e < 0$, and
+  `dielectric_tensor`;
+- `cold_plasma_refractive_index_squared`, the two roots of $An^4 - Bn^2 + C = 0$, in a cancellation-free
+  form that keeps the finite root at a resonance cone;
+- `perpendicular_refractive_index_squared`, giving $n_O^2 = P$ and $n_X^2 = RL/S$;
+- `cma_coordinates`, giving $X = \omega_{pe}^2/\omega^2$ and $Y = |\Omega_e|/\omega$;
+- `propagation_regime`, which classifies propagating, evanescent, cutoff and resonance.
+
+Boundaries are zeros or poles of the Stix parameters, located by bracketing the formulas; no closed form
+is typed into a drawing. The $\pm$ roots are algebraic branches, not mode names, so O/X and R/L are named
+only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons only, ions immobile:
+the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
+scope.
+
+```python
+vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
+vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
+vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
+vaft.diagram.profile_propagation()                            # layers along an example midplane
+
+## Neoclassical and NTV collisionality regimes
+
+Two different regime families that share the word "collisionality". Axisymmetric neoclassical transport
+orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
+viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
+$\omega_d = \omega_E + \omega_B$:
+
+```text
+Coulomb collisions -> transit / bounce motion -> nu_hat = qR nu/v -> banana / plateau / Pfirsch-Schlueter
+3-D delta B + precession omega_d -> 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -> NTV torque
+```
+
+The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (`collisions_per_transit`), not a $\nu_*$. VAFT's
+several $\nu_*$ conventions (issue 353) share the symbol but not the value. The boundaries
+$\hat\nu = \epsilon^{3/2}$ and $1$ come from `neoclassical_regime_boundaries`. The orbit scales behind
+them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
+`trapped_particle_effective_collision_frequency` and `banana_width` in `vaft.formula.neoclassical`.
+
+`vaft.formula.ntv` holds the exact, convention-bearing relations:
+- `ntv_precession_frequency`, whose zero is the superbanana-plateau resonance. $\omega_E$ is the
+  $E\times B$ frequency `omega_exb`, never the toroidal rotation, and both $\omega_E$ and $\omega_B$ are measured along the plasma current;
+- `nonambipolar_torque_density`, the torque on the plasma: the $\mathbf J\times\mathbf B$ of the return current that cancels the non-ambipolar flux. Ion loss in a co-current plasma drives counter-current rotation.
+
+The size of the flux needs a drift-kinetic code (`vaft.code`), and Shaing's connected formula is not
+implemented, so the NTV regime diagram shows slopes only.
+
+```python
+vaft.diagram.neoclassical_collisionality(epsilon=0.1)
+vaft.diagram.ntv_collisionality()
+vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
+```
+
+| | |
+| --- | --- |
+| ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
+| ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `o_mode_cutoff` | Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$ |
+| `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
+| `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
+| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR |
+
+| ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
+| ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |
+
+| Diagram | Concept |
+| --- | --- |
+| `neoclassical_collisionality` | $D/D_\mathrm{plateau}$ against $\hat\nu$: asymptotes $\hat\nu/\epsilon^{3/2}$, 1 and $\hat\nu$ meeting at the formula's boundaries. Orderings, not phase boundaries |
+| `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
+| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
+
+## Wall conditioning
+
+Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
+$S^{(0)}_\mathrm{wall} \to S^{(1)}_\mathrm{wall}$ (`WALL_STATE_CHANGE` in the module), not only as
+"cleaning". The diagrams are reduced and semantic, and share one vessel with an inlet port, a pump port
+and a wall-surface primitive:
+- baking is thermal desorption only: no glow, anode, ion bombardment or coating;
+- the glow discharges share one apparatus template: gas feed, glow, anode, the wall as cathode, and ions
+  accelerated across the cathode sheath onto the whole wall. H$_2$/D$_2$ is reactive cleaning, with
+  volatile O/C products that match the feed isotope. He is ion-induced release of retained H/D, drawn
+  with its own arrow style;
+- boronization names a "B-containing precursor" unless one is passed, and leaves a B-rich layer.
+
+Species are examples. No temperature, precursor, pressure or thickness is built in. A temperature (in K
+or °C) or a thickness is drawn only when the caller passes it together with its source. The sequence
+ends in plasma operation; how the conditioned wall responds then is the [plasma-wall
+interaction](#plasma-wall-interaction) section.
+
+```python
+vaft.diagram.wall_conditioning_baking()        # temperature=, temperature_unit="K"|"degC", temperature_source=
+vaft.diagram.wall_conditioning_gdc("D2")       # "H2", "D2" or "He"
+vaft.diagram.wall_conditioning_boronization(precursor="B$_2$H$_6$")
+vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boronization"))
+```
+
+![sequence]({{ '/assets/diagrams/wall_conditioning_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![baking]({{ '/assets/diagrams/wall_conditioning_baking.svg' | relative_url }}) | ![boronization]({{ '/assets/diagrams/wall_conditioning_boronization.svg' | relative_url }}) |
+| ![D2 GDC]({{ '/assets/diagrams/wall_conditioning_gdc_deuterium.svg' | relative_url }}) | ![He GDC]({{ '/assets/diagrams/wall_conditioning_gdc_helium.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `wall_conditioning_baking` | External heat drives adsorbed water and gases off the wall into the pump |
+| `wall_conditioning_gdc` | One glow-discharge template. H$_2$/D$_2$: O and C leave as volatile products. He: He$^+$ bombardment releases retained H/D |
+| `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
+| `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

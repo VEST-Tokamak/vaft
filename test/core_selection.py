@@ -142,9 +142,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_readme_consistency.py",
+    # Operational boundaries (#1067): every published limit is called and
+    # checked against its source's numbers and its permitted side. Pure NumPy.
+    "test_formula_boundaries.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
@@ -166,7 +170,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
+    "test_diagram_transport_regimes.py",
     "test_diagram_vde.py",
+    "test_diagram_wall_conditioning.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

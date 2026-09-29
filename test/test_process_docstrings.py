@@ -107,6 +107,8 @@ PIPELINE = frozenset({
     "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
+    # profile (#122): grid -> shapes -> normalization -> closure -> residuals
+    "generate_synthetic_kinetic_profiles",
     # magnetics / electromagnetics / fluctuation (#418)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
@@ -238,6 +240,9 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
+    # profile (#122): equilibrium + assumptions -> synthetic; synthetic -> stored slice
+    "generate_synthetic_kinetic_profiles",
+    "write_synthetic_core_profiles",
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
@@ -305,6 +310,23 @@ CONVENTION_SENSITIVE = frozenset({
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
+    # profile (#1045): analytic plasma states are defined in psi_norm with
+    # full-width barriers, and the projection relies on the COCOS-free ratio
+    "analytic_hmode_itb_state",
+    "analytic_hmode_state",
+    "analytic_itb_state",
+    "analytic_lmode_state",
+    "compose_analytic_profile",
+    "compose_plasma_state",
+    "evaluate_analytic_profile",
+    "evaluate_plasma_state",
+    "project_flux_function",
+    "project_plasma_state",
+    # profile (#122): psi_norm of the source equilibrium, rho_tor from q, psi in
+    # Wb / COCOS 11 only when the convention fixes it, the declared average chord
+    "generate_synthetic_kinetic_profiles",
+    "spec_from_plasma_state",
+    "write_synthetic_core_profiles",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
     # shot-era baselines, per-unit-current responses, and the toroidal mode-number
     # entry points harmonized under standard right-handed coordinates (#638)

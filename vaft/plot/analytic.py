@@ -2,7 +2,8 @@
 
 The teaching models of :mod:`vaft.process.equilibrium` -- Miller flux
 surfaces and the Solov'ev / Cerfon-Freidberg equilibria of
-:func:`vaft.process.equilibrium.solovev_example` -- are plain records, not
+:func:`vaft.process.equilibrium.solovev_example` -- and the analytic plasma
+states of :mod:`vaft.process.profile` (#1045) are plain records, not
 IDS data, so they are drawn here rather than through the recipe registry that
 every ``plot_*`` adapter reads an ODS with.  Each plot is split the way the
 registry's are: a ``*_model`` function builds the typed view model
@@ -25,7 +26,9 @@ from .models import Field2D, GeometryLayer, GeometryLayers
 
 __all__ = [
     "miller_surfaces_model",
+    "plasma_state_projection_model",
     "plot_miller_surfaces",
+    "plot_plasma_state_projection",
     "plot_solovev_equilibrium",
     "solovev_equilibrium_model",
 ]
@@ -214,4 +217,62 @@ def plot_solovev_equilibrium(
     from .renderers.fields import render_field_2d
 
     model = solovev_equilibrium_model(equilibrium, x_points=x_points, levels=levels, title=title)
+    return render_field_2d(model, ax=ax, show=show, **style)
+
+
+#: Axis labels of the plasma-state quantities, unit included.
+_STATE_LABELS = {
+    "n_e": r"$n_e$ [m$^{-3}$]", "n_i": r"$n_i$ [m$^{-3}$]", "n_impurity": r"$n_Z$ [m$^{-3}$]",
+    "T_e": r"$T_e$ [eV]", "T_i": r"$T_i$ [eV]", "p_e": r"$p_e$ [Pa]", "p_i": r"$p_i$ [Pa]",
+    "p_total": r"$p$ [Pa]", "dp_e_dpsi_norm": r"$dp_e/d\psi_N$ [Pa]",
+    "dp_i_dpsi_norm": r"$dp_i/d\psi_N$ [Pa]", "dp_total_dpsi_norm": r"$dp/d\psi_N$ [Pa]",
+}
+
+
+def plasma_state_projection_model(
+    state: Any, equilibrium: Any, quantity: str = "p_total", *, levels: int = 21,
+    title: str | None = None,
+) -> Field2D:
+    """One quantity of an analytic plasma state mapped onto an equilibrium's ``(R, Z)`` grid.
+
+    ``state`` is a :class:`vaft.data.AnalyticPlasmaState` and ``equilibrium``
+    any gridded :class:`vaft.data.equilibrium.EquilibriumData`; the values come
+    from :func:`vaft.process.profile.project_plasma_state`, NaN outside the
+    plasma, filled over ``levels`` steps, with the wall, the LCFS and the axis
+    drawn over them.  The map is the 1-D profile made visible on flux surfaces;
+    it is not the equilibrium's own pressure or a self-consistent state.
+    """
+    from vaft.process.equilibrium import as_equilibrium
+    from vaft.process.profile import project_plasma_state
+
+    eq = as_equilibrium(equilibrium)
+    values = project_plasma_state(state, eq, quantity)
+    finite = values[np.isfinite(values)]
+    low, high = (float(finite.min()), float(finite.max())) if finite.size else (0.0, 1.0)
+    if high <= low:
+        high = low + 1.0
+    return Field2D(
+        r=np.asarray(eq.r, dtype=float),
+        z=np.asarray(eq.z, dtype=float),
+        values=values.T,
+        value_label=_STATE_LABELS.get(quantity, quantity),
+        title=title or f"{getattr(state, 'label', 'analytic state')}: {quantity} on the fixed geometry",
+        contour_levels=list(np.linspace(low, high, int(levels))),
+        filled=True,
+        overlays=tuple(_equilibrium_layers(eq, None, x_points=False)),
+    )
+
+
+def plot_plasma_state_projection(
+    state: Any, equilibrium: Any, quantity: str = "p_total", *, ax: Any = None, show: bool = False,
+    levels: int = 21, title: str | None = None, **style: Any,
+):
+    """Draw one plasma-state quantity on an equilibrium's ``(R, Z)`` grid; returns ``(Figure, Axes)``.
+
+    See :func:`plasma_state_projection_model`; ``style`` goes to
+    :func:`vaft.plot.render_field_2d`.
+    """
+    from .renderers.fields import render_field_2d
+
+    model = plasma_state_projection_model(state, equilibrium, quantity, levels=levels, title=title)
     return render_field_2d(model, ax=ax, show=show, **style)

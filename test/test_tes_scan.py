@@ -54,8 +54,10 @@ def test_run_tes_handles_timeout_gracefully(monkeypatch, tmp_path):
 
     result = run_tes(inputs, cfg)
     assert not result.ok
-    assert result.returncode == 124
-    assert "timed out after 10.0 seconds" in result.stderr
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    # The patched stop is instant, well short of the 10 s limit, so the reason
+    # reports the time actually run rather than claiming the limit.
+    assert "rtes timed out after " in result.stderr and "10 s" not in result.stderr
     assert "divergence detected" in result.stderr
 
 
@@ -93,7 +95,7 @@ def test_run_tes_builds_its_command_for_the_configured_backend(tmp_path):
     assert (result.returncode, result.stdout) == (0, "done")
 
 
-def test_run_tes_maps_a_backend_timeout_to_124(tmp_path):
+def test_run_tes_returns_a_backend_timeout_as_a_failed_result(tmp_path):
     import sys
 
     from external_code_stubs import RecordingBackend
@@ -101,9 +103,10 @@ def test_run_tes_maps_a_backend_timeout_to_124(tmp_path):
     from vaft.code.tes.runner import run_tes
 
     backend = RecordingBackend(
-        ExecutionResult(returncode=None, stdout="", stderr="", timed_out=True)
+        ExecutionResult(returncode=None, stdout="", stderr="", timed_out=True, elapsed_s=2.0)
     )
     config = TESConfig(executable=sys.executable, timeout=2.0, backend=backend)
     result = run_tes(_tes_case(tmp_path), config)
-    assert result.returncode == 124
-    assert result.stderr == "rtes timed out after 2.0 seconds"
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 2.0
+    assert result.stderr == "rtes timed out after 2 s of running"
