@@ -868,6 +868,16 @@ def test_collector_judges_convergence_by_the_tolerance_nice_ran_with(tmp_path):
     assert collect_nice_outputs(tmp_path).converged is True
 
 
+def test_flux_loop_polarity_defaults_to_the_vest_convention(tmp_path):
+    """F2: the only machine VAFT maps needs -1; the README example relies on it."""
+    assert NiceConfig().flux_loop_input_sign == -1
+    inputs = prepare_nice_inputs(_ods(), NiceConfig(time=0.35, workdir=tmp_path))
+    assert inputs.manifest["flux_loop_input_sign"] == -1
+    native_flux = np.loadtxt(inputs.input_dir / "fluxloops_meas.txt", skiprows=1)
+    flux = next(d for d in inputs.diagnostics if d.family == "flux_loop")
+    assert native_flux[0] == pytest.approx(-flux.value)
+
+
 def test_major_radius_must_match_the_parameter_files_r0(tmp_path):
     """F3: B0 = F0 / major_radius is multiplied back by the XML's r0."""
     parameter = tmp_path / "param.xml"
