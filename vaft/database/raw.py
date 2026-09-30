@@ -1186,15 +1186,25 @@ def list_shots(
     return [(int(shot_number), record_datetime) for shot_number, record_datetime in rows]
 
 
-def shot_field_codes(shot: int) -> frozenset[int]:
-    """Return the waveform field codes SQL currently holds for ``shot``.
+#: Each waveform table's per-row upload timestamp column.  A field is one row
+#: (its whole time and value series in two text columns), so a visible row is
+#: a completely written field.
+_WAVEFORM_UPLOAD_COLUMN = {2: "recordDateTime", 3: "recordDataTime"}
 
-    Read from whichever waveform table holds the shot
-    (:func:`waveform_generation_for_shot`).  An empty set is what a shot looks
-    like before its waveforms are written -- or when its DAQ never wrote any --
-    so a polling caller compares successive answers rather than trusting one.
-    A read error propagates, for the reason given in
-    :func:`waveform_generation_for_shot`.
+
+def shot_upload_status(shot: int) -> tuple[frozenset[int], Optional[float]]:
+    """Which fields SQL holds for ``shot`` and how long its upload has been quiet.
+
+    Returns ``(field_codes, quiet_seconds)``.  ``quiet_seconds`` is measured on
+    the database clock: since the newest field row, or since the shot's own
+    ``recordDateTime`` when no field has arrived yet (``None`` if the shot row
+    itself is missing).  Field codes in :data:`EXCLUDED_FIELD_CODES` are left
+    out, as the raw dump leaves them out.
+
+    Measured on VEST (shots 48800-48916): a shot's 177 core fields all arrive
+    126-196 s after its record, while Pressure, Plasma Current and the 6 kW
+    ECH powers form a separate group that lands up to 261 s after the last
+    core field -- or a day later, or never.
     """
     global DB_POOL
     if DB_POOL is None:
@@ -1204,21 +1214,72 @@ def shot_field_codes(shot: int) -> frozenset[int]:
     conn = DB_POOL.get_connection()
     try:
         generation = waveform_generation_for_shot(conn, shot)
-        if generation is None:
-            return frozenset()
         cursor = conn.cursor()
         try:
-            cursor.execute(
-                f"SELECT DISTINCT shotDataFieldCode FROM {_WAVEFORM_TABLES[generation]} "
-                "WHERE shotCode = %s",
-                (int(shot),),
-            )
-            rows = cursor.fetchall()
+            rows: list = []
+            if generation is not None:
+                cursor.execute(
+                    f"SELECT shotDataFieldCode, TIMESTAMPDIFF(SECOND, "
+                    f"{_WAVEFORM_UPLOAD_COLUMN[generation]}, NOW()) "
+                    f"FROM {_WAVEFORM_TABLES[generation]} WHERE shotCode = %s",
+                    (int(shot),),
+                )
+                rows = cursor.fetchall()
+            if rows:
+                quiet = min(float(row[1]) for row in rows if row[1] is not None)
+            else:
+                cursor.execute(
+                    "SELECT TIMESTAMPDIFF(SECOND, recordDateTime, NOW()) FROM shot WHERE shotCode = %s",
+                    (int(shot),),
+                )
+                found = cursor.fetchone()
+                quiet = None if not found or found[0] is None else float(found[0])
         finally:
             cursor.close()
     finally:
         conn.close()
-    return frozenset(int(row[0]) for row in rows if row and row[0] is not None)
+    codes = frozenset(
+        int(row[0]) for row in rows if row and row[0] is not None
+    ) - EXCLUDED_FIELD_CODES
+    return codes, quiet
+
+
+def field_codes_by_shot(shot_min: int, shot_max: int) -> dict[int, frozenset[int]]:
+    """Field codes per shot for a shot range, in one query per waveform table.
+
+    For re-checking recently processed shots for fields that arrived late.
+    Where both tables hold a shot the fuller inventory wins, as in
+    :func:`waveform_generation_for_shot`.
+    """
+    global DB_POOL
+    if DB_POOL is None:
+        logger.info("DB_POOL not initialized. Initializing automatically...")
+        init_pool()
+
+    found: dict[int, frozenset[int]] = {}
+    conn = DB_POOL.get_connection()
+    try:
+        cursor = conn.cursor()
+        try:
+            for table in _WAVEFORM_TABLES.values():
+                cursor.execute(
+                    f"SELECT shotCode, shotDataFieldCode FROM {table} "
+                    "WHERE shotCode BETWEEN %s AND %s",
+                    (int(shot_min), int(shot_max)),
+                )
+                per_shot: dict[int, set[int]] = {}
+                for shot_code, field_code in cursor.fetchall():
+                    if field_code is not None:
+                        per_shot.setdefault(int(shot_code), set()).add(int(field_code))
+                for shot_code, codes in per_shot.items():
+                    codes -= EXCLUDED_FIELD_CODES
+                    if len(codes) > len(found.get(shot_code, ())):
+                        found[shot_code] = frozenset(codes)
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
+    return found
 
 
 def date_from_shot(shot: int) -> tuple:

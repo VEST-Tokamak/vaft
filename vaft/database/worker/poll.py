@@ -1,11 +1,18 @@
 """Where the worker learns about new shots: the VEST SQL ``shot`` table (issue #58).
 
-A shot row appears in SQL before its waveforms are complete, and the raw dump
-is an immutable Snakemake output -- a dump taken mid-write would be kept for
-good.  So a shot is *settled* only when both hold:
+A shot row appears in SQL before its waveforms, which the DAQ then writes one
+complete field per row.  A shot's upload is taken as finished -- and the
+shot processed -- as soon as either holds:
 
-- SQL's ``recordDateTime`` is at least ``settle_seconds`` old, and
-- its waveform field inventory is the same size on two consecutive polls.
+- **its inventory matches the previous shot's**: every field the previous
+  shot had is present.  On VEST the 177 core fields arrive 2-3 minutes after
+  the shot record, so this fires before the next shot is fired; or
+- **its upload has been quiet for** ``quiet_seconds``: no field row arrived
+  for that long, so whatever is missing (the slow Pressure / Plasma Current /
+  ECH group, a campaign-specific diagnostic) is not coming soon.
+
+Fields that arrive after a shot was processed are caught by the worker's
+re-check and the shot is reprocessed; see :mod:`vaft.database.worker.service`.
 """
 
 from __future__ import annotations
@@ -23,8 +30,11 @@ class ShotSource(Protocol):
     def new_shots(self, after: int) -> list[tuple[int, datetime]]:
         """``(shot, recordDateTime)`` for every shot numbered above ``after``."""
 
-    def field_codes(self, shot: int) -> frozenset[int]:
-        """The waveform field codes currently recorded for ``shot``."""
+    def upload_status(self, shot: int) -> tuple[frozenset[int], float | None]:
+        """Field codes recorded for ``shot`` and seconds since its last upload."""
+
+    def field_codes_by_shot(self, shot_min: int, shot_max: int) -> dict[int, frozenset[int]]:
+        """Field codes currently recorded for every shot in a range."""
 
 
 def require_sql_credentials() -> None:
@@ -55,26 +65,26 @@ class SqlShotSource:
     def new_shots(self, after: int) -> list[tuple[int, datetime]]:
         return raw_db.list_shots(shot_min=int(after) + 1)
 
-    def field_codes(self, shot: int) -> frozenset[int]:
-        return raw_db.shot_field_codes(int(shot))
+    def upload_status(self, shot: int) -> tuple[frozenset[int], float | None]:
+        return raw_db.shot_upload_status(int(shot))
+
+    def field_codes_by_shot(self, shot_min: int, shot_max: int) -> dict[int, frozenset[int]]:
+        return raw_db.field_codes_by_shot(int(shot_min), int(shot_max))
 
 
-def is_settled(
+def upload_finished(
     *,
-    record_datetime: datetime | str | None,
-    field_count: int,
-    previous_field_count: int | None,
-    settle_seconds: float,
-    now: datetime,
-) -> bool:
-    """Whether a shot's SQL record has stopped changing."""
-    if previous_field_count is None or previous_field_count != field_count:
-        return False
-    if record_datetime is None:
-        return False
-    if isinstance(record_datetime, str):
-        record_datetime = datetime.fromisoformat(record_datetime)
-    return (now - record_datetime).total_seconds() >= settle_seconds
+    field_codes: frozenset[int],
+    reference: frozenset[int] | None,
+    quiet_seconds: float | None,
+    quiet_limit: float,
+) -> str | None:
+    """Why a shot's upload counts as finished, or ``None`` while it may continue."""
+    if field_codes and reference and field_codes >= reference:
+        return f"inventory matches the previous shot's ({len(reference)} fields)"
+    if quiet_seconds is not None and quiet_seconds >= quiet_limit:
+        return f"no field uploaded for {quiet_seconds:.0f} s ({len(field_codes)} fields)"
+    return None
 
 
-__all__ = ["ShotSource", "SqlShotSource", "is_settled", "require_sql_credentials"]
+__all__ = ["ShotSource", "SqlShotSource", "require_sql_credentials", "upload_finished"]

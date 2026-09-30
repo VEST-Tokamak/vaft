@@ -22,12 +22,15 @@ first_shot: 48900
 
 # Seconds between SQL polls.
 poll_interval: 60
-# A shot is settled once SQL's recordDateTime is this old AND its waveform
-# field inventory did not change between two polls.
-settle_seconds: 300
-# An empty or incomplete inventory (no fields, required fields missing) is only
-# acted on after this long, because both verdicts are final.
-incomplete_grace_seconds: 21600
+# A shot runs as soon as its field inventory contains every field the previous
+# shot had (on VEST ~2-3 min after the shot). If a field is still missing (the
+# slow Pressure / Plasma Current / ECH group), it runs once no field has been
+# uploaded for this long. Measured gaps inside one upload reach 261 s.
+quiet_seconds: 600
+# Processed shots are re-checked this long for fields that arrive late (VEST
+# has backfilled Plasma Current a day later); new fields trigger a reprocess.
+recheck_seconds: 259200
+max_reprocess: 3
 
 cores: 8
 snakemake_cmd: [snakemake]

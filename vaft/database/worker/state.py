@@ -7,11 +7,11 @@ run left behind, and an event log.  It is also the read side for monitoring
 
 Shot lifecycle::
 
-    detected ──settle + classify──> queued ──run──> running ──harvest──> completed
-        │                                              │                  partial
-        └── classifier: nothing to run ──> excluded    │                  excluded
-                                                       └──> failed ──(attempts exhausted)──> gave_up
-                                                              └── retried as queued is
+    detected ──upload finished + classify──> queued ──run──> running ──harvest──> completed
+        ▲    │                                                   │                  partial
+        │    └── classifier: nothing to run ──> excluded         │                  excluded
+        │                                                        └──> failed ──(attempts exhausted)──> gave_up
+        └──────── late fields arrived (re-check) ── any settled state except operator-excluded
 
 ``failed`` is the only retryable terminal-looking state; ``gave_up``,
 ``excluded``, ``completed`` and ``partial`` are left alone until an operator
@@ -51,8 +51,7 @@ CREATE TABLE IF NOT EXISTS shots (
     shot INTEGER PRIMARY KEY,
     record_datetime TEXT,
     detected_at TEXT NOT NULL,
-    field_count INTEGER,
-    field_count_at TEXT,
+    field_codes TEXT,
     settled_at TEXT,
     state TEXT NOT NULL,
     classification TEXT,
@@ -60,6 +59,7 @@ CREATE TABLE IF NOT EXISTS shots (
     reason TEXT,
     reference_class TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
+    reprocessed INTEGER NOT NULL DEFAULT 0,
     last_run_id INTEGER,
     updated_at TEXT NOT NULL
 );
@@ -192,16 +192,46 @@ class WorkerState:
                 )
         return added
 
-    def observe_field_count(self, shot: int, count: int) -> int | None:
-        """Record this poll's field count; return the previous poll's."""
+    def reference_fields(self, before: int) -> frozenset[int] | None:
+        """The inventory of the latest settled shot below ``before``, if any."""
+        row = self._conn.execute(
+            "SELECT field_codes FROM shots WHERE shot < ? AND settled_at IS NOT NULL "
+            "AND field_codes IS NOT NULL AND field_codes != '[]' ORDER BY shot DESC LIMIT 1",
+            (int(before),),
+        ).fetchone()
+        return None if row is None else frozenset(json.loads(row[0]))
+
+    def set_field_codes(self, shot: int, codes: Iterable[int]) -> None:
+        """Record the inventory a shot was processed with -- the re-check baseline."""
+        with self._transaction() as conn:
+            conn.execute(
+                "UPDATE shots SET field_codes = ?, updated_at = ? WHERE shot = ?",
+                (json.dumps(sorted(int(c) for c in codes)), _now(), int(shot)),
+            )
+
+    def recheck_candidates(self, *, since: datetime) -> list[dict[str, Any]]:
+        """Settled, not running, not operator-excluded, settled after ``since``."""
+        rows = self._conn.execute(
+            "SELECT * FROM shots WHERE settled_at IS NOT NULL AND settled_at >= ? "
+            "AND state NOT IN (?, ?, ?) AND COALESCE(classification, '') != 'operator' "
+            "ORDER BY shot",
+            (_iso(since), DETECTED, QUEUED, RUNNING),
+        ).fetchall()
+        return [_shot_dict(row) for row in rows]
+
+    def reopen(self, shot: int, *, reason: str) -> bool:
+        """Late fields arrived: observe, classify and run the shot again."""
         now = _now()
         with self._transaction() as conn:
-            row = conn.execute("SELECT field_count FROM shots WHERE shot = ?", (shot,)).fetchone()
-            conn.execute(
-                "UPDATE shots SET field_count = ?, field_count_at = ?, updated_at = ? WHERE shot = ?",
-                (int(count), now, now, int(shot)),
+            cursor = conn.execute(
+                "UPDATE shots SET state = ?, settled_at = NULL, applicable_stages = NULL, "
+                "classification = NULL, attempts = 0, reprocessed = reprocessed + 1, "
+                "reason = ?, updated_at = ? WHERE shot = ? AND state != ?",
+                (DETECTED, reason, now, int(shot), RUNNING),
             )
-        return None if row is None or row[0] is None else int(row[0])
+            if cursor.rowcount:
+                self._event(conn, "reprocess", shot=int(shot), detail=reason)
+        return bool(cursor.rowcount)
 
     def settle(
         self,
@@ -211,15 +241,18 @@ class WorkerState:
         classification: str,
         reason: str,
         applicable_stages: Sequence[str] | None,
+        field_codes: Iterable[int] | None = None,
     ) -> None:
         """Move a detected shot to ``queued`` or ``excluded`` with its verdict."""
         now = _now()
         stages = None if applicable_stages is None else json.dumps(list(applicable_stages))
+        codes = None if field_codes is None else json.dumps(sorted(int(c) for c in field_codes))
         with self._transaction() as conn:
             cursor = conn.execute(
                 "UPDATE shots SET state = ?, classification = ?, reason = ?, applicable_stages = ?, "
-                "settled_at = ?, updated_at = ? WHERE shot = ? AND state = ?",
-                (state, classification, reason, stages, now, now, int(shot), DETECTED),
+                "field_codes = COALESCE(?, field_codes), settled_at = ?, updated_at = ? "
+                "WHERE shot = ? AND state = ?",
+                (state, classification, reason, stages, codes, now, now, int(shot), DETECTED),
             )
             if cursor.rowcount:  # an operator may have excluded it meanwhile
                 kind = "enqueued" if state == QUEUED else "skipped"
@@ -384,8 +417,8 @@ class WorkerState:
                 "UPDATE shots SET "
                 "state = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
                 "             THEN ? ELSE ? END, "
-                "field_count = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
-                "              THEN NULL ELSE field_count END, "
+                "settled_at = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
+                "              THEN NULL ELSE settled_at END, "
                 "attempts = 0, reason = ?, updated_at = ? "
                 "WHERE shot = ? AND state != ?",
                 (DETECTED, QUEUED, reason, now, int(shot), RUNNING),
@@ -467,6 +500,8 @@ def _shot_dict(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
     stages = data.get("applicable_stages")
     data["applicable_stages"] = None if stages is None else tuple(json.loads(stages))
+    codes = data.get("field_codes")
+    data["field_codes"] = None if codes is None else tuple(json.loads(codes))
     return data
 
 

@@ -31,7 +31,7 @@ from vaft.database.worker.config import (
     load_pipeline_config,
     worker_config_from_mapping,
 )
-from vaft.database.worker.poll import SqlShotSource, is_settled
+from vaft.database.worker.poll import SqlShotSource, upload_finished
 from vaft.database.worker.runner import HSDS_RESOURCE, RunPlan, RunResult, SnakemakeRunner, _runs_in
 from vaft.database.worker.service import PipelineWorker
 from vaft.database.worker.status import PipelineHarvester
@@ -47,21 +47,31 @@ T0 = datetime(2026, 9, 30, 12, 0, 0)
 # --------------------------------------------------------------------------- #
 # Fakes
 # --------------------------------------------------------------------------- #
+#: "The upload finished long ago" -- past any quiet_seconds.
+DONE = 10**6
+
+
 class FakeSource:
     """SQL as the worker sees it.  Returns every shot, ignoring ``after``,
-    so each poll re-observes the known ones -- the duplicate case."""
+    so each poll re-observes the known ones -- the duplicate case.
+
+    ``quiet`` is seconds since the shot's last field row; the default says
+    the upload is long over, ``0`` that it is still arriving."""
 
     def __init__(self):
-        self.shots: dict[int, tuple[datetime, frozenset[int]]] = {}
+        self.shots: dict[int, tuple[datetime, frozenset[int], float]] = {}
 
-    def add(self, shot, recorded=T0, fields=FULL_FIELDS):
-        self.shots[shot] = (recorded, frozenset(fields))
+    def add(self, shot, recorded=T0, fields=FULL_FIELDS, quiet=DONE):
+        self.shots[shot] = (recorded, frozenset(fields), quiet)
 
     def new_shots(self, after):
-        return sorted((shot, recorded) for shot, (recorded, _) in self.shots.items())
+        return sorted((shot, entry[0]) for shot, entry in self.shots.items())
 
-    def field_codes(self, shot):
-        return self.shots[shot][1]
+    def upload_status(self, shot):
+        return self.shots[shot][1], self.shots[shot][2]
+
+    def field_codes_by_shot(self, shot_min, shot_max):
+        return {shot: entry[1] for shot, entry in self.shots.items() if shot_min <= shot <= shot_max}
 
 
 class FakeRunner:
@@ -73,8 +83,9 @@ class FakeRunner:
     preflight exclusion.
     """
 
-    def __init__(self, harvester: PipelineHarvester):
+    def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
         self.harvester = harvester
+        self.source = source
         self.plans: list[RunPlan] = []
         self.script: dict[int, list[str]] = {}
         self.busy = False
@@ -112,7 +123,11 @@ class FakeRunner:
                 targets, failed = targets[:1], True
             for target in targets:
                 status = "skipped" if behaviour == "skipped" and target.stage == "efit" else "success"
-                self._write(target.path, {"status": status})
+                payload = {"status": status}
+                if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
+                    # What the dump holds: SQL's inventory at run time.
+                    payload["inventory"] = {"field_codes": sorted(self.source.shots[shot][1])}
+                self._write(target.path, payload)
         for path in plan.file_targets:
             if path.endswith(".json"):
                 self._write(path, {"status": "success"})
@@ -150,11 +165,11 @@ def setup(tmp_path):
             "pipeline_config": str(pipeline_path),
             "first_shot": 100,
             "poll_interval": 60,
-            "settle_seconds": 300,
+            "quiet_seconds": 600,
             "cores": 2,
             "snakemake_cmd": "snakemake",
             "max_attempts": 2,
-            "incomplete_grace_seconds": 1800,
+            "max_reprocess": 1,
         },
         base_dir=tmp_path,
     )
@@ -163,7 +178,7 @@ def setup(tmp_path):
     def make_worker(runner=None, source=None, state=None):
         pipeline_config = load_pipeline_config(config)
         harvester = PipelineHarvester(pipeline_config, workflow_dir=WORKFLOW, environment={})
-        runner = runner or FakeRunner(harvester)
+        runner = runner or FakeRunner(harvester, source)
         worker = PipelineWorker(
             config,
             state=state or S.WorkerState(config.state_db),
@@ -178,8 +193,7 @@ def setup(tmp_path):
     return config, make_worker, clock
 
 
-def settle_cycles(worker, n=2):
-    """Detection and settling need two polls to agree on the field count."""
+def settle_cycles(worker, n=1):
     reports = [worker.run_cycle() for _ in range(n)]
     return reports
 
@@ -194,13 +208,9 @@ def test_a_new_shot_is_detected_and_queued_exactly_once(setup):
     worker, runner = make_worker(source=source)
 
     first = worker.run_cycle()
-    assert first.detected == [101]
-    assert first.run_id is None  # one poll cannot show the inventory is stable
-    second = worker.run_cycle()
-    assert second.detected == []
-    assert second.queued == [101]
-    assert second.outcomes == {101: S.COMPLETED}
-    for _ in range(3):
+    assert first.detected == [101] and first.queued == [101]
+    assert first.outcomes == {101: S.COMPLETED}
+    for _ in range(4):
         report = worker.run_cycle()
         assert report.detected == [] and report.run_id is None
 
@@ -222,34 +232,55 @@ def test_shots_below_first_shot_are_not_the_workers(setup):
     assert calls == [99]  # first_shot=100, so SQL is asked for shot >= 100
 
 
-def test_a_shot_still_being_written_is_not_queued(setup):
-    _, make_worker, clock = setup
+def test_a_shot_runs_as_soon_as_its_inventory_matches_the_previous_shots(setup):
+    _, make_worker, _ = setup
     source = FakeSource()
-    source.add(101, fields={1, 12})
+    source.add(100)  # the reference: finished long ago
+    source.add(101, fields={1, 12}, quiet=5)
     worker, runner = make_worker(source=source)
 
-    worker.run_cycle()
-    source.add(101, fields={1, 12, 25})  # inventory still growing
-    assert worker.run_cycle().queued == []
-    assert worker.run_cycle().queued == [101]  # unchanged for two polls now
+    assert worker.run_cycle().queued == [100]
+    assert worker.state.shot(101)["state"] == S.DETECTED  # still uploading
+    source.add(101, fields=FULL_FIELDS, quiet=5)  # every field shot 100 had
+    report = worker.run_cycle()
+    assert report.queued == [101] and report.outcomes == {101: S.COMPLETED}
+    (enqueued,) = [e for e in worker.state.events(shot=101) if e["kind"] == "enqueued"]
+    assert "matches the previous shot" in enqueued["detail"]
 
-    source.add(102, recorded=clock["now"] - timedelta(seconds=10))
-    settle_cycles(worker, 3)
-    assert worker.state.shot(102)["state"] == S.DETECTED  # too recent
-    clock["now"] += timedelta(minutes=10)
+
+def test_a_shot_missing_a_previous_field_waits_for_the_quiet_limit(setup):
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(100, fields={*FULL_FIELDS, 102})  # had Plasma Current
+    source.add(101, fields=FULL_FIELDS, quiet=120)  # Ip not (yet) uploaded
+    worker, _ = make_worker(source=source)
     worker.run_cycle()
-    assert worker.state.shot(102)["state"] != S.DETECTED
+    assert worker.state.shot(101)["state"] == S.DETECTED
+    source.add(101, fields=FULL_FIELDS, quiet=600)
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    (enqueued,) = [e for e in worker.state.events(shot=101) if e["kind"] == "enqueued"]
+    assert "no field uploaded for 600 s" in enqueued["detail"]
 
 
 @pytest.mark.parametrize(
-    ("count", "previous", "age", "expected"),
-    [(5, None, 900, False), (5, 4, 900, False), (5, 5, 10, False), (5, 5, 900, True), (0, 0, 900, True)],
+    ("codes", "reference", "quiet", "finished"),
+    [
+        ({1, 2}, {1, 2}, 0, True),       # matches the previous shot
+        ({1, 2, 3}, {1, 2}, 0, True),    # a superset is fine
+        ({1}, {1, 2}, 0, False),         # still waiting for field 2
+        ({1}, {1, 2}, 600, True),        # ... until the upload is quiet
+        ({1}, None, 0, False),           # no reference: quiet decides
+        ((), {1}, 600, True),            # nothing uploaded at all, and quiet
+        ((), None, None, False),         # shot row gone: never decide blindly
+    ],
 )
-def test_is_settled(count, previous, age, expected):
-    assert is_settled(
-        record_datetime=T0, field_count=count, previous_field_count=previous,
-        settle_seconds=300, now=T0 + timedelta(seconds=age),
-    ) is expected
+def test_upload_finished(codes, reference, quiet, finished):
+    result = upload_finished(
+        field_codes=frozenset(codes), reference=None if reference is None else frozenset(reference),
+        quiet_seconds=quiet, quiet_limit=600,
+    )
+    assert (result is not None) is finished
 
 
 # --------------------------------------------------------------------------- #
@@ -387,8 +418,8 @@ def test_a_busy_workflow_directory_does_not_spend_an_attempt(setup):
 def test_restart_resumes_a_run_the_previous_worker_left_behind(setup):
     config, make_worker, _ = setup
     source = FakeSource()
-    source.add(101)
-    source.add(102)
+    source.add(101, quiet=0)
+    source.add(102, quiet=0)
     worker, _ = make_worker(source=source)
     worker.run_cycle()
     # The worker queued, started a run and died before harvesting it.
@@ -414,7 +445,7 @@ def test_restart_resumes_a_run_the_previous_worker_left_behind(setup):
 def test_operator_exclusion_is_final(setup):
     _, make_worker, _ = setup
     source = FakeSource()
-    source.add(101)
+    source.add(101, quiet=0)
     worker, runner = make_worker(source=source)
     worker.run_cycle()
     worker.state.settle(101, state=S.QUEUED, classification="unclassified", reason="", applicable_stages=None)
@@ -453,13 +484,13 @@ def test_worker_config_requires_its_server_settings(tmp_path):
     with pytest.raises(WorkerConfigError, match="poll_interval"):
         worker_config_from_mapping(
             {"state_db": "s", "log_dir": "l", "workflow_dir": "w", "pipeline_config": "p",
-             "first_shot": 1, "settle_seconds": 1, "cores": 1, "snakemake_cmd": "snakemake"},
+             "first_shot": 1, "quiet_seconds": 1, "cores": 1, "snakemake_cmd": "snakemake"},
             base_dir=tmp_path,
         )
     with pytest.raises(WorkerConfigError, match="unknown"):
         worker_config_from_mapping(
             {"state_db": "s", "log_dir": "l", "workflow_dir": "w", "pipeline_config": "p",
-             "first_shot": 1, "poll_interval": 1, "settle_seconds": 1, "cores": 1,
+             "first_shot": 1, "poll_interval": 1, "quiet_seconds": 1, "cores": 1,
              "snakemake_cmd": "snakemake", "pol_interval": 5},
             base_dir=tmp_path,
         )
@@ -509,7 +540,6 @@ def test_a_worker_error_mid_run_does_not_strand_shots(setup):
         raise FileNotFoundError("snakemake: not found")
 
     runner.run = explode
-    worker.run_cycle()
     with pytest.raises(FileNotFoundError):
         worker.run_cycle()
     row = worker.state.shot(101)
@@ -520,8 +550,8 @@ def test_a_worker_error_mid_run_does_not_strand_shots(setup):
 def test_a_shot_excluded_after_selection_is_not_claimed(setup):
     _, make_worker, _ = setup
     source = FakeSource()
-    source.add(101)
-    source.add(102)
+    source.add(101, quiet=0)
+    source.add(102, quiet=0)
     worker, _ = make_worker(source=source)
     worker.run_cycle()
     for shot in (101, 102):
@@ -536,9 +566,9 @@ def test_a_shot_excluded_after_selection_is_not_claimed(setup):
 def test_retrying_a_never_settled_shot_classifies_it_again(setup):
     _, make_worker, _ = setup
     source = FakeSource()
-    source.add(101)
+    source.add(101, quiet=0)
     worker, runner = make_worker(source=source)
-    worker.run_cycle()  # detected, not yet settled
+    worker.run_cycle()  # detected, still uploading
     worker.state.exclude(101, reason="operator")
     worker.state.requeue(101, reason="changed my mind")
     assert worker.state.shot(101)["state"] == S.DETECTED
@@ -581,7 +611,7 @@ def test_status_is_readable_read_only(setup, capsys):
     config_path.write_text(yaml.safe_dump({
         "state_db": str(config.state_db), "log_dir": str(config.log_dir),
         "workflow_dir": str(config.workflow_dir), "pipeline_config": str(config.pipeline_config),
-        "first_shot": 100, "poll_interval": 60, "settle_seconds": 300, "cores": 2,
+        "first_shot": 100, "poll_interval": 60, "quiet_seconds": 300, "cores": 2,
         "snakemake_cmd": "snakemake",
     }), encoding="utf-8")
     assert pipeline_worker.main(["status", "--config", str(config_path), "--json"]) == 0
@@ -591,22 +621,18 @@ def test_status_is_readable_read_only(setup, capsys):
     assert "completed" in capsys.readouterr().out
 
 
-def test_shot_field_codes_reads_the_table_holding_the_shot(monkeypatch):
+def _fake_pool(monkeypatch, answer):
     queries = []
 
     class Cursor:
-        def __init__(self):
-            self.rows = []
+        rows: list = []
 
         def execute(self, query, params):
             queries.append(query)
-            if "COUNT" in query:
-                self.rows = [(0,)] if "shotDataWaveform_2" in query else [(3,)]
-            else:
-                self.rows = [(1,), (12,), (25,)]
+            self.rows = answer(query)
 
         def fetchone(self):
-            return self.rows[0]
+            return self.rows[0] if self.rows else None
 
         def fetchall(self):
             return self.rows
@@ -627,8 +653,42 @@ def test_shot_field_codes_reads_the_table_holding_the_shot(monkeypatch):
 
     monkeypatch.setattr(raw, "DB_POOL", Pool())
     monkeypatch.setattr(raw, "_GENERATION_CACHE", {})
-    assert raw.shot_field_codes(48900) == frozenset({1, 12, 25})
-    assert "shotDataWaveform_3" in queries[-1]
+    return queries
+
+
+def test_shot_upload_status_reads_the_table_holding_the_shot(monkeypatch):
+    def answer(query):
+        if "COUNT" in query:
+            return [(0,)] if "shotDataWaveform_2" in query else [(4,)]
+        # (field, seconds since that row was uploaded); 110 is a processed
+        # triple-probe signal the raw dump leaves out.
+        return [(1, 300), (12, 90), (25, 45), (110, 40)]
+
+    queries = _fake_pool(monkeypatch, answer)
+    codes, quiet = raw.shot_upload_status(48900)
+    assert codes == frozenset({1, 12, 25}) and quiet == 40
+    assert "shotDataWaveform_3" in queries[-1] and "recordDataTime" in queries[-1]
+
+
+def test_a_shot_without_fields_is_quiet_since_its_record(monkeypatch):
+    def answer(query):
+        if "COUNT" in query:
+            return [(0,)]
+        return [(700,)]  # seconds since shot.recordDateTime
+
+    queries = _fake_pool(monkeypatch, answer)
+    assert raw.shot_upload_status(48901) == (frozenset(), 700.0)
+    assert "FROM shot WHERE" in queries[-1]
+
+
+def test_field_codes_by_shot_keeps_the_fuller_table(monkeypatch):
+    def answer(query):
+        if "shotDataWaveform_2" in query:
+            return [(48900, 1), (48900, 2)]
+        return [(48900, 1), (48900, 2), (48900, 3), (48901, 5), (48901, 111)]
+
+    _fake_pool(monkeypatch, answer)
+    assert raw.field_codes_by_shot(48900, 48901) == {48900: frozenset({1, 2, 3}), 48901: frozenset({5})}
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
@@ -652,17 +712,56 @@ def test_a_killed_run_releases_its_own_lock(setup, tmp_path):
     assert marker.exists()  # SIGKILL leaves a lock only the worker could have held
 
 
-def test_an_empty_inventory_waits_out_the_grace_period(setup):
-    _, make_worker, clock = setup
+def test_an_empty_shot_is_excluded_once_quiet_and_revived_by_a_late_upload(setup):
+    _, make_worker, _ = setup
     source = FakeSource()
-    source.add(101, recorded=clock["now"] - timedelta(minutes=10), fields=())
+    source.add(101, fields=(), quiet=100)
     worker, runner = make_worker(source=source)
-    settle_cycles(worker, 3)
-    assert worker.state.shot(101)["state"] == S.DETECTED  # settled, but maybe a late upload
-    source.add(101, recorded=clock["now"] - timedelta(minutes=10), fields=FULL_FIELDS)
-    settle_cycles(worker, 2)
-    assert worker.state.shot(101)["state"] == S.COMPLETED  # the upload arrived in time
-    assert runner.plans[0].full_shots == (101,)
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.DETECTED  # the DAQ may still write
+    source.add(101, fields=(), quiet=600)
+    worker.run_cycle()
+    assert worker.state.shot(101)["classification"] == DAQ_MISSING
+    assert runner.plans == []
+
+    source.add(101, fields=FULL_FIELDS, quiet=10)  # the upload arrived after all
+    report = worker.run_cycle()
+    assert report.reprocessed == [101]
+    source.add(101, fields=FULL_FIELDS, quiet=600)
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+
+
+def test_late_fields_reprocess_a_finished_shot(setup):
+    config, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    raw_manifest = Path(worker.harvester.paths.raw_manifest(101))
+    assert raw_manifest.exists()
+
+    # The next day VEST backfills Plasma Current for this shot.
+    source.add(101, fields={*FULL_FIELDS, 102})
+    report = worker.run_cycle()
+    assert report.reprocessed == [101]
+    assert report.outcomes == {101: S.COMPLETED}  # re-classified and re-run in the same cycle
+    assert len(runner.plans) == 2
+    row = worker.state.shot(101)
+    assert row["reprocessed"] == 1 and 102 in row["field_codes"]
+    # The old dump was moved aside, never deleted.
+    (moved,) = (config.log_dir / "superseded" / "101").glob("*/" + raw_manifest.name)
+    assert json.loads(moved.read_text())["inventory"]["field_codes"] == sorted(FULL_FIELDS)
+    assert [e["kind"] for e in worker.state.events(shot=101)].count("reprocess") == 1
+
+    # max_reprocess=1: a second late arrival is recorded, not acted on.
+    source.add(101, fields={*FULL_FIELDS, 102, 13})
+    worker.run_cycle()
+    worker.run_cycle()
+    assert len(runner.plans) == 2
+    kinds = [e["kind"] for e in worker.state.events(shot=101)]
+    assert kinds.count("late_fields_ignored") == 1
 
 
 def test_a_stale_lock_found_while_busy_is_removed(setup):
@@ -711,11 +810,11 @@ def test_which_processes_count_as_a_snakemake_in_the_workflow(cmdline, cwd, expe
     assert _runs_in(cmdline, cwd, WORKFLOW) is expected
 
 
-def test_run_timeout_and_grace_are_validated(tmp_path):
+def test_run_timeout_and_reprocess_are_validated(tmp_path):
     base = {"state_db": "s", "log_dir": "l", "workflow_dir": str(WORKFLOW), "pipeline_config": "p",
-            "first_shot": 1, "poll_interval": 1, "settle_seconds": 300, "cores": 1,
+            "first_shot": 1, "poll_interval": 1, "quiet_seconds": 300, "cores": 1,
             "snakemake_cmd": "snakemake"}
     with pytest.raises(WorkerConfigError, match="run_timeout"):
         worker_config_from_mapping({**base, "run_timeout": 0}, base_dir=tmp_path)
-    with pytest.raises(WorkerConfigError, match="incomplete_grace_seconds"):
-        worker_config_from_mapping({**base, "incomplete_grace_seconds": 10}, base_dir=tmp_path)
+    with pytest.raises(WorkerConfigError, match="max_reprocess"):
+        worker_config_from_mapping({**base, "max_reprocess": -1}, base_dir=tmp_path)

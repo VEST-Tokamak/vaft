@@ -9,16 +9,17 @@ killed at any point and the next one continues from the state file.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from pathlib import Path
+import shutil
 import threading
 from typing import Any, Callable, Mapping, Protocol
 
 from . import state as S
 from .classify import RAW_ONLY, Classifier, ShotObservation, load_classifier
 from .config import WorkerConfig, load_pipeline_config
-from .poll import ShotSource, SqlShotSource, is_settled
+from .poll import ShotSource, SqlShotSource, upload_finished
 from .runner import RunPlan, RunResult, SnakemakeRunner
 from .status import PipelineHarvester
 
@@ -45,6 +46,7 @@ class CycleReport:
     busy: bool = False
     outcomes: dict[int, str] = field(default_factory=dict)
     gave_up: list[int] = field(default_factory=list)
+    reprocessed: list[int] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in self.__dict__.items()}
@@ -99,55 +101,80 @@ class PipelineWorker:
         return added
 
     def settle(self, report: CycleReport) -> None:
-        now = self.clock()
+        """Classify every detected shot whose upload has finished; see :mod:`.poll`."""
         for row in self.state.shots(state=S.DETECTED):
             shot = row["shot"]
-            codes = self.source.field_codes(shot)
-            previous = self.state.observe_field_count(shot, len(codes))
-            if not is_settled(
-                # A row SQL recorded without a time settles from when the
-                # worker first saw it, rather than never.
-                record_datetime=row["record_datetime"] or row["detected_at"],
-                field_count=len(codes),
-                previous_field_count=previous,
-                settle_seconds=self.config.settle_seconds,
-                now=now,
-            ):
+            codes, quiet = self.source.upload_status(shot)
+            finished = upload_finished(
+                field_codes=codes,
+                reference=self.state.reference_fields(before=shot),
+                quiet_seconds=quiet,
+                quiet_limit=self.config.quiet_seconds,
+            )
+            if finished is None:
                 continue
             verdict = self.classifier.classify(
                 ShotObservation(shot=shot, record_datetime=row["record_datetime"], field_codes=codes)
             )
-            if verdict.applicable_stages is not None and not self._past_grace(row, now):
-                # An empty or incomplete inventory may still be uploading, and
-                # both verdicts are final: an excluded shot is never looked at
-                # again, and a raw dump is an immutable Snakemake output.
-                continue
-            if verdict.runnable:
-                self.state.settle(
-                    shot,
-                    state=S.QUEUED,
-                    classification=verdict.label,
-                    reason=verdict.reason,
-                    applicable_stages=verdict.applicable_stages,
-                )
-                report.queued.append(shot)
-                logger.info("queued shot %s (%s)", shot, verdict.label)
-            else:
-                self.state.settle(
-                    shot,
-                    state=S.EXCLUDED,
-                    classification=verdict.label,
-                    reason=verdict.reason,
-                    applicable_stages=(),
-                )
-                report.excluded.append(shot)
-                logger.info("excluded shot %s: %s", shot, verdict.reason)
+            self.state.settle(
+                shot,
+                state=S.QUEUED if verdict.runnable else S.EXCLUDED,
+                classification=verdict.label,
+                reason=f"{verdict.reason} [upload: {finished}]",
+                applicable_stages=verdict.applicable_stages if verdict.runnable else (),
+                field_codes=codes,
+            )
+            (report.queued if verdict.runnable else report.excluded).append(shot)
+            logger.info("shot %s: %s (%s; %s)", shot, "queued" if verdict.runnable else "excluded",
+                        verdict.label, finished)
 
-    def _past_grace(self, row: Mapping[str, Any], now: datetime) -> bool:
-        recorded = row["record_datetime"] or row["detected_at"]
-        if isinstance(recorded, str):
-            recorded = datetime.fromisoformat(recorded)
-        return (now - recorded).total_seconds() >= self.config.incomplete_grace_seconds
+    def recheck(self, report: CycleReport) -> None:
+        """Reprocess recently settled shots whose SQL inventory has grown since.
+
+        VEST has uploaded Plasma Current and Pressure a day after the shot.
+        The raw dump is an immutable Snakemake output, so the shot's dump is
+        moved aside (never deleted) into the worker's log directory; the next
+        run re-exports it, and Snakemake re-runs everything downstream of the
+        now newer dump, replication included.
+        """
+        if self.config.recheck_seconds <= 0:
+            return
+        since = self.clock() - timedelta(seconds=self.config.recheck_seconds)
+        candidates = self.state.recheck_candidates(since=since)
+        if not candidates:
+            return
+        current = self.source.field_codes_by_shot(candidates[0]["shot"], candidates[-1]["shot"])
+        for row in candidates:
+            shot = row["shot"]
+            baseline = frozenset(row["field_codes"] or ())
+            late = sorted(current.get(shot, frozenset()) - baseline)
+            if not late:
+                continue
+            if row["reprocessed"] >= self.config.max_reprocess:
+                # Record once and take the new inventory as the baseline, so the
+                # same late fields do not raise this again every cycle.
+                self.state.event("late_fields_ignored", shot=shot,
+                                 detail=f"{late}; max_reprocess={self.config.max_reprocess} reached")
+                self.state.set_field_codes(shot, current[shot])
+                continue
+            moved = self._supersede_raw(shot)
+            reason = f"late fields {late} arrived after processing" + (
+                f"; previous raw dump moved to {moved}" if moved else ""
+            )
+            if self.state.reopen(shot, reason=reason):
+                report.reprocessed.append(shot)
+                logger.warning("shot %s: %s", shot, reason)
+
+    def _supersede_raw(self, shot: int) -> str | None:
+        files = [Path(p) for p in self.harvester.raw_output_files(shot) if Path(p).exists()]
+        if not files:
+            return None
+        stamp = self.clock().strftime("%Y%m%dT%H%M%S")
+        target = self.config.log_dir / "superseded" / str(shot) / stamp
+        target.mkdir(parents=True, exist_ok=True)
+        for path in files:
+            shutil.move(str(path), str(target / path.name))
+        return str(target)
 
     def run_batch(self, report: CycleReport) -> None:
         batch = self.state.runnable(
@@ -244,6 +271,11 @@ class PipelineWorker:
         for shot in shots:
             outcome = outcomes[shot]
             self.state.record_stage_status(shot, outcome.stages, run_id=run_id)
+            dumped = self.harvester.dumped_field_codes(shot)
+            if dumped is not None:
+                # The re-check baseline is what the dump holds, not what SQL
+                # held when the shot settled: fields can land in between.
+                self.state.set_field_codes(shot, dumped)
             if outcome.state == S.FAILED and result.interrupted:
                 # A stop request is not the shot's fault; do not spend an attempt.
                 self.state.conclude(shot, state=S.QUEUED, reason="interrupted: " + outcome.reason,
@@ -293,6 +325,7 @@ class PipelineWorker:
         if recover:
             report.recovered = self.recover()
         report.detected = self.detect()
+        self.recheck(report)
         self.settle(report)
         if not self._stop.is_set():
             self.run_batch(report)

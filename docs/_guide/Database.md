@@ -400,9 +400,14 @@ digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.2
 ### Processing new shots automatically
 
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
-Snakemake pipeline on each new shot once its record has settled (issue #58). A shot is settled when
-its `recordDateTime` is old enough and `raw.shot_field_codes(shot)` returns the same number of fields
-on two consecutive polls. Its configuration is server-only; the workflow directory holds
+Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+counts as finished when either condition holds:
+
+- the shot's field inventory contains every field the previous shot had;
+- no field has been uploaded for `quiet_seconds`.
+
+`raw.shot_upload_status(shot)` gives the inventory and the quiet time. Processed shots are re-checked
+for fields that arrive late (`raw.field_codes_by_shot`) and reprocessed if any do. Its configuration is server-only; the workflow directory holds
 `worker.example.yaml` as a template, and `DEPLOYMENT.md` there describes how to run it as a service.
 
 The worker keeps its state in a SQLite file. Monitoring code reads that file without writing to it:

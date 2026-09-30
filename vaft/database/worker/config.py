@@ -27,7 +27,7 @@ _REQUIRED = (
     "pipeline_config",
     "first_shot",
     "poll_interval",
-    "settle_seconds",
+    "quiet_seconds",
     "cores",
     "snakemake_cmd",
 )
@@ -49,20 +49,20 @@ class WorkerConfig:
     #: belongs to batch regeneration, not to the worker.
     first_shot: int
     poll_interval: float
-    #: How long after SQL's ``recordDateTime`` a shot must be before it is
-    #: considered written.  Its field inventory must also be unchanged between
-    #: two polls; see :mod:`vaft.database.worker.poll`.
-    settle_seconds: float
+    #: A shot whose inventory does not (yet) match the previous shot's is
+    #: processed once no field has been uploaded for this long.  Measured
+    #: gaps inside one VEST upload reach 261 s.
+    quiet_seconds: float
     cores: int
     snakemake_cmd: tuple[str, ...]
     extra_args: tuple[str, ...] = ()
     max_shots_per_run: int = 20
     max_attempts: int = 3
-    #: How long an empty or incomplete field inventory may still be uploading
-    #: before the classifier's verdict on it is acted on (excluded, or raw
-    #: only).  Both are final, so this is deliberately much longer than
-    #: ``settle_seconds``.
-    incomplete_grace_seconds: float = 6 * 3600.0
+    #: How long after processing a shot keeps being re-checked for fields
+    #: that arrived late (VEST has backfilled Plasma Current a day later).
+    recheck_seconds: float = 3 * 86400.0
+    #: How many times late fields may trigger a reprocess of one shot.
+    max_reprocess: int = 3
     #: Seconds before a pipeline run is terminated; ``None`` waits forever.
     run_timeout: float | None = None
     env: Mapping[str, str] = field(default_factory=dict)
@@ -135,25 +135,26 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         pipeline_config=_path(data["pipeline_config"], relative_to=base_dir, key="pipeline_config"),
         first_shot=int(data["first_shot"]),
         poll_interval=float(data["poll_interval"]),
-        settle_seconds=float(data["settle_seconds"]),
+        quiet_seconds=float(data["quiet_seconds"]),
         cores=int(data["cores"]),
         snakemake_cmd=snakemake_cmd,
         extra_args=_command(data.get("extra_args") or [], "extra_args"),
         max_shots_per_run=int(data.get("max_shots_per_run", 20)),
         max_attempts=int(data.get("max_attempts", 3)),
-        incomplete_grace_seconds=float(data.get("incomplete_grace_seconds", 6 * 3600.0)),
+        recheck_seconds=float(data.get("recheck_seconds", 3 * 86400.0)),
+        max_reprocess=int(data.get("max_reprocess", 3)),
         run_timeout=None if timeout is None else float(timeout),
         env={str(k): str(v) for k, v in (data.get("env") or {}).items()},
         classifier=data.get("classifier"),
         record_shot_class=bool(data.get("record_shot_class", False)),
     )
-    for name in ("poll_interval", "settle_seconds", "cores", "max_shots_per_run", "max_attempts"):
+    for name in ("poll_interval", "quiet_seconds", "cores", "max_shots_per_run", "max_attempts"):
         if getattr(config, name) <= 0:
             raise WorkerConfigError(f"{name} must be positive")
     if config.run_timeout is not None and config.run_timeout <= 0:
         raise WorkerConfigError("run_timeout must be positive or null")
-    if config.incomplete_grace_seconds < config.settle_seconds:
-        raise WorkerConfigError("incomplete_grace_seconds must not be shorter than settle_seconds")
+    if config.recheck_seconds < 0 or config.max_reprocess < 0:
+        raise WorkerConfigError("recheck_seconds and max_reprocess must not be negative")
     if config.first_shot <= 0:
         raise WorkerConfigError("first_shot must be a positive shot number")
     if not config.snakefile.is_file():

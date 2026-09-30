@@ -221,6 +221,14 @@ class PipelineHarvester:
                 status = str(value) if value else UNREADABLE
         return StageStatus(target.stage, target.product, target.kind, status, target.path)
 
+    def dumped_field_codes(self, shot: int) -> frozenset[int] | None:
+        """The field codes the raw dump holds, from its manifest's inventory."""
+        try:
+            manifest = json.loads(Path(self.paths.raw_manifest(shot)).read_text(encoding="utf-8"))
+            return frozenset(int(c) for c in manifest["inventory"]["field_codes"])
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
     def preflight_exclusion(self, shot: int) -> str | None:
         """The raw preflight's reason for excluding ``shot``, if it did."""
         path = Path(self.paths.preflight_excluded())

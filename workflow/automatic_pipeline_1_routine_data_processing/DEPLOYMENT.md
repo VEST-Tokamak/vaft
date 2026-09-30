@@ -826,19 +826,23 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
 
 1. **Detect.** Every shot in SQL above the watermark is inserted into the state file. Inserting a
    shot that is already there does nothing, so polling the same shot twice changes nothing.
-2. **Settle.** A shot waits until its `recordDateTime` is at least `settle_seconds` old and its
-   waveform field count is the same on two consecutive polls. This matters because the raw dump is
-   an immutable Snakemake output: a dump taken while SQL is still being written would be kept
-   permanently.
+2. **Wait for the upload.** The DAQ writes one complete field per SQL row. A shot goes ahead as soon
+   as either condition holds:
+   - its inventory contains every field the previous shot had; or
+   - no field has been uploaded for `quiet_seconds` (default 600).
+
+   On VEST (shots 48800–48916) the 177 core fields arrive 126–196 s after the shot record, so a
+   routine shot starts about 2–3 minutes after it is fired, before the next one. Pressure, Plasma
+   Current and the 6 kW ECH powers form a separate group. It lands up to 261 s after the core
+   fields, or a day later, or never. While it is missing, the quiet limit decides.
 3. **Classify.** The classifier runs before anything is scheduled:
    - no waveform fields → `excluded`, and Snakemake never sees the shot;
    - required raw fields missing → only the raw dump is archived;
    - otherwise → the whole pipeline runs.
 
-   The first two verdicts are final, so they wait `incomplete_grace_seconds` (6 h by default)
-   in case the DAQ upload is late. A complete shot goes ahead as soon as it settles.
+   Fields that arrive after a shot was processed are handled by the re-check below, so none of these
+   verdicts is final.
 
-   The four-class physics classifier from #57 plugs in through `classifier:`.
 4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
    --scheduler greedy --resources hsds=1`.
    - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
@@ -860,6 +864,18 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
+
+6. **Re-check for late fields.** For `recheck_seconds` (3 days) after processing, the worker compares
+   each shot's SQL inventory with what its raw dump holds. The comparison comes from the dump
+   manifest's `inventory`. When new fields have arrived, the worker reprocesses the shot:
+   - It moves the shot's raw dump and manifest to `log_dir/superseded/<shot>/<time>/`. They are
+     moved, never deleted.
+   - It returns the shot to `detected`, so it is classified and run again.
+   - Snakemake then re-exports the raw dump and reruns every product downstream of it, because
+     that input is newer. **This includes HSDS replication, which replaces what was published.**
+
+   Reprocessing happens at most `max_reprocess` times per shot (3 by default). Later arrivals are
+   recorded as a `late_fields_ignored` event. An operator-excluded shot is never reprocessed.
 
 ### Run as a service
 
