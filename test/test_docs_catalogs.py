@@ -414,8 +414,9 @@ def test_the_plot_catalog_hashes_every_file_of_the_package(snapshots):
     on_disk = {path.relative_to(ROOT).as_posix() for path in (ROOT / "vaft" / "plot").rglob("*.py")
                if "__pycache__" not in path.parts}
     assert on_disk <= recorded
-    # Beyond the package: the thumbnail manifest and the samples its pictures were drawn from.
-    assert all(path == "docs/assets/plots/manifest.json" or path.startswith("vaft/data/samples/")
+    # Beyond the package: the thumbnail manifest, the samples its pictures were drawn from,
+    # and vaft/_docstring.py, which reads every source span.
+    assert all(path in {"docs/assets/plots/manifest.json", "vaft/_docstring.py"} or path.startswith("vaft/data/samples/")
                for path in recorded - on_disk), recorded - on_disk
 
 

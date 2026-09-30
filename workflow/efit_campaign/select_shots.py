@@ -15,7 +15,8 @@ and labels each shot by the tiers #1331 set out:
 
 ``A``  Thomson, and magnetics like 39915's (few condemned probes, most of the
        outboard array usable) -- the calibration and kinetic set.
-``B``  Thomson and an important discharge (record-class Ip or a long pulse)
+``B``  Thomson and an important discharge (record-class Ip, or a long pulse
+       with a real current; a plasma shot with a plausible peak)
        whose magnetics fall short of A but are not unfit.
 ``C``  Thomson, but no magnetics in the database -- needs ingest first.
 ``D``  no Thomson, but important with A-quality magnetics -- magnetic-only.
@@ -46,6 +47,12 @@ class Thresholds:
     min_outboard_usable: int = 19
     important_ip_kA: float = 250.0
     important_duration_s: float = 0.030
+    #: A long pulse counts only with a real current: the H-alpha window of a
+    #: sub-kA "plasma" can run 80 ms (32102-32417 do).
+    long_pulse_min_ip_kA: float = 50.0
+    #: Above this the peak is a signal fault, not a discharge: the record is
+    #: ~290 kA (447xx), and 45781/45796 report 1673/1136 kA.
+    max_plausible_ip_kA: float = 350.0
 
 
 def raw_inventory(root: Path) -> tuple[dict[int, str], dict[int, str]]:
@@ -108,13 +115,21 @@ def _quality_summary(row: Mapping[str, Any] | None) -> dict[str, Any]:
 
 def classify(overview: Mapping[str, Any] | None, quality: Mapping[str, Any], *, thomson: bool,
              thresholds: Thresholds) -> dict[str, Any]:
-    """The flags and the tier for one shot."""
+    """The flags and the tier for one shot.
+
+    ``important`` needs a plasma shot (when the overview says which class it
+    is) with a plausible peak current; ``suspect_ip`` marks the implausible
+    ones, which are never important.
+    """
     ip = (overview or {}).get("max_ip_kA")
     duration = (overview or {}).get("pulse_duration_s")
-    important = bool(
-        (ip is not None and ip == ip and ip >= thresholds.important_ip_kA)
-        or (duration is not None and duration == duration and duration >= thresholds.important_duration_s)
-    )
+    shot_class = (overview or {}).get("shot_class")
+    has_ip = ip is not None and ip == ip
+    suspect_ip = bool(has_ip and ip > thresholds.max_plausible_ip_kA)
+    plasma = shot_class is None or shot_class == "Plasma"
+    long_pulse = bool(duration is not None and duration == duration and duration >= thresholds.important_duration_s
+                      and has_ip and ip >= thresholds.long_pulse_min_ip_kA)
+    important = bool(plasma and not suspect_ip and ((has_ip and ip >= thresholds.important_ip_kA) or long_pulse))
     scanned = quality["magnetics"] not in ("not_scanned", "absent", "scan_error", "unknown")
     good = bool(
         scanned
@@ -132,7 +147,7 @@ def classify(overview: Mapping[str, Any] | None, quality: Mapping[str, Any], *, 
         tier = "D"
     else:
         tier = None
-    return {"important": important, "good_magnetics": good, "tier": tier}
+    return {"important": important, "suspect_ip": suspect_ip, "good_magnetics": good, "tier": tier}
 
 
 def _finite_or_none(value: Any) -> Any:
@@ -206,10 +221,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-outboard-usable", type=int, default=defaults.min_outboard_usable)
     parser.add_argument("--important-ip-kA", type=float, default=defaults.important_ip_kA)
     parser.add_argument("--important-duration-s", type=float, default=defaults.important_duration_s)
+    parser.add_argument("--long-pulse-min-ip-kA", type=float, default=defaults.long_pulse_min_ip_kA)
+    parser.add_argument("--max-plausible-ip-kA", type=float, default=defaults.max_plausible_ip_kA)
     args = parser.parse_args(argv)
 
     thresholds = Thresholds(args.max_condemned, args.min_outboard_usable, args.important_ip_kA,
-                            args.important_duration_s)
+                            args.important_duration_s, args.long_pulse_min_ip_kA, args.max_plausible_ip_kA)
     thomson, ions = raw_inventory(args.data_root)
     rows = select(_read_overview(args.overview), quality_by_shot(args.quality), thomson, ions, thresholds)
     payload = {"thresholds": asdict(thresholds), "data_root": str(args.data_root),

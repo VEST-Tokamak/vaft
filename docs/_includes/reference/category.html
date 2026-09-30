@@ -18,7 +18,7 @@ needs its own permalink and the validator requires one per category.
 {%- assign describe = "vaft.process.describe" -%}
 {%- endif -%}
 {%- assign category = catalog.categories | where: "name", include.category | first -%}
-{%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
+{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 
 <p class="ref-intro">Generated from the docstrings of <code>{{ category.module }}</code>:
 <strong>{{ entries.size }}</strong> public functions. Each entry is what

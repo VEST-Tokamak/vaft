@@ -238,35 +238,45 @@ def test_the_matching_era_is_not_refused(tmp_path, manifest):
     assert "was built for machine era" not in str(caught.value)
 
 
-def test_a_generated_table_directory_is_runnable(tmp_path):
+def test_a_generated_table_directory_is_runnable(monkeypatch):
     """#805: EFUND's output alone is not a table EFIT can read.
 
-    EFIT also reads a limiter contour and a probe description from the table
-    directory, and EFUND writes neither. A generated directory without them
-    fails in `read_limiter.f90` with a Fortran runtime error naming
-    `lim.dat` -- a long way from "the table is incomplete". Both files are
-    era-independent, so the generator copies them from the packaged
-    directory.
+    EFIT also reads a limiter contour from the table directory, and EFUND does
+    not write it. A generated directory without it fails in `read_limiter.f90`
+    with a Fortran runtime error naming `lim.dat` -- a long way from "the
+    table is incomplete". `generate_era_table` writes `lim.dat` from the era's
+    static wall, which for the packaged era reproduces the packaged file byte
+    for byte, and copies `dprobe.dat` beside it.
     """
-    import importlib.util
-    import sys
+    import shutil
+    import tempfile
     from pathlib import Path
 
-    script = Path(__file__).resolve().parents[1] / "workflow" / "efit_tables" / "regenerate_legacy_table.py"
-    spec = importlib.util.spec_from_file_location("regenerate_legacy_table", script)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["regenerate_legacy_table"] = module
-    spec.loader.exec_module(module)
+    from vaft.code.efit import efund as E
 
-    assert module._copy_runtime_companions(tmp_path) == list(module.RUNTIME_COMPANIONS)
-    for name in module.RUNTIME_COMPANIONS:
-        assert (tmp_path / name).is_file(), name
-        assert (tmp_path / name).read_bytes() == (TABLE_DIRECTORY / name).read_bytes()
+    def stand_in(inputs, config):
+        for name, size in E.expected_table_files(config, inputs.counts).items():
+            target = Path(config.workdir) / name
+            if size is None:
+                target.write_text("echo\n")
+            else:
+                target.write_bytes(b"\0" * size)
+        return E.collect_efund_outputs(Path(config.workdir), config, inputs.counts, returncode=0)
 
-    # Idempotent, and it never overwrites a file the generator itself wrote.
-    (tmp_path / "lim.dat").write_text("mine", encoding="utf-8")
-    assert module._copy_runtime_companions(tmp_path) == []
-    assert (tmp_path / "lim.dat").read_text(encoding="utf-8") == "mine"
+    monkeypatch.setattr(E, "run_efund", stand_in)
+    # Short enough for EFIT's 100-character TABLE_DIR, which tmp_path on macOS is not.
+    root = Path(tempfile.mkdtemp(prefix="gt", dir="/tmp" if Path("/tmp").is_dir() else None))
+    try:
+        output = root / "table"
+        result = E.generate_era_table(
+            "vest-pre-43017-pf1906", output, config=E.EFUNDConfig(nw=5, nh=5),
+            base_table_dir=TABLE_DIRECTORY, acceptance_envelope=False,
+        )
+        assert result.ok
+        for name in (E.LIMITER_NAME, *E.REFERENCE_COMPANIONS):
+            assert (output / name).read_bytes() == (TABLE_DIRECTORY / name).read_bytes(), name
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 # --- identity reproducibility (#793) ----------------------------------------

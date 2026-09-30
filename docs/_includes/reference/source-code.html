@@ -1,0 +1,14 @@
+{%- comment -%}
+The collapsed inline source of one generated reference entry (#1069).
+
+Same parameters as source-link.html.  The code is the span the link points at,
+read by the generator from the tree it documents, so both show one revision.
+The generator leaves it empty for classes and for definitions longer than
+vaft._docstring.INLINE_SOURCE_LINES; those keep only the link.
+{%- endcomment -%}
+{%- assign src = include.src -%}
+{%- if include.ref != "" and src.line > 0 and src.code != "" -%}
+<details class="ref-code" data-source-code="{{ include.key }}" markdown="0"><summary>Show source <span class="ref-note">{{ src.path }}, lines {{ src.line }}–{{ src.end_line }}</span></summary>
+{% highlight python %}{{ src.code }}{% endhighlight %}
+</details>
+{%- endif -%}

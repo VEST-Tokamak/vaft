@@ -193,15 +193,44 @@ def source_location(fn, root) -> tuple[str, int]:
     ``describe`` builds every spec of a category through here and must keep
     working there; the snapshot validation rejects the empty location.
     """
+    span = source_span(fn, root)
+    return span["path"], span["line"]
+
+
+INLINE_SOURCE_LINES = 80
+"""Longest definition the reference pages show inline; longer ones keep only the link (#1069)."""
+
+
+def source_span(obj, root, *, inline: bool = True) -> dict:
+    """``{"path", "line", "end_line", "code"}`` of a function's or class's definition.
+
+    ``line`` and ``end_line`` are the first and last line of the definition,
+    decorators included, as ``inspect.getsourcelines`` reads them from the
+    unwrapped object -- the range the generated pages link to at the commit
+    the snapshot was built from (#1069).  ``code`` is that range, dedented, when
+    ``inline`` and the definition is at most :data:`INLINE_SOURCE_LINES` lines
+    long, else ``""``: the pages show it collapsed next to the link, so both
+    come from the same tree.
+
+    Returns an empty span (``line`` 0) when the source cannot be located, for
+    the reasons :func:`source_location` gives, and for a lambda.
+    """
+    import textwrap
     from pathlib import Path
 
     try:
-        target = inspect.unwrap(fn)
+        target = inspect.unwrap(obj)
         path = Path(inspect.getsourcefile(target)).resolve()
-        _, line = inspect.getsourcelines(target)
-        return path.relative_to(Path(root).resolve()).as_posix(), line
+        lines, line = inspect.getsourcelines(target)
+        relative = path.relative_to(Path(root).resolve()).as_posix()
     except (OSError, TypeError, ValueError):
-        return "", 0
+        return {"path": "", "line": 0, "end_line": 0, "code": ""}
+    if line == 0 or getattr(getattr(target, "__code__", None), "co_name", "") == "<lambda>":
+        # a module (getsourcelines returns the whole file from line 0), or a
+        # lambda, whose line is an expression rather than a definition
+        return {"path": "", "line": 0, "end_line": 0, "code": ""}
+    code = textwrap.dedent("".join(lines)).rstrip() if inline and len(lines) <= INLINE_SOURCE_LINES else ""
+    return {"path": relative, "line": line, "end_line": line + len(lines) - 1, "code": code}
 
 
 def _split_sections(
