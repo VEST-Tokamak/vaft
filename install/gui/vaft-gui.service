@@ -24,6 +24,8 @@ WorkingDirectory=/var/lib/vaft-gui
 # VAFT_GUI_PASSWORD and HS_ENDPOINT / HS_USERNAME / HS_PASSWORD.
 EnvironmentFile=/etc/vaft-gui.env
 Environment=HOME=/var/lib/vaft-gui
+# The venv's bin first: VAFT reads HSDS through h5pyd's hsget/hsls there.
+Environment=PATH=/opt/vaft-gui/bin:/usr/bin:/bin
 Environment=MPLCONFIGDIR=/var/lib/vaft-gui/.cache/matplotlib
 ExecStart=/opt/vaft-gui/bin/vaft gui --hosted --prefix /gui --port 5006 --no-show \
     --allow-websocket-origin vest.hsds.snu.ac.kr
