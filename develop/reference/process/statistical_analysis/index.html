@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -363,9 +363,54 @@ one.  Both are documented as they are; their home is decided by #263.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#analyze_significance"><code>analyze_significance</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L406" title="vaft/process/statistical_analysis.py, line 406">source</a>
+<a class="ref-source" data-source="analyze_significance" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L406-L446" title="vaft/process/statistical_analysis.py, lines 406–446 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>analyze_significance(results, alpha=0.05)</code></pre>
+    <details class="ref-code" data-source-code="analyze_significance"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 406–446</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">analyze_significance</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="n">RegressionResults</span><span class="p">,</span> 
+                         <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Flag which scaling exponents are statistically significant.
+
+    Parameters
+    ----------
+    results : RegressionResults
+        A fitted regression [-].
+    alpha : float, optional
+        Significance level; a coefficient with ``p &lt; alpha`` is significant
+        [-].
+
+    Returns
+    -------
+    dict of str to bool
+        Parameter name to whether its exponent is significant; a parameter
+        absent from the fit is ``False`` [-].
+
+    Defaults
+    --------
+    ``alpha = 0.05`` is the conventional literature value, no more.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A p-value from a small sample with correlated regressors overstates
+    significance; see :func:`get_correlation_matrix` before trusting it.
+    </span><span class="sh">"""</span>
+    <span class="n">significance</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">results</span><span class="p">.</span><span class="n">eng_params</span><span class="p">:</span>
+        <span class="n">param_name</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="sh">'</span>
+        <span class="k">if</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">results</span><span class="p">.</span><span class="n">pvalues</span><span class="p">:</span>
+            <span class="n">pval</span> <span class="o">=</span> <span class="n">results</span><span class="p">.</span><span class="n">pvalues</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span>
+            <span class="n">significance</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">pval</span> <span class="o">&lt;</span> <span class="n">alpha</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">significance</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">return</span> <span class="n">significance</span></code></pre></figure>
+
+</details>
 
     <p>Flag which scaling exponents are statistically significant.</p>
 
@@ -408,7 +453,7 @@ significance; see <code class="language-plaintext highlighter-rouge">get_correla
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_metrics"><code>compute_metrics</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L500" title="vaft/process/statistical_analysis.py, line 500">source</a>
+<a class="ref-source" data-source="compute_metrics" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L500-L584" title="vaft/process/statistical_analysis.py, lines 500–584 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_metrics(results, df, target_param=&#39;tauE_s&#39;)</code></pre>
 
@@ -469,9 +514,63 @@ the shorter length, which silently misaligns rows if any were dropped.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_time_histogram"><code>confinement_time_histogram</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L699" title="vaft/process/statistical_analysis.py, line 699">source</a>
+<a class="ref-source" data-source="confinement_time_histogram" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L699-L748" title="vaft/process/statistical_analysis.py, lines 699–748 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_time_histogram(df, eng_params=None, m=None, n=None, figsize=None, bins=30, alpha=0.7, edgecolor=&#39;black&#39;, **kwargs)</code></pre>
+    <details class="ref-code" data-source-code="confinement_time_histogram"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 699–748</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_time_histogram</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">,</span>
+                               <span class="n">eng_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                               <span class="n">m</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                               <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                               <span class="n">figsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                               <span class="n">bins</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+                               <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span>
+                               <span class="n">edgecolor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">'</span><span class="s">black</span><span class="sh">'</span><span class="p">,</span>
+                               <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Plot histograms of the scaling parameters in an ``m x n`` grid.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table [-].
+    eng_params : list of str or None, optional
+        Columns to plot; ``None`` for the renderer</span><span class="sh">'</span><span class="s">s default set [-].
+    m : int or None, optional
+        Grid rows [-].
+    n : int or None, optional
+        Grid columns [-].
+    figsize : tuple of (float, float) or None, optional
+        Figure size in inches [-].
+    bins : int or str, optional
+        Histogram bins, as Matplotlib takes them [-].
+    alpha : float, optional
+        Bar opacity [-].
+    edgecolor : str, optional
+        Bar edge colour [-].
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure, as :func:`vaft.plot.history.confinement_time_histogram`
+        returns it [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Rendering lives in :func:`vaft.plot.history.confinement_time_histogram`
+    (issue #63); this is a compatibility shim that keeps the old call site
+    and pulls Matplotlib in on call.  Its removal is tracked in #263.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.plot.history</span> <span class="kn">import</span> <span class="n">confinement_time_histogram</span> <span class="k">as</span> <span class="n">_render</span>
+
+    <span class="k">return</span> <span class="nf">_render</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">eng_params</span><span class="o">=</span><span class="n">eng_params</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">,</span>
+                   <span class="n">bins</span><span class="o">=</span><span class="n">bins</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="n">edgecolor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Plot histograms of the scaling parameters in an <code class="language-plaintext highlighter-rouge">m x n</code> grid.</p>
 
@@ -523,9 +622,59 @@ and pulls Matplotlib in on call.  Its removal is tracked in #263.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#filter_dataframe"><code>filter_dataframe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L126" title="vaft/process/statistical_analysis.py, line 126">source</a>
+<a class="ref-source" data-source="filter_dataframe" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L126-L171" title="vaft/process/statistical_analysis.py, lines 126–171 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>filter_dataframe(df)</code></pre>
+    <details class="ref-code" data-source-code="filter_dataframe"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 126–171</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">filter_dataframe</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Drop shots with unrealistic loss power and rectify the toroidal field sign.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table; ``Ploss_MW`` and ``Bt_T`` are acted on when present
+        [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The filtered table [-].
+
+    Processing steps
+    ----------------
+    1. Keep rows with ``Ploss_MW &lt;= 3``.
+    2. Replace ``Bt_T`` by its absolute value.
+
+    Defaults
+    --------
+    The 3 MW ceiling is a hard-coded empirical cut from the study; its
+    derivation is not recorded.  It is not a parameter.
+
+    Convention
+    ----------
+    ``Bt_T`` is made positive regardless of the field direction actually run,
+    so the fit sees magnitude only.  Any sign convention on the field is
+    discarded here.
+
+    Applicability
+    -------------
+    VEST-specific.  The ceiling and the column names are the VEST study</span><span class="sh">'</span><span class="s">s.
+
+    Limitations
+    -----------
+    Assigns into the frame it was given (``df[</span><span class="sh">"</span><span class="s">Bt_T</span><span class="sh">"</span><span class="s">] = ...``), so the
+    caller</span><span class="sh">'</span><span class="s">s table may be modified and pandas may warn about a copy.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="sh">'</span><span class="s">Ploss_MW</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">Ploss_MW</span><span class="sh">'</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">]</span>
+
+    <span class="c1"># Ensure Bt_T is always positive
+</span>    <span class="k">if</span> <span class="sh">'</span><span class="s">Bt_T</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">Bt_T</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="sh">'</span><span class="s">Bt_T</span><span class="sh">'</span><span class="p">].</span><span class="nf">abs</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">df</span></code></pre></figure>
+
+</details>
 
     <p>Drop shots with unrealistic loss power and rectify the toroidal field sign.</p>
 
@@ -583,7 +732,7 @@ caller’s table may be modified and pandas may warn about a copy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#generate_core_profiles_history_dataframe"><code>generate_core_profiles_history_dataframe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L173" title="vaft/process/statistical_analysis.py, line 173">source</a>
+<a class="ref-source" data-source="generate_core_profiles_history_dataframe" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L173-L259" title="vaft/process/statistical_analysis.py, lines 173–259 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>generate_core_profiles_history_dataframe(max_shots=None, Z_eff=2.0)</code></pre>
 
@@ -656,9 +805,51 @@ Tracked in #263.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_correlation_matrix"><code>get_correlation_matrix</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L607" title="vaft/process/statistical_analysis.py, line 607">source</a>
+<a class="ref-source" data-source="get_correlation_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L607-L644" title="vaft/process/statistical_analysis.py, lines 607–644 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>get_correlation_matrix(log_df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
+    <details class="ref-code" data-source-code="get_correlation_matrix"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 607–644</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_correlation_matrix</span><span class="p">(</span><span class="n">log_df</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">,</span> 
+                          <span class="n">eng_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                          <span class="n">target_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">'</span><span class="s">tauE_s</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Pearson correlation matrix of the log-transformed regressors and target.
+
+    Parameters
+    ----------
+    log_df : pd.DataFrame
+        Output of :func:`log_transform` [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The correlation matrix over the available ``ln_`` columns; empty when
+        fewer than two exist [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Pairwise-complete, as ``DataFrame.corr`` is; rows are not dropped
+    consistently across pairs.
+    </span><span class="sh">"""</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="sh">'</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">eng_params</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">target_param</span><span class="si">}</span><span class="sh">'</span><span class="p">]</span>
+    <span class="n">available_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cols</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">log_df</span><span class="p">.</span><span class="n">columns</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">available_cols</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">warning</span><span class="p">(</span><span class="sh">"</span><span class="s">Not enough columns for correlation matrix</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">()</span>
+
+    <span class="n">corr_df</span> <span class="o">=</span> <span class="n">log_df</span><span class="p">[</span><span class="n">available_cols</span><span class="p">].</span><span class="nf">corr</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">corr_df</span></code></pre></figure>
+
+</details>
 
     <p>Pearson correlation matrix of the log-transformed regressors and target.</p>
 
@@ -699,9 +890,59 @@ consistently across pairs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_individual_correlations"><code>get_individual_correlations</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L647" title="vaft/process/statistical_analysis.py, line 647">source</a>
+<a class="ref-source" data-source="get_individual_correlations" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L647-L692" title="vaft/process/statistical_analysis.py, lines 647–692 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>get_individual_correlations(log_df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
+    <details class="ref-code" data-source-code="get_individual_correlations"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 647–692</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_individual_correlations</span><span class="p">(</span><span class="n">log_df</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">,</span>
+                               <span class="n">eng_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                               <span class="n">target_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">'</span><span class="s">tauE_s</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Pearson correlation of each log regressor with the log target.
+
+    Parameters
+    ----------
+    log_df : pd.DataFrame
+        Output of :func:`log_transform` [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    dict of str to float
+        Parameter name to its correlation with the target; NaN when the
+        column is missing or fewer than two complete rows exist [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">correlations</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">target_col</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">target_param</span><span class="si">}</span><span class="sh">'</span>
+
+    <span class="k">if</span> <span class="n">target_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">log_df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">warning</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Target column </span><span class="si">{</span><span class="n">target_col</span><span class="si">}</span><span class="s"> not found</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">correlations</span>
+
+    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">eng_params</span><span class="p">:</span>
+        <span class="n">param_col</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="sh">'</span>
+        <span class="k">if</span> <span class="n">param_col</span> <span class="ow">in</span> <span class="n">log_df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="c1"># Remove NaN values for correlation calculation
+</span>            <span class="n">valid_mask</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">log_df</span><span class="p">[</span><span class="n">param_col</span><span class="p">].</span><span class="nf">isna</span><span class="p">()</span> <span class="o">|</span> <span class="n">log_df</span><span class="p">[</span><span class="n">target_col</span><span class="p">].</span><span class="nf">isna</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">valid_mask</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">corr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">pearsonr</span><span class="p">(</span><span class="n">log_df</span><span class="p">[</span><span class="n">param_col</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">],</span> 
+                                  <span class="n">log_df</span><span class="p">[</span><span class="n">target_col</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">])</span>
+                <span class="n">correlations</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">corr</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">correlations</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">correlations</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span>
+
+    <span class="k">return</span> <span class="n">correlations</span></code></pre></figure>
+
+</details>
 
     <p>Pearson correlation of each log regressor with the log target.</p>
 
@@ -737,9 +978,31 @@ consistently across pairs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_residuals"><code>get_residuals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L587" title="vaft/process/statistical_analysis.py, line 587">source</a>
+<a class="ref-source" data-source="get_residuals" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L587-L604" title="vaft/process/statistical_analysis.py, lines 587–604 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>get_residuals(results)</code></pre>
+    <details class="ref-code" data-source-code="get_residuals"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 587–604</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_residuals</span><span class="p">(</span><span class="n">results</span><span class="p">:</span> <span class="n">RegressionResults</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="p">.</span><span class="n">Series</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Residuals of the log-space fit.
+
+    Parameters
+    ----------
+    results : RegressionResults
+        A fitted regression [-].
+
+    Returns
+    -------
+    pd.Series
+        ``ln(actual) - ln(fitted)`` per row used in the fit [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">results</span><span class="p">.</span><span class="n">residuals</span></code></pre></figure>
+
+</details>
 
     <p>Residuals of the log-space fit.</p>
 
@@ -771,9 +1034,49 @@ consistently across pairs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_data_from_excel"><code>load_data_from_excel</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L89" title="vaft/process/statistical_analysis.py, line 89">source</a>
+<a class="ref-source" data-source="load_data_from_excel" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L89-L124" title="vaft/process/statistical_analysis.py, lines 89–124 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>load_data_from_excel(filepath)</code></pre>
+    <details class="ref-code" data-source-code="load_data_from_excel"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 89–124</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">load_data_from_excel</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Load a confinement-scaling table from an Excel file.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the ``.xlsx`` file; one row per shot, columns as the study
+        named them [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        The table as read, untouched [-].
+
+    Raises
+    ------
+    Exception
+        Whatever ``pandas.read_excel`` raises, after logging it.
+
+    Applicability
+    -------------
+    Machine-independent.  The tables under
+    ``workflow/automatic_pipeline_3_data_summary/`` are VEST, but nothing here
+    depends on that.
+
+    Provenance
+    ----------
+    .. [1] The study notebook [NB]_.
+    </span><span class="sh">"""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_excel</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Loaded </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="si">}</span><span class="s"> rows from </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span>
+    <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Error loading Excel file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">raise</span></code></pre></figure>
+
+</details>
 
     <p>Load a confinement-scaling table from an Excel file.</p>
 
@@ -822,9 +1125,64 @@ depends on that.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#log_transform"><code>log_transform</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L262" title="vaft/process/statistical_analysis.py, line 262">source</a>
+<a class="ref-source" data-source="log_transform" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L262-L312" title="vaft/process/statistical_analysis.py, lines 262–312 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>log_transform(df, eng_params, target_param=&#39;tauE_s&#39;)</code></pre>
+    <details class="ref-code" data-source-code="log_transform"><summary>Show source <span class="ref-note">vaft/process/statistical_analysis.py, lines 262–312</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">log_transform</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">,</span> 
+                  <span class="n">eng_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> 
+                  <span class="n">target_param</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">'</span><span class="s">tauE_s</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Take natural logarithms of the engineering parameters and the target.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The scaling table [-].
+    eng_params : list of str
+        Column names of the engineering parameters [-].
+    target_param : str, optional
+        Column name of the confinement time [-].
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``ln_&lt;name&gt;`` for each parameter and the target, same index as
+        ``df``; a missing column becomes all-NaN with a warning [-].
+
+    Convention
+    ----------
+    Natural logarithm, so the fitted coefficients are the exponents of a
+    power law directly.  A value that is not strictly positive has no
+    logarithm and becomes NaN, to be dropped by :func:`perform_ols_regression`.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">log_df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">df</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="c1"># Log transform engineering parameters
+</span>    <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">eng_params</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="c1"># Handle NaN and non-positive values
+</span>            <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isnan</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">param</span><span class="p">])</span>
+            <span class="n">log_df</span><span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">param</span><span class="p">]),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="p">.</span><span class="nf">warning</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Parameter </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s"> not found in DataFrame</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">log_df</span><span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span>
+
+    <span class="c1"># Log transform target parameter
+</span>    <span class="k">if</span> <span class="n">target_param</span> <span class="ow">in</span> <span class="n">df</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">valid_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">target_param</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isnan</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">target_param</span><span class="p">])</span>
+        <span class="n">log_df</span><span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">target_param</span><span class="si">}</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">target_param</span><span class="p">]),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">warning</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Target parameter </span><span class="si">{</span><span class="n">target_param</span><span class="si">}</span><span class="s"> not found in DataFrame</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">log_df</span><span class="p">[</span><span class="sa">f</span><span class="sh">'</span><span class="s">ln_</span><span class="si">{</span><span class="n">target_param</span><span class="si">}</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span>
+
+    <span class="k">return</span> <span class="n">log_df</span></code></pre></figure>
+
+</details>
 
     <p>Take natural logarithms of the engineering parameters and the target.</p>
 
@@ -869,7 +1227,7 @@ logarithm and becomes NaN, to be dropped by <code class="language-plaintext high
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#perform_ols_regression"><code>perform_ols_regression</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/statistical_analysis.py#L315" title="vaft/process/statistical_analysis.py, line 315">source</a>
+<a class="ref-source" data-source="perform_ols_regression" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/statistical_analysis.py#L315-L403" title="vaft/process/statistical_analysis.py, lines 315–403 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>perform_ols_regression(df, eng_params, target_param=&#39;tauE_s&#39;, dropna=True)</code></pre>
 
@@ -1163,7 +1521,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

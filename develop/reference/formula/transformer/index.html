@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -373,9 +373,73 @@ $V_B$ turns a ramp-up into a ramp-down.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_weighted_flux_from_psi_j_dS"><code>current_weighted_flux_from_psi_j_dS</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L324" title="vaft/formula/transformer.py, line 324">source</a>
+<a class="ref-source" data-source="current_weighted_flux_from_psi_j_dS" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L324-L383" title="vaft/formula/transformer.py, lines 324–383 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>current_weighted_flux_from_psi_j_dS(psi_Wb, j_phi_A_m2, dS_m2)</code></pre>
+    <details class="ref-code" data-source-code="current_weighted_flux_from_psi_j_dS"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 324–383</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">current_weighted_flux_from_psi_j_dS</span><span class="p">(</span><span class="n">psi_Wb</span><span class="p">,</span> <span class="n">j_phi_A_m2</span><span class="p">,</span> <span class="n">dS_m2</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Current-weighted average of the poloidal flux over the plasma cross-section.
+
+    $$\psi_C = \frac{\int_\Omega \psi\,j_\phi\,dS}{\int_\Omega j_\phi\,dS}$$
+
+    Parameters
+    ----------
+    psi_Wb : array_like
+        Poloidal flux at each cell inside the boundary, full flux in Romero</span><span class="sh">'</span><span class="s">s
+        sign, finite [Wb].
+    j_phi_A_m2 : array_like
+        Toroidal current density at the same cells, finite [A m^-2].
+    dS_m2 : array_like
+        Poloidal cross-section area of each cell, finite and non-negative;
+        broadcast against the other two [m^2].
+
+    Returns
+    -------
+    float
+        $\psi_C$ [Wb].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a negative cell area, arrays that do not
+        broadcast, or a net enclosed current of zero.
+
+    Convention
+    ----------
+    **The cells must be the plasma, not the grid.**  Cells outside the
+    boundary carry vessel or coil current in a free-boundary solution and
+    would pull $\psi_C$ toward the wall; mask them out, or pass
+    $dS = 0$ for them.  The quadrature is the plain cell sum -- the caller
+    chooses the cells, which is the one approximation this makes.
+
+    $V_C = -\dot\psi_C$ is the voltage the other functions here take; the
+    time derivative is the process layer</span><span class="sh">'</span><span class="s">s.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (34).
+
+    See Also
+    --------
+    internal_inductance_from_psi_C_psi_B_I_p
+    </span><span class="sh">"""</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">psi_Wb</span><span class="sh">"</span><span class="p">,</span> <span class="n">psi_Wb</span><span class="p">)</span>
+    <span class="n">current_density</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">j_phi_A_m2</span><span class="sh">"</span><span class="p">,</span> <span class="n">j_phi_A_m2</span><span class="p">)</span>
+    <span class="n">area</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">dS_m2</span><span class="sh">"</span><span class="p">,</span> <span class="n">dS_m2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">area</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">dS_m2 must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">psi</span><span class="p">,</span> <span class="n">current_density</span><span class="p">,</span> <span class="n">area</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">current_density</span><span class="p">,</span> <span class="n">area</span><span class="p">)</span>
+    <span class="k">except</span> <span class="nb">ValueError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">psi_Wb, j_phi_A_m2 and dS_m2 do not broadcast</span><span class="sh">"</span><span class="p">)</span> <span class="k">from</span> <span class="bp">None</span>
+    <span class="n">enclosed</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">current_density</span> <span class="o">*</span> <span class="n">area</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">enclosed</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the cells enclose no net current; psi_C is undefined</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">psi</span> <span class="o">*</span> <span class="n">current_density</span> <span class="o">*</span> <span class="n">area</span><span class="p">))</span> <span class="o">/</span> <span class="n">enclosed</span></code></pre></figure>
+
+</details>
 
     <p>Current-weighted average of the poloidal flux over the plasma cross-section.</p>
 
@@ -442,9 +506,60 @@ time derivative is the process layer’s.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#equilibrium_surface_voltage_from_I_p_dL_i_V_R"><code>equilibrium_surface_voltage_from_I_p_dL_i_V_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L223" title="vaft/formula/transformer.py, line 223">source</a>
+<a class="ref-source" data-source="equilibrium_surface_voltage_from_I_p_dL_i_V_R" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L223-L269" title="vaft/formula/transformer.py, lines 223–269 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>equilibrium_surface_voltage_from_I_p_dL_i_V_R(I_p_A, dL_i_dt_H_s, V_R_V)</code></pre>
+    <details class="ref-code" data-source-code="equilibrium_surface_voltage_from_I_p_dL_i_V_R"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 223–269</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">equilibrium_surface_voltage_from_I_p_dL_i_V_R</span><span class="p">(</span><span class="n">I_p_A</span><span class="p">,</span> <span class="n">dL_i_dt_H_s</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Voltage at the equilibrium flux surface, inferred from the inductance history.
+
+    $$V_C^{(L)} = V_R - \frac{I_p}{2}\,\dot L_i$$
+
+    Parameters
+    ----------
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    dL_i_dt_H_s : float or np.ndarray
+        Rate of change of the internal inductance, finite [H/s].
+    V_R_V : float or np.ndarray
+        Resistive voltage, finite [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        $V_C$ [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    Romero</span><span class="sh">'</span><span class="s">s eq. (39) solved for $V_C$.  This and
+    :func:`equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R` read the same
+    $V_C$ off two different measured histories, and a third route is
+    $-\dot\psi_C$ from the equilibria; their disagreement is #781</span><span class="sh">'</span><span class="s">s first
+    validation target, and it lands on whichever input is worst -- usually
+    $R_p$, which enters both.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (39).
+
+    See Also
+    --------
+    equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R
+    current_weighted_flux_from_psi_j_dS
+    </span><span class="sh">"""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_R_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">I_p_A</span><span class="sh">"</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">dL_i_dt_H_s</span><span class="sh">"</span><span class="p">,</span> <span class="n">dL_i_dt_H_s</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">,</span> <span class="n">dL_i_dt_H_s</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Voltage at the equilibrium flux surface, inferred from the inductance history.</p>
 
@@ -510,9 +625,63 @@ current_weighted_flux_from_psi_j_dS</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R"><code>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L272" title="vaft/formula/transformer.py, line 272">source</a>
+<a class="ref-source" data-source="equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L272-L321" title="vaft/formula/transformer.py, lines 272–321 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R(L_i_H, dI_p_dt_A_s, V_B_V, V_R_V)</code></pre>
+    <details class="ref-code" data-source-code="equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 272–321</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</span><span class="p">(</span><span class="n">L_i_H</span><span class="p">,</span> <span class="n">dI_p_dt_A_s</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Voltage at the equilibrium flux surface, inferred from the current history.
+
+    $$V_C^{(I)} = L_i\,\dot I_p - V_B + 2V_R$$
+
+    Parameters
+    ----------
+    L_i_H : float or np.ndarray
+        Dimensional internal inductance, finite and non-negative [H].
+    dI_p_dt_A_s : float or np.ndarray
+        Rate of change of the plasma current, finite [A/s].
+    V_B_V : float or np.ndarray
+        Boundary loop voltage, finite [V].
+    V_R_V : float or np.ndarray
+        Resistive voltage, finite [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        $V_C$ [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a negative internal inductance.
+
+    Convention
+    ----------
+    Romero</span><span class="sh">'</span><span class="s">s eq. (40) solved for $V_C$; see
+    :func:`equilibrium_surface_voltage_from_I_p_dL_i_V_R` for the other
+    route and what their difference measures.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (40).
+
+    See Also
+    --------
+    equilibrium_surface_voltage_from_I_p_dL_i_V_R
+    </span><span class="sh">"""</span>
+    <span class="n">inductance</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">L_i_H</span><span class="sh">"</span><span class="p">,</span> <span class="n">L_i_H</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">inductance</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">L_i_H must be non-negative; got </span><span class="si">{</span><span class="n">L_i_H</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">inductance</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">dI_p_dt_A_s</span><span class="sh">"</span><span class="p">,</span> <span class="n">dI_p_dt_A_s</span><span class="p">)</span>
+        <span class="o">-</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_B_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">)</span>
+        <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_R_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">L_i_H</span><span class="p">,</span> <span class="n">dI_p_dt_A_s</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Voltage at the equilibrium flux surface, inferred from the current history.</p>
 
@@ -576,9 +745,67 @@ route and what their difference measures.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#internal_inductance_from_psi_C_psi_B_I_p"><code>internal_inductance_from_psi_C_psi_B_I_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L386" title="vaft/formula/transformer.py, line 386">source</a>
+<a class="ref-source" data-source="internal_inductance_from_psi_C_psi_B_I_p" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L386-L439" title="vaft/formula/transformer.py, lines 386–439 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>internal_inductance_from_psi_C_psi_B_I_p(psi_C_Wb, psi_B_Wb, I_p_A)</code></pre>
+    <details class="ref-code" data-source-code="internal_inductance_from_psi_C_psi_B_I_p"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 386–439</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">internal_inductance_from_psi_C_psi_B_I_p</span><span class="p">(</span><span class="n">psi_C_Wb</span><span class="p">,</span> <span class="n">psi_B_Wb</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Dimensional internal inductance from the equilibrium and boundary fluxes.
+
+    $$L_i = \frac{\psi_C - \psi_B}{I_p}$$
+
+    Parameters
+    ----------
+    psi_C_Wb : float or np.ndarray
+        Current-weighted flux average, Romero</span><span class="sh">'</span><span class="s">s sign, finite [Wb].
+    psi_B_Wb : float or np.ndarray
+        Boundary flux, same convention, finite [Wb].
+    I_p_A : float or np.ndarray
+        Plasma current, finite and non-zero [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Internal inductance [H].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a zero current, or a negative result -- which
+        means the flux is in a convention opposite to Romero</span><span class="sh">'</span><span class="s">s.
+
+    Convention
+    ----------
+    **Exact, and a sign check on the flux convention.**  With
+    $W_{p,\mathrm{int}} = \tfrac12(\psi_C - \psi_B) I_p$ this is
+    $2W_{p,\mathrm{int}}/I_p^2$, the same $L_i$ as
+    :func:`vaft.formula.equilibrium.internal_inductance_from_W_int_Ip`, so it
+    is positive for any current profile.  A negative value is therefore not a
+    physical answer but an inverted $\psi$ -- a COCOS whose flux grows
+    outward for positive current -- and is refused rather than returned.  A
+    per-radian flux is $2\pi$ too small and passes that check: convert it
+    before calling.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (35)-(36).
+
+    See Also
+    --------
+    current_weighted_flux_from_psi_j_dS
+    </span><span class="sh">"""</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="nf">_nonzero</span><span class="p">(</span><span class="sh">"</span><span class="s">I_p_A</span><span class="sh">"</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">)</span>
+    <span class="n">inductance</span> <span class="o">=</span> <span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">psi_C_Wb</span><span class="sh">"</span><span class="p">,</span> <span class="n">psi_C_Wb</span><span class="p">)</span> <span class="o">-</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">psi_B_Wb</span><span class="sh">"</span><span class="p">,</span> <span class="n">psi_B_Wb</span><span class="p">))</span> <span class="o">/</span> <span class="n">current</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">inductance</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">psi_C - psi_B has the opposite sign to I_p, so L_i would be negative: </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">the flux is not in Romero</span><span class="sh">'</span><span class="s">s convention (negate it, or check its COCOS)</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">inductance</span><span class="p">,</span> <span class="n">psi_C_Wb</span><span class="p">,</span> <span class="n">psi_B_Wb</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Dimensional internal inductance from the equilibrium and boundary fluxes.</p>
 
@@ -646,9 +873,56 @@ before calling.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#internal_inductance_rate_from_I_p_V_R_V_C"><code>internal_inductance_rate_from_I_p_V_R_V_C</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L126" title="vaft/formula/transformer.py, line 126">source</a>
+<a class="ref-source" data-source="internal_inductance_rate_from_I_p_V_R_V_C" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L126-L168" title="vaft/formula/transformer.py, lines 126–168 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>internal_inductance_rate_from_I_p_V_R_V_C(I_p_A, V_R_V, V_C_V)</code></pre>
+    <details class="ref-code" data-source-code="internal_inductance_rate_from_I_p_V_R_V_C"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 126–168</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">internal_inductance_rate_from_I_p_V_R_V_C</span><span class="p">(</span><span class="n">I_p_A</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate of change of the internal inductance, Romero</span><span class="sh">'</span><span class="s">s exact balance.
+
+    $$\dot L_i = \frac{2\,(V_R - V_C)}{I_p}$$
+
+    Parameters
+    ----------
+    I_p_A : float or np.ndarray
+        Plasma current, finite and non-zero [A].
+    V_R_V : float or np.ndarray
+        Resistive voltage, finite [V].
+    V_C_V : float or np.ndarray
+        Voltage at the equilibrium flux surface, finite [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\mathrm{d}L_i/\mathrm{d}t$ [H/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a zero plasma current.
+
+    Convention
+    ----------
+    Romero</span><span class="sh">'</span><span class="s">s signs, as in the module docstring.  Exact: no current-profile
+    model enters.  $L_i$ is steady exactly when $V_C = V_R$, and the full
+    steady state is $V_C = V_R = V_B$, a flat loop-voltage profile.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (39).
+
+    See Also
+    --------
+    plasma_current_rate_from_L_i_V_B_V_C_V_R
+    equilibrium_surface_voltage_from_I_p_dL_i_V_R
+    </span><span class="sh">"""</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="nf">_nonzero</span><span class="p">(</span><span class="sh">"</span><span class="s">I_p_A</span><span class="sh">"</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">)</span>
+    <span class="n">rate</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_R_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span> <span class="o">-</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_C_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">))</span> <span class="o">/</span> <span class="n">current</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">rate</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Rate of change of the internal inductance, Romero’s exact balance.</p>
 
@@ -711,9 +985,63 @@ equilibrium_surface_voltage_from_I_p_dL_i_V_R</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_current_rate_from_L_i_V_B_V_C_V_R"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L171" title="vaft/formula/transformer.py, line 171">source</a>
+<a class="ref-source" data-source="plasma_current_rate_from_L_i_V_B_V_C_V_R" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L171-L220" title="vaft/formula/transformer.py, lines 171–220 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_current_rate_from_L_i_V_B_V_C_V_R(L_i_H, V_B_V, V_C_V, V_R_V)</code></pre>
+    <details class="ref-code" data-source-code="plasma_current_rate_from_L_i_V_B_V_C_V_R"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 171–220</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">plasma_current_rate_from_L_i_V_B_V_C_V_R</span><span class="p">(</span><span class="n">L_i_H</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate of change of the plasma current, Romero</span><span class="sh">'</span><span class="s">s exact balance.
+
+    $$\dot I_p = \frac{V_B + V_C - 2V_R}{L_i}$$
+
+    Parameters
+    ----------
+    L_i_H : float or np.ndarray
+        Dimensional internal inductance, finite and positive [H].
+    V_B_V : float or np.ndarray
+        Boundary loop voltage, finite [V].
+    V_C_V : float or np.ndarray
+        Voltage at the equilibrium flux surface, finite [V].
+    V_R_V : float or np.ndarray
+        Resistive voltage, finite [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\mathrm{d}I_p/\mathrm{d}t$ [A/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a non-positive internal inductance.
+
+    Convention
+    ----------
+    Romero</span><span class="sh">'</span><span class="s">s signs.  Together with
+    :func:`internal_inductance_rate_from_I_p_V_R_V_C` it gives
+    $L_i\dot I_p + \tfrac12 I_p\dot L_i = V_B - V_R$, the energy balance of
+    the internal field, without assuming how $L_i$ evolves.  Only the
+    internal inductance appears: the external one and the coils are inside
+    $V_B$.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (40).
+
+    See Also
+    --------
+    internal_inductance_rate_from_I_p_V_R_V_C
+    equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R
+    </span><span class="sh">"""</span>
+    <span class="n">inductance</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">L_i_H</span><span class="sh">"</span><span class="p">,</span> <span class="n">L_i_H</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">inductance</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">L_i_H must be positive; got </span><span class="si">{</span><span class="n">L_i_H</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">drive</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_B_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">)</span> <span class="o">+</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_C_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">)</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">V_R_V</span><span class="sh">"</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">drive</span> <span class="o">/</span> <span class="n">inductance</span><span class="p">,</span> <span class="n">L_i_H</span><span class="p">,</span> <span class="n">V_B_V</span><span class="p">,</span> <span class="n">V_C_V</span><span class="p">,</span> <span class="n">V_R_V</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Rate of change of the plasma current, Romero’s exact balance.</p>
 
@@ -781,9 +1109,63 @@ equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resistive_voltage_from_R_p_I_p_I_ni"><code>resistive_voltage_from_R_p_I_p_I_ni</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L74" title="vaft/formula/transformer.py, line 74">source</a>
+<a class="ref-source" data-source="resistive_voltage_from_R_p_I_p_I_ni" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L74-L123" title="vaft/formula/transformer.py, lines 74–123 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>resistive_voltage_from_R_p_I_p_I_ni(R_p_ohm, I_p_A, I_ni_A)</code></pre>
+    <details class="ref-code" data-source-code="resistive_voltage_from_R_p_I_p_I_ni"><summary>Show source <span class="ref-note">vaft/formula/transformer.py, lines 74–123</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">resistive_voltage_from_R_p_I_p_I_ni</span><span class="p">(</span><span class="n">R_p_ohm</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">,</span> <span class="n">I_ni_A</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Resistive voltage of the plasma, net of non-inductive current drive.
+
+    $$V_R = R_p\,(I_p - \hat I)$$
+
+    Parameters
+    ----------
+    R_p_ohm : float or np.ndarray
+        Plasma resistance, finite and non-negative [Ohm].
+    I_p_A : float or np.ndarray
+        Plasma current, finite [A].
+    I_ni_A : float or np.ndarray
+        Non-inductively driven current, finite; ``0`` asserts a purely
+        Ohmic plasma [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resistive voltage [V].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a negative resistance.
+
+    Convention
+    ----------
+    **``I_ni_A`` has no default on purpose.**  $\hat I = 0$ is a statement
+    that nothing but the transformer drives current, true of a pure-Ohmic
+    VEST discharge and false with EC, NBI or helicity injection; a caller
+    must make it.  $R_p$ and $\hat I$ are Romero</span><span class="sh">'</span><span class="s">s resistance-weighted
+    definitions, $\int\eta j^2 dS/I_p^2$ and $\int\eta j\hat j dS/\int\eta j^2
+    dS\cdot I_p$, which are what make $I_p V_R$ the dissipated power; a
+    Spitzer ring resistance is an estimate of the first.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (17)-(21).
+
+    See Also
+    --------
+    vaft.formula.startup.plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa
+    </span><span class="sh">"""</span>
+    <span class="n">resistance</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">R_p_ohm</span><span class="sh">"</span><span class="p">,</span> <span class="n">R_p_ohm</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">resistance</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">R_p_ohm must be non-negative; got </span><span class="si">{</span><span class="n">R_p_ohm</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">I_p_A</span><span class="sh">"</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">)</span>
+    <span class="n">driven</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="sh">"</span><span class="s">I_ni_A</span><span class="sh">"</span><span class="p">,</span> <span class="n">I_ni_A</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">resistance</span> <span class="o">*</span> <span class="p">(</span><span class="n">current</span> <span class="o">-</span> <span class="n">driven</span><span class="p">),</span> <span class="n">R_p_ohm</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">,</span> <span class="n">I_ni_A</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Resistive voltage of the plasma, net of non-inductive current drive.</p>
 
@@ -849,7 +1231,7 @@ Spitzer ring resistance is an estimate of the first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau"><code>romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/transformer.py#L442" title="vaft/formula/transformer.py, line 442">source</a>
+<a class="ref-source" data-source="romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/transformer.py#L442-L535" title="vaft/formula/transformer.py, lines 442–535 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(I_p_A, L_i_H, V_CB_V, V_B_V, V_R_V, k, tau_s)</code></pre>
 
@@ -1164,7 +1546,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -341,7 +341,7 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fractional_abundances"><code>fractional_abundances</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L142" title="vaft/formula/atomic.py, line 142">source</a>
+<a class="ref-source" data-source="fractional_abundances" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L142-L225" title="vaft/formula/atomic.py, lines 142–225 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></pre>
 
@@ -421,9 +421,65 @@ models with an impurity transport solve).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hydrogenic_energy_level"><code>hydrogenic_energy_level</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L540" title="vaft/formula/atomic.py, line 540">source</a>
+<a class="ref-source" data-source="hydrogenic_energy_level" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L540-L591" title="vaft/formula/atomic.py, lines 540–591 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>hydrogenic_energy_level(n, Z=1, mass_number=None)</code></pre>
+    <details class="ref-code" data-source-code="hydrogenic_energy_level"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 540–591</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hydrogenic_energy_level</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.
+
+    $$E_n = -\frac{\mu}{m_e}\,\frac{Z^2}{n^2}\,R_\infty hc,\qquad
+      R_\infty hc = \frac{m_ee^4}{8\varepsilon_0^2h^2}\approx 13.606\ \mathrm{eV}$$
+
+    Parameters
+    ----------
+    n : int or np.ndarray
+        Principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion (1 for H I, 2 for He II) [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T (the reduced mass $\mu = m_eM/(m_e + M)$), only with
+        ``Z = 1``; ``None`` for an infinitely heavy nucleus [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $E_n$, negative, from the ionisation limit [eV].
+
+    Raises
+    ------
+    ValueError
+        ``n`` below one, ``Z`` below one, an unknown ``mass_number``, or a
+        ``mass_number`` with ``Z &gt; 1``.
+
+    Assumptions
+    -----------
+    Non-relativistic Bohr/Schroedinger levels of a one-electron ion: no fine
+    structure, Lamb shift or hyperfine splitting (H-alpha</span><span class="sh">'</span><span class="s">s fine structure
+    spans about 0.016 nm). Not a stand-in for many-electron levels, which need
+    atomic data (ADF04).
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">.constants</span> <span class="kn">import</span> <span class="n">EPS0</span><span class="p">,</span> <span class="n">H_PLANCK</span><span class="p">,</span> <span class="n">ME</span><span class="p">,</span> <span class="n">QE</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n</span> <span class="o">!=</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">n</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n must be a positive integer</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">int</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span> <span class="o">!=</span> <span class="n">Z</span> <span class="ow">or</span> <span class="n">Z</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Z must be a positive integer, not </span><span class="si">{</span><span class="n">Z</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mass_number</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">Z</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">mass_number names a hydrogen isotope (H, D, T): it cannot give the nuclear mass of a </span><span class="sh">"</span>
+                         <span class="sa">f</span><span class="sh">"</span><span class="s">Z = </span><span class="si">{</span><span class="n">Z</span><span class="si">}</span><span class="s"> ion; pass None (infinite nuclear mass)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">rydberg_eV</span> <span class="o">=</span> <span class="n">ME</span> <span class="o">*</span> <span class="n">QE</span><span class="o">**</span><span class="mi">4</span> <span class="o">/</span> <span class="p">(</span><span class="mf">8.0</span> <span class="o">*</span> <span class="n">EPS0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">H_PLANCK</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">QE</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="o">-</span><span class="nf">_reduced_mass_factor</span><span class="p">(</span><span class="n">mass_number</span><span class="p">)</span> <span class="o">*</span> <span class="n">rydberg_eV</span> <span class="o">*</span> <span class="n">Z</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">n</span><span class="o">**</span><span class="mi">2</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">out</span></code></pre></figure>
+
+</details>
 
     <p>Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.</p>
 
@@ -480,9 +536,62 @@ atomic data (ADF04).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hydrogenic_transition_wavelength"><code>hydrogenic_transition_wavelength</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L594" title="vaft/formula/atomic.py, line 594">source</a>
+<a class="ref-source" data-source="hydrogenic_transition_wavelength" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L594-L642" title="vaft/formula/atomic.py, lines 594–642 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>hydrogenic_transition_wavelength(n_upper, n_lower, Z=1, mass_number=None)</code></pre>
+    <details class="ref-code" data-source-code="hydrogenic_transition_wavelength"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 594–642</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hydrogenic_transition_wavelength</span><span class="p">(</span><span class="n">n_upper</span><span class="p">,</span> <span class="n">n_lower</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).
+
+    $$\frac{1}{\lambda} = \frac{\mu}{m_e}R_\infty Z^2\left(\frac{1}{n_l^2} - \frac{1}{n_u^2}\right),\qquad
+      R_\infty = \frac{m_ee^4}{8\varepsilon_0^2h^3c}$$
+
+    Parameters
+    ----------
+    n_upper : int or np.ndarray
+        Upper principal quantum number, above ``n_lower`` [-].
+    n_lower : int
+        Lower principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T; ``None`` for infinite nuclear mass [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Vacuum wavelength [m].
+
+    Raises
+    ------
+    ValueError
+        ``n_upper &lt;= n_lower`` or an argument of ``hydrogenic_energy_level`` is invalid.
+
+    Convention
+    ----------
+    **Vacuum** wavelength. Tabulated visible lines are usually quoted in air
+    (H-alpha 656.28 nm air, 656.47 nm vacuum): the difference is the
+    refractive index of air, about $2.8\times10^{-4}$. The series of the
+    fusion-diagnostic names is Balmer: alpha is $3 \to 2$, beta $4 \to 2$.
+    The isotope shift from the reduced mass (D-alpha about 0.18 nm below
+    H-alpha) is what separates H and D lines.
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">.constants</span> <span class="kn">import</span> <span class="n">C_LIGHT</span><span class="p">,</span> <span class="n">H_PLANCK</span><span class="p">,</span> <span class="n">QE</span>
+
+    <span class="n">n_upper</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_upper</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n_upper</span> <span class="o">&lt;=</span> <span class="n">n_lower</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_upper must exceed n_lower</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">delta_eV</span> <span class="o">=</span> <span class="nf">hydrogenic_energy_level</span><span class="p">(</span><span class="n">n_upper</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">mass_number</span><span class="p">)</span> <span class="o">-</span> <span class="nf">hydrogenic_energy_level</span><span class="p">(</span><span class="n">n_lower</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">mass_number</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">H_PLANCK</span> <span class="o">*</span> <span class="n">C_LIGHT</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta_eV</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">out</span></code></pre></figure>
+
+</details>
 
     <p>Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).</p>
 
@@ -546,9 +655,74 @@ H-alpha) is what separates H and D lines.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L459" title="vaft/formula/atomic.py, line 459">source</a>
+<a class="ref-source" data-source="impurity_fraction_from_effective_charge" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L459-L519" title="vaft/formula/atomic.py, lines 459–519 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>impurity_fraction_from_effective_charge(z_eff, z_impurity)</code></pre>
+    <details class="ref-code" data-source-code="impurity_fraction_from_effective_charge"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 459–519</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">impurity_fraction_from_effective_charge</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">z_impurity</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Impurity-to-electron density ratio that produces a given effective charge.
+
+    $$\frac{n_I}{n_e} = \frac{Z_{\mathrm{eff}} - 1}{Z_I\,(Z_I - 1)}$$
+
+    the inverse of :func:`z_eff_from_n_s_Z_s` for one fully ionised impurity of
+    charge $Z_I$ in a hydrogenic main ion.
+
+    Parameters
+    ----------
+    z_eff : float or array-like
+        Effective charge, within $[1, Z_I]$ [-].
+    z_impurity : float
+        Impurity charge $Z_I$, greater than one [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_I/n_e$, of the shape of ``z_eff``; the main-ion fraction is
+        $n_H/n_e = 1 - Z_I\,n_I/n_e$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``z_impurity`` not greater than one, or ``z_eff`` non-finite or
+        outside $[1, Z_I]$, where no non-negative density pair exists.
+
+    Assumptions
+    -----------
+    Quasi-neutrality $n_e = n_H + Z_I n_I$ and exactly two ion species: a
+    hydrogenic main ion ($Z = 1$, any isotope) and one impurity in a single
+    charge state.  Those two conditions and the definition
+    $Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I$ fix both fractions.
+
+    Limitations
+    -----------
+    One impurity only: a measured $Z_{\mathrm{eff}}$ does not determine a
+    mixture, so the answer is the fraction of the named impurity that would
+    alone account for it.  At $Z_{\mathrm{eff}} = 2$ that is $1/30$ for
+    carbon but $1/5402$ for fully stripped tungsten.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (collisions, resistivity and the effective charge).
+
+    See Also
+    --------
+    z_eff_from_n_s_Z_s
+    </span><span class="sh">"""</span>
+    <span class="n">charge</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">z_impurity</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">charge</span><span class="p">)</span> <span class="ow">or</span> <span class="n">charge</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">an impurity needs Z &gt; 1; got </span><span class="si">{</span><span class="n">z_impurity</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">target</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">target</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">target</span> <span class="o">&gt;</span> <span class="n">charge</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">Z_eff = </span><span class="si">{</span><span class="n">z_eff</span><span class="si">!r}</span><span class="s"> is unreachable with a Z = </span><span class="si">{</span><span class="n">charge</span><span class="si">:</span><span class="n">g</span><span class="si">}</span><span class="s"> impurity in </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">hydrogen: it must lie between 1 (no impurity) and </span><span class="si">{</span><span class="n">charge</span><span class="si">:</span><span class="n">g</span><span class="si">}</span><span class="s"> (no main ion)</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">fraction</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">charge</span> <span class="o">*</span> <span class="p">(</span><span class="n">charge</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">fraction</span><span class="p">)</span> <span class="k">if</span> <span class="n">fraction</span><span class="p">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">fraction</span></code></pre></figure>
+
+</details>
 
     <p>Impurity-to-electron density ratio that produces a given effective charge.</p>
 
@@ -616,7 +790,7 @@ carbon but $1/5402$ for fully stripped tungsten.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#interpolate_adf11"><code>interpolate_adf11</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L54" title="vaft/formula/atomic.py, line 54">source</a>
+<a class="ref-source" data-source="interpolate_adf11" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L54-L139" title="vaft/formula/atomic.py, lines 54–139 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></pre>
 
@@ -700,7 +874,7 @@ physical and are not flagged.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L240" title="vaft/formula/atomic.py, line 240">source</a>
+<a class="ref-source" data-source="line_cooling_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L240-L322" title="vaft/formula/atomic.py, lines 240–322 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></pre>
 
@@ -779,9 +953,70 @@ continuum (that is the separate PRB class).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L325" title="vaft/formula/atomic.py, line 325">source</a>
+<a class="ref-source" data-source="mean_charge_from_charge_state_densities" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L325-L381" title="vaft/formula/atomic.py, lines 325–381 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>mean_charge_from_charge_state_densities(n_z, axis=-1)</code></pre>
+    <details class="ref-code" data-source-code="mean_charge_from_charge_state_densities"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 325–381</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_charge_from_charge_state_densities</span><span class="p">(</span><span class="n">n_z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mean charge of one element over its charge states.
+
+    $$\langle Z\rangle = \sum_j j\,f_j = \frac{\sum_j j\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, the layout
+    :func:`fractional_abundances` returns -- so its output can be passed
+    straight in, and densities need not be normalised first because the
+    fractions $f_j$ are formed here.  Spectroscopic notation counts from one
+    (C I is neutral carbon); pass charge, not ionisation stage, or every value
+    comes out one high.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    </span><span class="sh">"""</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">density</span><span class="p">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_z needs at least one charge state along axis</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">density</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">density</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_z must be finite and non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">total</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a charge-state distribution with zero total density has no mean charge</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">density</span><span class="p">.</span><span class="n">ndim</span>
+    <span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+    <span class="n">charge</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">charge</span> <span class="o">*</span> <span class="n">density</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span> <span class="o">/</span> <span class="n">total</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">mean</span></code></pre></figure>
+
+</details>
 
     <p>Mean charge of one element over its charge states.</p>
 
@@ -846,9 +1081,86 @@ z_eff_from_n_s_Z_s</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/atomic.py#L384" title="vaft/formula/atomic.py, line 384">source</a>
+<a class="ref-source" data-source="z_eff_from_n_s_Z_s" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/atomic.py#L384-L456" title="vaft/formula/atomic.py, lines 384–456 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None)</code></pre>
+    <details class="ref-code" data-source-code="z_eff_from_n_s_Z_s"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 384–456</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">z_eff_from_n_s_Z_s</span><span class="p">(</span><span class="n">n_s</span><span class="p">,</span> <span class="n">Z_s</span><span class="p">,</span> <span class="n">n_e</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Effective charge of a mixture of ion species.
+
+    $$Z_{\mathrm{eff}} = \frac{\sum_s n_s Z_s^2}{n_e}, \qquad
+      n_e = \sum_s n_s Z_s\ \text{when not given}$$
+
+    Parameters
+    ----------
+    n_s : array-like
+        Density of each ion species or charge state, finite and non-negative;
+        the last axis runs over species [m^-3].
+    Z_s : array-like
+        Charge of each, broadcastable against ``n_s``, finite and non-negative
+        [-].
+    n_e : float or array-like, optional
+        Electron density, finite and positive; default the quasi-neutral
+        $\sum_s n_s Z_s$ [m^-3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective charge, with the species axis removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or charge, a non-positive electron
+        density, or a quasi-neutral electron density of zero.
+
+    Convention
+    ----------
+    **Pass the electron density only when it is measured independently.**  The
+    default makes the plasma quasi-neutral by construction, and then a pure
+    hydrogenic plasma is exactly 1 and every impurity raises it.  A measured
+    $n_e$ that disagrees with $\sum_s n_s Z_s$ is taken as given and not
+    reconciled, so a density error lands directly in $Z_{\mathrm{eff}}$.
+
+    A charge-resolved impurity is several species here, one per charge state:
+    $Z_{\mathrm{eff}}$ weights $Z^2$, so collapsing an element of density $n_I$
+    onto its mean charge first underestimates it by exactly
+    $n_I\,\mathrm{Var}(Z)/n_e$ -- the quasi-neutral $n_e$ is unchanged, since
+    it weights $Z$ only linearly.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+    </span><span class="sh">"""</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_s</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">charge</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">Z_s</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">density</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">density</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_s must be finite and non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">charge</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">charge</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Z_s must be finite and non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">density</span><span class="p">,</span> <span class="n">charge</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="n">charge</span><span class="p">)</span>
+    <span class="n">weighted</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">density</span> <span class="o">*</span> <span class="n">charge</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_e</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">electrons</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">density</span> <span class="o">*</span> <span class="n">charge</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">electrons</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+                <span class="sh">"</span><span class="s">the quasi-neutral electron density is zero; pass n_e or a charged species</span><span class="sh">"</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">electrons</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">electrons</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">electrons</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be finite and positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">z_eff</span> <span class="o">=</span> <span class="n">weighted</span> <span class="o">/</span> <span class="n">electrons</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">z_eff</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">z_eff</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">z_eff</span></code></pre></figure>
+
+</details>
 
     <p>Effective charge of a mixture of ion species.</p>
 
@@ -1136,7 +1448,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -350,7 +350,7 @@ on VEST) and passed in; this module holds no such number (issue #420).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/atomic.py#L346" title="vaft/process/atomic.py, line 346">source</a>
+<a class="ref-source" data-source="compute_line_radiation_power_series" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/atomic.py#L346-L617" title="vaft/process/atomic.py, lines 346–617 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></pre>
 
@@ -474,9 +474,58 @@ only (no equilibrium at its time) has no <code class="language-plaintext highlig
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/atomic.py#L62" title="vaft/process/atomic.py, line 62">source</a>
+<a class="ref-source" data-source="compute_time_match_atol" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/atomic.py#L62-L106" title="vaft/process/atomic.py, lines 62–106 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></pre>
+    <details class="ref-code" data-source-code="compute_time_match_atol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 62–106</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">compute_time_match_atol</span><span class="p">(</span><span class="n">time_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">base_atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_TIME_MATCH_ATOL</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">An absolute time-matching tolerance adapted to the native time spacing.
+
+    ``max(base_atol, 0.25 * min(diff(unique_finite_times)))``, which absorbs
+    floating-point drift in a time coordinate without ever matching an
+    adjacent physical slice.
+
+    Parameters
+    ----------
+    time_array : np.ndarray
+        The time coordinate to be matched against [s].
+    base_atol : float, optional
+        Floor on the tolerance [s].
+
+    Returns
+    -------
+    float
+        The tolerance; ``base_atol`` when fewer than two distinct finite times
+        exist [s].
+
+    Raises
+    ------
+    ValueError
+        ``base_atol`` non-finite or negative.
+
+    Defaults
+    --------
+    ``base_atol = 1e-6`` s and the factor ``0.25`` are numerical conveniences:
+    a quarter of the smallest spacing can never reach the neighbouring slice.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">base_atol</span><span class="p">)</span> <span class="ow">or</span> <span class="n">base_atol</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">base_atol must be finite and non-negative</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time_array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">arr</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">base_atol</span><span class="p">)</span>
+    <span class="n">positive</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">arr</span><span class="p">)))</span>
+    <span class="n">positive</span> <span class="o">=</span> <span class="n">positive</span><span class="p">[</span><span class="n">positive</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">max</span><span class="p">(</span><span class="n">base_atol</span><span class="p">,</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">min</span><span class="p">(</span><span class="n">positive</span><span class="p">))))</span> <span class="k">if</span> <span class="n">positive</span><span class="p">.</span><span class="n">size</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="n">base_atol</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>An absolute time-matching tolerance adapted to the native time spacing.</p>
 
@@ -527,9 +576,42 @@ a quarter of the smallest spacing can never reach the neighbouring slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#find_time_match_index"><code>find_time_match_index</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/atomic.py#L109" title="vaft/process/atomic.py, line 109">source</a>
+<a class="ref-source" data-source="find_time_match_index" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/atomic.py#L109-L137" title="vaft/process/atomic.py, lines 109–137 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>find_time_match_index(time_array, target_time)</code></pre>
+    <details class="ref-code" data-source-code="find_time_match_index"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 109–137</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">find_time_match_index</span><span class="p">(</span><span class="n">time_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">target_time</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Index of the time closest to ``target_time``, within the adaptive tolerance.
+
+    Parameters
+    ----------
+    time_array : np.ndarray
+        The time coordinate [s].
+    target_time : float
+        The time to match [s].
+
+    Returns
+    -------
+    int or None
+        Index of the closest time within :func:`compute_time_match_atol`;
+        ``None`` for an empty array, a non-finite target, or no candidate within
+        tolerance [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time_array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">arr</span><span class="p">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">target_time</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="n">close</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isclose</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">target_time</span><span class="p">),</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="nf">compute_time_match_atol</span><span class="p">(</span><span class="n">arr</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">close</span><span class="p">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">return</span> <span class="nf">int</span><span class="p">(</span><span class="n">close</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">close</span><span class="p">]</span> <span class="o">-</span> <span class="nf">float</span><span class="p">(</span><span class="n">target_time</span><span class="p">)))])</span></code></pre></figure>
+
+</details>
 
     <p>Index of the time closest to <code class="language-plaintext highlighter-rouge">target_time</code>, within the adaptive tolerance.</p>
 
@@ -563,9 +645,76 @@ a quarter of the smallest spacing can never reach the neighbouring slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/atomic.py#L281" title="vaft/process/atomic.py, line 281">source</a>
+<a class="ref-source" data-source="integrate_emissivity_profile" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/atomic.py#L281-L343" title="vaft/process/atomic.py, lines 281–343 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></pre>
+    <details class="ref-code" data-source-code="integrate_emissivity_profile"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 281–343</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">integrate_emissivity_profile</span><span class="p">(</span>
+    <span class="n">emissivity_profile</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">volume_profile</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">total_volume</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Integrate an emissivity profile to a total radiated power.
+
+    Parameters
+    ----------
+    emissivity_profile : np.ndarray
+        Local emissivity on the radial grid [W/m^3].
+    volume_profile : np.ndarray or None
+        Cumulative enclosed volume on the same grid, or ``None`` [m^3].
+    total_volume : float
+        Total plasma volume, for the fallback [m^3].
+
+    Returns
+    -------
+    float
+        ``P = int epsilon dV``, or the fallback, or ``0`` [W].
+
+    Processing steps
+    ----------------
+    1. If ``volume_profile`` is given, matches the emissivity</span><span class="sh">'</span><span class="s">s shape and has at
+       least two finite points spanning a non-zero volume: trapezoidal
+       integration of ``epsilon`` against ``V``, in volume order.
+    2. Else, if ``total_volume`` is finite and positive:
+       ``nanmean(epsilon) * total_volume``.
+    3. Else ``0``.
+
+    Convention
+    ----------
+    ``volume_profile`` is the *cumulative enclosed* volume ``V(rho)``, so
+    ``dV`` is its difference; it is not a shell volume.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The two fallbacks are silent: a volume profile of the wrong length drops to
+    the mean-times-volume estimate, and a missing volume to zero, with no
+    warning from this function.
+    </span><span class="sh">"""</span>
+
+    <span class="n">emissivity</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">emissivity_profile</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">finite_emissivity</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">emissivity</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">finite_emissivity</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="k">if</span> <span class="n">volume_profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">volume</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">volume_profile</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">volume</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">emissivity</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">finite</span> <span class="o">=</span> <span class="n">finite_emissivity</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">volume</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">count_nonzero</span><span class="p">(</span><span class="n">finite</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">volume_finite</span><span class="p">,</span> <span class="n">emissivity_finite</span> <span class="o">=</span> <span class="n">volume</span><span class="p">[</span><span class="n">finite</span><span class="p">],</span> <span class="n">emissivity</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span>
+                <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argsort</span><span class="p">(</span><span class="n">volume_finite</span><span class="p">)</span>
+                <span class="n">volume_finite</span><span class="p">,</span> <span class="n">emissivity_finite</span> <span class="o">=</span> <span class="n">volume_finite</span><span class="p">[</span><span class="n">order</span><span class="p">],</span> <span class="n">emissivity_finite</span><span class="p">[</span><span class="n">order</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ptp</span><span class="p">(</span><span class="n">volume_finite</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">trapz_compat</span><span class="p">(</span><span class="n">emissivity_finite</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">volume_finite</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">total_volume</span><span class="p">)</span> <span class="ow">and</span> <span class="n">total_volume</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">nanmean</span><span class="p">(</span><span class="n">emissivity</span><span class="p">[</span><span class="n">finite_emissivity</span><span class="p">])</span> <span class="o">*</span> <span class="n">total_volume</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">0.0</span></code></pre></figure>
+
+</details>
 
     <p>Integrate an emissivity profile to a total radiated power.</p>
 
@@ -626,9 +775,54 @@ warning from this function.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/atomic.py#L140" title="vaft/process/atomic.py, line 140">source</a>
+<a class="ref-source" data-source="normalize_atomic_symbol" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/atomic.py#L140-L180" title="vaft/process/atomic.py, lines 140–180 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_atomic_symbol(label)</code></pre>
+    <details class="ref-code" data-source-code="normalize_atomic_symbol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 140–180</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalize_atomic_symbol</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Normalize an element or ion label to a supported atomic symbol.
+
+    Full English names and charge-decorated labels are accepted --
+    ``carbon6+`` gives ``C``, ``neon`` gives ``Ne``.
+
+    Parameters
+    ----------
+    label : str, bytes or None
+        The label as found in an ODS ``ion.label`` or a species list [-].
+
+    Returns
+    -------
+    str or None
+        The symbol, or ``None`` for an unrecognized label so the caller decides
+        whether absence is fatal [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only the elements in the module</span><span class="sh">'</span><span class="s">s table are recognized (H through W, the
+    common tokamak species); isotopes D and T map to their own symbols.
+    </span><span class="sh">"""</span>
+
+    <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">label</span><span class="p">.</span><span class="nf">decode</span><span class="p">(</span><span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">)</span> <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span> <span class="k">else</span> <span class="nf">str</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="p">.</span><span class="nf">match</span><span class="p">(</span><span class="sa">r</span><span class="sh">"</span><span class="s">([A-Za-z]+)</span><span class="sh">"</span><span class="p">,</span> <span class="n">text</span><span class="p">.</span><span class="nf">strip</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="n">match</span><span class="p">.</span><span class="nf">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">named</span> <span class="o">=</span> <span class="n">_ELEMENT_NAMES</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">token</span><span class="p">.</span><span class="nf">lower</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">named</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">named</span>
+    <span class="n">exact</span> <span class="o">=</span> <span class="n">token</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nf">upper</span><span class="p">()</span> <span class="o">+</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">:].</span><span class="nf">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">exact</span> <span class="ow">in</span> <span class="n">_ATOMIC_NUMBERS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">exact</span>
+    <span class="k">return</span> <span class="bp">None</span></code></pre></figure>
+
+</details>
 
     <p>Normalize an element or ion label to a supported atomic symbol.</p>
 
@@ -884,7 +1078,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

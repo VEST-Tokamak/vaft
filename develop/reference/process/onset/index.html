@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -384,7 +384,7 @@ onset is never the whole record</em> – a detector that finds nothing says so w
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#active_window"><code>active_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L1311" title="vaft/process/onset.py, line 1311">source</a>
+<a class="ref-source" data-source="active_window" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1311-L1520" title="vaft/process/onset.py, lines 1311–1520 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>active_window(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, gap_s=0.001, post_quiet_s=0.002, principal_only=False, pickup_floor=0.0, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, trailing_fraction=0.1, trailing_max_fraction=0.1, end_fraction=None, collapse_fallback=True, collapse_rate_fraction=0.1, collapse_min_drop=0.5, search_mask=None, prefilter_samples=1, cutoff_hz=None, fs=None, order=4)</code></pre>
 
@@ -549,7 +549,7 @@ consumed as a duration – tracked in issue #752.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#excess_threshold"><code>excess_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L470" title="vaft/process/onset.py, line 470">source</a>
+<a class="ref-source" data-source="excess_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L470-L552" title="vaft/process/onset.py, lines 470–552 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>excess_threshold(values, reference_mask, *, fraction, sigma, search_mask=None)</code></pre>
 
@@ -626,9 +626,53 @@ evidence</em> rather than thresholding on it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#isolated_excursions"><code>isolated_excursions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L694" title="vaft/process/onset.py, line 694">source</a>
+<a class="ref-source" data-source="isolated_excursions" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L694-L733" title="vaft/process/onset.py, lines 694–733 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>isolated_excursions(values, threshold, max_run_samples)</code></pre>
+    <details class="ref-code" data-source-code="isolated_excursions"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 694–733</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">isolated_excursions</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_run_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">How many runs above a threshold are shorter than a given length.
+
+    The count of spikes a record carries: the detectors report it as
+    ``isolated_excursions_before_onset`` so a consumer can see how noisy the
+    stretch before an onset was without re-reading the waveform.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    threshold : float
+        Level a sample must exceed to be part of a run [any].
+    max_run_samples : int
+        Runs strictly shorter than this many samples are counted [-].
+
+    Returns
+    -------
+    int
+        Number of such runs [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Purely a count: which runs, and where, is not reported.  The detectors keep
+    the runs they rejected, with reasons, in ``OnsetRecord.rejected``.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">_runs</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span> <span class="nf">if </span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nf">int</span><span class="p">(</span><span class="n">max_run_samples</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>How many runs above a threshold are shorter than a given length.</p>
 
@@ -682,9 +726,75 @@ the runs they rejected, with reasons, in <code class="language-plaintext highlig
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#median_smooth"><code>median_smooth</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L329" title="vaft/process/onset.py, line 329">source</a>
+<a class="ref-source" data-source="median_smooth" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L329-L390" title="vaft/process/onset.py, lines 329–390 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>median_smooth(values, kernel_samples)</code></pre>
+    <details class="ref-code" data-source-code="median_smooth"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 329–390</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">median_smooth</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">kernel_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Median filter that removes excursions shorter than half the kernel.
+
+    The prefilter every optical detector runs first: an isolated digitizer spike
+    is not evidence of light, and a median of an odd kernel removes any excursion
+    narrower than half of it without moving the edges of the ones it keeps.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform; non-finite samples are linearly interpolated first [any].
+    kernel_samples : int
+        Median kernel width in samples, forced odd; ``1`` or less returns the
+        finite-filled input unchanged [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        The filtered waveform, same length and grid as the input [any].
+
+    Defaults
+    --------
+    None; the kernel is the caller</span><span class="sh">'</span><span class="s">s.  The VEST widths are a machine-specific
+    setting [vest.yaml]: five samples on the slow optical and current
+    channels, one (no filtering) where the rule wants the raw record.
+
+    Convention
+    ----------
+    Zero-phase by construction: a median filter of an odd kernel introduces no
+    group delay, so an onset read off the output is not shifted from the input</span><span class="sh">'</span><span class="s">s.
+    An even ``kernel_samples`` is incremented rather than applied, because an even
+    median averages two order statistics and does shift edges.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A kernel at or above the record length is clipped to the longest odd kernel
+    that fits.  A flat top wider than the kernel survives, which is what lets
+    :func:`robust_peak` still see a railed digitizer.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="nf">_fill_non_finite</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">kernel_samples</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">y</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="k">if</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="o">%</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">y</span>
+    <span class="k">return</span> <span class="n">scipy_signal</span><span class="p">.</span><span class="nf">medfilt</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="n">k</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Median filter that removes excursions shorter than half the kernel.</p>
 
@@ -753,9 +863,84 @@ that fits.  A flat top wider than the kernel survives, which is what lets
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#pickup_scale"><code>pickup_scale</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L736" title="vaft/process/onset.py, line 736">source</a>
+<a class="ref-source" data-source="pickup_scale" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L736-L806" title="vaft/process/onset.py, lines 736–806 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>pickup_scale(values, baseline, robust_sigma, dt, *, impulse_max_s=0.002, sigma=6.0)</code></pre>
+    <details class="ref-code" data-source-code="pickup_scale"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 736–806</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">pickup_scale</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">baseline</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">robust_sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                 <span class="o">*</span><span class="p">,</span> <span class="n">impulse_max_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0e-3</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">6.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The record</span><span class="sh">'</span><span class="s">s own impulsive-excursion amplitude.
+
+    The largest absolute excess over the baseline among runs above
+    ``sigma * robust_sigma`` that last less than ``impulse_max_s`` -- on a
+    plasma-current record, the coil-firing pickup measured on that very shot.
+    :func:`principal_pulse_onset` compares a candidate pulse against it, which is
+    what refuses a record whose maximum *is* the pickup.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    baseline : float
+        Level the excess is measured from [any].
+    robust_sigma : float
+        Robust spread of the reference, as returned by
+        :func:`robust_baseline` [any].
+    dt : float
+        Sample spacing, used to turn ``impulse_max_s`` into samples [s].
+    impulse_max_s : float, optional
+        Longest run still counted as an impulse [s].
+    sigma : float, optional
+        Number of robust sigmas a sample must clear to be part of a run [-].
+
+    Returns
+    -------
+    float
+        The largest such excursion, or ``0.0`` when there is none or the
+        baseline or spread is not usable [any].
+
+    Defaults
+    --------
+    ``sigma = 6`` is empirical and deliberately above the detectors</span><span class="sh">'</span><span class="s"> five: white
+    noise does not reach six sigma in a record of a few thousand samples, so the
+    scale measures pickup rather than the noise tail.  ``impulse_max_s = 2 ms``
+    is empirical too, the longest coil-firing transient seen on VEST
+    plasma-current records [corpus].
+
+    Convention
+    ----------
+    Absolute: a pickup transient of either sign counts, because the induced
+    excursion</span><span class="sh">'</span><span class="s">s polarity depends on the coil and the winding, not on the plasma.
+
+    Applicability
+    -------------
+    Machine-independent.  Both defaults were fixed on VEST records.
+
+    Limitations
+    -----------
+    The scale is measured wherever the caller points it.  Inside a pulse the
+    pulse</span><span class="sh">'</span><span class="s">s own noisy threshold crossings would be counted, so
+    :func:`principal_pulse_onset` measures it outside the principal run, one
+    impulse length clear of both edges.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">baseline</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">robust_sigma</span><span class="p">)</span> <span class="ow">and</span> <span class="n">robust_sigma</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">excess</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">baseline</span><span class="p">)</span>
+    <span class="n">max_samples</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nf">int</span><span class="p">(</span><span class="nf">round</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">impulse_max_s</span><span class="p">)</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">dt</span><span class="p">))))</span>
+    <span class="n">peaks</span> <span class="o">=</span> <span class="p">[</span><span class="n">excess</span><span class="p">[</span><span class="n">a</span><span class="p">:</span><span class="n">b</span><span class="p">].</span><span class="nf">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">_runs</span><span class="p">(</span><span class="n">excess</span> <span class="o">&gt;</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">robust_sigma</span><span class="p">)</span> <span class="nf">if </span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">max_samples</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">max</span><span class="p">(</span><span class="n">peaks</span><span class="p">))</span> <span class="k">if</span> <span class="n">peaks</span> <span class="k">else</span> <span class="mf">0.0</span></code></pre></figure>
+
+</details>
 
     <p>The record’s own impulsive-excursion amplitude.</p>
 
@@ -835,7 +1020,7 @@ impulse length clear of both edges.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#principal_pulse_onset"><code>principal_pulse_onset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L1113" title="vaft/process/onset.py, line 1113">source</a>
+<a class="ref-source" data-source="principal_pulse_onset" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1113-L1243" title="vaft/process/onset.py, lines 1113–1243 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>principal_pulse_onset(time, values, *, fraction=0.02, sigma=5.0, reference_mask=None, reference_fraction=0.2, search_mask=None, cutoff_hz=None, fs=None, order=4, pickup_floor=3.0, impulse_max_s=0.002, bridge_samples=2)</code></pre>
 
@@ -946,9 +1131,78 @@ saying the other exists.  <code class="language-plaintext highlighter-rouge">act
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#principal_pulse_window"><code>principal_pulse_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L1733" title="vaft/process/onset.py, line 1733">source</a>
+<a class="ref-source" data-source="principal_pulse_window" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1733-L1797" title="vaft/process/onset.py, lines 1733–1797 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>principal_pulse_window(time, values, **kwargs)</code></pre>
+    <details class="ref-code" data-source-code="principal_pulse_window"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 1733–1797</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">principal_pulse_window</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">OnsetRecord</span><span class="p">,</span> <span class="n">OnsetRecord</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">``(onset, offset)`` of the pulse holding the global maximum.
+
+    One :func:`active_window` call with ``principal_only=True`` and the principal
+    defaults, for callers that want the pair of records rather than the window
+    object.  Every other keyword argument is forwarded to :func:`active_window`
+    unchanged.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record [s].
+    values : array_like
+        The waveform [any].
+
+    Returns
+    -------
+    onset : OnsetRecord
+        The principal run</span><span class="sh">'</span><span class="s">s first sample -- exactly what
+        :func:`principal_pulse_onset` returns -- or ``None`` with the window</span><span class="sh">'</span><span class="s">s
+        flags [s].
+    offset : OnsetRecord
+        The principal run</span><span class="sh">'</span><span class="s">s last sample, carrying the window</span><span class="sh">'</span><span class="s">s flags, so
+        ``offset_at_record_end`` and ``offset_from_collapse`` reach a caller that
+        never sees the :class:`PulseWindow` [s].
+
+    Defaults
+    --------
+    ``pickup_floor = 3`` and ``hold_s = 0`` are set here unless the caller
+    overrides them: empirical, and the pair that makes this agree with
+    :func:`principal_pulse_onset` -- the pulse is the run holding the maximum, so
+    persistence is redundant and the pickup floor does the refusing.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Both records carry the *window</span><span class="sh">'</span><span class="s">s* evidence rather than an onset detector</span><span class="sh">'</span><span class="s">s, so
+    ``evidence`` is keyed as :func:`active_window` keys it.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">kwargs</span><span class="p">.</span><span class="nf">setdefault</span><span class="p">(</span><span class="sh">"</span><span class="s">pickup_floor</span><span class="sh">"</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">)</span>
+    <span class="n">kwargs</span><span class="p">.</span><span class="nf">setdefault</span><span class="p">(</span><span class="sh">"</span><span class="s">hold_s</span><span class="sh">"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="nf">active_window</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">principal_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">window</span><span class="p">.</span><span class="n">found</span><span class="p">:</span>
+        <span class="n">none</span> <span class="o">=</span> <span class="nc">OnsetRecord</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">principal_pulse</span><span class="sh">"</span><span class="p">,</span> <span class="n">evidence</span><span class="o">=</span><span class="nf">dict</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">evidence</span><span class="p">),</span>
+                           <span class="n">flags</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">flags</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">none</span><span class="p">,</span> <span class="nc">OnsetRecord</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">principal_pulse_offset</span><span class="sh">"</span><span class="p">,</span>
+                                 <span class="n">evidence</span><span class="o">=</span><span class="nf">dict</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">evidence</span><span class="p">),</span> <span class="n">flags</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">flags</span><span class="p">)</span>
+    <span class="n">onset</span> <span class="o">=</span> <span class="nc">OnsetRecord</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">onset</span><span class="p">.</span><span class="n">time</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">onset</span><span class="p">.</span><span class="n">index</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">principal_pulse</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="n">evidence</span><span class="o">=</span><span class="nf">dict</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">evidence</span><span class="p">),</span> <span class="n">flags</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">onset</span><span class="p">.</span><span class="n">flags</span><span class="p">,</span>
+                        <span class="n">rejected</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">onset</span><span class="p">.</span><span class="n">rejected</span><span class="p">,</span> <span class="n">accepted</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">onset</span><span class="p">.</span><span class="n">accepted</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="nc">OnsetRecord</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">offset</span><span class="p">.</span><span class="n">time</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">offset</span><span class="p">.</span><span class="n">index</span><span class="p">,</span>
+                         <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">principal_pulse_offset</span><span class="sh">"</span><span class="p">,</span> <span class="n">evidence</span><span class="o">=</span><span class="nf">dict</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">evidence</span><span class="p">),</span>
+                         <span class="n">flags</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">flags</span><span class="p">,</span> <span class="n">accepted</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">offset</span><span class="p">.</span><span class="n">accepted</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">onset</span><span class="p">,</span> <span class="n">offset</span></code></pre></figure>
+
+</details>
 
     <p><code class="language-plaintext highlighter-rouge">(onset, offset)</code> of the pulse holding the global maximum.</p>
 
@@ -1010,9 +1264,74 @@ persistence is redundant and the pickup floor does the refusing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#robust_baseline"><code>robust_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L266" title="vaft/process/onset.py, line 266">source</a>
+<a class="ref-source" data-source="robust_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L266-L326" title="vaft/process/onset.py, lines 266–326 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>robust_baseline(values, reference_mask=None)</code></pre>
+    <details class="ref-code" data-source-code="robust_baseline"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 266–326</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">robust_baseline</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">reference_mask</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Median and robust sigma (``1.4826 * MAD``) over the reference samples.
+
+    The MAD is computed here rather than through ``vaft.formula`` so this module
+    stays a scipy-only import.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform [any].
+    reference_mask : array_like of bool or None, optional
+        Samples to measure over; ``None`` uses all of them [-].
+
+    Returns
+    -------
+    baseline : float
+        Median of the finite reference samples, ``nan`` when fewer than two
+        exist [any].
+    robust_sigma : float
+        ``1.4826`` times the median absolute deviation about that median, on the
+        same samples, ``nan`` under the same condition [any].
+
+    Defaults
+    --------
+    The MAD-to-sigma factor ``1.4826`` (``MAD_TO_SIGMA``) is a physical constant
+    of the Gaussian distribution, not a tuning value: it makes the returned
+    spread equal the standard deviation for Gaussian noise.
+
+    Assumptions
+    -----------
+    The reference samples are quiet.  Nothing here checks that; a caller that
+    cannot guarantee it asks a detector, which settles the reference itself and
+    flags ``reference_contaminated``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``(nan, nan)`` on fewer than two finite reference samples, so a caller can
+    flag the reference rather than threshold against garbage.  A reference of
+    identical samples gives ``robust_sigma == 0``; a threshold built on it
+    degenerates to the fraction-of-peak term alone.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">reference_mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">reference_mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">y</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">nan</span><span class="sh">"</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">nan</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">median</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">median</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">MAD_TO_SIGMA</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">median</span><span class="p">)))</span></code></pre></figure>
+
+</details>
 
     <p>Median and robust sigma (<code class="language-plaintext highlighter-rouge">1.4826 * MAD</code>) over the reference samples.</p>
 
@@ -1079,7 +1398,7 @@ degenerates to the fraction-of-peak term alone.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#robust_peak"><code>robust_peak</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L2071" title="vaft/process/onset.py, line 2071">source</a>
+<a class="ref-source" data-source="robust_peak" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L2071-L2338" title="vaft/process/onset.py, lines 2071–2338 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>robust_peak(time, values, *, polarity=&#39;positive&#39;, prefilter_samples=5, cutoff_hz=None, fs=None, order=4, sigma=5.0, level_fraction=0.5, min_width_s=0.001, max_candidates=8, edge_samples=1, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, search_mask=None, bridge_samples=2)</code></pre>
 
@@ -1217,9 +1536,84 @@ exactly zero lead).  A record whose every excursion is impulsive returns
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#run_features"><code>run_features</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L621" title="vaft/process/onset.py, line 621">source</a>
+<a class="ref-source" data-source="run_features" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L621-L691" title="vaft/process/onset.py, lines 621–691 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>run_features(time, values, baseline, start, stop)</code></pre>
+    <details class="ref-code" data-source-code="run_features"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 621–691</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">run_features</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">baseline</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stop</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RunFeatures</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Width, peak, prominence and integral of one run above a baseline.
+
+    The temporal shape of a candidate run, on which the morphology rules of the
+    detectors are stated.  Prominence comes from ``scipy.signal.peak_prominences``
+    on the whole excess record, so it measures how far the run rises above its
+    surroundings, not above the baseline.
+
+    Parameters
+    ----------
+    time : array_like
+        Time grid of the record; must be as long as ``values`` [s].
+    values : array_like
+        The waveform [any].
+    baseline : float
+        Level the excess is measured from [any].
+    start, stop : int
+        Half-open index bounds of the run, ``values[start:stop]`` [-].
+
+    Returns
+    -------
+    RunFeatures
+        ``start_time`` and ``end_time`` (first and last sample of the run) [s],
+        ``width_s`` (``samples * dt``) [s], ``samples`` [-], ``peak`` and
+        ``prominence`` (excess over the baseline) [any], ``peak_time`` [s] and
+        ``integral`` (excess integrated over the run) [any*s].
+
+    Convention
+    ----------
+    ``end_time`` is the run</span><span class="sh">'</span><span class="s">s last sample, not the first sample after it, so a
+    run of one sample has ``start_time == end_time`` and ``width_s == dt``.  The
+    sample spacing is the median of ``diff(time)``, so a record with a few
+    irregular samples still gets a representative width.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A run touching either end of the record has no surroundings on that side;
+    ``prominence`` then falls back to the run</span><span class="sh">'</span><span class="s">s own peak excess.  Nothing checks
+    that ``start`` and ``stop`` bound a run that is actually above the baseline.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="nf">_as_arrays</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+    <span class="n">seg</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">]</span> <span class="o">-</span> <span class="n">baseline</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">t</span><span class="p">)))</span>
+    <span class="n">i_max</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">seg</span><span class="p">))</span>
+    <span class="n">excess</span> <span class="o">=</span> <span class="n">y</span> <span class="o">-</span> <span class="n">baseline</span>
+    <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">i_max</span> <span class="o">&lt;</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">prominence</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">scipy_signal</span><span class="p">.</span><span class="nf">peak_prominences</span><span class="p">(</span><span class="n">excess</span><span class="p">,</span> <span class="p">[</span><span class="n">i_max</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">prominence</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="nf">max</span><span class="p">())</span>
+    <span class="k">return</span> <span class="nc">RunFeatures</span><span class="p">(</span>
+        <span class="n">start_time</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">start</span><span class="p">]),</span>
+        <span class="n">end_time</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">stop</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]),</span>
+        <span class="n">width_s</span><span class="o">=</span><span class="nf">float</span><span class="p">((</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span><span class="p">),</span>
+        <span class="n">samples</span><span class="o">=</span><span class="nf">int</span><span class="p">(</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">),</span>
+        <span class="n">peak</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="nf">max</span><span class="p">()),</span>
+        <span class="n">peak_time</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">i_max</span><span class="p">]),</span>
+        <span class="n">prominence</span><span class="o">=</span><span class="n">prominence</span><span class="p">,</span>
+        <span class="n">integral</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">seg</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span><span class="p">),</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Width, peak, prominence and integral of one run above a baseline.</p>
 
@@ -1287,7 +1681,7 @@ that <code class="language-plaintext highlighter-rouge">start</code> and <code c
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sustained_excess_onset"><code>sustained_excess_onset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L930" title="vaft/process/onset.py, line 930">source</a>
+<a class="ref-source" data-source="sustained_excess_onset" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L930-L1110" title="vaft/process/onset.py, lines 930–1110 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sustained_excess_onset(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></pre>
 
@@ -1400,7 +1794,7 @@ construction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zero_crossing_after_excursion"><code>zero_crossing_after_excursion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L1805" title="vaft/process/onset.py, line 1805">source</a>
+<a class="ref-source" data-source="zero_crossing_after_excursion" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1805-L2013" title="vaft/process/onset.py, lines 1805–2013 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>zero_crossing_after_excursion(time, values, *, anchor_time, fraction=0.05, sigma=5.0, hold_s=0.0005, anchor_tolerance_s=0.0005, approach_fraction=0.1, approach_hysteresis=2.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></pre>
 
@@ -1518,9 +1912,83 @@ evidence for a consumer, not an event.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zero_phase_lowpass"><code>zero_phase_lowpass</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/onset.py#L393" title="vaft/process/onset.py, line 393">source</a>
+<a class="ref-source" data-source="zero_phase_lowpass" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L393-L462" title="vaft/process/onset.py, lines 393–462 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>zero_phase_lowpass(values, cutoff_hz, fs, order=4)</code></pre>
+    <details class="ref-code" data-source-code="zero_phase_lowpass"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 393–462</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zero_phase_lowpass</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">cutoff_hz</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Forward-backward Butterworth low-pass: no group delay.
+
+    An onset read off the output is not shifted from the input</span><span class="sh">'</span><span class="s">s.  A causal filter
+    of the same order moved the plasma-current onset by +0.1 to +0.9 ms on VEST
+    records; this one by less than a sample.
+
+    Parameters
+    ----------
+    values : array_like
+        The waveform; non-finite samples are linearly interpolated first [any].
+    cutoff_hz : float
+        Low-pass cutoff [Hz].
+    fs : float
+        Sample rate of the record [Hz].
+    order : int, optional
+        Butterworth order; the filter is applied twice, so the effective
+        roll-off is twice this [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        The filtered waveform, same length and grid as the input [any].
+
+    Raises
+    ------
+    ValueError
+        When the record has no more samples than ``filtfilt``</span><span class="sh">'</span><span class="s">s padding length,
+        ``3 * (order + 1)``.  The detectors call :func:`_too_short` first and
+        report ``record_too_short`` instead of raising.
+
+    Defaults
+    --------
+    ``order = 4`` is a numerical convenience: the same order the VEST soft X-ray
+    viewer and ``vaft.process.signal_processing`` use, steep enough to matter and
+    short enough to pad on a few-thousand-sample record.
+
+    Convention
+    ----------
+    Zero-phase (``scipy.signal.filtfilt``, forward then backward), which is
+    mandatory wherever an onset time is read off the result and is the opposite
+    choice from ``vaft.process.signal_processing.butterworth_lowpass``, whose
+    default is causal to match the validated viewer.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A cutoff at or above the record</span><span class="sh">'</span><span class="s">s Nyquist frequency cannot be designed; the
+    detectors detect that case themselves and report ``lowpass_skipped`` rather
+    than filtering.
+
+    Provenance
+    ----------
+    .. [409] Issue #409, which introduced these primitives and fixed their rules
+       against the VEST raw database.
+    .. [corpus] ``workflow/plasma_onset/scan_corpus.py`` and the table it writes,
+       ``test/data/onset_corpus.json``: the scan of VEST shots 39900-41700 the
+       thresholds, hold times and widths were judged on.
+    </span><span class="sh">"""</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="nf">_fill_non_finite</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">padlen</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># filtfilt's default for a b/a filter of this order
+</span>    <span class="k">if</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="n">padlen</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">a zero-phase low-pass of order </span><span class="si">{</span><span class="n">order</span><span class="si">}</span><span class="s"> needs more than </span><span class="si">{</span><span class="n">padlen</span><span class="si">}</span><span class="s"> samples; </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">the record has </span><span class="si">{</span><span class="n">y</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">butterworth_lowpass</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">cutoff_hz</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="n">fs</span><span class="p">),</span> <span class="nf">int</span><span class="p">(</span><span class="n">order</span><span class="p">),</span> <span class="n">zero_phase</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Forward-backward Butterworth low-pass: no group delay.</p>
 
@@ -1817,7 +2285,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

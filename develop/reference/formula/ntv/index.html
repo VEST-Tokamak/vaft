@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -374,9 +374,82 @@ from above), with $\psi = RA_\phi$ as
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ntv.py#L148" title="vaft/formula/ntv.py, line 148">source</a>
+<a class="ref-source" data-source="nonambipolar_torque_density" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ntv.py#L148-L216" title="vaft/formula/ntv.py, lines 148–216 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>nonambipolar_torque_density(charge_numbers, particle_flux, dpsi_dV)</code></pre>
+    <details class="ref-code" data-source-code="nonambipolar_torque_density"><summary>Show source <span class="ref-note">vaft/formula/ntv.py, lines 148–216</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">nonambipolar_torque_density</span><span class="p">(</span><span class="n">charge_numbers</span><span class="p">,</span> <span class="n">particle_flux</span><span class="p">,</span> <span class="n">dpsi_dV</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+
+    $$T_\phi = \frac{d\psi}{dV}\sum_s Z_s e\,\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$$
+
+    Parameters
+    ----------
+    charge_numbers : array_like
+        $Z_s$ of each species, electrons $-1$, shape ``(S,)`` [-].
+    particle_flux : array_like
+        $\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$ of each species along
+        axis 0, shape ``(S, ...)``: particles crossing the surface outward
+        per second [1/s].
+    dpsi_dV : float or np.ndarray
+        $d\psi/dV$ of $\psi = RA_\phi$, broadcast against the trailing axes
+        of ``particle_flux``; negative for a plasma current along $+\phi$
+        [Wb/(rad m^3)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Torque density on the plasma about the symmetry axis, positive
+        along the IMAS $\phi$, averaged over the surface [N m/m^3].
+
+    Raises
+    ------
+    ValueError
+        Species counts differ, or an input is not finite.
+
+    Convention
+    ----------
+    With $\mathbf B = \nabla\psi\times\nabla\phi + F\nabla\phi$ and
+    $\psi = RA_\phi$ per radian (``psi_per_radian_from_cocos``; IMAS COCOS 11
+    stores $-2\pi\psi$), $R\hat\phi\cdot(\mathbf J\times\mathbf B)
+    = -\mathbf J\cdot\nabla\psi$ exactly. The non-ambipolar current
+    $\mathbf J_\mathrm{na} = \sum_s Z_se\boldsymbol\Gamma_s$ is cancelled by a
+    return current $-\mathbf J_\mathrm{na}$, whose $\mathbf J\times\mathbf B$
+    -- equivalently, the sum of each species</span><span class="sh">'</span><span class="s"> toroidal viscous force -- is
+    the torque on the plasma: $T_\phi = +\langle\mathbf J_\mathrm{na}\cdot
+    \nabla\psi\rangle = (d\psi/dV)\sum_s Z_se\langle\boldsymbol\Gamma_s\cdot
+    \nabla V\rangle$. In Shaing</span><span class="sh">'</span><span class="s">s $\psi = -RA_\phi$ this reads
+    $-(d\psi/dV)\sum_s Z_se\Gamma_s$. A torque *density*; integrate over $V$
+    for the torque. Ambipolar fluxes give zero.
+
+    Physical interpretation
+    -----------------------
+    An outward non-ambipolar ion flux in a plasma with current along $+\phi$
+    ($d\psi/dV &lt; 0$) drives rotation against the current -- the
+    counter-current torque of fast-ion ripple loss and of ion-root NTV.
+
+    Assumptions
+    -----------
+    Steady state on the transport time scale, quasineutrality; the fluxes
+    are the non-ambipolar parts from a kinetic calculation this function
+    does not make. No phenomenological $-\nu_\mathrm{NTV}(\Omega - \Omega_0)$
+    damping model is implied.
+
+    References
+    ----------
+    .. [1] K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+    .. [2] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 8.
+    </span><span class="sh">"""</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">charge_numbers</span><span class="p">,</span> <span class="sh">"</span><span class="s">charge_numbers</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">flux</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">particle_flux</span><span class="p">,</span> <span class="sh">"</span><span class="s">particle_flux</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">Z</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">flux</span><span class="p">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">flux</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">Z</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">charge_numbers must be 1-D with one entry per species along axis 0 of particle_flux</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">QE</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">dpsi_dV</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpsi_dV</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">current</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).</p>
 
@@ -458,9 +531,77 @@ damping model is implied.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ntv.py#L82" title="vaft/formula/ntv.py, line 82">source</a>
+<a class="ref-source" data-source="ntv_precession_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ntv.py#L82-L145" title="vaft/formula/ntv.py, lines 82–145 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>ntv_precession_frequency(omega_exb, omega_magnetic)</code></pre>
+    <details class="ref-code" data-source-code="ntv_precession_frequency"><summary>Show source <span class="ref-note">vaft/formula/ntv.py, lines 82–145</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ntv_precession_frequency</span><span class="p">(</span><span class="n">omega_exb</span><span class="p">,</span> <span class="n">omega_magnetic</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+
+    $$\omega_d = \omega_E + \omega_B \qquad (= q\,\omega_E^\mathrm{Shaing} + \omega_B)$$
+
+    Parameters
+    ----------
+    omega_exb : float or np.ndarray
+        Toroidal E x B rotation frequency $\omega_E = -d\Phi/d\psi_\mathrm{out}$,
+        $\psi_\mathrm{out}$ the poloidal flux per radian increasing outward --
+        VAFT</span><span class="sh">'</span><span class="s">s kinetic-profile ``omega_exb``, positive along the plasma
+        current, not the toroidal fluid rotation [rad/s].
+    omega_magnetic : float or np.ndarray
+        Bounce-averaged toroidal precession by the grad-B and curvature
+        drifts, for the species and energy considered, positive along the
+        plasma current [rad/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\omega_d$, positive along the plasma current; zero on the
+        superbanana-plateau resonance [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    Both inputs must be measured in the same toroidal orientation; VAFT</span><span class="sh">'</span><span class="s">s
+    is along the plasma current, the orientation of ``omega_exb``. A rigid
+    rotation $\omega\hat\phi$ has $\mathbf E = -\omega\nabla(RA_\phi)$, so
+    $-d\Phi/d\psi_\mathrm{out}$ is the rotation along the current whichever
+    way the current flows. Shaing writes $q\omega_E + \omega_B$ with his
+    $\omega_E$ taken against the *toroidal* flux; since $d\psi_t = q\,d\psi$,
+    his $q\omega_E$ is this ``omega_exb``. The toroidal rotation
+    $\omega_\phi$ differs from $\omega_E$ by the diamagnetic and
+    poloidal-flow terms of radial force balance, and substituting it moves
+    the resonance. $\omega_B \propto$ energy over charge, so each species and
+    energy has its own $\omega_d$. This is the $\ell = 0$ case of
+    ``vaft.formula.particle.bounce_harmonic_detuning`` with $n = -1$.
+
+    Physical interpretation
+    -----------------------
+    A trapped orbit precessing at $\omega_d$ sees a static $\delta B$ at a
+    Doppler-shifted frequency; where $\omega_d \to 0$ it sits in a fixed
+    phase of the perturbation and its radial step accumulates -- the
+    superbanana plateau, whose flux no longer depends on collisions.
+    Away from it, $\nu_\mathrm{eff}$ against $|\omega_d|$ separates the
+    $1/\nu$ regime from the $\nu$--$\sqrt\nu$ regime.
+
+    Assumptions
+    -----------
+    Bounce-averaged guiding-centre motion; $\omega_E$ constant across the
+    banana width.
+
+    References
+    ----------
+    .. [1] K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+    .. [2] J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102
+           (2009) 065002.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">omega_exb</span><span class="p">,</span> <span class="sh">"</span><span class="s">omega_exb</span><span class="sh">"</span><span class="p">)</span> <span class="o">+</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">omega_magnetic</span><span class="p">,</span> <span class="sh">"</span><span class="s">omega_magnetic</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.</p>
 
@@ -757,7 +898,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

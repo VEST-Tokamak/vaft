@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -334,9 +334,36 @@ untouched, which is exactly how the mistake hides: VAFT carried it until
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#probe_axis"><code>probe_axis</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/magnetics.py#L23" title="vaft/formula/magnetics.py, line 23">source</a>
+<a class="ref-source" data-source="probe_axis" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/magnetics.py#L23-L45" title="vaft/formula/magnetics.py, lines 23–45 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>probe_axis(poloidal_angle)</code></pre>
+    <details class="ref-code" data-source-code="probe_axis"><summary>Show source <span class="ref-note">vaft/formula/magnetics.py, lines 23–45</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">probe_axis</span><span class="p">(</span><span class="n">poloidal_angle</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Direction cosines ``(c_R, c_Z)`` of a poloidal-field probe</span><span class="sh">'</span><span class="s">s sensitive axis.
+
+    $$c_R = \cos\theta, \qquad c_Z = -\sin\theta$$
+
+    ``probe_axis(3*pi/2) == (0, +1)``: VEST</span><span class="sh">'</span><span class="s">s +Bz probes.
+
+    Parameters
+    ----------
+    poloidal_angle : float or ndarray
+        Probe orientation angle in the DD convention; scalar or array [rad].
+
+    Returns
+    -------
+    tuple of ndarray
+        ``(c_R, c_Z)`` direction cosines, each the shape of the input [-].
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.
+    </span><span class="sh">"""</span>
+    <span class="n">angle</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">poloidal_angle</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Direction cosines <code class="language-plaintext highlighter-rouge">(c_R, c_Z)</code> of a poloidal-field probe’s sensitive axis.</p>
 
@@ -375,9 +402,42 @@ untouched, which is exactly how the mistake hides: VAFT carried it until
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#project_poloidal_field"><code>project_poloidal_field</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/magnetics.py#L48" title="vaft/formula/magnetics.py, line 48">source</a>
+<a class="ref-source" data-source="project_poloidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/magnetics.py#L48-L76" title="vaft/formula/magnetics.py, lines 48–76 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>project_poloidal_field(b_r, b_z, poloidal_angle)</code></pre>
+    <details class="ref-code" data-source-code="project_poloidal_field"><summary>Show source <span class="ref-note">vaft/formula/magnetics.py, lines 48–76</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">project_poloidal_field</span><span class="p">(</span><span class="n">b_r</span><span class="p">,</span> <span class="n">b_z</span><span class="p">,</span> <span class="n">poloidal_angle</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The component of ``(B_R, B_Z)`` a probe oriented at ``poloidal_angle`` reads.
+
+    $$B_{\mathrm{probe}} = B_R \cos\theta - B_Z \sin\theta$$
+
+    ``b_r`` and ``b_z`` may carry any trailing shape (a time series, a response
+    row); ``poloidal_angle`` must broadcast against them -- pass a scalar per
+    probe, or ``angles[:, None]`` for a stack of rows.
+
+    Parameters
+    ----------
+    b_r : float or ndarray
+        Radial field component [T].
+    b_z : float or ndarray
+        Vertical field component [T].
+    poloidal_angle : float or ndarray
+        Probe orientation angle in the DD convention [rad].
+
+    Returns
+    -------
+    ndarray
+        Projected field along the probe axis [T].
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.
+    </span><span class="sh">"""</span>
+    <span class="n">c_r</span><span class="p">,</span> <span class="n">c_z</span> <span class="o">=</span> <span class="nf">probe_axis</span><span class="p">(</span><span class="n">poloidal_angle</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">b_r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">c_r</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">b_z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">c_z</span></code></pre></figure>
+
+</details>
 
     <p>The component of <code class="language-plaintext highlighter-rouge">(B_R, B_Z)</code> a probe oriented at <code class="language-plaintext highlighter-rouge">poloidal_angle</code> reads.</p>
 
@@ -638,7 +698,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

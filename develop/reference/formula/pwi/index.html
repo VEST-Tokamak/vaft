@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -349,9 +349,55 @@ projectile-target pair, energy and angle.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#binary_collision_energy_transfer_factor"><code>binary_collision_energy_transfer_factor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/pwi.py#L55" title="vaft/formula/pwi.py, line 55">source</a>
+<a class="ref-source" data-source="binary_collision_energy_transfer_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/pwi.py#L55-L96" title="vaft/formula/pwi.py, lines 55–96 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>binary_collision_energy_transfer_factor(m_1, m_2)</code></pre>
+    <details class="ref-code" data-source-code="binary_collision_energy_transfer_factor"><summary>Show source <span class="ref-note">vaft/formula/pwi.py, lines 55–96</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">binary_collision_energy_transfer_factor</span><span class="p">(</span><span class="n">m_1</span><span class="p">,</span> <span class="n">m_2</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Largest fraction of a projectile</span><span class="sh">'</span><span class="s">s energy one elastic collision can give a target atom.
+
+    $$\gamma = \frac{4m_1m_2}{(m_1 + m_2)^2}$$
+
+    Parameters
+    ----------
+    m_1 : float or np.ndarray
+        Projectile mass, positive [kg or u].
+    m_2 : float or np.ndarray
+        Target-atom mass, positive, same unit [kg or u].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma \in (0, 1]$, one for equal masses [-].
+
+    Raises
+    ------
+    ValueError
+        A mass is not positive.
+
+    Physical interpretation
+    -----------------------
+    A head-on elastic collision transfers $\gamma E$. A light projectile
+    (D on W: $\gamma \approx 0.043$) cannot give a heavy target atom much
+    energy in one collision, which is why light ions sputter heavy targets
+    only well above the surface binding energy -- the origin of the high
+    sputtering threshold of tungsten under hydrogen.
+
+    Assumptions
+    -----------
+    Two-body elastic collision, target initially at rest; exact kinematics.
+
+    References
+    ----------
+    .. [1] W. Eckstein, *Computer Simulation of Ion-Solid Interactions*,
+           Springer (1991), Ch. 2.
+    </span><span class="sh">"""</span>
+    <span class="n">m_1</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m_1</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_1</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_2</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m_2</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_2</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">m_1</span> <span class="o">*</span> <span class="n">m_2</span> <span class="o">/</span> <span class="p">(</span><span class="n">m_1</span> <span class="o">+</span> <span class="n">m_2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Largest fraction of a projectile’s energy one elastic collision can give a target atom.</p>
 
@@ -410,9 +456,61 @@ sputtering threshold of tungsten under hydrogen.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mean_reflected_energy_fraction"><code>mean_reflected_energy_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/pwi.py#L99" title="vaft/formula/pwi.py, line 99">source</a>
+<a class="ref-source" data-source="mean_reflected_energy_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/pwi.py#L99-L146" title="vaft/formula/pwi.py, lines 99–146 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>mean_reflected_energy_fraction(R_N, R_E)</code></pre>
+    <details class="ref-code" data-source-code="mean_reflected_energy_fraction"><summary>Show source <span class="ref-note">vaft/formula/pwi.py, lines 99–146</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_reflected_energy_fraction</span><span class="p">(</span><span class="n">R_N</span><span class="p">,</span> <span class="n">R_E</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mean energy of a reflected particle, as a fraction of the incident energy.
+
+    $$\frac{\langle E_\mathrm{refl}\rangle}{E_\mathrm{in}} = \frac{R_E}{R_N}$$
+
+    Parameters
+    ----------
+    R_N : float or np.ndarray
+        Particle reflection coefficient, in (0, 1] [-].
+    R_E : float or np.ndarray
+        Energy reflection coefficient, in [0, R_N] [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\langle E_\mathrm{refl}\rangle/E_\mathrm{in}$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``R_N`` outside (0, 1] or ``R_E`` outside [0, ``R_N``].
+
+    Convention
+    ----------
+    $R_N$ counts reflected particles per incident particle, $R_E$ reflected
+    energy per incident energy; they are different quantities with different
+    data, and $R_E \le R_N$ because a reflected particle leaves with at most
+    its incident energy.
+
+    Physical interpretation
+    -----------------------
+    Particle balance and energy balance are not the same bookkeeping: a
+    surface may return most particles ($R_N$ large) while keeping most of
+    their energy ($R_E/R_N$ small), and it is $R_E$, not $R_N$, that enters
+    the power the wall absorbs.
+
+    References
+    ----------
+    .. [1] W. Eckstein, *Computer Simulation of Ion-Solid Interactions*,
+           Springer (1991), Ch. 8.
+    </span><span class="sh">"""</span>
+    <span class="n">R_N</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">R_N</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">R_E</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">R_E</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="p">(</span><span class="n">R_N</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">R_N</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">R_N must lie in (0, 1]</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">R_E</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">R_E</span> <span class="o">&gt;</span> <span class="n">R_N</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">R_E must lie in [0, R_N]: a reflected particle cannot leave with more than it brought</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">R_E</span> <span class="o">/</span> <span class="n">R_N</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Mean energy of a reflected particle, as a fraction of the incident energy.</p>
 
@@ -476,9 +574,58 @@ the power the wall absorbs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#recycling_coefficient"><code>recycling_coefficient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/pwi.py#L149" title="vaft/formula/pwi.py, line 149">source</a>
+<a class="ref-source" data-source="recycling_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/pwi.py#L149-L193" title="vaft/formula/pwi.py, lines 149–193 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>recycling_coefficient(Gamma_reflected, Gamma_reemitted, Gamma_incident)</code></pre>
+    <details class="ref-code" data-source-code="recycling_coefficient"><summary>Show source <span class="ref-note">vaft/formula/pwi.py, lines 149–193</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">recycling_coefficient</span><span class="p">(</span><span class="n">Gamma_reflected</span><span class="p">,</span> <span class="n">Gamma_reemitted</span><span class="p">,</span> <span class="n">Gamma_incident</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Recycling coefficient: particles returned to the plasma per incident particle.
+
+    $$R = \frac{\Gamma_\mathrm{refl} + \Gamma_\mathrm{re\text{-}em}}{\Gamma_\mathrm{in}},\qquad
+      1 - R = \frac{\Gamma_\mathrm{retained}}{\Gamma_\mathrm{in}}$$
+
+    Parameters
+    ----------
+    Gamma_reflected : float or np.ndarray
+        Promptly reflected flux (fast atoms), non-negative [m^-2 s^-1].
+    Gamma_reemitted : float or np.ndarray
+        Flux re-emitted after implantation (thermal atoms and molecules,
+        counted as atoms), non-negative [m^-2 s^-1].
+    Gamma_incident : float or np.ndarray
+        Incident ion plus atom flux, positive [m^-2 s^-1].
+
+    Returns
+    -------
+    float or np.ndarray
+        $R$; below one while the wall retains, above one while it releases a
+        previous inventory [-].
+
+    Raises
+    ------
+    ValueError
+        A returned flux is negative or ``Gamma_incident`` is not positive.
+
+    Convention
+    ----------
+    Counts atoms: a re-emitted D$_2$ molecule is two. Reflection is the
+    prompt part only; recycling includes the delayed re-emission; retention
+    is what neither returns. $R$ is not bounded by one: an outgassing wall
+    returns more than it receives.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Ch. 3.
+    </span><span class="sh">"""</span>
+    <span class="n">Gamma_reflected</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">Gamma_reflected</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">Gamma_reemitted</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">Gamma_reemitted</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="p">(</span><span class="n">Gamma_reflected</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="p">(</span><span class="n">Gamma_reemitted</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">returned fluxes must be non-negative and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">Gamma_incident</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Gamma_incident</span><span class="p">,</span> <span class="sh">"</span><span class="s">Gamma_incident</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">((</span><span class="n">Gamma_reflected</span> <span class="o">+</span> <span class="n">Gamma_reemitted</span><span class="p">)</span> <span class="o">/</span> <span class="n">Gamma_incident</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Recycling coefficient: particles returned to the plasma per incident particle.</p>
 
@@ -538,9 +685,71 @@ returns more than it receives.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sputtering_threshold_bohdansky"><code>sputtering_threshold_bohdansky</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/pwi.py#L196" title="vaft/formula/pwi.py, line 196">source</a>
+<a class="ref-source" data-source="sputtering_threshold_bohdansky" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/pwi.py#L196-L253" title="vaft/formula/pwi.py, lines 196–253 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sputtering_threshold_bohdansky(E_s, m_1, m_2)</code></pre>
+    <details class="ref-code" data-source-code="sputtering_threshold_bohdansky"><summary>Show source <span class="ref-note">vaft/formula/pwi.py, lines 196–253</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sputtering_threshold_bohdansky</span><span class="p">(</span><span class="n">E_s</span><span class="p">,</span> <span class="n">m_1</span><span class="p">,</span> <span class="n">m_2</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Physical-sputtering threshold energy, Bohdansky</span><span class="sh">'</span><span class="s">s empirical fit.
+
+    $$E_\mathrm{th} = \begin{cases}
+      \dfrac{E_s}{\gamma(1 - \gamma)}, &amp; m_1/m_2 \le 0.2 \\[1ex]
+      8E_s\left(\dfrac{m_1}{m_2}\right)^{2/5}, &amp; m_1/m_2 &gt; 0.2
+      \end{cases},\qquad \gamma = \frac{4m_1m_2}{(m_1 + m_2)^2}$$
+
+    Parameters
+    ----------
+    E_s : float or np.ndarray
+        Surface binding energy of the target (usually its sublimation
+        energy), supplied by the caller, positive [eV].
+    m_1 : float or np.ndarray
+        Projectile mass, positive [kg or u].
+    m_2 : float or np.ndarray
+        Target-atom mass, positive, same unit [kg or u].
+
+    Returns
+    -------
+    float or np.ndarray
+        Threshold incident energy, normal incidence [eV].
+
+    Raises
+    ------
+    ValueError
+        A mass or ``E_s`` is not positive.
+
+    Convention
+    ----------
+    A named empirical model (Bohdansky 1984), not a table: $E_s$ is an
+    input and no material data are built in. Fits of Eckstein and others
+    differ by tens of per cent near threshold; use tabulated thresholds for
+    quantitative work. The two branches do not join exactly: at
+    $m_1/m_2 = 0.2$ the light branch gives $4.05E_s$ and the heavy one
+    $4.20E_s$, a 4 % step.
+
+    Physical interpretation
+    -----------------------
+    A light projectile cannot sputter by a forward cascade: it is backscattered
+    by a deeper target atom, keeping $(1 - \gamma)E$, and on its way out
+    strikes a surface atom from below, giving it up to $\gamma(1 - \gamma)E$
+    (``binary_collision_energy_transfer_factor`` for $\gamma$). That must
+    exceed $E_s$: hence $E_s/\gamma(1 - \gamma)$, far above $E_s$ for D on W.
+
+    References
+    ----------
+    .. [1] J. Bohdansky, J. Roth and H. L. Bay, J. Appl. Phys. 51 (1980) 2861;
+           J. Bohdansky, Nucl. Instrum. Methods B 2 (1984) 587.
+    </span><span class="sh">"""</span>
+    <span class="n">E_s</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">E_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">E_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_1</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m_1</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_1</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_2</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m_2</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_2</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="n">m_1</span> <span class="o">/</span> <span class="n">m_2</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="n">m_1</span> <span class="o">*</span> <span class="n">m_2</span> <span class="o">/</span> <span class="p">(</span><span class="n">m_1</span> <span class="o">+</span> <span class="n">m_2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">light</span> <span class="o">=</span> <span class="n">E_s</span> <span class="o">/</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">gamma</span><span class="p">))</span>  <span class="c1"># gamma = 1 (equal masses) only reaches the heavy branch
+</span>    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">ratio</span> <span class="o">&lt;=</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">light</span><span class="p">,</span> <span class="mf">8.0</span> <span class="o">*</span> <span class="n">E_s</span> <span class="o">*</span> <span class="n">ratio</span><span class="o">**</span><span class="mf">0.4</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Physical-sputtering threshold energy, Bohdansky’s empirical fit.</p>
 
@@ -828,7 +1037,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -399,9 +399,71 @@ surface the upstream channel weight is asking about; the model’s
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#connection_length_weight"><code>connection_length_weight</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L340" title="vaft/process/field_line_topology.py, line 340">source</a>
+<a class="ref-source" data-source="connection_length_weight" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L340-L397" title="vaft/process/field_line_topology.py, lines 340–397 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>connection_length_weight(length, *, scale, form)</code></pre>
+    <details class="ref-code" data-source-code="connection_length_weight"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 340–397</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">connection_length_weight</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">form</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Parallel-loss weight from a field line</span><span class="sh">'</span><span class="s">s connection length.
+
+    Parameters
+    ----------
+    length : array_like
+        Connection length per line; negative entries are treated as zero,
+        and non-finite ones are given zero weight [m].
+    scale : float
+        The length the weight is measured against; must be positive [m].
+    form : str
+        ``</span><span class="sh">"</span><span class="s">inverse</span><span class="sh">"</span><span class="s">`` for ``1 / (1 + L / L_0)``, ``</span><span class="sh">"</span><span class="s">exponential</span><span class="sh">"</span><span class="s">`` for
+        ``exp(-L / L_0)``, ``</span><span class="sh">"</span><span class="s">none</span><span class="sh">"</span><span class="s">`` for a flat one [n/a].
+
+    Returns
+    -------
+    ndarray
+        Weights in ``[0, 1]`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``scale`` is not positive, or ``form`` is not one of
+        :data:`CONNECTION_LENGTH_FORMS`.
+
+    Convention
+    ----------
+    A longer line is weighted less: the length stands in for how much of the
+    flux tube</span><span class="sh">'</span><span class="s">s content was lost on the way. The two forms are empirical and
+    disagree by construction -- the inverse one keeps a long line at a small
+    but finite weight, the exponential one takes it to zero -- so which is
+    used is part of the model, never a default.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] the donor</span><span class="sh">'</span><span class="s">s ``connection_length_weight``, whose
+       ``</span><span class="sh">"</span><span class="s">exp_loss</span><span class="sh">"</span><span class="s">`` is this ``</span><span class="sh">"</span><span class="s">exponential</span><span class="sh">"</span><span class="s">``.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">form</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">CONNECTION_LENGTH_FORMS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">form must be one of </span><span class="si">{</span><span class="nf">list</span><span class="p">(</span><span class="n">CONNECTION_LENGTH_FORMS</span><span class="p">)</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">form</span><span class="si">!r}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form</span> <span class="o">==</span> <span class="sh">"</span><span class="s">none</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">scale</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">scale must be positive, not </span><span class="si">{</span><span class="n">scale</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">finite</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="n">positive</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">finite</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">form</span> <span class="o">==</span> <span class="sh">"</span><span class="s">inverse</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">positive</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">positive</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">finite</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Parallel-loss weight from a field line’s connection length.</p>
 
@@ -463,7 +525,7 @@ used is part of the model, never a default.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#footprint_heat_load_proxy"><code>footprint_heat_load_proxy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L620" title="vaft/process/field_line_topology.py, line 620">source</a>
+<a class="ref-source" data-source="footprint_heat_load_proxy" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L620-L764" title="vaft/process/field_line_topology.py, lines 620–764 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>footprint_heat_load_proxy(*, min_psi_norm_backward, min_psi_norm_forward, connection_length_backward, connection_length_forward, area, incidence_angle_deg, model)</code></pre>
 
@@ -570,9 +632,53 @@ must not be converted into any.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#footprint_incident_total"><code>footprint_incident_total</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L767" title="vaft/process/field_line_topology.py, line 767">source</a>
+<a class="ref-source" data-source="footprint_incident_total" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L767-L806" title="vaft/process/field_line_topology.py, lines 767–806 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>footprint_incident_total(proxy)</code></pre>
+    <details class="ref-code" data-source-code="footprint_incident_total"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 767–806</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">footprint_incident_total</span><span class="p">(</span><span class="n">proxy</span><span class="p">:</span> <span class="n">FootprintProxy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The proxy integrated over one target.
+
+    Parameters
+    ----------
+    proxy : FootprintProxy
+        As :func:`footprint_heat_load_proxy` returns it [-].
+
+    Returns
+    -------
+    float
+        ``sum(density * area)``, in the proxy</span><span class="sh">'</span><span class="s">s own relative scale [-].
+
+    Processing steps
+    ----------------
+    Non-finite samples are skipped rather than propagated: a line the tracer
+    could not follow contributes nothing, and one NaN would otherwise erase
+    the target.
+
+    Convention
+    ----------
+    This is a Riemann sum over the sample areas, so it converges as the grid
+    is refined -- which is the property a fraction between targets needs, and
+    the one the legacy</span><span class="sh">'</span><span class="s">s extra ``1/area`` factor destroyed. With it the sum
+    reduces to ``sum(w)``, which grows roughly with the number of samples the
+    caller chose to trace rather than settling on the target</span><span class="sh">'</span><span class="s">s own value.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] the donor</span><span class="sh">'</span><span class="s">s ``summarize_heat_flux_proxy``, whose
+       ``integral`` column is this same sum -- taken over a density that
+       carried an extra ``1/area`` factor, which is what reduced it to the
+       bare sum of the weights.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">proxy</span><span class="p">.</span><span class="n">density</span> <span class="o">*</span> <span class="n">proxy</span><span class="p">.</span><span class="n">area</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">nansum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">values</span><span class="p">),</span> <span class="n">values</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span></code></pre></figure>
+
+</details>
 
     <p>The proxy integrated over one target.</p>
 
@@ -628,9 +734,47 @@ the target.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#footprint_proxy_model"><code>footprint_proxy_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L490" title="vaft/process/field_line_topology.py, line 490">source</a>
+<a class="ref-source" data-source="footprint_proxy_model" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L490-L523" title="vaft/process/field_line_topology.py, lines 490–523 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>footprint_proxy_model(name)</code></pre>
+    <details class="ref-code" data-source-code="footprint_proxy_model"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 490–523</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">footprint_proxy_model</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FootprintProxyModel</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">One named footprint proxy model.
+
+    Parameters
+    ----------
+    name : str
+        A key of :data:`FOOTPRINT_PROXY_MODELS` [n/a].
+
+    Returns
+    -------
+    FootprintProxyModel
+        The preset, which is frozen and safe to share [n/a].
+
+    Raises
+    ------
+    KeyError
+        No model carries that name; the message lists the ones that do.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] the donor</span><span class="sh">'</span><span class="s">s ``FootprintProxyConfig``, whose
+       field defaults these presets carry as named values.
+    </span><span class="sh">"""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FOOTPRINT_PROXY_MODELS</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">except</span> <span class="nb">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">KeyError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">unknown footprint proxy model </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s">; </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">registered: </span><span class="si">{</span><span class="nf">sorted</span><span class="p">(</span><span class="n">FOOTPRINT_PROXY_MODELS</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span> <span class="k">from</span> <span class="bp">None</span></code></pre></figure>
+
+</details>
 
     <p>One named footprint proxy model.</p>
 
@@ -677,9 +821,50 @@ the target.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#incidence_factor"><code>incidence_factor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L301" title="vaft/process/field_line_topology.py, line 301">source</a>
+<a class="ref-source" data-source="incidence_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L301-L337" title="vaft/process/field_line_topology.py, lines 301–337 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>incidence_factor(angle_deg)</code></pre>
+    <details class="ref-code" data-source-code="incidence_factor"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 301–337</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">incidence_factor</span><span class="p">(</span><span class="n">angle_deg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The projection of a field line onto the surface it strikes.
+
+    Parameters
+    ----------
+    angle_deg : array_like
+        Angle between the field line and the target surface, as FLARE</span><span class="sh">'</span><span class="s">s
+        ``alphaS`` reports it [deg].
+
+    Returns
+    -------
+    ndarray
+        ``|sin alpha|``, in ``[0, 1]`` [-].
+
+    Convention
+    ----------
+    The angle is measured from the *surface*, not from its normal, so a
+    grazing line has a small angle and a small factor. That is FLARE</span><span class="sh">'</span><span class="s">s own
+    definition: ``alphaS = asin(|b.n| / |b|)``, which makes ``|sin alpha|``
+    the projection exactly rather than an approximation of it. A line that
+    never struck the boundary is written as zero by the tracer and so
+    receives zero weight, which is the right answer for a different reason --
+    it deposits nothing because it does not arrive.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] ``FLARE/src/fortran/tasks/fieldline_connection.f90:158``.
+    .. [legacy] the donor</span><span class="sh">'</span><span class="s">s ``incidence_factor``, which returned
+       ones when the column was absent; see
+       :func:`footprint_heat_load_proxy`.
+    </span><span class="sh">"""</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">deg2rad</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">angle_deg</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>The projection of a field line onto the surface it strikes.</p>
 
@@ -733,9 +918,73 @@ it deposits nothing because it does not arrive.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reduce_traced_directions"><code>reduce_traced_directions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L558" title="vaft/process/field_line_topology.py, line 558">source</a>
+<a class="ref-source" data-source="reduce_traced_directions" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L558-L617" title="vaft/process/field_line_topology.py, lines 558–617 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>reduce_traced_directions(backward, forward, *, how)</code></pre>
+    <details class="ref-code" data-source-code="reduce_traced_directions"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 558–617</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reduce_traced_directions</span><span class="p">(</span><span class="n">backward</span><span class="p">,</span> <span class="n">forward</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">how</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Reduce a quantity traced in both directions to one value per line.
+
+    Parameters
+    ----------
+    backward : array_like
+        The value the tracer reported going one way [any].
+    forward : array_like
+        The value it reported going the other [any].
+    how : str
+        ``</span><span class="sh">"</span><span class="s">shortest</span><span class="sh">"</span><span class="s">`` takes the smaller magnitude, ``</span><span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="s">`` the sum,
+        ``</span><span class="sh">"</span><span class="s">deepest</span><span class="sh">"</span><span class="s">`` the smaller signed value [n/a].
+
+    Returns
+    -------
+    ndarray
+        One value per line, in the inputs</span><span class="sh">'</span><span class="s"> own unit [any].
+
+    Raises
+    ------
+    ValueError
+        The arrays disagree in shape, or ``how`` is none of the three.
+
+    Convention
+    ----------
+    ``</span><span class="sh">"</span><span class="s">shortest</span><span class="sh">"</span><span class="s">`` compares magnitudes, because a tracer may report a
+    backward length as negative; ``</span><span class="sh">"</span><span class="s">deepest</span><span class="sh">"</span><span class="s">`` compares signed values,
+    because a flux label that ran further inward is genuinely smaller.
+    Non-finite entries propagate rather than being skipped: a direction the
+    tracer could not follow leaves the reduction undefined, and that is the
+    honest answer for that line.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] ``FLARE/src/fortran/tasks/fieldline_connection.f90:90-96``, whose
+       own ``Lc = Lc_bwd + Lc_fwd``, ``Lcs = min(Lc_bwd, Lc_fwd)`` and
+       ``minPsiN = min(minPsiN_bwd, minPsiN_fwd)`` are these three
+       reductions. FLARE</span><span class="sh">'</span><span class="s">s arclengths are non-negative, so its plain ``min``
+       and the magnitude comparison here agree on its own output.
+    </span><span class="sh">"""</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">backward</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">second</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">forward</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">first</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">second</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">the two directions must share a shape; got </span><span class="si">{</span><span class="n">first</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s"> and </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">second</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">how</span> <span class="o">==</span> <span class="sh">"</span><span class="s">shortest</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">second</span><span class="p">),</span> <span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">how</span> <span class="o">==</span> <span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">first</span> <span class="o">+</span> <span class="n">second</span>
+    <span class="k">if</span> <span class="n">how</span> <span class="o">==</span> <span class="sh">"</span><span class="s">deepest</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">minimum</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="sh">'</span><span class="s">how must be </span><span class="sh">"</span><span class="s">shortest</span><span class="sh">"</span><span class="s">, </span><span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="s"> or </span><span class="sh">"</span><span class="s">deepest</span><span class="sh">"</span><span class="s">, not </span><span class="si">{</span><span class="n">how</span><span class="si">!r}</span><span class="sh">'</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Reduce a quantity traced in both directions to one value per line.</p>
 
@@ -798,9 +1047,67 @@ honest answer for that line.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#target_incident_fractions"><code>target_incident_fractions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L809" title="vaft/process/field_line_topology.py, line 809">source</a>
+<a class="ref-source" data-source="target_incident_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L809-L862" title="vaft/process/field_line_topology.py, lines 809–862 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>target_incident_fractions(totals)</code></pre>
+    <details class="ref-code" data-source-code="target_incident_fractions"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 809–862</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">target_incident_fractions</span><span class="p">(</span><span class="n">totals</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Each target</span><span class="sh">'</span><span class="s">s share of the proxy incident on all of them.
+
+    Parameters
+    ----------
+    totals : mapping of str to float
+        Per-target integrals, from :func:`footprint_incident_total`; each
+        must be finite and not negative [-].
+
+    Returns
+    -------
+    dict of str to float
+        The same keys, each divided by the sum over all of them, so the
+        values add to one [-].
+
+    Raises
+    ------
+    ValueError
+        ``totals`` is empty, an entry is negative or not finite, or they sum
+        to zero -- in which case there is no share to take, and returning
+        equal shares would invent one.
+
+    Convention
+    ----------
+    The denominator is the total over the targets *in this mapping*, so the
+    fraction says what it says only if that set is every target the run
+    covered. A fraction over a subset is a fraction of the subset.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [owner] The IMAS stand-in decided on vaft#1099 (2026-09-21): the proxy
+       integrated over each target, divided by the total over all targets,
+       written to ``divertors.divertor[].target[].power_incident_fraction``
+       because it is dimensionless and so is the proxy.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">totals</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">no targets to take a share of</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">totals</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="sh">"</span><span class="s">target </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s"> has an incident total of </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s">; a share </span><span class="sh">"</span>
+                <span class="sh">"</span><span class="s">is defined only for finite, non-negative totals</span><span class="sh">"</span>
+            <span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">totals</span><span class="p">.</span><span class="nf">values</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="n">total</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">every target</span><span class="sh">'</span><span class="s">s incident total is zero, so there is no share to </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">take; equal shares would be an invention, not a result</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">/</span> <span class="n">total</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">totals</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span></code></pre></figure>
+
+</details>
 
     <p>Each target’s share of the proxy incident on all of them.</p>
 
@@ -856,9 +1163,70 @@ covered. A fraction over a subset is a fraction of the subset.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_surface_cell_areas"><code>toroidal_surface_cell_areas</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L131" title="vaft/process/field_line_topology.py, line 131">source</a>
+<a class="ref-source" data-source="toroidal_surface_cell_areas" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L131-L187" title="vaft/process/field_line_topology.py, lines 131–187 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_surface_cell_areas(r, z, phi_deg)</code></pre>
+    <details class="ref-code" data-source-code="toroidal_surface_cell_areas"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 131–187</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">toroidal_surface_cell_areas</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">phi_deg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Area of every quadrilateral cell of a surface mesh in ``(R, z, phi)``.
+
+    Parameters
+    ----------
+    r : array_like
+        Node major radius, shape ``(n_v, n_u)`` [m].
+    z : array_like
+        Node height, same shape [m].
+    phi_deg : array_like
+        Node toroidal angle, same shape [deg].
+
+    Returns
+    -------
+    ndarray
+        Cell areas, shape ``(n_v - 1, n_u - 1)`` [m^2].
+
+    Raises
+    ------
+    ValueError
+        The three arrays disagree in shape, or the mesh is not two
+        dimensional with at least two nodes on each axis.
+
+    Processing steps
+    ----------------
+    The nodes are placed in Cartesian space, and each cell is split along the
+    diagonal from ``[j, i+1]`` to ``[j+1, i]`` into two triangles whose areas
+    are summed. No small-angle expansion is taken, so the result is exact for
+    a flat quadrilateral. A cell that is not flat has two diagonals that give
+    slightly different answers, and this is the one FLARE splits along --
+    which is why the two agree to parts in a trillion rather than merely
+    closely.
+
+    Convention
+    ----------
+    Node order is ``[i_v, i_u]``, the order FLARE</span><span class="sh">'</span><span class="s">s own mesh files lay their
+    values out in -- see :attr:`vaft.data.flare_products.FlareMesh.node_shape`.
+    Cell ``[j, i]`` is bounded by nodes ``[j, i]``, ``[j, i+1]``,
+    ``[j+1, i+1]`` and ``[j+1, i]``.
+
+    Applicability
+    -------------
+    Machine-independent. Any surface described by node positions in
+    cylindrical coordinates; nothing here is specific to a divertor target.
+
+    Provenance
+    ----------
+    .. [1] ``moose/src/fortran/geometry/hypermesh3d.f90:563``, the same
+       two-triangle construction FLARE uses for the ``area`` column of its
+       strike-density product.
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nf">_cartesian</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">phi_deg</span><span class="p">)</span>
+    <span class="n">corner_00</span><span class="p">,</span> <span class="n">corner_01</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:]</span>
+    <span class="n">corner_11</span><span class="p">,</span> <span class="n">corner_10</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">cross</span><span class="p">(</span><span class="n">corner_01</span> <span class="o">-</span> <span class="n">corner_00</span><span class="p">,</span> <span class="n">corner_10</span> <span class="o">-</span> <span class="n">corner_00</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">second</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">cross</span><span class="p">(</span><span class="n">corner_01</span> <span class="o">-</span> <span class="n">corner_11</span><span class="p">,</span> <span class="n">corner_10</span> <span class="o">-</span> <span class="n">corner_11</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">first</span> <span class="o">+</span> <span class="n">second</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span></code></pre></figure>
+
+</details>
 
     <p>Area of every quadrilateral cell of a surface mesh in <code class="language-plaintext highlighter-rouge">(R, z, phi)</code>.</p>
 
@@ -930,9 +1298,68 @@ cylindrical coordinates; nothing here is specific to a divertor target.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_surface_node_areas"><code>toroidal_surface_node_areas</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L190" title="vaft/process/field_line_topology.py, line 190">source</a>
+<a class="ref-source" data-source="toroidal_surface_node_areas" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L190-L244" title="vaft/process/field_line_topology.py, lines 190–244 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_surface_node_areas(r, z, phi_deg)</code></pre>
+    <details class="ref-code" data-source-code="toroidal_surface_node_areas"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 190–244</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">toroidal_surface_node_areas</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">phi_deg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Area each node of a surface mesh represents, as a dual cell.
+
+    Parameters
+    ----------
+    r : array_like
+        Node major radius, shape ``(n_v, n_u)`` [m].
+    z : array_like
+        Node height, same shape [m].
+    phi_deg : array_like
+        Node toroidal angle, same shape [deg].
+
+    Returns
+    -------
+    ndarray
+        Node areas, shape ``(n_v, n_u)``, summing to the total surface area
+        [m^2].
+
+    Raises
+    ------
+    ValueError
+        As :func:`toroidal_surface_cell_areas`.
+
+    Processing steps
+    ----------------
+    Each cell</span><span class="sh">'</span><span class="s">s area is split equally between its four corners. A corner node
+    therefore receives a quarter of one cell, an edge node a quarter of two,
+    and an interior node a quarter of four -- so the node areas sum to the
+    surface area exactly, which is what makes an integral over them the same
+    integral whether the values sit on nodes or on cells.
+
+    Convention
+    ----------
+    Node order is ``[i_v, i_u]``, as :func:`toroidal_surface_cell_areas`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [legacy] The donor</span><span class="sh">'</span><span class="s">s ``footprint_cell_areas`` built the
+       same quantity from midpoint axis widths and ``R dphi ds``, which
+       assumes the second axis is parameterized by its own arc length. This
+       form reads the arc from the node positions instead, so a target curve
+       whose parameter is not arc length is measured rather than assumed.
+    </span><span class="sh">"""</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="nf">toroidal_surface_cell_areas</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">phi_deg</span><span class="p">)</span>
+    <span class="n">quarter</span> <span class="o">=</span> <span class="n">cells</span> <span class="o">/</span> <span class="mf">4.0</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">nodes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">quarter</span>
+    <span class="n">nodes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">+=</span> <span class="n">quarter</span>
+    <span class="n">nodes</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">quarter</span>
+    <span class="n">nodes</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">+=</span> <span class="n">quarter</span>
+    <span class="k">return</span> <span class="n">nodes</span></code></pre></figure>
+
+</details>
 
     <p>Area each node of a surface mesh represents, as a dual cell.</p>
 
@@ -998,9 +1425,65 @@ integral whether the values sit on nodes or on cells.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#upstream_flux_weight"><code>upstream_flux_weight</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/field_line_topology.py#L247" title="vaft/process/field_line_topology.py, line 247">source</a>
+<a class="ref-source" data-source="upstream_flux_weight" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/field_line_topology.py#L247-L298" title="vaft/process/field_line_topology.py, lines 247–298 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>upstream_flux_weight(psi_norm, *, separatrix_flux, decay_width, clip_inside=True)</code></pre>
+    <details class="ref-code" data-source-code="upstream_flux_weight"><summary>Show source <span class="ref-note">vaft/process/field_line_topology.py, lines 247–298</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">upstream_flux_weight</span><span class="p">(</span><span class="n">psi_norm</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">separatrix_flux</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">decay_width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                         <span class="n">clip_inside</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Exponential upstream heat-channel weight in normalized flux.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        The flux label each field line is weighted by -- for a connection
+        product, the deepest normalized flux it reached [-].
+    separatrix_flux : float
+        Where the channel starts, normally 1 [-].
+    decay_width : float
+        e-folding width of the channel, in the same normalized flux; must be
+        positive [-].
+    clip_inside : bool, optional
+        Whether a line that reached inside ``separatrix_flux`` is given the
+        full weight rather than one growing exponentially. ``True`` clips
+        [n/a].
+
+    Returns
+    -------
+    ndarray
+        Weights in ``(0, 1]`` when clipped, unbounded above otherwise [-].
+
+    Raises
+    ------
+    ValueError
+        ``decay_width`` is not positive.
+
+    Convention
+    ----------
+    ``psi_norm`` increases outward, so a line that stayed further out is
+    weighted less. With ``clip_inside`` false the weight grows without bound
+    inside the separatrix, which is the model being read outside the region
+    it describes; it is offered because a caller comparing against the
+    unclipped legacy form needs it, not because it is ever the better choice.
+
+    Applicability
+    -------------
+    Machine-independent. The channel is an upstream scrape-off-layer width,
+    so the weight is meaningful only for lines that reach the plasma edge.
+
+    Provenance
+    ----------
+    .. [legacy] the donor</span><span class="sh">'</span><span class="s">s ``upstream_psi_weight``.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">decay_width</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">decay_width must be positive, not </span><span class="si">{</span><span class="n">decay_width</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">psi_norm</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="nf">float</span><span class="p">(</span><span class="n">separatrix_flux</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">clip_inside</span><span class="p">:</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">delta</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">decay_width</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Exponential upstream heat-channel weight in normalized flux.</p>
 
@@ -1281,7 +1764,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

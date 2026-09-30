@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -372,9 +372,41 @@ sign: IMAS flux grows <em>away</em> from a positive current (#354).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_distance"><code>calculate_distance</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L70" title="vaft/formula/green.py, line 70">source</a>
+<a class="ref-source" data-source="calculate_distance" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L70-L97" title="vaft/formula/green.py, lines 70–97 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_distance(r1, r2, z1, z2)</code></pre>
+    <details class="ref-code" data-source-code="calculate_distance"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 70–97</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_distance</span><span class="p">(</span><span class="n">r1</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">r2</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> 
+                      <span class="n">z1</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">z2</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Euclidean distance between $(r_1, z_1)$ and $(r_2, z_2)$ in the poloidal plane.
+
+    $$d = \sqrt{(r_2 - r_1)^2 + (z_2 - z_1)^2}$$
+
+    Parameters
+    ----------
+    r1 : float or np.ndarray
+        Radius of the first point(s) [m].
+    r2 : float or np.ndarray
+        Radius of the second point(s) [m].
+    z1 : float or np.ndarray
+        Height of the first point(s) [m].
+    z2 : float or np.ndarray
+        Height of the second point(s) [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Distance, broadcast over the inputs [m].
+
+    Notes
+    -----
+    A distance in the $(R, Z)$ half-plane, not the 3-D distance between points
+    on two current loops.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">((</span><span class="n">r2</span> <span class="o">-</span> <span class="n">r1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">z2</span> <span class="o">-</span> <span class="n">z1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Euclidean distance between $(r_1, z_1)$ and $(r_2, z_2)$ in the poloidal plane.</p>
 
@@ -415,9 +447,40 @@ on two current loops.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#complete_elliptic_integral_e"><code>complete_elliptic_integral_e</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L160" title="vaft/formula/green.py, line 160">source</a>
+<a class="ref-source" data-source="complete_elliptic_integral_e" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L160-L186" title="vaft/formula/green.py, lines 160–186 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>complete_elliptic_integral_e(m)</code></pre>
+    <details class="ref-code" data-source-code="complete_elliptic_integral_e"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 160–186</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">complete_elliptic_integral_e</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Complete elliptic integral of the second kind $E(m)$.
+
+    $$E(m) = \int_0^{\pi/2}\sqrt{1 - m\sin^2\theta}\,d\theta$$
+
+    Parameters
+    ----------
+    m : float or np.ndarray
+        Parameter $m = k^2$, in $[0, 1]$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $E(m)$, from $\pi/2$ at $m = 0$ to 1 at $m = 1$ [-].
+
+    Convention
+    ----------
+    Takes the parameter $m = k^2$, as ``scipy.special.ellipe`` does.
+
+    References
+    ----------
+    .. [1] NIST Digital Library of Mathematical Functions, Sec. 19.2(ii),
+           https://dlmf.nist.gov/19.2.
+    .. [2] M. Abramowitz and I. A. Stegun, *Handbook of Mathematical Functions*,
+           Dover (1972), Sec. 17.3.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">ellipe</span><span class="p">(</span><span class="n">m</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Complete elliptic integral of the second kind $E(m)$.</p>
 
@@ -463,9 +526,41 @@ on two current loops.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#complete_elliptic_integral_k"><code>complete_elliptic_integral_k</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L130" title="vaft/formula/green.py, line 130">source</a>
+<a class="ref-source" data-source="complete_elliptic_integral_k" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L130-L157" title="vaft/formula/green.py, lines 130–157 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>complete_elliptic_integral_k(m)</code></pre>
+    <details class="ref-code" data-source-code="complete_elliptic_integral_k"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 130–157</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">complete_elliptic_integral_k</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Complete elliptic integral of the first kind $K(m)$.
+
+    $$K(m) = \int_0^{\pi/2}\frac{d\theta}{\sqrt{1 - m\sin^2\theta}}$$
+
+    Parameters
+    ----------
+    m : float or np.ndarray
+        Parameter $m = k^2$, in $[0, 1)$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $K(m)$ [-].
+
+    Convention
+    ----------
+    Takes the *parameter* $m = k^2$, as ``scipy.special.ellipk`` does, not the
+    modulus $k$; $K \to \infty$ logarithmically as $m \to 1$.
+
+    References
+    ----------
+    .. [1] NIST Digital Library of Mathematical Functions, Sec. 19.2(ii),
+           https://dlmf.nist.gov/19.2.
+    .. [2] M. Abramowitz and I. A. Stegun, *Handbook of Mathematical Functions*,
+           Dover (1972), Sec. 17.3.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">ellipk</span><span class="p">(</span><span class="n">m</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Complete elliptic integral of the first kind $K(m)$.</p>
 
@@ -512,7 +607,7 @@ modulus $k$; $K \to \infty$ logarithmically as $m \to 1$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#elliptic_integral"><code>elliptic_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L389" title="vaft/formula/green.py, line 389">source</a>
+<a class="ref-source" data-source="elliptic_integral" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L389-L527" title="vaft/formula/green.py, lines 389–527 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>elliptic_integral(r_obs, z_obs, r_src, z_src)</code></pre>
 
@@ -578,7 +673,7 @@ emitted with a bare <code class="language-plaintext highlighter-rouge">print</co
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#green_br_bz"><code>green_br_bz</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L530" title="vaft/formula/green.py, line 530">source</a>
+<a class="ref-source" data-source="green_br_bz" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L530-L632" title="vaft/formula/green.py, lines 530–632 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>green_br_bz(r_obs, z_obs, r_src, z_src)</code></pre>
 
@@ -647,9 +742,71 @@ callers’ shifted-evaluation scheme avoids exact coincidence).  Tracked in
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#green_br_bz_exact"><code>green_br_bz_exact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L856" title="vaft/formula/green.py, line 856">source</a>
+<a class="ref-source" data-source="green_br_bz_exact" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L856-L913" title="vaft/formula/green.py, lines 856–913 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>green_br_bz_exact(r_obs, z_obs, r_src, z_src)</code></pre>
+    <details class="ref-code" data-source-code="green_br_bz_exact"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 856–913</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">green_br_bz_exact</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">$(B_r, B_z)$ per unit ring current, exact elliptic integrals, broadcasting.
+
+    $$B_r = -\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial z}, \qquad
+      B_z = +\frac{\mu_0}{2\pi r}\,\frac{\partial G}{\partial r}$$
+
+    Parameters
+    ----------
+    r_obs : array-like
+        Observation major radius [m].
+    z_obs : array-like
+        Observation height [m].
+    r_src : array-like
+        Source major radius [m].
+    z_src : array-like
+        Source height [m].
+
+    Returns
+    -------
+    br : np.ndarray
+        Radial field per ampere [T/A].
+    bz : np.ndarray
+        Vertical field per ampere [T/A].
+
+    Convention
+    ----------
+    Right-handed $(r, \varphi, z)$, current in $+\varphi$; consistent with
+    :func:`green_psi_exact` through $B_z = (1/r)\,\partial\psi/\partial r
+    \times 1/2\pi$ for a full-weber $\psi$.
+
+    Limitations
+    -----------
+    Observation points on the geometric axis ($r_{obs} = 0$) return the analytic
+    limits $B_r = 0$, $B_z = \mu_0 r_0^2/(2(r_0^2 + (z - z_0)^2)^{3/2})$; the
+    coincident-point caveat of :func:`greens_function_exact` applies.
+
+    References
+    ----------
+    .. [1] W. R. Smythe, *Static and Dynamic Electricity*, 3rd ed., McGraw-Hill
+           (1968), Sec. 7.10.
+    </span><span class="sh">"""</span>
+    <span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z_obs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r_src</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z_src</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">on_axis</span> <span class="o">=</span> <span class="n">r_obs</span> <span class="o">==</span> <span class="mf">0.0</span>
+    <span class="n">r_safe</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">on_axis</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">r_obs</span><span class="p">)</span>
+    <span class="n">coeff</span> <span class="o">=</span> <span class="n">MU0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r_safe</span><span class="p">)</span>
+    <span class="n">br</span> <span class="o">=</span> <span class="o">-</span><span class="n">coeff</span> <span class="o">*</span> <span class="nf">greens_function_exact</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpsi_dz</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">bz</span> <span class="o">=</span> <span class="n">coeff</span> <span class="o">*</span> <span class="nf">greens_function_exact</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpsi_dr</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">on_axis</span><span class="p">):</span>
+        <span class="n">dz2</span> <span class="o">=</span> <span class="p">(</span><span class="n">z_obs</span> <span class="o">-</span> <span class="n">z_src</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">bz_axis</span> <span class="o">=</span> <span class="n">MU0</span> <span class="o">*</span> <span class="n">r_src</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">r_src</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">dz2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">1.5</span><span class="p">)</span>
+        <span class="n">bz</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">on_axis</span><span class="p">,</span> <span class="n">bz_axis</span><span class="p">,</span> <span class="n">bz</span><span class="p">)</span>
+        <span class="n">br</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">on_axis</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">br</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">br</span><span class="p">,</span> <span class="n">bz</span></code></pre></figure>
+
+</details>
 
     <p>$(B_r, B_z)$ per unit ring current, exact elliptic integrals, broadcasting.</p>
 
@@ -710,9 +867,50 @@ coincident-point caveat of <code class="language-plaintext highlighter-rouge">gr
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#green_psi_exact"><code>green_psi_exact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L817" title="vaft/formula/green.py, line 817">source</a>
+<a class="ref-source" data-source="green_psi_exact" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L817-L853" title="vaft/formula/green.py, lines 817–853 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>green_psi_exact(r_obs, z_obs, r_src, z_src)</code></pre>
+    <details class="ref-code" data-source-code="green_psi_exact"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 817–853</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">green_psi_exact</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal flux per unit ring current, exact elliptic integrals.
+
+    $$\psi = \mu_0\,G(r, z; r_0, z_0)$$
+
+    with $G$ from :func:`greens_function_exact`.
+
+    Parameters
+    ----------
+    r_obs : array-like
+        Observation major radius [m].
+    z_obs : array-like
+        Observation height [m].
+    r_src : array-like
+        Source major radius [m].
+    z_src : array-like
+        Source height [m].
+
+    Returns
+    -------
+    np.ndarray
+        Flux per ampere, broadcast over observation and source arrays [Wb/A].
+
+    Convention
+    ----------
+    Full weber, the IMAS Data Dictionary storage (COCOS 11-18), same as
+    :func:`green_r`.  The per-radian flux of an EFIT g-file or of
+    :func:`vaft.formula.equilibrium.poloidal_field_factor` with ``cocos=None``
+    is this divided by $2\pi$; mixing the two silently mis-scales fields by
+    $2\pi$.  Tracked in #354.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">MU0</span> <span class="o">*</span> <span class="nf">greens_function_exact</span><span class="p">(</span><span class="n">r_obs</span><span class="p">,</span> <span class="n">z_obs</span><span class="p">,</span> <span class="n">r_src</span><span class="p">,</span> <span class="n">z_src</span><span class="p">,</span> <span class="sh">"</span><span class="s">psi</span><span class="sh">"</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Poloidal flux per unit ring current, exact elliptic integrals.</p>
 
@@ -768,7 +966,7 @@ $2\pi$.  Tracked in #354.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#green_r"><code>green_r</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L1138" title="vaft/formula/green.py, line 1138">source</a>
+<a class="ref-source" data-source="green_r" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L1138-L1240" title="vaft/formula/green.py, lines 1138–1240 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>green_r(r_obs, z_obs, r_src, z_src)</code></pre>
 
@@ -828,9 +1026,57 @@ the axis ($r_{obs} = 0$ or $r_{src} = 0$) and clips $k^2$ into $[0, 1]$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greens_function_2d"><code>greens_function_2d</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L193" title="vaft/formula/green.py, line 193">source</a>
+<a class="ref-source" data-source="greens_function_2d" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L193-L236" title="vaft/formula/green.py, lines 193–236 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>greens_function_2d(R, Z, R0, Z0)</code></pre>
+    <details class="ref-code" data-source-code="greens_function_2d"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 193–236</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">greens_function_2d</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">Z0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Axisymmetric kernel $\sqrt{RR_0}\,K(m)$ between a field point and a ring source.
+
+    $$G_{2D} = \sqrt{R R_0}\;K(m), \qquad
+      m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2}$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the field points [m].
+    Z : np.ndarray
+        Height of the field points [m].
+    R0 : float
+        Major radius of the ring source [m].
+    Z0 : float
+        Height of the ring source [m].
+
+    Returns
+    -------
+    np.ndarray
+        Kernel value at each field point [m].
+
+    Convention
+    ----------
+    This is the leading term of the ring-current flux function, *not* the flux
+    Green</span><span class="sh">'</span><span class="s">s function itself: the poloidal flux per unit current is
+    $\mu_0\sqrt{RR_0}\,[(2 - m)K(m) - 2E(m)]/\sqrt{m}$
+    (:func:`greens_function_exact`, :func:`green_psi_exact`).  Use those for
+    any physical field; this kernel is kept for the legacy integrals below.
+
+    Limitations
+    -----------
+    Diverges logarithmically at the source point; no guard.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5 (vector potential of a circular loop).
+    </span><span class="sh">"""</span>
+    <span class="n">k2</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">R0</span> <span class="o">/</span> <span class="p">((</span><span class="n">R</span> <span class="o">+</span> <span class="n">R0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">Z0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">R</span> <span class="o">*</span> <span class="n">R0</span><span class="p">)</span> <span class="o">*</span> <span class="nf">complete_elliptic_integral_k</span><span class="p">(</span><span class="n">k2</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Axisymmetric kernel $\sqrt{RR_0}\,K(m)$ between a field point and a ring source.</p>
 
@@ -889,9 +1135,72 @@ any physical field; this kernel is kept for the legacy integrals below.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greens_function_3d"><code>greens_function_3d</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L239" title="vaft/formula/green.py, line 239">source</a>
+<a class="ref-source" data-source="greens_function_3d" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L239-L297" title="vaft/formula/green.py, lines 239–297 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>greens_function_3d(R, Z, phi, R0, Z0, phi0)</code></pre>
+    <details class="ref-code" data-source-code="greens_function_3d"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 239–297</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">greens_function_3d</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">phi</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">Z0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">phi0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Toroidal-angle-resolved variant of the $\sqrt{RR_0}\,K(m)$ kernel.
+
+    $$G_{3D} = \sqrt{R R_0}\;K(m), \qquad
+      m = \frac{4RR_0}{(R + R_0)^2 + (Z - Z_0)^2 + 4RR_0\sin^2\!\big(\tfrac{\varphi - \varphi_0}{2}\big)}$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the field points [m].
+    Z : np.ndarray
+        Height of the field points [m].
+    phi : np.ndarray
+        Toroidal angle of the field points [rad].
+    R0 : float
+        Major radius of the source [m].
+    Z0 : float
+        Height of the source [m].
+    phi0 : float
+        Toroidal angle of the source [rad].
+
+    Returns
+    -------
+    np.ndarray
+        Kernel value at each field point [m].
+
+    Limitations
+    -----------
+    Not the Biot-Savart kernel of a point source, and the difference is exact
+    rather than vague. The chord between two points in a torus is
+
+    $$d^2 = (R - R_0)^2 + (Z - Z_0)^2
+            + 4RR_0\sin^2\!\big(\tfrac{\varphi - \varphi_0}{2}\big),$$
+
+    while the ring kernel</span><span class="sh">'</span><span class="s">s denominator is
+    $(R + R_0)^2 + (Z - Z_0)^2 = (R - R_0)^2 + (Z - Z_0)^2 + 4RR_0$. A point
+    source therefore *replaces* the $4RR_0$ with
+    $4RR_0\sin^2(\Delta\varphi/2)$; this expression **adds** the second term to
+    the first, so the two coincide only at $\Delta\varphi = 0$, where the
+    $\sin^2$ vanishes and the ring result is recovered.
+
+    That $\Delta\varphi = 0$ reduction is the one property worth relying on.
+    Away from it the expression decays with toroidal separation in a way that
+    has no recorded derivation, so it should not be read as a field. Tracked in
+    #356: it needs either a derivation or a replacement, and it has no
+    production caller today.
+
+    References
+    ----------
+    .. [1] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Wiley (1999),
+           Sec. 5.5.
+    </span><span class="sh">"""</span>
+    <span class="n">k2</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">R0</span> <span class="o">/</span> <span class="p">((</span><span class="n">R</span> <span class="o">+</span> <span class="n">R0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">Z0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">R0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">((</span><span class="n">phi</span> <span class="o">-</span> <span class="n">phi0</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">R</span> <span class="o">*</span> <span class="n">R0</span><span class="p">)</span> <span class="o">*</span> <span class="nf">complete_elliptic_integral_k</span><span class="p">(</span><span class="n">k2</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Toroidal-angle-resolved variant of the $\sqrt{RR_0}\,K(m)$ kernel.</p>
 
@@ -960,7 +1269,7 @@ production caller today.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greens_function_exact"><code>greens_function_exact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L659" title="vaft/formula/green.py, line 659">source</a>
+<a class="ref-source" data-source="greens_function_exact" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L659-L814" title="vaft/formula/green.py, lines 659–814 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>greens_function_exact(r, z, r0, z0, mode=&#39;psi&#39;)</code></pre>
 
@@ -1052,9 +1361,51 @@ against finite differences of <code class="language-plaintext highlighter-rouge"
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greens_integral_2d"><code>greens_integral_2d</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L304" title="vaft/formula/green.py, line 304">source</a>
+<a class="ref-source" data-source="greens_integral_2d" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L304-L341" title="vaft/formula/green.py, lines 304–341 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>greens_integral_2d(R, Z, R0, Z0, f)</code></pre>
+    <details class="ref-code" data-source-code="greens_integral_2d"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 304–341</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">greens_integral_2d</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">Z0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Line integral along $R$ of the 2-D kernel times a source density.
+
+    $$I = \int G_{2D}(R, Z; R_0, Z_0)\,f(R)\,dR$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the samples, monotonic [m].
+    Z : np.ndarray
+        Height of the samples [m].
+    R0 : float
+        Major radius of the source [m].
+    Z0 : float
+        Height of the source [m].
+    f : np.ndarray
+        Source density at the samples [any].
+
+    Returns
+    -------
+    float
+        Integral in units of ``f`` times m^2 [any].
+
+    Limitations
+    -----------
+    Integrates along the single supplied ``R`` array (a line, not an area) with
+    the kernel of :func:`greens_function_2d`; not a flux or field.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule.
+    </span><span class="sh">"""</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="nf">greens_function_2d</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">Z0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">G</span> <span class="o">*</span> <span class="n">f</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Line integral along $R$ of the 2-D kernel times a source density.</p>
 
@@ -1101,9 +1452,56 @@ the kernel of <code class="language-plaintext highlighter-rouge">greens_function
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#greens_integral_3d"><code>greens_integral_3d</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L344" title="vaft/formula/green.py, line 344">source</a>
+<a class="ref-source" data-source="greens_integral_3d" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L344-L386" title="vaft/formula/green.py, lines 344–386 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>greens_integral_3d(R, Z, phi, R0, Z0, phi0, f)</code></pre>
+    <details class="ref-code" data-source-code="greens_integral_3d"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 344–386</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">greens_integral_3d</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">phi</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">Z0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">phi0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                      <span class="n">f</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Line integral along $R$ of the 3-D kernel times a source density.
+
+    $$I = \int G_{3D}(R, Z, \varphi; R_0, Z_0, \varphi_0)\,f(R)\,dR$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius of the samples, monotonic [m].
+    Z : np.ndarray
+        Height of the samples [m].
+    phi : np.ndarray
+        Toroidal angle of the samples [rad].
+    R0 : float
+        Major radius of the source [m].
+    Z0 : float
+        Height of the source [m].
+    phi0 : float
+        Toroidal angle of the source [rad].
+    f : np.ndarray
+        Source density at the samples [any].
+
+    Returns
+    -------
+    float
+        Integral in units of ``f`` times m^2 [any].
+
+    Limitations
+    -----------
+    Same caveats as :func:`greens_integral_2d` and :func:`greens_function_3d`.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule along ``R`` only.
+    </span><span class="sh">"""</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="nf">greens_function_3d</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">Z0</span><span class="p">,</span> <span class="n">phi0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">G</span> <span class="o">*</span> <span class="n">f</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Line integral along $R$ of the 3-D kernel times a source density.</p>
 
@@ -1153,7 +1551,7 @@ the kernel of <code class="language-plaintext highlighter-rouge">greens_function
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mutual_inductance"><code>mutual_inductance</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L947" title="vaft/formula/green.py, line 947">source</a>
+<a class="ref-source" data-source="mutual_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L947-L1045" title="vaft/formula/green.py, lines 947–1045 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>mutual_inductance(r1, z1, dr1, dz1, r2, z2, dr2, dz2, *, tilt1=0.0, tilt2=0.0, turns1=1.0, turns2=1.0, mu_r=1.0, n_div=5)</code></pre>
 
@@ -1237,7 +1635,7 @@ material codes are intentionally not reproduced: pass <code class="language-plai
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#self_inductance"><code>self_inductance</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L1048" title="vaft/formula/green.py, line 1048">source</a>
+<a class="ref-source" data-source="self_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L1048-L1135" title="vaft/formula/green.py, lines 1048–1135 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>self_inductance(r, dr, dz, *, tilt=0.0, turns=1.0, mu_r=1.0, n_div=5)</code></pre>
 
@@ -1315,9 +1713,40 @@ approximation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapz_integral"><code>trapz_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/green.py#L40" title="vaft/formula/green.py, line 40">source</a>
+<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/green.py#L40-L66" title="vaft/formula/green.py, lines 40–66 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>trapz_integral(x, y)</code></pre>
+    <details class="ref-code" data-source-code="trapz_integral"><summary>Show source <span class="ref-note">vaft/formula/green.py, lines 40–66</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Trapezoidal integral $\int y\,dx$, local copy for the Green kernels.
+
+    $$\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Sample abscissae, monotonic [any].
+    y : np.ndarray
+        Integrand at the samples [any].
+
+    Returns
+    -------
+    float
+        Integral over the sampled range, in units of ``y`` times ``x`` [any].
+
+    Numerical notes
+    ---------------
+    Identical to :func:`vaft.formula.utils.trapz_integral` (``numpy.trapezoid``
+    via :func:`vaft.compat.trapz_compat`); this copy is the one
+    ``vaft.formula.trapz_integral`` resolves to, and it is kept because
+    ``test_formula_lazy_namespace`` pins that shadowing. The reason it was
+    written -- that importing ``utils`` dragged in scikit-learn -- is gone
+    since #426.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">trapz_compat</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Trapezoidal integral $\int y\,dx$, local copy for the Green kernels.</p>
 
@@ -1574,7 +2003,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

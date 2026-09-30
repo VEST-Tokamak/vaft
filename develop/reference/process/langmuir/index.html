@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -340,9 +340,51 @@ back electron temperature/density.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_current"><code>calibrate_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L160" title="vaft/process/langmuir.py, line 160">source</a>
+<a class="ref-source" data-source="calibrate_current" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L160-L197" title="vaft/process/langmuir.py, lines 160–197 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_current(raw, *, divisor=100.0)</code></pre>
+    <details class="ref-code" data-source-code="calibrate_current"><summary>Show source <span class="ref-note">vaft/process/langmuir.py, lines 160–197</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calibrate_current</span><span class="p">(</span><span class="n">raw</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">divisor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">100.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Convert a raw probe current record to amperes.
+
+    Parameters
+    ----------
+    raw : array_like
+        Digitized probe signal [V].
+    divisor : float, optional
+        Shunt or amplifier divisor, non-zero [-].
+
+    Returns
+    -------
+    np.ndarray
+        Probe current [A].
+
+    Raises
+    ------
+    ValueError
+        The divisor is zero.
+
+    Defaults
+    --------
+    ``divisor = 100.0`` is machine-specific, the VEST current divisor mirrored
+    from ``vest.yaml``, and carries the same caveat as the voltage gain: a caller
+    on another machine must supply its own.
+
+    Applicability
+    -------------
+    Machine-independent.  The arithmetic is a scale factor; only the default
+    carries a VEST number, and a caller on another machine passes its own.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml`` ``langmuir_probes`` current divisor.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="nf">float</span><span class="p">(</span><span class="n">divisor</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">calibrate_current: divisor must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">divisor</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Convert a raw probe current record to amperes.</p>
 
@@ -398,9 +440,44 @@ carries a VEST number, and a caller on another machine passes its own.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_voltage"><code>calibrate_voltage</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L127" title="vaft/process/langmuir.py, line 127">source</a>
+<a class="ref-source" data-source="calibrate_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L127-L157" title="vaft/process/langmuir.py, lines 127–157 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_voltage(raw, *, gain=22.0)</code></pre>
+    <details class="ref-code" data-source-code="calibrate_voltage"><summary>Show source <span class="ref-note">vaft/process/langmuir.py, lines 127–157</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calibrate_voltage</span><span class="p">(</span><span class="n">raw</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">gain</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">22.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Convert a raw probe voltage record to physical volts.
+
+    Parameters
+    ----------
+    raw : array_like
+        Digitized probe signal [V].
+    gain : float, optional
+        Multiplicative divider gain [-].
+
+    Returns
+    -------
+    np.ndarray
+        Probe voltage [V].
+
+    Defaults
+    --------
+    ``gain = 22.0`` is machine-specific: it is the VEST probe divider, mirrored
+    from ``vest.yaml``. This module is otherwise machine-independent, so a caller
+    on another machine must pass its own value rather than inherit this one.
+
+    Applicability
+    -------------
+    Machine-independent.  The arithmetic is a scale factor; only the default
+    carries a VEST number, and a caller on another machine passes its own.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml`` ``langmuir_probes`` voltage gain.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">gain</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Convert a raw probe voltage record to physical volts.</p>
 
@@ -448,7 +525,7 @@ carries a VEST number, and a caller on another machine passes its own.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_density"><code>electron_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L358" title="vaft/process/langmuir.py, line 358">source</a>
+<a class="ref-source" data-source="electron_density" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L358-L443" title="vaft/process/langmuir.py, lines 358–443 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>electron_density(vd2, te, current, *, tip_radius_m, tip_length_m, ion_mass_kg, e=1.602176634e-19)</code></pre>
 
@@ -529,9 +606,51 @@ mask must be honoured. Inherits the assumptions of
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#median_filter_signal"><code>median_filter_signal</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L87" title="vaft/process/langmuir.py, line 87">source</a>
+<a class="ref-source" data-source="median_filter_signal" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L87-L124" title="vaft/process/langmuir.py, lines 87–124 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>median_filter_signal(data, kernel_size)</code></pre>
+    <details class="ref-code" data-source-code="median_filter_signal"><summary>Show source <span class="ref-note">vaft/process/langmuir.py, lines 87–124</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">median_filter_signal</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Median-filter a waveform along its only axis.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform [any].
+    kernel_size : int
+        Width of the median window in samples; must be odd [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same length [any].
+
+    Convention
+    ----------
+    A median filter is zero phase: it moves no feature in time, unlike a causal
+    low-pass. It removes isolated spikes without the smoothing a mean filter
+    applies to a real edge, which is why a probe trace uses it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The kernel must be odd; SciPy raises otherwise. Edges are handled by zero
+    padding, so the first and last half-kernel of samples are pulled toward zero.
+    A feature narrower than half the kernel is removed whether or not it is noise.
+
+    Provenance
+    ----------
+    .. [1] ``scipy.signal.medfilt``. Issue #152 does not record the kernel size the
+       original workflow used, which is why the pipeline leaves this unset rather
+       than guessing one; see :func:`process_triple_probe`.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">medfilt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">kernel_size</span><span class="o">=</span><span class="nf">int</span><span class="p">(</span><span class="n">kernel_size</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Median-filter a waveform along its only axis.</p>
 
@@ -587,9 +706,58 @@ A feature narrower than half the kernel is removed whether or not it is noise.</
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#probe_surface_area"><code>probe_surface_area</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L200" title="vaft/process/langmuir.py, line 200">source</a>
+<a class="ref-source" data-source="probe_surface_area" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L200-L244" title="vaft/process/langmuir.py, lines 200–244 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>probe_surface_area(*, tip_radius_m, tip_length_m)</code></pre>
+    <details class="ref-code" data-source-code="probe_surface_area"><summary>Show source <span class="ref-note">vaft/process/langmuir.py, lines 200–244</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">probe_surface_area</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">tip_radius_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">tip_length_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Collection area of a cylindrical probe tip.
+
+    Parameters
+    ----------
+    tip_radius_m : float
+        Tip radius, strictly positive [m].
+    tip_length_m : float
+        Exposed tip length, strictly positive [m].
+
+    Returns
+    -------
+    float
+        The collecting surface area [m^2].
+
+    Raises
+    ------
+    ValueError
+        Either dimension is not positive.
+
+    Convention
+    ----------
+    The lateral area of a cylinder, ``2*pi*r*l``. The end cap is excluded, which
+    is the usual convention for a probe whose length far exceeds its radius, and
+    the sheath is assumed thin enough that the collecting area is the geometric
+    one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A thick sheath at low density collects over an area larger than the geometric
+    one, which this does not model; the density inferred from it is then an
+    overestimate.
+
+    Provenance
+    ----------
+    .. [1] The standard cylindrical-probe collection area used by the
+       triple-probe density relation in :func:`electron_density`.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">tip_radius_m</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">tip_length_m</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">probe_surface_area: tip_radius_m and tip_length_m must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">tip_radius_m</span><span class="p">)</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">tip_length_m</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Collection area of a cylindrical probe tip.</p>
 
@@ -654,7 +822,7 @@ overestimate.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#process_triple_probe"><code>process_triple_probe</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L446" title="vaft/process/langmuir.py, line 446">source</a>
+<a class="ref-source" data-source="process_triple_probe" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L446-L587" title="vaft/process/langmuir.py, lines 446–587 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>process_triple_probe(time_v, vd2_raw, time_i, i_raw, vd3, *, tip_radius_m, tip_length_m, ion_mass_kg, voltage_gain=22.0, current_divisor=100.0, n_baseline_samples=500, median_kernel=None, time_rtol=1e-06, time_atol=1e-09)</code></pre>
 
@@ -765,9 +933,66 @@ either is invalid in the result.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#remove_offset"><code>remove_offset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L32" title="vaft/process/langmuir.py, line 32">source</a>
+<a class="ref-source" data-source="remove_offset" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L32-L84" title="vaft/process/langmuir.py, lines 32–84 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>remove_offset(data, *, n_baseline_samples=500)</code></pre>
+    <details class="ref-code" data-source-code="remove_offset"><summary>Show source <span class="ref-note">vaft/process/langmuir.py, lines 32–84</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">remove_offset</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_baseline_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Subtract a signal</span><span class="sh">'</span><span class="s">s pre-plasma baseline, taken as its leading samples.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform, in whatever unit it has [any].
+    n_baseline_samples : int, optional
+        How many leading samples make up the baseline [-].
+
+    Returns
+    -------
+    np.ndarray
+        The waveform with its baseline mean removed [any].
+
+    Raises
+    ------
+    ValueError
+        The record is shorter than the requested baseline.
+
+    Defaults
+    --------
+    ``n_baseline_samples = 500`` is an acquisition-era value carried from the VEST
+    probe digitizer settings, where the leading samples precede the discharge. It
+    is a sample count, not a duration, so it means a different interval on a
+    different sample rate.
+
+    Convention
+    ----------
+    The mean of the leading window, not a fitted trend, so a baseline that drifts
+    during the shot is not removed.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the leading window is signal-free. A probe already collecting current
+    at the start of the record has its baseline biased by that current.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml`` ``langmuir_probes`` processing, which carries the VEST
+       sample count this default mirrors.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">values</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="nf">int</span><span class="p">(</span><span class="n">n_baseline_samples</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">remove_offset: need at least </span><span class="si">{</span><span class="n">n_baseline_samples</span><span class="si">}</span><span class="s"> samples, got </span><span class="si">{</span><span class="n">values</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">values</span><span class="p">[:</span> <span class="nf">int</span><span class="p">(</span><span class="n">n_baseline_samples</span><span class="p">)]))</span>
+    <span class="k">return</span> <span class="n">values</span> <span class="o">-</span> <span class="n">baseline</span></code></pre></figure>
+
+</details>
 
     <p>Subtract a signal’s pre-plasma baseline, taken as its leading samples.</p>
 
@@ -836,7 +1061,7 @@ at the start of the record has its baseline biased by that current.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#solve_electron_temperature"><code>solve_electron_temperature</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/langmuir.py#L261" title="vaft/process/langmuir.py, line 261">source</a>
+<a class="ref-source" data-source="solve_electron_temperature" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/langmuir.py#L261-L355" title="vaft/process/langmuir.py, lines 261–355 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>solve_electron_temperature(vd2, vd3, *, te_bounds=(0.1, 500.0), rtol=1e-06)</code></pre>
 
@@ -1137,7 +1362,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

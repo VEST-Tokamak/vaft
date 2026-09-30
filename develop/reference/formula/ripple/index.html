@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -368,9 +368,87 @@ local amplitude on the surface, not the machine’s maximum.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gwb_stochastic_threshold"><code>gwb_stochastic_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L297" title="vaft/formula/ripple.py, line 297">source</a>
+<a class="ref-source" data-source="gwb_stochastic_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L297-L370" title="vaft/formula/ripple.py, lines 297–370 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>gwb_stochastic_threshold(epsilon, q, dq_dr, rho, n_tf)</code></pre>
+    <details class="ref-code" data-source-code="gwb_stochastic_threshold"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 297–370</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gwb_stochastic_threshold</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">dq_dr</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Goldston--White--Boozer ripple above which banana-tip motion is stochastic.
+
+    $$\delta_\mathrm{GWB} = \left(\frac{\epsilon}{\pi N_\mathrm{TF}\,q}\right)^{3/2}\frac{1}{\rho\,q</span><span class="sh">'</span><span class="s">}$$
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface [-].
+    q : float or np.ndarray
+        Safety factor, a positive magnitude [-].
+    dq_dr : float or np.ndarray
+        $dq/dr$ in the physical minor radius, positive magnitude [1/m].
+    rho : float or np.ndarray
+        Larmor radius $v/\Omega$ with the full speed and the field at the
+        surface, e.g. ``larmor_radius(q, m, v, B)`` [m].
+    n_tf : int
+        Number of TF coils [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Threshold ripple $\delta_\mathrm{GWB}$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``n_tf`` is not a positive integer, or ``q``, ``dq_dr`` or ``rho`` is not positive.
+
+    Convention
+    ----------
+    The ITER Physics Basis form of the GWB criterion: $\rho$ is the gyroradius
+    with the total speed, $q</span><span class="sh">'</span><span class="s"> = dq/dr$ in metres of minor radius, and the
+    coefficient is exactly the one written (no hidden $O(1)$ factor). Other
+    papers fold factors of order unity into $\rho$ (toroidal vs total field,
+    $v$ vs $v_\perp$); compare thresholds only within one convention.
+
+    Physical interpretation
+    -----------------------
+    Each bounce the ripple kicks the banana tip radially by an amount $\propto\delta$;
+    when the kick shifts the tip</span><span class="sh">'</span><span class="s">s toroidal precession phase by more than about
+    a radian between bounces, successive kicks decorrelate and the tips random-walk
+    out. Larger $\rho$ (faster particles), stronger shear $q</span><span class="sh">'</span><span class="s">$ and higher $q$
+    lower the threshold; $\epsilon$ alone raises it, and outer surfaces still go
+    stochastic first because $\delta$ and $q$ grow outward much faster.
+
+    Assumptions
+    -----------
+    Large aspect ratio, deeply trapped particles, a single $N_\mathrm{TF}$ harmonic,
+    no collisions; an order-of-magnitude threshold, not a loss rate.
+
+    Validity
+    --------
+    Orbit-following comparisons find stochastic losses near this threshold to
+    within a factor of order one; use it to flag regimes, not to predict losses.
+
+    See Also
+    --------
+    vaft.diagram.stochastic_ripple_orbit : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, R. B. White and A. H. Boozer, Phys. Rev. Lett. 47
+           (1981) 647.
+    .. [2] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2471, Ch. 5.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive_int</span><span class="p">(</span><span class="n">n_tf</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_tf</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">dq_dr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dq_dr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">q</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">dq_dr</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">rho</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">q, dq_dr and rho must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">n</span> <span class="o">*</span> <span class="n">q</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span><span class="n">rho</span> <span class="o">*</span> <span class="n">dq_dr</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Goldston–White–Boozer ripple above which banana-tip motion is stochastic.</p>
 
@@ -459,9 +537,66 @@ within a factor of order one; use it to flag regimes, not to predict losses.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gwb_stochasticity_parameter"><code>gwb_stochasticity_parameter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L373" title="vaft/formula/ripple.py, line 373">source</a>
+<a class="ref-source" data-source="gwb_stochasticity_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L373-L425" title="vaft/formula/ripple.py, lines 373–425 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>gwb_stochasticity_parameter(delta, epsilon, q, dq_dr, rho, n_tf)</code></pre>
+    <details class="ref-code" data-source-code="gwb_stochasticity_parameter"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 373–425</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gwb_stochasticity_parameter</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">dq_dr</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ripple over its GWB threshold: stochastic banana tips where it exceeds 1.
+
+    $$S_\mathrm{GWB} = \frac{\delta}{\delta_\mathrm{GWB}}$$
+
+    Parameters
+    ----------
+    delta : float or np.ndarray
+        Ripple amplitude on the surface [-].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ [-].
+    q : float or np.ndarray
+        Safety factor [-].
+    dq_dr : float or np.ndarray
+        $dq/dr$ in physical minor radius [1/m].
+    rho : float or np.ndarray
+        Larmor radius, as in ``gwb_stochastic_threshold`` [m].
+    n_tf : int
+        Number of TF coils [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $S_\mathrm{GWB}$ [-].
+
+    Raises
+    ------
+    ValueError
+        As ``gwb_stochastic_threshold``, or ``delta`` is negative.
+
+    Convention
+    ----------
+    The threshold of ``gwb_stochastic_threshold`` with its stated $\rho$ and
+    $q</span><span class="sh">'</span><span class="s">$ conventions.
+
+    Physical interpretation
+    -----------------------
+    A regime flag: $S_\mathrm{GWB} &gt; 1$ marks where trapped fast particles of
+    that gyroradius lose their orbits to ripple stochasticity.
+
+    See Also
+    --------
+    vaft.diagram.stochastic_ripple_orbit : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, R. B. White and A. H. Boozer, Phys. Rev. Lett. 47
+           (1981) 647.
+    </span><span class="sh">"""</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">delta</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">delta</span> <span class="o">/</span> <span class="nf">gwb_stochastic_threshold</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">dq_dr</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Ripple over its GWB threshold: stochastic banana tips where it exceeds 1.</p>
 
@@ -533,9 +668,60 @@ that gyroradius lose their orbits to ripple stochasticity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_amplitude"><code>ripple_amplitude</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L133" title="vaft/formula/ripple.py, line 133">source</a>
+<a class="ref-source" data-source="ripple_amplitude" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L133-L179" title="vaft/formula/ripple.py, lines 133–179 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_amplitude(B_max, B_min)</code></pre>
+    <details class="ref-code" data-source-code="ripple_amplitude"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 133–179</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_amplitude</span><span class="p">(</span><span class="n">B_max</span><span class="p">,</span> <span class="n">B_min</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ripple amplitude from the extreme field strengths along the toroidal angle.
+
+    $$\delta = \frac{B_\mathrm{max} - B_\mathrm{min}}{B_\mathrm{max} + B_\mathrm{min}}$$
+
+    Parameters
+    ----------
+    B_max : float or np.ndarray
+        Largest $|B|$ along $\phi$ at fixed $(R, Z)$, under a coil [T].
+    B_min : float or np.ndarray
+        Smallest $|B|$ along $\phi$ at the same $(R, Z)$, between coils [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\delta$, in $[0, 1)$ [-].
+
+    Raises
+    ------
+    ValueError
+        A field is not positive, or ``B_min`` exceeds ``B_max``.
+
+    Convention
+    ----------
+    The half peak-to-peak variation over the mean, so that
+    ``toroidal_ripple_field`` has $B_\mathrm{max,min} = \bar B(1 \pm \delta)$.
+    Some machines quote the full peak-to-peak $(B_\mathrm{max} - B_\mathrm{min})/\bar B = 2\delta$.
+
+    Physical interpretation
+    -----------------------
+    How deep the toroidal corrugation is at one point; it rises steeply with
+    $R$ towards the coil legs.
+
+    See Also
+    --------
+    vaft.diagram.toroidal_field_ripple : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2471, Ch. 5
+           (ripple definition).
+    </span><span class="sh">"""</span>
+    <span class="n">B_max</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_max</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">B_min</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_min</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">B_min</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">B_max</span> <span class="o">&lt;</span> <span class="n">B_min</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">fields must be positive with B_max &gt;= B_min</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">((</span><span class="n">B_max</span> <span class="o">-</span> <span class="n">B_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">B_max</span> <span class="o">+</span> <span class="n">B_min</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Ripple amplitude from the extreme field strengths along the toroidal angle.</p>
 
@@ -616,9 +802,59 @@ $R$ towards the coil legs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_trapping_pitch"><code>ripple_trapping_pitch</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L249" title="vaft/formula/ripple.py, line 249">source</a>
+<a class="ref-source" data-source="ripple_trapping_pitch" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L249-L294" title="vaft/formula/ripple.py, lines 249–294 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_trapping_pitch(delta)</code></pre>
+    <details class="ref-code" data-source-code="ripple_trapping_pitch"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 249–294</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_trapping_pitch</span><span class="p">(</span><span class="n">delta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Largest pitch $|v_\parallel/v|$ trapped in a ripple well of depth $\delta$.
+
+    $$\left|\frac{v_\parallel}{v}\right|_\mathrm{trap} = \sqrt{\frac{2\delta}{1 + \delta}} \simeq \sqrt{2\delta}$$
+
+    Parameters
+    ----------
+    delta : float or np.ndarray
+        Ripple amplitude, in $[0, 1)$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Pitch $\xi = v_\parallel/v$ at the well bottom below which a particle
+        cannot climb over the next ripple maximum [-].
+
+    Raises
+    ------
+    ValueError
+        ``delta`` lies outside $[0, 1)$.
+
+    Convention
+    ----------
+    Measured at the well bottom $B = \bar B(1 - \delta)$, with the barrier
+    $\bar B(1 + \delta)$; conservation of $\mu$ and energy gives
+    $\xi^2 &lt; 1 - B_\mathrm{min}/B_\mathrm{max}$. Ignores the $1/R$ tilt of the well,
+    which only makes wells shallower (see ``ripple_well_parameter``).
+
+    Physical interpretation
+    -----------------------
+    Only nearly perpendicular particles -- a pitch cone of half-width
+    $\sim\sqrt{2\delta}$, a few per cent -- are ripple-trapped; they then drift
+    vertically out of the plasma unless collisions or the well</span><span class="sh">'</span><span class="s">s end detrap them.
+
+    Assumptions
+    -----------
+    A well of full depth $2\delta$; $\mu$ and energy conserved.
+
+    References
+    ----------
+    .. [1] P. N. Yushmanov, Rev. Plasma Phys. 16 (1990) 117, Sec. 2.
+    </span><span class="sh">"""</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">delta</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">delta</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta must lie in [0, 1)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">delta</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">delta</span><span class="p">)))</span></code></pre></figure>
+
+</details>
 
     <table>
       <tbody>
@@ -691,9 +927,78 @@ vertically out of the plasma unless collisions or the well’s end detrap them.<
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_well_parameter"><code>ripple_well_parameter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L182" title="vaft/formula/ripple.py, line 182">source</a>
+<a class="ref-source" data-source="ripple_well_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L182-L246" title="vaft/formula/ripple.py, lines 182–246 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_well_parameter(epsilon, theta, q, delta, n_tf)</code></pre>
+    <details class="ref-code" data-source-code="ripple_well_parameter"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 182–246</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_well_parameter</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Whether ripple makes local wells along a field line: $\alpha^* &lt; 1$.
+
+    $$\alpha^* = \frac{\epsilon\,|\sin\theta|}{N_\mathrm{TF}\,q\,\delta}$$
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio of the surface [-].
+    theta : float or np.ndarray
+        Poloidal angle from the outboard midplane [rad].
+    q : float or np.ndarray
+        Safety factor, a positive magnitude [-].
+    delta : float or np.ndarray
+        Ripple amplitude on the surface [-].
+    n_tf : int
+        Number of TF coils [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha^*$; ripple wells exist where it is below 1 [-].
+
+    Raises
+    ------
+    ValueError
+        ``n_tf`` is not a positive integer, or ``q`` or ``delta`` is not positive.
+
+    Convention
+    ----------
+    Along a field line $\phi = q\theta$, so the ripple term of
+    ``toroidal_ripple_field`` oscillates with $dB/d\theta \sim N_\mathrm{TF}q\delta B_0$
+    while the toroidal term</span><span class="sh">'</span><span class="s">s slope is $\epsilon B_0\sin\theta$; $\alpha^*$ is
+    their ratio. It is zero at the midplanes, where wells always form for any
+    ripple.
+
+    Physical interpretation
+    -----------------------
+    Where the fine ripple modulation is steeper than the smooth $1/R$ slope,
+    the field along the line has local minima that can trap particles with
+    small $v_\parallel$ -- ripple trapping.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surfaces, $\phi = q\theta$ along the line;
+    a local criterion, not a 3-D field analysis. It is first order in
+    $\epsilon$: for the multiplicative ``toroidal_ripple_field`` the ripple
+    slope carries a factor $1 - \epsilon\cos\theta$, and wells form where
+    $\alpha^* &lt; 1 - \epsilon\cos\theta$.
+
+    See Also
+    --------
+    vaft.diagram.ripple_well_formation : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] P. N. Yushmanov, Rev. Plasma Phys. 16 (1990) 117, Sec. 2.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive_int</span><span class="p">(</span><span class="n">n_tf</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_tf</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">q</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">delta</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">q and delta must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">q</span> <span class="o">*</span> <span class="n">delta</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Whether ripple makes local wells along a field line: $\alpha^* &lt; 1$.</p>
 
@@ -775,9 +1080,81 @@ $\alpha^* &lt; 1 - \epsilon\cos\theta$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_ripple_field"><code>toroidal_ripple_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/ripple.py#L63" title="vaft/formula/ripple.py, line 63">source</a>
+<a class="ref-source" data-source="toroidal_ripple_field" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/ripple.py#L63-L130" title="vaft/formula/ripple.py, lines 63–130 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_ripple_field(B0, epsilon, theta, delta, n_tf, phi, phase=0.0)</code></pre>
+    <details class="ref-code" data-source-code="toroidal_ripple_field"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 63–130</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">toroidal_ripple_field</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Field strength on a flux surface with toroidicity and TF-coil ripple.
+
+    $$B = B_0\left(1 - \epsilon\cos\theta\right)\left[1 - \delta\cos(N_\mathrm{TF}\phi + \phi_0)\right]$$
+
+    Parameters
+    ----------
+    B0 : float
+        Field at the magnetic axis [T].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface [-].
+    theta : float or np.ndarray
+        Poloidal angle from the outboard midplane [rad].
+    delta : float or np.ndarray
+        Ripple amplitude on the surface [-].
+    n_tf : int
+        Number of TF coils [-].
+    phi : float or np.ndarray
+        Toroidal angle [rad].
+    phase : float
+        Toroidal phase $\phi_0$ of the ripple [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|B|$ [T].
+
+    Raises
+    ------
+    ValueError
+        ``n_tf`` is not a positive integer, or ``delta`` or ``epsilon`` is negative.
+
+    Convention
+    ----------
+    $\theta = 0$ outboard, so the $1/R$ term makes the outboard midplane the
+    field minimum; the ripple factor is a minimum where
+    $N_\mathrm{TF}\phi + \phi_0 = 0$. Multiplicative, so $\delta$ is the local
+    ``ripple_amplitude`` at every $\theta$; to first order it equals the
+    additive $B_0[1 - \epsilon\cos\theta - \delta\cos(\ldots)]$. With
+    $\delta = 0$ it is the first-order expansion of ``vacuum_toroidal_field``.
+
+    Physical interpretation
+    -----------------------
+    The smooth $1/R$ mirror that traps bananas, corrugated $N_\mathrm{TF}$ times
+    around the torus by the gaps between discrete coils.
+
+    Assumptions
+    -----------
+    Large aspect ratio ($\epsilon \ll 1$), small ripple ($\delta \ll \epsilon$
+    typically), a single $N_\mathrm{TF}$ harmonic; $\delta$ is taken as given
+    on the surface (it grows steeply towards the outboard edge).
+
+    See Also
+    --------
+    vaft.diagram.toroidal_field_ripple : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] P. N. Yushmanov, Rev. Plasma Phys. 16 (1990) 117, Sec. 1.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive_int</span><span class="p">(</span><span class="n">n_tf</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_tf</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">delta</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">epsilon</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta and epsilon must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">B0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)))</span>
+              <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">delta</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">+</span> <span class="nf">float</span><span class="p">(</span><span class="n">phase</span><span class="p">))))</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Field strength on a flux surface with toroidicity and TF-coil ripple.</p>
 
@@ -1085,7 +1462,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

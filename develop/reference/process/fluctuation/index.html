@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -376,7 +376,7 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L742" title="vaft/process/fluctuation.py, line 742">source</a>
+<a class="ref-source" data-source="analyze_fluctuation_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L742-L846" title="vaft/process/fluctuation.py, lines 742–846 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>analyze_fluctuation_spectrum(time, data, *, fit_ranges=(), bands=None, ratios=None, break_frequency=None, search_range=None, break_fit_range=None, **psd_options)</code></pre>
 
@@ -456,9 +456,91 @@ limitation of the steps it runs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_band_power"><code>compute_band_power</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L548" title="vaft/process/fluctuation.py, line 548">source</a>
+<a class="ref-source" data-source="compute_band_power" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L548-L625" title="vaft/process/fluctuation.py, lines 548–625 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_band_power(frequency, psd, bands, *, ratios=None)</code></pre>
+    <details class="ref-code" data-source-code="compute_band_power"><summary>Show source <span class="ref-note">vaft/process/fluctuation.py, lines 548–625</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">compute_band_power</span><span class="p">(</span>
+    <span class="n">frequency</span><span class="p">,</span>
+    <span class="n">psd</span><span class="p">,</span>
+    <span class="n">bands</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ratios</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Integrate spectral power over named frequency bands, and optionally their ratios.
+
+    Parameters
+    ----------
+    frequency : array_like
+        Frequency axis [Hz].
+    psd : array_like
+        Power spectral density [any].
+    bands : mapping of str to sequence of float
+        Named ``(f_low, f_high)`` pairs; the names are the caller</span><span class="sh">'</span><span class="s">s [Hz].
+    ratios : mapping, optional
+        Named pairs of band names whose power ratio to report [-].
+
+    Returns
+    -------
+    dict
+        Power per named band, in the signal</span><span class="sh">'</span><span class="s">s own squared unit, and any requested
+        ratios, dimensionless [-].
+
+    Convention
+    ----------
+    **Band edges are closed**, so two adjacent bands sharing an edge both include
+    the sample sitting on it. A band containing fewer than two samples integrates
+    to zero rather than raising, and a ratio with a zero denominator is NaN rather
+    than infinite, so a caller sweeping many channels gets a comparable result
+    from every one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Integration is over the samples present, so a band narrower than the frequency
+    resolution reports zero rather than an error. Nothing normalizes by bandwidth;
+    these are powers, not densities.
+
+    Provenance
+    ----------
+    .. [1] Numerical integration of the density returned by :func:`compute_psd`.
+    </span><span class="sh">"""</span>
+    <span class="n">frequency</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">frequency</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">psd</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">psd</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">frequency</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">psd</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">frequency and psd must have the same shape; got </span><span class="si">{</span><span class="n">frequency</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s"> and </span><span class="si">{</span><span class="n">psd</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+
+    <span class="n">powers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">edges</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nf">float</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">low</span> <span class="o">&gt;=</span> <span class="n">high</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">band </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s"> must be increasing; got (</span><span class="si">{</span><span class="n">low</span><span class="si">}</span><span class="s">, </span><span class="si">{</span><span class="n">high</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">frequency</span> <span class="o">&gt;=</span> <span class="n">low</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">frequency</span> <span class="o">&lt;=</span> <span class="n">high</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">count_nonzero</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">powers</span><span class="p">[</span><span class="nf">str</span><span class="p">(</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">continue</span>
+        <span class="n">powers</span><span class="p">[</span><span class="nf">str</span><span class="p">(</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">trapezoid</span><span class="p">(</span><span class="n">psd</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">frequency</span><span class="p">[</span><span class="n">mask</span><span class="p">]))</span>
+
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pair</span> <span class="ow">in</span> <span class="p">(</span><span class="n">ratios</span> <span class="ow">or</span> <span class="p">{}).</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">numerator</span><span class="p">,</span> <span class="n">denominator</span> <span class="o">=</span> <span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nf">str</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="n">numerator</span><span class="p">,</span> <span class="n">denominator</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">powers</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="nc">KeyError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="sh">"</span><span class="s">ratio </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s"> refers to unknown band </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s">; </span><span class="sh">"</span>
+                    <span class="sa">f</span><span class="sh">"</span><span class="s">defined bands are </span><span class="si">{</span><span class="nf">sorted</span><span class="p">(</span><span class="n">powers</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span>
+                <span class="p">)</span>
+        <span class="n">below</span> <span class="o">=</span> <span class="n">powers</span><span class="p">[</span><span class="n">denominator</span><span class="p">]</span>
+        <span class="n">powers</span><span class="p">[</span><span class="nf">str</span><span class="p">(</span><span class="n">name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">powers</span><span class="p">[</span><span class="n">numerator</span><span class="p">]</span> <span class="o">/</span> <span class="n">below</span> <span class="k">if</span> <span class="n">below</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">nan</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">powers</span></code></pre></figure>
+
+</details>
 
     <p>Integrate spectral power over named frequency bands, and optionally their ratios.</p>
 
@@ -520,7 +602,7 @@ these are powers, not densities.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_psd"><code>compute_psd</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L194" title="vaft/process/fluctuation.py, line 194">source</a>
+<a class="ref-source" data-source="compute_psd" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L194-L277" title="vaft/process/fluctuation.py, lines 194–277 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_psd(time, data, *, sample_rate=None, window=&#39;hann&#39;, nperseg=None, noverlap=None, detrend=&#39;constant&#39;, units=&#39;signal**2/Hz&#39;)</code></pre>
 
@@ -605,7 +687,7 @@ interpolating one silently changes the spectrum it is being asked about.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_spectrogram"><code>compute_spectrogram</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L628" title="vaft/process/fluctuation.py, line 628">source</a>
+<a class="ref-source" data-source="compute_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L628-L739" title="vaft/process/fluctuation.py, lines 628–739 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>compute_spectrogram(time, data, *, sample_rate=None, nperseg=None, window_duration=None, overlap=0.5, window=&#39;hann&#39;, detrend=&#39;constant&#39;)</code></pre>
 
@@ -685,7 +767,7 @@ get deterministic behaviour at the edges.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cross_spectrum"><code>cross_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L939" title="vaft/process/fluctuation.py, line 939">source</a>
+<a class="ref-source" data-source="cross_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L939-L1106" title="vaft/process/fluctuation.py, lines 939–1106 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>cross_spectrum(time_x, x, time_y, y, *, sample_rate=None, nperseg=None, noverlap=None, window=&#39;hann&#39;, detrend=&#39;constant&#39;, common_time=None)</code></pre>
 
@@ -805,7 +887,7 @@ the phase is not: a pickup coil’s derivative adds <code class="language-plaint
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#find_spectral_break"><code>find_spectral_break</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L410" title="vaft/process/fluctuation.py, line 410">source</a>
+<a class="ref-source" data-source="find_spectral_break" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L410-L545" title="vaft/process/fluctuation.py, lines 410–545 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></pre>
 
@@ -894,7 +976,7 @@ Inherits the log-space caveats of the single-regime fit.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L292" title="vaft/process/fluctuation.py, line 292">source</a>
+<a class="ref-source" data-source="fit_power_law_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L292-L387" title="vaft/process/fluctuation.py, lines 292–387 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>fit_power_law_spectrum(frequency, psd, *, f_range)</code></pre>
 
@@ -971,7 +1053,7 @@ decades is dominated by the sparse high-frequency end.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/fluctuation.py#L1178" title="vaft/process/fluctuation.py, line 1178">source</a>
+<a class="ref-source" data-source="track_dominant_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/fluctuation.py#L1178-L1302" title="vaft/process/fluctuation.py, lines 1178–1302 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>track_dominant_frequency(spectrogram, *, search_range, max_jump=None, floor_ratio=0.05)</code></pre>
 
@@ -1284,7 +1366,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

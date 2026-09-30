@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -345,9 +345,38 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L436" title="vaft/formula/utils.py, line 436">source</a>
+<a class="ref-source" data-source="calculate_peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L436-L460" title="vaft/formula/utils.py, lines 436–460 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_peaking_factor(central, volume_avg)</code></pre>
+    <details class="ref-code" data-source-code="calculate_peaking_factor"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 436–460</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_peaking_factor</span><span class="p">(</span><span class="n">central</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                           <span class="n">volume_avg</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Peaking factor, central value over volume average.
+
+    $$\mathrm{PF} = \frac{X(0)}{\langle X\rangle}$$
+
+    Parameters
+    ----------
+    central : float
+        Value on the magnetic axis [any].
+    volume_avg : float
+        Volume average of the same quantity, same unit [any].
+
+    Returns
+    -------
+    float
+        Peaking factor [-].
+
+    Numerical notes
+    ---------------
+    A zero volume average warns and returns ``nan``.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_guarded_ratio</span><span class="p">(</span>
+        <span class="n">central</span><span class="p">,</span> <span class="n">volume_avg</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="sh">"</span><span class="s">calculate_peaking_factor</span><span class="sh">"</span><span class="p">,</span> <span class="n">because</span><span class="o">=</span><span class="sh">"</span><span class="s">volume_avg</span><span class="sh">"</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Peaking factor, central value over volume average.</p>
 
@@ -383,9 +412,48 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_poloidal_flux"><code>calculate_poloidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L493" title="vaft/formula/utils.py, line 493">source</a>
+<a class="ref-source" data-source="calculate_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L493-L527" title="vaft/formula/utils.py, lines 493–527 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_poloidal_flux(R, B_theta, l, psi_axis=0.0)</code></pre>
+    <details class="ref-code" data-source-code="calculate_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 493–527</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_poloidal_flux</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                          <span class="n">B_theta</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                          <span class="n">l</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                          <span class="n">psi_axis</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal flux per radian from a line integral of $RB_\theta$.
+
+    $$\psi(l) = \int_0^{l} R\,B_\theta\,dl</span><span class="sh">'</span><span class="s"> + \psi_a$$
+
+    Parameters
+    ----------
+    R : np.ndarray
+        Major radius along the path [m].
+    B_theta : np.ndarray
+        Poloidal field normal to the path [T].
+    l : np.ndarray
+        Path coordinate, monotonic [m].
+    psi_axis : float, optional
+        Offset added to the integral; default 0 [Wb/rad].
+
+    Returns
+    -------
+    float
+        Flux at the end of the path [Wb/rad].
+
+    Convention
+    ----------
+    Flux per radian (COCOS 1-8 storage); multiply by $2\pi$ for the IMAS
+    full-weber flux.  Sign follows ``B_theta`` and the direction of ``l``.
+    The physics wrapper is :func:`vaft.formula.equilibrium.psi_from_RBtheta`.
+
+    Numerical notes
+    ---------------
+    Trapezoidal rule over the whole path; returns the end value only.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">R</span> <span class="o">*</span> <span class="n">B_theta</span><span class="p">)</span> <span class="o">+</span> <span class="n">psi_axis</span></code></pre></figure>
+
+</details>
 
     <p>Poloidal flux per radian from a line integral of $RB_\theta$.</p>
 
@@ -434,9 +502,42 @@ The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.f
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L530" title="vaft/formula/utils.py, line 530">source</a>
+<a class="ref-source" data-source="calculate_toroidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L530-L558" title="vaft/formula/utils.py, lines 530–558 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_toroidal_flux(B_phi, dA)</code></pre>
+    <details class="ref-code" data-source-code="calculate_toroidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 530–558</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_toroidal_flux</span><span class="p">(</span><span class="n">B_phi</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                          <span class="n">dA</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Toroidal flux as a sum of $B_\varphi$ over area elements.
+
+    $$\Phi = \sum_i B_{\varphi,i}\,\Delta A_i$$
+
+    Parameters
+    ----------
+    B_phi : np.ndarray
+        Toroidal field on the area elements [T].
+    dA : np.ndarray
+        Area of each element, same shape [m^2].
+
+    Returns
+    -------
+    float
+        Toroidal flux [Wb].
+
+    Convention
+    ----------
+    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
+    The physics wrapper is :func:`vaft.formula.equilibrium.phi_from_Bphi`.
+
+    Numerical notes
+    ---------------
+    A Riemann sum with caller-supplied areas, not a quadrature rule; first
+    order in the cell size.  Tracked in #358.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">B_phi</span> <span class="o">*</span> <span class="n">dA</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Toroidal flux as a sum of $B_\varphi$ over area elements.</p>
 
@@ -481,9 +582,41 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L463" title="vaft/formula/utils.py, line 463">source</a>
+<a class="ref-source" data-source="calculate_volume_weighted_average" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L463-L490" title="vaft/formula/utils.py, lines 463–490 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_volume_weighted_average(x, V)</code></pre>
+    <details class="ref-code" data-source-code="calculate_volume_weighted_average"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 463–490</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_volume_weighted_average</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+                                    <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Volume-weighted average of a sampled profile.
+
+    $$\langle X\rangle = \frac{\sum_i X_i\,V_i}{\sum_i V_i}$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Profile values at each cell [any].
+    V : np.ndarray
+        Volume of each cell, same shape [m^3].
+
+    Returns
+    -------
+    float
+        Volume-weighted average in the unit of ``x`` [any].
+
+    Numerical notes
+    ---------------
+    A zero total volume warns and returns ``nan``.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_guarded_ratio</span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">V</span><span class="p">),</span>
+        <span class="n">what</span><span class="o">=</span><span class="sh">"</span><span class="s">calculate_volume_weighted_average</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">because</span><span class="o">=</span><span class="sh">"</span><span class="s">sum(V)</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Volume-weighted average of a sampled profile.</p>
 
@@ -519,9 +652,53 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eped_tanh_bounds"><code>eped_tanh_bounds</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L727" title="vaft/formula/utils.py, line 727">source</a>
+<a class="ref-source" data-source="eped_tanh_bounds" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L727-L766" title="vaft/formula/utils.py, lines 727–766 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>eped_tanh_bounds(x, y)</code></pre>
+    <details class="ref-code" data-source-code="eped_tanh_bounds"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 727–766</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eped_tanh_bounds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Parameter box the ``eped_tanh`` fit uses for this data.
+
+    Public so that a caller checking whether a fitted parameter came back
+    resting on a bound compares against the same box the fit used, rather than
+    re-deriving one that can drift out of step with it.  The amplitude bounds
+    scale with the data</span><span class="sh">'</span><span class="s">s magnitude; the shape bounds are fixed.
+
+    Parameters
+    ----------
+    x : array_like
+        Radial coordinate; used only for its length [-].
+    y : array_like
+        Profile samples, whose magnitude sets the amplitude bounds [any].
+
+    Returns
+    -------
+    tuple of list
+        ``(lower, upper)``, each seven entries ordered as the model</span><span class="sh">'</span><span class="s">s
+        arguments ``f0, f_ped, f_sep, x_ped, width, alpha, beta``.  The
+        amplitudes are ``+-5 max|y|`` [any]; ``x_ped`` is in ``[0.75, 0.999]``
+        and ``width`` in ``[0.01, 0.3]`` [-]; ``alpha`` and ``beta`` are in
+        ``[1, 8]`` [-].
+
+    Notes
+    -----
+    ``alpha`` and ``beta`` stay at or above one because below it the gated
+    core term has an infinite slope -- at ``x_ped`` for ``beta``, at the
+    magnetic axis for ``alpha`` -- which no flux-function profile has, and
+    which would make any gradient taken from the fit depend on the caller</span><span class="sh">'</span><span class="s">s
+    grid spacing.
+
+    References
+    ----------
+    .. [EPED] The seven-parameter form and the ``x_ped``/``width`` box follow
+       the pedestal-fitting study ported in migration decision D-05;
+       :func:`vaft.process.profile.pedestal_top` is the consumer.
+    </span><span class="sh">"""</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=</span> <span class="nf">_initial_eped_tanh_guess</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span></code></pre></figure>
+
+</details>
 
     <p>Parameter box the <code class="language-plaintext highlighter-rouge">eped_tanh</code> fit uses for this data.</p>
 
@@ -571,7 +748,7 @@ grid spacing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_profile"><code>fit_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L793" title="vaft/formula/utils.py, line 793">source</a>
+<a class="ref-source" data-source="fit_profile" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L793-L1132" title="vaft/formula/utils.py, lines 793–1132 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>fit_profile(x, y, y_std, x_eval, order=3, uncertainty_option=1, fitting_function=&#39;polynomial&#39;, gp_kernel=None, gp_anchor=None, n_restarts_optimizer=5)</code></pre>
 
@@ -674,9 +851,58 @@ fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’core_poly_edge_exp
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gp_fit"><code>gp_fit</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L326" title="vaft/formula/utils.py, line 326">source</a>
+<a class="ref-source" data-source="gp_fit" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L326-L370" title="vaft/formula/utils.py, lines 326–370 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer=5, random_state=0)</code></pre>
+    <details class="ref-code" data-source-code="gp_fit"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 326–370</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gp_fit</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_std</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_restarts_optimizer</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Fit a squared-exponential Gaussian process and evaluate it on a grid.
+
+    Parameters
+    ----------
+    x : array-like
+        Data abscissae, 1-D [any].
+    y : array-like
+        Data values [any].
+    y_std : array-like or None
+        Per-point one-sigma uncertainty, entering as the diagonal noise;
+        ``None`` uses a numerical jitter [any].
+    x_eval : array-like
+        Evaluation grid [any].
+    n_restarts_optimizer : int, optional
+        Extra random restarts of the marginal-likelihood optimisation, on top of
+        the one from the default hyperparameters; default 5 [-].
+    random_state : int, optional
+        Seed for the restart draws, so a fit is reproducible; default 0 [-].
+
+    Returns
+    -------
+    mean : np.ndarray
+        Posterior mean on ``x_eval`` [any].
+    std : np.ndarray
+        Posterior standard deviation on ``x_eval`` [any].
+
+    Numerical notes
+    ---------------
+    ``y`` is standardised before fitting and the posterior is mapped back,
+    which is what makes one set of hyperparameter bounds work for data in
+    m^-3 and in keV alike.  The marginal likelihood is optimised with
+    ``scipy.optimize.minimize`` (L-BFGS-B) over the log-hyperparameters.
+
+    References
+    ----------
+    .. [1] C. E. Rasmussen and C. K. I. Williams, *Gaussian Processes for
+           Machine Learning*, MIT Press (2006), Algorithm 2.1 and Eq. (5.8).
+    </span><span class="sh">"""</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="nf">_gp_train</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_std</span><span class="p">,</span>
+        <span class="n">n_restarts_optimizer</span><span class="o">=</span><span class="n">n_restarts_optimizer</span><span class="p">,</span>
+        <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_gp_evaluate</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Fit a squared-exponential Gaussian process and evaluate it on a grid.</p>
 
@@ -730,9 +956,41 @@ m^-3 and in keV alike.  The marginal likelihood is optimised with
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gradient"><code>gradient</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L42" title="vaft/formula/utils.py, line 42">source</a>
+<a class="ref-source" data-source="gradient" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L42-L69" title="vaft/formula/utils.py, lines 42–69 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>gradient(x, y)</code></pre>
+    <details class="ref-code" data-source-code="gradient"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 42–69</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Derivative $dy/dx$ on a sampled 1-D profile.
+
+    $$\frac{dy}{dx}\Big|_i \approx \frac{y_{i+1} - y_{i-1}}{x_{i+1} - x_{i-1}}$$
+
+    (second-order central difference on a possibly non-uniform grid).
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Independent variable, monotonic [any].
+    y : np.ndarray
+        Dependent variable, same length as ``x`` [any].
+
+    Returns
+    -------
+    np.ndarray
+        $dy/dx$ at every sample, in units of ``y`` per unit ``x`` [any].
+
+    Numerical notes
+    ---------------
+    Wraps ``numpy.gradient(y, x)``: second-order accurate in the interior,
+    first-order one-sided at the two end points, and noise-amplifying (a
+    relative noise $\delta$ on ``y`` becomes $\delta/\Delta x$ on the
+    derivative).  Needs at least two samples; only the first axis of a 2-D
+    ``y`` is differentiated.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">gradient</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Derivative $dy/dx$ on a sampled 1-D profile.</p>
 
@@ -774,9 +1032,83 @@ derivative).  Needs at least two samples; only the first axis of a 2-D
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#make_fit_function"><code>make_fit_function</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L565" title="vaft/formula/utils.py, line 565">source</a>
+<a class="ref-source" data-source="make_fit_function" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L565-L634" title="vaft/formula/utils.py, lines 565–634 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>make_fit_function(mode)</code></pre>
+    <details class="ref-code" data-source-code="make_fit_function"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 565–634</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">make_fit_function</span><span class="p">(</span><span class="n">mode</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
+
+    $$\begin{aligned}
+      \text{polynomial:}\ &amp; (1-x)\,\textstyle\sum_k c_kx^k &amp;
+      \text{free\_polynomial:}\ &amp; \textstyle\sum_k c_kx^k \\
+      \text{exponential:}\ &amp; (1-x)\exp\big(\textstyle\sum_k c_kx^k\big) &amp;
+      \text{free\_exponential:}\ &amp; \exp\big(\textstyle\sum_k c_kx^k\big)
+    \end{aligned}$$
+
+    Parameters
+    ----------
+    mode : str
+        Model name, case-insensitive [str].
+        One of ``</span><span class="sh">'</span><span class="s">polynomial</span><span class="sh">'</span><span class="s">``, ``</span><span class="sh">'</span><span class="s">free_polynomial</span><span class="sh">'</span><span class="s">``, ``</span><span class="sh">'</span><span class="s">exponential</span><span class="sh">'</span><span class="s">``,
+        ``</span><span class="sh">'</span><span class="s">free_exponential</span><span class="sh">'</span><span class="s">`` (a few aliases are accepted).
+
+    Returns
+    -------
+    callable
+        ``f(x, *coeffs)`` evaluating the model, in the unit of the data [any].
+
+    Raises
+    ------
+    ValueError
+        For an unknown mode.
+
+    Assumptions
+    -----------
+    ``x`` is a normalised radius on $[0, 1]$: the $(1 - x)$ factor forces the
+    constrained modes to zero at $x = 1$; the exponential modes are strictly
+    positive and decay monotonically when the polynomial is decreasing.
+    </span><span class="sh">"""</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span><span class="p">.</span><span class="nf">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">polynomial</span><span class="sh">'</span><span class="p">:</span>
+        <span class="c1"># (1-x)*poly(x) -&gt; enforces value -&gt; 0 at x=1
+</span>        <span class="k">def</span> <span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">coeffs</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)):</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="n">k</span>
+            <span class="nf">return </span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="ow">in</span> <span class="p">{</span><span class="sh">'</span><span class="s">free_polynomial</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">polynomial_unconstrained</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">unconstrained_polynomial</span><span class="sh">'</span><span class="p">}:</span>
+        <span class="c1"># plain poly(x) -&gt; no boundary constraint at x=1
+</span>        <span class="k">def</span> <span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">coeffs</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)):</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="n">k</span>
+            <span class="k">return</span> <span class="n">s</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">exponential</span><span class="sh">'</span><span class="p">:</span>
+        <span class="c1"># (1-x)*exp(poly(x)) -&gt; goes to 0 at x=1, stays positive
+</span>        <span class="k">def</span> <span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">coeffs</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)):</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="n">k</span>
+            <span class="nf">return </span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mode</span> <span class="ow">in</span> <span class="p">{</span><span class="sh">'</span><span class="s">free_exponential</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">exp_free</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">exponential_unconstrained</span><span class="sh">'</span><span class="p">}:</span>
+        <span class="c1"># exp(poly(x)) -&gt; always &gt; 0, NO edge-zero; monotonic decay if poly decreasing.
+</span>        <span class="c1"># Edge value exp(poly(1)) stays small-but-finite (never exactly 0, never rises if c1&lt;0).
+</span>        <span class="k">def</span> <span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">coeffs</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">coeffs</span><span class="p">)):</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="n">k</span>
+            <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Invalid fitting function: </span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">func</span></code></pre></figure>
+
+</details>
 
     <p>Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.</p>
 
@@ -825,9 +1157,46 @@ positive and decay monotonically when the polynomial is decreasing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_profile"><code>normalize_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L401" title="vaft/formula/utils.py, line 401">source</a>
+<a class="ref-source" data-source="normalize_profile" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L401-L433" title="vaft/formula/utils.py, lines 401–433 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_profile(x, x_axis, x_boundary)</code></pre>
+    <details class="ref-code" data-source-code="normalize_profile"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 401–433</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalize_profile</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
+                     <span class="n">x_axis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                     <span class="n">x_boundary</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Linear normalisation of a profile between its axis and boundary values.
+
+    $$x_N = \frac{x - x_{\mathrm{axis}}}{x_{\mathrm{boundary}} - x_{\mathrm{axis}}}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Values to normalise [any].
+    x_axis : float
+        Value mapped to 0 [any].
+    x_boundary : float
+        Value mapped to 1 [any].
+
+    Returns
+    -------
+    float or np.ndarray
+        Normalised values, 0 at the axis value and 1 at the boundary value [-].
+
+    Numerical notes
+    ---------------
+    A degenerate profile whose axis and boundary values are equal -- which
+    packaged VEST samples do contain -- warns and returns ``nan`` rather than
+    propagating ``inf``.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_guarded_ratio</span><span class="p">(</span>
+        <span class="n">x</span> <span class="o">-</span> <span class="n">x_axis</span><span class="p">,</span>
+        <span class="n">x_boundary</span> <span class="o">-</span> <span class="n">x_axis</span><span class="p">,</span>
+        <span class="n">what</span><span class="o">=</span><span class="sh">"</span><span class="s">normalize_profile</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">because</span><span class="o">=</span><span class="sh">"</span><span class="s">x_boundary - x_axis</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Linear normalisation of a profile between its axis and boundary values.</p>
 
@@ -867,9 +1236,70 @@ propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L72" title="vaft/formula/utils.py, line 72">source</a>
+<a class="ref-source" data-source="normalized_gradient_scale_length" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L72-L128" title="vaft/formula/utils.py, lines 72–128 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_gradient_scale_length(x, y, a)</code></pre>
+    <details class="ref-code" data-source-code="normalized_gradient_scale_length"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 72–128</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_gradient_scale_length</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalised inverse gradient scale length $a/L_y$ of a sampled profile.
+
+    $$\frac{a}{L_y} = -\frac{a}{y}\,\frac{dy}{dx}$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Radial coordinate, 1-D and monotonic, e.g. minor radius $r$ [m].
+    y : np.ndarray
+        Profile sampled on ``x`` along its last axis, e.g. $T_e$ or $n_e$;
+        shape ``(..., len(x))`` [any].
+    a : float
+        Normalising length, in the unit of ``x``; for a gyrokinetic input the
+        minor radius [m].
+
+    Returns
+    -------
+    np.ndarray
+        $a/L_y$ at every sample, of the shape of ``y``; ``nan`` where ``y``
+        is zero or non-finite, with a ``RuntimeWarning`` [-].
+
+    Convention
+    ----------
+    Positive for a profile that falls with ``x`` -- the usual peaked core
+    profile -- so a larger number is a steeper drive.  ``x`` and ``a`` must
+    share a unit and ``x`` must be the radius $a$ normalises: on $\rho_N$ or
+    $\sqrt{\psi_N}$ pass ``a = 1`` and the result is $-d\ln y/d\rho$, which
+    differs from $a/L_y$ by the Jacobian $d\rho/dr$.  The same holds for
+    $a/L_{T_e}$, $a/L_{n_e}$ and $a/L_{p}$: only the profile changes.
+
+    Numerical notes
+    ---------------
+    The derivative is ``numpy.gradient(y, x, axis=-1)``, identical to
+    :func:`gradient` for a 1-D profile: second-order central differences in
+    the interior, first-order one-sided at the two ends.  Differentiation
+    amplifies noise, and dividing by ``y`` amplifies it again where the
+    profile is small -- the edge -- so smooth or fit the profile first.
+
+    References
+    ----------
+    .. [1] G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14
+           (2007) 055909 (the $a/L_T$, $a/L_n$ drive inputs of TGLF).
+
+    See Also
+    --------
+    gradient
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">derivative</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">gradient</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_guarded_ratio</span><span class="p">(</span>
+        <span class="o">-</span><span class="nf">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">derivative</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">,</span>
+        <span class="n">what</span><span class="o">=</span><span class="sh">"</span><span class="s">normalized_gradient_scale_length</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">because</span><span class="o">=</span><span class="sh">"</span><span class="s">the profile value y</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Normalised inverse gradient scale length $a/L_y$ of a sampled profile.</p>
 
@@ -934,9 +1364,39 @@ profile is small – the edge – so smooth or fit the profile first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapz_integral"><code>trapz_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/utils.py#L131" title="vaft/formula/utils.py, line 131">source</a>
+<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/utils.py#L131-L156" title="vaft/formula/utils.py, lines 131–156 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>trapz_integral(x, y)</code></pre>
+    <details class="ref-code" data-source-code="trapz_integral"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 131–156</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Definite integral $\int y\,dx$ by the trapezoidal rule.
+
+    $$\int y\,dx \approx \sum_i \frac{y_i + y_{i+1}}{2}\,(x_{i+1} - x_i)$$
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Sample abscissae, monotonic [any].
+    y : np.ndarray
+        Integrand at the samples [any].
+
+    Returns
+    -------
+    float
+        Integral over the sampled range, in units of ``y`` times ``x`` [any].
+
+    Numerical notes
+    ---------------
+    ``numpy.trapezoid`` through :func:`vaft.compat.trapz_compat`; second-order
+    accurate in the spacing, exact for piecewise-linear integrands, and
+    sign-reversed for a decreasing ``x``.  A same-named helper in
+    :mod:`vaft.formula.green` shadows this one on the package namespace
+    (``vaft.formula.trapz_integral`` is the Green</span><span class="sh">'</span><span class="s">s-function copy).
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">trapz_compat</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">)</span></code></pre></figure>
+
+</details>
     <p class="ref-note"> <code>vaft.formula.trapz_integral</code> resolves to the <code>green</code> copy; reach this one as <code>vaft.formula.utils.trapz_integral</code>.</p>
 
     <p>Definite integral $\int y\,dx$ by the trapezoidal rule.</p>
@@ -1193,7 +1653,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

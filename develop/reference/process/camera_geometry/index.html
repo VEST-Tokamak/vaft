@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -341,7 +341,7 @@ convention: <code class="language-plaintext highlighter-rouge">(X, Y, Z)_cm = (R
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#project_points"><code>project_points</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/camera_geometry.py#L72" title="vaft/process/camera_geometry.py, line 72">source</a>
+<a class="ref-source" data-source="project_points" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/camera_geometry.py#L72-L169" title="vaft/process/camera_geometry.py, lines 72–169 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>project_points(world_xyz_cm, rvec, tvec, camera_matrix, dist_coeffs, *, max_normalized_radius=1.3)</code></pre>
 
@@ -427,9 +427,69 @@ case, which is why it is a validity test and not a crop.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sweep_toroidal"><code>sweep_toroidal</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/camera_geometry.py#L172" title="vaft/process/camera_geometry.py, line 172">source</a>
+<a class="ref-source" data-source="sweep_toroidal" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/camera_geometry.py#L172-L227" title="vaft/process/camera_geometry.py, lines 172–227 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sweep_toroidal(r_m, z_m, theta_rad)</code></pre>
+    <details class="ref-code" data-source-code="sweep_toroidal"><summary>Show source <span class="ref-note">vaft/process/camera_geometry.py, lines 172–227</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sweep_toroidal</span><span class="p">(</span><span class="n">r_m</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">z_m</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">theta_rad</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Sweep poloidal points through toroidal angles into world points.
+
+    Parameters
+    ----------
+    r_m : array_like
+        Major radius of each poloidal point [m].
+    z_m : array_like
+        Height of each poloidal point, same shape as *r_m* [m].
+    theta_rad : array_like
+        Toroidal angles to sweep through [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(len(theta) * len(r), 3)``, one row per angle and point
+        combination [cm].
+
+    Raises
+    ------
+    ValueError
+        The two poloidal arrays do not have the same shape.
+
+    Convention
+    ----------
+    ``X = R cos(theta)``, ``Y = R sin(theta)``, ``Z = Z``, then converted from
+    metres to centimetres because the packaged calibration is in centimetres.
+    Rows vary fastest over the poloidal points and slowest over the angles.
+
+    This is an **outer product**: every point is swept through every angle, giving
+    a surface. :func:`trajectory_world_points` pairs them element-wise instead,
+    for a single ordered path. Confusing the two produces an array of the wrong
+    length rather than an error.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Reproduces the source notebook</span><span class="sh">'</span><span class="s">s torus sweep; see
+       :func:`project_points` for the repository and calibration reference.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r_m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z_m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">theta_rad</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">r</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">z</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">r_m and z_m must have the same shape.</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">cos_theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+    <span class="n">sin_theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">cos_theta</span><span class="p">,</span> <span class="n">r</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">sin_theta</span><span class="p">,</span> <span class="n">r</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">z_tiled</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tile</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">theta</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">stack</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z_tiled</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mf">100.0</span></code></pre></figure>
+
+</details>
 
     <p>Sweep poloidal points through toroidal angles into world points.</p>
 
@@ -494,9 +554,44 @@ length rather than an error.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_ring"><code>toroidal_ring</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/camera_geometry.py#L230" title="vaft/process/camera_geometry.py, line 230">source</a>
+<a class="ref-source" data-source="toroidal_ring" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/camera_geometry.py#L230-L260" title="vaft/process/camera_geometry.py, lines 230–260 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_ring(r_m, z_m, theta_rad)</code></pre>
+    <details class="ref-code" data-source-code="toroidal_ring"><summary>Show source <span class="ref-note">vaft/process/camera_geometry.py, lines 230–260</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">toroidal_ring</span><span class="p">(</span><span class="n">r_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">z_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">theta_rad</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Sweep one poloidal point into a full toroidal ring.
+
+    Parameters
+    ----------
+    r_m : float
+        Major radius of the point [m].
+    z_m : float
+        Height of the point [m].
+    theta_rad : array_like
+        Toroidal angles making up the ring [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(len(theta), 3)`` [cm].
+
+    Convention
+    ----------
+    The single-point case of :func:`sweep_toroidal`, with the same axis
+    definitions and the same conversion from metres to centimetres.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] :func:`sweep_toroidal`, which this delegates to.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">sweep_toroidal</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">float</span><span class="p">(</span><span class="n">r_m</span><span class="p">)]),</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">float</span><span class="p">(</span><span class="n">z_m</span><span class="p">)]),</span> <span class="n">theta_rad</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Sweep one poloidal point into a full toroidal ring.</p>
 
@@ -547,9 +642,59 @@ definitions and the same conversion from metres to centimetres.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trajectory_world_points"><code>trajectory_world_points</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/camera_geometry.py#L263" title="vaft/process/camera_geometry.py, line 263">source</a>
+<a class="ref-source" data-source="trajectory_world_points" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/camera_geometry.py#L263-L308" title="vaft/process/camera_geometry.py, lines 263–308 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>trajectory_world_points(r_m, z_m, phi_rad)</code></pre>
+    <details class="ref-code" data-source-code="trajectory_world_points"><summary>Show source <span class="ref-note">vaft/process/camera_geometry.py, lines 263–308</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trajectory_world_points</span><span class="p">(</span><span class="n">r_m</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">z_m</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">phi_rad</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Convert a matched trajectory of cylindrical coordinates into world points.
+
+    Parameters
+    ----------
+    r_m : array_like
+        Major radius along the trajectory [m].
+    z_m : array_like
+        Height along the trajectory, same shape [m].
+    phi_rad : array_like
+        Toroidal angle at each point, same shape [rad].
+
+    Returns
+    -------
+    np.ndarray
+        World points as ``(N, 3)``, one row per trajectory point [cm].
+
+    Raises
+    ------
+    ValueError
+        The three arrays do not all have the same shape.
+
+    Convention
+    ----------
+    **Element-wise pairing**, one angle per point, for an ordered path such as a
+    traced field line. :func:`sweep_toroidal` takes the outer product instead and
+    gives a surface. Same axis definitions and the same conversion to centimetres.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] The world-frame convention of the source notebook; see
+       :func:`project_points`.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r_m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z_m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">phi_rad</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float64</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">z</span><span class="p">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">phi</span><span class="p">.</span><span class="n">shape</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">r_m, z_m, and phi_rad must have the same shape.</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">stack</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mf">100.0</span></code></pre></figure>
+
+</details>
 
     <p>Convert a matched trajectory of cylindrical coordinates into world points.</p>
 
@@ -825,7 +970,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

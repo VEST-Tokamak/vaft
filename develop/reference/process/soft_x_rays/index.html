@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -360,9 +360,65 @@ from <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.sof
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hilbert_instantaneous_phase"><code>hilbert_instantaneous_phase</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L704" title="vaft/process/soft_x_rays.py, line 704">source</a>
+<a class="ref-source" data-source="hilbert_instantaneous_phase" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L704-L755" title="vaft/process/soft_x_rays.py, lines 704–755 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>hilbert_instantaneous_phase(signal, time, t_eval)</code></pre>
+    <details class="ref-code" data-source-code="hilbert_instantaneous_phase"><summary>Show source <span class="ref-note">vaft/process/soft_x_rays.py, lines 704–755</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hilbert_instantaneous_phase</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Instantaneous phase and envelope of a band-limited signal at one time.
+
+    Parameters
+    ----------
+    signal : array_like
+        A band-passed, roughly monochromatic trace [V].
+    time : array_like
+        Its time base [s].
+    t_eval : float
+        Time at which to report the phase [s].
+
+    Returns
+    -------
+    tuple
+        The phase in degrees and the envelope in volts at the nearest sample, that
+        sample</span><span class="sh">'</span><span class="s">s index, and the full phase and envelope series [-].
+
+    Convention
+    ----------
+    Phase comes from the analytic signal and is wrapped to the principal branch,
+    so it runs within a full turn and jumps rather than accumulating. The sample
+    nearest the requested time is used; no interpolation.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    **Meaningful only for a band-passed input.** The analytic signal of a
+    broadband trace has a phase that does not correspond to any single mode, so
+    filter first with :func:`sxr_band_signals`. The Hilbert transform is also
+    poorly behaved at the record edges, so a time near either end is unreliable.
+
+    Provenance
+    ----------
+    .. [1] The analytic-signal phase estimate used by the validated VEST SXR
+       viewer</span><span class="sh">'</span><span class="s">s mode analysis.
+    </span><span class="sh">"""</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">analytic</span> <span class="o">=</span> <span class="nf">hilbert</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">time</span> <span class="o">-</span> <span class="nf">float</span><span class="p">(</span><span class="n">t_eval</span><span class="p">))))</span>
+    <span class="n">phase_series</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">degrees</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">angle</span><span class="p">(</span><span class="n">analytic</span><span class="p">))</span>
+    <span class="n">envelope_series</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">analytic</span><span class="p">)</span>
+    <span class="nf">return </span><span class="p">(</span>
+        <span class="nf">float</span><span class="p">(</span><span class="n">phase_series</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span>
+        <span class="nf">float</span><span class="p">(</span><span class="n">envelope_series</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span>
+        <span class="n">index</span><span class="p">,</span>
+        <span class="n">phase_series</span><span class="p">,</span>
+        <span class="n">envelope_series</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Instantaneous phase and envelope of a band-limited signal at one time.</p>
 
@@ -421,9 +477,80 @@ poorly behaved at the record edges, so a time near either end is unreliable.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_te_ratio_calibration"><code>load_te_ratio_calibration</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L383" title="vaft/process/soft_x_rays.py, line 383">source</a>
+<a class="ref-source" data-source="load_te_ratio_calibration" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L383-L449" title="vaft/process/soft_x_rays.py, lines 383–449 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>load_te_ratio_calibration(path=None)</code></pre>
+    <details class="ref-code" data-source-code="load_te_ratio_calibration"><summary>Show source <span class="ref-note">vaft/process/soft_x_rays.py, lines 383–449</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">load_te_ratio_calibration</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Load a ratio-to-temperature table and build its interpolator.
+
+    Parameters
+    ----------
+    path : str or path-like, optional
+        Calibration table with ``te`` and ``ratio`` columns. Defaults to the
+        packaged VEST beryllium/aluminium table [-].
+
+    Returns
+    -------
+    tuple
+        The interpolator mapping ratio to temperature, the temperature column in
+        electron-volts, and the ratio column, dimensionless [-].
+
+    Raises
+    ------
+    ValueError
+        The table lacks either column, or holds fewer than two valid points.
+
+    Convention
+    ----------
+    **The interpolator extrapolates rather than clipping**, so a ratio outside the
+    table returns an extrapolated temperature, not the nearest tabulated one. A
+    caller that needs out-of-range samples rejected must test the ratio itself.
+    Column names are matched case-insensitively after stripping.
+
+    Defaults
+    --------
+    The packaged VEST beryllium/aluminium table is a diagnostic calibration,
+    shipped with the package and described in the data directory</span><span class="sh">'</span><span class="s">s own notes.
+
+    Applicability
+    -------------
+    Machine-independent.  The table is an argument; only the packaged default is
+    the VEST filter pair, and a different filter combination supplies its own.
+
+    Limitations
+    -----------
+    Non-finite rows are dropped silently. The two-filter method assumes a thermal
+    spectrum, so the temperature it returns is meaningless for a non-thermal one.
+
+    Provenance
+    ----------
+    .. [1] The packaged VEST beryllium/aluminium ratio calibration,
+       ``vaft/data/legacy/sxr_te_ratio_be_al.csv``.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">data_path</span>
+
+        <span class="n">path</span> <span class="o">=</span> <span class="nf">data_path</span><span class="p">(</span><span class="n">TE_RATIO_TABLE</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">.</span><span class="nf">strip</span><span class="p">().</span><span class="nf">lower</span><span class="p">():</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">table</span><span class="p">.</span><span class="n">columns</span><span class="p">}</span>
+    <span class="k">if</span> <span class="sh">"</span><span class="s">te</span><span class="sh">"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">columns</span> <span class="ow">or</span> <span class="sh">"</span><span class="s">ratio</span><span class="sh">"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">the calibration table needs </span><span class="sh">'</span><span class="s">te</span><span class="sh">'</span><span class="s"> and </span><span class="sh">'</span><span class="s">ratio</span><span class="sh">'</span><span class="s"> columns; </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">found </span><span class="si">{</span><span class="nf">list</span><span class="p">(</span><span class="n">table</span><span class="p">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">columns</span><span class="p">[</span><span class="sh">"</span><span class="s">te</span><span class="sh">"</span><span class="p">]].</span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">columns</span><span class="p">[</span><span class="sh">"</span><span class="s">ratio</span><span class="sh">"</span><span class="p">]].</span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">good</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">te</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">good</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the calibration table holds fewer than two valid points.</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">interpolator</span> <span class="o">=</span> <span class="nf">interp1d</span><span class="p">(</span>
+        <span class="n">ratio</span><span class="p">[</span><span class="n">good</span><span class="p">],</span> <span class="n">te</span><span class="p">[</span><span class="n">good</span><span class="p">],</span> <span class="n">fill_value</span><span class="o">=</span><span class="sh">"</span><span class="s">extrapolate</span><span class="sh">"</span><span class="p">,</span> <span class="n">bounds_error</span><span class="o">=</span><span class="bp">False</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">interpolator</span><span class="p">,</span> <span class="n">te</span><span class="p">[</span><span class="n">good</span><span class="p">],</span> <span class="n">ratio</span><span class="p">[</span><span class="n">good</span><span class="p">]</span></code></pre></figure>
+
+</details>
 
     <p>Load a ratio-to-temperature table and build its interpolator.</p>
 
@@ -491,7 +618,7 @@ spectrum, so the temperature it returns is meaningless for a non-thermal one.</p
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rank_toroidal_mode_numbers"><code>rank_toroidal_mode_numbers</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L758" title="vaft/process/soft_x_rays.py, line 758">source</a>
+<a class="ref-source" data-source="rank_toroidal_mode_numbers" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L758-L842" title="vaft/process/soft_x_rays.py, lines 758–842 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>rank_toroidal_mode_numbers(theta_a_deg, phase_a_deg, theta_b_deg, phase_b_deg, n_max)</code></pre>
 
@@ -573,7 +700,7 @@ the residual compares two different quantities.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_band_signals"><code>sxr_band_signals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L251" title="vaft/process/soft_x_rays.py, line 251">source</a>
+<a class="ref-source" data-source="sxr_band_signals" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L251-L376" title="vaft/process/soft_x_rays.py, lines 251–376 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_band_signals(time, data, *, baseline_start, bands, fs, order=2, time_range=None, channels=None, dead_channels=(), zero_phase=True)</code></pre>
 
@@ -678,9 +805,74 @@ filter settling time. Windows shorter than the filter padding length
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_baseline_correction"><code>sxr_baseline_correction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L96" title="vaft/process/soft_x_rays.py, line 96">source</a>
+<a class="ref-source" data-source="sxr_baseline_correction" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L96-L156" title="vaft/process/soft_x_rays.py, lines 96–156 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_baseline_correction(time, data, baseline_start)</code></pre>
+    <details class="ref-code" data-source-code="sxr_baseline_correction"><summary>Show source <span class="ref-note">vaft/process/soft_x_rays.py, lines 96–156</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sxr_baseline_correction</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">baseline_start</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Zero each channel against the quiet tail after the plasma.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times, shared by every channel [s].
+    data : array_like
+        Signals as ``(n_channels, n_samples)``, or one trace [V].
+    baseline_start : float
+        Time from which the record is taken to be quiet [s].
+
+    Returns
+    -------
+    np.ndarray
+        The signals with each channel</span><span class="sh">'</span><span class="s">s own zero level removed [V].
+
+    Raises
+    ------
+    ValueError
+        The time base and the sample axis disagree in length.
+
+    Convention
+    ----------
+    The zero level is per channel, not shared, because the detectors have
+    different dark levels. The mean of the tail is used, not a fitted trend, so a
+    drift through the shot survives.
+
+    Defaults
+    --------
+    When no sample lies at or beyond *baseline_start* the last 1000 samples are
+    used instead. That fallback is a validated-workflow default carried from the
+    VEST SXR viewer.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Assumes the tail is genuinely quiet. A record that ends while the plasma is
+    still radiating has its baseline biased by that signal, and the fallback makes
+    that silent rather than an error.
+
+    Provenance
+    ----------
+    .. [1] The validated VEST SXR viewer, whose baseline convention and
+       last-1000-sample fallback this reproduces.
+    </span><span class="sh">"""</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="nf">_as_channel_matrix</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">time</span><span class="p">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">time and data must share the sample axis; got </span><span class="si">{</span><span class="n">time</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s"> and </span><span class="si">{</span><span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">time</span> <span class="o">&gt;=</span> <span class="nf">float</span><span class="p">(</span><span class="n">baseline_start</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="n">values</span><span class="p">[:,</span> <span class="n">mask</span><span class="p">].</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="n">values</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1000</span><span class="p">:].</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">values</span> <span class="o">-</span> <span class="n">baseline</span></code></pre></figure>
+
+</details>
 
     <p>Zero each channel against the quiet tail after the plasma.</p>
 
@@ -752,9 +944,84 @@ that silent rather than an error.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_cwt_spectrogram"><code>sxr_cwt_spectrogram</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L845" title="vaft/process/soft_x_rays.py, line 845">source</a>
+<a class="ref-source" data-source="sxr_cwt_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L845-L915" title="vaft/process/soft_x_rays.py, lines 845–915 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_cwt_spectrogram(signal, fs, f0, f1, n_freq)</code></pre>
+    <details class="ref-code" data-source-code="sxr_cwt_spectrogram"><summary>Show source <span class="ref-note">vaft/process/soft_x_rays.py, lines 845–915</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sxr_cwt_spectrogram</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">f0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">f1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n_freq</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Continuous-wavelet magnitude scalogram of one trace.
+
+    Parameters
+    ----------
+    signal : array_like
+        The trace [V].
+    fs : float
+        Sample rate [Hz].
+    f0 : float
+        Lowest frequency of the scalogram [Hz].
+    f1 : float
+        Highest frequency [Hz].
+    n_freq : int
+        Number of frequencies between them [-].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The frequency axis, ascending, and the magnitude as
+        ``(n_freq, n_samples)`` [-].
+
+    Raises
+    ------
+    ImportError
+        The optional wavelet package is not installed.
+
+    Convention
+    ----------
+    Frequencies are returned ascending, which reverses the underlying library</span><span class="sh">'</span><span class="s">s
+    own descending order, and the magnitude rows are reversed to match. A wavelet
+    transform trades frequency resolution for time resolution as frequency rises,
+    unlike the fixed-window short-time transform.
+
+    Defaults
+    --------
+    Single-threaded execution is a numerical convenience, keeping the call
+    deterministic and avoiding a thread pool inside a per-channel loop.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Needs an optional package that is not a VAFT dependency. The short-time
+    transform in :func:`vaft.process.fluctuation.compute_spectrogram` covers the
+    default time-frequency need without it. The input is cast to single precision
+    by that library.
+
+    Provenance
+    ----------
+    .. [1] The optional ``fcwt`` continuous-wavelet implementation; the
+       alternative path is :mod:`vaft.process.fluctuation`.
+    </span><span class="sh">"""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="n">fcwt</span> <span class="k">as</span> <span class="n">fcwt_lib</span>
+    <span class="k">except</span> <span class="nb">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ImportError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">the optional </span><span class="sh">'</span><span class="s">fcwt</span><span class="sh">'</span><span class="s"> package is not installed; run </span><span class="sh">'</span><span class="s">pip install fcwt</span><span class="sh">'</span><span class="s"> </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">or use vaft.process.fluctuation.compute_spectrogram (STFT) instead.</span><span class="sh">"</span>
+        <span class="p">)</span> <span class="k">from</span> <span class="n">error</span>
+    <span class="n">frequencies</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="n">fcwt_lib</span><span class="p">.</span><span class="nf">cwt</span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">),</span>
+        <span class="nf">int</span><span class="p">(</span><span class="n">fs</span><span class="p">),</span>
+        <span class="nf">float</span><span class="p">(</span><span class="n">f0</span><span class="p">),</span>
+        <span class="nf">float</span><span class="p">(</span><span class="n">f1</span><span class="p">),</span>
+        <span class="nf">int</span><span class="p">(</span><span class="n">n_freq</span><span class="p">),</span>
+        <span class="n">nthreads</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">frequencies</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">out</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])</span></code></pre></figure>
+
+</details>
 
     <p>Continuous-wavelet magnitude scalogram of one trace.</p>
 
@@ -831,7 +1098,7 @@ by that library.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_electron_temperature"><code>sxr_electron_temperature</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L525" title="vaft/process/soft_x_rays.py, line 525">source</a>
+<a class="ref-source" data-source="sxr_electron_temperature" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L525-L678" title="vaft/process/soft_x_rays.py, lines 525–678 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_electron_temperature(time, data, pairs, *, calibration, baseline_start, fs, lowpass_cutoff=50000.0, al_gain=1.07, al_threshold=0.1, detrend_window=400, order=2, zero_phase=True, time_range=None)</code></pre>
 
@@ -936,7 +1203,7 @@ is not applied here.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_subtract_vacuum_reference"><code>sxr_subtract_vacuum_reference</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L159" title="vaft/process/soft_x_rays.py, line 159">source</a>
+<a class="ref-source" data-source="sxr_subtract_vacuum_reference" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L159-L248" title="vaft/process/soft_x_rays.py, lines 159–248 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_subtract_vacuum_reference(data, reference_data, *, cutoff, fs, order=2, zero_phase=True)</code></pre>
 
@@ -1029,9 +1296,84 @@ SciPy under <code class="language-plaintext highlighter-rouge">zero_phase=True</
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sxr_te_pairs_from_ods"><code>sxr_te_pairs_from_ods</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L452" title="vaft/process/soft_x_rays.py, line 452">source</a>
+<a class="ref-source" data-source="sxr_te_pairs_from_ods" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L452-L522" title="vaft/process/soft_x_rays.py, lines 452–522 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sxr_te_pairs_from_ods(ods, array)</code></pre>
+    <details class="ref-code" data-source-code="sxr_te_pairs_from_ods"><summary>Show source <span class="ref-note">vaft/process/soft_x_rays.py, lines 452–522</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sxr_te_pairs_from_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">array</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Pair the two filters</span><span class="sh">'</span><span class="s"> channels of one array by the chord they view.
+
+    Parameters
+    ----------
+    ods : ODS
+        Carries ``soft_x_rays.channel`` with the identifiers the VEST mapper
+        writes [-].
+    array : str
+        Which array to pair within [-].
+
+    Returns
+    -------
+    tuple of tuple of int
+        One ``(beryllium_index, aluminium_index)`` pair per shared chord, ordered
+        by chord number [-].
+
+    Raises
+    ------
+    ValueError
+        No chord in that array carries both filters.
+
+    Convention
+    ----------
+    Channel identifiers are ``{daq}:{array}:{filter}:{chord}``, written by the
+    VEST digitizer mapper. Pairing on the chord number rather than on position in
+    the channel list is what absorbs a per-block wiring reversal: the two filter
+    blocks need not be ordered the same way.
+
+    Returns index pairs, not data, so it changes no measurement.
+
+    Applicability
+    -------------
+    VEST-specific.  Depends on the identifier grammar and the filter names written
+    by :func:`vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv`;
+    another machine</span><span class="sh">'</span><span class="s">s mapper would need its own pairing rule.
+
+    Limitations
+    -----------
+    A channel whose identifier does not split into four parts, or whose chord is
+    not an integer, is skipped silently, so a mis-mapped channel is absent from
+    the result rather than reported.
+
+    Provenance
+    ----------
+    .. [1] :func:`vaft.machine_mapping.soft_x_rays.soft_x_rays_from_digitizer_csv`,
+       which writes the identifiers this parses.
+    </span><span class="sh">"""</span>
+    <span class="n">be</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">al</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">channels</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">soft_x_rays.channel</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">channels</span><span class="p">)):</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">channels</span><span class="p">[</span><span class="n">index</span><span class="p">][</span><span class="sh">"</span><span class="s">identifier</span><span class="sh">"</span><span class="p">])</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">identifier</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">"</span><span class="s">:</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="nf">str</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">chord</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+        <span class="k">except</span> <span class="nb">ValueError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">Be</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">be</span><span class="p">[</span><span class="n">chord</span><span class="p">]</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">Al</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">al</span><span class="p">[</span><span class="n">chord</span><span class="p">]</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="n">shared</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">be</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nf">set</span><span class="p">(</span><span class="n">al</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">shared</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">array </span><span class="si">{</span><span class="n">array</span><span class="si">!r}</span><span class="s"> has no chords with both Be and Al channels; </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">is this a two-filter array mapped by soft_x_rays_from_digitizer_csv?</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">((</span><span class="n">be</span><span class="p">[</span><span class="n">chord</span><span class="p">],</span> <span class="n">al</span><span class="p">[</span><span class="n">chord</span><span class="p">])</span> <span class="k">for</span> <span class="n">chord</span> <span class="ow">in</span> <span class="n">shared</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Pair the two filters’ channels of one array by the chord they view.</p>
 
@@ -1100,7 +1442,7 @@ the result rather than reported.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#synthetic_island_soft_x_rays"><code>synthetic_island_soft_x_rays</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/soft_x_rays.py#L942" title="vaft/process/soft_x_rays.py, line 942">source</a>
+<a class="ref-source" data-source="synthetic_island_soft_x_rays" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/soft_x_rays.py#L942-L1067" title="vaft/process/soft_x_rays.py, lines 942–1067 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>synthetic_island_soft_x_rays(equilibrium, island, sightlines, *, time=0.0, emissivity_profile=None, model=&#39;flatten&#39;, domain=None, amplitude=1.0, smoothing=0.1, hard_mask=False, keep_fields=True)</code></pre>
 
@@ -1417,7 +1759,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

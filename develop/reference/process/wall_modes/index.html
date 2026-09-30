@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -414,7 +414,7 @@ does the mapping.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#allocate_per_segment"><code>allocate_per_segment</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1509" title="vaft/process/wall_modes.py, line 1509">source</a>
+<a class="ref-source" data-source="allocate_per_segment" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1509-L1671" title="vaft/process/wall_modes.py, lines 1509–1671 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>allocate_per_segment(basis, R_mat, M_mat, L_mat, drive, time, *, tolerance, metric=&#39;dissipation&#39;, G=None, score=None, step=1, max_modes=None, dt_sub=5e-05)</code></pre>
 
@@ -527,7 +527,7 @@ result is only as general as the <code class="language-plaintext highlighter-rou
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#build_wall_mode_basis"><code>build_wall_mode_basis</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L527" title="vaft/process/wall_modes.py, line 527">source</a>
+<a class="ref-source" data-source="build_wall_mode_basis" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L527-L686" title="vaft/process/wall_modes.py, lines 527–686 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>build_wall_mode_basis(R_mat, M_mat, segments, *, symmetry_rtol=1e-08, symmetry_reject=1e-06, cluster_rtol=1e-06, on_cluster=&#39;raise&#39;, residual_atol=1e-10, cond_max=1000000000000.0, provenance=None)</code></pre>
 
@@ -633,9 +633,61 @@ one.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#canonical_sign"><code>canonical_sign</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L209" title="vaft/process/wall_modes.py, line 209">source</a>
+<a class="ref-source" data-source="canonical_sign" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L209-L256" title="vaft/process/wall_modes.py, lines 209–256 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>canonical_sign(V)</code></pre>
+    <details class="ref-code" data-source-code="canonical_sign"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 209–256</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">canonical_sign</span><span class="p">(</span><span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Flip each column so its largest-magnitude entry is positive.
+
+    An eigenvector is defined up to sign; without a rule two runs of the same
+    build can disagree, and a stored basis cannot be compared with a fresh one.
+
+    Parameters
+    ----------
+    V : numpy.ndarray
+        Modes as columns, ``(n, m)`` [any].
+
+    Returns
+    -------
+    numpy.ndarray
+        The same modes with each column</span><span class="sh">'</span><span class="s">s sign fixed [any].
+
+    Convention
+    ----------
+    The sign rule of this module (``SIGN_RULE = </span><span class="sh">"</span><span class="s">max_abs_positive</span><span class="sh">"</span><span class="s">``): the
+    largest-magnitude entry of every column is made positive, ties going to the
+    lowest index (``argmax`` on ``|v|``).  A pure function of the column, so
+    repeated runs agree bitwise.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Two entries of exactly equal magnitude and opposite sign make the rule
+    index-dependent rather than ill-defined; a near-degenerate *eigenspace* is
+    the real ambiguity, and :func:`build_wall_mode_basis` refuses that case
+    instead of signing it.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">V</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sh">"</span><span class="s">modes must be a 2-D array of columns</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">pivots</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sign</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="n">pivots</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">V</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span>
+    <span class="n">signs</span><span class="p">[</span><span class="n">signs</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="k">return</span> <span class="n">V</span> <span class="o">*</span> <span class="n">signs</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:]</span></code></pre></figure>
+
+</details>
 
     <p>Flip each column so its largest-magnitude entry is positive.</p>
 
@@ -696,9 +748,75 @@ instead of signing it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#check_wall_mode_basis"><code>check_wall_mode_basis</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1139" title="vaft/process/wall_modes.py, line 1139">source</a>
+<a class="ref-source" data-source="check_wall_mode_basis" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1139-L1200" title="vaft/process/wall_modes.py, lines 1139–1200 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>check_wall_mode_basis(basis, R_mat, M_mat)</code></pre>
+    <details class="ref-code" data-source-code="check_wall_mode_basis"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1139–1200</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">check_wall_mode_basis</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Metrics of a basis against the matrices it claims to diagonalize; no verdict.
+
+    Numbers a caller or a report can threshold as it sees fit; nothing here
+    decides whether a basis is good enough.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+
+    Returns
+    -------
+    dict
+        ``n_elements``, ``n_modes``, ``r_r_identity_error``
+        (``max|V^T R V - I|``), ``l_r_symmetry_error``,
+        ``max_segment_residual``, ``min_relative_gap`` and ``coupling`` [-].
+
+        ``coupling`` holds, per segment pair, the Frobenius norm of that
+        off-diagonal block of ``L_r`` relative to the geometric mean of the two
+        diagonal blocks, so a reader can see which segments actually talk to
+        each other [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="nf">reduced_operators</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">)</span>
+    <span class="n">M_tot</span> <span class="o">=</span> <span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">identity_error</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">ops</span><span class="p">.</span><span class="n">R_r</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">M_tot</span><span class="p">))))</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cumsum</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">seg</span><span class="p">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">])</span>
+    <span class="n">coupling</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;=</span> <span class="n">i</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">[</span><span class="n">offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">offsets</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span>
+                <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">[</span><span class="n">offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">offsets</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]])</span>
+                <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">[</span><span class="n">offsets</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">offsets</span><span class="p">[</span><span class="n">j</span><span class="p">]:</span><span class="n">offsets</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]])</span>
+            <span class="p">)</span>
+            <span class="n">coupling</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">a</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">-</span><span class="si">{</span><span class="n">b</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">block</span><span class="p">)</span> <span class="o">/</span> <span class="n">scale</span><span class="p">)</span> <span class="k">if</span> <span class="n">scale</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">nan</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">n_elements</span><span class="sh">"</span><span class="p">:</span> <span class="n">basis</span><span class="p">.</span><span class="n">n_elements</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">n_modes</span><span class="sh">"</span><span class="p">:</span> <span class="n">basis</span><span class="p">.</span><span class="nf">n_modes</span><span class="p">(),</span>
+        <span class="sh">"</span><span class="s">r_r_identity_error</span><span class="sh">"</span><span class="p">:</span> <span class="n">identity_error</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">l_r_symmetry_error</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">ops</span><span class="p">.</span><span class="n">L_r</span> <span class="o">-</span> <span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">.</span><span class="n">T</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">ops</span><span class="p">.</span><span class="n">L_r</span><span class="p">))),</span>
+        <span class="sh">"</span><span class="s">max_segment_residual</span><span class="sh">"</span><span class="p">:</span> <span class="nf">max</span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="n">residual</span> <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">min_relative_gap</span><span class="sh">"</span><span class="p">:</span> <span class="nf">min</span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="n">min_relative_gap</span> <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">coupling</span><span class="sh">"</span><span class="p">:</span> <span class="n">coupling</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
 
     <p>Metrics of a basis against the matrices it claims to diagonalize; no verdict.</p>
 
@@ -746,9 +864,85 @@ decides whether a basis is good enough.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#combined_operators"><code>combined_operators</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1812" title="vaft/process/wall_modes.py, line 1812">source</a>
+<a class="ref-source" data-source="combined_operators" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1812-L1883" title="vaft/process/wall_modes.py, lines 1812–1883 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>combined_operators(V, R_mat, M_mat, L_mat=None, *, label=&#39;pattern&#39;)</code></pre>
+    <details class="ref-code" data-source-code="combined_operators"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1812–1883</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">combined_operators</span><span class="p">(</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">M_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">L_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">pattern</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReducedWall</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Reduced operators for an arbitrary R-orthonormal basis.
+
+    The same projections as :func:`reduced_operators`, for a basis that is not
+    (only) segment eigenmodes -- an enrichment by :func:`moment_patterns`, say,
+    or a POD basis.
+
+    Input semantics
+    ---------------
+    Element space: the assembled wall matrices and a basis whose columns are wall
+    patterns.
+
+    Output semantics
+    ----------------
+    Mode space: operators of the basis</span><span class="sh">'</span><span class="s">s own coordinates, labelled ``(label, k)``
+    rather than by segment.
+
+    Parameters
+    ----------
+    V : numpy.ndarray
+        R-orthonormal basis as columns, ``(N, m)`` [Ohm**-0.5].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray or None, optional
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    label : str, optional
+        Label component of every coefficient</span><span class="sh">'</span><span class="s">s ``(label, k)`` name [-].
+
+    Returns
+    -------
+    ReducedWall
+        ``L_r`` [H], ``R_r`` [Ohm], ``M_r`` [H] when a source coupling was given,
+        and the labels [-].
+
+    Convention
+    ----------
+    ``R_r`` is computed, not assumed: a basis that is not R-orthonormal in the
+    matrices passed here shows up as a non-identity rather than silently changing
+    the dynamics.  Use :func:`orthonormalize_r` to make one that is.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">V</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">V</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">basis has shape </span><span class="si">{</span><span class="n">V</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">; expected (</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s">, m)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">M_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ReducedWall</span><span class="p">(</span>
+        <span class="n">L_r</span><span class="o">=</span><span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">L</span> <span class="o">@</span> <span class="n">V</span><span class="p">,</span>
+        <span class="n">R_r</span><span class="o">=</span><span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">),</span>
+        <span class="n">M_r</span><span class="o">=</span><span class="bp">None</span> <span class="k">if</span> <span class="n">L_mat</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">L_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">labels</span><span class="o">=</span><span class="nf">tuple</span><span class="p">((</span><span class="nf">str</span><span class="p">(</span><span class="n">label</span><span class="p">),</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">V</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+        <span class="n">keep</span><span class="o">=</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">V</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">int64</span><span class="p">),),</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Reduced operators for an arbitrary R-orthonormal basis.</p>
 
@@ -820,9 +1014,53 @@ rather than by segment.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#global_time_constants"><code>global_time_constants</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1097" title="vaft/process/wall_modes.py, line 1097">source</a>
+<a class="ref-source" data-source="global_time_constants" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1097-L1136" title="vaft/process/wall_modes.py, lines 1097–1136 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>global_time_constants(basis, M_mat)</code></pre>
+    <details class="ref-code" data-source-code="global_time_constants"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1097–1136</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">global_time_constants</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The whole wall</span><span class="sh">'</span><span class="s">s decay times, from the full-rank reduced inductance.
+
+    With ``R_r = I`` the reduced pencil is an ordinary symmetric eigenproblem, so
+    ``eigvalsh(L_r)`` are the global L/R times.  They are not the segments</span><span class="sh">'</span><span class="s"> local
+    times: the difference between the two is exactly the inter-segment coupling
+    the basis keeps.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+
+    Returns
+    -------
+    numpy.ndarray
+        Global decay times, descending, ``(N,)`` [s].
+
+    Convention
+    ----------
+    Full rank by construction: every mode of every segment takes part, because a
+    truncated basis would report the decay times of a different wall.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nc">V</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">L_r</span> <span class="o">=</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">M_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">@</span> <span class="n">V</span>
+    <span class="n">L_r</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">L_r</span> <span class="o">+</span> <span class="n">L_r</span><span class="p">.</span><span class="n">T</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigvalsh</span><span class="p">(</span><span class="n">L_r</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></code></pre></figure>
+
+</details>
 
     <p>The whole wall’s decay times, from the full-rank reduced inductance.</p>
 
@@ -878,7 +1116,7 @@ truncated basis would report the decay times of a different wall.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mode_scores"><code>mode_scores</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1335" title="vaft/process/wall_modes.py, line 1335">source</a>
+<a class="ref-source" data-source="mode_scores" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1335-L1451" title="vaft/process/wall_modes.py, lines 1335–1451 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>mode_scores(basis, R_mat, M_mat, L_mat, *, G=None, drive=None, time=None, keep=None, dt_sub=5e-05)</code></pre>
 
@@ -967,9 +1205,92 @@ diagnostic set is not an unimportant mode.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#moment_patterns"><code>moment_patterns</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1731" title="vaft/process/wall_modes.py, line 1731">source</a>
+<a class="ref-source" data-source="moment_patterns" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1731-L1809" title="vaft/process/wall_modes.py, lines 1731–1809 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>moment_patterns(R_mat, M_mat, L_mat, order=1)</code></pre>
+    <details class="ref-code" data-source-code="moment_patterns"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1731–1809</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">moment_patterns</span><span class="p">(</span><span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">M_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">L_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Drive-independent wall patterns from the source coupling.
+
+    An R-orthonormal basis of the block Krylov space
+    ``span{R^{-1} M, (R^{-1} L) R^{-1} M, ...}`` up to ``order`` blocks.  The
+    first block is the resistive limit -- the wall current a constant source ramp
+    settles into, ``I_w = -R^{-1} M dI_src/dt`` -- and each further block is the
+    next inductive correction of the slowly driven response: the Laplace-domain
+    moments of the wall</span><span class="sh">'</span><span class="s">s transfer function, matched at zero frequency.
+
+    Built as a block Arnoldi iteration in the R inner product, so the blocks stay
+    independent where the raw powers would collapse onto the slowest mode; a
+    block that adds no new direction ends the iteration early and the basis is
+    narrower than ``order * n_src``.
+
+    Parameters
+    ----------
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming; the physics ``L``, ``(N, N)``
+        [H].
+    L_mat : numpy.ndarray
+        Passive-to-source coupling in code naming; the physics ``M``,
+        ``(N, n_src)`` [H].
+    order : int, optional
+        How many Krylov blocks to build [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        R-orthonormal patterns as columns, ``(N, m)`` with
+        ``m &lt;= order * n_src`` [Ohm**-0.5].
+
+    Convention
+    ----------
+    Argument naming follows :mod:`vaft.process.electromagnetics`, not the
+    physics: ``M_mat`` is the passive-passive inductance (physics ``L``) and
+    ``L_mat`` the passive-to-source coupling (physics ``M``).  ``R_mat`` is the
+    diagonal loop resistance either way.
+
+    Applicability
+    -------------
+    Machine-independent.  The comparison quoted below is a VEST observation, not
+    a property of the method.
+
+    Limitations
+    -----------
+    A zero-frequency expansion: on the packaged VEST wall ten resistive patterns
+    reproduce the probe response of a real PF drive to about 1 %, where 150
+    eigenmodes are needed for the same, but fast transients remain the
+    eigenmodes</span><span class="sh">'</span><span class="s"> territory.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="nf">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sh">"</span><span class="s">order must be at least 1</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">M_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="nf">orthonormalize_r</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">L_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">],</span> <span class="n">R_mat</span><span class="p">)</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">Q</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">L</span> <span class="o">@</span> <span class="n">blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">hstack</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">@</span> <span class="p">(</span><span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="p">))</span>          <span class="c1"># R-orthogonal to everything so far
+</span>        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span> <span class="o">-</span> <span class="n">V</span> <span class="o">@</span> <span class="p">(</span><span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="p">))</span>          <span class="c1"># twice, for the usual reason
+</span>        <span class="n">Q</span> <span class="o">=</span> <span class="nf">orthonormalize_r</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">Q</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">blocks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">canonical_sign</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">hstack</span><span class="p">(</span><span class="n">blocks</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Drive-independent wall patterns from the source coupling.</p>
 
@@ -1048,9 +1369,68 @@ eigenmodes’ territory.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#orthonormalize_r"><code>orthonormalize_r</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1674" title="vaft/process/wall_modes.py, line 1674">source</a>
+<a class="ref-source" data-source="orthonormalize_r" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1674-L1728" title="vaft/process/wall_modes.py, lines 1674–1728 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>orthonormalize_r(X, R_mat, *, rtol=1e-10)</code></pre>
+    <details class="ref-code" data-source-code="orthonormalize_r"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1674–1728</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">orthonormalize_r</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">An R-orthonormal basis of ``span(X)``, canonical in sign.
+
+    QR of ``R^{1/2} X`` with the dependent columns dropped, so a set of patterns
+    that repeats a direction does not return a singular basis.
+
+    Parameters
+    ----------
+    X : numpy.ndarray
+        Patterns as columns, ``(N, m)`` [any].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    rtol : float, optional
+        A column whose triangular-factor diagonal falls below this times the
+        largest is dependent and is dropped [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        R-orthonormal, sign-canonical basis, ``(N, m</span><span class="sh">'</span><span class="s">)`` with ``m</span><span class="sh">'</span><span class="s"> &lt;= m``
+        [Ohm**-0.5].
+
+    Defaults
+    --------
+    ``rtol = 1e-10`` is a numerical convenience: the rank cut of the QR in double
+    precision.
+
+    Convention
+    ----------
+    Modes are R-orthonormal (``v^T R v = 1``) and sign-canonical
+    (:func:`canonical_sign`), so amplitudes carry units of sqrt(W) and ``a^T a``
+    is the wall current</span><span class="sh">'</span><span class="s">s ohmic dissipation.  This is the same normalization the eigenbasis carries, which
+    is what lets a pattern basis and an eigenbasis be combined in one reduction
+    (:func:`combined_operators`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">X</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">patterns have shape </span><span class="si">{</span><span class="n">X</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">; expected (</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s">, m)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">r</span><span class="p">)[:,</span> <span class="bp">None</span><span class="p">]</span>
+    <span class="n">Q</span><span class="p">,</span> <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">qr</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">X</span><span class="p">)</span>
+    <span class="n">diag</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">T</span><span class="p">))</span>
+    <span class="n">independent</span> <span class="o">=</span> <span class="n">diag</span> <span class="o">&gt;</span> <span class="n">rtol</span> <span class="o">*</span> <span class="nf">max</span><span class="p">(</span><span class="n">diag</span><span class="p">.</span><span class="nf">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">diag</span><span class="p">.</span><span class="n">size</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1e-300</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">canonical_sign</span><span class="p">(</span><span class="n">Q</span><span class="p">[:,</span> <span class="n">independent</span><span class="p">]</span> <span class="o">/</span> <span class="n">w</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>An R-orthonormal basis of <code class="language-plaintext highlighter-rouge">span(X)</code>, canonical in sign.</p>
 
@@ -1114,9 +1494,71 @@ precision.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#project"><code>project</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L769" title="vaft/process/wall_modes.py, line 769">source</a>
+<a class="ref-source" data-source="project" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L769-L826" title="vaft/process/wall_modes.py, lines 769–826 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>project(basis, I_w, R_mat, keep=None)</code></pre>
+    <details class="ref-code" data-source-code="project"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 769–826</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">project</span><span class="p">(</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">I_w</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">keep</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Modal amplitudes ``a = V^T R I_w``.
+
+    Exact for a current that lies inside the retained subspace; for a truncated
+    basis it is the R-orthogonal projection, which is the least-dissipation one.
+
+    Input semantics
+    ---------------
+    Element space: a wall current, one entry per element, measured or solved.
+
+    Output semantics
+    ----------------
+    Mode space: amplitudes in the R inner product, so ``a^T a`` is the current</span><span class="sh">'</span><span class="s">s
+    ohmic dissipation.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    I_w : numpy.ndarray
+        Wall current, ``(N,)`` or ``(n_times, N)`` [A].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Amplitudes, ``(M_tot,)`` or ``(n_times, M_tot)`` [W**0.5].
+
+    Convention
+    ----------
+    Modes are R-orthonormal (``v^T R v = 1``) and sign-canonical
+    (:func:`canonical_sign`), so amplitudes carry units of sqrt(W) and ``a^T a``
+    is the wall current</span><span class="sh">'</span><span class="s">s ohmic dissipation.  Two other normalizations are in use elsewhere and
+    convert from this one: Euclidean-normalized modes have ``a_E = a ||v||_2``,
+    inductance-normalized ones ``a_L = a sqrt(tau)``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">I_w</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_w</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">I_w</span><span class="p">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">I_w</span><span class="p">)</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">I_w</span> <span class="o">*</span> <span class="n">r</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:])</span> <span class="o">@</span> <span class="n">V</span></code></pre></figure>
+
+</details>
 
     <p>Modal amplitudes <code class="language-plaintext highlighter-rouge">a = V^T R I_w</code>.</p>
 
@@ -1186,9 +1628,55 @@ ohmic dissipation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reconstruct"><code>reconstruct</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L829" title="vaft/process/wall_modes.py, line 829">source</a>
+<a class="ref-source" data-source="reconstruct" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L829-L870" title="vaft/process/wall_modes.py, lines 829–870 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>reconstruct(basis, a, keep=None)</code></pre>
+    <details class="ref-code" data-source-code="reconstruct"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 829–870</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">keep</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Wall currents ``I_w = V a`` from modal amplitudes.
+
+    The inverse direction of :func:`project`; exact only for the retained
+    subspace, which is what :func:`reconstruction_error` measures.
+
+    Input semantics
+    ---------------
+    Mode space: amplitudes of the retained modes.
+
+    Output semantics
+    ----------------
+    Element space: a wall current on every element, whatever the retained order.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    a : numpy.ndarray
+        Amplitudes, ``(M_tot,)`` or ``(n_times, M_tot)`` [W**0.5].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Wall current, ``(N,)`` or ``(n_times, N)`` [A].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">V</span> <span class="o">@</span> <span class="n">a</span> <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">a</span> <span class="o">@</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span></code></pre></figure>
+
+</details>
 
     <p>Wall currents <code class="language-plaintext highlighter-rouge">I_w = V a</code> from modal amplitudes.</p>
 
@@ -1244,9 +1732,74 @@ subspace, which is what <code class="language-plaintext highlighter-rouge">recon
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reconstruction_error"><code>reconstruction_error</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L873" title="vaft/process/wall_modes.py, line 873">source</a>
+<a class="ref-source" data-source="reconstruction_error" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L873-L933" title="vaft/process/wall_modes.py, lines 873–933 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>reconstruction_error(I_w, I_rec, R_mat, basis=None)</code></pre>
+    <details class="ref-code" data-source-code="reconstruction_error"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 873–933</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reconstruction_error</span><span class="p">(</span>
+    <span class="n">I_w</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">I_rec</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">How far a reconstruction is from the full current, in the norms that matter.
+
+    Parameters
+    ----------
+    I_w : numpy.ndarray
+        The full wall current, ``(N,)`` or ``(n_times, N)`` [A].
+    I_rec : numpy.ndarray
+        The reconstruction, same shape [A].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    basis : WallModeBasis or None, optional
+        When given, the same measures are reported per segment [-].
+
+    Returns
+    -------
+    dict
+        ``relative_l2``, ``relative_dissipation`` and ``max_abs``, plus one
+        such entry per segment id when a basis was given [-].
+
+        ``max_abs`` is the largest absolute element error, in amperes; the
+        other two are relative.
+
+    Convention
+    ----------
+    ``relative_dissipation`` weighs each element by its resistance -- the natural
+    norm of this basis, where the error</span><span class="sh">'</span><span class="s">s ohmic power is compared with the
+    current</span><span class="sh">'</span><span class="s">s -- and ``relative_l2`` is the plain Euclidean measure.  They differ
+    by however unevenly the wall</span><span class="sh">'</span><span class="s">s resistance is distributed, so a reported
+    error means nothing without saying which of the two it is.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">I_w</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_w</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">I_rec</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_rec</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">I_rec</span> <span class="o">-</span> <span class="n">I_w</span>
+
+    <span class="k">def</span> <span class="nf">_measures</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="n">l2</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="o">/</span> <span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">ref</span><span class="p">),</span> <span class="mf">1e-300</span><span class="p">))</span>
+        <span class="n">diss</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">e</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span> <span class="o">/</span> <span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">ref</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">),</span> <span class="mf">1e-300</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">relative_l2</span><span class="sh">"</span><span class="p">:</span> <span class="n">l2</span><span class="p">,</span> <span class="sh">"</span><span class="s">relative_dissipation</span><span class="sh">"</span><span class="p">:</span> <span class="n">diss</span><span class="p">,</span> <span class="sh">"</span><span class="s">max_abs</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">e</span><span class="p">)))}</span>
+
+    <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nf">_measures</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="n">I_w</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="k">if</span> <span class="n">basis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="sh">"</span><span class="s">segments</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">seg</span><span class="p">.</span><span class="nb">id</span><span class="p">:</span> <span class="nf">_measures</span><span class="p">(</span><span class="n">err</span><span class="p">[:,</span> <span class="n">seg</span><span class="p">.</span><span class="n">index</span><span class="p">],</span> <span class="n">I_w</span><span class="p">[:,</span> <span class="n">seg</span><span class="p">.</span><span class="n">index</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="n">seg</span><span class="p">.</span><span class="n">index</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">out</span></code></pre></figure>
+
+</details>
 
     <p>How far a reconstruction is from the full current, in the norms that matter.</p>
 
@@ -1304,9 +1857,60 @@ error means nothing without saying which of the two it is.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reduce_response"><code>reduce_response</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L936" title="vaft/process/wall_modes.py, line 936">source</a>
+<a class="ref-source" data-source="reduce_response" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L936-L982" title="vaft/process/wall_modes.py, lines 936–982 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>reduce_response(G_full, basis, keep=None)</code></pre>
+    <details class="ref-code" data-source-code="reduce_response"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 936–982</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reduce_response</span><span class="p">(</span>
+    <span class="n">G_full</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">keep</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Reduce any linear response with the wall elements as its columns.
+
+    Probe field, flux-loop flux, grid psi or B, an EFIT table -- one matmul, no
+    per-class logic, so every response class is reduced by the same basis.
+
+    Input semantics
+    ---------------
+    Element space: a response matrix mapping every wall element to observations.
+
+    Output semantics
+    ----------------
+    Mode space: the same map from the retained modal amplitudes.
+
+    Parameters
+    ----------
+    G_full : numpy.ndarray
+        Response with wall elements as columns, ``(n_obs, N)`` [any/A].
+    basis : WallModeBasis
+        The eigenbasis [-].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``G_red = G_full V_seg``, ``(n_obs, M_tot)`` [any/W**0.5].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">G_full</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">G_full</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">G_full</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">basis</span><span class="p">.</span><span class="n">n_elements</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">response has </span><span class="si">{</span><span class="n">G_full</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s"> wall columns, basis has </span><span class="si">{</span><span class="n">basis</span><span class="p">.</span><span class="n">n_elements</span><span class="si">}</span><span class="s"> elements</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">G_full</span> <span class="o">@</span> <span class="n">basis</span><span class="p">.</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Reduce any linear response with the wall elements as its columns.</p>
 
@@ -1362,9 +1966,87 @@ per-class logic, so every response class is reduced by the same basis.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reduced_operators"><code>reduced_operators</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L693" title="vaft/process/wall_modes.py, line 693">source</a>
+<a class="ref-source" data-source="reduced_operators" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L693-L766" title="vaft/process/wall_modes.py, lines 693–766 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>reduced_operators(basis, R_mat, M_mat, L_mat=None, keep=None)</code></pre>
+    <details class="ref-code" data-source-code="reduced_operators"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 693–766</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reduced_operators</span><span class="p">(</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span>
+    <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">M_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">L_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">keep</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReducedWall</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Project the full wall matrices onto the retained modes.
+
+    The global half of the contract.  Because the *full* matrices are projected,
+    the mutual inductance between segments survives in the off-diagonal blocks of
+    ``L_r``; only the diagonal blocks are the local ``diag(tau_g)``.
+
+    Input semantics
+    ---------------
+    Element space: the assembled wall matrices, one row and column per wall
+    element, as :mod:`vaft.process.electromagnetics` builds them.
+
+    Output semantics
+    ----------------
+    Mode space: operators of the retained modal coordinates, whose amplitudes
+    carry units of sqrt(W).  A solve on them is the reduced circuit
+    (:func:`solve_reduced_eddy`); to come back to element space, use
+    :func:`reconstruct`.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+    M_mat : numpy.ndarray
+        Passive-passive inductance in code naming, ``(N, N)`` [H].
+    L_mat : numpy.ndarray or None, optional
+        Passive-to-source coupling in code naming, ``(N, n_src)`` [H].
+    keep : sequence of numpy.ndarray or None, optional
+        Retained mode indices per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    ReducedWall
+        ``L_r`` ``(M_tot, M_tot)`` [H], ``R_r`` ``(M_tot, M_tot)`` [Ohm],
+        ``M_r`` ``(M_tot, n_src)`` [H] when a source coupling was given, and the
+        ``(segment_id, k)`` label of every coefficient [-].
+
+    Convention
+    ----------
+    Argument naming follows :mod:`vaft.process.electromagnetics`, not the
+    physics: ``M_mat`` is the passive-passive inductance (physics ``L``) and
+    ``L_mat`` the passive-to-source coupling (physics ``M``).  ``R_mat`` is the
+    diagonal loop resistance either way.
+
+    ``R_r`` is computed rather than assumed to be the identity, so a basis built
+    on other matrices than the ones passed here shows up as a non-identity
+    instead of silently changing the dynamics.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nc">V</span><span class="p">(</span><span class="n">keep</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">M_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">L_r</span> <span class="o">=</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">L</span> <span class="o">@</span> <span class="n">V</span>
+    <span class="n">R_r</span> <span class="o">=</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">)</span>
+    <span class="n">M_r</span> <span class="o">=</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">L_mat</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">V</span><span class="p">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">L_mat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ReducedWall</span><span class="p">(</span><span class="n">L_r</span><span class="o">=</span><span class="n">L_r</span><span class="p">,</span> <span class="n">R_r</span><span class="o">=</span><span class="n">R_r</span><span class="p">,</span> <span class="n">M_r</span><span class="o">=</span><span class="n">M_r</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">basis</span><span class="p">.</span><span class="nf">labels</span><span class="p">(</span><span class="n">keep</span><span class="p">),</span> <span class="n">keep</span><span class="o">=</span><span class="n">basis</span><span class="p">.</span><span class="nf">_keep</span><span class="p">(</span><span class="n">keep</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Project the full wall matrices onto the retained modes.</p>
 
@@ -1443,7 +2125,7 @@ carry units of sqrt(W).  A solve on them is the reduced circuit
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#segment_eigenmodes"><code>segment_eigenmodes</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L259" title="vaft/process/wall_modes.py, line 259">source</a>
+<a class="ref-source" data-source="segment_eigenmodes" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L259-L361" title="vaft/process/wall_modes.py, lines 259–361 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>segment_eigenmodes(R_gg, L_gg, *, residual_atol=1e-10, cond_max=1000000000000.0, tau_floor_rel=1e-12)</code></pre>
 
@@ -1533,9 +2215,38 @@ supporting the answer rather than where physics changes.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#select_all"><code>select_all</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L989" title="vaft/process/wall_modes.py, line 989">source</a>
+<a class="ref-source" data-source="select_all" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L989-L1013" title="vaft/process/wall_modes.py, lines 989–1013 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>select_all(basis)</code></pre>
+    <details class="ref-code" data-source-code="select_all"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 989–1013</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">select_all</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Keep every mode of every segment: the full-rank selection.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment, holding every mode index [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">basis</span><span class="p">.</span><span class="nf">_keep</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Keep every mode of every segment: the full-rank selection.</p>
 
@@ -1576,9 +2287,66 @@ supporting the answer rather than where physics changes.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#select_by_score"><code>select_by_score</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1454" title="vaft/process/wall_modes.py, line 1454">source</a>
+<a class="ref-source" data-source="select_by_score" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1454-L1506" title="vaft/process/wall_modes.py, lines 1454–1506 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>select_by_score(basis, score, M, keep=None)</code></pre>
+    <details class="ref-code" data-source-code="select_by_score"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1454–1506</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">select_by_score</span><span class="p">(</span>
+    <span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">score</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">M</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">keep</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Keep the highest-scoring modes across segments.
+
+    The global counterpart of :func:`select_slowest`, for any ranking -- usually
+    one of :func:`mode_scores`.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    score : numpy.ndarray
+        One value per coefficient of ``basis.labels(keep)`` [-].
+    M : int
+        How many modes to keep in total [-].
+    keep : sequence of numpy.ndarray or None, optional
+        Candidate modes per segment; every mode when ``None`` [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Convention
+    ----------
+    Ties resolve toward the earlier label, so the selection is deterministic for
+    a given score vector.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
+    </span><span class="sh">"""</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nf">labels</span><span class="p">(</span><span class="n">keep</span><span class="p">)</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">score</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">score</span><span class="p">.</span><span class="n">size</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">score has </span><span class="si">{</span><span class="n">score</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s"> entries for </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s"> candidate modes</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">score</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="sh">"</span><span class="s">stable</span><span class="sh">"</span><span class="p">)[:</span> <span class="nf">max</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">M</span><span class="p">),</span> <span class="mi">0</span><span class="p">)]</span>
+    <span class="n">chosen</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">order</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="nf">sorted</span><span class="p">(</span><span class="n">k</span> <span class="nf">for </span><span class="p">(</span><span class="n">seg_id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="n">chosen</span> <span class="k">if</span> <span class="n">seg_id</span> <span class="o">==</span> <span class="n">seg</span><span class="p">.</span><span class="nb">id</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Keep the highest-scoring modes across segments.</p>
 
@@ -1638,9 +2406,58 @@ a given score vector.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#select_slowest"><code>select_slowest</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1016" title="vaft/process/wall_modes.py, line 1016">source</a>
+<a class="ref-source" data-source="select_slowest" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1016-L1060" title="vaft/process/wall_modes.py, lines 1016–1060 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>select_slowest(basis, M)</code></pre>
+    <details class="ref-code" data-source-code="select_slowest"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1016–1060</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">select_slowest</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">M</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Keep the slowest modes, globally or per segment.
+
+    The selection the spectrum alone suggests; whether it is the right one for a
+    given drive is what :func:`mode_scores` exists to question.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    M : int or sequence of int
+        A count taken globally across segments by descending decay time, or one
+        count per segment [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">integer</span><span class="p">)):</span>
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nf">tau</span><span class="p">()</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="n">basis</span><span class="p">.</span><span class="nf">labels</span><span class="p">()</span>
+        <span class="n">chosen</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="p">.</span><span class="nf">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">tau</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="sh">"</span><span class="s">stable</span><span class="sh">"</span><span class="p">)[:</span> <span class="nf">int</span><span class="p">(</span><span class="n">M</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span>
+            <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="n">size</span><span class="p">)</span> <span class="nf">if </span><span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="nb">id</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="n">chosen</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span>
+        <span class="p">)</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">per-segment M has </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span><span class="si">}</span><span class="s"> entries for </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">)</span><span class="si">}</span><span class="s"> segments</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="n">seg</span><span class="p">.</span><span class="n">size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">int64</span><span class="p">)</span> <span class="k">for</span> <span class="n">seg</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">basis</span><span class="p">.</span><span class="n">segments</span><span class="p">,</span> <span class="n">counts</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Keep the slowest modes, globally or per segment.</p>
 
@@ -1688,9 +2505,45 @@ given drive is what <code class="language-plaintext highlighter-rouge">mode_scor
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#select_tau_range"><code>select_tau_range</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1063" title="vaft/process/wall_modes.py, line 1063">source</a>
+<a class="ref-source" data-source="select_tau_range" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1063-L1094" title="vaft/process/wall_modes.py, lines 1063–1094 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>select_tau_range(basis, tau_min, tau_max=inf)</code></pre>
+    <details class="ref-code" data-source-code="select_tau_range"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1063–1094</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">select_tau_range</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="n">WallModeBasis</span><span class="p">,</span> <span class="n">tau_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">tau_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Keep the modes whose decay time lies in a range, per segment.
+
+    Parameters
+    ----------
+    basis : WallModeBasis
+        The eigenbasis [-].
+    tau_min : float
+        Lower bound, inclusive [s].
+    tau_max : float, optional
+        Upper bound, inclusive [s].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        One index array per segment [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">flatnonzero</span><span class="p">((</span><span class="n">seg</span><span class="p">.</span><span class="n">tau</span> <span class="o">&gt;=</span> <span class="n">tau_min</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">seg</span><span class="p">.</span><span class="n">tau</span> <span class="o">&lt;=</span> <span class="n">tau_max</span><span class="p">)).</span><span class="nf">astype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">.</span><span class="n">segments</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Keep the modes whose decay time lies in a range, per segment.</p>
 
@@ -1735,9 +2588,93 @@ given drive is what <code class="language-plaintext highlighter-rouge">mode_scor
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#solve_reduced_eddy"><code>solve_reduced_eddy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1253" title="vaft/process/wall_modes.py, line 1253">source</a>
+<a class="ref-source" data-source="solve_reduced_eddy" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1253-L1332" title="vaft/process/wall_modes.py, lines 1253–1332 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>solve_reduced_eddy(reduced, drive, time, *, V=None, dt_sub=5e-05, method=&#39;auto&#39;)</code></pre>
+    <details class="ref-code" data-source-code="solve_reduced_eddy"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1253–1332</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">solve_reduced_eddy</span><span class="p">(</span>
+    <span class="n">reduced</span><span class="p">:</span> <span class="n">ReducedWall</span><span class="p">,</span>
+    <span class="n">drive</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">dt_sub</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0e-5</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Integrate the reduced circuit ``L_r da/dt + R_r a = -M_r dI_src/dt``.
+
+    The same integrator as the full wall
+    (:func:`vaft.process.electromagnetics.solve_eddy_currents`), fed the projected
+    operators, so the only difference between the two solutions is the retained
+    subspace: with every mode kept they agree to rounding.
+
+    Input semantics
+    ---------------
+    Mode space: reduced operators and a source drive in element-independent
+    coordinates.
+
+    Output semantics
+    ----------------
+    Mode space amplitudes, and -- when the retained ``V`` is given -- the
+    reconstructed element-space wall current alongside them.
+
+    Parameters
+    ----------
+    reduced : ReducedWall
+        The projected operators; ``M_r`` must be present [-].
+    drive : numpy.ndarray
+        Source currents, ``(n_times, n_src)`` on ``time`` [A].
+    time : numpy.ndarray
+        Time grid of the drive [s].
+    V : numpy.ndarray or None, optional
+        The retained modes, ``(N, M_tot)``; when given, the wall current is
+        reconstructed too [Ohm**-0.5].
+    dt_sub : float, optional
+        Sub-step of the integrator [s].
+    method : str, optional
+        Integration method, forwarded to the full-wall solver [-].
+
+    Returns
+    -------
+    a : numpy.ndarray
+        Modal amplitudes, ``(n_times, M_tot)`` [W**0.5].
+    I_w : numpy.ndarray or None
+        ``V a``, ``(n_times, N)``, or ``None`` when no ``V`` was given [A].
+
+    Defaults
+    --------
+    ``dt_sub = 50 us`` is a validated-workflow default: the sub-step the full-wall
+    solver is used with in the VEST eddy-current workflow.  ``method=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="s">``
+    leaves the choice to that solver.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    .. [vfit10] The reduced-order validation study (VEST-Tokamak/vfit#10, vaft
+       #494), which asks which modes to keep; this module answers no part of that
+       question by itself.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.electromagnetics</span> <span class="kn">import</span> <span class="n">solve_eddy_currents</span>
+
+    <span class="k">if</span> <span class="n">reduced</span><span class="p">.</span><span class="n">M_r</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">WallModeError</span><span class="p">(</span><span class="sh">"</span><span class="s">solve_reduced_eddy needs the projected source coupling M_r</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="nf">solve_eddy_currents</span><span class="p">(</span>
+        <span class="n">reduced</span><span class="p">.</span><span class="n">R_r</span><span class="p">,</span> <span class="n">reduced</span><span class="p">.</span><span class="n">M_r</span><span class="p">,</span> <span class="n">reduced</span><span class="p">.</span><span class="n">L_r</span><span class="p">,</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">drive</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">dt_sub</span><span class="o">=</span><span class="n">dt_sub</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">I_w</span> <span class="o">=</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">a</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="n">T</span>
+    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">I_w</span></code></pre></figure>
+
+</details>
 
     <p>Integrate the reduced circuit <code class="language-plaintext highlighter-rouge">L_r da/dt + R_r a = -M_r dI_src/dt</code>.</p>
 
@@ -1813,9 +2750,57 @@ leaves the choice to that solver.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#subspace_angles_r"><code>subspace_angles_r</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L1203" title="vaft/process/wall_modes.py, line 1203">source</a>
+<a class="ref-source" data-source="subspace_angles_r" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L1203-L1246" title="vaft/process/wall_modes.py, lines 1203–1246 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>subspace_angles_r(V_a, V_b, R_mat)</code></pre>
+    <details class="ref-code" data-source-code="subspace_angles_r"><summary>Show source <span class="ref-note">vaft/process/wall_modes.py, lines 1203–1246</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">subspace_angles_r</span><span class="p">(</span><span class="n">V_a</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">V_b</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">R_mat</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Principal angles between two mode subspaces in the R inner product.
+
+    Two bases of a near-degenerate eigenspace differ by a rotation, so the right
+    question is whether they span the same space, not whether their columns
+    match.
+
+    Parameters
+    ----------
+    V_a : numpy.ndarray
+        First set of modes as columns, ``(N, m_a)`` [Ohm**-0.5].
+    V_b : numpy.ndarray
+        Second set, ``(N, m_b)`` [Ohm**-0.5].
+    R_mat : numpy.ndarray
+        Diagonal loop resistance, ``(N, N)`` or its diagonal [Ohm].
+
+    Returns
+    -------
+    numpy.ndarray
+        Principal angles, ascending, ``(min(m_a, m_b),)`` [rad].
+
+    Convention
+    ----------
+    The angles are taken in the R metric, not the Euclidean one: both sets are
+    mapped by ``R^{1/2}`` first, so the ordinary angles of the mapped columns are
+    the R-metric angles of the originals.  A zero angle means a shared direction;
+    ``pi/2`` means an R-orthogonal one.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [473] Issue #473, which built the segment-wise eigenbasis, and #500, which
+       added the selection, scoring and moment tools.
+    .. [vfit8] The reduced vessel-wall contract, VEST-Tokamak/vfit#8: local
+       eigenbasis, global electromagnetic dynamics.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">subspace_angles</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_diagonal_resistance</span><span class="p">(</span><span class="n">R_mat</span><span class="p">,</span> <span class="n">where</span><span class="o">=</span><span class="sh">"</span><span class="s">R_mat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">r</span><span class="p">)[:,</span> <span class="bp">None</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nf">subspace_angles</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">V_a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">w</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">V_b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Principal angles between two mode subspaces in the R inner product.</p>
 
@@ -1874,7 +2859,7 @@ the R-metric angles of the originals.  A zero angle means a shared direction;
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#symmetrize_inductance"><code>symmetrize_inductance</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/process/wall_modes.py#L107" title="vaft/process/wall_modes.py, line 107">source</a>
+<a class="ref-source" data-source="symmetrize_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/wall_modes.py#L107-L187" title="vaft/process/wall_modes.py, lines 107–187 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>symmetrize_inductance(L, *, rtol=1e-08, reject=1e-06)</code></pre>
 
@@ -2166,7 +3151,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

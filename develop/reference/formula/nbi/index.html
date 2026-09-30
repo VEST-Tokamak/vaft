@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -363,9 +363,55 @@ the beam.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beam_birth_probability_density"><code>beam_birth_probability_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L213" title="vaft/formula/nbi.py, line 213">source</a>
+<a class="ref-source" data-source="beam_birth_probability_density" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L213-L254" title="vaft/formula/nbi.py, lines 213–254 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>beam_birth_probability_density(s, alpha)</code></pre>
+    <details class="ref-code" data-source-code="beam_birth_probability_density"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 213–254</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">beam_birth_probability_density</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Fast-ion birth probability per unit path length along the beam.
+
+    $$b(s) = -\frac{dS}{ds} = \alpha(s)\,e^{-\tau(s)}$$
+
+    Parameters
+    ----------
+    s : np.ndarray
+        Path coordinate from the entry, strictly increasing [m].
+    alpha : np.ndarray
+        Attenuation coefficient at each ``s``, non-negative [1/m].
+
+    Returns
+    -------
+    np.ndarray
+        $b(s)$: probability that an injected neutral is ionised per unit
+        length at $s$ [1/m].
+
+    Raises
+    ------
+    ValueError
+        As ``neutral_beam_optical_depth``.
+
+    Convention
+    ----------
+    A density along the 1-D path coordinate, not a volumetric deposition:
+    $\int b\,ds + S(s_\mathrm{exit}) = 1$ over the whole path. Mapping it to
+    flux surfaces or $(R, Z)$ needs the beam geometry and footprint.
+
+    Physical interpretation
+    -----------------------
+    Largest where $\alpha$ is large *and* the beam has not yet been
+    depleted: a dense edge ionises the beam early, which is why a
+    high-density plasma deposits NBI off-axis.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="nf">_path</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="nf">neutral_beam_optical_depth</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Fast-ion birth probability per unit path length along the beam.</p>
 
@@ -427,9 +473,61 @@ high-density plasma deposits NBI off-axis.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beam_particle_rate_from_power_energy"><code>beam_particle_rate_from_power_energy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L75" title="vaft/formula/nbi.py, line 75">source</a>
+<a class="ref-source" data-source="beam_particle_rate_from_power_energy" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L75-L122" title="vaft/formula/nbi.py, lines 75–122 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>beam_particle_rate_from_power_energy(P_b, E_b_eV)</code></pre>
+    <details class="ref-code" data-source-code="beam_particle_rate_from_power_energy"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 75–122</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">beam_particle_rate_from_power_energy</span><span class="p">(</span><span class="n">P_b</span><span class="p">,</span> <span class="n">E_b_eV</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Injected particle rate of one monoenergetic beam component.
+
+    $$\dot N_b = \frac{P_b}{E_b}$$
+
+    Parameters
+    ----------
+    P_b : float or np.ndarray
+        Power carried by the component, non-negative [W].
+    E_b_eV : float or np.ndarray
+        Energy per particle of that component, positive [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Particles injected per second [1/s].
+
+    Raises
+    ------
+    ValueError
+        A negative or non-finite power, or a non-positive energy.
+
+    Convention
+    ----------
+    $E_b$ is the energy *per particle of this component*: a source at
+    accelerating voltage $V$ delivers full-, half- and third-energy
+    components at $eV$, $eV/2$ and $eV/3$ (from D$^+$, D$_2^+$, D$_3^+$), each
+    with its own power, so the rates are computed per component and summed.
+    No species is implied; the energy converts from eV with the elementary
+    charge.
+
+    Physical interpretation
+    -----------------------
+    The source term for particle bookkeeping: at fixed power a lower-energy
+    component injects more particles.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">P_b</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">P_b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">E_b_eV</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">P_b</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">P_b</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">P_b must be non-negative and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">E</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">E</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">E_b_eV must be positive and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">P_b</span> <span class="o">/</span> <span class="p">(</span><span class="n">E</span> <span class="o">*</span> <span class="n">QE</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Injected particle rate of one monoenergetic beam component.</p>
 
@@ -493,9 +591,69 @@ component injects more particles.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#injected_toroidal_angular_momentum_rate"><code>injected_toroidal_angular_momentum_rate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L299" title="vaft/formula/nbi.py, line 299">source</a>
+<a class="ref-source" data-source="injected_toroidal_angular_momentum_rate" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L299-L354" title="vaft/formula/nbi.py, lines 299–354 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>injected_toroidal_angular_momentum_rate(Ndot_b, m, R_tan, v)</code></pre>
+    <details class="ref-code" data-source-code="injected_toroidal_angular_momentum_rate"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 299–354</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">injected_toroidal_angular_momentum_rate</span><span class="p">(</span><span class="n">Ndot_b</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">R_tan</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Toroidal angular momentum carried into the machine per second by the injected particles.
+
+    $$\dot L_\phi = \dot N_b\,m\,R_\mathrm{tan}\,v$$
+
+    Parameters
+    ----------
+    Ndot_b : float or np.ndarray
+        Injected particle rate, non-negative [1/s].
+    m : float or np.ndarray
+        Beam-particle mass, positive [kg].
+    R_tan : float or np.ndarray
+        Tangency radius of the beam line, signed: positive for injection
+        along $+\phi$ (counter-clockwise from above), negative for the
+        opposite direction [m].
+    v : float or np.ndarray
+        Beam-particle speed, non-negative [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        Angular-momentum injection rate about the symmetry axis, positive
+        along $+\phi$ [N m].
+
+    Raises
+    ------
+    ValueError
+        A negative rate or speed, a non-positive mass, or a non-finite input.
+
+    Convention
+    ----------
+    For a straight beam $m\,\mathbf R\times\mathbf v$ about the axis is
+    $mR_\mathrm{tan}v$ at every point of the line, so the tangency radius
+    carries the geometry and its sign the direction. IMAS ``nbi`` stores an
+    unsigned ``beamlets_group.tangency_radius`` and a separate
+    ``direction`` ($\pm1$, counter-clockwise from above): pass
+    ``direction * tangency_radius``.
+
+    Physical interpretation
+    -----------------------
+    The ideal rate at which the beam brings angular momentum in -- an upper
+    bound, not the torque on the plasma: shine-through, prompt and delayed
+    losses, and the $\mathbf J\times\mathbf B$ torque of fast-ion radial
+    currents decide how much of it the plasma receives and where.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">Ndot_b</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">R_tan</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Ndot_b</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">R_tan</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Ndot_b</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">R_tan</span><span class="p">,</span> <span class="n">v</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">inputs must be finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">Ndot_b</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">v</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Ndot_b and v must be non-negative and m positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">Ndot_b</span> <span class="o">*</span> <span class="n">m</span> <span class="o">*</span> <span class="n">R_tan</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Toroidal angular momentum carried into the machine per second by the injected particles.</p>
 
@@ -565,9 +723,57 @@ currents decide how much of it the plasma receives and where.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neutral_beam_optical_depth"><code>neutral_beam_optical_depth</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L125" title="vaft/formula/nbi.py, line 125">source</a>
+<a class="ref-source" data-source="neutral_beam_optical_depth" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L125-L168" title="vaft/formula/nbi.py, lines 125–168 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>neutral_beam_optical_depth(s, alpha)</code></pre>
+    <details class="ref-code" data-source-code="neutral_beam_optical_depth"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 125–168</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neutral_beam_optical_depth</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Optical depth accumulated along the beam path, by the trapezoidal rule.
+
+    $$\tau(s) = \int_0^s \alpha(l)\,dl$$
+
+    Parameters
+    ----------
+    s : np.ndarray
+        Path coordinate from the entry, strictly increasing [m].
+    alpha : np.ndarray
+        Attenuation coefficient $\sum_j n_j\sigma_j$ at each ``s``,
+        non-negative; leading axes are independent beams [1/m].
+
+    Returns
+    -------
+    np.ndarray
+        $\tau$ at each ``s``, zero at ``s[0]`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``s`` not strictly increasing, shapes that differ, a negative or
+        non-finite ``alpha``.
+
+    Convention
+    ----------
+    $\alpha$ is prescribed: the caller composes it from densities and
+    beam-stopping cross sections (or effective stopping coefficients) for
+    the beam energy and species. Trapezoidal quadrature, so $\tau$ is exact
+    for piecewise-linear $\alpha$.
+
+    Physical interpretation
+    -----------------------
+    The number of e-foldings of the neutral flux: a beam with
+    $\tau_\mathrm{exit} \approx 3$ deposits 95 % of its particles.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="nf">_path</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">alpha</span><span class="p">[...,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">alpha</span><span class="p">[...,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">([</span><span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">alpha</span><span class="p">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)),</span> <span class="n">np</span><span class="p">.</span><span class="nf">cumsum</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Optical depth accumulated along the beam path, by the trapezoidal rule.</p>
 
@@ -629,9 +835,53 @@ $\tau_\mathrm{exit} \approx 3$ deposits 95 % of its particles.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neutral_survival_fraction_from_optical_depth"><code>neutral_survival_fraction_from_optical_depth</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L171" title="vaft/formula/nbi.py, line 171">source</a>
+<a class="ref-source" data-source="neutral_survival_fraction_from_optical_depth" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L171-L210" title="vaft/formula/nbi.py, lines 171–210 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>neutral_survival_fraction_from_optical_depth(tau)</code></pre>
+    <details class="ref-code" data-source-code="neutral_survival_fraction_from_optical_depth"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 171–210</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neutral_survival_fraction_from_optical_depth</span><span class="p">(</span><span class="n">tau</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Fraction of the injected neutrals not yet ionised.
+
+    $$S = e^{-\tau}$$
+
+    Parameters
+    ----------
+    tau : float or np.ndarray
+        Optical depth, non-negative [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $S \in (0, 1]$ [-].
+
+    Raises
+    ------
+    ValueError
+        A negative or NaN optical depth.
+
+    Physical interpretation
+    -----------------------
+    The neutral flux at depth $\tau$ over the injected flux. Every neutral
+    removed from it has become a fast ion, by ionisation or by charge
+    exchange with a plasma ion; the thermal neutral that charge exchange
+    leaves behind is not followed.
+
+    Assumptions
+    -----------
+    Straight-line neutral flight, no re-neutralisation feeding the beam.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">tau</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">tau</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">tau must be non-negative and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">tau</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Fraction of the injected neutrals not yet ionised.</p>
 
@@ -687,9 +937,53 @@ leaves behind is not followed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#shine_through_fraction"><code>shine_through_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/nbi.py#L257" title="vaft/formula/nbi.py, line 257">source</a>
+<a class="ref-source" data-source="shine_through_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/nbi.py#L257-L296" title="vaft/formula/nbi.py, lines 257–296 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>shine_through_fraction(s, alpha)</code></pre>
+    <details class="ref-code" data-source-code="shine_through_fraction"><summary>Show source <span class="ref-note">vaft/formula/nbi.py, lines 257–296</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">shine_through_fraction</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Fraction of the injected neutrals that leave the path un-ionised.
+
+    $$f_\mathrm{shine} = S(s_\mathrm{exit}) = e^{-\tau(s_\mathrm{exit})}$$
+
+    Parameters
+    ----------
+    s : np.ndarray
+        Path coordinate from entry to exit, strictly increasing [m].
+    alpha : np.ndarray
+        Attenuation coefficient at each ``s``, non-negative [1/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $f_\mathrm{shine} \in (0, 1]$, one per beam [-].
+
+    Raises
+    ------
+    ValueError
+        As ``neutral_beam_optical_depth``.
+
+    Convention
+    ----------
+    The reduced neutral-attenuation result along the prescribed path, not a
+    NUBEAM-equivalent shine-through: no beam divergence, footprint, multiple
+    energy components or re-neutralisation.
+
+    Physical interpretation
+    -----------------------
+    Power that reaches the far wall as neutrals: the low-density limit of
+    NBI heating, and a wall-load constraint on low-density operation.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="nf">_path</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="nf">neutral_beam_optical_depth</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)[...,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span></code></pre></figure>
+
+</details>
 
     <p>Fraction of the injected neutrals that leave the path un-ionised.</p>
 
@@ -966,7 +1260,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

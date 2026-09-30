@@ -868,6 +868,32 @@
   margin-top: 1em;
 }
 
+/* Inline source (#1069): collapsed under the signature, the same lines the
+   [source] link points at.  Capped in height so a long body scrolls in place. */
+.ref-code {
+  margin: 0 0 0.9em;
+}
+
+.ref-code > summary {
+  cursor: pointer;
+  color: var(--vaft-link-color);
+  font-size: 0.9em;
+}
+
+.ref-code > summary .ref-note {
+  margin-left: 0.4em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-code pre {
+  max-height: 32em;
+  overflow: auto;
+}
+
+.api-members .ref-source,
+.api-link .ref-source {
+  margin-left: 0.4em;
+}
+
 /* Diagram gallery: the committed SVG is the entry point of each card. */
 .ref-gallery {
   display: grid;

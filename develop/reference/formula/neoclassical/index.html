@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2fba34a</code>. What is described
+  <code>8420117</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -407,9 +407,69 @@ divide by $2\pi$ first; see
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#banana_width"><code>banana_width</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1450" title="vaft/formula/neoclassical.py, line 1450">source</a>
+<a class="ref-source" data-source="banana_width" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1450-L1505" title="vaft/formula/neoclassical.py, lines 1450–1505 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>banana_width(rho, q, epsilon)</code></pre>
+    <details class="ref-code" data-source-code="banana_width"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1450–1505</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">banana_width</span><span class="p">(</span><span class="n">rho</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial width of a thermal banana orbit, the conventional estimate.
+
+    $$\Delta_b = \frac{q\rho}{\sqrt\epsilon}$$
+
+    Parameters
+    ----------
+    rho : float or np.ndarray
+        Larmor radius in the toroidal field, positive [m].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Banana width [m].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    Conservation of $P_\phi$ gives the excursion
+    $\Delta r = q\rho\,(v_\parallel/v)/\epsilon$ for the midplane parallel
+    speed of the orbit; a thermal trapped particle has
+    $v_\parallel/v \sim \sqrt\epsilon$, hence this estimate, with the
+    pitch-dependent order-unity factor set to one. The Larmor radius is
+    $mv/(|Z|eB_\phi)$ at whatever speed the caller chooses.
+
+    Physical interpretation
+    -----------------------
+    The step of the banana-regime random walk: larger than the Larmor radius
+    by $q/\sqrt\epsilon$, which is why neoclassical transport exceeds
+    classical. It is also the finite-orbit width that makes a local
+    transport description break down near steep gradients.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surface, banana width small compared with
+    the minor radius (not a potato orbit near the axis).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    .. [2] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    </span><span class="sh">"""</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">rho</span><span class="sh">"</span><span class="p">,</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="nf">_validate_epsilon</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">q</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">epsilon</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Radial width of a thermal banana orbit, the conventional estimate.</p>
 
@@ -484,9 +544,70 @@ the minor radius (not a potato orbit near the axis).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#collisions_per_transit"><code>collisions_per_transit</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1508" title="vaft/formula/neoclassical.py, line 1508">source</a>
+<a class="ref-source" data-source="collisions_per_transit" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1508-L1564" title="vaft/formula/neoclassical.py, lines 1508–1564 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>collisions_per_transit(nu, v, q, R0)</code></pre>
+    <details class="ref-code" data-source-code="collisions_per_transit"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1508–1564</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">collisions_per_transit</span><span class="p">(</span><span class="n">nu</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Collision frequency in units of the transit frequency, $\hat\nu = qR_0\nu/v$.
+
+    $$\hat\nu = \frac{\nu}{\omega_t} = \frac{qR_0\,\nu}{v}$$
+
+    Parameters
+    ----------
+    nu : float or np.ndarray
+        Collision frequency, non-negative; the caller states which one (a
+        deflection frequency for the trapped-particle orderings) [1/s].
+    v : float or np.ndarray
+        Particle speed, positive [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat\nu$: connection length over mean free path, per radian [-].
+
+    Raises
+    ------
+    ValueError
+        A negative ``nu`` or a non-positive ``v``, ``q`` or ``R0``.
+
+    Convention
+    ----------
+    Not a $\nu_*$. The trapped-particle collisionality is
+    $\nu_\mathrm{eff}/\omega_b \sim \hat\nu/\epsilon^{3/2}$, and VAFT</span><span class="sh">'</span><span class="s">s
+    existing $\nu_*$ functions (Sauter</span><span class="sh">'</span><span class="s">s among them, #353) each fix their own
+    prefactors and thermal-speed conventions; they share the symbol but not
+    the value. $\hat\nu$ is kept explicit so its regime boundaries,
+    ``neoclassical_regime_boundaries``, carry the $\epsilon$ dependence in
+    the open.
+
+    Physical interpretation
+    -----------------------
+    Below $\epsilon^{3/2}$ a trapped particle completes its banana before it
+    is scattered out; above one, a particle collides before it has seen the
+    poloidal variation of $B$ at all.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surfaces.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    </span><span class="sh">"""</span>
+    <span class="n">nu</span> <span class="o">=</span> <span class="nf">_validate_non_negative</span><span class="p">(</span><span class="sh">"</span><span class="s">nu</span><span class="sh">"</span><span class="p">,</span> <span class="n">nu</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">v</span><span class="sh">"</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">R0</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">q</span> <span class="o">*</span> <span class="n">R0</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">/</span> <span class="n">v</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Collision frequency in units of the transit frequency, $\hat\nu = qR_0\nu/v$.</p>
 
@@ -560,9 +681,61 @@ poloidal variation of $B$ at all.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L239" title="vaft/formula/neoclassical.py, line 239">source</a>
+<a class="ref-source" data-source="coulomb_logarithm_electron_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L239-L286" title="vaft/formula/neoclassical.py, lines 239–286 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>coulomb_logarithm_electron_sauter(n_e, T_e)</code></pre>
+    <details class="ref-code" data-source-code="coulomb_logarithm_electron_sauter"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 239–286</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coulomb_logarithm_electron_sauter</span><span class="p">(</span><span class="n">n_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">T_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.
+
+    $$\ln\Lambda_e = 31.3 - \ln\!\left(\frac{\sqrt{n_e}}{T_e}\right)$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, strictly positive [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, strictly positive [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Electron Coulomb logarithm [-].
+
+    Raises
+    ------
+    ValueError
+        For non-finite or non-positive input.
+
+    Convention
+    ----------
+    This is Sauter Eq. (18d), and it is **not** the NRL expression already in
+    this package: :func:`vaft.formula.equilibrium.coulomb_logarithm_from_n_T`
+    uses 30.9, this uses 31.3.  The difference is about 1.3 percent of a typical
+    value, but the collisionality coefficients here were fitted with this one,
+    so mixing them biases $\nu_e^*$ consistently.  Use this function wherever a
+    Sauter or Redl coefficient is downstream.
+
+    Validity
+    --------
+    Thermal electrons well above the ionisation stage; the same
+    $T_e \gtrsim 10$ eV floor as the NRL form.
+
+    References
+    ----------
+    .. [1] O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999)
+           2834, Eq. (18d).
+
+    See Also
+    --------
+    vaft.formula.equilibrium.coulomb_logarithm_from_n_T : the NRL convention.
+    </span><span class="sh">"""</span>
+    <span class="n">n_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">n_e</span><span class="p">)</span>
+    <span class="n">t_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">T_e</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="mf">31.3</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n_array</span><span class="p">)</span> <span class="o">/</span> <span class="n">t_array</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Electron Coulomb logarithm $\ln\Lambda_e$ in the Sauter convention.</p>
 
@@ -630,9 +803,55 @@ $T_e \gtrsim 10$ eV floor as the NRL form.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L289" title="vaft/formula/neoclassical.py, line 289">source</a>
+<a class="ref-source" data-source="coulomb_logarithm_ion_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L289-L330" title="vaft/formula/neoclassical.py, lines 289–330 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>coulomb_logarithm_ion_sauter(n_i, T_i, Z)</code></pre>
+    <details class="ref-code" data-source-code="coulomb_logarithm_ion_sauter"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 289–330</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coulomb_logarithm_ion_sauter</span><span class="p">(</span><span class="n">n_i</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">T_i</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.
+
+    $$\ln\Lambda_{ii} = 30.0 - \ln\!\left(\frac{Z^3\sqrt{n_i}}{T_i^{3/2}}\right)$$
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Ion density, strictly positive [m^-3].
+    T_i : float or np.ndarray
+        Ion temperature, strictly positive [eV].
+    Z : float or np.ndarray
+        Ion charge number, strictly positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Ion-ion Coulomb logarithm [-].
+
+    Raises
+    ------
+    ValueError
+        For non-finite or non-positive input.
+
+    Convention
+    ----------
+    Sauter Eq. (18e).  The charge enters cubed, so an impurity species changes
+    this substantially more than it changes $\ln\Lambda_e$.
+
+    Validity
+    --------
+    Thermal ions of a single charge state.
+
+    References
+    ----------
+    .. [1] O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999)
+           2834, Eq. (18e).
+    </span><span class="sh">"""</span>
+    <span class="n">n_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">n_i</span><span class="sh">"</span><span class="p">,</span> <span class="n">n_i</span><span class="p">)</span>
+    <span class="n">t_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">,</span> <span class="n">T_i</span><span class="p">)</span>
+    <span class="n">z_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="mf">30.0</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">z_array</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n_array</span><span class="p">)</span> <span class="o">/</span> <span class="n">t_array</span><span class="o">**</span><span class="mf">1.5</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Ion-ion Coulomb logarithm $\ln\Lambda_{ii}$ in the Sauter convention.</p>
 
@@ -693,9 +912,74 @@ this substantially more than it changes $\ln\Lambda_e$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#deeply_trapped_bounce_frequency"><code>deeply_trapped_bounce_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1335" title="vaft/formula/neoclassical.py, line 1335">source</a>
+<a class="ref-source" data-source="deeply_trapped_bounce_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1335-L1395" title="vaft/formula/neoclassical.py, lines 1335–1395 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>deeply_trapped_bounce_frequency(v_perp, q, R0, epsilon)</code></pre>
+    <details class="ref-code" data-source-code="deeply_trapped_bounce_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1335–1395</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">deeply_trapped_bounce_frequency</span><span class="p">(</span><span class="n">v_perp</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Bounce frequency of a deeply trapped particle, the small-amplitude limit of the banana orbit.
+
+    $$\omega_b = \sqrt{\frac{\epsilon}{2}}\,\frac{v_\perp}{qR_0}$$
+
+    Parameters
+    ----------
+    v_perp : float or np.ndarray
+        Perpendicular speed at the outboard midplane, positive [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Angular frequency of the harmonic bounce motion [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    With $B = B_0(1 - \epsilon\cos\theta)$ and $s = qR_0\theta$ along the
+    field, the mirror force $-\mu\,\partial B/\partial s$ is harmonic about
+    the outboard midplane for small excursions, with this frequency exactly.
+    Barely trapped particles bounce more slowly (the period diverges
+    logarithmically at the trapped-passing boundary). The textbook ordering
+    $\omega_b \sim \sqrt\epsilon\,v/(qR_0)$ drops the $1/\sqrt 2$; this is
+    the exact limit it estimates.
+
+    Physical interpretation
+    -----------------------
+    $\omega_b/\omega_t = \sqrt{\epsilon/2}$ at $v_\perp = v$: trapped particles
+    are slower than passing ones by $\sqrt\epsilon$, which is why the banana
+    regime needs a collision frequency below $\epsilon^{3/2}\omega_t$, not
+    below $\omega_t$.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surface, deeply trapped
+    ($v_\parallel \ll \sqrt\epsilon\,v_\perp$ at the midplane), drifts
+    neglected in the parallel motion.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    </span><span class="sh">"""</span>
+    <span class="n">v_perp</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">v_perp</span><span class="sh">"</span><span class="p">,</span> <span class="n">v_perp</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">R0</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="nf">_validate_epsilon</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">epsilon</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">v_perp</span> <span class="o">/</span> <span class="p">(</span><span class="n">q</span> <span class="o">*</span> <span class="n">R0</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Bounce frequency of a deeply trapped particle, the small-amplitude limit of the banana orbit.</p>
 
@@ -774,7 +1058,7 @@ neglected in the parallel motion.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L333" title="vaft/formula/neoclassical.py, line 333">source</a>
+<a class="ref-source" data-source="electron_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L333-L434" title="vaft/formula/neoclassical.py, lines 333–434 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>electron_collisionality_sauter(n_e, T_e, q, R, epsilon, Z_eff, ln_Lambda_e=None)</code></pre>
 
@@ -866,7 +1150,7 @@ choice; it is not dimensionally reusable with temperatures in keV.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L437" title="vaft/formula/neoclassical.py, line 437">source</a>
+<a class="ref-source" data-source="ion_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L437-L523" title="vaft/formula/neoclassical.py, lines 437–523 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>ion_collisionality_sauter(n_i, T_i, q, R, epsilon, Z, ln_Lambda_ii=None)</code></pre>
 
@@ -945,9 +1229,62 @@ collisionality-convention problem.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neoclassical_regime_boundaries"><code>neoclassical_regime_boundaries</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1567" title="vaft/formula/neoclassical.py, line 1567">source</a>
+<a class="ref-source" data-source="neoclassical_regime_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1567-L1615" title="vaft/formula/neoclassical.py, lines 1567–1615 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>neoclassical_regime_boundaries(epsilon)</code></pre>
+    <details class="ref-code" data-source-code="neoclassical_regime_boundaries"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1567–1615</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neoclassical_regime_boundaries</span><span class="p">(</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Banana--plateau and plateau--Pfirsch--Schl\"uter orderings in $\hat\nu$.
+
+    $$\hat\nu_\mathrm{b|p} = \epsilon^{3/2},\qquad \hat\nu_\mathrm{p|PS} = 1$$
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    tuple of float or np.ndarray
+        ``(banana_plateau, plateau_pfirsch_schlueter)`` in units of
+        ``collisions_per_transit`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    Asymptotic orderings, not transitions: $\hat\nu \ll \epsilon^{3/2}$ is
+    the banana regime ($\nu_\mathrm{eff} \ll \omega_b$),
+    $\epsilon^{3/2} \ll \hat\nu \ll 1$ the plateau, $\hat\nu \gg 1$
+    Pfirsch--Schl\"uter. The coefficients are set to one; real transport
+    coefficients cross over smoothly across a decade around each value
+    (Sauter</span><span class="sh">'</span><span class="s">s fits interpolate across them), so there is deliberately no
+    regime classifier.
+
+    Physical interpretation
+    -----------------------
+    The plateau exists only because trapped particles are slow: its width,
+    $\epsilon^{-3/2}$ in $\hat\nu$, shrinks as the aspect ratio falls, and
+    at spherical-tokamak $\epsilon$ the plateau nearly disappears.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surfaces.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 8.
+    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239.
+    </span><span class="sh">"""</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="nf">_validate_epsilon</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">epsilon</span><span class="o">**</span><span class="mf">1.5</span><span class="p">),</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">epsilon</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Banana–plateau and plateau–Pfirsch–Schl"uter orderings in $\hat\nu$.</p>
 
@@ -1017,7 +1354,7 @@ at spherical-tokamak $\epsilon$ the plateau nearly disappears.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L891" title="vaft/formula/neoclassical.py, line 891">source</a>
+<a class="ref-source" data-source="redl_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L891-L1026" title="vaft/formula/neoclassical.py, lines 891–1026 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>redl_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></pre>
 
@@ -1100,7 +1437,7 @@ either.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_bootstrap_current"><code>redl_bootstrap_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1186" title="vaft/formula/neoclassical.py, line 1186">source</a>
+<a class="ref-source" data-source="redl_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1186-L1270" title="vaft/formula/neoclassical.py, lines 1186–1270 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>redl_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></pre>
 
@@ -1189,9 +1526,90 @@ solve through <code class="language-plaintext highlighter-rouge">vaft.code.gacod
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_neoclassical_conductivity"><code>redl_neoclassical_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L677" title="vaft/formula/neoclassical.py, line 677">source</a>
+<a class="ref-source" data-source="redl_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L677-L753" title="vaft/formula/neoclassical.py, lines 677–753 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>redl_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></pre>
+    <details class="ref-code" data-source-code="redl_neoclassical_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 677–753</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">redl_neoclassical_conductivity</span><span class="p">(</span>
+    <span class="n">sigma_spitzer</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">f_trap</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">nu_e_star</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">:</span> <span class="n">Numeric</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.
+
+    $$\frac{\sigma_{\mathrm{neo}}}{\sigma_{\mathrm{Sptz}}}
+      = 1 - \left(1 + \frac{0.21}{Z}\right) X_{33}
+        + \frac{0.54}{Z} X_{33}^2 - \frac{0.33}{Z} X_{33}^3$$
+
+    with $X_{33} = f_t / \left[1 + 0.25(1 - 0.7 f_t)\sqrt{\nu_e^*}
+    (1 + 0.45\sqrt{Z-1}) + 0.61(1 - 0.41 f_t)\nu_e^*/\sqrt{Z}\right]$.
+
+    Parameters
+    ----------
+    sigma_spitzer : float or np.ndarray
+        Reference Spitzer conductivity from
+        :func:`sauter_spitzer_conductivity` [S m^-1].
+    f_trap : float or np.ndarray
+        Trapped-particle fraction of the surface, in [0, 1] [-].
+    nu_e_star : float or np.ndarray
+        Electron collisionality from
+        :func:`electron_collisionality_sauter`, non-negative [-].
+    Z_eff : float or np.ndarray
+        Effective ion charge, at least one [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Neoclassical parallel conductivity [S m^-1].
+
+    Raises
+    ------
+    ValueError
+        For non-finite input, *f_trap* outside [0, 1], negative *nu_e_star*, or
+        *Z_eff* below one.
+
+    Convention
+    ----------
+    The reference conductivity is still Sauter Eq. (12), so
+    :func:`sauter_spitzer_conductivity` is the right input here despite the
+    name; Redl refits the correction, not the normalisation.  As in the Sauter
+    case the collisionality must be the Eq. (18b) one (issue #353).
+
+    Validity
+    --------
+    Empirical fit.  Fitted to NEO solutions spanning tight aspect ratio, so it
+    stays usable at the trapped fractions where the 1999 fit does not.
+    $Z_{\mathrm{eff}} \ge 1$ is required because $\sqrt{Z-1}$ appears.
+
+    References
+    ----------
+    .. [1] A. Redl, C. Angioni, E. Belli and O. Sauter, Phys. Plasmas 28 (2021)
+           022502.
+    </span><span class="sh">"""</span>
+    <span class="n">sigma_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">sigma_spitzer</span><span class="sh">"</span><span class="p">,</span> <span class="n">sigma_spitzer</span><span class="p">)</span>
+    <span class="n">trapped</span> <span class="o">=</span> <span class="nf">_validate_fraction</span><span class="p">(</span><span class="sh">"</span><span class="s">f_trap</span><span class="sh">"</span><span class="p">,</span> <span class="n">f_trap</span><span class="p">)</span>
+    <span class="n">collisionality</span> <span class="o">=</span> <span class="nf">_validate_non_negative</span><span class="p">(</span><span class="sh">"</span><span class="s">nu_e_star</span><span class="sh">"</span><span class="p">,</span> <span class="n">nu_e_star</span><span class="p">)</span>
+    <span class="n">z_array</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">Z_eff</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">z_array</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Z_eff must be finite. Got </span><span class="si">{</span><span class="n">Z_eff</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">z_array</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Z_eff must be &gt;= 1. Got </span><span class="si">{</span><span class="n">Z_eff</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x33</span> <span class="o">=</span> <span class="n">trapped</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="mf">1.0</span>
+        <span class="o">+</span> <span class="mf">0.25</span>
+        <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">trapped</span><span class="p">)</span>
+        <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">collisionality</span><span class="p">)</span>
+        <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.45</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">z_array</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="o">+</span> <span class="mf">0.61</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">0.41</span> <span class="o">*</span> <span class="n">trapped</span><span class="p">)</span> <span class="o">*</span> <span class="n">collisionality</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">z_array</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mf">1.0</span>
+        <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.21</span> <span class="o">/</span> <span class="n">z_array</span><span class="p">)</span> <span class="o">*</span> <span class="n">x33</span>
+        <span class="o">+</span> <span class="p">(</span><span class="mf">0.54</span> <span class="o">/</span> <span class="n">z_array</span><span class="p">)</span> <span class="o">*</span> <span class="n">x33</span><span class="o">**</span><span class="mi">2</span>
+        <span class="o">-</span> <span class="p">(</span><span class="mf">0.33</span> <span class="o">/</span> <span class="n">z_array</span><span class="p">)</span> <span class="o">*</span> <span class="n">x33</span><span class="o">**</span><span class="mi">3</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">sigma_array</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Neoclassical parallel conductivity $\sigma_{\mathrm{neo}}$, Redl 2021.</p>
 
@@ -1263,7 +1681,7 @@ $Z_{\mathrm{eff}} \ge 1$ is required because $\sqrt{Z-1}$ appears.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_bootstrap_coefficients"><code>sauter_bootstrap_coefficients</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L756" title="vaft/formula/neoclassical.py, line 756">source</a>
+<a class="ref-source" data-source="sauter_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L756-L888" title="vaft/formula/neoclassical.py, lines 756–888 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></pre>
 
@@ -1356,7 +1774,7 @@ the difference between the two is the honest uncertainty band.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_bootstrap_current"><code>sauter_bootstrap_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1070" title="vaft/formula/neoclassical.py, line 1070">source</a>
+<a class="ref-source" data-source="sauter_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1070-L1183" title="vaft/formula/neoclassical.py, lines 1070–1183 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></pre>
 
@@ -1474,7 +1892,7 @@ redl_bootstrap_current : the 2021 refit, preferred at tight aspect ratio.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_neoclassical_conductivity"><code>sauter_neoclassical_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L591" title="vaft/formula/neoclassical.py, line 591">source</a>
+<a class="ref-source" data-source="sauter_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L591-L674" title="vaft/formula/neoclassical.py, lines 591–674 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></pre>
 
@@ -1564,9 +1982,76 @@ $f_t \gtrsim 0.6$, this fit is outside the range it was built on;
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L526" title="vaft/formula/neoclassical.py, line 526">source</a>
+<a class="ref-source" data-source="sauter_spitzer_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L526-L588" title="vaft/formula/neoclassical.py, lines 526–588 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_spitzer_conductivity(T_e, Z_eff, ln_Lambda_e)</code></pre>
+    <details class="ref-code" data-source-code="sauter_spitzer_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 526–588</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sauter_spitzer_conductivity</span><span class="p">(</span>
+    <span class="n">T_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">ln_Lambda_e</span><span class="p">:</span> <span class="n">Numeric</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.
+
+    $$\sigma_{\mathrm{Sptz}} = 1.9012\times10^{4}\,
+      \frac{T_e^{3/2}}{Z_{\mathrm{eff}} N_Z(Z_{\mathrm{eff}}) \ln\Lambda_e},
+      \qquad N_Z = 0.58 + \frac{0.74}{0.76 + Z_{\mathrm{eff}}}$$
+
+    Parameters
+    ----------
+    T_e : float or np.ndarray
+        Electron temperature, strictly positive [eV].
+    Z_eff : float or np.ndarray
+        Effective ion charge, strictly positive [-].
+    ln_Lambda_e : float or np.ndarray
+        Electron Coulomb logarithm, strictly positive; use
+        :func:`coulomb_logarithm_electron_sauter` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Classical parallel conductivity, without trapped-particle correction
+        [S m^-1].
+
+    Raises
+    ------
+    ValueError
+        For non-finite or non-positive input.
+
+    Convention
+    ----------
+    This is the reference conductivity the neoclassical correction multiplies,
+    Sauter Eq. (12), and it is not the same object as
+    :func:`vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`:
+    that one applies the charge dependence linearly, this one through the
+    fitted $N_Z$, so their reciprocals differ by tens of percent at
+    $Z_{\mathrm{eff}} &gt; 1$.  Pair this one with the neoclassical corrections in
+    this module.
+
+    Validity
+    --------
+    Empirical fit.  $N_Z$ is a fit to the Spitzer-Harm charge dependence, valid
+    for $1 \le Z_{\mathrm{eff}} \lesssim 5$.
+
+    References
+    ----------
+    .. [1] O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999)
+           2834, Eq. (12).
+    .. [2] L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
+
+    See Also
+    --------
+    vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+    </span><span class="sh">"""</span>
+    <span class="n">t_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">T_e</span><span class="p">)</span>
+    <span class="n">z_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">Z_eff</span><span class="sh">"</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">)</span>
+    <span class="n">log_array</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">ln_Lambda_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">ln_Lambda_e</span><span class="p">)</span>
+    <span class="n">charge_factor</span> <span class="o">=</span> <span class="mf">0.58</span> <span class="o">+</span> <span class="mf">0.74</span> <span class="o">/</span> <span class="p">(</span><span class="mf">0.76</span> <span class="o">+</span> <span class="n">z_array</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">_SPITZER_CONDUCTIVITY_COEF</span> <span class="o">*</span> <span class="n">t_array</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="n">z_array</span> <span class="o">*</span> <span class="n">charge_factor</span> <span class="o">*</span> <span class="n">log_array</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Spitzer parallel conductivity $\sigma_{\mathrm{Sptz}}$ in the Sauter normalisation.</p>
 
@@ -1641,9 +2126,66 @@ for $1 \le Z_{\mathrm{eff}} \lesssim 5$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#transit_frequency"><code>transit_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1280" title="vaft/formula/neoclassical.py, line 1280">source</a>
+<a class="ref-source" data-source="transit_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1280-L1332" title="vaft/formula/neoclassical.py, lines 1280–1332 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>transit_frequency(v, q, R0)</code></pre>
+    <details class="ref-code" data-source-code="transit_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1280–1332</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transit_frequency</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal transit frequency of a passing particle on a large-aspect-ratio circular surface.
+
+    $$\omega_t = \frac{v}{qR_0}$$
+
+    Parameters
+    ----------
+    v : float or np.ndarray
+        Speed along the field line of the particle considered, positive; the
+        caller chooses which speed (a thermal speed is a convention of its
+        own) [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Rate at which the particle advances in poloidal angle [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive or non-finite input.
+
+    Convention
+    ----------
+    One poloidal circuit is a parallel path of length $2\pi qR_0$, so
+    $\omega_t$ is per radian of poloidal angle; the transit *time* is
+    $2\pi/\omega_t$. The speed is the parallel speed of the orbit, not a
+    thermal-speed convention (#353 tracks those).
+
+    Physical interpretation
+    -----------------------
+    The reference rate of the neoclassical orderings: a collision frequency
+    compared with $\omega_t$ says how many collisions a particle suffers in
+    one connection length (``collisions_per_transit``).
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular concentric surfaces, $B$ nearly uniform along
+    the path.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    </span><span class="sh">"""</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">v</span><span class="sh">"</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+    <span class="n">R0</span> <span class="o">=</span> <span class="nf">_validate_positive</span><span class="p">(</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">,</span> <span class="n">R0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">v</span> <span class="o">/</span> <span class="p">(</span><span class="n">q</span> <span class="o">*</span> <span class="n">R0</span><span class="p">))</span></code></pre></figure>
+
+</details>
 
     <p>Poloidal transit frequency of a passing particle on a large-aspect-ratio circular surface.</p>
 
@@ -1713,9 +2255,63 @@ the path.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapped_particle_effective_collision_frequency"><code>trapped_particle_effective_collision_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L1398" title="vaft/formula/neoclassical.py, line 1398">source</a>
+<a class="ref-source" data-source="trapped_particle_effective_collision_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L1398-L1447" title="vaft/formula/neoclassical.py, lines 1398–1447 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>trapped_particle_effective_collision_frequency(nu_deflection, epsilon)</code></pre>
+    <details class="ref-code" data-source-code="trapped_particle_effective_collision_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1398–1447</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapped_particle_effective_collision_frequency</span><span class="p">(</span><span class="n">nu_deflection</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate at which pitch-angle scattering detraps a trapped particle.
+
+    $$\nu_\mathrm{eff} = \frac{\nu_D}{\epsilon}$$
+
+    Parameters
+    ----------
+    nu_deflection : float or np.ndarray
+        Pitch-angle-scattering (deflection) frequency $\nu_D$, non-negative
+        [1/s].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective collision frequency of the trapped population [1/s].
+
+    Raises
+    ------
+    ValueError
+        A negative ``nu_deflection`` or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    The input is the *deflection* frequency, not a momentum-loss or
+    energy-exchange frequency; the trapped region is $\sim\sqrt\epsilon$ wide
+    in pitch, and diffusion across it takes $\sim\epsilon/\nu_D$. This is the
+    conventional definition, with the order-unity factor set to one.
+
+    Physical interpretation
+    -----------------------
+    Trapped particles are detrapped $1/\epsilon$ times faster than a
+    particle is deflected through a radian. The banana regime needs
+    $\nu_\mathrm{eff} &lt; \omega_b$, and the ratio of the two is the
+    trapped-particle collisionality, the quantity every $\nu_*$ convention
+    estimates.
+
+    Assumptions
+    -----------
+    Large aspect ratio, a diffusive (small-angle) scattering operator.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    </span><span class="sh">"""</span>
+    <span class="n">nu_deflection</span> <span class="o">=</span> <span class="nf">_validate_non_negative</span><span class="p">(</span><span class="sh">"</span><span class="s">nu_deflection</span><span class="sh">"</span><span class="p">,</span> <span class="n">nu_deflection</span><span class="p">)</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="nf">_validate_epsilon</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="n">nu_deflection</span> <span class="o">/</span> <span class="n">epsilon</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Rate at which pitch-angle scattering detraps a trapped particle.</p>
 
@@ -1784,9 +2380,78 @@ estimates.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapped_particle_fraction"><code>trapped_particle_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L172" title="vaft/formula/neoclassical.py, line 172">source</a>
+<a class="ref-source" data-source="trapped_particle_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/formula/neoclassical.py#L172-L236" title="vaft/formula/neoclassical.py, lines 172–236 at 8420117">source</a>
 </header>
     <pre class="ref-signature"><code>trapped_particle_fraction(epsilon)</code></pre>
+    <details class="ref-code" data-source-code="trapped_particle_fraction"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 172–236</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapped_particle_fraction</span><span class="p">(</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.
+
+    $$f_t = 1 - \frac{(1-\epsilon)^2}{\sqrt{1-\epsilon^2}\,(1 + 1.46\sqrt{\epsilon})}$$
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in [0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Fraction of particles trapped on the surface [-].
+
+    Raises
+    ------
+    ValueError
+        For non-finite input, or input outside [0, 1).
+
+    Convention
+    ----------
+    $f_t$ is the flux-surface quantity that enters every coefficient in this
+    module.  This function is the *circular* approximation to it, written in
+    terms of the inverse aspect ratio alone.  A shaped equilibrium</span><span class="sh">'</span><span class="s">s trapped
+    fraction is an integral over the field-strength distribution on the surface
+    and differs from this at the tens-of-percent level at strong elongation, so
+    a caller holding a real equilibrium should compute $f_t$ from it and pass
+    that instead of calling this.  NEO writes its own value to
+    ``out.neo.diagnostic_geo`` as ``f_trap``.
+
+    Physical interpretation
+    -----------------------
+    The share of the local Maxwellian whose parallel energy is too small to
+    cross the magnetic well on the outboard side.  It rises steeply with
+    $\epsilon$, which is why bootstrap current matters far more in a spherical
+    tokamak than in a conventional one.
+
+    Validity
+    --------
+    Empirical fit.  Concentric circular surfaces; the coefficient 1.46 is a fit
+    to the exact integral rather than a derived value.
+
+    Limitations
+    -----------
+    At $\epsilon \to 1$ the expression tends to 1 but the underlying expansion
+    has long since stopped being controlled.  VEST reaches
+    $\epsilon \approx 0.6$, where this returns about 0.91: nearly every
+    particle counted as trapped, which is precisely where treating a fitted
+    neoclassical coefficient as reliable stops being safe.
+
+    References
+    ----------
+    .. [1] Y. R. Lin-Liu and R. L. Miller, Phys. Plasmas 2 (1995) 1666.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.9 (trapped particles).
+    </span><span class="sh">"""</span>
+    <span class="n">array</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">array</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">epsilon must be finite. Got </span><span class="si">{</span><span class="n">epsilon</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">array</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">array</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">epsilon must lie in [0, 1). Got </span><span class="si">{</span><span class="n">epsilon</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">numerator</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">array</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="n">denominator</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">array</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="mf">1.46</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">array</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">_maybe_scalar</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">)</span></code></pre></figure>
+
+</details>
 
     <p>Trapped-particle fraction $f_t$ of a circular surface of inverse aspect ratio.</p>
 
@@ -2083,7 +2748,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:47:07 +0000"
+        "time": "2026-09-30 06:35:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
