@@ -258,7 +258,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f6ea64f</code>. What is described
+  <code>9e5581b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -289,7 +289,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.boundaries</code>:
-<strong>6</strong> public functions. Each entry is what
+<strong>7</strong> public functions. Each entry is what
 <code>vaft.formula.describe("boundaries.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -329,7 +329,7 @@ margin lies on the boundary.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="boundary_curve"><td><a href="#boundary_curve"><code>boundary_curve</code></a></td><td>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -342,6 +342,8 @@ margin lies on the boundary.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="get_boundary"><td><a href="#get_boundary"><code>get_boundary</code></a></td><td>A registered boundary or window by key.
 </td></tr>
+  <tr data-ref-row="hugill_coordinates"><td><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></td><td>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="list_boundaries"><td><a href="#list_boundaries"><code>list_boundaries</code></a></td><td>Keys of the registered boundaries, optionally restricted to one family.
 </td></tr>
   </tbody>
@@ -355,9 +357,9 @@ margin lies on the boundary.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_curve"><code>boundary_curve</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L506" title="vaft/formula/boundaries.py, line 506">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L507" title="vaft/formula/boundaries.py, line 507">source</a>
 </header>
-    <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, **fixed)</code></pre>
+    <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, swap_axes=False, **fixed)</code></pre>
 
     <p>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.</p>
 
@@ -372,6 +374,8 @@ margin lies on the boundary.</p>
 </td></tr>
   <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">varies</td><td><p>Values of the swept input, in its declared unit.</p>
 </td></tr>
+  <tr><td><code>swap_axes</code></td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p>Put the boundary’s target on x and the swept input on y, as in a Hugill diagram, whose x axis is the density-like quantity.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
@@ -384,7 +388,9 @@ margin lies on the boundary.</p>
       <p class="ref-label">Convention</p>
 
       <p>The permitted side is the boundary’s own <code class="language-plaintext highlighter-rouge">allowed_side</code>, read along the
-y axis: <code class="language-plaintext highlighter-rouge">"below"</code> means operating points under the curve are permitted.</p>
+y axis: <code class="language-plaintext highlighter-rouge">"below"</code> means operating points under the curve are permitted.
+With <code class="language-plaintext highlighter-rouge">swap_axes</code> the target is read along x, so <code class="language-plaintext highlighter-rouge">"below"</code> becomes
+<code class="language-plaintext highlighter-rouge">"left"</code> and <code class="language-plaintext highlighter-rouge">"above"</code> becomes <code class="language-plaintext highlighter-rouge">"right"</code>.</p>
 
     </div>
 
@@ -404,7 +410,7 @@ y axis: <code class="language-plaintext highlighter-rouge">"below"</code> means 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_value"><code>boundary_value</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L333" title="vaft/formula/boundaries.py, line 333">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L334" title="vaft/formula/boundaries.py, line 334">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_value(boundary, **inputs)</code></pre>
 
@@ -457,7 +463,7 @@ boundary declared in MA converts first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L385" title="vaft/formula/boundaries.py, line 385">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L386" title="vaft/formula/boundaries.py, line 386">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_boundary(boundary, operating_value, **inputs)</code></pre>
 
@@ -518,7 +524,7 @@ interpreting it is left to the caller.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_window"><code>evaluate_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L462" title="vaft/formula/boundaries.py, line 462">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L463" title="vaft/formula/boundaries.py, line 463">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_window(window, operating_value, **inputs)</code></pre>
 
@@ -563,7 +569,7 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_boundary"><code>get_boundary</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L575" title="vaft/formula/boundaries.py, line 575">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L641" title="vaft/formula/boundaries.py, line 641">source</a>
 </header>
     <pre class="ref-signature"><code>get_boundary(key)</code></pre>
 
@@ -592,11 +598,80 @@ the inputs it declares.</p>
 
   </section>
 
+  <section class="ref-entry" id="hugill_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L565" title="vaft/formula/boundaries.py, line 565">source</a>
+</header>
+    <pre class="ref-signature"><code>hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)</code></pre>
+
+    <p>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.</p>
+
+\[x = \frac{\bar n_e R_{geo}}{B_T},\qquad y = \frac{1}{q_{cyl}} = \frac{R_{geo}\,|I_p|}{5\,a^2\kappa_a B_T}\quad(I_p\ \mathrm{in\ MA})\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+</td></tr>
+  <tr><td><code>R_geo</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Geometric major radius.</p>
+</td></tr>
+  <tr><td><code>B_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R_geo</code>, magnitude.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>kappa_a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Area elongation $S/(\pi a^2)$.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of (float or np.ndarray)</td><td class="ref-unit">-</td><td><p>Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q_{cyl}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$q_{cyl}$ is <code class="language-plaintext highlighter-rouge">equilibrium.q_cyl_from_B_R_epsilon_kappa_I</code> with
+$\varepsilon = a/R_{geo}$. The <code class="language-plaintext highlighter-rouge">"greenwald_hugill"</code> boundary uses the
+same convention, so a state at $\bar n_e = n_G$ lies exactly on it. This
+is the cylindrical $q$, not $q_{95}$. At VEST aspect ratio the two differ
+substantially, and plotting $1/q_{95}$ against this boundary is only
+approximate.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative density, or a non-positive field, radius, minor radius or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Numerical notes</summary>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>$1/q_{cyl}$ is formed directly rather than as <code class="language-plaintext highlighter-rouge">1/q_cyl_from_...</code>, so a
+zero current maps to the origin $y = 0$ instead of raising. A whole time
+trace, including start-up and termination, can therefore be projected
+without cropping.</p>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="list_boundaries" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#list_boundaries"><code>list_boundaries</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/f6ea64f7c43304dced62e1942a41226b2085cb75/vaft/formula/boundaries.py#L599" title="vaft/formula/boundaries.py, line 599">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/9e5581be17c087cc15f9eeb92fefc78321065360/vaft/formula/boundaries.py#L665" title="vaft/formula/boundaries.py, line 665">source</a>
 </header>
     <pre class="ref-signature"><code>list_boundaries(family=None)</code></pre>
 
@@ -837,7 +912,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 03:54:30 +0000"
+        "time": "2026-09-30 04:06:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
