@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>646d742</code>. What is described
+  <code>2fba34a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1002,7 +1002,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.Applicability"><code>Applicability</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L127" title="vaft/formula/boundaries.py, line 127">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L127" title="vaft/formula/boundaries.py, line 127">source</a>
 </header>
     <pre class="ref-signature"><code>Applicability(machine_class: str = &#39;&#39;, ranges: Mapping[str, tuple] = &lt;factory&gt;, assumptions: tuple = ()) -&gt; None</code></pre>
 
@@ -1021,14 +1021,14 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.Boundary"><code>Boundary</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L169" title="vaft/formula/boundaries.py, line 169">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L178" title="vaft/formula/boundaries.py, line 178">source</a>
 </header>
-    <pre class="ref-signature"><code>Boundary(key: str, family: str, target: BoundaryQuantity, inputs: tuple, form: str, allowed_side: str, sources: tuple, coefficient: Optional[float] = None, exponents: Mapping[str, float] = &lt;factory&gt;, function: Optional[Callable] = None, hardness: str = &#39;soft&#39;, origin: str = &#39;published&#39;, basis: str = &#39;empirical&#39;, event: str = &#39;&#39;, regime: str = &#39;&#39;, applicability: Applicability = &lt;factory&gt;, uncertainty: Uncertainty = &lt;factory&gt;, notes: str = &#39;&#39;) -&gt; None</code></pre>
+    <pre class="ref-signature"><code>Boundary(key: str, family: str, target: BoundaryQuantity, inputs: tuple, form: str, allowed_side: str, sources: tuple, coefficient: Optional[float] = None, exponents: Mapping[str, float] = &lt;factory&gt;, function: Optional[Callable] = None, hardness: str = &#39;soft&#39;, origin: str = &#39;published&#39;, basis: str = &#39;empirical&#39;, event: str = &#39;&#39;, regime: str = &#39;&#39;, applicability: Applicability = &lt;factory&gt;, uncertainty: Uncertainty = &lt;factory&gt;, notes: str = &#39;&#39;, source_regime: str = &#39;&#39;, target_regime: str = &#39;&#39;, branch: str = &#39;&#39;) -&gt; None</code></pre>
 
     <p>One published or derived operational boundary.</p>
 
     <p class="ref-note">Also exported as <code>vaft.formula.Boundary</code>.</p>
-    <details class="ref-more"><summary>18 fields · 2 members</summary>
+    <details class="ref-more"><summary>21 fields · 2 members</summary>
 <ul class="api-members">
 <li><code>key: str</code></li>
 <li><code>family: str</code></li>
@@ -1048,6 +1048,9 @@ Signatures and summaries are read from the source; nothing here is written by ha
 <li><code>applicability: Applicability</code></li>
 <li><code>uncertainty: Uncertainty</code></li>
 <li><code>notes: str</code></li>
+<li><code>source_regime: str</code></li>
+<li><code>target_regime: str</code></li>
+<li><code>branch: str</code></li>
 <li><code>input_names</code> <span class="ref-type">property</span></li>
 <li><code>input</code> <span class="ref-type">method</span></li>
 </ul>
@@ -1059,7 +1062,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.BoundaryCurve"><code>BoundaryCurve</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L300" title="vaft/formula/boundaries.py, line 300">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L324" title="vaft/formula/boundaries.py, line 324">source</a>
 </header>
     <pre class="ref-signature"><code>BoundaryCurve(key: str, x: np.ndarray, y: np.ndarray, x_quantity: BoundaryQuantity, y_quantity: BoundaryQuantity, allowed_side: str, fixed: Mapping[str, float] = &lt;factory&gt;) -&gt; None</code></pre>
 
@@ -1083,7 +1086,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.BoundaryEvaluation"><code>BoundaryEvaluation</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L268" title="vaft/formula/boundaries.py, line 268">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L292" title="vaft/formula/boundaries.py, line 292">source</a>
 </header>
     <pre class="ref-signature"><code>BoundaryEvaluation(key: str, target: BoundaryQuantity, boundary_value: object, operating_value: object, ratio: object, difference: object, margin: object, allowed: object, allowed_side: str, extrapolated: tuple, warnings: tuple) -&gt; None</code></pre>
 
@@ -1111,7 +1114,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.BoundaryQuantity"><code>BoundaryQuantity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L98" title="vaft/formula/boundaries.py, line 98">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L98" title="vaft/formula/boundaries.py, line 98">source</a>
 </header>
     <pre class="ref-signature"><code>BoundaryQuantity(name: str, symbol: str, unit: str, definition: str = &#39;&#39;) -&gt; None</code></pre>
 
@@ -1131,7 +1134,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.BoundarySource"><code>BoundarySource</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L117" title="vaft/formula/boundaries.py, line 117">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L117" title="vaft/formula/boundaries.py, line 117">source</a>
 </header>
     <pre class="ref-signature"><code>BoundarySource(citation: str, equation: str = &#39;&#39;, doi: str = &#39;&#39;, note: str = &#39;&#39;) -&gt; None</code></pre>
 
@@ -1151,7 +1154,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.BoundaryWindow"><code>BoundaryWindow</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L247" title="vaft/formula/boundaries.py, line 247">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L271" title="vaft/formula/boundaries.py, line 271">source</a>
 </header>
     <pre class="ref-signature"><code>BoundaryWindow(key: str, regime: str, lower: Boundary, upper: Boundary) -&gt; None</code></pre>
 
@@ -1176,18 +1179,20 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.Uncertainty"><code>Uncertainty</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L151" title="vaft/formula/boundaries.py, line 151">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L151" title="vaft/formula/boundaries.py, line 151">source</a>
 </header>
-    <pre class="ref-signature"><code>Uncertainty(coefficient: Optional[float] = None, exponents: Mapping[str, float] = &lt;factory&gt;, note: str = &#39;&#39;) -&gt; None</code></pre>
+    <pre class="ref-signature"><code>Uncertainty(coefficient: Optional[float] = None, exponents: Mapping[str, float] = &lt;factory&gt;, note: str = &#39;&#39;, coefficient_factor: Optional[float] = None, rms_relative: Optional[float] = None) -&gt; None</code></pre>
 
     <p>Uncertainty the source itself reports, never an invented one.</p>
 
     <p class="ref-note">Also exported as <code>vaft.formula.Uncertainty</code>.</p>
-    <details class="ref-more"><summary>3 fields</summary>
+    <details class="ref-more"><summary>5 fields</summary>
 <ul class="api-members">
 <li><code>coefficient: Optional[float]</code></li>
 <li><code>exponents: Mapping[str, float]</code></li>
 <li><code>note: str</code></li>
+<li><code>coefficient_factor: Optional[float]</code></li>
+<li><code>rms_relative: Optional[float]</code></li>
 </ul>
 </details>
   </section>
@@ -1195,7 +1200,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.boundaries.WindowEvaluation"><code>WindowEvaluation</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/boundaries.py#L290" title="vaft/formula/boundaries.py, line 290">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/boundaries.py#L314" title="vaft/formula/boundaries.py, line 314">source</a>
 </header>
     <pre class="ref-signature"><code>WindowEvaluation(key: str, lower: BoundaryEvaluation, upper: BoundaryEvaluation, inside: object) -&gt; None</code></pre>
 
@@ -1232,7 +1237,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.categories"><code>categories</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L608" title="vaft/formula/catalog.py, line 608">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L608" title="vaft/formula/catalog.py, line 608">source</a>
 </header>
     <pre class="ref-signature"><code>categories() -&gt; list[CategoryDoc]</code></pre>
 
@@ -1243,7 +1248,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.CategoryDoc"><code>CategoryDoc</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L370" title="vaft/formula/catalog.py, line 370">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L370" title="vaft/formula/catalog.py, line 370">source</a>
 </header>
     <pre class="ref-signature"><code>CategoryDoc(name: str, module: str, title: str, overview: str, notation: tuple, conventions: str, count: int) -&gt; None</code></pre>
 
@@ -1266,7 +1271,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.describe"><code>describe</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L535" title="vaft/formula/catalog.py, line 535">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L535" title="vaft/formula/catalog.py, line 535">source</a>
 </header>
     <pre class="ref-signature"><code>describe(name: str) -&gt; FormulaSpec</code></pre>
 
@@ -1277,7 +1282,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.documentation_snapshot"><code>documentation_snapshot</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L622" title="vaft/formula/catalog.py, line 622">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L622" title="vaft/formula/catalog.py, line 622">source</a>
 </header>
     <pre class="ref-signature"><code>documentation_snapshot(category: str | None = None, provenance: Mapping[str, str] | None = None) -&gt; dict</code></pre>
 
@@ -1288,7 +1293,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.export_documentation_snapshot"><code>export_documentation_snapshot</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L651" title="vaft/formula/catalog.py, line 651">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L651" title="vaft/formula/catalog.py, line 651">source</a>
 </header>
     <pre class="ref-signature"><code>export_documentation_snapshot(output: str | Path, category: str | None = None, provenance: Mapping[str, str] | None = None) -&gt; Path</code></pre>
 
@@ -1299,7 +1304,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.FormulaSpec"><code>FormulaSpec</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L87" title="vaft/formula/catalog.py, line 87">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L87" title="vaft/formula/catalog.py, line 87">source</a>
 </header>
     <pre class="ref-signature"><code>FormulaSpec(name: str, category: str, module: str, signature: str, summary: str, description: str, parameters: tuple[ParamDoc, ...], returns: tuple[ReturnDoc, ...], sections: tuple[tuple[str, str], ...], references: tuple[Reference, ...], empirical: bool, convention_sensitive: bool, deprecated: bool, aliases: tuple[str, ...] = (), shadowed_by: str | None = None, errors: tuple[str, ...] = (), raises: tuple[RaiseDoc, ...] = (), source_path: str = &#39;&#39;, source_line: int = 0, definitions: tuple[str, ...] = ()) -&gt; None</code></pre>
 
@@ -1340,7 +1345,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.list_formulas"><code>list_formulas</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L575" title="vaft/formula/catalog.py, line 575">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L575" title="vaft/formula/catalog.py, line 575">source</a>
 </header>
     <pre class="ref-signature"><code>list_formulas(category: str | None = None) -&gt; list[FormulaSpec]</code></pre>
 
@@ -1351,7 +1356,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.search"><code>search</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L590" title="vaft/formula/catalog.py, line 590">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L590" title="vaft/formula/catalog.py, line 590">source</a>
 </header>
     <pre class="ref-signature"><code>search(text: str, *, category: str | None = None) -&gt; list[FormulaSpec]</code></pre>
 
@@ -1362,7 +1367,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.catalog.show"><code>show</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/catalog.py#L565" title="vaft/formula/catalog.py, line 565">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/catalog.py#L565" title="vaft/formula/catalog.py, line 565">source</a>
 </header>
     <pre class="ref-signature"><code>show(name: str, sections: list[str] | tuple[str, ...] | None = None) -&gt; FormulaMarkdown</code></pre>
 
@@ -1746,7 +1751,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.neoclassical.BootstrapCoefficients"><code>BootstrapCoefficients</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/neoclassical.py#L104" title="vaft/formula/neoclassical.py, line 104">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/neoclassical.py#L104" title="vaft/formula/neoclassical.py, line 104">source</a>
 </header>
     <pre class="ref-signature"><code>BootstrapCoefficients(L31: Numeric, L32: Numeric, L34: Numeric, alpha: Numeric)</code></pre>
 
@@ -1855,7 +1860,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.sol.BlobRegimeVelocities"><code>BlobRegimeVelocities</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/sol.py#L527" title="vaft/formula/sol.py, line 527">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/sol.py#L527" title="vaft/formula/sol.py, line 527">source</a>
 </header>
     <pre class="ref-signature"><code>BlobRegimeVelocities(resistive_ballooning: np.ndarray, resistive_x_point: np.ndarray, sheath_connected: np.ndarray, connected_ideal_interchange: np.ndarray)</code></pre>
 
@@ -2161,7 +2166,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.formula.waves.StixParameters"><code>StixParameters</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/formula/waves.py#L56" title="vaft/formula/waves.py, line 56">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/formula/waves.py#L56" title="vaft/formula/waves.py, line 56">source</a>
 </header>
     <pre class="ref-signature"><code>StixParameters(R: np.ndarray, L: np.ndarray, S: np.ndarray, D: np.ndarray, P: np.ndarray)</code></pre>
 
@@ -2387,7 +2392,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:11:01 +0000"
+        "time": "2026-09-30 05:47:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>646d742</code>. What is described
+  <code>2fba34a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -564,7 +564,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.ChannelDecision"><code>ChannelDecision</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L102" title="vaft/validation/channel_decision.py, line 102">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L102" title="vaft/validation/channel_decision.py, line 102">source</a>
 </header>
     <pre class="ref-signature"><code>ChannelDecision(kind: str, index: int, name: str, state: np.ndarray, weight_factor: np.ndarray, value: np.ndarray | None = None, uncertainty: np.ndarray | None = None, provenance: str = &#39;measured&#39;, reasons: tuple[str, ...] = ()) -&gt; None</code></pre>
 
@@ -593,7 +593,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.ChannelDecisions"><code>ChannelDecisions</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L181" title="vaft/validation/channel_decision.py, line 181">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L181" title="vaft/validation/channel_decision.py, line 181">source</a>
 </header>
     <pre class="ref-signature"><code>ChannelDecisions(times: np.ndarray, entries: Mapping[tuple[str, int], ChannelDecision] = &lt;factory&gt;) -&gt; None</code></pre>
 
@@ -616,7 +616,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.decision_from_codes"><code>decision_from_codes</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L257" title="vaft/validation/channel_decision.py, line 257">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L257" title="vaft/validation/channel_decision.py, line 257">source</a>
 </header>
     <pre class="ref-signature"><code>decision_from_codes(kind: str, index: int, name: str, codes: np.ndarray | None, n_slices: int, *, min_validity: int, suspect_code: int, suspect_weight_factor: float | None = None, reasons: Iterable[str] = ()) -&gt; ChannelDecision</code></pre>
 
@@ -636,7 +636,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.missing_decision"><code>missing_decision</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L246" title="vaft/validation/channel_decision.py, line 246">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L246" title="vaft/validation/channel_decision.py, line 246">source</a>
 </header>
     <pre class="ref-signature"><code>missing_decision(kind: str, index: int, name: str, n_slices: int) -&gt; ChannelDecision</code></pre>
 
@@ -708,7 +708,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.rejected_decision"><code>rejected_decision</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L251" title="vaft/validation/channel_decision.py, line 251">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L251" title="vaft/validation/channel_decision.py, line 251">source</a>
 </header>
     <pre class="ref-signature"><code>rejected_decision(kind: str, index: int, name: str, n_slices: int, *, reason: str | Iterable[str]) -&gt; ChannelDecision</code></pre>
 
@@ -717,7 +717,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.state_name"><code>state_name</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L81" title="vaft/validation/channel_decision.py, line 81">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L81" title="vaft/validation/channel_decision.py, line 81">source</a>
 </header>
     <pre class="ref-signature"><code>state_name(code: int) -&gt; str</code></pre>
 
@@ -753,7 +753,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.usable_decision"><code>usable_decision</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L241" title="vaft/validation/channel_decision.py, line 241">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L241" title="vaft/validation/channel_decision.py, line 241">source</a>
 </header>
     <pre class="ref-signature"><code>usable_decision(kind: str, index: int, name: str, n_slices: int, *, reasons: Iterable[str] = ()) -&gt; ChannelDecision</code></pre>
 
@@ -762,7 +762,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.weight_factor_for"><code>weight_factor_for</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L85" title="vaft/validation/channel_decision.py, line 85">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/channel_decision.py#L85" title="vaft/validation/channel_decision.py, line 85">source</a>
 </header>
     <pre class="ref-signature"><code>weight_factor_for(state: np.ndarray, *, suspect_weight_factor: float = 1.0) -&gt; np.ndarray</code></pre>
 
@@ -781,7 +781,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.condemned_channels"><code>condemned_channels</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L110" title="vaft/validation/efit_channels.py, line 110">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/efit_channels.py#L110" title="vaft/validation/efit_channels.py, line 110">source</a>
 </header>
     <pre class="ref-signature"><code>condemned_channels(source: Any, *, nbprobe: int) -&gt; set[int]</code></pre>
 
@@ -792,7 +792,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.decide_efit_channels"><code>decide_efit_channels</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L132" title="vaft/validation/efit_channels.py, line 132">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/efit_channels.py#L132" title="vaft/validation/efit_channels.py, line 132">source</a>
 </header>
     <pre class="ref-signature"><code>decide_efit_channels(source: Any, times: Any, *, nbprobe: int | None = None, manual_rejections: Iterable[int] = (), min_validity: int = 0, suspect_weight_factor: float | None = None, suspects: Mapping[tuple[str, int], str] | None = None, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;)) -&gt; ChannelDecisions</code></pre>
 
@@ -812,7 +812,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.efit_probe_count"><code>efit_probe_count</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L79" title="vaft/validation/efit_channels.py, line 79">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/efit_channels.py#L79" title="vaft/validation/efit_channels.py, line 79">source</a>
 </header>
     <pre class="ref-signature"><code>efit_probe_count(source: Any) -&gt; int</code></pre>
 
@@ -832,7 +832,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.split_manual_rejections"><code>split_manual_rejections</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L92" title="vaft/validation/efit_channels.py, line 92">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/efit_channels.py#L92" title="vaft/validation/efit_channels.py, line 92">source</a>
 </header>
     <pre class="ref-signature"><code>split_manual_rejections(manual: Iterable[int], *, nbprobe: int) -&gt; dict[tuple[str, int], int]</code></pre>
 
@@ -851,7 +851,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.aggregate_status"><code>aggregate_status</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L123" title="vaft/validation/equilibrium.py, line 123">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L123" title="vaft/validation/equilibrium.py, line 123">source</a>
 </header>
     <pre class="ref-signature"><code>aggregate_status(statuses: Iterable[ValidationStatus | str]) -&gt; ValidationStatus</code></pre>
 
@@ -871,7 +871,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.status_summary"><code>status_summary</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1458" title="vaft/validation/equilibrium.py, line 1458">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L1458" title="vaft/validation/equilibrium.py, line 1458">source</a>
 </header>
     <pre class="ref-signature"><code>status_summary(report: Mapping[str, Any]) -&gt; dict[str, ValidationStatus]</code></pre>
 
@@ -882,7 +882,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_equilibrium"><code>validate_equilibrium</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1351" title="vaft/validation/equilibrium.py, line 1351">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L1351" title="vaft/validation/equilibrium.py, line 1351">source</a>
 </header>
     <pre class="ref-signature"><code>validate_equilibrium(equilibrium: Any, *, diagnostics: Any | None = None, kinetic_profiles: Any | None = None, checks: Iterable[str] = (&#39;verification&#39;, &#39;diagnostic_fit&#39;, &#39;physical_validity&#39;, &#39;independent_validation&#39;), time_slice: int | Sequence[int] | None = None) -&gt; dict[str, Any]</code></pre>
 
@@ -895,7 +895,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_independent"><code>validate_independent</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1262" title="vaft/validation/equilibrium.py, line 1262">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L1262" title="vaft/validation/equilibrium.py, line 1262">source</a>
 </header>
     <pre class="ref-signature"><code>validate_independent(equilibrium: Any, *, time_slice: int, kinetic_profiles: Any | None = None, diagnostics: Any | None = None) -&gt; dict[str, dict[str, Any]]</code></pre>
 
@@ -906,7 +906,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_magnetic_fit"><code>validate_magnetic_fit</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L503" title="vaft/validation/equilibrium.py, line 503">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L503" title="vaft/validation/equilibrium.py, line 503">source</a>
 </header>
     <pre class="ref-signature"><code>validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -&gt; dict[str, dict[str, Any]]</code></pre>
 
@@ -917,7 +917,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_physical"><code>validate_physical</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L964" title="vaft/validation/equilibrium.py, line 964">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L964" title="vaft/validation/equilibrium.py, line 964">source</a>
 </header>
     <pre class="ref-signature"><code>validate_physical(equilibrium: Any, *, time_slice: int, diagnostics: Any | None = None) -&gt; dict[str, dict[str, Any]]</code></pre>
 
@@ -928,7 +928,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_continuity"><code>verify_continuity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L361" title="vaft/validation/equilibrium.py, line 361">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L361" title="vaft/validation/equilibrium.py, line 361">source</a>
 </header>
     <pre class="ref-signature"><code>verify_continuity(equilibrium: Any, *, time_slice: int | Sequence[int] | None = None) -&gt; dict[str, Any]</code></pre>
 
@@ -939,7 +939,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_convention"><code>verify_convention</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L404" title="vaft/validation/equilibrium.py, line 404">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L404" title="vaft/validation/equilibrium.py, line 404">source</a>
 </header>
     <pre class="ref-signature"><code>verify_convention(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
 
@@ -950,7 +950,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_convergence"><code>verify_convergence</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L443" title="vaft/validation/equilibrium.py, line 443">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L443" title="vaft/validation/equilibrium.py, line 443">source</a>
 </header>
     <pre class="ref-signature"><code>verify_convergence(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
 
@@ -961,7 +961,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_structure"><code>verify_structure</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L273" title="vaft/validation/equilibrium.py, line 273">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium.py#L273" title="vaft/validation/equilibrium.py, line 273">source</a>
 </header>
     <pre class="ref-signature"><code>verify_structure(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
 
@@ -980,7 +980,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.CohortJoin"><code>CohortJoin</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L119" title="vaft/validation/equilibrium_cohorts.py, line 119">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_cohorts.py#L119" title="vaft/validation/equilibrium_cohorts.py, line 119">source</a>
 </header>
     <pre class="ref-signature"><code>CohortJoin(outcomes: tuple[SliceOutcome, ...], unmatched_log_times: tuple[int, ...]) -&gt; None</code></pre>
 
@@ -1007,7 +1007,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.join_regime_and_termination"><code>join_regime_and_termination</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L157" title="vaft/validation/equilibrium_cohorts.py, line 157">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_cohorts.py#L157" title="vaft/validation/equilibrium_cohorts.py, line 157">source</a>
 </header>
     <pre class="ref-signature"><code>join_regime_and_termination(ods: Any, slices: Sequence[Mapping[str, Any]], *, policy=None) -&gt; CohortJoin</code></pre>
 
@@ -1020,7 +1020,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.SliceOutcome"><code>SliceOutcome</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L68" title="vaft/validation/equilibrium_cohorts.py, line 68">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_cohorts.py#L68" title="vaft/validation/equilibrium_cohorts.py, line 68">source</a>
 </header>
     <pre class="ref-signature"><code>SliceOutcome(time: float, regime: RegimeLabels, termination: Mapping[str, Any] | None, mode: str) -&gt; None</code></pre>
 
@@ -1046,7 +1046,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.summarize_by_cohort"><code>summarize_by_cohort</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L203" title="vaft/validation/equilibrium_cohorts.py, line 203">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_cohorts.py#L203" title="vaft/validation/equilibrium_cohorts.py, line 203">source</a>
 </header>
     <pre class="ref-signature"><code>summarize_by_cohort(outcomes: Iterable[SliceOutcome], *, group_by: Sequence[str] = (&#39;phase&#39;,)) -&gt; dict[str, Any]</code></pre>
 
@@ -1067,7 +1067,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regime"><code>classify_equilibrium_regime</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L183" title="vaft/validation/equilibrium_regime.py, line 183">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_regime.py#L183" title="vaft/validation/equilibrium_regime.py, line 183">source</a>
 </header>
     <pre class="ref-signature"><code>classify_equilibrium_regime(ods: Any, *, time_index: int, policy: EquilibriumRegimePolicy | None = None) -&gt; RegimeLabels</code></pre>
 
@@ -1080,7 +1080,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regimes"><code>classify_equilibrium_regimes</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L143" title="vaft/validation/equilibrium_regime.py, line 143">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_regime.py#L143" title="vaft/validation/equilibrium_regime.py, line 143">source</a>
 </header>
     <pre class="ref-signature"><code>classify_equilibrium_regimes(ods: Any, *, policy: EquilibriumRegimePolicy | None = None) -&gt; tuple[RegimeLabels, ...]</code></pre>
 
@@ -1102,7 +1102,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.RegimeLabels"><code>RegimeLabels</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L66" title="vaft/validation/equilibrium_regime.py, line 66">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/equilibrium_regime.py#L66" title="vaft/validation/equilibrium_regime.py, line 66">source</a>
 </header>
     <pre class="ref-signature"><code>RegimeLabels(time: float, phase: str, topology: str, current: float | None, current_rate: float | None, fraction_of_peak: float | None, limloc: str | None, rule: str, reasons: tuple[str, ...] = ()) -&gt; None</code></pre>
 
@@ -1136,7 +1136,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.assess_flux_loops"><code>assess_flux_loops</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L219" title="vaft/validation/flux_loop_assessment.py, line 219">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/flux_loop_assessment.py#L219" title="vaft/validation/flux_loop_assessment.py, line 219">source</a>
 </header>
     <pre class="ref-signature"><code>assess_flux_loops(qualities: Iterable[Any], residual_rows: Sequence[Mapping[str, Any]] | None, *, window: tuple[float, float] | None, nbprobe: int, time: np.ndarray | None = None, projected: Mapping[int, ValidityRecord] | None = None, field_codes: Sequence[int | None] | None = None, policy: FluxLoopPolicy | None = None) -&gt; tuple[FluxLoopAssessment, ...]</code></pre>
 
@@ -1147,7 +1147,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.flux_loop_evidence"><code>flux_loop_evidence</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L310" title="vaft/validation/flux_loop_assessment.py, line 310">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/flux_loop_assessment.py#L310" title="vaft/validation/flux_loop_assessment.py, line 310">source</a>
 </header>
     <pre class="ref-signature"><code>flux_loop_evidence(ods: Any, *, policy: FluxLoopPolicy | None = None, window: tuple[float, float] | None = None, benchmark: bool = True, nbprobe: int | None = None) -&gt; dict[str, Any]</code></pre>
 
@@ -1158,7 +1158,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.FluxLoopAssessment"><code>FluxLoopAssessment</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L98" title="vaft/validation/flux_loop_assessment.py, line 98">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/flux_loop_assessment.py#L98" title="vaft/validation/flux_loop_assessment.py, line 98">source</a>
 </header>
     <pre class="ref-signature"><code>FluxLoopAssessment(index: int, name: str, field_code: int | None, combined_index_one_based: int, state: str, reasons: tuple[str, ...], source_validity: Mapping[str, Any], model_agreement: Mapping[str, Any] | None, window: tuple[float, float] | None, policy: Mapping[str, Any] = &lt;factory&gt;) -&gt; None</code></pre>
 
@@ -1184,7 +1184,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.FluxLoopPolicy"><code>FluxLoopPolicy</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L67" title="vaft/validation/flux_loop_assessment.py, line 67">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/flux_loop_assessment.py#L67" title="vaft/validation/flux_loop_assessment.py, line 67">source</a>
 </header>
     <pre class="ref-signature"><code>FluxLoopPolicy(min_valid_fraction_in_window: float = 0.0, max_normalized_residual: float | None = None, min_correlation: float | None = None, min_wall_authority_to_score: float = 0.1, reject_on_model_disagreement: bool = False) -&gt; None</code></pre>
 
@@ -1205,7 +1205,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.manual_exclusion_index"><code>manual_exclusion_index</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L128" title="vaft/validation/flux_loop_assessment.py, line 128">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/flux_loop_assessment.py#L128" title="vaft/validation/flux_loop_assessment.py, line 128">source</a>
 </header>
     <pre class="ref-signature"><code>manual_exclusion_index(index: int, nbprobe: int) -&gt; int</code></pre>
 
@@ -1269,7 +1269,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.is_condemned_channel"><code>is_condemned_channel</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L316" title="vaft/validation/imas.py, line 316">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L316" title="vaft/validation/imas.py, line 316">source</a>
 </header>
     <pre class="ref-signature"><code>is_condemned_channel(source: Any, base: str, *, min_validity: int = 0) -&gt; bool</code></pre>
 
@@ -1280,7 +1280,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.is_usable_channel"><code>is_usable_channel</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L295" title="vaft/validation/imas.py, line 295">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L295" title="vaft/validation/imas.py, line 295">source</a>
 </header>
     <pre class="ref-signature"><code>is_usable_channel(source: Any, base: str, *, times: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; bool</code></pre>
 
@@ -1291,7 +1291,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_convergence_result"><code>read_convergence_result</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L407" title="vaft/validation/imas.py, line 407">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L407" title="vaft/validation/imas.py, line 407">source</a>
 </header>
     <pre class="ref-signature"><code>read_convergence_result(source: Any, *, time_slice: int) -&gt; dict[str, Any] | None</code></pre>
 
@@ -1302,7 +1302,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_output_flag"><code>read_output_flag</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L386" title="vaft/validation/imas.py, line 386">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L386" title="vaft/validation/imas.py, line 386">source</a>
 </header>
     <pre class="ref-signature"><code>read_output_flag(source: Any, ids: str = &#39;equilibrium&#39;, *, time_slice: int | None = None) -&gt; Any</code></pre>
 
@@ -1313,7 +1313,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity"><code>read_validity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L182" title="vaft/validation/imas.py, line 182">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L182" title="vaft/validation/imas.py, line 182">source</a>
 </header>
     <pre class="ref-signature"><code>read_validity(source: Any, base: str) -&gt; int | None</code></pre>
 
@@ -1324,7 +1324,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity_record"><code>read_validity_record</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L202" title="vaft/validation/imas.py, line 202">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L202" title="vaft/validation/imas.py, line 202">source</a>
 </header>
     <pre class="ref-signature"><code>read_validity_record(source: Any, base: str) -&gt; ValidityRecord</code></pre>
 
@@ -1335,7 +1335,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity_timed"><code>read_validity_timed</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L197" title="vaft/validation/imas.py, line 197">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L197" title="vaft/validation/imas.py, line 197">source</a>
 </header>
     <pre class="ref-signature"><code>read_validity_timed(source: Any, base: str) -&gt; np.ndarray | None</code></pre>
 
@@ -1346,7 +1346,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.resolve_signal_time"><code>resolve_signal_time</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L112" title="vaft/validation/imas.py, line 112">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L112" title="vaft/validation/imas.py, line 112">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_signal_time(source: Any, base: str) -&gt; np.ndarray | None</code></pre>
 
@@ -1357,7 +1357,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.resolve_signal_waveform"><code>resolve_signal_waveform</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L132" title="vaft/validation/imas.py, line 132">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L132" title="vaft/validation/imas.py, line 132">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_signal_waveform(source: Any, base: str) -&gt; tuple[np.ndarray, np.ndarray] | None</code></pre>
 
@@ -1368,7 +1368,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.signal_label"><code>signal_label</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L173" title="vaft/validation/imas.py, line 173">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L173" title="vaft/validation/imas.py, line 173">source</a>
 </header>
     <pre class="ref-signature"><code>signal_label(source: Any, base: str, fallback: str) -&gt; str</code></pre>
 
@@ -1379,7 +1379,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.signal_matches_root_time"><code>signal_matches_root_time</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L155" title="vaft/validation/imas.py, line 155">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L155" title="vaft/validation/imas.py, line 155">source</a>
 </header>
     <pre class="ref-signature"><code>signal_matches_root_time(source: Any, base: str) -&gt; bool</code></pre>
 
@@ -1390,7 +1390,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.valid_fraction"><code>valid_fraction</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L265" title="vaft/validation/imas.py, line 265">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L265" title="vaft/validation/imas.py, line 265">source</a>
 </header>
     <pre class="ref-signature"><code>valid_fraction(source: Any, base: str, *, times: np.ndarray | None = None, window: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; float</code></pre>
 
@@ -1401,7 +1401,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.validity_codes"><code>validity_codes</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L218" title="vaft/validation/imas.py, line 218">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L218" title="vaft/validation/imas.py, line 218">source</a>
 </header>
     <pre class="ref-signature"><code>validity_codes(source: Any, base: str, *, times: np.ndarray | None = None) -&gt; np.ndarray | None</code></pre>
 
@@ -1412,7 +1412,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.validity_mask"><code>validity_mask</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L238" title="vaft/validation/imas.py, line 238">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L238" title="vaft/validation/imas.py, line 238">source</a>
 </header>
     <pre class="ref-signature"><code>validity_mask(source: Any, base: str, *, times: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; np.ndarray</code></pre>
 
@@ -1423,7 +1423,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.imas.write_validity"><code>write_validity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L333" title="vaft/validation/imas.py, line 333">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/imas.py#L333" title="vaft/validation/imas.py, line 333">source</a>
 </header>
     <pre class="ref-signature"><code>write_validity(source: Any, base: str, timed: Iterable[int], *, scalar: int | None = None) -&gt; int</code></pre>
 
@@ -1442,7 +1442,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_contradiction_fractions_of"><code>array_contradiction_fractions_of</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L946" title="vaft/validation/magnetics.py, line 946">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L946" title="vaft/validation/magnetics.py, line 946">source</a>
 </header>
     <pre class="ref-signature"><code>array_contradiction_fractions_of(heights: Sequence[float], waveforms: np.ndarray, *, floor: float, sigma: float, min_scored: float, min_witnesses: int = 3, scale: str = &#39;witness&#39;) -&gt; tuple[np.ndarray, np.ndarray]</code></pre>
 
@@ -1453,7 +1453,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_contradiction_scores"><code>array_contradiction_scores</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L897" title="vaft/validation/magnetics.py, line 897">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L897" title="vaft/validation/magnetics.py, line 897">source</a>
 </header>
     <pre class="ref-signature"><code>array_contradiction_scores(heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0, min_witnesses: int = 3) -&gt; np.ndarray</code></pre>
 
@@ -1464,7 +1464,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_departure_ratios"><code>array_departure_ratios</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L875" title="vaft/validation/magnetics.py, line 875">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L875" title="vaft/validation/magnetics.py, line 875">source</a>
 </header>
     <pre class="ref-signature"><code>array_departure_ratios(heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0) -&gt; np.ndarray</code></pre>
 
@@ -1475,7 +1475,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.attribute_array_contradictions"><code>attribute_array_contradictions</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L983" title="vaft/validation/magnetics.py, line 983">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L983" title="vaft/validation/magnetics.py, line 983">source</a>
 </header>
     <pre class="ref-signature"><code>attribute_array_contradictions(heights: Sequence[float], waveforms: np.ndarray, *, floor: float, sigma: float, fraction: float, min_members: int, min_scored: float, min_witnesses: int = 3, scale: str = &#39;witness&#39;) -&gt; list[dict[str, Any]]</code></pre>
 
@@ -1486,7 +1486,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.channel_node"><code>channel_node</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L298" title="vaft/validation/magnetics.py, line 298">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L298" title="vaft/validation/magnetics.py, line 298">source</a>
 </header>
     <pre class="ref-signature"><code>channel_node(kind: str, index: int, quantity: str) -&gt; str</code></pre>
 
@@ -1497,7 +1497,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.ChannelQuality"><code>ChannelQuality</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L264" title="vaft/validation/magnetics.py, line 264">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L264" title="vaft/validation/magnetics.py, line 264">source</a>
 </header>
     <pre class="ref-signature"><code>ChannelQuality(kind: str, index: int, name: str, quantity: str, unit: str, status: ValidationStatus, validity: int, validity_timed: np.ndarray, valid_fraction: float, metrics: Mapping[str, float] = &lt;factory&gt;, events: tuple[QualityEvent, ...] = (), reason: str = &#39;&#39;) -&gt; None</code></pre>
 
@@ -1525,7 +1525,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.implausible_magnitude"><code>implausible_magnitude</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L460" title="vaft/validation/magnetics.py, line 460">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L460" title="vaft/validation/magnetics.py, line 460">source</a>
 </header>
     <pre class="ref-signature"><code>implausible_magnitude(amplitude: float, ceiling: float | None) -&gt; bool</code></pre>
 
@@ -1536,7 +1536,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.magnetics_quality_metrics"><code>magnetics_quality_metrics</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1439" title="vaft/validation/magnetics.py, line 1439">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L1439" title="vaft/validation/magnetics.py, line 1439">source</a>
 </header>
     <pre class="ref-signature"><code>magnetics_quality_metrics(source: Any, report: Iterable[ChannelQuality], *, config: MagneticsQualityConfig | None = None) -&gt; dict[str, Any]</code></pre>
 
@@ -1547,7 +1547,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.MagneticsQualityConfig"><code>MagneticsQualityConfig</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L142" title="vaft/validation/magnetics.py, line 142">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L142" title="vaft/validation/magnetics.py, line 142">source</a>
 </header>
     <pre class="ref-signature"><code>MagneticsQualityConfig(baseline_fraction: float = 0.2, min_constant_run: int = 16, significance_floor: float = 0.01, spike_sigma: float = 8.0, max_spike_samples: int = 3, offset_jump_sigma: float = 10.0, coherence_window: float = 0.0005, coherent_jump_fraction: float = 0.3, max_plausible_amplitude: Mapping[str, float] = &lt;factory&gt;, population_peak_factor: float | None = 4.0, array_departure_factor: float | None = 1.0, array_contradiction_fraction: float = 0.3, min_array_members: int = 7, array_min_scored: float = 0.5, array_amplitude_floor: float = 0.01) -&gt; None</code></pre>
 
@@ -1577,7 +1577,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.population_peak_outliers"><code>population_peak_outliers</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L494" title="vaft/validation/magnetics.py, line 494">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L494" title="vaft/validation/magnetics.py, line 494">source</a>
 </header>
     <pre class="ref-signature"><code>population_peak_outliers(amplitudes: Mapping[Any, float], factor: float | None) -&gt; set[Any]</code></pre>
 
@@ -1588,7 +1588,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.population_peak_ratios"><code>population_peak_ratios</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L474" title="vaft/validation/magnetics.py, line 474">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L474" title="vaft/validation/magnetics.py, line 474">source</a>
 </header>
     <pre class="ref-signature"><code>population_peak_ratios(amplitudes: Mapping[Any, float]) -&gt; dict[Any, float]</code></pre>
 
@@ -1599,7 +1599,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.project_validity"><code>project_validity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1321" title="vaft/validation/magnetics.py, line 1321">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L1321" title="vaft/validation/magnetics.py, line 1321">source</a>
 </header>
     <pre class="ref-signature"><code>project_validity(source: Any, report: Iterable[ChannelQuality]) -&gt; dict[str, int]</code></pre>
 
@@ -1610,7 +1610,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.QualityEvent"><code>QualityEvent</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L250" title="vaft/validation/magnetics.py, line 250">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L250" title="vaft/validation/magnetics.py, line 250">source</a>
 </header>
     <pre class="ref-signature"><code>QualityEvent(reason: str, start: float, end: float, samples: int, validity: int) -&gt; None</code></pre>
 
@@ -1640,7 +1640,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.recorded_faults_for"><code>recorded_faults_for</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1206" title="vaft/validation/magnetics.py, line 1206">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L1206" title="vaft/validation/magnetics.py, line 1206">source</a>
 </header>
     <pre class="ref-signature"><code>recorded_faults_for(source: Any) -&gt; dict[tuple[str, int], str]</code></pre>
 
@@ -1651,7 +1651,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.unusable_channels_at"><code>unusable_channels_at</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1344" title="vaft/validation/magnetics.py, line 1344">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L1344" title="vaft/validation/magnetics.py, line 1344">source</a>
 </header>
     <pre class="ref-signature"><code>unusable_channels_at(source: Any, times: np.ndarray | Sequence[float], *, min_validity: int = 0, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;)) -&gt; dict[tuple[str, int], np.ndarray]</code></pre>
 
@@ -1662,7 +1662,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.validate_magnetics_signals"><code>validate_magnetics_signals</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1223" title="vaft/validation/magnetics.py, line 1223">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/magnetics.py#L1223" title="vaft/validation/magnetics.py, line 1223">source</a>
 </header>
     <pre class="ref-signature"><code>validate_magnetics_signals(source: Any, *, config: MagneticsQualityConfig | None = None, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;), known_faults: Mapping[tuple[str, int], str] | None | object = &#39;from_pulse&#39;) -&gt; tuple[ChannelQuality, ...]</code></pre>
 
@@ -1701,7 +1701,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationIssue"><code>ValidationIssue</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L87" title="vaft/validation/model.py, line 87">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/model.py#L87" title="vaft/validation/model.py, line 87">source</a>
 </header>
     <pre class="ref-signature"><code>ValidationIssue(severity: str, code: str, field: str, message: str) -&gt; None</code></pre>
 
@@ -1721,7 +1721,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationReport"><code>ValidationReport</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L103" title="vaft/validation/model.py, line 103">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/model.py#L103" title="vaft/validation/model.py, line 103">source</a>
 </header>
     <pre class="ref-signature"><code>ValidationReport(issues: tuple[ValidationIssue, ...] = ()) -&gt; None</code></pre>
 
@@ -1740,7 +1740,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationStatus"><code>ValidationStatus</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L56" title="vaft/validation/model.py, line 56">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/model.py#L56" title="vaft/validation/model.py, line 56">source</a>
 </header>
 
     <p>What one assessment concluded.</p>
@@ -1768,7 +1768,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.bootstrap_models"><code>bootstrap_models</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L79" title="vaft/validation/neoclassical.py, line 79">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/neoclassical.py#L79" title="vaft/validation/neoclassical.py, line 79">source</a>
 </header>
     <pre class="ref-signature"><code>bootstrap_models(ods: Any, *, models: Sequence[str] = (&#39;sauter&#39;, &#39;redl&#39;), include_stored: bool = True, time_slice: Optional[int] = None, solver_charge: Optional[float] = None, solver_ion_fraction: Optional[float] = None, **options: Any) -&gt; dict[str, Any]</code></pre>
 
@@ -1779,7 +1779,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.input_readiness"><code>input_readiness</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L307" title="vaft/validation/neoclassical.py, line 307">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/neoclassical.py#L307" title="vaft/validation/neoclassical.py, line 307">source</a>
 </header>
     <pre class="ref-signature"><code>input_readiness(ods: Any, *, time: Optional[float] = None, time_index: Optional[int] = None, rho_max: Optional[float] = 0.95, z_eff: Optional[float] = None, ion_index: int = 0, minimum_points: int = 8) -&gt; dict[str, Any]</code></pre>
 
@@ -1799,7 +1799,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.model_agreement"><code>model_agreement</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L254" title="vaft/validation/neoclassical.py, line 254">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/neoclassical.py#L254" title="vaft/validation/neoclassical.py, line 254">source</a>
 </header>
     <pre class="ref-signature"><code>model_agreement(comparison: Mapping[str, Any], tolerances: Mapping[str, float]) -&gt; dict[str, Any]</code></pre>
 
@@ -1810,7 +1810,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.model_comparison"><code>model_comparison</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L201" title="vaft/validation/neoclassical.py, line 201">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/neoclassical.py#L201" title="vaft/validation/neoclassical.py, line 201">source</a>
 </header>
     <pre class="ref-signature"><code>model_comparison(models: Mapping[str, Any], *, reference: str = &#39;neo&#39;) -&gt; dict[str, Any]</code></pre>
 
@@ -1847,7 +1847,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.phase_convention_verdict"><code>phase_convention_verdict</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L71" title="vaft/validation/perturbation_phase.py, line 71">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/perturbation_phase.py#L71" title="vaft/validation/perturbation_phase.py, line 71">source</a>
 </header>
     <pre class="ref-signature"><code>phase_convention_verdict(audit, *, criteria: PhaseAuditCriteria) -&gt; PhaseConventionVerdict</code></pre>
 
@@ -1858,7 +1858,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.PhaseAuditCriteria"><code>PhaseAuditCriteria</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L37" title="vaft/validation/perturbation_phase.py, line 37">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/perturbation_phase.py#L37" title="vaft/validation/perturbation_phase.py, line 37">source</a>
 </header>
     <pre class="ref-signature"><code>PhaseAuditCriteria(separation_ratio: float, relative_norm: float, name: str = &#39;&#39;) -&gt; None</code></pre>
 
@@ -1876,7 +1876,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.PhaseConventionVerdict"><code>PhaseConventionVerdict</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L61" title="vaft/validation/perturbation_phase.py, line 61">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/perturbation_phase.py#L61" title="vaft/validation/perturbation_phase.py, line 61">source</a>
 </header>
     <pre class="ref-signature"><code>PhaseConventionVerdict(status: ValidationStatus, convention: str | None, reason: str) -&gt; None</code></pre>
 
@@ -1911,7 +1911,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.registry.checks_in"><code>checks_in</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L188" title="vaft/validation/registry.py, line 188">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/registry.py#L188" title="vaft/validation/registry.py, line 188">source</a>
 </header>
     <pre class="ref-signature"><code>checks_in(category: str) -&gt; tuple[CheckSpec, ...]</code></pre>
 
@@ -1922,7 +1922,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.registry.CheckSpec"><code>CheckSpec</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L46" title="vaft/validation/registry.py, line 46">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/registry.py#L46" title="vaft/validation/registry.py, line 46">source</a>
 </header>
     <pre class="ref-signature"><code>CheckSpec(key: str, category: str, unit: str, provider: str, method: str, measure: str = &#39;rule&#39;, tolerance: tuple[float, float] | None = None) -&gt; None</code></pre>
 
@@ -1944,7 +1944,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.registry.describe"><code>describe</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L180" title="vaft/validation/registry.py, line 180">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/registry.py#L180" title="vaft/validation/registry.py, line 180">source</a>
 </header>
     <pre class="ref-signature"><code>describe(key: str) -&gt; CheckSpec</code></pre>
 
@@ -2002,7 +2002,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.aggregate_benchmark"><code>aggregate_benchmark</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L873" title="vaft/validation/vacuum_benchmark.py, line 873">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L873" title="vaft/validation/vacuum_benchmark.py, line 873">source</a>
 </header>
     <pre class="ref-signature"><code>aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -&gt; dict[str, Any]</code></pre>
 
@@ -2031,7 +2031,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.array_contradiction_fractions"><code>array_contradiction_fractions</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L643" title="vaft/validation/vacuum_benchmark.py, line 643">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L643" title="vaft/validation/vacuum_benchmark.py, line 643">source</a>
 </header>
     <pre class="ref-signature"><code>array_contradiction_fractions(channels: Iterable[Any], window: tuple[float, float], *, sigma: float = 20.0, min_members: int = 7, exclude: Iterable[str] = ()) -&gt; dict[str, float]</code></pre>
 
@@ -2060,7 +2060,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.array_contradictions"><code>array_contradictions</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L671" title="vaft/validation/vacuum_benchmark.py, line 671">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L671" title="vaft/validation/vacuum_benchmark.py, line 671">source</a>
 </header>
     <pre class="ref-signature"><code>array_contradictions(channels: Iterable[Any], window: tuple[float, float], *, sigma: float = 20.0, fraction: float = 0.05, min_members: int = 7) -&gt; list[dict[str, Any]]</code></pre>
 
@@ -2080,7 +2080,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.benchmark_wall_currents"><code>benchmark_wall_currents</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L318" title="vaft/validation/vacuum_benchmark.py, line 318">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L318" title="vaft/validation/vacuum_benchmark.py, line 318">source</a>
 </header>
     <pre class="ref-signature"><code>benchmark_wall_currents(ods: Any, *, resistance_scale: float = 1.0, calibration: &#39;WallResistanceCalibration | None&#39; = None, dt_sub: float = 5e-05) -&gt; Any</code></pre>
 
@@ -2091,7 +2091,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.BenchmarkError"><code>BenchmarkError</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L152" title="vaft/validation/vacuum_benchmark.py, line 152">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L152" title="vaft/validation/vacuum_benchmark.py, line 152">source</a>
 </header>
 
     <p>Raised when a shot cannot supply a usable plasma-free benchmark case.</p>
@@ -2101,7 +2101,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.coil_drive_check"><code>coil_drive_check</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L478" title="vaft/validation/vacuum_benchmark.py, line 478">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L478" title="vaft/validation/vacuum_benchmark.py, line 478">source</a>
 </header>
     <pre class="ref-signature"><code>coil_drive_check(ods: Any, window: tuple[float, float]) -&gt; dict[str, Any]</code></pre>
 
@@ -2157,7 +2157,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.plasma_free_interval"><code>plasma_free_interval</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L201" title="vaft/validation/vacuum_benchmark.py, line 201">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L201" title="vaft/validation/vacuum_benchmark.py, line 201">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_free_interval(ods: Any, *, reference_fraction: float = 0.2) -&gt; PlasmaFreeInterval</code></pre>
 
@@ -2168,7 +2168,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.PlasmaFreeInterval"><code>PlasmaFreeInterval</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L156" title="vaft/validation/vacuum_benchmark.py, line 156">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L156" title="vaft/validation/vacuum_benchmark.py, line 156">source</a>
 </header>
 
     <p>The plasma-free stretch of one shot, with the evidence for it.</p>
@@ -2185,7 +2185,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.run_benchmark_case"><code>run_benchmark_case</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L720" title="vaft/validation/vacuum_benchmark.py, line 720">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L720" title="vaft/validation/vacuum_benchmark.py, line 720">source</a>
 </header>
     <pre class="ref-signature"><code>run_benchmark_case(ods: Any, *, shot: int | None = None, machine_era: str | None = None, window: tuple[float, float] | None = None, per_family: int | None = None, resistance_scale: float = 1.0, calibration: &#39;WallResistanceCalibration | None&#39; = None, dt_sub: float = 5e-05, n_tau: float = 3.0, min_samples: int = 2) -&gt; dict[str, Any]</code></pre>
 
@@ -2196,7 +2196,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.solver_history_check"><code>solver_history_check</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L406" title="vaft/validation/vacuum_benchmark.py, line 406">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L406" title="vaft/validation/vacuum_benchmark.py, line 406">source</a>
 </header>
     <pre class="ref-signature"><code>solver_history_check(ods: Any, validation_start: float, *, n_tau: float = 3.0, time_constants: np.ndarray | None = None) -&gt; dict[str, Any]</code></pre>
 
@@ -2207,7 +2207,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.wall_time_constants"><code>wall_time_constants</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L374" title="vaft/validation/vacuum_benchmark.py, line 374">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/vacuum_benchmark.py#L374" title="vaft/validation/vacuum_benchmark.py, line 374">source</a>
 </header>
     <pre class="ref-signature"><code>wall_time_constants(ods: Any) -&gt; np.ndarray</code></pre>
 
@@ -2226,7 +2226,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.aggregate_validity"><code>aggregate_validity</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L120" title="vaft/validation/validity.py, line 120">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L120" title="vaft/validation/validity.py, line 120">source</a>
 </header>
     <pre class="ref-signature"><code>aggregate_validity(timed: Iterable[int]) -&gt; int</code></pre>
 
@@ -2239,7 +2239,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.codes_at"><code>codes_at</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L150" title="vaft/validation/validity.py, line 150">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L150" title="vaft/validation/validity.py, line 150">source</a>
 </header>
     <pre class="ref-signature"><code>codes_at(record: ValidityRecord, *, times: Any | None = None) -&gt; np.ndarray | None</code></pre>
 
@@ -2250,7 +2250,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.is_condemned"><code>is_condemned</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L253" title="vaft/validation/validity.py, line 253">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L253" title="vaft/validation/validity.py, line 253">source</a>
 </header>
     <pre class="ref-signature"><code>is_condemned(record: ValidityRecord, *, min_validity: int = 0) -&gt; bool</code></pre>
 
@@ -2261,7 +2261,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.is_usable"><code>is_usable</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L238" title="vaft/validation/validity.py, line 238">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L238" title="vaft/validation/validity.py, line 238">source</a>
 </header>
     <pre class="ref-signature"><code>is_usable(record: ValidityRecord, *, times: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; bool</code></pre>
 
@@ -2272,7 +2272,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.record_from_mask"><code>record_from_mask</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L266" title="vaft/validation/validity.py, line 266">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L266" title="vaft/validation/validity.py, line 266">source</a>
 </header>
     <pre class="ref-signature"><code>record_from_mask(scalar: int | None, mask: Any | None) -&gt; ValidityRecord</code></pre>
 
@@ -2283,7 +2283,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.usable_fraction"><code>usable_fraction</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L208" title="vaft/validation/validity.py, line 208">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L208" title="vaft/validation/validity.py, line 208">source</a>
 </header>
     <pre class="ref-signature"><code>usable_fraction(record: ValidityRecord, *, times: Any | None = None, window: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; float</code></pre>
 
@@ -2294,7 +2294,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.usable_mask"><code>usable_mask</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L183" title="vaft/validation/validity.py, line 183">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L183" title="vaft/validation/validity.py, line 183">source</a>
 </header>
     <pre class="ref-signature"><code>usable_mask(record: ValidityRecord, *, times: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; np.ndarray</code></pre>
 
@@ -2360,7 +2360,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.validity.ValidityRecord"><code>ValidityRecord</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L73" title="vaft/validation/validity.py, line 73">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/validity.py#L73" title="vaft/validation/validity.py, line 73">source</a>
 </header>
     <pre class="ref-signature"><code>ValidityRecord(scalar: int | None, timed: np.ndarray | None, time: np.ndarray | None) -&gt; None</code></pre>
 
@@ -2405,7 +2405,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.drive_set"><code>drive_set</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L112" title="vaft/validation/wall_reduction.py, line 112">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L112" title="vaft/validation/wall_reduction.py, line 112">source</a>
 </header>
     <pre class="ref-signature"><code>drive_set(system: Mapping[str, Any], kinds: Sequence[str] = (&#39;shot&#39;, &#39;single_coil&#39;, &#39;step&#39;)) -&gt; dict[str, np.ndarray]</code></pre>
 
@@ -2416,7 +2416,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.experimental_comparison"><code>experimental_comparison</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L390" title="vaft/validation/wall_reduction.py, line 390">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L390" title="vaft/validation/wall_reduction.py, line 390">source</a>
 </header>
     <pre class="ref-signature"><code>experimental_comparison(ods: Any, selections: Mapping[str, Any], *, window: tuple[float, float] | None = None, per_family: int | None = None, min_wall_authority: float | None = None, dt_sub: float = 5e-05, **system_options: Any) -&gt; dict[str, Any]</code></pre>
 
@@ -2427,7 +2427,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.find_plasma_free_shots"><code>find_plasma_free_shots</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L515" title="vaft/validation/wall_reduction.py, line 515">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L515" title="vaft/validation/wall_reduction.py, line 515">source</a>
 </header>
     <pre class="ref-signature"><code>find_plasma_free_shots(shots: Iterable[int], *, max_plasma_current: float = 5000.0, min_coil_current: float = 1000.0, raw_source: Any = None, loaders: Mapping[str, Any] | None = None) -&gt; list[dict[str, Any]]</code></pre>
 
@@ -2438,7 +2438,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.observation_set"><code>observation_set</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L156" title="vaft/validation/wall_reduction.py, line 156">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L156" title="vaft/validation/wall_reduction.py, line 156">source</a>
 </header>
     <pre class="ref-signature"><code>observation_set(ods: Any, *, n_coils: int | None = None, per_family: int | None = None, window: tuple[float, float] | None = None, ring_shrink: float = 0.85, ring_points: int = 64, grid_shape: tuple[int, int] = (25, 33)) -&gt; dict[str, Any]</code></pre>
 
@@ -2449,7 +2449,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.order_convergence"><code>order_convergence</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L246" title="vaft/validation/wall_reduction.py, line 246">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L246" title="vaft/validation/wall_reduction.py, line 246">source</a>
 </header>
     <pre class="ref-signature"><code>order_convergence(ods_or_system: Any, *, rules: Sequence[str] = (&#39;tau&#39;, &#39;drive_gain&#39;, &#39;output_weight&#39;, &#39;uniform&#39;, &#39;moments&#39;), orders: Sequence[int] = (1, 2, 4, 8, 16, 19, 32, 64, 128, 256), drives: Sequence[str] = (&#39;shot&#39;, &#39;single_coil&#39;, &#39;step&#39;), observation: Mapping[str, Any] | None = None, scores_drive: str = &#39;shot&#39;, dt_sub: float = 5e-05, **system_options: Any) -&gt; list[dict[str, Any]]</code></pre>
 
@@ -2460,7 +2460,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.representation_order"><code>representation_order</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L336" title="vaft/validation/wall_reduction.py, line 336">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L336" title="vaft/validation/wall_reduction.py, line 336">source</a>
 </header>
     <pre class="ref-signature"><code>representation_order(rows: Iterable[Mapping[str, Any]], tolerances: Mapping[str, float], *, drive: str = &#39;shot&#39;) -&gt; dict[str, Any]</code></pre>
 
@@ -2471,7 +2471,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.wall_system"><code>wall_system</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">function</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L75" title="vaft/validation/wall_reduction.py, line 75">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L75" title="vaft/validation/wall_reduction.py, line 75">source</a>
 </header>
     <pre class="ref-signature"><code>wall_system(ods: Any, *, remap_em_coupling: bool = False, gap_factor: float | None = None, **basis_options: Any) -&gt; dict[str, Any]</code></pre>
 
@@ -2482,7 +2482,7 @@ Signatures and summaries are read from the source; nothing here is written by ha
     <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.WallReductionError"><code>WallReductionError</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">class</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L67" title="vaft/validation/wall_reduction.py, line 67">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/2fba34a760ad4e337ebd2b4b10d6c7297bfbcfef/vaft/validation/wall_reduction.py#L67" title="vaft/validation/wall_reduction.py, line 67">source</a>
 </header>
 
     <p>The ODS or the requested study cannot be evaluated as asked.</p>
@@ -2705,7 +2705,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 05:11:01 +0000"
+        "time": "2026-09-30 05:47:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
