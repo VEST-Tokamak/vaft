@@ -77,7 +77,7 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
     busy = {"on": False}
     has_channels = "channels" in {control.name for control in state.controls}
 
-    def follow(current: Any) -> None:
+    def follow(current: Any, *, skip_players: bool = False) -> None:
         busy["on"] = True
         try:
             for name, widget in widgets.items():
@@ -89,13 +89,15 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
                 if widget.value != value:
                     widget.value = value
             for name, (player, _, position_of) in players.items():
+                if skip_players:
+                    continue
                 position = position_of(current[name])
                 if position is not None and player.value != position:
                     player.value = position
         finally:
             busy["on"] = False
 
-    def apply_value(name: str, value: Any) -> None:
+    def apply_value(name: str, value: Any, *, from_player: bool = False) -> None:
         before = state.values
         try:
             state.set(name, value)
@@ -103,7 +105,9 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
             # The Matplotlib redraw restores the values itself; the Plotly
             # rebuild does not, so the values are put back here for both.
             state.restore(before)
-            follow(state)
+            # A player keeps its position on a refused frame: moving it back
+            # would make its next tick land on the same frame forever.
+            follow(state, skip_players=from_player)
             if on_error is None:
                 raise
             on_error(error)
@@ -169,19 +173,36 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
 
             def play(event: Any, name: str = control.name, value_at: Callable[[int], Any] = value_at) -> None:
                 if not busy["on"]:
-                    apply_value(name, value_at(int(event.new)))
+                    apply_value(name, value_at(int(event.new)), from_player=True)
 
             player.param.watch(play, "value")
             players[control.name] = (player, value_at, position_of)
             interval = pn.widgets.IntInput(
                 label="Frame interval [ms]", value=PLAY_INTERVAL_MS, start=50, step=50,
             )
-            # Both ways: the player's own slower/faster buttons move it too.
-            interval.link(player, value="interval", bidirectional=True)
+            _link_interval(interval, player)
             laid_out.append(pn.Column(player, interval, name=f"Play: {control.label}", sizing_mode="stretch_width"))
 
     state.subscribe(follow)
     return laid_out
+
+
+def _link_interval(box: Any, player: Any) -> None:
+    """The interval box and the player's own slower/faster buttons, in step.
+
+    An emptied box is ignored rather than handed to the player, which takes
+    only a number.
+    """
+    def to_player(event: Any) -> None:
+        if event.new is not None and event.new != player.interval:
+            player.interval = int(event.new)
+
+    def to_box(event: Any) -> None:
+        if event.new != box.value:
+            box.value = int(event.new)
+
+    box.param.watch(to_player, "value")
+    player.param.watch(to_box, "interval")
 
 
 #: Milliseconds between frames when playing; each frame is a redraw on the

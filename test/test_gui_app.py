@@ -500,3 +500,60 @@ def test_a_frame_that_cannot_be_drawn_is_reported_and_the_next_one_clears_it(app
     assert app.alert.visible and "style='surfaces'" in app.alert.object
     player.value = 0
     assert not app.alert.visible and state["time_slice"] == options[0]
+
+
+def test_playback_walks_past_a_frame_that_cannot_be_drawn(app):
+    state = app.session.state
+    options = list(state.spec("time_slice").options)
+    player, _ = _player_of(app, "Equilibrium slice")
+    player.value = len(options) - 2
+    good = state["time_slice"]
+    player.value = len(options) - 1  # refused: sample slice 8 cannot be drawn as surfaces
+    assert app.alert.visible and state["time_slice"] == good
+    assert player.value == len(options) - 1, "the player keeps its place, so the next tick moves on"
+    player.value = 0  # the loop wraps
+    assert state["time_slice"] == options[0] and not app.alert.visible
+
+
+def test_a_refused_first_draw_leaves_no_pyplot_figure(app):
+    import matplotlib.pyplot as plt
+
+    before = set(plt.get_fignums())
+    for _ in range(3):
+        with pytest.raises(ValueError):
+            app.session.select("equilibrium_field_psi", renderer="matplotlib", time_slice=8)
+    assert set(plt.get_fignums()) == before
+
+
+def test_unticking_every_overlay_survives_a_redraw(app):
+    state = app.session.state
+    state.set("overlay", ())
+    assert state.as_options()["overlay"] == (), "an empty choice reaches the builder"
+    app.renderer.value = "matplotlib"
+    assert app.session.state["overlay"] == ()
+
+
+def test_a_refused_setting_goes_back_out_of_its_box(app):
+    app.xmin.value = 0.5
+    app.xmax.value = 0.2
+    assert app.alert.visible and app.xmax.value is None and app.settings.xmin == 0.5
+    app.width.value = 600
+    assert app.settings.width == 600, "the next edit is not blocked by the refused value"
+
+
+def test_the_upload_widget_lets_go_of_the_bytes(app):
+    loaded = []
+    app.load = lambda sources: loaded.append(sources) or False
+    app.upload.param.update(filename=["a.json"], value=[b"{}"])
+    assert loaded and app.upload.value is None
+    app.upload.param.update(filename=["a.json"], value=[b"{}"])
+    assert len(loaded) == 2, "the same file can be uploaded again"
+
+
+def test_serve_admits_the_page_on_the_address_it_binds(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "x")
+    with pytest.warns(UserWarning):
+        gui_app.serve(address="10.0.0.5", port=5123)
+    assert "10.0.0.5:5123" in calls[-1]["websocket_origin"]

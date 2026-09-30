@@ -218,13 +218,18 @@ class ControlState:
         ``None`` and the ``"none"`` choice mean "leave the option out"; an
         explicit ``channels`` selection replaces the ``selection`` preset.
         Renderer-side controls (group ``"style"``) are left to :meth:`as_style`.
+        An empty ``multi`` choice is a choice -- no overlays -- and is passed,
+        or the builder would fall back to its default and draw them all; only
+        empty ``channels`` means "no explicit channels, use the preset".
         """
         options: dict[str, Any] = {}
         for control in self._controls:
             value = self._values.get(control.name)
-            if control.group == "style" or value is None or value == ():
+            if control.group == "style" or value is None:
                 continue
             if value == "none" and not getattr(control, "keeps_none", False):
+                continue
+            if value == () and (control.kind != "multi" or control.name == "channels"):
                 continue
             if not self._applies(control):
                 continue

@@ -386,8 +386,23 @@ class BrowserApp:
             settings = FigureSettings(**values)
         except ValueError as error:
             self._show_error(error)
+            self._show_settings(self.settings)
             return
-        self.apply_settings(settings)
+        if not self.apply_settings(settings):
+            self._show_settings(self.settings)
+
+    def _show_settings(self, settings: FigureSettings) -> None:
+        """Put the Figure widgets back on ``settings`` without re-applying them.
+
+        A refused value must not stay in its box, or the next edit of any
+        other field would submit it again.
+        """
+        self._updating = True
+        try:
+            for name, widget in self._setting_widgets.items():
+                widget.value = getattr(settings, name)
+        finally:
+            self._updating = False
 
     def apply_settings(self, settings: FigureSettings) -> bool:
         """Lay ``settings`` over the current plot; ``False`` when refused.
@@ -469,7 +484,7 @@ class BrowserApp:
 
     # -- upload -------------------------------------------------------------
     def _on_upload(self, event: Any) -> None:
-        if not event.new:
+        if not event.new or self._updating:
             return
         contents = event.new if isinstance(event.new, list) else [event.new]
         names = self.upload.filename
@@ -479,8 +494,35 @@ class BrowserApp:
         except (OSError, ValueError) as error:
             self._show_error(error)
             return
+        # The bytes are on disk now: the widget need not keep up to 512 MB in
+        # memory for the session, and the same file can be uploaded again.
+        self._updating = True
+        try:
+            self.upload.param.update(value=None, filename=None)
+        finally:
+            self._updating = False
         self.path.value = "\n".join(str(source.value) for source in sources)
-        self.load(sources)
+        if self.load(sources):
+            self._prune_uploads()
+
+    def _prune_uploads(self) -> None:
+        """Remove earlier upload folders that no open source reads."""
+        import shutil
+        from pathlib import Path
+
+        if self._uploads is None:
+            return
+        root = Path(self._uploads.name)
+        in_use = set()
+        for source in self.session.sources:
+            if source.kind != "file":
+                continue
+            path = Path(str(source.value))
+            # The upload-N folder itself, or the one holding the file.
+            in_use |= {candidate for candidate in (path, *path.parents) if candidate.parent == root}
+        for folder in root.iterdir():
+            if folder.is_dir() and folder not in in_use:
+                shutil.rmtree(folder, ignore_errors=True)
 
     def _store_upload(self, names: Sequence[str], contents: Sequence[bytes]) -> list[Source]:
         """Write one upload to its own server-side folder; the sources it holds.
@@ -663,7 +705,15 @@ def serve(
     # port wildcard (an entry without a port means :80), so a forward to
     # another local port (ssh -L 8080:localhost:5006, or VS Code picking a
     # free port) is named with websocket_origin / --allow-websocket-origin.
-    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}"]
+    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}", f"[::1]:{port}"]
+    if address not in LOOPBACK:
+        # The page is then opened by this host's name or address.
+        import socket
+
+        if address in ("0.0.0.0", "::"):
+            origins += [f"{socket.gethostname()}:{port}", f"{socket.getfqdn()}:{port}"]
+        else:
+            origins.append(f"{address}:{port}")
     protected = auth == "password" or (auth == "auto" and (remote or address not in LOOPBACK))
     options: dict[str, Any] = {}
     if protected:

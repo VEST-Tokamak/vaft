@@ -68,6 +68,15 @@ def test_as_options_leaves_out_none_and_style_and_lets_channels_replace_the_pres
     assert state.as_options() == {"time_slice": 2, "layout": "overlay", "synthetic": "equilibrium", "dark": False}
 
 
+def test_an_empty_multi_choice_is_passed_but_empty_channels_mean_the_preset():
+    specs = _specs() + (ControlSpec("overlay", "multi", "Overlays", ("wall",), ("wall", "coils")),)
+    state = ControlState(specs)
+    state.set("overlay", ())
+    options = state.as_options()
+    assert options["overlay"] == (), "no overlays, not the builder's default ones"
+    assert "channels" not in options and "selection" not in options
+
+
 def test_choosing_a_preset_clears_the_individual_channels_that_replaced_it():
     specs = _specs() + (ControlSpec("selection", "choice", "Channels", "active", ("active", "inboard"), group="selection"),)
     state = ControlState(specs, {"channels": [2], "selection": "active"})
