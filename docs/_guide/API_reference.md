@@ -553,6 +553,7 @@ queue (it never started)"`.
 | CHEASE `run_chease`, `refine_equilibrium` | `CHEASEResult` | nothing is collected; `chease.log` holds the partial output and the reason |
 | `scan_chease` | the case keeps its `CHEASEResult` | `case.error` names the limit; the scan goes on (`keep_going`) |
 | `synthesize_equilibrium_from_0d` | `SyntheticEquilibriumResult` | `status="timeout"` with the reason, rather than `non_converged` |
+| `synthesize_equilibrium_to_targets` | `MultiTargetSynthesisResult` | `status="chease_failed"`; the reason names the solve and its `timeout`, and that solve's `history` record keeps `status="timeout"` |
 | GACODE `run_gacode` | `GACODERun` | unpacks as `(returncode, log)` as before, with `returncode=None`; `.runtime_status`, `.elapsed_s` |
 | NEO `run_neo`, TGLF `run_tglf` | `NEOResult`, `TGLFResult` | `check=True` (the default) raises `NEOExecutionError`/`TGLFExecutionError` naming the limit, as for any failure; `check=False` returns it |
 | NUBEAM `run_nubeam`, `run_nubeam_case` | `NUBEAMResult` | a stopped INIT, STEP or Plasma State stage; `generate_plasma_state` returns a path, so there it raises `NUBEAMExecutionError` |
