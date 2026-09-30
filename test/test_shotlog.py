@@ -357,6 +357,28 @@ def test_a_log_without_a_named_span_ignores_strays_far_from_its_shots(tmp_path):
     (item,) = discover_sources(tmp_path).included
     lower, upper = item.span()
     assert lower <= 4861 and upper >= 4869 and not lower <= 400
+    # A sparse log keeps every run of shots it holds; only lone numbers are strays.
+    legacy_workbook(tmp_path / "conditioning.xlsx", sheet="Sheet1",
+                    shots=(4861, 4862, 4863, 6120, 6121, 1000, 1000, 1000, 400))
+    (item,) = discover_sources(tmp_path).included
+    lower, upper = item.span()
+    assert lower <= 4861 and upper >= 6121 and not lower <= 1000
+
+
+def test_a_month_saved_without_its_span_never_takes_bare_numbers_for_shots(tmp_path):
+    # ``ShotLog_2013_03.xlsx`` before the operator appended ``#first-last``:
+    # the 400 V, 1000 and the year in column A are values, not discharges.
+    legacy_workbook(tmp_path / "ShotLog_2013_03.xlsx", sheet="20130305",
+                    shots=(2998, 2999, 3000, 3001, 3002, 3003, 3004, 3005, 3006, 2013, 400, 1000))
+    (item,) = discover_sources(tmp_path).included
+    assert item.role == "monthly_record" and item.first_shot is None
+    lower, upper = item.span()
+    assert lower <= 2998 and upper >= 3006 and not lower <= 2013
+    sessions, records, manifest = _records(tmp_path)
+    assert (min(records), max(records)) == (2998, 3006)
+    assert [item["shots"] for item in sessions[0][1]["review"]["out_of_span_markers"]] == [[2013], [400], [1000]]
+    (entry,) = manifest["included_files"]
+    assert entry["span_source"] == "content" and entry["span"] == [lower, upper]
 
 
 def test_a_supplementary_log_is_converted_but_ranks_below_the_month(tmp_path):
