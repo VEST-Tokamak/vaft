@@ -1,14 +1,26 @@
-r"""Start-up physics from the gas fill to the avalanche.
+r"""Start-up physics from the gas fill to the first closed flux surfaces.
 
-Prefill, the Townsend coefficient and the Lloyd breakdown threshold: the
-reduced kernels that decide whether a gas fill will break down under a given
-toroidal electric field.  This is the pre-equilibrium phase of a discharge,
-before any closed flux surface exists, so nothing here reads a flux map, knows
-a COCOS, or substitutes for a field-line trace.
+The first slice is prefill, the Townsend coefficient and the Lloyd breakdown
+threshold: the reduced kernels that decide whether a gas fill will break down
+under a given toroidal electric field.  That is the pre-equilibrium phase of a
+discharge, before any closed flux surface exists, so none of it reads a flux
+map, knows a COCOS, or substitutes for a field-line trace.
 
-The module stops at the avalanche on purpose.  Burn-through and the
-radiation-ionisation barrier are a later slice of the same work; plasma
-inductance and the current ramp belong with the transformer dynamics.
+It then follows the discharge past the avalanche with reduced models only:
+the closed-box burn-through inventory and the radiation-ionisation barrier,
+the Ejiri mirror-orbit confinement factor, the circular self-field, vertical
+field and flux-closure margin, resistivity and the lumped plasma circuit
+(Hirshman inductance, the boundary loop-voltage split, #782), and the ECR
+layer.  Two boundaries are deliberate:
+
+* **Not the transformer.**  Romero's transformer identities are #781 in
+  :mod:`vaft.formula.transformer`, and the closed-flux volt-second budget is
+  :func:`vaft.process.equilibrium.romero_flux_balance`; nothing here budgets
+  flux after closure.
+* **Not an equilibrium.**  Every quantity below is a scaling for a plasma
+  that has not been reconstructed.  Once EFIT or CHEASE has an equilibrium
+  for the time in question, its field, safety factor, current profile and
+  topology supersede these estimates entirely.
 
 Notation
 --------
@@ -2464,8 +2476,9 @@ def radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI_W_m3, n_e_m3, n_D0_m3
 
     Limitations
     -----------
-    Pure hydrogen with no impurity line radiation, which in a real start-up is
-    often what actually sets the barrier.
+    A pure hydrogenic (H or D) closed box with no impurity line radiation, which
+    in a real start-up is often what actually sets the barrier.  VEST fills
+    with hydrogen; the ``D`` in the symbols is the literature's notation.
 
     References
     ----------
