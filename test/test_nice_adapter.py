@@ -60,6 +60,16 @@ def _ods():
     return ods
 
 
+# The smallest parameter file preparation accepts: COCOS declaration, the
+# major radius the B0 line is derived from, and NICE's stopping criteria.
+_MINIMAL_XML = (
+    "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS>"
+    "<useNewCOCOSManager>1</useNewCOCOSManager><inoutCOCOS>11</inoutCOCOS>"
+    "<r0>0.4</r0><iterMaxRecon>30</iterMaxRecon>"
+    "<epsStopRecon>1.0e-10</epsStopRecon></parameters>"
+)
+
+
 def test_prepare_is_nice_free_and_hashes_fixed_passive_state(tmp_path):
     inputs = prepare_nice_inputs(
         _ods(),
@@ -177,9 +187,7 @@ def test_effective_cocos_manager_is_required(tmp_path):
             _ods(),
             NiceConfig(time=0.35, workdir=tmp_path / "case", parameter_file=parameter),
         )
-    parameter.write_text(
-        "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS><useNewCOCOSManager>1</useNewCOCOSManager><inoutCOCOS>11</inoutCOCOS></parameters>"
-    )
+    parameter.write_text(_MINIMAL_XML)
     inputs = prepare_nice_inputs(
         _ods(),
         NiceConfig(
@@ -769,3 +777,92 @@ def test_a_local_launch_writes_each_stream_to_its_own_log(tmp_path):
     assert result.returncode == 0
     assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8").strip() == "to stdout"
     assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8").strip() == "to stderr"
+
+
+# -- cold review 0.8.0 external-codes-genray-nice ----------------------------
+
+def test_solver_tolerances_are_written_into_param_xml_and_read_back(tmp_path):
+    """F1: the manifest records what NICE will read, and the file carries it."""
+    import xml.etree.ElementTree as ET
+
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(
+        '<?xml version="1.0"?>\n<!-- reviewed -->\n' + _MINIMAL_XML, encoding="utf-8"
+    )
+    inputs = prepare_nice_inputs(
+        _ods(),
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path / "case",
+            parameter_file=parameter,
+            solver_tolerances={"epsStopRecon": 1e-12, "iterMaxRecon": 5},
+        ),
+    )
+    written = inputs.input_dir / "param.xml"
+    root = ET.parse(written).getroot()
+    assert float(root.findtext("epsStopRecon")) == 1e-12
+    assert int(root.findtext("iterMaxRecon")) == 5
+    assert root.findtext("inoutCOCOS") == "11"
+    assert "<!-- reviewed -->" in written.read_text(encoding="utf-8")
+    assert inputs.manifest["solver_tolerances"] == {
+        "epsStopRecon": 1e-12,
+        "iterMaxRecon": 5,
+    }
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert manifest["solver_tolerances"] == inputs.manifest["solver_tolerances"]
+    # Untouched: the copy is the source file.
+    assert (
+        prepare_nice_inputs(
+            _ods(), NiceConfig(time=0.35, workdir=tmp_path / "plain", parameter_file=parameter)
+        ).input_dir
+        / "param.xml"
+    ).read_bytes() == parameter.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "tolerances, match",
+    [
+        ({"epsStopReco": 1e-12}, "matched 0 elements"),
+        ({"epsStopRecon": float("inf")}, "finite"),
+        ({"eps<Stop": 1e-12}, "element name"),
+    ],
+)
+def test_a_tolerance_that_cannot_reach_nice_is_refused(tmp_path, tolerances, match):
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match=match):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35,
+                workdir=tmp_path / "case",
+                parameter_file=parameter,
+                solver_tolerances=tolerances,
+            ),
+        )
+    with pytest.raises(ValueError, match="parameter_file"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "none", solver_tolerances={"epsStopRecon": 1e-12}
+            ),
+        )
+
+
+def test_collector_judges_convergence_by_the_tolerance_nice_ran_with(tmp_path):
+    """F1: an iteration-cap stop at a residual above param.xml's epsStopRecon
+    is not converged, whatever the manifest (or its absence) says."""
+    output = tmp_path / "output"
+    output.mkdir()
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "param.xml").write_text(_MINIMAL_XML, encoding="utf-8")
+    (tmp_path / "nice_case_manifest.json").write_text('{"cocos_out": 11}')
+    (output / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 30 5e-9 2 1 0.6 0.4\n")
+    result = collect_nice_outputs(tmp_path)
+    assert result.converged is False
+    assert result.termination_reason == "reconstruction tolerance not reached"
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 12 5e-11 2 1 0.6 0.4\n")
+    assert collect_nice_outputs(tmp_path).converged is True
