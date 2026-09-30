@@ -507,3 +507,73 @@ def test_giacomin_targets_edge_density_and_reports_extrapolation():
     vest = B.evaluate_boundary(entry, 0.05, mass_number=1.0, minor_radius=0.24, separatrix_power=0.1,
                                major_radius=0.4, edge_safety_factor_95=6.0, elongation=1.5, toroidal_field=0.15)
     assert set(vest.extrapolated) == {"toroidal_field", "major_radius"}
+
+
+# ------------------------------------------------------------------
+# L-H threshold family (#1066): Martin et al. 2008 and Ryter et al. 2014
+# ------------------------------------------------------------------
+
+# ITER as the papers use it: B_T = 5.3 T and S = 678 m^2 (Martin 2008, p. 4); I_p = 15 MA
+# (Martin 2008, p. 7); R0 = 6.2 m and a = 2 m (Giacomin et al. 2022, p. 5).
+_ITER = dict(B_T=5.3, S=678.0, I_p=15.0, R=6.2, a=2.0)
+
+
+@pytest.mark.parametrize("n_e20, expected", [(0.5, 52.0), (1.0, 86.0)])
+def test_martin_reproduces_table_1_for_iter(n_e20, expected):
+    entry = B.get_boundary("martin_2008_lh")
+    P = B.boundary_value(entry, line_average_density=n_e20, toroidal_field=_ITER["B_T"],
+                         plasma_surface_area=_ITER["S"])
+    assert P == pytest.approx(expected, rel=0.01)
+
+
+def test_martin_is_an_L_to_H_access_threshold_on_loss_power():
+    entry = B.get_boundary("martin_2008_lh")
+    assert (entry.source_regime, entry.target_regime, entry.branch) == ("L_mode", "H_mode", "high_density")
+    assert entry.target.name == "loss_power" and entry.allowed_side == "above"
+    assert entry.input("line_average_density").unit == "1e20 m^-3"
+    below = B.evaluate_boundary(entry, 40.0, line_average_density=0.5, toroidal_field=5.3, plasma_surface_area=678.0)
+    above = B.evaluate_boundary(entry, 60.0, line_average_density=0.5, toroidal_field=5.3, plasma_surface_area=678.0)
+    assert not below.allowed and above.allowed and above.ratio == pytest.approx(60.0 / 52.3, rel=0.01)
+
+
+def test_martin_uncertainty_is_the_published_fit_statistics():
+    u = B.get_boundary("martin_2008_lh").uncertainty
+    assert u.coefficient_factor == pytest.approx(np.exp(0.057))
+    assert dict(u.exponents) == {"line_average_density": 0.035, "toroidal_field": 0.032, "plasma_surface_area": 0.019}
+    assert u.rms_relative == 0.308
+
+
+def _ryter(I_p, B_T, a, aspect_ratio):
+    return B.boundary_value(B.get_boundary("ryter_2014_nmin"), plasma_current=I_p, toroidal_field=B_T,
+                            minor_radius=a, aspect_ratio=aspect_ratio)
+
+
+def test_ryter_reproduces_the_iter_minimum_density():
+    """Ryter 2014, p. 8: ~4e19 m^-3 at full field and current, ~2.2e19 at half field and current."""
+    full = _ryter(_ITER["I_p"], _ITER["B_T"], _ITER["a"], _ITER["R"] / _ITER["a"])
+    half = _ryter(_ITER["I_p"] / 2, _ITER["B_T"] / 2, _ITER["a"], _ITER["R"] / _ITER["a"])
+    assert full == pytest.approx(4.0, rel=0.05)
+    assert half == pytest.approx(2.2, rel=0.10)
+
+
+def test_martin_at_ryter_minimum_is_the_papers_minimum_power():
+    """Ryter 2014, p. 8: inserting n_e,min in the threshold scaling gives ~41 MW for ITER at full field.
+    Eq. (1) at n_e,min (4.0e19) gives ~44 MW; the printed Eq. (4) would give ~62 MW and is not registered."""
+    n_min_1e20 = _ryter(_ITER["I_p"], _ITER["B_T"], _ITER["a"], _ITER["R"] / _ITER["a"]) / 10.0
+    P_min = B.boundary_value(B.get_boundary("martin_2008_lh"), line_average_density=n_min_1e20,
+                             toroidal_field=_ITER["B_T"], plasma_surface_area=_ITER["S"])
+    assert P_min == pytest.approx(41.0, rel=0.10)
+
+
+def test_ryter_minimum_bounds_the_martin_branch_from_below():
+    entry = B.get_boundary("ryter_2014_nmin")
+    assert entry.allowed_side == "above" and entry.branch == "low_density_boundary"
+    assert entry.target.unit == "1e19 m^-3"
+    assert "lh_threshold" == entry.family == B.get_boundary("martin_2008_lh").family
+    assert set(B.list_boundaries("lh_threshold")) == {"martin_2008_lh", "ryter_2014_nmin"}
+
+
+def test_transition_needs_both_regimes():
+    with pytest.raises(ValueError, match="source_regime and target_regime"):
+        B.Boundary(key="half", family="toy", target=_P, inputs=(), form="threshold", coefficient=1.0,
+                   allowed_side="above", sources=_SRC, source_regime="L_mode")

@@ -138,14 +138,19 @@ class Uncertainty:
     """Uncertainty the source itself reports, never an invented one.
 
     ``coefficient`` is the one-sigma absolute uncertainty of the leading
-    coefficient. ``exponents`` holds the one-sigma uncertainty of each
-    exponent, keyed by input name. ``None`` or an empty mapping means the
-    source gives no value.
+    coefficient; ``coefficient_factor`` is the one-sigma multiplicative
+    factor when the source quotes it as $C e^{\pm s}$ (then the factor is
+    $e^{s}$). ``exponents`` holds the one-sigma uncertainty of each exponent,
+    keyed by input name. ``rms_relative`` is the relative RMS scatter of the
+    fit about the data. ``None`` or an empty mapping means the source gives
+    no value.
     """
 
     coefficient: Optional[float] = None
     exponents: Mapping[str, float] = field(default_factory=dict, hash=False)
     note: str = ""
+    coefficient_factor: Optional[float] = None
+    rms_relative: Optional[float] = None
 
     def __post_init__(self):
         object.__setattr__(self, "exponents", _frozen_mapping(self.exponents))
@@ -166,6 +171,13 @@ class Boundary:
     ``allowed_side`` says which side of $b$ the operating value is permitted
     on. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
+
+    A regime transition carries ``source_regime`` and ``target_regime`` (for
+    example ``"L_mode"`` and ``"H_mode"``). The permitted side is then the side
+    on which the target regime is accessible. ``branch`` names the part of a
+    non-monotonic dependence the relation describes, for example the high-
+    or low-density branch of the L-H threshold. A threshold evaluated on the
+    wrong branch is outside its validity even when the inputs are in range.
     """
 
     key: str
@@ -186,6 +198,9 @@ class Boundary:
     applicability: Applicability = field(default_factory=Applicability)
     uncertainty: Uncertainty = field(default_factory=Uncertainty)
     notes: str = ""
+    source_regime: str = ""
+    target_regime: str = ""
+    branch: str = ""
 
     def __post_init__(self):
         object.__setattr__(self, "inputs", tuple(self.inputs))
@@ -199,6 +214,8 @@ class Boundary:
             raise ValueError(f"hardness must be one of {_HARDNESS}, not {self.hardness!r}")
         if self.origin not in _ORIGINS:
             raise ValueError(f"origin must be one of {_ORIGINS}, not {self.origin!r}")
+        if bool(self.source_regime) != bool(self.target_regime):
+            raise ValueError(f"boundary {self.key!r} needs both source_regime and target_regime, or neither")
         if not self.sources:
             raise ValueError(f"boundary {self.key!r} needs at least one BoundarySource")
         names = [q.name for q in self.inputs]
@@ -954,4 +971,110 @@ _register(Boundary(
           "evaluate_boundary reports and never counts as permitted. "
           "Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
           "line-averaged density instead, so the two families are shown side by side, not substituted.",
+))
+
+
+# ------------------------------------------------------------------
+# L-H power threshold (#1066)
+# ------------------------------------------------------------------
+
+_LOSS_POWER = BoundaryQuantity(
+    "loss_power", "P_L", "MW",
+    "Loss power P_L = P_OHM + P_abs - dW/dt - P_Floss (Martin 2008, Eq. 1): Ohmic plus absorbed "
+    "auxiliary power, minus the stored-energy change and fast-ion orbit and charge-exchange losses. "
+    "Not P_aux, P_abs or P_SOL.",
+)
+_LINE_AVERAGE_DENSITY_1E20 = BoundaryQuantity(
+    "line_average_density", r"\bar n_e", "1e20 m^-3",
+    "Line-averaged electron density along a (near-)central chord; not the volume average.",
+)
+_PLASMA_SURFACE_AREA = BoundaryQuantity("plasma_surface_area", "S", "m^2", "Area of the last closed flux surface.")
+_ASPECT_RATIO = BoundaryQuantity("aspect_ratio", "R/a", "-", "Major over minor radius.")
+
+_register(Boundary(
+    key="martin_2008_lh",
+    family="lh_threshold",
+    target=_LOSS_POWER,
+    inputs=(_LINE_AVERAGE_DENSITY_1E20, _TOROIDAL_FIELD, _PLASMA_SURFACE_AREA),
+    form="power_law",
+    coefficient=0.0488,
+    exponents={"line_average_density": 0.717, "toroidal_field": 0.803, "plasma_surface_area": 0.941},
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="L_to_H",
+    regime="L_mode",
+    source_regime="L_mode",
+    target_regime="H_mode",
+    branch="high_density",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "ITPA threshold database, SELEC2007: deuterium, single null with the ion grad-B drift towards "
+            "the X point, elongation >= 1.2, q95 >= 2.5, P_rad/P_L < 0.5, no Ohmic or ECRH-only transitions",
+            "fitted devices: Alcator C-Mod, ASDEX Upgrade, DIII-D, JET, JFT-2M, JT-60U (1024 time slices); "
+            "aspect ratio covers only a limited range; spherical tokamaks are not in the fit",
+            "high-density branch: below the density of minimum threshold (ryter_2014_nmin) the measured "
+            "threshold rises above the scaling",
+            "compare with the loss power P_L, not the auxiliary or separatrix power; roughly 1/M with ion mass",
+        ),
+    ),
+    uncertainty=Uncertainty(
+        coefficient_factor=float(np.exp(0.057)),
+        exponents={"line_average_density": 0.035, "toroidal_field": 0.032, "plasma_surface_area": 0.019},
+        rms_relative=0.308,
+        note="Standard errors of the log-linear fit; RMS 30.8 %. Table 1 gives the 95 % interval for "
+             "ITER: 28-96 MW at 0.5e20 m^-3 and 46-160 MW at 1e20 m^-3.",
+    ),
+    sources=(
+        BoundarySource("Y. R. Martin et al., J. Phys.: Conf. Ser. 123 (2008) 012033",
+                       equation="Eq. (2); P_L definition Eq. (1); Table 1", doi="10.1088/1742-6596/123/1/012033",
+                       note="P_Thresh = 0.0488 e^(+-0.057) n_e20^(0.717+-0.035) B_T^(0.803+-0.032) "
+                            "S^(0.941+-0.019), MW"),
+        BoundarySource("F. Ryter et al., Nucl. Fusion 54 (2014) 083003", equation="Eq. (1), p. 2",
+                       doi="10.1088/0029-5515/54/8/083003",
+                       note="restates the scaling (0.049, 0.72, 0.80, 0.94) and that it is fitted on the "
+                            "high-density branch"),
+    ),
+    notes="P_L / P_Thresh is the evaluation ratio. The permitted side is 'above': H-mode access needs "
+          "P_L > P_Thresh. It is a normalisation against one published fit, not a transition prediction.",
+))
+
+_register(Boundary(
+    key="ryter_2014_nmin",
+    family="lh_threshold",
+    target=_LINE_AVERAGE_DENSITY,
+    inputs=(_PLASMA_CURRENT_MA, _TOROIDAL_FIELD, _MINOR_RADIUS, _ASPECT_RATIO),
+    form="power_law",
+    coefficient=0.7,
+    exponents={"plasma_current": 0.34, "toroidal_field": 0.62, "minor_radius": -0.95, "aspect_ratio": 0.4},
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="semi_empirical",
+    event="L_to_H",
+    regime="L_mode",
+    source_regime="L_mode",
+    target_regime="H_mode",
+    branch="low_density_boundary",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "density at which the L-H power threshold is minimum; the high-density-branch scaling "
+            "(martin_2008_lh) applies above it",
+            "derived for deuterium from the Martin threshold scaling and an L-mode confinement scaling, "
+            "with n_e,min set by tau_E / tau_ei = 9 (the ASDEX Upgrade minimum of P_L-H, Fig. 9)",
+            "checked against ASDEX Upgrade (C and W walls), Alcator C-Mod, DIII-D, JET-ILW and JFT-2M "
+            "(Fig. 10); the JT-60U prediction is too high",
+        ),
+    ),
+    uncertainty=Uncertainty(note="No fit uncertainty is published; Fig. 10 compares measured and predicted n_e,min."),
+    sources=(
+        BoundarySource("F. Ryter et al., Nucl. Fusion 54 (2014) 083003", equation="Eq. (3), p. 7",
+                       doi="10.1088/0029-5515/54/8/083003",
+                       note="n_e,min ~ 0.7 I_p^0.34 B_T^0.62 a^-0.95 (R/a)^0.4 in 1e19 m^-3 using MA, T and m. "
+                            "Eq. (4) for the minimum power is not registered: as printed it does not reproduce "
+                            "the paper's own 41 MW for ITER, while Eq. (1) at n_e,min does"),
+    ),
 ))
