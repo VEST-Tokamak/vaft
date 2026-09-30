@@ -57,9 +57,12 @@ workflow/**/*.log
 /vaft/data/vfit/
 /sample_equilibrium_global_history.xlsx
 
-# HSDS credentials (written by `hsconfigure`; never commit a real one)
+# HSDS credentials (written by `vaft hsds configure`; never commit a real one)
 .hscfg
 **/.hscfg
+# interrupted `vaft hsds configure` writes (.hscfg.<random>.tmp)
+.hscfg.*.tmp
+**/.hscfg.*.tmp
 
 # Quarto render products and cache (issue #322). Presentation outputs are built
 # on demand and by CI; none of them are committed.

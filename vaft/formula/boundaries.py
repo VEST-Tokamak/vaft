@@ -729,8 +729,12 @@ _register(Boundary(
         ),
     ),
     sources=(
-        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Eq. (1)"),
-        BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Sec. 2"),
+        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Eq. (1)",
+                       doi="10.1088/0029-5515/28/12/009",
+                       note="n = kappa * J_avg [1e20 m^-3, MA m^-2], i.e. I_p/(pi a^2) for elliptical cross-sections"),
+        BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Eq. (1.3), p. R28",
+                       doi="10.1088/0741-3335/44/8/201",
+                       note="n_G = I_P/(pi a^2), line-averaged density in 1e20 m^-3"),
     ),
     notes="Evaluated by vaft.formula.stability.greenwald_density; coefficients are not restated here.",
 ))
@@ -772,9 +776,196 @@ _register(Boundary(
             "equilibrium.q_cyl_from_B_R_epsilon_kappa_I, q_cyl = 5 a^2 kappa_a B_T/(R I_p[MA]); "
             "a, R and B_T cancel, leaving nR/B = (50 kappa_a/pi)(1/q_cyl)",
         ),
-        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Eq. (1)"),
+        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="text after Eq. (1)",
+                       doi="10.1088/0029-5515/28/12/009",
+                       note="for high-aspect-ratio, low-beta circular plasmas the limit is (5/pi) B/(qR) in 1e20 m^-3, "
+                            "i.e. the 50/pi slope here with kappa_a = 1"),
         BoundarySource("G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006", equation="Sec. 2",
                        note="q_cyl convention"),
     ),
-    notes="Same line as vaft.diagram hugill(); the Murakami limit and the low-q line are not yet registered (source needed, #1297).",
+    notes="Same line as vaft.diagram hugill(). On the same diagram the Murakami limit is 'murakami_hugill' "
+          "(n R/B_T = 1) and the current limit is 'low_q' (q_psi > 2, not q_cyl).",
+))
+
+# Murakami et al. 1976 give the scaling as a line on Fig. 1 (maximum line-averaged
+# density in 1e19 m^-3 against B_T/R_0 in T/m, slope one on log-log axes), not as a
+# printed formula; Greenwald 2002 (Sec. 1.2.1, p. R29) states it as n_M = B_T/R.
+_TOROIDAL_FIELD = BoundaryQuantity("toroidal_field", "B_T", "T", "Vacuum toroidal field at the major radius R_0, magnitude.")
+_MAJOR_RADIUS = BoundaryQuantity("major_radius", "R_0", "m", "Major radius.")
+_MURAKAMI_SOURCES = (
+    BoundarySource("M. Murakami, J. D. Callen and L. A. Berry, Nucl. Fusion 16 (1976) 347", equation="Fig. 1 and Table I",
+                   doi="10.1088/0029-5515/16/2/020",
+                   note="13 Ohmic, hydrogenic, mostly circular devices; the solid line through the black dots passes about 1.1e19 m^-3 at 1 T/m; a lower dashed line fits the ORMAK constant-q(a) scan"),
+    BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Sec. 1.2.1, p. R29",
+                   doi="10.1088/0741-3335/44/8/201", note="n_M = B_T/R, the 'Murakami limit'"),
+    BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), pp. 2206-2207",
+                   doi="10.1088/0029-5515/28/12/009",
+                   note="the operating space is bounded by the minimum of the Murakami, Hugill and fuelling limits"),
+)
+_MURAKAMI_APPLICABILITY = dict(
+    machine_class="tokamak",
+    assumptions=(
+        "Ohmically heated hydrogenic plasmas with stationary gas filling; cold-gas injection "
+        "(Alcator, Pulsator) reached about 2.5 times the line",
+        "mostly circular cross-sections with q(a) near 5",
+        "compared with the maximum line-averaged electron density",
+        "interpreted as global power balance between Ohmic input and radiation (Greenwald 2002); "
+        "later data with auxiliary heating exceed it",
+    ),
+)
+_MURAKAMI_UNCERTAINTY = Uncertainty(note=(
+    "No fit uncertainty is published. The coefficient 1 follows Greenwald 2002; the solid line in "
+    "Murakami's Fig. 1 sits about 10-15 % higher, and the stationary-fill devices of Table I lie at "
+    "0.8-1.45 times B_T/R_0."
+))
+
+_register(Boundary(
+    key="murakami",
+    family="density_limit",
+    target=_LINE_AVERAGE_DENSITY,
+    inputs=(_TOROIDAL_FIELD, _MAJOR_RADIUS),
+    form="power_law",
+    coefficient=1.0,
+    exponents={"toroidal_field": 1.0, "major_radius": -1.0},
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(ranges={"toroidal_field": (0.6, 7.5), "major_radius": (0.40, 1.09)},
+                                **_MURAKAMI_APPLICABILITY),
+    uncertainty=_MURAKAMI_UNCERTAINTY,
+    sources=_MURAKAMI_SOURCES,
+    notes="n_M [1e19 m^-3] = B_T [T] / R_0 [m]. Ranges are those of the 13 devices in Table I.",
+))
+
+_register(Boundary(
+    key="murakami_hugill",
+    family="density_limit",
+    target=_MURAKAMI_PARAMETER,
+    inputs=(),
+    form="threshold",
+    coefficient=1.0,
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(**_MURAKAMI_APPLICABILITY),
+    uncertainty=_MURAKAMI_UNCERTAINTY,
+    sources=_MURAKAMI_SOURCES,
+    notes="The Murakami limit divided by B_T/R_0: a vertical line n R/B_T = 1 [1e19 m^-2 T^-1] on the Hugill diagram. "
+          "Uses the same R and B_T as hugill_coordinates.",
+))
+
+_EDGE_Q_MHD = BoundaryQuantity(
+    "edge_safety_factor", "q_psi", "-",
+    "Safety factor of the MHD equilibrium at the boundary (the paper plots 1/q_psi); not the cylindrical q.",
+)
+
+_register(Boundary(
+    key="low_q",
+    family="current_limit",
+    target=_EDGE_Q_MHD,
+    inputs=(),
+    form="threshold",
+    coefficient=2.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "disruptive limit on plasma current stated as q_psi > 2",
+            "q_psi is the equilibrium safety factor; on the Hugill diagram's 1/q_cyl axis this is a horizontal "
+            "line only where q_psi and q_cyl coincide (circular, high aspect ratio)",
+        ),
+    ),
+    sources=(
+        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), p. 2207; also p. 2200",
+                       doi="10.1088/0029-5515/28/12/009",
+                       note="'the disruptive limit on plasma current (q_psi > 2)'"),
+    ),
+))
+
+# Giacomin et al., PRL 128 (2022) 185003, Eq. (12): the maximum edge density set by
+# turbulent transport across the separatrix. It is written as a function because
+# (1 + kappa^2) is not a power of one input; the exponents are those printed in Eq. (12).
+_GIACOMIN_ALPHA = 3.3
+
+
+def _giacomin_2022_edge_density_limit(mass_number, minor_radius, separatrix_power, major_radius,
+                                      edge_safety_factor_95, elongation, toroidal_field):
+    """Eq. (12) of Giacomin et al. 2022, in 1e20 m^-3."""
+    kappa = np.asarray(elongation, dtype=float)
+    return (_GIACOMIN_ALPHA
+            * np.asarray(mass_number, dtype=float) ** (1 / 6)
+            * np.asarray(minor_radius, dtype=float) ** (3 / 14)
+            * np.asarray(separatrix_power, dtype=float) ** (10 / 21)
+            * np.asarray(major_radius, dtype=float) ** (-43 / 42)
+            * np.asarray(edge_safety_factor_95, dtype=float) ** (-22 / 21)
+            * (1.0 + kappa**2) ** (-1 / 3)
+            * np.asarray(toroidal_field, dtype=float) ** (2 / 3))
+
+
+_EDGE_DENSITY = BoundaryQuantity(
+    "edge_density", "n_e,edge", "1e20 m^-3",
+    "Edge electron density at the MARFE onset: Thomson-scattering average over rho_pol 0.85-0.95; "
+    "not the line-averaged or separatrix density.",
+)
+
+_register(Boundary(
+    key="giacomin_edge",
+    family="density_limit",
+    target=_EDGE_DENSITY,
+    inputs=(
+        BoundaryQuantity("mass_number", "A", "-", "Mass number of the main plasma ions."),
+        _MINOR_RADIUS,
+        BoundaryQuantity("separatrix_power", "P_SOL", "MW",
+                         "Power crossing the separatrix: total coupled power minus core radiated power."),
+        _MAJOR_RADIUS,
+        BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface."),
+        BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation."),
+        _TOROIDAL_FIELD,
+    ),
+    form="function",
+    function=_giacomin_2022_edge_density_limit,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="first_principles_scaling_with_one_fitted_constant",
+    event="MARFE_onset",
+    regime="L_mode",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={"toroidal_field": (1.4, 3.0), "major_radius": (0.9, 3.0), "separatrix_power": (0.1, 9.0)},
+        assumptions=(
+            "validated on AUG, JET and TCV (carbon and metal walls; NBI, ECRH and ICRH); "
+            "line-averaged densities 2e19-1.1e20 m^-3, plasma current 0.1-2.5 MA",
+            "L-mode density limit; in the H-mode scenario it is reached after the H-L back transition",
+            "the target is the edge density at the MARFE onset (a precursor of the disruption), "
+            "not the line-averaged density of the Greenwald limit",
+            "alpha may depend on plasma shape and divertor geometry (not resolved by the database)",
+        ),
+    ),
+    uncertainty=Uncertainty(
+        coefficient=0.3,
+        note="alpha = 3.3 +- 0.3 (one constant for all tokamaks; per-machine variance below 10 %). "
+             "Indicative 20 % uncertainty on the measured and predicted edge density; P_SOL from "
+             "bolometry can be uncertain by up to 50 %.",
+    ),
+    sources=(
+        BoundarySource(
+            "M. Giacomin, A. Pau, P. Ricci et al., Phys. Rev. Lett. 128 (2022) 185003",
+            equation="Eq. (12); alpha = 3.3 +- 0.3, p. 4 and Fig. 3(a)", doi="10.1103/PhysRevLett.128.185003",
+            note="n_lim = alpha A^(1/6) a^(3/14) P_SOL^(10/21) R0^(-43/42) q^(-22/21) (1+kappa^2)^(-1/3) "
+                 "B_T^(2/3), n_lim in 1e20 m^-3, P_SOL in MW, R0 and a in m, B_T in T, q = q95",
+        ),
+    ),
+    notes="Inputs are magnitudes (B_T > 0, q95 > 0); a negative value gives a non-finite limit, which "
+          "evaluate_boundary reports and never counts as permitted. "
+          "Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
+          "line-averaged density instead, so the two families are shown side by side, not substituted.",
 ))

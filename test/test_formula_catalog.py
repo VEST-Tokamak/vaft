@@ -70,9 +70,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
         # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
-        "equilibrium": 98,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 99,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 35,  # +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
+        "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
         "atomic": 8,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046)
         "statistics": 22,
@@ -97,9 +97,10 @@ def test_the_catalog_counts_the_known_public_surface():
         "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate (#1136)
         "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
         "ntv": 2,  # precession frequency and flux-torque relation (#1111)
-        "sol": 8,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951)
+        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
         "boundaries": 7,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068)

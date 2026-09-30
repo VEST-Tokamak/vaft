@@ -102,6 +102,23 @@ SOURCES: dict[str, PublicSource] = {
         doi="10.1088/1741-4326/abdb91",
         landing_page="https://osf.io/drwcq/",
     ),
+    "tcv_lh_2025": PublicSource(
+        key="tcv_lh_2025",
+        database="TCV L-H transition database (limited dataset)",
+        release="Zenodo 14996664 (2025-03-09)",
+        url="https://zenodo.org/api/records/14996664/files/lhdatabase.h5/content",
+        filename="tcv_lhdatabase_14996664.h5",
+        sha256="afdd584ab33e0da52b630049e920691e67ac533e592cc533745271025f157585",
+        size_bytes=94_688,
+        licence="CC BY 4.0",
+        reference=(
+            "B. Labit et al., 'L-H power threshold for neutral beam heated plasmas "
+            "with deuterium, hydrogen, helium and mixed ion species in TCV', "
+            "Plasma Phys. Control. Fusion 67 (2025) 055010"
+        ),
+        doi="10.1088/1361-6587/adc8ce",
+        landing_page="https://doi.org/10.5281/zenodo.14996664",
+    ),
 }
 
 
@@ -155,7 +172,7 @@ def sha256_of(path: str | os.PathLike[str]) -> str:
     return digest.hexdigest()
 
 
-def _download(url: str, destination: Path, timeout: float, sha256: str) -> None:
+def _download(url: str, destination: Path, timeout: float, sha256: str | None) -> None:
     request = Request(url, headers={"User-Agent": "vaft-public-data/1"})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -166,7 +183,7 @@ def _download(url: str, destination: Path, timeout: float, sha256: str) -> None:
     if status != 200:
         raise FetchError(f"{url} returned HTTP {status}")
     actual = hashlib.sha256(payload).hexdigest()
-    if actual != sha256.lower():
+    if sha256 is not None and actual != sha256.lower():
         # Checked before the rename, so a bad download never appears in the cache.
         raise ChecksumError(
             f"{url} delivered SHA-256 {actual}, expected {sha256}. The upstream "

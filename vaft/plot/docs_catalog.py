@@ -120,6 +120,52 @@ def _entry_point(name: str, status: str) -> dict:
     }
 
 
+THUMBNAILS = Path("docs") / "assets" / "plots"
+
+
+def _thumbnails(specs) -> tuple[dict[str, dict], list[Path]]:
+    """``name -> thumbnail row`` from the committed manifest, and the files that decide it.
+
+    Reads files only: whether a thumbnail is stale is judged from the sample and
+    renderer hashes :mod:`vaft.plot.docs_thumbnails` recorded, so the build loads no
+    sample and runs no matplotlib.
+    """
+    import json
+
+    import vaft
+
+    from . import docs_thumbnails
+
+    manifest = _ROOT / THUMBNAILS / docs_thumbnails.MANIFEST
+    if not manifest.is_file():
+        return {}, []
+    recorded = json.loads(manifest.read_text(encoding="utf-8")).get("plots", {})
+    rows: dict[str, dict] = {}
+    sources = [manifest]
+    for spec in specs:
+        entry = recorded.get(spec.name)
+        if entry is None:
+            rows[spec.name] = {"status": "missing", "png": "", "png_sha256": "", "shot": 0, "stale": "",
+                               "reason": "not in the thumbnail manifest"}
+            continue
+        row = {
+            "status": entry["status"],
+            "png": "",
+            "png_sha256": entry.get("png_sha256", ""),
+            "shot": entry.get("shot", 0),
+            "stale": docs_thumbnails.stale_reason(entry, spec),
+            "reason": entry.get("reason", ""),
+        }
+        if entry["status"] == "rendered":
+            row["png"] = (THUMBNAILS.relative_to("docs") / f"{spec.name}.png").as_posix()
+            try:
+                sources.append(Path(vaft.data.sample(entry["shot"])).resolve())
+            except Exception:  # a removed sample is reported as stale above
+                pass
+        rows[spec.name] = row
+    return rows, sources
+
+
 def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     """Every registered plot, ordered subject (taxonomy order) -> view (``VIEWS`` order)."""
     import vaft.plot  # noqa: F401 -- importing the package registers every renderer
@@ -143,12 +189,14 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     for spec in specs:
         counts[spec.subject] = counts.get(spec.subject, 0) + 1
 
+    thumbnails, thumbnail_sources = _thumbnails(specs)
+
     snapshot: dict = {
         "schema_version": SCHEMA_VERSION,
         "generator": _GENERATOR,
         "source": [
             {"path": _relative(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-            for path in _source_files()
+            for path in sorted({*_source_files(), *thumbnail_sources}, key=_relative)
         ],
         "views": list(registry.VIEWS),
         "subjects": [
@@ -161,7 +209,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             for subject in taxonomy.SUBJECTS.values()
             if subject.name in counts
         ],
-        "plots": [_row(spec) for spec in specs],
+        "plots": [{**_row(spec), **({"thumbnail": thumbnails[spec.name]} if thumbnails else {})} for spec in specs],
         "entry_points": [_entry_point(name, status) for name, status in entry_point_names()],
     }
     if provenance:

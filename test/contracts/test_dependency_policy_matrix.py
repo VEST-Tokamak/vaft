@@ -15,7 +15,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
 
         expected_specs = {
             "h5py>=3.16,<4",
-            "h5pyd==0.20.0",
+            "h5pyd==0.24.0",
             "numpy>=2.0.0,<3",
             "scipy>=1.13.0,<2",
             "matplotlib>=3.7.3,<4",
@@ -35,7 +35,7 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         self.assertNotIn("numpy>=2,<3", overrides)
         dependencies = set(data["project"]["dependencies"])
         self.assertIn("numpy>=2.0.0,<3", dependencies)
-        self.assertIn("h5pyd==0.20.0", dependencies)
+        self.assertIn("h5pyd==0.24.0", dependencies)
 
     def test_exact_pins_are_the_reviewed_ones(self):
         """#1012: an exact pin must have a recorded reason, not come from a freeze.

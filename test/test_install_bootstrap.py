@@ -324,13 +324,13 @@ def test_missing_hsds_configuration_warns_but_does_not_fail_offline(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg")
     assert result.status == checker.WARN
     assert not result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_missing_hsds_configuration_fails_when_a_network_probe_was_requested(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg", required=True)
     assert result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_offline_run_passes_without_any_credentials(monkeypatch, tmp_path):
@@ -372,7 +372,7 @@ def test_offline_run_skips_the_network_probe(monkeypatch):
 def test_network_probe_delegates_to_the_shared_helper():
     assert checker.check_hsds_connection(probe=lambda: True).status == checker.PASS
     failed = checker.check_hsds_connection(probe=lambda: False)
-    assert failed.failed and "hsconfigure" in failed.remediation
+    assert failed.failed and "vaft hsds configure" in failed.remediation
 
 
 def test_connection_errors_are_reported_not_raised():
@@ -820,7 +820,7 @@ def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatc
     assert positions == sorted(positions), "bootstrap steps ran out of order"
     assert "pip install -e ." in stdout  # via the stub echo
     assert "check_vaft_environment" in stdout, "the bootstrap must end by verifying"
-    assert "hsconfigure" in stdout
+    assert "vaft hsds configure" in stdout
     assert "never asks for, stores, or transmits your credentials" in stdout
 
 

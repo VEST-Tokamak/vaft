@@ -2044,6 +2044,7 @@ def build_kinetic_efit_ods(
     executable: str | None = None,
     encoding: str = "raw6",
     run: int = 1,
+    efit_preset: str | None = None,
 ) -> tuple[ODS, dict[str, Any]]:
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
@@ -2084,6 +2085,11 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
+    if efit_preset:
+        # Only when set, so a routine manifest is what it was before presets.
+        from vaft.code.efit.presets import efit_preset as _efit_preset
+
+        manifest["configuration"]["efit_preset"] = _efit_preset(efit_preset).record()
 
     out = ODS(consistency_check=False)
     dataset_description(
@@ -2189,14 +2195,12 @@ def build_kinetic_efit_ods(
             f"{equilibrium_tolerance_ms:.1f} ms tolerance"
         )
 
-    # The psi this carries is the ODS's, in weber (#278/#281), where a g-file's
-    # is weber per radian -- measured on 48224, SIMAG and SIBRY come out exactly
-    # 2*pi larger. It does not matter *here*, because every consumer normalizes:
-    # psi_N = (psi - SIMAG)/(SIBRY - SIMAG) in `_psin_of_r`, and psi_norm /
-    # rho_pol_norm / rho_tor_norm in the profile mapper, so a global factor -- or
-    # a COCOS sign flip -- cancels in numerator and denominator alike. Verified
-    # against the packaged g-file: psi_N agrees to 2e-16. Anything that later
-    # wants *absolute* psi off this object has to convert first.
+    # The ODS psi is weber (#278/#281); from_equilibrium writes it per radian,
+    # as a g-file stores it (#1292), so SIMAG/SIBRY are the solution's flux over
+    # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
+    # `core_profiles` takes `grid.psi` from `geq.to_omas()`, which before #1292
+    # came out 2*pi too large. psi_N in `_psin_of_r` and the profile mapper is
+    # normalized and was never affected.
     try:
         geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
     except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
@@ -2218,6 +2222,7 @@ def build_kinetic_efit_ods(
             # 'auto' is the VEST policy ratio, and it only applies when the ODS
             # has no ion data -- which is exactly the electron_efit case.
             ti_te_ratio="auto",
+            efit_preset=efit_preset or None,
         )
         try:
             chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
