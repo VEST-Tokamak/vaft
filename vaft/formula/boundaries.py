@@ -153,17 +153,26 @@ class Uncertainty:
     """Uncertainty the source itself reports, never an invented one.
 
     ``coefficient`` is the one-sigma absolute uncertainty of the leading
-    coefficient. ``exponents`` holds the one-sigma uncertainty of each
-    exponent, keyed by input name. ``None`` or an empty mapping means the
-    source gives no value.
+    coefficient; ``coefficient_factor`` is the multiplicative factor when the
+    source quotes the coefficient as $C e^{\pm s}$ (then the factor is
+    $e^{s}$; the source may not state its confidence level). ``exponents`` holds the one-sigma uncertainty of each exponent,
+    keyed by input name. ``rms_relative`` is the relative RMS scatter of the
+    fit about the data. ``None`` or an empty mapping means the source gives
+    no value.
     """
 
     coefficient: Optional[float] = None
     exponents: Mapping[str, float] = field(default_factory=dict, hash=False)
     note: str = ""
+    coefficient_factor: Optional[float] = None
+    rms_relative: Optional[float] = None
 
     def __post_init__(self):
         object.__setattr__(self, "exponents", _frozen_mapping(self.exponents))
+        if self.coefficient_factor is not None and not self.coefficient_factor >= 1.0:
+            raise ValueError("coefficient_factor is a multiplicative factor e^s and must be >= 1")
+        if self.rms_relative is not None and not self.rms_relative >= 0.0:
+            raise ValueError("rms_relative must be >= 0")
 
 
 @dataclass(frozen=True)
@@ -181,6 +190,16 @@ class Boundary:
     ``allowed_side`` says which side of $b$ the operating value is permitted
     on. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
+
+    A regime-transition threshold carries ``source_regime`` and
+    ``target_regime`` (for example ``"L_mode"`` and ``"H_mode"``); its permitted
+    side is the side on which the target regime is accessible. An entry that
+    only bounds where another relation is valid (for example the density of
+    minimum L-H power) leaves both empty and says so in its notes. ``branch``
+    names the part of a non-monotonic dependence the relation describes, for
+    example the high-density branch of the L-H threshold. It is metadata:
+    nothing checks it automatically, so a caller must not evaluate a branch
+    relation outside that branch.
     """
 
     key: str
@@ -201,6 +220,9 @@ class Boundary:
     applicability: Applicability = field(default_factory=Applicability)
     uncertainty: Uncertainty = field(default_factory=Uncertainty)
     notes: str = ""
+    source_regime: str = ""
+    target_regime: str = ""
+    branch: str = ""
 
     def __post_init__(self):
         object.__setattr__(self, "inputs", tuple(self.inputs))
@@ -214,6 +236,8 @@ class Boundary:
             raise ValueError(f"hardness must be one of {_HARDNESS}, not {self.hardness!r}")
         if self.origin not in _ORIGINS:
             raise ValueError(f"origin must be one of {_ORIGINS}, not {self.origin!r}")
+        if bool(self.source_regime) != bool(self.target_regime):
+            raise ValueError(f"boundary {self.key!r} needs both source_regime and target_regime, or neither")
         if not self.sources:
             raise ValueError(f"boundary {self.key!r} needs at least one BoundarySource")
         names = [q.name for q in self.inputs]
@@ -1021,4 +1045,208 @@ _register(Boundary(
     ),
     notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (substituting T_S = R B_T into I_N). Compare with "
           "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
+))
+
+
+# ------------------------------------------------------------------
+# L-H power threshold (#1066)
+# ------------------------------------------------------------------
+
+_LOW_ASPECT_RATIO_EVIDENCE = (
+    "spherical tokamaks: MAST (A ~ 1.45) and NSTX (A ~ 1.32) sit 1.6x and 3.7x above the conventional-"
+    "aspect-ratio basis P_thr0 of Takizuka 2004 Eq. (1); Pegasus (A ~ 1.2, B_T ~ 0.15 T, Ohmic) measures P_LH "
+    "7-15x the ITPA08 (Martin 2008) scaling, the ratio grows as A -> 1, and no density minimum is seen "
+    "(Thome et al. 2017)",
+    "NSTX P_LH nearly doubles from 0.7 to 1.0 MA, of which the |B|_out parameterisation accounts for "
+    "only ~30 % (Kaye et al., PPPL-4635, 2011); on MAST the X-point height changes P_th by up to 3x "
+    "(Andrew et al. 2019)",
+)
+
+
+_LOSS_POWER = BoundaryQuantity(
+    "loss_power", "P_L", "MW",
+    "Loss power P_L = P_OHM + P_abs - dW/dt - P_Floss (Martin 2008, Eq. 1): Ohmic plus absorbed "
+    "auxiliary power, minus the stored-energy change and fast-ion orbit and charge-exchange losses. "
+    "Not P_aux, P_abs or P_SOL.",
+)
+_LINE_AVERAGE_DENSITY_1E20 = BoundaryQuantity(
+    "line_average_density", r"\bar n_e", "1e20 m^-3",
+    "Line-averaged electron density along a (near-)central chord; not the volume average.",
+)
+_PLASMA_SURFACE_AREA = BoundaryQuantity("plasma_surface_area", "S", "m^2", "Area of the last closed flux surface.")
+_ASPECT_RATIO = BoundaryQuantity("aspect_ratio", "R/a", "-", "Major over minor radius.")
+
+_register(Boundary(
+    key="martin_2008_lh",
+    family="lh_threshold",
+    target=_LOSS_POWER,
+    inputs=(_LINE_AVERAGE_DENSITY_1E20, _TOROIDAL_FIELD, _PLASMA_SURFACE_AREA),
+    form="power_law",
+    coefficient=0.0488,
+    exponents={"line_average_density": 0.717, "toroidal_field": 0.803, "plasma_surface_area": 0.941},
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="L_to_H",
+    regime="L_mode",
+    source_regime="L_mode",
+    target_regime="H_mode",
+    branch="high_density",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "ITPA threshold database, SELEC2007: deuterium, single null with the ion grad-B drift towards "
+            "the X point, elongation >= 1.2, q95 >= 2.5, P_rad/P_L < 0.5, no Ohmic or ECRH-only transitions",
+            "fitted devices: Alcator C-Mod, ASDEX Upgrade, DIII-D, JET, JFT-2M, JT-60U (1024 time slices); "
+            "aspect ratio covers only a limited range; spherical tokamaks are not in the fit",
+            "high-density branch: below the density of minimum threshold (ryter_2014_nmin) the measured "
+            "threshold rises above the scaling",
+            "compare with the loss power P_L, not the auxiliary or separatrix power; roughly 1/M with ion mass",
+        ) + _LOW_ASPECT_RATIO_EVIDENCE,
+    ),
+    uncertainty=Uncertainty(
+        coefficient_factor=float(np.exp(0.057)),
+        exponents={"line_average_density": 0.035, "toroidal_field": 0.032, "plasma_surface_area": 0.019},
+        rms_relative=0.308,
+        note="Standard errors of the log-linear fit; RMS 30.8 %. Table 1 gives the 95 % interval for "
+             "ITER: 28-96 MW at 0.5e20 m^-3 and 46-160 MW at 1e20 m^-3.",
+    ),
+    sources=(
+        BoundarySource("Y. R. Martin et al., J. Phys.: Conf. Ser. 123 (2008) 012033",
+                       equation="Eq. (2); P_L definition Eq. (1); Table 1", doi="10.1088/1742-6596/123/1/012033",
+                       note="P_Thresh = 0.0488 e^(+-0.057) n_e20^(0.717+-0.035) B_T^(0.803+-0.032) "
+                            "S^(0.941+-0.019), MW"),
+        BoundarySource("F. Ryter et al., Nucl. Fusion 54 (2014) 083003", equation="Eq. (1), p. 2",
+                       doi="10.1088/0029-5515/54/8/083003",
+                       note="restates the scaling (0.049, 0.72, 0.80, 0.94) and that it is fitted on the "
+                            "high-density branch"),
+    ),
+    notes="P_L / P_Thresh is the evaluation ratio. The permitted side is 'above': H-mode access needs "
+          "P_L > P_Thresh. It is a normalisation against one published fit, not a transition prediction.",
+))
+
+_register(Boundary(
+    key="ryter_2014_nmin",
+    family="lh_threshold",
+    target=_LINE_AVERAGE_DENSITY,
+    inputs=(_PLASMA_CURRENT_MA, _TOROIDAL_FIELD, _MINOR_RADIUS, _ASPECT_RATIO),
+    form="power_law",
+    coefficient=0.7,
+    exponents={"plasma_current": 0.34, "toroidal_field": 0.62, "minor_radius": -0.95, "aspect_ratio": 0.4},
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="semi_empirical",
+    event="L_to_H_threshold_minimum",
+    regime="L_mode",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "density at which the L-H power threshold is minimum; the high-density-branch scaling "
+            "(martin_2008_lh) applies above it. Below it H-mode is still accessible but needs more power "
+            "(the low-density branch), so 'above' marks the validity of martin_2008_lh, not H-mode access",
+            "derived for deuterium from the Martin threshold scaling and an L-mode confinement scaling, "
+            "with n_e,min set by tau_E / tau_ei = 9 (the ASDEX Upgrade minimum of P_L-H, Fig. 9)",
+            "checked against ASDEX Upgrade (C and W walls), Alcator C-Mod, DIII-D, JET-ILW and JFT-2M "
+            "(Fig. 10); the JT-60U prediction is too high",
+        ),
+    ),
+    uncertainty=Uncertainty(note="No fit uncertainty is published; Fig. 10 compares measured and predicted n_e,min."),
+    sources=(
+        BoundarySource("F. Ryter et al., Nucl. Fusion 54 (2014) 083003", equation="Eq. (3), p. 7",
+                       doi="10.1088/0029-5515/54/8/083003",
+                       note="n_e,min ~ 0.7 I_p^0.34 B_T^0.62 a^-0.95 (R/a)^0.4 in 1e19 m^-3 using MA, T and m. "
+                            "Eq. (4) for the minimum power is not registered: as printed it gives ~62 MW for ITER "
+                            "at full field against the paper's ~41 MW, and ~22 against ~16 MW at half field. "
+                            "Eq. (1) at n_e,min gives ~44 and ~16 MW"),
+    ),
+))
+
+# Takizuka et al. (ITPA H-mode Power Threshold Database Working Group), PPCF 46 (2004) A227,
+# Eq. (4): the threshold scaling that brings MAST and NSTX closer to conventional tokamaks
+# through the absolute field at the outer midplane and an aspect-ratio factor F(A)^gamma.
+_TAKIZUKA_GAMMA = 0.5
+
+
+def _takizuka_outer_field(toroidal_field, plasma_current, minor_radius, aspect_ratio):
+    """|B|_out = (B_tout^2 + B_pout^2)^0.5, B_tout = B_t A/(A+1), B_pout = (mu0 I_p/2 pi a)(1 + 1/A)."""
+    A = np.asarray(aspect_ratio, dtype=float)
+    b_tout = np.asarray(toroidal_field, dtype=float) * A / (A + 1.0)
+    b_pout = MU0 * np.asarray(plasma_current, dtype=float) * 1e6 / (2.0 * np.pi * np.asarray(minor_radius, dtype=float)) * (1.0 + 1.0 / A)
+    return np.sqrt(b_tout**2 + b_pout**2)
+
+
+def _takizuka_aspect_factor(aspect_ratio):
+    """F(A) = 0.1 A / f(A) with the untrapped fraction f(A) = 1 - (2/(1+A))^0.5."""
+    A = np.asarray(aspect_ratio, dtype=float)
+    return 0.1 * A / (1.0 - np.sqrt(2.0 / (1.0 + A)))
+
+
+def _takizuka_2004_threshold(line_average_density, toroidal_field, plasma_current, minor_radius,
+                             aspect_ratio, plasma_surface_area, effective_charge):
+    """Eq. (4) of Takizuka et al. 2004 with gamma = 0.5, in MW."""
+    b_out = _takizuka_outer_field(toroidal_field, plasma_current, minor_radius, aspect_ratio)
+    return (0.072 * b_out**0.7 * np.asarray(line_average_density, dtype=float) ** 0.7
+            * np.asarray(plasma_surface_area, dtype=float) ** 0.9
+            * (np.asarray(effective_charge, dtype=float) / 2.0) ** 0.7
+            * _takizuka_aspect_factor(aspect_ratio) ** _TAKIZUKA_GAMMA)
+
+
+
+_register(Boundary(
+    key="takizuka_2004_lh",
+    family="lh_threshold",
+    target=_LOSS_POWER,
+    inputs=(_LINE_AVERAGE_DENSITY_1E20, _TOROIDAL_FIELD, _PLASMA_CURRENT_MA, _MINOR_RADIUS, _ASPECT_RATIO,
+            _PLASMA_SURFACE_AREA,
+            BoundaryQuantity("effective_charge", "Z_eff", "-", "Effective ion charge.")),
+    form="function",
+    function=_takizuka_2004_threshold,
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="L_to_H",
+    regime="L_mode",
+    source_regime="L_mode",
+    target_regime="H_mode",
+    applicability=Applicability(
+        machine_class="tokamak including spherical tokamaks",
+        assumptions=(
+            "ITPA threshold database (2003) including MAST and NSTX; conventional data span 2.4 < A < 6.2",
+            "F(A)^gamma with gamma = 0.5 +- 0.5 is 'rather uncertain' (the paper's own words); even with it "
+            "NSTX sits ~2x above the scaling (MAST ~1.0x)",
+            "the Z_eff dependence rests on a sparse Z_eff store; the paper imposes Z_eff = 2 where it is missing",
+        ) + _LOW_ASPECT_RATIO_EVIDENCE,
+    ),
+    uncertainty=Uncertainty(
+        note="gamma = 0.5 +- 0.5 for the F(A)^gamma factor. Scatter sigma = 0.31 of ln(P_thr/P_thr,new). "
+             "The ITER prediction band is 25-70 MW (from the S-exponent error and the 2-sigma JT-60U scatter).",
+    ),
+    sources=(
+        BoundarySource(
+            "ITPA H-mode Power Threshold Database Working Group (presented by T. Takizuka), "
+            "Plasma Phys. Control. Fusion 46 (2004) A227",
+            equation="Eq. (4), p. A232; |B|_out definition p. A229; F(A) and f(A) p. A232",
+            doi="10.1088/0741-3335/46/5A/024",
+            note="P_thr,new = 0.072 |B|_out^0.7 n20^0.7 S^0.9 (Z_eff/2)^0.7 F(A)^gamma [MW]. The printed "
+                 "|B|_out definition gives 4.47 T for ITER where the text quotes 4.3 T (Eq. (2) then 44.8 "
+                 "against 43 MW)",
+        ),
+        BoundarySource("K. E. Thome et al., Nucl. Fusion 57 (2017) 022018", equation="Sec. 2 and abstract",
+                       doi="10.1088/0029-5515/57/2/022018",
+                       note="Pegasus A ~ 1.2: P_LH exceeds ITPA08 by 7-15x; uses this scaling as 'ITPA04' and still "
+                            "finds P_LH ~6x above it with gamma = 1 and Z_eff ~ 1 (Sec. 4)"),
+        BoundarySource("S. M. Kaye et al., 'L-H threshold studies in NSTX', PPPL-4635 (2011)",
+                       equation="Sec. II.C",
+                       note="Ip dependence of P_LH at low A larger than the |B|_out form explains"),
+        BoundarySource("Y. Andrew et al., Plasma 2 (2019) 328", equation="abstract", doi="10.3390/plasma2030024",
+                       note="MAST: P_th rises 3x over a 10-12 cm X-point height scan"),
+    ),
+    notes="Gamma is fixed at its central value 0.5; gamma = 0 and 1 bound the paper's range. At low "
+          "aspect ratio even this scaling underestimates measured thresholds (Pegasus ~6x, Thome 2017). "
+          "A VEST-like device (A ~ 1.7, B_T ~ 0.15 T; the repo's own values, not from these papers) lies "
+          "inside the fitted aspect-ratio range but below the field and size of the fitted data: treat "
+          "the ratio as indicative only.",
 ))
