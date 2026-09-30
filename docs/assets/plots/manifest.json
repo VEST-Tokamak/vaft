@@ -699,6 +699,15 @@
       "shot": 39915,
       "status": "rendered"
     },
+    "machine_geometry3d": {
+      "call": "vaft.omas.plot_machine_geometry3d(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ece99458a7f20c49c0d13939663e31b563a8f31cff637c0b52a3fde59383cdb9",
+      "png_sha256": "cf4e82356541916006379d18774e6d3f47466b4fe6606282e306a25ca360969f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
     "machine_geometry_poloidal": {
       "call": "vaft.omas.plot_machine_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "d37ea139eca5db095997d1d9397adf98f9342ac8b71fbf21b0ae7945f60d8054",
