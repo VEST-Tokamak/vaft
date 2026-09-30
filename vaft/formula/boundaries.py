@@ -893,7 +893,7 @@ def _giacomin_2022_edge_density_limit(mass_number, minor_radius, separatrix_powe
             * np.asarray(major_radius, dtype=float) ** (-43 / 42)
             * np.asarray(edge_safety_factor_95, dtype=float) ** (-22 / 21)
             * (1.0 + kappa**2) ** (-1 / 3)
-            * np.abs(np.asarray(toroidal_field, dtype=float)) ** (2 / 3))
+            * np.asarray(toroidal_field, dtype=float) ** (2 / 3))
 
 
 _EDGE_DENSITY = BoundaryQuantity(
@@ -945,11 +945,13 @@ _register(Boundary(
     sources=(
         BoundarySource(
             "M. Giacomin, A. Pau, P. Ricci et al., Phys. Rev. Lett. 128 (2022) 185003",
-            equation="Eq. (12); alpha from Fig. 3(a)", doi="10.1103/PhysRevLett.128.185003",
+            equation="Eq. (12); alpha = 3.3 +- 0.3, p. 4 and Fig. 3(a)", doi="10.1103/PhysRevLett.128.185003",
             note="n_lim = alpha A^(1/6) a^(3/14) P_SOL^(10/21) R0^(-43/42) q^(-22/21) (1+kappa^2)^(-1/3) "
                  "B_T^(2/3), n_lim in 1e20 m^-3, P_SOL in MW, R0 and a in m, B_T in T, q = q95",
         ),
     ),
-    notes="Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
+    notes="Inputs are magnitudes (B_T > 0, q95 > 0); a negative value gives a non-finite limit, which "
+          "evaluate_boundary reports and never counts as permitted. "
+          "Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
           "line-averaged density instead, so the two families are shown side by side, not substituted.",
 ))

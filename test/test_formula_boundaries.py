@@ -471,14 +471,23 @@ def _giacomin(A, a, P, R, q, kappa, B_T):
                             elongation=kappa, toroidal_field=B_T)
 
 
-@pytest.mark.parametrize("A, a, P, R, q, kappa, B_T, expected", [
-    (2.0, 0.22, 5.0, 0.67, 4.0, 1.5, 8.0, 5.0),     # Alcator C-Mod, p. 5: "n_lim = 5e20"
-    (2.0, 2.0, 50.0, 6.2, 3.0, 1.8, 5.3, 2.5),      # ITER, p. 5: "~2.5e20"
-    (2.5, 0.57, 28.0, 1.85, 3.0, 2.0, 12.2, 8.7),   # SPARC, p. 5: "~8.7e20" (A = 2.5, D-T, inferred)
+@pytest.mark.parametrize("A, a, P, R, q, kappa, B_T, expected, rel", [
+    (2.0, 0.22, 5.0, 0.67, 4.0, 1.5, 8.0, 5.0, 0.10),     # Alcator C-Mod, p. 5: "n_lim = 5e20"
+    (2.0, 2.0, 50.0, 6.2, 3.0, 1.8, 5.3, 2.5, 0.10),      # ITER, p. 5: "~2.5e20"
+    (2.5, 0.57, 28.0, 1.85, 3.0, 2.0, 12.2, 8.7, 0.01),   # SPARC, p. 5: "~8.7e20"
 ])
-def test_giacomin_reproduces_the_papers_predictions(A, a, P, R, q, kappa, B_T, expected):
-    """The paper does not state A for each case; A = 2 (D) or 2.5 (D-T) is inferred from the match."""
-    assert _giacomin(A, a, P, R, q, kappa, B_T) == pytest.approx(expected, rel=0.10)
+def test_giacomin_reproduces_the_papers_predictions(A, a, P, R, q, kappa, B_T, expected, rel):
+    """The paper states no mass number for these cases. SPARC pins it: A = 2.5 (D-T) gives 8.70
+    exactly. C-Mod and ITER are quoted to one significant figure and fit within 10 % for A = 1-3,
+    so they check the geometry and power dependence, not A."""
+    assert _giacomin(A, a, P, R, q, kappa, B_T) == pytest.approx(expected, rel=rel)
+
+
+def test_giacomin_rejects_signed_field_as_non_finite():
+    entry = B.get_boundary("giacomin_edge")
+    result = B.evaluate_boundary(entry, 0.3, mass_number=2.0, minor_radius=0.5, separatrix_power=2.0,
+                                 major_radius=1.5, edge_safety_factor_95=4.0, elongation=1.5, toroidal_field=-2.0)
+    assert result.allowed is False and any("non-positive or not finite" in w for w in result.warnings)
 
 
 def test_giacomin_exponents_are_eq_12():
