@@ -1,0 +1,60 @@
+# systemd unit for a hosted `vaft gui` behind nginx (see nginx-vaft-gui.conf).
+#
+# Install (as root):
+#   useradd --system --home-dir /var/lib/vaft-gui --create-home --shell /usr/sbin/nologin vaft-gui
+#   python3 -m venv /opt/vaft-gui && /opt/vaft-gui/bin/pip install "vaft[gui] @ git+https://github.com/VEST-Tokamak/vaft@<tag>"
+#   install -m 0600 -o root -g root vaft-gui.env.example /etc/vaft-gui.env   # then fill it in
+#   install -m 0644 vaft-gui.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now vaft-gui
+#
+# The service runs as its own unprivileged user and reads HSDS with the
+# credentials in /etc/vaft-gui.env -- give it a read-only HSDS account, never
+# the admin one: every reader of the page reads with these credentials.
+
+[Unit]
+Description=VAFT browser GUI (hosted)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vaft-gui
+Group=vaft-gui
+WorkingDirectory=/var/lib/vaft-gui
+# VAFT_GUI_PASSWORD and HS_ENDPOINT / HS_USERNAME / HS_PASSWORD.
+EnvironmentFile=/etc/vaft-gui.env
+Environment=HOME=/var/lib/vaft-gui
+Environment=MPLCONFIGDIR=/var/lib/vaft-gui/.cache/matplotlib
+ExecStart=/opt/vaft-gui/bin/vaft gui --hosted --prefix /gui --port 5006 --no-show \
+    --allow-websocket-origin vest.hsds.snu.ac.kr
+Restart=on-failure
+RestartSec=5
+
+# One process holds every reader's session; cap it so a heavy session
+# cannot take the HSDS containers' memory with it.
+MemoryMax=16G
+TasksMax=512
+
+# Hardening: the GUI needs the network, its own state directory and /tmp.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/vaft-gui
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
@@ -15,6 +16,11 @@ password printed at start (or $VAFT_GUI_PASSWORD):
   ssh -L 5006:localhost:5006 user@host        # then run `vaft gui` there
 
 VS Code Remote-SSH forwards the port by itself (Ports panel).
+
+To serve a team behind nginx with HTTPS, see the GUI guide (Host it for a team):
+
+  VAFT_GUI_PASSWORD=... vaft gui --hosted --prefix /gui --no-show \
+      --allow-websocket-origin vest.example.org
 """
 
 
@@ -40,10 +46,22 @@ def main(argv: Iterable[str] | None = None) -> int:
         help="ask for a password: under SSH or off loopback (auto, default), always, or never; "
              "the password is $VAFT_GUI_PASSWORD or a random one printed at start",
     )
+    parser.add_argument(
+        "--hosted", action="store_true",
+        help="serve readers who are not this server's user, behind a reverse proxy: samples and "
+             "database shots only (no server files, no uploads), $VAFT_GUI_PASSWORD required",
+    )
+    parser.add_argument("--prefix", help="URL path to serve under, e.g. /gui behind a proxy")
     show = parser.add_mutually_exclusive_group()
     show.add_argument("--show", dest="show", action="store_true", default=None, help="open a browser")
     show.add_argument("--no-show", dest="show", action="store_false", help="do not open a browser")
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.hosted and args.file is not None:
+        parser.error("--hosted opens no files; use --sample or --shot")
+    if args.hosted and args.auth != "none" and not os.environ.get("VAFT_GUI_PASSWORD"):
+        # serve() refuses too; said here without a traceback.
+        print("vaft gui: a hosted server needs its password set: export VAFT_GUI_PASSWORD", file=sys.stderr)
+        return 1
 
     from ..gui import require_panel
 
@@ -60,6 +78,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         show=args.show,
         websocket_origin=args.allow_websocket_origin,
         auth=args.auth,
+        hosted=args.hosted,
+        prefix=args.prefix,
         sample=args.sample,
         file=None if args.file is None else str(args.file),
         shot=args.shot,

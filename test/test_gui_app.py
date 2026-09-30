@@ -557,3 +557,77 @@ def test_serve_admits_the_page_on_the_address_it_binds(monkeypatch):
     with pytest.warns(UserWarning):
         gui_app.serve(address="10.0.0.5", port=5123)
     assert "10.0.0.5:5123" in calls[-1]["websocket_origin"]
+
+
+def test_a_hosted_app_offers_no_files_and_refuses_them(ods, monkeypatch, tmp_path):
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    hosted = gui_app.BrowserApp(_Session(), hosted=True)
+    try:
+        assert set(hosted.kind.options.values()) == {"sample", "shot"}
+        hosted.kind.value = "shot"
+        shown = hosted._source_inputs.objects
+        assert hosted.path not in shown and hosted.browse not in shown and hosted.upload not in shown
+        secret = tmp_path / "secret.json"
+        secret.write_text("{}")
+        assert hosted.load(Source("file", str(secret))) is False
+        assert "not files" in hosted.alert.object and not hosted.session.sources
+        # the widgets exist but are wired to nothing: no listing, no disk write
+        hosted.browse.value = True
+        assert hosted.browser is None
+        hosted.upload.param.update(filename=["a.json"], value=[b"{}"])
+        assert hosted._uploads is None
+        assert hosted.load(Source("sample", 39915))
+    finally:
+        hosted.close()
+    with pytest.raises(ValueError, match="opens no files"):
+        gui_app.build_app(file="eq.json", hosted=True)
+
+
+def test_serve_hosted_behind_a_proxy(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append((panels, kwargs)))
+    monkeypatch.delenv("SSH_CONNECTION", raising=False)
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="VAFT_GUI_PASSWORD"):
+        gui_app.serve(hosted=True)
+    assert not calls, "no server starts with a password nobody chose"
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "team")
+    gui_app.serve(hosted=True, prefix="gui/", websocket_origin=["vest.example.org"])
+    panels, kwargs = calls[-1]
+    assert kwargs["basic_auth"] == "team", "hosted always asks, even on loopback"
+    assert kwargs["use_xheaders"] is True and kwargs["prefix"] == "/gui"
+    assert "websocket_max_message_size" not in kwargs, "no uploads: Bokeh's cap stands"
+    assert kwargs["address"] == "127.0.0.1" and "vest.example.org" in kwargs["websocket_origin"]
+    built = []
+    monkeypatch.setattr(gui_app, "build_app", lambda **options: built.append(options) or SimpleNamespace(
+        view=lambda: None, close=lambda: None))
+    panels["/"]()
+    assert built[-1]["hosted"] is True
+    gui_app.serve(hosted=True, auth="none")
+    assert "basic_auth" not in calls[-1][1], "a proxy that authenticates may take over"
+
+
+def test_bokeh_accepts_every_origin_serve_admits(monkeypatch):
+    # pn.serve is stubbed everywhere else; an origin Bokeh cannot parse stops
+    # the real server before it listens.
+    from bokeh.server.util import create_hosts_allowlist
+
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "x")
+    gui_app.serve(port=5123)
+    gui_app.serve(hosted=True, websocket_origin=["vest.example.org"])
+    with pytest.warns(UserWarning):
+        gui_app.serve(address="0.0.0.0", port=5123)
+    for kwargs in calls:
+        assert create_hosts_allowlist(kwargs["websocket_origin"], kwargs["port"])
+
+
+def test_the_page_loads_plotly_up_front(monkeypatch):
+    # Loaded late, the page may never report idle, and the initial load that
+    # waits on that report never starts.
+    asked = []
+    monkeypatch.setattr(pn, "extension", lambda *names, **_: asked.append(names))
+    monkeypatch.setattr(pn.state, "onload", lambda callback: None)
+    gui_app.build_app(sample=39915).close()
+    assert asked and "plotly" in asked[-1]
