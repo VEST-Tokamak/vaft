@@ -31,6 +31,10 @@ notebooks:
     title: Analytic magnetic island and synthetic SXR response
     path: notebooks/analytic_island_model_and_synthetic_response_model.ipynb
     maturity: runnable
+  equilibrium-representations:
+    title: One equilibrium, many representations
+    path: notebooks/equilibrium_representation_reference.ipynb
+    maturity: runnable
   confinement-scaling:
     title: Confinement-time scaling
     path: notebooks/confinement_time_scaling.ipynb
