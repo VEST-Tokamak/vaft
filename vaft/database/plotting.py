@@ -321,14 +321,24 @@ def available_plots(
             shot, query=query, detail=detail, available_only=available_only, **filters
         )
     resolved = _resolve_source(source)
-    from .lazy_common import discover_hsds_ids
-    from . import utils
-
-    present = discover_hsds_ids(_h5pyd(utils), resolved, int(shot))
+    present = stored_ids(shot, resolved)
     return describe_by_ids(
         present, source=f"#{shot} ({resolved})", query=query, detail=detail,
         available_only=available_only, **filters,
     )
+
+
+def stored_ids(shot: Any, source: str | None = None) -> tuple[str, ...]:
+    """The IDS ``shot`` stores in ``source``, listed without reading any data.
+
+    What :func:`available_plots` judges a shot by.  A plot's declared IDS
+    include optional ones (an overlay's wall); a caller that fetches IDS for
+    a plot asks for the declared IDS the shot actually stores.
+    """
+    from .lazy_common import discover_hsds_ids
+    from . import utils
+
+    return tuple(discover_hsds_ids(_h5pyd(utils), _resolve_source(source), int(shot)))
 
 
 def _h5pyd(utils_module: Any) -> Any:

@@ -134,6 +134,12 @@ class SliceNavigator:
         )
 
 
+def _preset_first(values: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    """``values`` with the ``selection`` preset first, so channels given in the
+    same call survive the preset clearing them."""
+    return sorted(values.items(), key=lambda item: item[0] != "selection")
+
+
 class ControlState:
     """The current value of every control of one plot, with observers (issue #480).
 
@@ -149,7 +155,7 @@ class ControlState:
         self._by_name = {control.name: control for control in self._controls}
         self._values: dict[str, Any] = {control.name: control.default for control in self._controls}
         self._observers: list[Callable[["ControlState"], Any]] = []
-        for name, value in (values or {}).items():
+        for name, value in _preset_first(values or {}):
             self.set(name, value, notify=False)
 
     @property
@@ -177,6 +183,11 @@ class ControlState:
         value = control.validate(value)
         changed = value != self._values.get(name)
         self._values[name] = value
+        if name == "selection" and self._values.get("channels"):
+            # Choosing a preset means that preset: an explicit channel list
+            # left in place would keep replacing it (see as_options).
+            self._values["channels"] = ()
+            changed = True
         if changed and notify:
             self._notify()
         return changed
@@ -195,7 +206,7 @@ class ControlState:
     def update(self, **values: Any) -> bool:
         """Set several controls; observers run once if anything changed."""
         changed = False
-        for name, value in values.items():
+        for name, value in _preset_first(values):
             changed = self.set(name, value, notify=False) or changed
         if changed:
             self._notify()

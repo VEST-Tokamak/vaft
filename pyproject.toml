@@ -123,6 +123,13 @@ jupyter3d = ["k3d>=2.16"]
 # entirely. A kernel that later adopts it must keep a NumPy fallback that
 # produces the same result, and must import numba lazily inside that kernel.
 accel = ["numba"]
+# The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). Panel serves it
+# to a browser, so the same command works locally, over SSH port forwarding
+# and on a cluster node without X11. It is a presentation layer over the public
+# APIs and no computational module imports it; vaft.gui imports Panel only when
+# an app is built. The rest of the HoloViz stack (HoloViews, hvPlot, Datashader)
+# is deliberately not pulled in until a concrete view needs it.
+gui = ["panel>=1.9"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -145,6 +152,8 @@ dev = [
   "ipykernel>=7.2.0",
   "nbclient>=0.10",
   "nbformat>=5.10",
+  # so the GUI tests build the Panel app on the gate instead of skipping
+  "panel>=1.9",
 ]
 
 [project.urls]

@@ -21,6 +21,7 @@ _COMMANDS = {
     "plot": (".plot", "render a canonical plot for one or more shots"),
     "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
     "hsds": (".hsds", "configure HSDS credentials without echoing secrets"),
+    "gui": (".gui", "launch the browser GUI (needs vaft[gui])"),
 }
 
 

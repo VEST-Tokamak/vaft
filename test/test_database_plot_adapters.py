@@ -154,6 +154,17 @@ def test_available_plots_answers_from_the_domain_list_without_opening(monkeypatc
     assert "channels:" not in str(catalog)  # leaf-level facts need a loaded ODS
 
 
+def test_stored_ids_lists_the_domains_without_opening(monkeypatch):
+    fx = _fake_store_module()
+    module = fx.FakeH5pyd(_shot_files(fx))
+    from vaft.database import lazy_ods
+    monkeypatch.setattr(lazy_ods, "h5pyd", module)
+    stored = database.stored_ids(39915)
+    assert module.opened == [] and module.folder_calls == ["/main/39915/"]
+    assert "magnetics" in stored and "master" not in stored
+    assert "stored_ids" in dir(database)
+
+
 def test_available_plots_takes_a_loaded_object_or_nothing(sample_ods):
     assert database.available_plots(sample_ods).names() == vaft.omas.available_plots(sample_ods).names()
     assert database.available_plots().names() == vaft.omas.available_plots().names()

@@ -68,6 +68,21 @@ def test_as_options_leaves_out_none_and_style_and_lets_channels_replace_the_pres
     assert state.as_options() == {"time_slice": 2, "layout": "overlay", "synthetic": "equilibrium", "dark": False}
 
 
+def test_choosing_a_preset_clears_the_individual_channels_that_replaced_it():
+    specs = _specs() + (ControlSpec("selection", "choice", "Channels", "active", ("active", "inboard"), group="selection"),)
+    state = ControlState(specs, {"channels": [2], "selection": "active"})
+    assert state["channels"] == (2,), "given together, the explicit channels stay"
+    seen = []
+    state.subscribe(lambda s: seen.append(s.values["channels"]))
+    assert state.set("selection", "inboard") is True
+    assert state["channels"] == () and state.as_options()["selection"] == "inboard" and seen == [()]
+    state.set("channels", [0, 1])
+    # the preset shown is still "inboard": picking it again still means it
+    assert state.set("selection", "inboard") is True and state["channels"] == ()
+    state.update(channels=[1], selection="active")
+    assert state.as_options()["selection"] == [1]
+
+
 def test_a_slice_control_and_a_navigator_follow_each_other():
     state = ControlState(_specs())
     navigator = SliceNavigator([0.1, 0.2, 0.3, 0.4, 0.5], usable=[0, 2, 4], initial=2)
@@ -151,6 +166,16 @@ def test_the_matplotlib_strip_drives_the_state_and_follows_it(sample):
     channels.set_active(0)
     assert result.state["channels"] == (0,) and calls[-1]["selection"] == [0]
     assert result.figure.get_axes() and len(result.figure.subfigs) == 2
+    # a preset clears the channels in the state; the check boxes follow, so
+    # the next tick does not send the stale one back
+    preset = widgets[names.index("selection")]
+    preset.set_active(1)
+    assert result.state["channels"] == () and not any(channels.get_status())
+    channels.set_active(1)
+    assert result.state["channels"] == (1,)
+    # a change made from code moves the buttons without firing them
+    result.state.set("layout", "overlay")
+    assert layout.value_selected == "overlay"
 
 
 def test_plotly_figures_are_rebuilt_and_a_window_strip_is_refused(sample):

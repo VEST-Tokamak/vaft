@@ -476,6 +476,34 @@ def _matplotlib_controls(strip: Any, state: Any) -> list[Any]:
             axis.text(0, 0.5, f"{control.label}: {state[control.name]!r}", fontsize=8)
             widget = None
         widgets.append(widget)
+
+    def follow(current: Any) -> None:
+        # A change the state made itself -- a preset clearing the chosen
+        # channels -- must show on the buttons, or the next click would send
+        # the stale ticks back.  Toggling a button fires its callback, so the
+        # guard is held while the buttons are brought in line.
+        held, guards["busy"] = guards["busy"], True
+        try:
+            for control, widget in zip(controls, widgets):
+                if control.kind == "choice" and isinstance(widget, RadioButtons):
+                    value = current[control.name]
+                    if value in control.options:
+                        index = list(control.options).index(value)
+                        labels = control.labels or tuple(map(str, control.options))
+                        if widget.value_selected != labels[index]:
+                            widget.set_active(index)
+                elif control.kind in ("multi", "toggle") and isinstance(widget, CheckButtons):
+                    wanted = (
+                        [option in tuple(current[control.name] or ()) for option in control.options]
+                        if control.kind == "multi" else [bool(current[control.name])]
+                    )
+                    for index, (now, want) in enumerate(zip(widget.get_status(), wanted)):
+                        if now != want:
+                            widget.set_active(index)
+        finally:
+            guards["busy"] = held
+
+    state.subscribe(follow)
     return widgets
 
 

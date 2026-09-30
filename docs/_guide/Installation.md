@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines six extras; none is needed for the first result on this page:
+The project defines nine extras; none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -50,7 +50,8 @@ The project defines six extras; none is needed for the first result on this page
 | `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
 | `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
-| `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
+| `gui` | panel | `vaft gui`: the browser GUI, locally or through SSH port forwarding ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) |
+| `dev` | pytest, pytest-xdist, pre-commit, panel and the two runtimes above | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling
