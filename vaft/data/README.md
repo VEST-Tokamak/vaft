@@ -166,7 +166,10 @@ samples under `samples/` and `wheel_samples/` are regenerated through
 Wb and declares COCOS 11 on `equilibrium.code.parameters.cocos`, which every
 reader (`ods_psi_to_wb_per_radian_factor`, `as_equilibrium`) honours before
 probing the data. 41524 and 41672 (repository-only `imas.nc`) still hold the
-legacy Wb/rad and declare nothing; the probes settle them at read time. The committed sample is
+legacy Wb/rad and declare COCOS 1, and this frozen ODS (psi in Wb) declares
+COCOS 11, the same field. Each manifest records the evidence for its index;
+for 41524 and 41672 `generate_pipeline_imas_sample.py` reads it from
+`generation.canonical_equilibrium_cocos`. The committed sample is
 kept as a frozen artifact rather than regenerated -- do not overwrite it
 casually. Keep `user`
 pinned if you do regenerate (`dataset_description` otherwise stamps `$USER`,

@@ -11,7 +11,7 @@ source:
     the profiles were mapped on. The magnetic measurements enter only through the
     server EFIT k-file under efit_magnetic_server/; no magnetics IDS is packaged.'
   path: kineticEfit/ods_48224_300ms.json
-  sha256: b50eee7ba0b3a0f35800116532b942ef76725ccfc0b3e48063f833e53eab4f84
+  sha256: 10b4b6715a648c451c91a4e84870f663c920bf6af562ab33dad7852b9432347c
   raw_inputs:
   - path: kineticEfit/NeTe_48224.mat
     sha256: c574c82de7d9e62fe737ab321c575fc03671d699952272e8c9a07c15dcd858c4
@@ -25,8 +25,8 @@ representations:
     package: repository-only
     compatible_adapters:
     - omas
-    size: 713957
-    sha256: 6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7
+    size: 714077
+    sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
 generation:
   command: gzip.compress(open('vaft/data/kineticEfit/ods_48224_300ms.json','rb').read(),
     compresslevel=9, mtime=0)
@@ -34,8 +34,30 @@ generation:
   canonical_policy: repository-only
   note: omas.json.gz decompresses to the frozen kinetic-profile ODS byte for byte;
     nothing is re-derived. Its equilibrium is the g048224.00300 slice the core_profiles
-    were mapped on, so the profile coordinates and the equilibrium agree; it stores
-    psi in the legacy Wb/rad and declares no COCOS (readers probe it, see vaft/data/README.md).
+    were mapped on, so the profile coordinates and the equilibrium agree. Its psi is
+    in Wb (psi_axis is the g-file SIMAG times 2*pi, same sign), and it declares COCOS
+    11 on equilibrium.code.parameters.cocos (see equilibrium_cocos).
+  equilibrium_cocos: 11
+  equilibrium_cocos_evidence: 'Added in place on 2026-09-30, to the frozen ODS and to
+    omas.json.gz alike (two leaves, equilibrium.code.parameters.{cocos,cocos_source};
+    a leaf-by-leaf comparison shows no other leaf changed). The ODS was built by OMFIT
+    and declared nothing, and an earlier revision of this note said Wb/rad, which the
+    data contradict: the Ampere and dphi/dpsi-vs-q probes (slope 1.000) put psi in
+    the 11-18 family, and the signs of ip, b0, q and dpsi leave COCOS 11 or 12, which
+    differ only in sigma_RphiZ. B_Z = -(k/R) dpsi/dR from the stored psi map at the
+    64 probe positions of vaft/data/efit/dprobe.dat (AMP2 = -270 deg, +Z), k = +1/(2*pi)
+    (COCOS 11), agrees in sign with the server EFIT''s reconstructed probe field cmpr2
+    (efit_magnetic_server/m048224.00300) on 59/59 probes above 5 mT (median difference
+    1.1 mT); COCOS 12 agrees on 0/59. The measured expmpi cannot be used: it carries
+    the pre-#288 sign and the probes are weighted out (see efit_magnetic_server.notes).
+    The same EFIT-reconstruction test reproduces the measured +Bz field on 41524 and
+    41672, whose g-file psi is COCOS 1, the Wb/rad sibling of 11. The reference m-file
+    comes from the server EFIT run, while this ODS matches kineticEfit/g048224.00300
+    (SIMAG differs by 0.7 %); the signs, which are all the test uses, are unaffected.
+    Scope: this fixes the convention of the stored psi in EFIT''s own frame (the
+    reference is EFIT''s forward model); it does not settle the physical lab-frame
+    current direction, which stays open under issues 275/288
+    (equilibrium_orientation_is_resolved() is False).'
   wall: wall.description_2d.0.limiter.unit.0.outline is the full 17-point VEST limiter,
     identical to vaft.machine_mapping.wall, not the 5-point database stub.
   equilibria_command: 'scratch scripts run48224.py (magnetic run), kinetic_scan.py
