@@ -331,3 +331,27 @@ def test_separatrix_lobes_on_another_single_null_equilibrium():
     assert len(m["strike_points"]) >= 2
     with pytest.raises(ValueError, match="single-null"):
         vaft.diagram.separatrix_lobes(solovev_example("limited", a_parameter=0.0))
+
+
+def test_the_lobe_map_reads_psi_in_the_records_own_unit():
+    """A per-radian record (COCOS 1, what every g-file loads as) traces the same field lines as its full-weber
+    twin; before the map divided by 2 pi regardless, and the multipliers came out (15.9, 0.06) vs (1.55, 0.64)
+    on the same null. Cold review 0.8.0 diagram-B F1."""
+    import dataclasses
+
+    from vaft.process.equilibrium import convert_cocos, solovev_example
+
+    eq11 = solovev_example("single_null", a_parameter=0.0, major_radius=0.8, aspect_ratio=2.5)
+    eq1 = convert_cocos(eq11, 1)
+    assert eq11.convention.psi_per_radian is False and eq1.convention.psi_per_radian is True
+    a, b = mt.lobe_model_for(eq11), mt.lobe_model_for(eq1)
+    np.testing.assert_allclose(b["multipliers"], a["multipliers"], rtol=1e-6)
+    np.testing.assert_allclose(b["x_point"], a["x_point"], atol=1e-9)
+    for name in ("unstable", "stable"):
+        np.testing.assert_allclose(mt.strike_points(b["manifolds"][name], b["target_z"]),
+                                   mt.strike_points(a["manifolds"][name], a["target_z"]), atol=1e-6)
+    # a record that declares neither its COCOS nor its flux unit is refused, as the q adapter refuses it
+    unknown = dataclasses.replace(eq11, convention=dataclasses.replace(eq11.convention, cocos=None,
+                                                                        candidates=(), psi_per_radian=None))
+    with pytest.raises(ValueError, match="2 pi"):
+        mt.lobe_model_for(unknown)
