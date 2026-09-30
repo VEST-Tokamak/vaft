@@ -370,7 +370,10 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
         for name in declared or ():
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                obj = getattr(module, name)
+                try:
+                    obj = getattr(module, name)
+                except AttributeError:  # catalog_coverage.py reports the dangling name
+                    continue
             if inspect.ismodule(obj):
                 continue
             relocated = _access_warning(module, name)
