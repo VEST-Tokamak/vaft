@@ -127,6 +127,8 @@ __all__ = [
     "find_rational_surfaces",
     "StraightFieldLineMap",
     "lab_to_straight_field_line",
+    "pest_angle_from_jacobian_angle",
+    "DCON_JACOBIAN_ANGLE_WEIGHTS",
     "straight_field_line_angle_on_grid",
     "straight_field_line_map",
     "straight_field_line_tables",
@@ -5935,6 +5937,171 @@ def straight_field_line_map(
     rho, weight = _solve_rays(spline, psi_axis, psi_boundary, axis, theta, rho_edge, x_levels**2)
     nu = np.array([_integrate_periodic_rate(row) for row in weight])
     return StraightFieldLineMap(spline, psi_axis, psi_boundary, axis, x_levels, theta, rho, nu, rho_edge)
+
+
+#: The poloidal-angle weight each DCON jacobian carries, as the powers
+#: ``(power_r, power_b, power_bp)`` of ``R``, ``|B|`` and ``B_p`` in
+#: ``J = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``.
+#:
+#: Read off ``equil/equil.f`` (the ``SELECT CASE(jac_type)`` block that sets
+#: the three powers) and ``equil/inverse.f`` (the integrand whose normalized
+#: cumulative integral *is* DCON's poloidal angle).  A DCON angle is therefore
+#: fixed by its jacobian, and two of them on one surface are related by the
+#: ratio of their weights -- which is what
+#: :func:`pest_angle_from_jacobian_angle` integrates.
+DCON_JACOBIAN_ANGLE_WEIGHTS: dict[str, tuple[int, int, int]] = {
+    "hamada": (0, 0, 0),
+    "pest": (2, 0, 0),
+    "equal_arc": (0, 0, 1),
+    "boozer": (0, 2, 0),
+    "park": (0, 1, 0),
+}
+
+#: Which of :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` a caller holding only ``R`` on
+#: the mesh can convert.  ``|B|`` and ``B_p`` are not part of the
+#: ``coordinate_system`` an IMAS ``mhd_linear`` mesh carries, so a boozer,
+#: park or equal_arc angle cannot be relabelled from the mesh alone.
+_R_ONLY_JACOBIANS = ("hamada", "pest")
+
+
+def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
+    r"""Relabel a DCON flux-surface angle into the PEST angle, from ``R`` alone.
+
+    Parameters
+    ----------
+    theta_norm : array_like
+        One poloidal circuit of DCON's own angle, normalized so that a full
+        circuit spans 1, ascending, the last sample repeating the first
+        (``0 ... 1``) [-].
+    r : array_like
+        Major radius at those samples, on one flux surface [m].
+    jacobian : str
+        The ``jac_type`` the run solved in, a key of
+        :data:`DCON_JACOBIAN_ANGLE_WEIGHTS`; only ``"hamada"`` and ``"pest"``
+        are convertible from ``R`` alone [-].
+
+    Returns
+    -------
+    np.ndarray
+        The PEST angle at the same samples, ascending from ``0`` to ``2 pi``
+        [rad].
+
+    Raises
+    ------
+    ValueError
+        ``theta_norm`` and ``r`` disagree in shape, ``theta_norm`` does not
+        span one circuit normalized to 1, ``theta_norm`` is not strictly
+        increasing, ``r`` is not positive and finite, or *jacobian* is a
+        DCON jacobian whose weight needs a field this signature does not
+        take (``boozer``, ``park``, ``equal_arc``) or is not one at all.
+
+    Convention
+    ----------
+    **The PEST angle, referenced to the input angle's own origin.** Both
+    angles run in the same direction and start at the same point on the
+    surface, so ``theta_pest[0] = 0`` wherever ``theta_norm[0] = 0`` is:
+    the reparametrisation is monotonic and fixes no new origin. That matters
+    because a resonant harmonic phase GPEC reports -- ``arg(Phi_res)`` -- is
+    referenced to GPEC's angle origin, and a conversion that silently moved
+    the origin would rotate every pattern built on it.
+
+    **Only the poloidal angle is converted.** Hamada, PEST and Boozer are all
+    straight-field-line systems, but each pairs its poloidal angle with its
+    own toroidal angle; PEST is the one whose toroidal angle is the machine
+    angle ``phi``. So ``m theta - n phi`` is the helical phase in the PEST
+    angle and in no other, which is the reason to convert rather than to
+    accept any straight-field-line angle.
+
+    Applicability
+    -------------
+    Machine-independent. One flux surface of a DCON or GPEC run whose
+    ``jac_type`` is recorded. It says nothing about the radial label.
+
+    Processing steps
+    ----------------
+    1. Two angles on one surface satisfy ``J_1 d theta_1 = J_2 d theta_2``,
+       because the volume element between two surfaces does not depend on how
+       the surface is parametrised. With DCON's
+       ``J ~ R * B_p**power_bp * |B|**power_b / R**power_r`` that gives
+       ``d theta_pest / d theta_in = R**(power_r - 2) |B|**-power_b
+       B_p**-power_bp``.
+    2. For ``hamada`` (``0, 0, 0``) the weight is ``R**-2`` and no field is
+       needed; for ``pest`` it is 1 and the angle passes through unchanged.
+    3. Integrate that weight over the input angle by the trapezoid rule and
+       normalize the circuit to ``2 pi``.
+
+    Limitations
+    -----------
+    Exact to the quadrature only: the weight is integrated on the samples
+    given, so a coarse circuit converts coarsely. Measured against
+    :func:`straight_field_line_map` on the DIII-D GPEC example's 513-point
+    Hamada circuits, the agreement is 8e-06 rad at ``psi_N = 0.594`` and
+    9e-06 rad at 0.819, degrading to 1.9e-03 at 0.928 and 0.25 at 0.988 --
+    where the comparison, not this conversion, is the weaker side, because a
+    ray-traced angle map loses accuracy against the separatrix.
+
+    It is a *relabelling*, not a check: it cannot tell that the mesh really
+    is in the jacobian it was told, and a mesh labelled ``hamada`` that is
+    not will be converted confidently and wrongly.
+
+    Provenance
+    ----------
+    .. [1] GPEC ``equil/equil.f``, ``SELECT CASE(jac_type)``: the
+       ``(power_r, power_b, power_bp)`` of each named jacobian.
+    .. [2] GPEC ``equil/inverse.f``: DCON's poloidal angle is
+       ``spl%fsi(:,5) / spl%fsi(mtheta,5)``, the normalized cumulative
+       integral of ``r*jacfac * bp**power_bp * b**power_b / r**power_r``.
+    .. [3] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the
+       PEST coordinate system.
+    .. [4] vaft-mastu ``docs/migration/conventions_register.md`` C-44 and
+       ``docs/migration/status/V5P.md``, where the 8e-06 rad agreement above
+       is measured.
+    """
+    theta_norm = np.asarray(theta_norm, dtype=float).reshape(-1)
+    radius = np.asarray(r, dtype=float).reshape(-1)
+    if theta_norm.shape != radius.shape:
+        raise ValueError(
+            f"theta_norm has {theta_norm.size} samples and r has {radius.size}; "
+            "both describe the same poloidal circuit"
+        )
+    if theta_norm.size < 3:
+        raise ValueError(
+            f"a poloidal circuit needs at least three samples, not {theta_norm.size}"
+        )
+    key = str(jacobian).strip().lower()
+    if key not in DCON_JACOBIAN_ANGLE_WEIGHTS:
+        raise ValueError(
+            f"{jacobian!r} is not a DCON jacobian; expected one of "
+            f"{sorted(DCON_JACOBIAN_ANGLE_WEIGHTS)}"
+        )
+    if key not in _R_ONLY_JACOBIANS:
+        power_r, power_b, power_bp = DCON_JACOBIAN_ANGLE_WEIGHTS[key]
+        needs = "|B|" if power_b else "B_p"
+        raise ValueError(
+            f"a {key!r} poloidal angle is weighted by {needs} as well as R "
+            f"(power_r, power_b, power_bp = {power_r}, {power_b}, {power_bp}), "
+            "and this conversion is given only R; relabelling it needs the "
+            "field on the same mesh"
+        )
+    span = float(theta_norm[-1] - theta_norm[0])
+    if not np.isclose(span, 1.0, atol=1e-9):
+        raise ValueError(
+            f"theta_norm spans {span!r}, not one poloidal circuit normalized to 1"
+        )
+    if not np.all(np.diff(theta_norm) > 0.0):
+        raise ValueError("theta_norm must be strictly increasing over the circuit")
+    if not np.all(np.isfinite(radius)) or np.any(radius <= 0.0):
+        raise ValueError("r must be positive and finite everywhere on the circuit")
+    if key == "pest":
+        # Already the PEST angle; only the 2*pi normalisation is applied, so
+        # that a caller need not branch on the jacobian itself.
+        return 2.0 * np.pi * (theta_norm - theta_norm[0])
+    weight = radius ** -2.0
+    step = np.diff(theta_norm)
+    cumulative = np.concatenate(
+        ([0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * step))
+    )
+    return 2.0 * np.pi * cumulative / cumulative[-1]
 
 
 def straight_field_line_angle_on_grid(

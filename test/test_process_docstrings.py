@@ -266,6 +266,8 @@ CONVENTION_SENSITIVE = frozenset({
     # helicity, |q| resonance, the chord grid's cell convention
     "straight_field_line_angle_on_grid",
     "straight_field_line_map",
+    # V5P / C-44: which straight-field-line angle, and whose toroidal partner
+    "pest_angle_from_jacobian_angle",
     "equilibrium_safety_factor",
     "resolve_rational_surface",
     "magnetic_island_topology",
