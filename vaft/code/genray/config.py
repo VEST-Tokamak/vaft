@@ -13,6 +13,7 @@ setting; the launched power and Zeff are taken from the ODS or must be passed.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional
@@ -103,12 +104,20 @@ class GENRAYConfig:
             raise ValueError("n_rho must be at least 3")
         if int(self.harmonic) < 1:
             raise ValueError("harmonic must be a positive integer")
-        if self.power_w is not None and not float(self.power_w) > 0.0:
-            raise ValueError("power_w must be positive")
-        if self.zeff is not None and not float(self.zeff) >= 1.0:
-            raise ValueError("zeff must be at least 1")
-        if self.minimum_temperature_ev is not None and not float(self.minimum_temperature_ev) > 0.0:
-            raise ValueError("minimum_temperature_ev must be positive")
+        # ``inf``/``nan`` would pass a bare ``inf`` token into genray.dat.
+        if self.power_w is not None and not (
+            math.isfinite(float(self.power_w)) and float(self.power_w) > 0.0
+        ):
+            raise ValueError("power_w must be a finite positive number")
+        if self.zeff is not None and not (
+            math.isfinite(float(self.zeff)) and float(self.zeff) >= 1.0
+        ):
+            raise ValueError("zeff must be a finite number of at least 1")
+        if self.minimum_temperature_ev is not None and not (
+            math.isfinite(float(self.minimum_temperature_ev))
+            and float(self.minimum_temperature_ev) > 0.0
+        ):
+            raise ValueError("minimum_temperature_ev must be a finite positive number")
 
     @property
     def ioxm(self) -> int:
