@@ -895,3 +895,33 @@ def test_major_radius_must_match_the_parameter_files_r0(tmp_path):
             _ods(),
             NiceConfig(time=0.35, workdir=tmp_path / "case2", parameter_file=parameter),
         )
+
+
+def test_a_probe_without_poloidal_angle_is_disabled_not_measured_at_zero():
+    """F4: the measurement direction is unknown, so the channel cannot be fitted."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.b_field_pol_probe.0.poloidal_angle"]
+    probe = next(
+        d for d in diagnostics_from_ods(ods, 0.35, NiceConfig()) if d.family == "bpol_probe"
+    )
+    assert not probe.enabled
+    assert "poloidal_angle" in probe.reason
+    assert probe.geometry["poloidal_angle"] is None
+
+
+def test_diagnostics_do_not_materialise_missing_paths_in_the_callers_ods():
+    """N1: reading ``magnetics.ip`` when absent must not create it."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.ip"]
+    ip = next(
+        d
+        for d in diagnostics_from_ods(ods, 0.35, NiceConfig(include_diamagnetic_flux=True))
+        if d.family == "plasma_current"
+    )
+    assert not ip.enabled
+    assert "magnetics.ip" not in ods
+    assert "magnetics.diamagnetic_flux" not in ods
