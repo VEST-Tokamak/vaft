@@ -148,7 +148,10 @@ class FakeRunner:
 
 
 @pytest.fixture()
-def setup(tmp_path):
+def setup(tmp_path, monkeypatch):
+    # The fake runner never starts Snakemake, so the process scan the re-check
+    # makes before moving a raw dump would only see other sessions' runs.
+    monkeypatch.setattr("vaft.database.worker.service.live_snakemake_in", lambda workflow_dir: False)
     pipeline = {
         "base_dir": str(tmp_path / "filedb"),
         "layout": "filedb",
@@ -776,6 +779,47 @@ def test_late_fields_reprocess_a_finished_shot(setup):
     assert len(runner.plans) == 2
     kinds = [e["kind"] for e in worker.state.events(shot=101)]
     assert kinds.count("late_fields_ignored") == 1
+
+
+@pytest.mark.parametrize("live", [True, None])
+def test_late_fields_are_not_acted_on_while_another_snakemake_runs(setup, monkeypatch, live):
+    """cold review 0.8.0 workflows F3: the raw dump is a manual run's input too.
+
+    ``recheck`` moved it before ``run_batch`` took the Snakemake lock, so a
+    manual run on the same shot lost its input mid-run.  A live (or
+    undeterminable) Snakemake in the workflow directory defers the move.
+    """
+    config, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    raw_manifest = Path(worker.harvester.paths.raw_manifest(101))
+
+    scans = []
+
+    def fake_live(workflow_dir):
+        scans.append(workflow_dir)
+        return live
+
+    monkeypatch.setattr("vaft.database.worker.service.live_snakemake_in", fake_live)
+    source.add(101, fields={*FULL_FIELDS, 102})
+    report = worker.run_cycle()
+
+    assert scans == [config.workflow_dir]
+    assert report.reprocessed == [] and len(runner.plans) == 1
+    assert raw_manifest.exists() and not (config.log_dir / "superseded").exists()
+    row = worker.state.shot(101)
+    assert row["state"] == S.COMPLETED and row["reprocessed"] == 0
+    kinds = [e["kind"] for e in worker.state.events(shot=101)]
+    assert kinds.count("recheck_deferred") == 1 and "reprocess" not in kinds
+
+    # Once the other run is gone the late fields are acted on as before.
+    monkeypatch.setattr("vaft.database.worker.service.live_snakemake_in", lambda workflow_dir: False)
+    report = worker.run_cycle()
+    assert report.reprocessed == [101] and len(runner.plans) == 2
+    assert worker.state.shot(101)["reprocessed"] == 1
 
 
 def test_a_stale_lock_found_while_busy_is_removed(setup):
