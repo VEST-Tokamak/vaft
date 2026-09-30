@@ -48,15 +48,21 @@ def _fake_response(spec, *, target="plasma_current", q95=None):
 class FakeSynthesis:
     """Records every call; returns fake achieved descriptors, optionally failing."""
 
-    def __init__(self, fail_at=None, fail_status="non_converged", drop=()):
+    def __init__(self, fail_at=None, fail_status="non_converged", drop=(), response=None, make_dirs=False):
         self.calls, self.fail_at, self.fail_status, self.drop = [], fail_at, fail_status, drop
+        self.response, self.make_dirs = response or _fake_response, make_dirs
+
+    def _fails(self, index, spec):
+        return self.fail_at(index, spec) if callable(self.fail_at) else index == self.fail_at
 
     def __call__(self, spec, *, config=None, target="plasma_current", q95=None, **kwargs):
         self.calls.append(dict(spec=spec, target=target, q95=q95, config=config, **kwargs))
+        if self.make_dirs:
+            config.workdir.mkdir(parents=True)
         requested = {"plasma_current": spec.plasma_current}
-        if len(self.calls) - 1 == self.fail_at:
+        if self._fails(len(self.calls) - 1, spec):
             return SyntheticEquilibriumResult(self.fail_status, "fake failure", spec, target, requested)
-        achieved = {k: v for k, v in _fake_response(spec, target=target, q95=q95).items() if k not in self.drop}
+        achieved = {k: v for k, v in self.response(spec, target=target, q95=q95).items() if k not in self.drop}
         return SyntheticEquilibriumResult("success", None, spec, target, requested, achieved=achieved)
 
 
@@ -264,3 +270,144 @@ def test_chease_refuses_q95_6_at_100_ka_as_not_reachable(tmp_path):
                                                config=CHEASEConfig(workdir=tmp_path, **COARSE))
     assert result.status == "not_reachable", result.reason
     assert result.reachable["q95"][1] < 3.0
+
+
+# --- review follow-ups ------------------------------------------------------------
+
+
+def _patched(monkeypatch, **kwargs):
+    stub = FakeSynthesis(**kwargs)
+    monkeypatch.setattr(synthesis, "synthesize_equilibrium_from_0d", stub)
+    return stub
+
+
+@pytest.mark.parametrize("step", [0.0, -0.05, 0.51, float("nan"), "0.1"])
+def test_a_jacobian_step_outside_its_range_is_refused(fake, step):
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35}, jacobian_step=step)
+    assert result.status == "invalid_request" and "jacobian_step" in result.reason and not fake.calls
+
+
+@pytest.mark.parametrize("current_beta", [0.3, 6.0])
+def test_probes_from_a_bound_stay_inside_and_are_recorded_as_solved(fake, current_beta):
+    spec = dataclasses.replace(VEST, current_beta=current_beta)
+    result = synthesize_equilibrium_to_targets(spec, {"plasma_current": 1e5, "q95": 2.3, "beta_p": 0.6},
+                                               jacobian_step=0.5)
+    _within_bounds(result)
+    knob = result.assignment["q95"]
+    for record in result.history:                      # the record is what was handed to the synthesis
+        assert record.result.spec.current_beta == record.knobs["current_beta"]
+    probe = next(r for r in result.history if r.purpose == "jacobian")
+    assert knob.to_unit(probe.knobs["current_beta"]) == pytest.approx(0.5)
+
+
+def test_a_flat_response_without_a_solved_bound_is_stalled(monkeypatch):
+    def flat(spec, **kw):
+        return dict(_fake_response(spec, **kw), q95=2.2)
+    _patched(monkeypatch, response=flat)
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35})
+    assert result.status == "stalled" and "does not respond" in result.reason
+    assert not any(r.knobs["current_beta"] in (0.3, 6.0) for r in result.history)
+
+
+def test_a_singular_jacobian_is_stalled_not_unreachable(monkeypatch):
+    def pf_blind(spec, **kw):
+        return _fake_response(dataclasses.replace(spec, pressure_fraction=0.5), **kw)
+    _patched(monkeypatch, response=pf_blind)
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.3, "beta_p": 0.6})
+    assert result.status == "stalled" and "singular" in result.reason
+
+
+def test_the_2d_verdict_cites_the_solved_bound(fake):
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 3.0, "beta_p": 0.4})
+    assert result.status == "not_reachable" and "solved at that bound" in result.reason
+    solve = int(result.reason.split("(solve ")[1].split(")")[0])
+    assert result.history[solve].ok and result.history[solve].knobs["current_beta"] == 0.3
+    assert result.history[solve].residuals["q95"] < 0 and result.history[0].residuals["q95"] < 0
+
+
+def test_without_a_valid_bound_solve_the_2d_verdict_is_stalled(monkeypatch):
+    stub = _patched(monkeypatch, fail_at=lambda i, spec: spec.current_beta == 0.3)
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 3.0, "beta_p": 0.4})
+    assert result.status == "stalled" and "bound was not solved" in result.reason
+    assert "trial solve(s) failed" in result.reason                # the failures are named
+    failed = [r for r in result.history if not r.ok]
+    assert failed and all(f"solve {r.solve} non_converged" in result.reason for r in failed)
+    assert len(stub.calls) == len(result.history)
+
+
+@pytest.mark.parametrize("status, state", [("timeout", "chease_failed"), ("boundary_mismatch", "validation_failed")])
+def test_a_line_search_with_no_valid_trial_ends_failed(monkeypatch, status, state):
+    _patched(monkeypatch, fail_at=lambda i, spec: i >= 3, fail_status=status)   # after the Jacobian
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.3, "beta_p": 0.6})
+    assert result.status == state and "no line-search trial" in result.reason
+    assert result.record is not None and result.record.ok and result.record.solve < 3
+
+
+def test_a_converged_run_names_its_failed_trials(monkeypatch):
+    _patched(monkeypatch, fail_at=3)                                # the first full Newton step
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.3, "beta_p": 0.6})
+    assert result.status == "converged" and "solve 3 non_converged" in result.reason
+    assert result.history[3].purpose == "newton" and not result.history[3].ok
+
+
+def test_the_2d_reachable_range_counts_valid_solves_only(monkeypatch):
+    def poisoned(spec, **kw):
+        return dict(_fake_response(spec, **kw), q95=99.0) if spec.current_beta == 0.3 else _fake_response(spec, **kw)
+    stub = _patched(monkeypatch, response=poisoned, fail_at=lambda i, spec: spec.current_beta == 0.3,
+                    fail_status="boundary_mismatch")
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 3.0, "beta_p": 0.4})
+    assert all(r.achieved.get("q95") != 99.0 or not r.ok for r in result.history)
+    for low, high in result.reachable.values():
+        assert high < 99.0
+    assert stub.calls
+
+
+def test_the_1d_verdict_reports_the_record_it_cites(fake):
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 6.0})
+    assert result.status == "not_reachable"
+    assert f"solve {result.record.solve}, the reported one" in result.reason
+
+
+@pytest.mark.parametrize("options", [dict(target="q95"), dict(q95=3.0), dict(current_tolerance=0.1),
+                                     dict(q95_tolerance=0.1)])
+def test_options_the_outer_solve_owns_are_refused(fake, options):
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35}, **options)
+    assert result.status == "invalid_request" and "set by the outer solve" in result.reason and not fake.calls
+
+
+def test_a_tolerance_for_a_non_target_is_refused(fake):
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35},
+                                               tolerances={"beta_p": 0.05})
+    assert result.status == "invalid_request" and "beta_p" in result.reason and not fake.calls
+
+
+def test_temporary_solve_directories_are_removed_except_the_reported_one(monkeypatch):
+    stub = _patched(monkeypatch, make_dirs=True)
+    result = synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35})
+    dirs = [call["config"].workdir for call in stub.calls]
+    assert len({d.parent for d in dirs}) == 1                          # one temporary parent
+    kept = [d for d in dirs if d.exists()]
+    assert kept == [dirs[result.record.solve]]
+    import shutil
+
+    shutil.rmtree(dirs[0].parent)
+
+
+def test_an_explicit_workdir_keeps_every_solve(monkeypatch, tmp_path):
+    stub = _patched(monkeypatch, make_dirs=True)
+    synthesize_equilibrium_to_targets(VEST, {"plasma_current": 1e5, "q95": 2.35},
+                                      config=CHEASEConfig(workdir=tmp_path))
+    assert all(call["config"].workdir.exists() and call["config"].workdir.parent == tmp_path
+               for call in stub.calls)
+
+
+def test_a_pressure_profile_needs_a_positive_pressure_fraction_bound(fake):
+    from vaft.process.profile import analytic_hmode_state
+
+    spec = dataclasses.replace(VEST, pressure_profile=analytic_hmode_state())
+    refused = synthesize_equilibrium_to_targets(spec, {"plasma_current": 1e5, "beta_p": 0.3},
+                                                knobs={"beta_p": ("pressure_fraction", 0.0, 0.9)})
+    assert refused.status == "invalid_request" and "pressure_profile" in refused.reason and not fake.calls
+    assert DEFAULT_KNOBS["pressure_share"].lower == 0.02
+    ok = synthesize_equilibrium_to_targets(spec, {"plasma_current": 1e5, "beta_p": 0.3})
+    assert ok.status != "invalid_request"

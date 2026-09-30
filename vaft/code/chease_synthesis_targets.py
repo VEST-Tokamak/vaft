@@ -59,16 +59,35 @@ knob values, the requested targets and what that solve *achieved*.  An
 achieved value is only ever read from the solved equilibrium; a descriptor the
 solve did not produce is absent, never filled in from the request.
 
-End states: ``converged``, ``max_iterations``, ``not_reachable`` (the target
-lies outside what the knob bounds reach, or the Jacobian is singular),
-``stalled`` (no descent inside the bounds), ``chease_failed`` (no solution or a
-timeout), ``validation_failed`` (the single-target synthesis rejected the
-solution: boundary, signs, the imposed target, a requested pressure shape),
-``unsupported_target`` and ``invalid_request`` (refused before solving).
+End states: ``converged``, ``max_iterations``, ``not_reachable``, ``stalled``
+(no descent, a flat response or a singular Jacobian, with no bound shown to be
+limiting), ``chease_failed`` (no solution or a timeout), ``validation_failed``
+(the single-target synthesis rejected the solution: boundary, signs, the
+imposed target, a requested pressure shape), ``unsupported_target`` and
+``invalid_request`` (refused before solving).  A failed *trial* step of the
+line search does not end the loop; it is halved, and every such failure is
+named in the final reason.  If no trial of a line search gave a valid solve,
+the loop ends ``chease_failed`` (``validation_failed`` when every failure was
+a rejected solution).
 
-The 1-D ``not_reachable`` verdict assumes the descriptor is monotone in the
-knob between the bounds, which holds for the knobs above; it is asserted only
-after the relevant bound itself has been solved.
+What ``not_reachable`` checks -- nothing more:
+
+* **1-D**: the knob has been *solved at its bound*, the residual there has
+  the same sign as at every other solve (no bracket), and the secant still
+  points past that bound.  Calling that unreachable assumes the descriptor is
+  monotone in the knob between the bounds, which holds for the knobs above.
+* **2-D**: the projected Newton step gives no descent, the full step leaves
+  the bounds of a knob, that knob has been *solved at that bound* (the current
+  iterate sits on it, or the loop solves it there first), and the residual of
+  the target that knob controls has there the same sign as at the initial
+  solve.  Without the bound solve, or when the sign flipped, it is
+  ``stalled``: the linear model alone is no proof.
+
+Working directories: under an explicit ``config.workdir`` (or a
+``workdir_factory``) every solve keeps its own directory.  Otherwise one
+temporary parent is made per call and, at the end, every solve directory but
+the reported one is removed, so only ``record.result``'s files remain on disk
+(the other records keep their in-memory descriptors and ODS).
 """
 
 from __future__ import annotations
@@ -117,6 +136,12 @@ MULTI_TARGET_STATUSES = ("converged", "max_iterations", "not_reachable", "stalle
 
 #: Single-target states that mean nothing was solved.
 _CHEASE_FAILURES = ("non_converged", "timeout")
+
+#: Options of the single-target synthesis the outer solve sets itself.
+_OWNED_OPTIONS = ("target", "q95", "current_tolerance", "q95_tolerance")
+
+#: Largest accepted ``jacobian_step``, a fraction of the knob range.
+_MAX_STEP = 0.5
 
 
 @dataclass(frozen=True)
@@ -299,6 +324,9 @@ def assign_knobs(spec: ZeroDimensionalEquilibriumSpec, targets: Mapping[str, flo
             raise ValueError(f"invalid_request: knob {choice.name} needs lower < upper")
         if choice.name == "pressure_fraction" and not (0 <= choice.lower and choice.upper < 1):
             raise ValueError("invalid_request: pressure_fraction bounds must lie in [0, 1)")
+        if choice.name == "pressure_fraction" and spec.pressure_profile is not None and not choice.lower > 0:
+            raise ValueError("invalid_request: with a pressure_profile the pressure_fraction lower bound must be "
+                             "above 0, where the profile would be discarded")
         if choice.name != "pressure_fraction" and not choice.lower > 0:
             raise ValueError(f"invalid_request: {choice.name} bounds must be positive")
         assignment[name] = choice
@@ -338,17 +366,23 @@ def synthesize_equilibrium_to_targets(
     tolerance : float, optional
         Relative tolerance of every target (numerical convenience) [-].
     tolerances : Mapping[str, float], optional
-        Per-target relative tolerances overriding *tolerance* [-].
+        Per-target relative tolerances overriding *tolerance*; a key that is
+        not a target is refused [-].
     max_iterations : int, optional
         Largest number of outer iterations (secant or Newton steps) [-].
     jacobian_step : float, optional
         First secant probe and forward-difference step, as a fraction of each
-        knob's range (in ``log`` for the shape exponents) [-].
+        knob's range (in ``log`` for the shape exponents), in ``(0, 0.5]``;
+        a probe is taken toward the interior and clamped to the bounds, and
+        the step actually solved is the one used [-].
     workdir_factory : callable, optional
-        ``solve_index -> workdir`` overriding the per-solve directories [-].
+        ``solve_index -> workdir`` overriding the per-solve directories; they
+        are never removed [-].
     **synthesis_options
         Passed to every :func:`~vaft.code.chease_synthesis.synthesize_equilibrium_from_0d`
-        call (boundary and pressure-shape tolerances) [-].
+        call (boundary and pressure-shape tolerances).  ``target``, ``q95``,
+        ``current_tolerance`` and ``q95_tolerance`` are set by the
+        outer solve and refused here [-].
 
     Returns
     -------
@@ -358,10 +392,19 @@ def synthesize_equilibrium_to_targets(
         reachable range seen at the knob bounds when a target is out of reach [-].
     """
     targets = {str(k): float(v) for k, v in targets.items()}
+    extra = sorted(set(tolerances or {}) - set(targets))
     tolerances = {name: float((tolerances or {}).get(name, tolerance)) for name in targets}
     out = MultiTargetSynthesisResult("invalid_request", None, spec, targets, tolerances=tolerances)
     if not targets:
         out.reason = "no targets"
+        return out
+    owned = sorted(set(synthesis_options) & set(_OWNED_OPTIONS))
+    if owned or extra:
+        out.reason = (f"synthesis options {owned} are set by the outer solve itself" if owned
+                      else f"tolerances name {extra}, which are not targets")
+        return out
+    if not (isinstance(jacobian_step, (int, float)) and 0 < jacobian_step <= _MAX_STEP):
+        out.reason = f"jacobian_step must lie in (0, {_MAX_STEP:g}], got {jacobian_step!r}"
         return out
     try:
         imposed, assignment = assign_knobs(spec, targets, knobs)
@@ -387,11 +430,13 @@ def synthesize_equilibrium_to_targets(
             loop.check(loop.evaluate(x0, 0, "initial"))
             loop.end("validation_failed", "the imposed target was not met")
         elif len(names) == 1:
-            loop.secant(x0[0], max_iterations, jacobian_step)
+            loop.secant(x0[0], max_iterations, float(jacobian_step))
         else:
-            loop.newton(np.asarray(x0), max_iterations, jacobian_step)
+            loop.newton(np.asarray(x0), max_iterations, float(jacobian_step))
     except _Stop:
         pass
+    finally:
+        loop.cleanup()
     return out
 
 
@@ -406,6 +451,22 @@ class _Loop:
         self.tolerances, self.config, self.factory, self.options, self.out = (
             tolerances, config, workdir_factory, options, out)
         self.last: TargetIterationRecord | None = None
+        self.failed_trials: list[TargetIterationRecord] = []
+        self.temporary_parent = None
+        self.temporary_dirs: dict[int, Any] = {}
+
+    def cleanup(self) -> None:
+        """Remove the temporary solve directories except the reported one (explicit workdirs are kept)."""
+        import shutil
+
+        if self.temporary_parent is None:
+            return
+        keep = self.out.record.solve if self.out.record is not None else None
+        for index, path in self.temporary_dirs.items():
+            if index != keep:
+                shutil.rmtree(path, ignore_errors=True)
+        if keep is None:
+            shutil.rmtree(self.temporary_parent, ignore_errors=True)
 
     # --- one solve -------------------------------------------------------------
 
@@ -418,7 +479,10 @@ class _Loop:
         elif self.config is not None and Path(self.config.workdir) != Path("."):
             workdir = Path(self.config.workdir)/f"solve_{index:02d}"
         else:
-            workdir = Path(tempfile.mkdtemp(prefix=f"vaft-0d-targets-{index:02d}-"))
+            if self.temporary_parent is None:
+                self.temporary_parent = Path(tempfile.mkdtemp(prefix="vaft-0d-targets-"))
+            workdir = self.temporary_parent/f"solve_{index:02d}"
+            self.temporary_dirs[index] = workdir
         settings = dict(vars(self.config)) if self.config is not None else {}
         settings["workdir"] = workdir
         return CHEASEConfig(**settings)
@@ -461,6 +525,10 @@ class _Loop:
 
     def end(self, status: str, reason: str | None, record: TargetIterationRecord | None = None):
         valid = [r for r in self.out.history if r.ok and math.isfinite(self.merit(r))]
+        if self.failed_trials:
+            note = (f"{len(self.failed_trials)} line-search trial solve(s) failed and were halved: "
+                    + ", ".join(f"solve {r.solve} {r.status}" for r in self.failed_trials))
+            reason = f"{reason}; {note}" if reason else note
         self.out.status, self.out.reason = status, reason
         self.out.record = record if record is not None else (min(valid, key=self.merit) if valid else None)
         raise _Stop
@@ -480,7 +548,7 @@ class _Loop:
             self.end("converged", None, record)
 
     def _range(self, name: str, records) -> tuple:
-        values = [r.achieved[name] for r in records if name in r.achieved]
+        values = [r.achieved[name] for r in records if r.ok and name in r.achieved]
         return (min(values), max(values)) if values else ()
 
     # --- 1-D: bracketing secant ------------------------------------------------
@@ -491,6 +559,7 @@ class _Loop:
         points: list[tuple[float, float, TargetIterationRecord]] = []   # (u, residual, record)
 
         def solve(u, iteration, purpose):
+            u = min(max(float(u), 0.0), 1.0)               # the coordinate stored is the one solved
             record = self.evaluate([knob.from_unit(u)], iteration, purpose)
             self.check(record)
             points.append((u, record.residuals[name], record))
@@ -516,7 +585,10 @@ class _Loop:
                 continue
             (ua, fa, _), (ub, fb, _) = points[-2], points[-1]
             if fa == fb:
-                self._unreachable_1d(name, knob, points, "the descriptor does not respond to the knob")
+                if any(p[0] in (0.0, 1.0) for p in points):
+                    self._unreachable_1d(name, knob, points, "the descriptor does not respond to the knob")
+                self.end("stalled", f"{name} does not respond to {knob.name} between the last two solves "
+                         "and no bound has been solved")
             guess = ub - fb*(ub - ua)/(fb - fa)
             clipped = min(max(guess, 0.0), 1.0)
             if clipped != guess:
@@ -533,8 +605,9 @@ class _Loop:
         nearest = min(points, key=lambda p: abs(p[1]))
         self.end("not_reachable", (why + "; " if why else "") +
                  f"{name} = {self.targets[name]:g} is outside the range {lo:.4g}..{hi:.4g} of the solves; the "
-                 f"closest, {nearest[2].achieved[name]:.4g}, is at {knob.name} = {knob.from_unit(nearest[0]):.4g} "
-                 f"(bounds [{knob.lower:g}, {knob.upper:g}]), and the residual keeps its sign there")
+                 f"closest, {nearest[2].achieved[name]:.4g} (solve {nearest[2].solve}, the reported one), is at "
+                 f"{knob.name} = {knob.from_unit(nearest[0]):.4g} (bounds [{knob.lower:g}, {knob.upper:g}]), and "
+                 "the residual keeps its sign at the solved bound", record=nearest[2])
 
     # --- 2-D: damped Newton ----------------------------------------------------
 
@@ -545,22 +618,24 @@ class _Loop:
         def solve(u, iteration, purpose, trial=False):
             record = self.evaluate([k.from_unit(v) for k, v in zip(knobs, u)], iteration, purpose)
             if trial and not record.ok:
-                return record, None                        # a failed trial step is halved, not fatal
+                self.failed_trials.append(record)          # a failed trial step is halved, not fatal
+                return record, None
             self.check(record)
             return record, np.array([record.residuals[n] for n in self.names])/scale
 
-        u = np.array([k.to_unit(x) for k, x in zip(knobs, x0)])
-        _, f = solve(u, 0, "initial")
+        u = np.clip([k.to_unit(x) for k, x in zip(knobs, x0)], 0.0, 1.0)
+        initial, f = solve(u, 0, "initial")
+        current = initial                                  # the solve at the accepted iterate u
         for iteration in range(1, max_iterations + 1):
             jacobian = np.empty((2, 2))
             for k in range(2):
-                du = step if u[k] + step <= 1 else -step
                 probe = u.copy()
-                probe[k] += du
+                probe[k] = min(max(u[k] + (step if u[k] + step <= 1 else -step), 0.0), 1.0)
+                du = probe[k] - u[k]                       # the step actually solved
                 _, fk = solve(probe, iteration, "jacobian")
                 jacobian[:, k] = (fk - f)/du
             if not np.all(np.isfinite(jacobian)) or np.linalg.cond(jacobian) > 1e8:
-                self.end("not_reachable", "the knobs do not move the targets independently here "
+                self.end("stalled", "the knobs do not move the targets independently here "
                          f"(finite-difference Jacobian {jacobian.tolist()} is singular)")
             full = -np.linalg.solve(jacobian, f)
             # Knobs whose Newton step leaves the bounds: the linearized root lies outside the box.
@@ -568,27 +643,55 @@ class _Loop:
             # Project the Newton step onto the box once, then damp along the projected direction.
             direction = np.clip(u + full, 0.0, 1.0) - u
             norm, damping, accepted = float(np.linalg.norm(f)), 1.0, False
+            trials, failures = 0, 0
             for _ in range(4):
                 if np.max(np.abs(damping*direction)) < 1e-6:
                     break
-                trial = u + damping*direction
-                _, ft = solve(trial, iteration, "newton" if damping == 1.0 else "line_search", trial=True)
+                trial = np.clip(u + damping*direction, 0.0, 1.0)
+                record, ft = solve(trial, iteration, "newton" if damping == 1.0 else "line_search", trial=True)
+                trials, failures = trials + 1, failures + (ft is None)
                 if ft is not None and np.linalg.norm(ft) < norm:
-                    u, f, accepted = trial, ft, True
+                    u, f, current, accepted = trial, ft, record, True
                     break
                 damping *= 0.5
             if accepted:
                 continue
-            if outward:
+            if trials and failures == trials:
+                recent = self.failed_trials[-failures:]
+                self.end("chease_failed" if any(r.status in _CHEASE_FAILURES for r in recent)
+                         else "validation_failed",
+                         f"no line-search trial of iteration {iteration} gave a valid solve")
+            bound = np.array(u)
+            for k in outward:
+                bound[k] = 1.0 if u[k] + full[k] > 1.0 else 0.0
+            wanted = {kn.name: kn.from_unit(v) for kn, v in zip(knobs, bound)}
+            solved = next((r for r in self.out.history if r.ok and r.knobs == wanted), None)
+            if outward and not np.array_equal(bound, u) and solved is not None:
+                at_bound = solved                          # a trial step already solved that bound point
+            elif outward and not np.array_equal(bound, u):
+                # Solve at the bound before claiming it limits: the linear model is no proof.
+                record, fb = solve(bound, iteration, "bound", trial=True)
+                if fb is not None and np.linalg.norm(fb) < norm:
+                    u, f, current = bound, fb, record
+                    continue
+                at_bound = record if fb is not None else None
+            else:
+                at_bound = current                         # the accepted iterate already sits on the bound
+            kept = [k for k in outward if at_bound is not None
+                    and np.sign(at_bound.residuals[self.names[k]]) == np.sign(initial.residuals[self.names[k]])]
+            if kept:
                 ranges = {n: self._range(n, self.out.history) for n in self.names}
                 self.out.reachable = ranges
                 self.end("not_reachable", "the Newton step leaves the bounds of "
-                         + ", ".join(f"{knobs[k].name} [{knobs[k].lower:g}, {knobs[k].upper:g}]" for k in outward)
-                         + " and no projected step reduces the residual; the targets lie outside what "
-                         "the bounds reach (ranges seen: "
+                         + ", ".join(f"{knobs[k].name} [{knobs[k].lower:g}, {knobs[k].upper:g}]" for k in kept)
+                         + f"; solved at that bound (solve {at_bound.solve}) the residual of "
+                         + ", ".join(self.names[k] for k in kept)
+                         + " keeps the sign it had at the initial solve and no projected step reduces the "
+                         "residual (valid-solve ranges: "
                          + ", ".join(f"{n} {r[0]:.4g}..{r[1]:.4g}" for n, r in ranges.items() if r) + ")")
             self.end("stalled", "no damped Newton step inside the bounds reduces the residual "
-                     f"(tolerance-scaled norm {norm:.3g})")
+                     f"(tolerance-scaled norm {norm:.3g})"
+                     + ("; the bound was not solved validly or the residual changed sign there" if outward else ""))
         self.end("max_iterations", f"{self.names} not within tolerance after {max_iterations} iterations")
 
 
