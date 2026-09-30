@@ -28,13 +28,15 @@ PNGs.  Each rendered entry records the SHA-256 of
 :func:`check` treats the cases differently, by design:
 
 problems (the check fails)
-    a registered plot with no manifest entry, a rendered entry whose PNG is
-    missing, a PNG or manifest entry for a name the registry does not hold, and
-    a PNG that does not match its recorded hash (edited by hand);
+    a rendered entry whose PNG is missing, a PNG or manifest entry for a name
+    the registry does not hold, and a PNG that does not match its recorded hash
+    (edited by hand);
 warnings (the check passes)
-    a thumbnail whose sample, renderer or -- with ``full=True``, which needs the
-    samples -- view model changed since it was drawn, and a plot recorded as
-    having no sample that some sample can now draw.
+    a registered plot with no manifest entry yet (a newly registered plot: the
+    page says it has no thumbnail until the next render), a thumbnail whose
+    sample, renderer or -- with ``full=True``, which needs the samples -- view
+    model changed since it was drawn, and a plot recorded as having no sample
+    that some sample can now draw.
 
 A stale thumbnail is labelled as such on the page instead of blocking the
 build, so a renderer change does not have to re-commit every picture it touches.
@@ -405,8 +407,12 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
     problems: list[str] = []
     notes: list[str] = []
 
+    # A plot registered after the last render has no picture yet; the page says
+    # so, and the next render adds it.  Not blocking, so a new plot never breaks
+    # the docs build of the PR that registers it (#1270).
     for name in sorted(set(specs) - set(recorded)):
-        problems.append(f"{name}: registered plot has no entry in {MANIFEST}; run python -m vaft.plot.docs_thumbnails")
+        notes.append(f"{name}: registered plot has no entry in {MANIFEST} yet; "
+                     f"render it with python -m vaft.plot.docs_thumbnails --only {name}")
     for name in sorted(set(recorded) - set(specs)):
         problems.append(f"{name}: recorded in {MANIFEST} but no longer a registered plot")
     for png in sorted(out_dir.glob("*.png")):

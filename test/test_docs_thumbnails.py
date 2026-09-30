@@ -94,11 +94,20 @@ def test_a_manifest_entry_for_an_unknown_plot_is_a_problem(assets):
     assert f"no_such_plot: recorded in {docs_thumbnails.MANIFEST} but no longer a registered plot" in problems
 
 
-def test_a_registered_plot_without_an_entry_is_a_problem(assets):
+def test_a_newly_registered_plot_without_an_entry_only_warns(assets):
+    """A plot registered after the last render must not break the docs build (#1270)."""
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots.pop(name))
+    (assets / f"{name}.png").unlink()
+    problems, notes = docs_thumbnails.check(assets)
+    assert problems == []
+    assert any(note.startswith(f"{name}: registered plot has no entry") for note in notes)
+
+
+def test_a_png_without_its_manifest_entry_is_still_a_problem(assets):
     name = _first_rendered(assets)
     _rewrite(assets, lambda plots: plots.pop(name))
     problems, _ = docs_thumbnails.check(assets)
-    assert any(problem.startswith(f"{name}: registered plot has no entry") for problem in problems)
     assert f"{name}.png: committed but {docs_thumbnails.MANIFEST} records it as not rendered" in problems
 
 
