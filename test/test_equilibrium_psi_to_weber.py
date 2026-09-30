@@ -84,7 +84,7 @@ def test_a_declared_weber_artifact_is_left_alone(weber):
 
 def test_a_declared_per_radian_artifact_is_converted_without_probing(legacy, weber):
     """The declaration wins: no phi, boundary, ip or q is consulted."""
-    set_ods_cocos(legacy, 3)
+    set_ods_cocos(legacy, 1)
     ts = legacy["equilibrium.time_slice.0"]
     # q goes too: the contour-q rung (7111a8e3) decides from it alone
     for leaf in ("profiles_1d.phi", "boundary.outline.r", "boundary.outline.z", "global_quantities.ip",
@@ -272,3 +272,128 @@ def test_slice_callers_see_the_declaration_through_the_ods(weber):
     unlabelled = compute_diamagnetism(weber, time_index=0)
     assert np.isfinite(float(labelled))
     assert float(labelled) == pytest.approx(float(unlabelled), rel=1e-9)
+
+
+# -- issue #1371: a declared 2-8 is fully transformed, not only scaled by 2*pi --
+
+#: Leaves the synthetic records carry, with the OMAS ``cocos_transform`` key
+#: each is scaled by.  Written out here rather than read from the table the
+#: implementation walks, so the test does not build its input with the code
+#: under test.
+TRANSFORMED_LEAVES = {
+    "global_quantities.psi_axis": "PSI",
+    "global_quantities.psi_boundary": "PSI",
+    "profiles_1d.psi": "PSI",
+    "profiles_2d.0.psi": "PSI",
+    "profiles_1d.dpressure_dpsi": "PPRIME",
+    "profiles_1d.f_df_dpsi": "F_FPRIME",
+    "profiles_1d.f": "F",
+    "profiles_1d.q": "Q",
+    "global_quantities.ip": "IP",
+}
+FIELD_POINTS = ((0.40, 0.00), (0.45, 0.10), (0.30, -0.12))
+
+
+def _declared_record(reference, cocos):
+    """``reference`` (COCOS 11) re-expressed in ``cocos`` and declared so."""
+    from omas.omas_physics import cocos_transform
+
+    factors = cocos_transform(11, cocos)
+    ods = copy.deepcopy(reference)
+    ts = ods["equilibrium.time_slice.0"]
+    for leaf, key in TRANSFORMED_LEAVES.items():
+        scaled = np.asarray(ts[leaf], float) * factors[key]
+        ts[leaf] = float(scaled) if scaled.ndim == 0 else scaled
+    ods["equilibrium.vacuum_toroidal_field.b0"] = (
+        np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float) * factors["BT"]
+    )
+    ods["core_profiles.profiles_1d.0.grid.psi"] = (
+        np.asarray(reference["core_profiles.profiles_1d.0.grid.psi"], float) * factors["PSI"]
+    )
+    set_ods_cocos(ods, cocos)
+    return ods
+
+
+def _field(ods):
+    from vaft.process.equilibrium import as_equilibrium, make_equilibrium_field_interpolator
+
+    field = make_equilibrium_field_interpolator(as_equilibrium(ods))
+    return np.array([field(r, z) for r, z in FIELD_POINTS], float).reshape(len(FIELD_POINTS), 3)
+
+
+@pytest.fixture()
+def cocos11(weber):
+    """The packaged equilibrium taken as a COCOS 11 record (its signs fit 11)."""
+    weber["core_profiles.profiles_1d.0.grid.psi"] = np.asarray(
+        weber["equilibrium.time_slice.0.profiles_1d.psi"], float
+    )
+    set_ods_cocos(weber, 11)
+    return weber
+
+
+@pytest.mark.parametrize("cocos", [1, 2, 3])
+def test_a_declared_per_radian_record_is_fully_transformed_to_cocos_11(cocos11, cocos):
+    record = _declared_record(cocos11, cocos)
+    assert equilibrium_psi_to_weber(record, source="test") is True
+    assert ods_cocos(record) == 11
+    assert record["equilibrium.code.parameters.cocos_source"] == "test"
+
+    a = record["equilibrium.time_slice.0"]
+    b = cocos11["equilibrium.time_slice.0"]
+    for leaf in TRANSFORMED_LEAVES:
+        np.testing.assert_allclose(np.asarray(a[leaf], float), np.asarray(b[leaf], float), rtol=1e-12, err_msg=leaf)
+    np.testing.assert_allclose(
+        record["equilibrium.vacuum_toroidal_field.b0"], cocos11["equilibrium.vacuum_toroidal_field.b0"], rtol=1e-12
+    )
+    np.testing.assert_allclose(
+        record["core_profiles.profiles_1d.0.grid.psi"], cocos11["core_profiles.profiles_1d.0.grid.psi"], rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("cocos", [1, 2, 3])
+def test_the_converted_record_gives_the_original_physical_field(cocos11, cocos):
+    """B_Z (and B_R, B_phi) from the converted psi is the field the record described.
+
+    The interpolator reads the declaration, so a 2*pi-only scale relabelled as
+    11 reversed B_Z for a declared 2 and 3 (issue #1371).
+    """
+    reference = _field(cocos11)
+    assert np.all(np.abs(reference[:, 1]) > 0)
+    record = _declared_record(cocos11, cocos)
+    # Before conversion the declared record already describes the same field
+    # in (R, Z); B_phi carries the declared index's toroidal orientation.
+    np.testing.assert_allclose(_field(record)[:, :2], reference[:, :2], rtol=1e-9)
+    equilibrium_psi_to_weber(record)
+    np.testing.assert_allclose(_field(record), reference, rtol=1e-9)
+
+
+@pytest.mark.parametrize("cocos", [1, 2, 3])
+def test_ip_and_q_signs_follow_cocos_11(cocos11, cocos):
+    from vaft.data.cocos import cocos_spec
+
+    record = _declared_record(cocos11, cocos)
+    equilibrium_psi_to_weber(record)
+    ts = record["equilibrium.time_slice.0"]
+    ip = float(ts["global_quantities.ip"])
+    b0 = float(np.ravel(record["equilibrium.vacuum_toroidal_field.b0"])[0])
+    sigma_ip, sigma_b0 = int(np.sign(ip)), int(np.sign(b0))
+    assert sigma_ip == np.sign(float(cocos11["equilibrium.time_slice.0.global_quantities.ip"]))
+    spec = cocos_spec(11)
+    assert np.all(np.sign(ts["profiles_1d.q"]) == spec.expected_sign("q", sigma_ip=sigma_ip, sigma_b0=sigma_b0))
+    dpsi = float(ts["global_quantities.psi_boundary"]) - float(ts["global_quantities.psi_axis"])
+    assert np.sign(dpsi) == spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=sigma_b0)
+    assert np.all(np.sign(ts["profiles_1d.f"]) == spec.expected_sign("f", sigma_ip=sigma_ip, sigma_b0=sigma_b0))
+
+
+def test_a_declared_weber_record_keeps_its_own_index(cocos11):
+    """COCOS 12-18 already store weber and declare honestly: left as they are."""
+    record = _declared_record(cocos11, 12)
+    pristine = copy.deepcopy(record)
+    assert equilibrium_psi_to_weber(record) is False
+    assert ods_cocos(record) == 12
+    for leaf in TRANSFORMED_LEAVES:
+        np.testing.assert_allclose(
+            np.asarray(record["equilibrium.time_slice.0"][leaf], float),
+            np.asarray(pristine["equilibrium.time_slice.0"][leaf], float),
+        )
+    np.testing.assert_allclose(_field(record)[:, :2], _field(cocos11)[:, :2], rtol=1e-9)
