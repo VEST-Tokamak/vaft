@@ -17,7 +17,7 @@
 pages:
   - slug: core
     title: Top level and utilities
-    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy]
+    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
   - slug: database
     title: vaft.database
     modules: [vaft.database]
@@ -141,4 +141,3 @@ undeclared:
   - vaft.plot.profile
   - vaft.plot.time
   - vaft.plot.twodim
-  - vaft.version
