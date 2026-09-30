@@ -150,7 +150,7 @@ class Applicability:
 
 @dataclass(frozen=True)
 class Uncertainty:
-    """Uncertainty the source itself reports, never an invented one.
+    r"""Uncertainty the source itself reports, never an invented one.
 
     ``coefficient`` is the one-sigma absolute uncertainty of the leading
     coefficient; ``coefficient_factor`` is the multiplicative factor when the
