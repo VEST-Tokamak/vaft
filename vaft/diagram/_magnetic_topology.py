@@ -117,7 +117,8 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
     Field lines of the reduced Hamiltonian of this module, for the
     ``resonances`` (default $3/2$ and $2/1$) at $x_k = \psi_N(q = m_k/n_k)$ of
     ``equilibrium`` (default the Solov'ev of ``_equilibrium_geometry``).
-    ``perturbations`` gives the $\epsilon_k$ directly; otherwise both are
+    ``perturbations`` gives the $\epsilon_k$ directly (then ``overlap`` must
+    not be given: it would be ignored); otherwise both are
     equal and set so that the pair overlap parameter
     $\sigma = (w_1 + w_2)/(2|x_2 - x_1|)$ is ``overlap`` -- by ``regime``,
     0.5 (isolated), 1 (touching) or 1.6 (overlapping); $\sigma$ itself is
@@ -135,6 +136,8 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
     geom = equilibrium_geometry(equilibrium)
     data = resonance_data(geom, resonances)
     if perturbations is not None:
+        if overlap is not None:
+            raise ValueError("give either overlap or perturbations, not both: the amplitudes fix the overlap")
         eps = np.asarray(perturbations, dtype=float)
         if eps.shape != (2,) or np.any(eps <= 0.0):
             raise ValueError("perturbations must be two positive amplitudes")

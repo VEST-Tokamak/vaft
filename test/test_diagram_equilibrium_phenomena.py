@@ -379,3 +379,11 @@ def test_editing_a_lobe_diagrams_model_does_not_change_the_next_build():
     d.model["manifolds"]["stable"].clear()
     assert len(vaft.diagram.separatrix_lobes().scene.role("unstable_manifold")) == before
     assert len(vaft.diagram.separatrix_lobes().model["manifolds"]["stable"]) == 2
+
+
+def test_stochastic_layer_refuses_an_overlap_beside_explicit_amplitudes():
+    """``overlap`` was silently ignored when ``perturbations`` was given (sigma 0.275 drawn for an asked 0.3).
+    Cold review 0.8.0 diagram-B F7."""
+    with pytest.raises(ValueError, match="not both"):
+        vaft.diagram.stochastic_layer(regime="isolated", overlap=0.3, perturbations=(1e-4, 2e-4))
+    assert vaft.diagram.stochastic_layer(regime="isolated", overlap=0.3).model["sigma"] == pytest.approx(0.3)
