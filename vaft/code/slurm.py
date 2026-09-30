@@ -509,7 +509,14 @@ class SlurmBackend:
         except BaseException:
             self._cancel(job_id, clusters)
             raise
-        recorded = self._recorded(scratch / "returncode")
+        # The script stamps ``started`` as the program begins, so a cancelled
+        # job without it never left the queue (#1016: "queue_timeout") and can
+        # have no exit record to wait ``status_grace`` for.
+        begin = (_read(scratch / "started") or "").strip()
+        if cancelled and not begin:
+            recorded = None
+        else:
+            recorded = self._recorded(scratch / "returncode")
         state, exit_code = self._accounting(job_id, clusters)
 
         terminated = recorded is not None and recorded.startswith(_TERMINATED)
@@ -517,9 +524,7 @@ class SlurmBackend:
         if cancelled and exited:
             cancelled = False  # the program exited before the cancel landed
         timed_out = cancelled or state in TIMEOUT_STATES
-        # The script stamps ``started`` as the program begins, so a cancelled
-        # job without it never left the queue (#1016: "queue_timeout").
-        never_started = cancelled and not (_read(scratch / "started") or "").strip()
+        never_started = cancelled and not begin
         if not timed_out and state is None and terminated:
             timed_out = self._walltime_kill(recorded, scratch, request)
 

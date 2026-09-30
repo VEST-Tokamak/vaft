@@ -361,6 +361,20 @@ def test_max_wait_on_a_job_that_had_started_is_a_run_timeout(tmp_path, slurm):
     assert "max_wait" in result.stderr and "never started" not in result.stderr
 
 
+def test_a_queue_cancel_does_not_wait_the_status_grace(tmp_path, slurm, monkeypatch):
+    """cold review 0.8.0 execution-backend F5: a job that never started has no
+    exit record to wait for."""
+    import time
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    backend = _batch(max_wait=0.05)
+    backend.status_grace = 5.0
+    before = time.monotonic()
+    result = backend.run(_python(_workdir(tmp_path), "pass"))
+    assert result.runtime_status == "queue_timeout"
+    assert time.monotonic() - before < 3.0
+
+
 def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch):
     import vaft.code.slurm as slurm_module
 
