@@ -887,3 +887,17 @@ def test_an_ods_that_names_no_vest_pulse_has_no_recorded_faults():
     ods = _ods(probes={0: _clean()})
     assert recorded_faults_for(ods) == {}
     assert "dataset_description" not in ods  # the lookup did not materialize it
+
+
+def test_probes_beyond_efits_geometry_are_not_counted_in_an_efit_family(monkeypatch):
+    """#1331: 447xx shots carry 30 outboard Mirnov coils after EFIT's probes; they
+    sat at outboard positions, so 44780's "outboard" family expected 52 channels."""
+    import vaft.machine_mapping.magnetics as mapping
+
+    monkeypatch.setattr(mapping, "equilibrium_probe_count", lambda source: 2)
+    ods = _ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05))
+    metrics = magnetics_quality_metrics(ods, validate_magnetics_signals(ods))
+    families = {entry["index"]: entry["family"] for entry in metrics["channels"]}
+    assert families[2] == families[3] == "not_in_efit"
+    assert "not_in_efit" not in (families[0], families[1])
+    assert metrics["families"]["not_in_efit"]["expected"] == 2
