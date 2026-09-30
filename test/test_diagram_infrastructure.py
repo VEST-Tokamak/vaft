@@ -154,3 +154,25 @@ def test_a_concept_scene_renders():
                   + (_concept.connector(a, b),))
     svg = Diagram("concept_demo", scene).svg
     assert "<svg" in svg and "<image" not in svg
+
+
+def test_no_diagram_docstring_holds_a_control_character():
+    """``\\a`` (BEL) and ``\\f`` are valid escapes, so a LaTeX ``\\approx`` in a non-raw docstring compiles
+    without a SyntaxWarning and ships a control byte into help() and the generated docs. Cold review 0.8.0
+    diagram-B F4."""
+    import ast
+    import pathlib
+
+    import vaft.diagram
+
+    package = pathlib.Path(vaft.diagram.__file__).parent
+    offenders = []
+    for path in sorted(package.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                doc = ast.get_docstring(node, clean=False) or ""
+                bad = sorted({f"{ord(c):#04x}" for c in doc if ord(c) < 32 and c not in "\n\t"})
+                if bad:
+                    offenders.append(f"{path.name}:{getattr(node, 'name', '<module>')}: {', '.join(bad)}")
+    assert not offenders, "control characters in docstrings (a LaTeX escape in a non-raw string?): " + "; ".join(offenders)
