@@ -84,3 +84,16 @@ def test_boundary_curve_for_overlay(vest_inputs):
     assert curve.xy.shape == (61, 2)
     assert curve.x_quantity.unit == "1e19 m^-2 T^-1" and curve.allowed_side == "left"
     assert np.all(np.diff(curve.x) > 0)
+
+
+def test_murakami_and_low_q_lines_for_the_same_diagram(vest_inputs):
+    R_geo, B_t, a, kappa_a, ip, q95 = vest_inputs.T
+    # Murakami is the vertical line n R/B_T = 1 on the Hugill x axis; the same x as above.
+    n_M = B.boundary_value(B.get_boundary("murakami"), toroidal_field=B_t, major_radius=R_geo)
+    np.testing.assert_allclose(n_M * R_geo / B_t, 1.0)
+    assert B.boundary_value(B.get_boundary("murakami_hugill")) == 1.0
+    # VEST's field lies outside Murakami's Table I range, and the evaluation says so.
+    result = B.evaluate_boundary(B.get_boundary("murakami"), 0.5 * n_M, toroidal_field=B_t, major_radius=R_geo)
+    assert "toroidal_field" in result.extrapolated
+    # low_q takes the equilibrium q (q95 here), not q_cyl.
+    assert np.all(B.evaluate_boundary(B.get_boundary("low_q"), q95).allowed)
