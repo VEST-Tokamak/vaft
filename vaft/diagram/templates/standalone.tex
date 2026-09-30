@@ -12,6 +12,9 @@
 \definecolor{meshgray}{RGB}{150,150,150}
 \definecolor{chartblue}{RGB}{16,24,140}
 \definecolor{driftred}{RGB}{214,48,39}
+\definecolor{abskinetic}{RGB}{232,140,24}
+\definecolor{absfluid}{RGB}{44,150,84}
+\definecolor{absequil}{RGB}{120,72,164}
 \tikzset{
   >=Latex,
   every picture/.style={line cap=round,line join=round,font=\large},
@@ -97,6 +100,35 @@
   angle arc/.style={->,black!70,line width=0.9pt},
   crest/.style={islandblue,line width=1.6pt},
   trough/.style={driftred,line width=1.6pt},
+  im axis/.style={<->,black!80,line width=1.3pt},
+  im axis title/.style={font=\normalsize\bfseries,text=black!80},
+  im tick/.style={black!80,line width=1.0pt},
+  im grid/.style={black!12,line width=0.6pt},
+  im station/.style={font=\small,align=center,text=black!85,execute at begin node={\hyphenpenalty=10000}},
+  im example/.style={font=\footnotesize\itshape,align=center,text=black!60,execute at begin node={\hyphenpenalty=10000}},
+  im bridge/.style={fill=qblue!16,draw=qblue!70,line width=0.8pt,rounded corners=9pt},
+  im conceptual/.style={draw=black!55,dashed,line width=0.8pt,rounded corners=5pt,fill=black!3},
+  im capsule/.style={draw=black!60,line width=0.6pt,rounded corners=5pt,inner sep=2.6pt,font=\small,align=center},
+  im particle/.style={im capsule,fill=driftred!28,line width=1.2pt},
+  im kinetic/.style={im capsule,fill=abskinetic!40,dash dot},
+  im fluid/.style={im capsule,fill=absfluid!30,densely dashed},
+  im mhd/.style={im capsule,fill=islandblue!24,double,line width=0.4pt},
+  im equilibrium/.style={im capsule,fill=absequil!28},
+  im global/.style={im capsule,fill=white,dotted,line width=0.9pt},
+  im level particle/.style={concept box,fill=driftred!14,draw=driftred!70},
+  im level kinetic/.style={concept box,fill=abskinetic!18,draw=abskinetic!80},
+  im level fluid/.style={concept box,fill=absfluid!15,draw=absfluid!80},
+  im level mhd/.style={concept box,fill=islandblue!12,draw=islandblue!80},
+  im level equilibrium/.style={concept box,fill=absequil!14,draw=absequil!80},
+  im reduction/.style={->,black!65,line width=1.0pt},
+  coupling data flow/.style={->,black!75,line width=1.1pt},
+  coupling closure/.style={->,islandblue,dotted,line width=1.5pt},
+  coupling calibration/.style={->,driftred,dashed,line width=1.2pt},
+  coupling surrogate/.style={->,absequil,dash dot,line width=1.2pt},
+  coupling residual/.style={->,abskinetic,loosely dashed,line width=1.3pt},
+  coupling validation/.style={->,absfluid,line width=1.3pt},
+  coupling feedback/.style={->,black,line width=1.9pt},
+  coupling iterative/.style={<->,islanddark,double,line width=0.6pt},
 }
 \begin{document}
 \begin{tikzpicture}
