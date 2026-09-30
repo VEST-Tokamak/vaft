@@ -202,6 +202,23 @@ def test_a_title_between_cards_opens_a_run_group_and_card_rows_do_not(tmp_path):
     assert groups == [("Coil 전류 테스트", [43481, 43482]), ("오믹 방전 만들기/ BZn", [43483, 43484])]
 
 
+def test_a_title_between_two_plain_cards_opens_a_run_group(tmp_path):
+    # No reference card ends the block early here: the title sits inside the
+    # rows that run from 43482's card to 43483's header, and used to be lost.
+    source = modern_workbook(tmp_path / "ShotLog_2024_08 #43481-43484.xlsx", {"240821": [
+        {"shot": 43481},
+        {"shot": 43482, "remark": "fail: no breakdown"},
+        {"shot": 43483, "title_before": "오믹 방전 만들기/ BZn"},
+        {"shot": 43484},
+    ]}, title="Coil 전류 테스트")
+    dataset = convert_sheet(source, "240821", REGISTRY)
+    groups = [(group["title"]["raw"], [shot["shot"] for shot in group["shots"]]) for group in dataset["run_groups"]]
+    assert groups == [("Coil 전류 테스트", [43481, 43482]), ("오믹 방전 만들기/ BZn", [43483, 43484])]
+    # The card before the title kept its own rows: its remark is still read.
+    assert _shots(dataset)[43482]["observed_outcome"]["remarks"] == ["fail: no breakdown"]
+    assert "오믹 방전 만들기/ BZn" not in json.dumps(_shots(dataset)[43482]["source_occurrences"], ensure_ascii=False)
+
+
 def test_session_documents_are_reproducible(modern):
     assert convert_sheet(modern, "250915", REGISTRY) == convert_sheet(modern, "250915", REGISTRY)
 
