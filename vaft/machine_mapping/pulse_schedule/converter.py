@@ -180,7 +180,10 @@ def detect_schema(ws: Any, registry: dict[str, Any]) -> tuple[str | None, dict[s
     Ties go to the higher ``detection.priority``: the modern card also
     contains ``C (mF)``, ``NBI``, ``Gas Injection`` and ``Remark``, so the
     integrated_v3 test passes on it too. Counting headers does not separate
-    them -- integrated_v3 asks for more, and more generic, ones.
+    them -- integrated_v3 asks for more, and more generic, ones. Schemas of
+    equal score and priority are taken in registry order, and the returned
+    schema then carries ``tied_with`` naming the ones it beat, so the choice
+    is recorded rather than made by whichever id sorts first.
     """
     values = [
         _normalise(cell.value)
@@ -189,18 +192,23 @@ def detect_schema(ws: Any, registry: dict[str, Any]) -> tuple[str | None, dict[s
         if cell.value is not None
     ]
     text = "\n".join(values)
-    candidates: list[tuple[float, int, str, dict[str, Any]]] = []
-    for schema_id, schema in registry["schemas"].items():
+    candidates: list[tuple[float, int, int, str, dict[str, Any]]] = []
+    for position, (schema_id, schema) in enumerate(registry["schemas"].items()):
         required = schema["detection"].get("required_headers", [])
         matched = sum(1 for header in required if _normalise(header) in text)
         score = matched / len(required) if required else 0.0
         priority = schema["detection"].get("priority", 0)
-        candidates.append((score, priority, schema_id, schema))
+        candidates.append((score, priority, -position, schema_id, schema))
     if not candidates:
         return None, {"score": 0.0}
-    score, _, schema_id, schema = max(candidates, key=lambda item: item[:3])
+    candidates.sort(key=lambda item: item[:3], reverse=True)
+    score, priority, _, schema_id, schema = candidates[0]
     minimum = schema.get("detection", {}).get("minimum_score", 1.0)
-    return (schema_id, schema) if score >= minimum else (None, {"score": score})
+    if score < minimum:
+        return None, {"score": score}
+    tied_with = [other_id for other_score, other_priority, _, other_id, _ in candidates[1:]
+                 if (other_score, other_priority) == (score, priority)]
+    return schema_id, ({**schema, "tied_with": tied_with} if tied_with else schema)
 
 
 def _find_value_below(ws: Any, row: int, column: int, end: int, labels: set[str]) -> tuple[Any, str] | None:
@@ -564,6 +572,9 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     if classification is not None:
         dataset["classification"] = classification
         dataset["review"]["reason"] = "unclassified_template"
+    if schema.get("tied_with"):
+        dataset["review"]["schema_tie"] = {"chosen": schema_id, "tied_with": schema["tied_with"],
+                                           "basis": "registry_order"}
     errors = validate_dataset(dataset, registry)
     if errors:
         dataset["review"]["validation_errors"] = errors

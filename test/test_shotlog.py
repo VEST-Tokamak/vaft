@@ -453,6 +453,37 @@ def test_an_unclassified_sheet_still_gives_its_shots_records(tmp_path):
     assert records[31001]["schema_version"] == "unclassified"
 
 
+def test_a_sheet_matching_two_templates_goes_to_the_declared_priority_then_registry_order(tmp_path):
+    from openpyxl import Workbook
+    from vaft.machine_mapping.pulse_schedule.converter import detect_schema
+
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "230605"
+    # An integrated sheet that also lists the legacy headers somewhere.
+    for column, header in enumerate(["Shot", "TF", "PF", "SW1", "C1", "gas", "C (mF)", "NBI", "Gas Injection",
+                                     "Remark"], start=1):
+        ws.cell(2, column, header)
+    ws.cell(3, 1, 39500)
+    assert detect_schema(ws, REGISTRY)[0] == "integrated_v3"
+    # With no priority to separate them, the first schema in the registry
+    # wins -- whichever id sorts first -- and the session says it was a tie.
+    schemas = {schema_id: {**schema, "detection": {**schema["detection"], "priority": 0}}
+               for schema_id, schema in REGISTRY["schemas"].items() if schema_id in {"integrated_v3", "legacy_v1"}}
+    forward = {**REGISTRY, "schemas": dict(sorted(schemas.items()))}
+    reverse = {**REGISTRY, "schemas": dict(sorted(schemas.items(), reverse=True))}
+    assert detect_schema(ws, forward)[0] == "integrated_v3"
+    assert detect_schema(ws, reverse)[0] == "legacy_v1"
+    assert detect_schema(ws, reverse)[1]["tied_with"] == ["integrated_v3"]
+    path = tmp_path / "ShotLog_2023_06 #39486-39888.xlsx"
+    workbook.save(path)
+    dataset = convert_sheet(path, "230605", reverse)
+    assert dataset["schema_version"] == "legacy_v1"
+    assert dataset["review"]["schema_tie"] == {"chosen": "legacy_v1", "tied_with": ["integrated_v3"],
+                                               "basis": "registry_order"}
+    assert "schema_tie" not in convert_sheet(path, "230605", REGISTRY)["review"]
+
+
 def test_the_split_switch_power_supply_sheets_have_a_schema(tmp_path):
     from openpyxl import Workbook
 
