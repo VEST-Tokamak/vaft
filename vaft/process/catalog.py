@@ -48,7 +48,7 @@ from ._docstring import (
     machine_scope,
     parse_docstring,
     parse_module_docstring,
-    source_location,
+    source_span,
     strip_roles,
 )
 
@@ -104,6 +104,8 @@ class ProcessSpec:
     raises: tuple[RaiseDoc, ...] = ()
     source_path: str = ""
     source_line: int = 0
+    source_end_line: int = 0
+    source_code: str = ""
 
     @property
     def qualname(self) -> str:
@@ -214,7 +216,12 @@ class ProcessSpec:
                 {"type": item.type, "description": strip_roles(item.description)}
                 for item in self.raises
             ],
-            "source": {"path": self.source_path, "line": self.source_line},
+            "source": {
+                "path": self.source_path,
+                "line": self.source_line,
+                "end_line": self.source_end_line,
+                "code": self.source_code,
+            },
             "aliases": list(self.aliases),
             "errors": list(self.errors),
         }
@@ -334,7 +341,7 @@ def _structural_violations(parsed: ParsedDocstring, fn) -> list[str]:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> ProcessSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
-    path, line = source_location(fn, _PACKAGE.parent.parent)
+    span = source_span(fn, _PACKAGE.parent.parent)
     errors = list(dict.fromkeys([*parsed.errors, *_structural_violations(parsed, fn)]))
     return ProcessSpec(
         name=name,
@@ -353,8 +360,10 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         aliases=aliases,
         errors=tuple(errors),
         raises=parsed.raises,
-        source_path=path,
-        source_line=line,
+        source_path=span["path"],
+        source_line=span["line"],
+        source_end_line=span["end_line"],
+        source_code=span["code"],
     )
 
 

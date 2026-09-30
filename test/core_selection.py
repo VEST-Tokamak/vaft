@@ -146,6 +146,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_catalogs.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
+    "test_docs_sources.py",
     "test_docs_thumbnails.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and

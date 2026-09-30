@@ -315,9 +315,61 @@ def compare_rendered(errors, label, url, expected, selector, attribute = "id")
   rendered.tally.select { |_name, count| count > 1 }.each_key { |name| errors << "#{label} #{name} is rendered more than once on #{url}" }
 end
 
+# Source navigation (#1069).  Every entry with a source span renders exactly one
+# [source] link, pinned to the commit its catalog was generated from and to the
+# span's line range, never to a branch; when the catalog carries the span's code
+# the page shows it once, collapsed, and it is that code.  catalog_coverage.py
+# checks the spans against the tree itself, so link, inline source and snapshot
+# describe one revision.  `spans` holds every span one page renders, keyed as
+# the page's data-source attributes are: an entry's id, "<id>.<member>" for a
+# class member.
+SITE_PROVENANCE = (ROOT / "_data" / "provenance.yml").file? ? data("provenance.yml") : {}
+
+def check_sources(errors, label, url, snapshot, spans)
+  commit = snapshot.dig("provenance", "commit").to_s
+  unless commit.match?(/\A[0-9a-f]{40}\z/)
+    errors << "#{label} snapshot records no provenance commit, so its source links cannot be pinned (#{url})"
+    return
+  end
+  site_commit = SITE_PROVENANCE["commit"].to_s
+  errors << "#{label} snapshot was generated from #{commit[0, 7]}, but this track is built from #{site_commit[0, 7]}" unless site_commit.empty? || site_commit == commit
+  built = output_path(url)
+  return unless built # compare_rendered reports the missing page
+
+  document = Nokogiri::HTML(built.read)
+  links = document.css("a.ref-source").group_by { |node| node["data-source"].to_s }
+  shown = document.css("details.ref-code").group_by { |node| node["data-source-code"].to_s }
+  located = spans.select { |_key, src| src.is_a?(Hash) && src["line"].to_i.positive? }
+  located.each do |key, src|
+    href = "https://github.com/VEST-Tokamak/vaft/blob/#{commit}/#{src['path']}#L#{src['line']}-L#{src['end_line']}"
+    found = links.fetch(key, [])
+    errors << "#{label} #{key}: #{found.length} source links on #{url}, expected 1" unless found.length == 1
+    found.each { |node| errors << "#{label} #{key}: source link is #{node['href']}, not #{href}" unless node["href"] == href }
+    code = src["code"].to_s
+    views = shown.fetch(key, [])
+    if code.empty?
+      errors << "#{label} #{key}: inline source is shown on #{url} but the catalog has none" unless views.empty?
+    elsif views.length != 1
+      errors << "#{label} #{key}: #{views.length} inline source views on #{url}, expected 1"
+    elsif (pre = views.first.at_css("pre")).nil? || pre.text.chomp != code
+      errors << "#{label} #{key}: inline source on #{url} differs from the catalog's"
+    end
+  end
+  (links.keys - located.keys).each { |key| errors << "#{label}: #{url} renders a source link (#{key.empty? ? 'unkeyed' : key}) no catalog entry has" }
+  (shown.keys - located.keys).each { |key| errors << "#{label}: #{url} renders inline source (#{key.empty? ? 'unkeyed' : key}) no catalog entry has" }
+end
+
+def api_spans(rows)
+  rows.each_with_object({}) do |item, spans|
+    spans[item["id"]] = item["source"]
+    (item["members"] || []).each { |member| spans["#{item['id']}.#{member['name']}"] = member["source"] }
+  end
+end
+
 if formula_snapshot
   formula_snapshot.fetch("formulas", []).group_by { |item| item["category"] }.each do |category, rows|
     compare_rendered(errors, "formula", "#{BASEURL}/reference/formula/#{category}/", rows.map { |item| item["name"] }, '[data-catalog="formula"]')
+    check_sources(errors, "formula", "#{BASEURL}/reference/formula/#{category}/", formula_snapshot, rows.to_h { |item| [item["name"], item["source"]] })
   end
 end
 if process_snapshot
@@ -326,11 +378,14 @@ if process_snapshot
     # A pending category has no page by design (see above).
     next unless conforming.include?(category)
     compare_rendered(errors, "process", "#{BASEURL}/reference/process/#{category}/", rows.map { |item| item["name"] }, '[data-catalog="process"]')
+    check_sources(errors, "process", "#{BASEURL}/reference/process/#{category}/", process_snapshot, rows.to_h { |item| [item["name"], item["source"]] })
   end
 end
 if plot_snapshot
   compare_rendered(errors, "plot", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("plots", []).map { |item| item["name"] }, '[data-catalog="plot"]')
   compare_rendered(errors, "plot function", "#{BASEURL}/reference/plot/", plot_snapshot.fetch("entry_points", []).map { |item| item["name"] }, '[data-catalog="plot-function"]')
+  plot_rows = plot_snapshot.fetch("plots", []) + plot_snapshot.fetch("entry_points", [])
+  check_sources(errors, "plot", "#{BASEURL}/reference/plot/", plot_snapshot, plot_rows.to_h { |item| [item["name"], item["source"]] })
   # Committed thumbnails (python -m vaft.plot.docs_thumbnails): one image per
   # rendered plot, none for any other, each resolving to the PNG the catalog
   # recorded.  Staleness is a label on the page, not an error.
@@ -362,12 +417,14 @@ if api_snapshot
   api_snapshot.fetch("pages", []).each do |page|
     ids = (entries_by_page[page["slug"]] || []).map { |item| item["id"] }
     compare_rendered(errors, "api", "#{BASEURL}/reference/api/#{page['slug']}/", ids, '[data-catalog="api"]')
+    check_sources(errors, "api", "#{BASEURL}/reference/api/#{page['slug']}/", api_snapshot, api_spans(entries_by_page[page["slug"]] || []))
   end
 end
 if diagram_snapshot
   url = "#{BASEURL}/reference/diagram/"
   compare_rendered(errors, "diagram", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, '[data-catalog="diagram"]')
   compare_rendered(errors, "diagram asset", url, diagram_snapshot.fetch("assets", []).map { |item| item["asset"] }, '[data-catalog="diagram-asset"]', "data-asset")
+  check_sources(errors, "diagram", url, diagram_snapshot, diagram_snapshot.fetch("builders", []).to_h { |item| [item["name"], item["source"]] })
   if (built = output_path(url))
     Nokogiri::HTML(built.read).css('[data-catalog="diagram-asset"] img').each do |image|
       errors << "diagram gallery image does not resolve: #{image['src']}" unless output_path(image["src"].to_s)

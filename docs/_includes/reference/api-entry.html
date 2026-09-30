@@ -1,15 +1,16 @@
 {%- comment -%}One object of a generated API page.  include.e: the entry; include.ref: git ref for source links.{%- endcomment -%}
 {%- assign e = include.e -%}
 {%- if e.reference != "" -%}
-<div class="api-link ref-entry" id="{{ e.id }}" data-catalog="api"><p><code>{{ e.name }}</code>{% if e.deprecated != "" %} <span class="ref-flag ref-flag-deprecated" title="{{ e.deprecated | escape }}">Deprecated</span>{% endif %} &mdash; {{ e.summary | markdownify | remove: "<p>" | remove: "</p>" | strip }} <a href="{{ site.baseurl }}{{ e.reference }}">Reference</a>{% if e.exported_as.size > 0 %}<br><span class="ref-note">Also exported as {% for alias in e.exported_as %}<code>{{ alias }}</code>{% if e.deprecated_aliases contains alias %} (deprecated){% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}.</span>{% endif %}</p></div>
+<div class="api-link ref-entry" id="{{ e.id }}" data-catalog="api"><p><code>{{ e.name }}</code>{% if e.deprecated != "" %} <span class="ref-flag ref-flag-deprecated" title="{{ e.deprecated | escape }}">Deprecated</span>{% endif %} &mdash; {{ e.summary | markdownify | remove: "<p>" | remove: "</p>" | strip }} <a href="{{ site.baseurl }}{{ e.reference }}">Reference</a> {% include reference/source-link.html src=e.source ref=include.ref key=e.id %}{% if e.exported_as.size > 0 %}<br><span class="ref-note">Also exported as {% for alias in e.exported_as %}<code>{{ alias }}</code>{% if e.deprecated_aliases contains alias %} (deprecated){% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}.</span>{% endif %}</p></div>
 {%- else -%}
 <section class="ref-entry" id="{{ e.id }}" data-catalog="api" markdown="block">
 <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#{{ e.id }}"><code>{{ e.name }}</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">{{ e.kind }}</span>{% if e.deprecated != "" %}<span class="ref-flag ref-flag-deprecated" title="{{ e.deprecated | escape }}">Deprecated</span>{% endif %}{% if e.warns_deprecation %}<span class="ref-flag ref-flag-convention" title="Some calls emit a DeprecationWarning">Deprecated usage</span>{% endif %}</span>
-{% if e.source.line > 0 %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ include.ref }}/{{ e.source.path }}#L{{ e.source.line }}" title="{{ e.source.path }}, line {{ e.source.line }}">source</a>{% endif %}
+{% include reference/source-link.html src=e.source ref=include.ref key=e.id %}
 </header>
 {% if e.kind == "data" %}<pre class="ref-signature"><code>{{ e.name }} = {{ e.value | escape }}</code></pre>{% elsif e.signature != "" %}<pre class="ref-signature"><code>{{ e.name }}{{ e.signature | escape }}</code></pre>{% endif %}
+{% include reference/source-code.html src=e.source ref=include.ref key=e.id %}
 
 {% if e.summary != "" %}{{ e.summary | markdownify }}{% endif %}
 {% if e.deprecated != "" %}<p class="ref-note"><strong>Deprecated:</strong> {{ e.deprecated | escape }}</p>{% endif %}
@@ -17,7 +18,7 @@
 {% if e.fields.size > 0 or e.members.size > 0 %}<details class="ref-more"><summary>{% if e.fields.size > 0 %}{{ e.fields.size }} fields{% endif %}{% if e.fields.size > 0 and e.members.size > 0 %} · {% endif %}{% if e.members.size > 0 %}{{ e.members.size }} members{% endif %}</summary>
 <ul class="api-members">
 {% for f in e.fields %}<li><code>{{ f.name }}{% if f.type != "" %}: {{ f.type | escape }}{% endif %}</code></li>
-{% endfor %}{% for m in e.members %}<li><code>{{ m.name }}</code> <span class="ref-type">{{ m.kind }}</span>{% if m.summary != "" %} &mdash; {{ m.summary | markdownify | remove: "<p>" | remove: "</p>" | strip }}{% endif %}</li>
+{% endfor %}{% for m in e.members %}{% assign mkey = e.id | append: "." | append: m.name %}<li><code>{{ m.name }}</code> <span class="ref-type">{{ m.kind }}</span>{% if m.summary != "" %} &mdash; {{ m.summary | markdownify | remove: "<p>" | remove: "</p>" | strip }}{% endif %} {% include reference/source-link.html src=m.source ref=include.ref key=mkey %}{% include reference/source-code.html src=m.source ref=include.ref key=mkey %}</li>
 {% endfor %}</ul>
 </details>{% endif %}
 </section>

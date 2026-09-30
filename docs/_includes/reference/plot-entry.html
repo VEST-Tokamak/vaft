@@ -13,7 +13,7 @@ in the catalog.
 <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#{{ p.name }}"><code>{{ p.name }}</code></a></h4>
 <span class="ref-flags"><span class="ref-flag">{{ p.view }}</span>{% if p.status != "canonical" %}<span class="ref-flag ref-flag-deprecated">{{ p.status | capitalize }}</span>{% endif %}</span>
-{% if p.source.line > 0 %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ include.ref }}/{{ p.source.path }}#L{{ p.source.line }}" title="{{ p.source.path }}, line {{ p.source.line }}">source</a>{% endif %}
+{% include reference/source-link.html src=p.source ref=include.ref key=p.name %}
 </header>
 <p class="ref-note">{{ p.subject }} / {{ p.view }}{% if p.quantity != "" %} / {{ p.quantity }}{% endif %} &middot; domain <code>{{ p.domain }}</code> &middot; view model <code>{{ p.model }}</code></p>
 
@@ -23,6 +23,7 @@ in the catalog.
 
 {% endif %}<pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
 vaft.plot.{{ p.name }}(model)   # from a {{ p.model }}</code></pre>
+{% include reference/source-code.html src=p.source ref=include.ref key=p.name %}
 
 <div class="ref-table-wrap"><table class="ref-table">
   <tbody>

@@ -19,6 +19,12 @@ most specific module that does and is not itself deprecated.  A constant's
 defining module is read from the source (it carries no ``__module__``), so two
 constants that merely share a name and a value stay two entries.
 
+"Where it is defined" is a source span (:func:`vaft._docstring.source_span`):
+the file and the first and last line of the definition, decorators included.
+The pages link it at the provenance commit (#1069), for every function, class
+and class member; unlike the scientific pages they do not show the code inline
+(see :func:`source_of`).
+
 Functions that already have a scientific detail page -- the formula and
 process catalogs, registered plots, diagram builders -- are recorded with a
 ``reference`` URL and rendered as a link, not a second copy of their
@@ -299,13 +305,17 @@ def warns_deprecation(obj: Any) -> bool:
 
 
 def source_of(obj: Any) -> dict:
-    try:
-        target = inspect.unwrap(obj)
-        path = inspect.getsourcefile(target)
-        _, line = inspect.getsourcelines(target)
-        return {"path": _relative(path), "line": line}
-    except (OSError, TypeError, ValueError):
-        return {"path": "", "line": 0}
+    """Where ``obj`` is defined: ``{path, line, end_line, code}`` (see :func:`vaft._docstring.source_span`).
+
+    Always without inline code: the API pages link the source but do not show
+    it (#1069).  They list about 3000 functions and methods, many of them one
+    factory closure exported under hundreds of names, and inlining them would
+    double the site; the scientific pages (formula, process, plot, diagram)
+    show theirs.
+    """
+    from vaft._docstring import source_span
+
+    return source_span(obj, _ROOT, inline=False)
 
 
 def members_of(cls: type) -> list[dict]:
@@ -322,7 +332,12 @@ def members_of(cls: type) -> list[dict]:
             kind, target = "method", attribute
         else:
             continue
-        rows.append({"name": name, "kind": kind, "summary": summary_markdown(summary_of(target)) if target else ""})
+        rows.append({
+            "name": name,
+            "kind": kind,
+            "summary": summary_markdown(summary_of(target)) if target else "",
+            "source": source_of(target) if target else source_of(None),
+        })
     return rows
 
 
@@ -576,7 +591,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             "deprecated": deprecation_of(obj, access_warnings.get(f"{module_name}.{name}", "")
                                          or deprecated_modules.get(module_name, "")),
             "warns_deprecation": warns_deprecation(obj),
-            "source": source_of(obj) if kind != "data" else {"path": "", "line": 0},
+            "source": source_of(obj if kind != "data" else None),
             "reference": links.get(id(obj), "") if kind == "function" else "",
             "exported_as": sorted(f"{site[0]}.{site[1]}" for site in sites if site != home),
             # other names that still work but warn: relocated re-exports, deprecated modules
