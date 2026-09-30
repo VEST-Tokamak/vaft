@@ -3599,9 +3599,13 @@ def compute_diamagnetism(ods, time_index=0):
 
     V_p = None
     if "profiles_1d.volume" in eq_slice:
+        # IMAS profiles_1d.volume is the volume ENCLOSED by each flux surface,
+        # cumulative from 0 on the axis to the plasma volume at the LCFS; the
+        # normaliser is its LCFS value (update_equilibrium_global_quantities_volume
+        # reads the same profile's last point), not its mean.
         vol = np.asarray(eq_slice["profiles_1d.volume"], float)
         if vol.size >= 1 and np.isfinite(vol).any():
-            V_p = float(np.nanmean(vol))
+            V_p = float(np.nanmax(vol))
     if V_p is None or V_p <= 0:
         R_bc = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
         Z_bc = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
