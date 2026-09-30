@@ -98,14 +98,14 @@ def test_omas_and_imas_entries_agree_on_the_packaged_shots():
         assert isinstance(get(entry, "equilibrium.code.parameters"), str)
         assert declared_cocos(entry) == 11
         assert psi_convention(entry, time_slice=4) == "Wb"
-    # 41524 is repository-only and still the legacy Wb/rad artifact, undeclared.
+    # 41524 is repository-only and still the legacy Wb/rad artifact, declared COCOS 1.
     try:
         path = vaft.data.sample(41524, representation="imas")
     except Exception:
         pytest.skip("41524 is not packaged in this build")
     with vaft.imas.load(path, imas_version="3.41.0") as handle:
         entry = IDSEntry(handle)
-        assert declared_cocos(entry) is None
+        assert declared_cocos(entry) == 1
         assert psi_convention(entry) == "Wb/rad"
 
 
