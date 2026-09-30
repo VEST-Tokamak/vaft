@@ -44,10 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         overrides["executable"] = args.efund
     if args.timeout:
         overrides["timeout"] = float(args.timeout)
-    config = efund_config_from_manifest(base, **overrides)
-    LOGGER.info("building the %s table (%s x %s) into %s", args.era, config.nw, config.nh, args.output_dir)
-
     try:
+        config = efund_config_from_manifest(base, **overrides)
+        LOGGER.info("building the %s table (%s x %s) into %s", args.era, config.nw, config.nh, args.output_dir)
         result = generate_era_table(
             args.era,
             args.output_dir,
@@ -66,6 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         # waited for the lock: the output exists and is complete.
         LOGGER.info("table already built by another process: %s", args.output_dir)
         return 0
+    except (FileExistsError, ValueError) as error:
+        # A base manifest without an EFUND configuration, a path too long for
+        # EFIT's TABLE_DIR, a non-empty directory that is not ours: refusals
+        # the rule log should state, not tracebacks.
+        LOGGER.error("refused: %s", error)
+        return 2
     if not result.ok:
         LOGGER.error("efund %s: %s", result.status, result.reason)
         for path in result.logs:
