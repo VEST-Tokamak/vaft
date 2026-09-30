@@ -11,6 +11,30 @@ from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
 from vaft.compat import trapz_compat
 
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "resolve_reference_major_radius",
+    "update_core_profiles_global_quantities_volume_average",
+    "update_equilibrium_boundary",
+    "update_equilibrium_constraints_diamagnetic_flux",
+    "update_equilibrium_coordinates",
+    "update_equilibrium_derived_profiles",
+    "update_equilibrium_global_quantities_area",
+    "update_equilibrium_global_quantities_beta_li",
+    "update_equilibrium_global_quantities_q_min",
+    "update_equilibrium_global_quantities_volume",
+    "update_equilibrium_profiles_1d_geometry",
+    "update_equilibrium_profiles_1d_j_tor",
+    "update_equilibrium_profiles_1d_normalized_psi",
+    "update_equilibrium_profiles_1d_radial_coordinates",
+    "update_equilibrium_profiles_1d_toroidal_flux",
+    "update_equilibrium_profiles_2d_b_field",
+    "update_equilibrium_profiles_2d_j_tor",
+    "update_equilibrium_profiles_2d_sfl_coordinates",
+    "update_equilibrium_stored_energy",
+]
+
 # update_diagnostics_file(ods, filename)
 
 # print_available_ids(ods)

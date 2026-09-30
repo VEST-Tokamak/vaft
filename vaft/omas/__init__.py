@@ -13,6 +13,117 @@ from .fluctuation import (
     fluctuation_bandwidths,
     vertical_position_history,
 )
+from . import formula_wrapper as _formula_wrapper
+from . import general as _general
+from . import process_wrapper as _process_wrapper
+from . import sample as _sample
+from . import update as _update
+
+# Before the submodules above declared ``__all__`` (#1382), their star imports
+# also bound every VAFT function they had imported themselves, so these names
+# have always been reachable as ``vaft.omas.<name>``.  They stay bound here, but
+# they are not published by this package: each is documented in the module
+# that defines it, and ``from vaft.omas import *`` no longer binds them.  The
+# ``omas``, NumPy, SciPy and typing names the submodules imported are not kept.
+from vaft.compat import trapz_compat
+from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+from vaft.formula.constants import MU0
+from vaft.formula.equilibrium import (
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
+    bremsstrahlung_power_density_from_T_e_p_Z_eff,
+    confinement_factor_ITER89P,
+    confinement_time_from_engineering_parameters,
+    confinement_time_from_P_loss_W_th,
+    cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e,
+    elongation_from_RZ_boundary,
+    heating_power_from_p_ohm_p_aux,
+    inductive_voltage_from_dW_magdt_I_p,
+    inverse_aspect_ratio_from_a_R,
+    kinetic_energy_from_beta_p_B_pa_V_p,
+    loop_voltage_from_total_flux,
+    loss_power_from_p_heat_dWdt_p_rad,
+    magnetic_energy_from_li_B_pa_V_p,
+    magnetic_shear,
+    normalize_psi,
+    ohmic_heating_power_from_I_p_V_res,
+    poloidal_field_factor,
+    spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    stored_energy_from_p_V,
+)
+from vaft.formula.virial import (
+    virial_alpha_approx_from_kappa,
+    virial_beta_p_from_volume,
+    virial_beta_pd_from_S_mu_rt,
+    virial_bongard_from_S_alpha_mu,
+    virial_closure_denominators,
+    virial_full_123_from_S_alpha_rt,
+    virial_identity_residuals,
+    virial_lao_from_S_alpha_mu_rt,
+    virial_li_from_volume,
+    virial_muihat_from_Bt_R0_dphi,
+    virial_normalized_residual,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_residual_rms,
+)
+from vaft.process.atomic import compute_line_radiation_power_series
+from vaft.process.camera_geometry import (
+    project_points,
+    sweep_toroidal,
+    toroidal_ring,
+    trajectory_world_points,
+)
+from vaft.process.electromagnetics import (
+    calc_grid,
+    compute_br_bz_phi,
+    compute_impedance_matrices,
+    compute_response_matrix,
+    compute_vacuum_fields_1d,
+    solve_eddy_currents,
+)
+from vaft.process.equilibrium import (
+    calculate_average_boundary_poloidal_field,
+    calculate_diamagnetism,
+    calculate_reconstructed_diamagnetic_flux,
+    computed_diamagnetism_from_phi,
+    efit_virial_volume_integrals,
+    extract_flux_surface_contours,
+    fractional_cell_weights_from_boundary,
+    make_equilibrium_field_interpolator,
+    parallel_current_from_toroidal,
+    poloidal_field_at_boundary,
+    prepare_boundary_for_shafranov,
+    psi_to_rz,
+    shafranov_integrals,
+    trace_field_line,
+    virial_alpha_conformal_annulus,
+    virial_alpha_thin_annulus,
+    volume_average,
+)
+from vaft.process.numerical import time_derivative
+
+#: What this package publishes: everything its star-imported submodules
+#: publish, plus the functions defined or imported by name here.  The plotting,
+#: reference and comparison names served lazily by ``__getattr__`` are left
+#: out, as they always were from ``from vaft.omas import *``, so that the star
+#: import does not load Matplotlib; they are published by their own modules.
+__all__ = [
+    *_general.__all__,
+    *_process_wrapper.__all__,
+    *_formula_wrapper.__all__,
+    *_update.__all__,
+    *_sample.__all__,
+    "NULL_FIELD_THRESHOLD_T",
+    "startup_summary",
+    "VerticalPositionHistory",
+    "fluctuation_bandwidths",
+    "vertical_position_history",
+    "load_omas_json",
+    "load",
+    "save",
+    "to_equilibrium",
+]
 
 #: Plotting adapters live in ``.plotting`` and are resolved lazily so that
 #: importing ``vaft.omas`` does not pull in Matplotlib.

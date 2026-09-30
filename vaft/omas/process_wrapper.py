@@ -64,6 +64,54 @@ from scipy.interpolate import interp1d
 import logging
 import vaft.process
 
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "ALPHA_METHODS",
+    "COINCIDENT_SOURCE_TOL",
+    "DT_SUB",
+    "EC_FREQUENCY_VEST_HZ",
+    "GEOMETRY_TYPE_POLYGON",
+    "GEOMETRY_TYPE_RECTANGLE",
+    "PREFILL_WINDOW_S",
+    "camera_projection_for",
+    "clear_vacuum_field_cache",
+    "compute_camera_visible_efit_overlay",
+    "compute_camera_visible_field_line_overlay",
+    "compute_camera_visible_vacuum_field_lines",
+    "compute_connection_length_map_ods",
+    "compute_core_profile_2d",
+    "compute_core_profile_psi",
+    "compute_decay_index_ods",
+    "compute_diamagnetic_flux_measured_vs_computed",
+    "compute_diamagnetism",
+    "compute_eddy_currents",
+    "compute_ejiri_mirror_proxy_ods",
+    "compute_field_line_trace",
+    "compute_grad_shafranov_residual",
+    "compute_grid_ods",
+    "compute_grid_response_ods",
+    "compute_impedance_matrices_ods",
+    "compute_magnetic_energy",
+    "compute_null_ods",
+    "compute_ohmic_heating_power_from_core_profiles",
+    "compute_parallel_current_from_toroidal",
+    "compute_point_response_matrices_ods",
+    "compute_point_response_ods",
+    "compute_point_vacuum_fields_ods",
+    "compute_prefill_pressure_ods",
+    "compute_reconstructed_diamagnetic_flux",
+    "compute_romero_flux_balance_ods",
+    "compute_startup_loop_voltage_ods",
+    "compute_startup_proxies_ods",
+    "compute_vacuum_field_map",
+    "compute_vacuum_midplane_profiles_ods",
+    "compute_virial_equilibrium_quantities_ods",
+    "compute_volume_averaged_pressure",
+    "compute_wall_mode_basis_ods",
+    "ensure_em_coupling",
+]
+
 
 # A library module must not configure the root logger (see vaft.database.raw).
 logger = logging.getLogger(__name__)
