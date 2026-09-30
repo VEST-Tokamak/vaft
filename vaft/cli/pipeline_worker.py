@@ -63,17 +63,19 @@ def _run(args: argparse.Namespace) -> int:
     config = load_worker_config(args.config)
     with worker_lock(config.state_db):
         worker = PipelineWorker(config)
-        if args.once:
-            report = worker.run_cycle(recover=True)
-            print(json.dumps(report.to_dict(), indent=2, default=str))
-            return 0
 
+        # Installed for --once too: Snakemake runs in its own session, so
+        # Ctrl-C would otherwise leave it running with its shots marked failed.
         def request_stop(signum, _frame):
             logging.getLogger(__name__).info("signal %s: stopping after the current step", signum)
             worker.stop()
 
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
+        if args.once:
+            report = worker.run_cycle(recover=True)
+            print(json.dumps(report.to_dict(), indent=2, default=str))
+            return 0
         worker.run_forever()
     return 0
 

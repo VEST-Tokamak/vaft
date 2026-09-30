@@ -126,6 +126,11 @@ class PipelineHarvester:
         environment: Mapping[str, str] | None = None,
     ):
         config = _expand(dict(pipeline_config), dict(os.environ if environment is None else environment))
+        base_dir = config.get("base_dir")
+        if base_dir and not Path(str(base_dir)).is_absolute():
+            # Snakemake runs with --directory <workflow_dir> and resolves a
+            # relative base_dir there, not in the worker's cwd (`/` under systemd).
+            config["base_dir"] = str(Path(workflow_dir) / str(base_dir))
         self.config = config
         module = load_pipeline_paths_module(workflow_dir)
         self._module = module

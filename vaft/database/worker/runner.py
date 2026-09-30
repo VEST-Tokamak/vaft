@@ -67,14 +67,60 @@ class RunResult:
     interrupted: bool = False
 
 
-def _pid_alive(pid: int) -> bool:
+def _same_path(a: str | os.PathLike[str], b: Path) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        return Path(a).resolve() == b.resolve()
+    except OSError:
         return False
-    except PermissionError:
-        return True
-    return True
+
+
+def _runs_in(cmdline: Sequence[str], cwd: str | None, workflow_dir: Path) -> bool:
+    """Whether a process is a Snakemake working in ``workflow_dir``."""
+    if not any("snakemake" in Path(part).name for part in cmdline[:3]):
+        return False
+    for flag in ("--directory", "-d"):
+        if flag in cmdline:
+            index = cmdline.index(flag)
+            if index + 1 < len(cmdline):
+                return _same_path(cmdline[index + 1], workflow_dir)
+    return cwd is not None and _same_path(cwd, workflow_dir)
+
+
+def live_snakemake_in(workflow_dir: Path) -> bool | None:
+    """Is any Snakemake process working in ``workflow_dir`` right now?
+
+    ``None`` when this host cannot tell (no psutil and no ``/proc``); callers
+    must then treat a lock as possibly someone else's.  A recorded pid is not
+    evidence: after a reboot it may belong to an unrelated process, and a run
+    started by hand was never recorded at all.
+    """
+    own = os.getpid()
+    try:
+        import psutil  # optional, as in vaft.code.resources
+    except ImportError:
+        psutil = None
+    if psutil is not None:
+        for process in psutil.process_iter(["pid", "cmdline", "cwd"]):
+            info = process.info
+            if info.get("pid") == own:
+                continue
+            if _runs_in(info.get("cmdline") or [], info.get("cwd"), workflow_dir):
+                return True
+        return False
+    proc = Path("/proc")
+    if not proc.is_dir():
+        return None
+    for entry in proc.iterdir():
+        if not entry.name.isdigit() or int(entry.name) == own:
+            continue
+        try:
+            cmdline = (entry / "cmdline").read_bytes().split(b"\0")
+            cwd = os.readlink(entry / "cwd")
+        except OSError:
+            continue
+        if _runs_in([part.decode(errors="replace") for part in cmdline if part], cwd, workflow_dir):
+            return True
+    return False
 
 
 class SnakemakeRunner:
@@ -208,14 +254,15 @@ class SnakemakeRunner:
         except ProcessLookupError:
             pass
 
-    def unlock_after_crash(self, stale_pid: int | None) -> bool:
-        """``--unlock`` the workflow directory after the worker's own run died.
+    def unlock_if_stale(self) -> bool:
+        """``--unlock`` the workflow directory only if no Snakemake works in it.
 
-        Only when the recorded Snakemake process is gone: a live one is still
-        working, and a lock that belongs to a manual run is not the worker's
-        to clear.
+        A lock with no live holder -- a killed run, a reboot mid-run -- would
+        otherwise make every later run read as busy forever.  A lock with a
+        live holder, the worker's or an operator's, is never touched, and
+        neither is one whose holder this host cannot rule out.
         """
-        if stale_pid is not None and _pid_alive(stale_pid):
+        if live_snakemake_in(self.config.workflow_dir) is not False:
             return False
         self._unlock()
         return True
@@ -241,4 +288,4 @@ def _log_mentions_lock(log_path: Path) -> bool:
     return any(marker in text for marker in _LOCK_MARKERS)
 
 
-__all__ = ["HSDS_RESOURCE", "RunPlan", "RunResult", "SnakemakeRunner"]
+__all__ = ["HSDS_RESOURCE", "RunPlan", "RunResult", "SnakemakeRunner", "live_snakemake_in"]

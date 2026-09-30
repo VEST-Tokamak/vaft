@@ -835,13 +835,20 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    - required raw fields missing → only the raw dump is archived;
    - otherwise → the whole pipeline runs.
 
+   The first two verdicts are final, so they wait `incomplete_grace_seconds` (6 h by default)
+   in case the DAQ upload is late. A complete shot goes ahead as soon as it settles.
+
    The four-class physics classifier from #57 plugs in through `classifier:`.
 4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
    --scheduler greedy --resources hsds=1`.
    - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
      batch of a few shots is exactly the case where that race occurs.
-   - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle,
-     does not count an attempt, and never runs `--unlock` on a lock someone else holds.
+   - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
+     and does not count an attempt.
+   - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
+     directory. It checks by command line and cwd, via psutil or `/proc`, not by a recorded pid,
+     which a reboot can hand to an unrelated process. A lock whose holder cannot be ruled out is
+     left alone.
 5. **Harvest.** Each shot's state comes from the products on disk, not from Snakemake's exit code.
    The worker reads every declared stage manifest's `status`, every replication record's `state`, and
    the raw preflight's exclusion list. It also checks that each required validation plot exists.
@@ -879,8 +886,8 @@ WantedBy=multi-user.target
 - **Stopping.** SIGTERM lets the running Snakemake finish its bookkeeping and release the lock.
 - **A run that has to be SIGKILLed** leaves the directory lock behind. The worker removes it at once,
   because that lock is provably its own.
-- **Restarting after a crash.** The worker puts every shot left `running` back into the queue and
-  unlocks the workflow directory, but only if the Snakemake process it recorded is gone.
+- **Restarting after a crash or a reboot.** The worker puts every shot left `running` back into the
+  queue and removes a lock that no live Snakemake holds.
 - **One worker per state file.** A second worker exits immediately.
 
 ### Operate
@@ -893,7 +900,11 @@ vaft pipeline-worker exclude --shot 48950 --reason "calibration shot"
 vaft pipeline-worker run --once              # a single cycle, e.g. to test a config
 ```
 
-- **`retry` on a shot the classifier excluded** sends it back to be classified again, because SQL
-  may have finished writing it since.
+- **`retry` on a shot the classifier excluded or limited to the raw dump** sends it back to be
+  classified again, because SQL may have finished writing it since. For a raw-only shot, delete its
+  raw dump and manifest first. They are Snakemake outputs, so otherwise the truncated dump would be
+  reused as is.
+- **The watermark assumes VEST numbers shots in acquisition order.** A row inserted later below the
+  watermark is not detected.
 - **Monitoring.** Monitoring code (#1347) reads the same file through
   `vaft.database.worker.read_worker_state`.

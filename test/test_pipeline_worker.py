@@ -32,7 +32,7 @@ from vaft.database.worker.config import (
     worker_config_from_mapping,
 )
 from vaft.database.worker.poll import SqlShotSource, is_settled
-from vaft.database.worker.runner import HSDS_RESOURCE, RunPlan, RunResult, SnakemakeRunner
+from vaft.database.worker.runner import HSDS_RESOURCE, RunPlan, RunResult, SnakemakeRunner, _runs_in
 from vaft.database.worker.service import PipelineWorker
 from vaft.database.worker.status import PipelineHarvester
 
@@ -78,7 +78,8 @@ class FakeRunner:
         self.plans: list[RunPlan] = []
         self.script: dict[int, list[str]] = {}
         self.busy = False
-        self.unlocked: list[int | None] = []
+        self.stale_lock = False
+        self.unlocks = 0
 
     def _write(self, path, payload):
         path = Path(path)
@@ -117,9 +118,12 @@ class FakeRunner:
                 self._write(path, {"status": "success"})
         return RunResult(exit_code=1 if failed else 0, log_path="")
 
-    def unlock_after_crash(self, stale_pid):
-        self.unlocked.append(stale_pid)
-        return True
+    def unlock_if_stale(self):
+        if self.stale_lock:
+            self.unlocks += 1
+            self.busy = False  # the lock is gone
+            return True
+        return False
 
     def stop(self):
         pass
@@ -150,6 +154,7 @@ def setup(tmp_path):
             "cores": 2,
             "snakemake_cmd": "snakemake",
             "max_attempts": 2,
+            "incomplete_grace_seconds": 1800,
         },
         base_dir=tmp_path,
     )
@@ -396,10 +401,11 @@ def test_restart_resumes_a_run_the_previous_worker_left_behind(setup):
     worker.state.close()
 
     restarted, runner = make_worker(source=source, state=S.WorkerState(config.state_db))
+    runner.stale_lock = True
     assert restarted.state.watermark(0) == 102
     report = restarted.run_cycle(recover=True)
     assert report.recovered == [101, 102]
-    assert runner.unlocked == [999999]
+    assert runner.unlocks == 1
     assert report.detected == []  # nothing detected twice
     assert report.outcomes == {101: S.COMPLETED, 102: S.COMPLETED}
     assert [run["outcome"] for run in restarted.state.runs()] == ["abandoned", "ok"]
@@ -644,3 +650,72 @@ def test_a_killed_run_releases_its_own_lock(setup, tmp_path):
     result = runner.run(RunPlan(run_id=1, full_shots=(101,)))
     assert result.timed_out and result.exit_code != 0
     assert marker.exists()  # SIGKILL leaves a lock only the worker could have held
+
+
+def test_an_empty_inventory_waits_out_the_grace_period(setup):
+    _, make_worker, clock = setup
+    source = FakeSource()
+    source.add(101, recorded=clock["now"] - timedelta(minutes=10), fields=())
+    worker, runner = make_worker(source=source)
+    settle_cycles(worker, 3)
+    assert worker.state.shot(101)["state"] == S.DETECTED  # settled, but maybe a late upload
+    source.add(101, recorded=clock["now"] - timedelta(minutes=10), fields=FULL_FIELDS)
+    settle_cycles(worker, 2)
+    assert worker.state.shot(101)["state"] == S.COMPLETED  # the upload arrived in time
+    assert runner.plans[0].full_shots == (101,)
+
+
+def test_a_stale_lock_found_while_busy_is_removed(setup):
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.busy = runner.stale_lock = True
+    report = settle_cycles(worker)[-1]
+    assert report.busy and runner.unlocks == 1
+    assert "stale" in worker.state.shot(101)["reason"]
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+
+
+def test_retrying_a_raw_only_shot_classifies_it_again(setup):
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101, fields={1, 12})
+    worker, _ = make_worker(source=source)
+    settle_cycles(worker)
+    assert worker.state.shot(101)["state"] == S.EXCLUDED
+    assert worker.state.requeue(101, reason="upload finished")
+    assert worker.state.shot(101)["state"] == S.DETECTED
+
+
+def test_a_relative_base_dir_is_harvested_where_snakemake_writes_it(setup):
+    config, _, _ = setup
+    pipeline_config = load_pipeline_config(config)
+    pipeline_config["base_dir"] = "relative/filedb"
+    harvester = PipelineHarvester(pipeline_config, workflow_dir=WORKFLOW, environment={})
+    assert harvester.raw_targets(101)[0].path.startswith(str(WORKFLOW / "relative" / "filedb"))
+
+
+@pytest.mark.parametrize(
+    ("cmdline", "cwd", "expected"),
+    [
+        (["python", "/env/bin/snakemake", "--cores", "4"], str(WORKFLOW), True),
+        (["snakemake", "all", "--directory", str(WORKFLOW)], "/", True),
+        (["snakemake", "--directory", "/elsewhere"], str(WORKFLOW), False),
+        (["python", "generate_eddy_ods.py"], str(WORKFLOW), False),
+        ([], str(WORKFLOW), False),
+    ],
+)
+def test_which_processes_count_as_a_snakemake_in_the_workflow(cmdline, cwd, expected):
+    assert _runs_in(cmdline, cwd, WORKFLOW) is expected
+
+
+def test_run_timeout_and_grace_are_validated(tmp_path):
+    base = {"state_db": "s", "log_dir": "l", "workflow_dir": str(WORKFLOW), "pipeline_config": "p",
+            "first_shot": 1, "poll_interval": 1, "settle_seconds": 300, "cores": 1,
+            "snakemake_cmd": "snakemake"}
+    with pytest.raises(WorkerConfigError, match="run_timeout"):
+        worker_config_from_mapping({**base, "run_timeout": 0}, base_dir=tmp_path)
+    with pytest.raises(WorkerConfigError, match="incomplete_grace_seconds"):
+        worker_config_from_mapping({**base, "incomplete_grace_seconds": 10}, base_dir=tmp_path)

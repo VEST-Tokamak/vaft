@@ -58,6 +58,11 @@ class WorkerConfig:
     extra_args: tuple[str, ...] = ()
     max_shots_per_run: int = 20
     max_attempts: int = 3
+    #: How long an empty or incomplete field inventory may still be uploading
+    #: before the classifier's verdict on it is acted on (excluded, or raw
+    #: only).  Both are final, so this is deliberately much longer than
+    #: ``settle_seconds``.
+    incomplete_grace_seconds: float = 6 * 3600.0
     #: Seconds before a pipeline run is terminated; ``None`` waits forever.
     run_timeout: float | None = None
     env: Mapping[str, str] = field(default_factory=dict)
@@ -136,6 +141,7 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         extra_args=_command(data.get("extra_args") or [], "extra_args"),
         max_shots_per_run=int(data.get("max_shots_per_run", 20)),
         max_attempts=int(data.get("max_attempts", 3)),
+        incomplete_grace_seconds=float(data.get("incomplete_grace_seconds", 6 * 3600.0)),
         run_timeout=None if timeout is None else float(timeout),
         env={str(k): str(v) for k, v in (data.get("env") or {}).items()},
         classifier=data.get("classifier"),
@@ -144,6 +150,10 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
     for name in ("poll_interval", "settle_seconds", "cores", "max_shots_per_run", "max_attempts"):
         if getattr(config, name) <= 0:
             raise WorkerConfigError(f"{name} must be positive")
+    if config.run_timeout is not None and config.run_timeout <= 0:
+        raise WorkerConfigError("run_timeout must be positive or null")
+    if config.incomplete_grace_seconds < config.settle_seconds:
+        raise WorkerConfigError("incomplete_grace_seconds must not be shorter than settle_seconds")
     if config.first_shot <= 0:
         raise WorkerConfigError("first_shot must be a positive shot number")
     if not config.snakefile.is_file():

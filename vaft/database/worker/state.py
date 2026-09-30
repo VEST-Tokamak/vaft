@@ -153,7 +153,12 @@ class WorkerState:
 
     # -- watermark -------------------------------------------------------
     def watermark(self, default: int) -> int:
-        """The largest shot ever detected, or ``default`` before the first."""
+        """The largest shot ever detected, or ``default`` before the first.
+
+        SQL is asked only for shots above it, which assumes VEST numbers shots
+        in acquisition order: a row inserted later *below* the watermark is
+        not seen.  Such a shot can be added with ``add_detected`` by hand.
+        """
         row = self._conn.execute("SELECT value FROM meta WHERE key = 'watermark'").fetchone()
         return int(row[0]) if row is not None else int(default)
 
@@ -211,13 +216,14 @@ class WorkerState:
         now = _now()
         stages = None if applicable_stages is None else json.dumps(list(applicable_stages))
         with self._transaction() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 "UPDATE shots SET state = ?, classification = ?, reason = ?, applicable_stages = ?, "
                 "settled_at = ?, updated_at = ? WHERE shot = ? AND state = ?",
                 (state, classification, reason, stages, now, now, int(shot), DETECTED),
             )
-            kind = "enqueued" if state == QUEUED else "skipped"
-            self._event(conn, kind, shot=int(shot), detail=f"{classification}: {reason}")
+            if cursor.rowcount:  # an operator may have excluded it meanwhile
+                kind = "enqueued" if state == QUEUED else "skipped"
+                self._event(conn, kind, shot=int(shot), detail=f"{classification}: {reason}")
 
     # -- scheduling ------------------------------------------------------
     def runnable(self, *, limit: int, max_attempts: int) -> list[dict[str, Any]]:
@@ -366,16 +372,19 @@ class WorkerState:
     def requeue(self, shot: int, *, reason: str) -> bool:
         """Operator retry: queue ``shot`` again with a fresh attempt budget.
 
-        A shot the classifier gave nothing to run, or that never settled, goes
-        back to ``detected`` so it is observed and classified afresh -- its SQL
-        record may have been completed since.
+        A shot the classifier gave nothing to run, limited to the raw dump, or
+        that never settled goes back to ``detected`` so it is observed and
+        classified afresh -- its SQL record may have been completed since.  For
+        a raw-only shot the existing raw dump must be deleted first: it is an
+        immutable Snakemake output and would otherwise be reused as is.
         """
         now = _now()
         with self._transaction() as conn:
             cursor = conn.execute(
                 "UPDATE shots SET "
-                "state = CASE WHEN settled_at IS NULL OR applicable_stages = '[]' THEN ? ELSE ? END, "
-                "field_count = CASE WHEN settled_at IS NULL OR applicable_stages = '[]' "
+                "state = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
+                "             THEN ? ELSE ? END, "
+                "field_count = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
                 "              THEN NULL ELSE field_count END, "
                 "attempts = 0, reason = ?, updated_at = ? "
                 "WHERE shot = ? AND state != ?",

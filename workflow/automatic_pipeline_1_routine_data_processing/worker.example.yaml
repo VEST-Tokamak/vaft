@@ -25,6 +25,9 @@ poll_interval: 60
 # A shot is settled once SQL's recordDateTime is this old AND its waveform
 # field inventory did not change between two polls.
 settle_seconds: 300
+# An empty or incomplete inventory (no fields, required fields missing) is only
+# acted on after this long, because both verdicts are final.
+incomplete_grace_seconds: 21600
 
 cores: 8
 snakemake_cmd: [snakemake]

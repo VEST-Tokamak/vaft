@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class Runner(Protocol):
     def run(self, plan: RunPlan, *, on_start: Callable[[list[str], str, int], None] | None = None) -> RunResult: ...
 
-    def unlock_after_crash(self, stale_pid: int | None) -> bool: ...
+    def unlock_if_stale(self) -> bool: ...
 
     def stop(self) -> None: ...
 
@@ -84,9 +84,8 @@ class PipelineWorker:
         """Undo what a previous worker left mid-run; see :meth:`WorkerState.recover`."""
         stale = self.state.unfinished_runs()
         shots = self.state.recover()
-        for run in stale:
-            if self.runner.unlock_after_crash(run.get("pid")):
-                self.state.event("unlocked", run_id=run["run_id"], detail="stale worker run")
+        if stale and self.runner.unlock_if_stale():
+            self.state.event("unlocked", detail="no live Snakemake held the workflow lock")
         if shots:
             logger.warning("recovered shots left running by a previous worker: %s", shots)
         return shots
@@ -118,6 +117,11 @@ class PipelineWorker:
             verdict = self.classifier.classify(
                 ShotObservation(shot=shot, record_datetime=row["record_datetime"], field_codes=codes)
             )
+            if verdict.applicable_stages is not None and not self._past_grace(row, now):
+                # An empty or incomplete inventory may still be uploading, and
+                # both verdicts are final: an excluded shot is never looked at
+                # again, and a raw dump is an immutable Snakemake output.
+                continue
             if verdict.runnable:
                 self.state.settle(
                     shot,
@@ -138,6 +142,12 @@ class PipelineWorker:
                 )
                 report.excluded.append(shot)
                 logger.info("excluded shot %s: %s", shot, verdict.reason)
+
+    def _past_grace(self, row: Mapping[str, Any], now: datetime) -> bool:
+        recorded = row["record_datetime"] or row["detected_at"]
+        if isinstance(recorded, str):
+            recorded = datetime.fromisoformat(recorded)
+        return (now - recorded).total_seconds() >= self.config.incomplete_grace_seconds
 
     def run_batch(self, report: CycleReport) -> None:
         batch = self.state.runnable(
@@ -200,13 +210,18 @@ class PipelineWorker:
         result = self.runner.run(plan, on_start=started)
         if result.busy:
             self.state.finish_run(run_id, exit_code=result.exit_code, outcome="busy")
+            if self.runner.unlock_if_stale():
+                # Nobody holds it: a killed run or a reboot left it behind.
+                reason = "workflow lock was stale and has been removed"
+                self.state.event("unlocked", run_id=run_id, detail=reason)
+            else:
+                reason = "workflow directory locked by another run"
             for shot in shots:
                 self.state.conclude(
-                    shot, state=S.QUEUED, reason="workflow directory locked by another run",
-                    run_id=run_id, count_attempt=False,
+                    shot, state=S.QUEUED, reason=reason, run_id=run_id, count_attempt=False,
                 )
             report.busy = True
-            logger.warning("run %s: workflow directory is locked; will retry", run_id)
+            logger.warning("run %s: %s; will retry", run_id, reason)
             return
 
         applicable = {row["shot"]: row for row in batch}
