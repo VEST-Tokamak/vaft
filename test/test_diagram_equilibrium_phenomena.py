@@ -355,3 +355,16 @@ def test_the_lobe_map_reads_psi_in_the_records_own_unit():
                                                                         candidates=(), psi_per_radian=None))
     with pytest.raises(ValueError, match="2 pi"):
         mt.lobe_model_for(unknown)
+
+
+def test_the_kink_model_label_prints_the_coefficient_the_drawing_uses():
+    """A negative or complex sideband was printed as its modulus while the displacement used the signed/complex
+    value, so the figure's equation disagreed with its drawing by a phase. Cold review 0.8.0 diagram-B F3."""
+    def model_text(**kw):
+        (label,) = vaft.diagram.kink_mode(m=2, n=1, radial_profile="global", **kw).scene.role("model")
+        return label.text
+
+    assert "(e^{i2\\theta^*})" in model_text()
+    assert "(e^{i\\theta^*} - 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: 1.0, 2: -0.5})
+    assert "(-e^{i\\theta^*} + 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: -1.0, 2: 0.5})
+    assert "(e^{i\\theta^*} + 0.3\\,e^{i(2\\theta^* +1.57)})" in model_text(harmonics={1: 1.0, 2: 0.3j})
