@@ -45,6 +45,7 @@ from typing import Callable, Mapping, Optional
 
 import numpy as np
 
+from .constants import MU0
 from .stability import greenwald_density
 
 __all__ = [
@@ -874,4 +875,49 @@ _register(Boundary(
                        doi="10.1088/0029-5515/28/12/009",
                        note="'the disruptive limit on plasma current (q_psi > 2)'"),
     ),
+))
+
+# Troyon et al. 1984 give the n = 1 free-boundary limit as (beta A)_max ~ 2.2 I_N with
+# I_N = mu0 I A^2 / T_S, A = R/a and T_S = r B_phi at the surface (INTOR: 286 T m, i.e. R B).
+# Substituting gives beta[%] <= 2.2 mu0 I/(a B): 2.2 * mu0 * 1e6 ~ 2.76 with I in MA, the
+# origin of the commonly quoted beta_N <= 2.8. The paper does not print 2.8 or a q95 factor.
+_NORMALIZED_BETA = BoundaryQuantity(
+    "normalized_beta", "beta_N", "% m T/MA",
+    "beta[%] a[m] B_T[T] / I_p[MA]. Troyon's beta is 2 int p dV / int B^2 dV (total field); "
+    "for low beta this is close to the toroidal beta 2 mu0 <p> / B_T^2 used by stability.beta_N_from_beta_a_B0_Ip.",
+)
+
+_register(Boundary(
+    key="troyon",
+    family="beta_limit",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=2.2 * MU0 * 1e6,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="ideal_mhd_numerical",
+    event="beta_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "ideal MHD, n = 1 free-boundary kink, no conducting wall",
+            "pressure profile optimised for ballooning stability; q_0 near the Mercier limit, q_s near 2",
+            "JET- and INTOR-like shapes: R/a from 2.36 to 4, elongation 1.6-1.68, triangularity 0.3",
+            "the paper notes resistivity may make the ideal limit soft",
+        ),
+    ),
+    uncertainty=Uncertainty(note=(
+        "No fit uncertainty is published; the coefficient 2.2 is read as 'approximately' from the fit "
+        "to the INTOR, R/a = 3 and JET cases in Fig. 10."
+    )),
+    sources=(
+        BoundarySource("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",
+                       equation="p. 214, (beta A)_max ~ 2.2 I_N with I_N = mu0 I A^2/T_S; Fig. 10",
+                       doi="10.1088/0741-3335/26/1A/319",
+                       note="T_S = r B_phi at the plasma surface (p. 210: INTOR T_S = 286 T m); beta in %"),
+    ),
+    notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (derived by substituting T_S = R B_T). Compare with "
+          "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
 ))

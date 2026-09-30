@@ -459,3 +459,35 @@ def test_every_published_entry_cites_a_location_in_its_source():
         entry = B.get_boundary(key)
         if entry.origin == "published":
             assert all(source.equation for source in entry.sources), key
+
+
+
+# ------------------------------------------------------------------
+# Troyon beta limit (#350): Troyon et al., PPCF 26 (1984) 209, p. 214
+# ------------------------------------------------------------------
+
+def test_troyon_coefficient_is_2p2_mu0_in_percent_m_T_per_MA():
+    entry = B.get_boundary("troyon")
+    assert entry.target.unit == "% m T/MA" and entry.allowed_side == "below"
+    assert B.boundary_value(entry) == pytest.approx(2.2 * 4e-7 * np.pi * 1e6, rel=1e-9)
+    assert 2.7 < B.boundary_value(entry) < 2.8  # the rounded "2.8" of later literature
+
+
+@pytest.mark.parametrize("I_MA, a, R, B_T", [(5.9, 1.3, 5.2, 5.5), (9.6, 1.25, 2.96, 3.45), (0.08, 0.24, 0.4, 0.15)])
+def test_troyon_is_the_papers_beta_A_versus_I_N_line(I_MA, a, R, B_T):
+    """(beta A)_max = 2.2 mu0 I A^2 / T_S with A = R/a and T_S = R B_T is beta_N = coefficient."""
+    from vaft.formula.constants import MU0
+
+    A, T_S = R / a, R * B_T
+    beta_percent = 2.2 * MU0 * (I_MA * 1e6) * A**2 / T_S / A
+    beta_N = beta_percent * a * B_T / I_MA
+    assert beta_N == pytest.approx(B.boundary_value(B.get_boundary("troyon")))
+
+
+def test_troyon_uses_the_same_beta_N_convention_as_the_stability_module():
+    from vaft.formula.stability import beta_N_from_beta_a_B0_Ip
+
+    limit = B.get_boundary("troyon")
+    beta_N = beta_N_from_beta_a_B0_Ip(3.0, 1.0, 2.0, 1.0)  # 3 % at a = 1 m, B = 2 T, I = 1 MA
+    assert beta_N == pytest.approx(6.0)
+    assert not B.evaluate_boundary(limit, beta_N).allowed
