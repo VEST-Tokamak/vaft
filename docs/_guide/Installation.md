@@ -47,6 +47,8 @@ The project defines six extras; none is needed for the first result on this page
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
+| `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
+| `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
 | `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
 
@@ -95,21 +97,28 @@ the public database below.
 
 ## 3. Configure read-only public HSDS access
 
-Run `hsconfigure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
+Run `vaft hsds configure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
 in the user configuration and must never be committed to a notebook or documentation asset.
 
 ```bash
->> hsconfigure
-Enter new values or accept defaults in brackets with Enter.
-
-Server endpoint []: http://147.46.36.244:5101
-Username []: [assigned_username]
-Password []: [assigned_password]
-API Key [None]: 
-Testing connection...
-connection ok
-Quit? (Y/N)Y
+>> vaft hsds configure
+Configuring HSDS credentials in /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: [assigned_username]
+Password (input hidden, Enter keeps it):
+API key (input hidden, Enter keeps it):
+Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
+
+For CI, HPC jobs and containers, skip the file: export `HS_ENDPOINT`, `HS_USERNAME` and
+`HS_PASSWORD` (or `HS_API_KEY`), which h5pyd reads directly, or run
+`vaft hsds configure --endpoint URL --username NAME --password-stdin < secret-file`. Secrets are never
+accepted as command-line arguments.
 
 A successful read uses the public namespace and does not modify the database:
 

@@ -44,6 +44,16 @@ exists; its docstring says what "public" means for each layer.
 exactly once on its reference page (`data-catalog` elements in the built HTML),
 and nothing is rendered that the catalog no longer holds.
 
+The pictures on `/reference/plot/` are committed, not drawn by the build.
+`python -m vaft.plot.docs_thumbnails` renders each registered plot from the first
+packaged sample that can draw it into `assets/plots/<name>.png`, and records in
+`assets/plots/manifest.json` the sample, renderer and view-model hashes it was
+drawn from (or why a plot has no picture). A missing, orphaned or hand-edited
+thumbnail fails the build; a stale one -- its renderer or sample changed since --
+only warns and is labelled on the page. Re-render after changing a renderer with
+the same command (a few minutes; `--only NAME` for one plot), and run
+`--check` to also compare the view models, which needs the samples.
+
 ## Building
 
 Use a current Ruby rather than the macOS system Ruby. On Apple Silicon, once:

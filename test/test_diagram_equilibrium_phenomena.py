@@ -315,3 +315,19 @@ def test_the_perturbation_splits_the_manifolds_and_the_strike_point():
         o2 = orient(S[:, 0], S[:, 1], p1) != orient(S[:, 0], S[:, 1], p2)
         crossings += int(np.sum(o1 & o2))
     assert crossings > 0
+
+
+def test_separatrix_lobes_on_another_single_null_equilibrium():
+    from vaft.process.equilibrium import solovev_example
+
+    eq = solovev_example("single_null", a_parameter=0.0, major_radius=0.8, aspect_ratio=2.5)
+    m = vaft.diagram.separatrix_lobes(eq).model
+    # the fixed point is hyperbolic and area-preserving on this equilibrium too
+    lam_u, lam_s = sorted(np.abs(m["multipliers"]), reverse=True)
+    assert lam_u > 1.0 and lam_u * lam_s == pytest.approx(1.0, rel=1e-4)
+    # it sits next to the equilibrium's own X-point, below the axis and near the bottom of its boundary
+    assert m["x_point"][1] < float(eq.magnetic_axis[1])
+    assert abs(m["x_point"][1] - float(np.min(eq.lcfs.z))) < 0.05 * float(np.ptp(eq.lcfs.z))
+    assert len(m["strike_points"]) >= 2
+    with pytest.raises(ValueError, match="single-null"):
+        vaft.diagram.separatrix_lobes(solovev_example("limited", a_parameter=0.0))

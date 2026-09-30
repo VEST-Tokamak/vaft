@@ -127,6 +127,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # neutral beam injection: lifecycle and reduced attenuation (#1136)
+    **{f"{name}.svg": (name, {}) for name in ("nbi_particle_lifecycle", "nbi_neutral_attenuation")},
+    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
+                                              "grid_induced_two_cycle", "branch_selection")},
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
@@ -140,6 +145,23 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
     "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
+    # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
+    **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
+                                              "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
+    # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
+    "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
+    # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
+    **{f"{name}.svg": (name, {}) for name in ("field_line_action_angle", "sfl_coordinate_validity",
+                                              "coordinates_vs_cocos")},
+    # SOL blobs and filaments: mechanism, velocity scaling, regimes (#1211)
+    **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
+    "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
+    **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
+    "marfe.svg": ("marfe", {}),
+    "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
+    # Eich target profile on a diverted equilibrium (#1209)
+    "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
 }
 
 

@@ -221,9 +221,13 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
     order-independent.
 
     OMAS' aggregate ``plot_overlay`` dispatcher matches the pattern too but is
-    excluded: it forwards to the individual overlays (which are wrapped), and
-    its ``return_overlay_list=True`` query path draws nothing, so wrapping it
-    would leak a blank figure per query.
+    excluded, because wrapping it would leak a blank figure per
+    ``return_overlay_list=True`` query, a path that draws nothing.  It does
+    *not* reach the wrapped overlays: OMAS' ``overlay()`` calls the
+    module-level ``<name>_overlay(ods, ax, ...)`` functions, not the ODS
+    methods, so ``ods.plot_overlay()`` keeps OMAS' own behaviour and draws
+    onto ``pyplot.gca()`` while each individual ``ods.plot_<name>_overlay()``
+    opens a figure of its own (issue #271).
     """
     canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(
@@ -911,6 +915,21 @@ def plot_machine_geometry_poloidal(
     )
 
 
+def plot_machine_geometry3d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Composed 3D machine scene: wall and boundary cuts, PF rings, 3D coils and diagnostics.
+
+    Renders with :func:`vaft.plot.machine_geometry3d`.
+    """
+    return render("machine_geometry3d", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_machine_geometry_topview(
     source: Any,
     *,
@@ -1527,6 +1546,7 @@ __all__ = [
     "plot_equilibrium_overview_verification",
     "plot_interferometer_spectrum",
     "plot_machine_geometry_poloidal",
+    "plot_machine_geometry3d",
     "plot_machine_geometry_topview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",

@@ -99,6 +99,15 @@ def test_replication_adds_one_rule_per_stage(tmp_path):
         assert f"replicate_{stage}_to_hsds" in result.stdout, result.stdout[-2000:]
 
 
+def test_the_kinetic_efit_preset_reaches_both_lineages(tmp_path):
+    kinetic = 'kinetic={"encoding": "raw6", "executable": "", "efit_preset": "statistical_891"}'
+    result = _dry_run(tmp_path, extra=["-p", "--config", kinetic])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert result.stdout.count('--efit-preset "statistical_891"') == 2, result.stdout[-3000:]
+    routine = _dry_run(tmp_path, extra=["-p"])
+    assert routine.returncode == 0 and '--efit-preset ""' in routine.stdout
+
+
 def test_the_shot_first_layout_is_refused(tmp_path):
     """These stages have no legacy path; the run must stop rather than invent one."""
     result = _dry_run(tmp_path, extra=["--config", "layout=shot_first"])

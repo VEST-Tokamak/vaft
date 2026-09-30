@@ -37,6 +37,11 @@ plot
     ``__all__`` -- view models, ``render_*`` bodies, ``*_model`` builders,
     helpers -- is support API for #162.  Every registered spec, whatever its
     status, is a ``plots`` entry.
+plot thumbnails
+    ``vaft.plot.docs_thumbnails.check`` without the samples: every registered
+    plot has a manifest entry, every rendered one its PNG, no PNG or entry is
+    orphaned, and no PNG differs from its recorded hash.  A stale thumbnail is
+    printed as a warning and does not fail.
 diagram
     every public function **defined in a vaft.diagram module on disk** that is
     annotated to return a ``Diagram`` is a builder entry and is in
@@ -223,6 +228,29 @@ def check_plot(snapshot: dict) -> list[str]:
     return problems
 
 
+def check_plot_thumbnails(snapshot: dict, root: Path) -> list[str]:
+    """Missing, orphaned or hand-edited thumbnails fail; stale ones are only reported.
+
+    Structural only (``full=False``): the samples are not loaded here.
+    """
+    assets = root / "docs" / "assets" / "plots"
+    if not assets.is_dir():
+        return []
+    try:
+        from vaft.plot import docs_thumbnails
+    except ImportError:
+        return ["plot: docs/assets/plots is committed but vaft.plot.docs_thumbnails is missing"]
+    problems, notes = docs_thumbnails.check(assets, full=False)
+    for note in notes:
+        print(f"warning: plot thumbnail {note}")
+    problems = [f"plot thumbnail {problem}" for problem in problems]
+    for entry in snapshot.get("plots") or []:
+        if "thumbnail" not in entry:
+            problems.append(f"plot: catalog entry {entry['name']} carries no thumbnail although docs/assets/plots exists")
+            break
+    return problems
+
+
 # --------------------------------------------------------------------------
 # diagram
 # --------------------------------------------------------------------------
@@ -294,7 +322,7 @@ def check_diagram(snapshot: dict, root: Path) -> list[str]:
 CHECKS = {
     "vaft.formula.catalog": lambda snapshot, root: check_formula(snapshot),
     "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
-    "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot),
+    "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot) + check_plot_thumbnails(snapshot, root),
     "vaft.diagram.docs_catalog": check_diagram,
 }
 

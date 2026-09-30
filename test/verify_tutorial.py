@@ -57,8 +57,8 @@ SESSIONS = {
         "qmd": "presentations/05_mhd_stability_and_perturbed_equilibria.qmd",
     },
     6: {
-        "notebook": "06_operational_space_and_statistics.ipynb",
-        "qmd": "presentations/06_operational_space_and_statistics.qmd",
+        "notebook": "06_operational_space_and_data_driven_analysis.ipynb",
+        "qmd": "presentations/06_operational_space_and_data_driven_analysis.qmd",
     },
 }
 

@@ -294,6 +294,9 @@ def check_catalog_coverage(track: Track, env: dict[str, str], *, quiet: bool = F
         )
     if not quiet:
         print(f"    {COVERAGE_SCRIPT.as_posix():<34} {'':>8}         passed")
+        for line in (result.stdout or "").splitlines():
+            if line.startswith("warning: "):
+                print(f"      {line}")
 
 
 def _verify_generated_from_track(track: Track, snapshot: Path, module: str) -> None:

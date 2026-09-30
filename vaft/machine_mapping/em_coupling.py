@@ -23,6 +23,16 @@ from vaft.machine_mapping.pf_passive import (
 from vaft.machine_mapping.static_geometry import load_static_ods
 
 
+class CouplingGeometryMismatch(ValueError):
+    """The ODS's PF coils or passive loops are not the ones the packaged coupling was computed for.
+
+    Raised when names, order, count or geometry differ -- another machine, or a
+    VEST ODS of another geometry era.  A subclass of ``ValueError`` so existing
+    callers are unaffected; callers that can offer an alternative (supplying
+    the matrices) catch this rather than every ``ValueError``.
+    """
+
+
 DEFAULT_STATIC_GEOMETRY = data_path("geometry/VEST_static_geometry.json.gz")
 # Kept for callers importing the historical name.
 DEFAULT_REFERENCE_ODS = DEFAULT_STATIC_GEOMETRY
@@ -82,7 +92,7 @@ def _validate_coordinate_order(
     n_passive: int,
 ) -> None:
     if "pf_active.coil" not in ods or "pf_passive.loop" not in ods:
-        raise ValueError(
+        raise CouplingGeometryMismatch(
             "em_coupling requires pf_active.coil and pf_passive.loop so matrix "
             "coordinate ordering can be validated"
         )
@@ -90,7 +100,7 @@ def _validate_coordinate_order(
     actual_active = _ordered_labels(ods, "pf_active.coil", n_active)
     expected_active = [f"PF{index}" for index in range(1, n_active + 1)]
     if actual_active != expected_active:
-        raise ValueError(
+        raise CouplingGeometryMismatch(
             "pf_active coil ordering does not match the versioned coupling "
             f"columns: expected {expected_active}, got {actual_active}"
         )
@@ -101,7 +111,7 @@ def _validate_coordinate_order(
         if _static_signature(ods[f"pf_active.coil.{index}"]) != _static_signature(
             expected_active_ods[f"pf_active.coil.{index}"]
         ):
-            raise ValueError(
+            raise CouplingGeometryMismatch(
                 "pf_active geometry does not match the coupling version selected "
                 f"for shot {shot}: mismatch at coil {index + 1}"
             )
@@ -109,14 +119,14 @@ def _validate_coordinate_order(
     actual_passive = _ordered_labels(ods, "pf_passive.loop", n_passive)
     expected_passive = _ordered_labels(reference, "pf_passive.loop", n_passive)
     if actual_passive != expected_passive:
-        raise ValueError(
+        raise CouplingGeometryMismatch(
             "pf_passive loop ordering does not match the versioned coupling rows"
         )
     for index in range(n_passive):
         if _static_signature(ods[f"pf_passive.loop.{index}"]) != _static_signature(
             reference[f"pf_passive.loop.{index}"]
         ):
-            raise ValueError(
+            raise CouplingGeometryMismatch(
                 "pf_passive geometry/order does not match the versioned coupling "
                 f"rows: mismatch at loop {index + 1}"
             )
@@ -348,7 +358,7 @@ def em_coupling(
     n_passive = mutual_pp.shape[0]
     present = len(ods["pf_passive.loop"]) if "pf_passive.loop" in ods else 0
     if present and present != n_passive:
-        raise ValueError(
+        raise CouplingGeometryMismatch(
             f"pf_passive carries {present} loops, but shot {shot} is on wall "
             f"{wall_version}, whose coupling has {n_passive} rows; populate it with "
             f"pf_passive(ods, shot={shot}) so both select the same wall (issue #956)"
@@ -437,6 +447,7 @@ def calculate_em_coupling_from_raw_database(
 
 
 __all__ = [
+    "CouplingGeometryMismatch",
     "calculate_em_coupling_from_raw_database",
     "em_coupling",
     "load_versioned_coupling_provenance",

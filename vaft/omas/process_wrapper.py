@@ -466,6 +466,15 @@ def ensure_em_coupling(ods: ODS) -> None:
     any single matrix lets such an ODS through to a bare ``KeyError`` in
     :func:`compute_impedance_matrices_ods`. Require every matrix that function
     reads, and leave a caller-supplied pair untouched.
+
+    The only reconstruction VAFT has is VEST's packaged coupling asset, which
+    accepts an ODS only when its PF coils and passive loops match that asset
+    exactly (names, order and geometry).  When they do not -- another machine,
+    or a VEST ODS whose geometry is of another era -- the error says so and
+    names the two matrices the caller can supply instead, rather than leaving
+    the asset's own mismatch message to suggest renaming the caller's coils
+    (issue #271).  Whether the ODS "is VEST" is never guessed: the asset's
+    full-geometry check is the only test, and it cannot pass a foreign machine.
     """
     existing = ods["em_coupling"] if "em_coupling" in ods else None
     if existing is not None and all(
@@ -474,14 +483,31 @@ def ensure_em_coupling(ods: ODS) -> None:
     ):
         return
 
+    from vaft.machine_mapping.em_coupling import CouplingGeometryMismatch
     from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
+
+    from vaft.ods_access import path_value
 
     shot = None
     try:
-        shot = int(ods["dataset_description.data_entry.pulse"])
-    except (KeyError, ValueError, TypeError):
+        # read without subscripting: an OMAS subscript would leave an empty
+        # dataset_description behind on an ODS that has none (#118)
+        shot = int(path_value(ods, "dataset_description.data_entry.pulse"))
+    except (ValueError, TypeError):
         pass
-    _map_em_coupling(ods, shot=shot)
+    try:
+        _map_em_coupling(ods, shot=shot)
+    except CouplingGeometryMismatch as error:
+        # only a geometry mismatch: a corrupt asset or a bad matrix keeps its
+        # own message, since supplying matrices would not be the remedy
+        raise CouplingGeometryMismatch(
+            "em_coupling.mutual_passive_passive / mutual_passive_active are missing "
+            "or incomplete, and VAFT's only reconstruction -- VEST's packaged "
+            "coupling asset -- does not fit this ODS's PF coils and passive loops: "
+            f"{error}. For a machine other than VEST, supply both matrices in "
+            "em_coupling before calling; for VEST, populate pf_active/pf_passive "
+            "with vaft.machine_mapping for the ODS's own shot."
+        ) from error
 
 
 
@@ -4317,9 +4343,25 @@ def compute_field_line_trace(
         )
 
     field_data = _equilibrium_field_slice_data(time_slice)
+    per_radian_cocos = _per_radian_cocos(ods)
+    if per_radian_cocos is None:
+        # Nothing declared: take the index the slice's own signs resolve to, so
+        # the orientation is not guessed.  Still None when they leave it open,
+        # and the interpolator then warns that it assumes one (#1313).
+        from vaft.omas.update import _per_radian_cocos as _resolved_per_radian_cocos
+        from vaft.process.equilibrium import as_equilibrium
+
+        try:
+            per_radian_cocos = _resolved_per_radian_cocos(
+                as_equilibrium(ods, time_index=equilibrium_time_index).convention
+            )
+        except Exception:  # noqa: BLE001 - identification is best effort here
+            per_radian_cocos = None
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
+        field_data["psi_1d"], field_data["f_1d"], cocos=per_radian_cocos,
+        # The slice data is already scaled to Wb/rad (#1313).
+        psi_per_radian=True,
     )
 
     wall_r = wall_z = None

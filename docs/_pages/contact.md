@@ -23,23 +23,22 @@ VEST technical-system enquiries.
 ## Reading the VEST database
 
 **Read access is public.** You do not need to negotiate credentials with anyone — the shot database
-ships with a read-only account. Install the HSDS client, then run `hsconfigure` (a console script
-provided by `h5pyd`, which writes `~/.hscfg`):
+ships with a read-only account. Installing VAFT installs the HSDS client (`h5pyd`); then run
+`vaft hsds configure`, which writes `~/.hscfg` with hidden password input and mode `0600`:
 
 ```bash
-python -m pip install --no-deps h5pyd==0.20.0
-hsconfigure
+vaft hsds configure
 ```
 
-Answer the prompts with the public reader account:
+Answer the prompts with the public reader account (username `reader`, password `test`):
 
 ```text
-Server endpoint []: http://147.46.36.244:5101
-Username []: reader
-Password []: test
-API Key [None]:
-Testing connection...
-connection ok
+Configuring HSDS credentials in /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: reader
+Password (input hidden, Enter keeps it):
+API key (input hidden, Enter keeps it):
+Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
 ```
 
 Confirm from Python:

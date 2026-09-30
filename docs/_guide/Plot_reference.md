@@ -30,6 +30,11 @@ renderer `vaft.plot.<name>` takes the typed view model instead. How the shared k
 explained on [Experimental interpretation]({{ site.baseurl }}/workflows/experimental-interpretation/)
 and in the [`vaft.plot` API]({{ site.baseurl }}/reference/api/).
 
+Each picture is drawn from one of the packaged sample shots by the plot's own adapter, with
+`python -m vaft.plot.docs_thumbnails`, and committed; the caption names the shot. A plot no packaged
+sample can draw shows why instead, and a picture drawn before its renderer or sample last changed is
+marked *stale* until it is re-rendered.
+
 ```python
 import vaft
 
@@ -58,7 +63,9 @@ vaft.omas.plot_plasma_current_time(ods, yunit="kA")
 {% assign subjects = catalog.subjects | where: "kind", kind %}{% for subject in subjects %}
 ### {{ subject.name }}{% if subject.aliases.size > 0 %} [{{ subject.aliases | join: ", " }}]{% endif %} {#subject-{{ subject.name }}}
 
-{% assign plots = catalog.plots | where: "subject", subject.name %}<div class="ref-entries" markdown="block">
+{% assign plots = catalog.plots | where: "subject", subject.name %}{% include reference/plot-gallery.html plots=plots %}
+
+<div class="ref-entries" markdown="block">
 {% for p in plots %}
 {% include reference/plot-entry.html p=p ref=source_ref %}
 {% endfor %}

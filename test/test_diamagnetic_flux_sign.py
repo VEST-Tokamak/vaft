@@ -96,8 +96,15 @@ def test_the_corrected_samples_equal_a_fresh_mapping(shot):
     fresh = ods["magnetics"]["diamagnetic_flux"][0]
     np.testing.assert_array_equal(np.asarray(fresh["time"], float),
                                   np.asarray(stored["magnetics.diamagnetic_flux.0.time"], float))
-    # Equal to the last few ulps: the triple integration rounds differently
-    # across platforms (~1e-18 Wb on CI against the macOS-built sample).
+    # Equal to the last few ulps, not bit for bit. The chain repairs saturated
+    # samples with scipy's CubicSpline -- a LAPACK banded solve whose last bits
+    # depend on the BLAS build -- and those rounding differences survive three
+    # integrations and a baseline subtraction that cancels to ~1e-18 Wb. CI's
+    # Linux/Windows put 385-988 samples up to 7.2e-17 Wb from the macOS-built
+    # sample; atol is 14x that and 1e-13 to 7e-13 of the peak, far below the O(peak)
+    # change a sign or scale error makes, which is what this test guards.
+    # (The baseline was a two-point np.polyfit, also LAPACK; it is now written
+    # out, so the spline is the only platform-dependent step left.)
     np.testing.assert_allclose(np.asarray(fresh["data"], float),
                                np.asarray(stored["magnetics.diamagnetic_flux.0.data"], float),
                                rtol=1e-9, atol=1e-15)
