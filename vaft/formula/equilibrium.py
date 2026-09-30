@@ -1356,80 +1356,6 @@ def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
     return -np.asarray(xi_n, dtype=float) * grad_psi
 
 
-def current_density_from_psi(psi: Union[float, np.ndarray],
-                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.
-
-    $$j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR} = -\frac{B_Z}{\mu_0}
-      \ \ [\mathrm{A/m}]$$
-
-    The value is unchanged; only the name and the guidance are.  Emits a
-    ``DeprecationWarning``.  The old spelling is removed in 0.8.0.
-
-    Parameters
-    ----------
-    psi : float or np.ndarray
-        Poloidal flux along a 1-D radial cut [Wb/rad].
-    R : float or np.ndarray
-        Major radius of the samples, monotonic [m].
-
-    Returns
-    -------
-    float or np.ndarray
-        The quantity $-(\mu_0 R)^{-1}\,d\psi/dR$ [A/m].
-
-    Convention
-    ----------
-    **Mind the sign when migrating.**  This module's default convention is
-    $k = -1$ (weber-per-radian, COCOS 2/3/6/7), where
-    :func:`vertical_magnetic_field_from_psi` returns
-    $B_Z = -k/R\;d\psi/dR = +(1/R)\,d\psi/dR$.  This function is therefore
-    $-B_Z/\mu_0$, not $+B_Z/\mu_0$ as its ``Limitations`` section claimed until
-    #355; the replacement expression needs the minus sign or the result flips.
-
-    The $k$ was written inline rather than taken from
-    :func:`poloidal_field_factor`, so this function cannot be told its COCOS.
-    That is the second reason not to keep it: the replacement can.
-
-    Limitations
-    -----------
-    A current per unit length [A/m], not the toroidal current density
-    $j_\varphi = -\Delta^*\psi/(\mu_0 R)$ [A/m^2].  A single first derivative
-    along one radial cut cannot produce $j_\varphi$, which needs second
-    derivatives in both $R$ and $Z$.
-
-    See Also
-    --------
-    vertical_magnetic_field_from_psi : for the quantity this actually returns,
-        as ``-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0``,
-        which unlike this function can be told its COCOS.
-    vaft.process.equilibrium.grad_shafranov_operator : $\Delta^*\psi$ on a 2-D
-        map, for a real $j_\varphi = -\Delta^*\psi/(\mu_0 R)$.
-    vaft.omas.update.update_equilibrium_profiles_2d_j_tor : writes
-        ``profiles_2d.j_tor``, which is where an ODS already carries it.
-
-    Numerical notes
-    ---------------
-    ``numpy.gradient`` along the single supplied axis; pass a 1-D slice.
-
-    References
-    ----------
-    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.3 (Grad-Shafranov equation, $\mu_0 R j_\varphi = -\Delta^*\psi$).
-    """
-    warnings.warn(
-        "`current_density_from_psi` is deprecated -- it returns -B_Z/mu0 [A/m], "
-        "not a current density. For that quantity use "
-        "`-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0` (mind "
-        "the sign); for a real toroidal current density use "
-        "`vaft.process.equilibrium.grad_shafranov_operator` or the ODS's own "
-        "`profiles_2d.j_tor`. Removed in 0.8.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return -gradient(R, psi) / (MU0 * R)
-
-
 # ------------------------------------------------------------------
 # Current Drive
 # ------------------------------------------------------------------
@@ -3375,43 +3301,6 @@ def bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
 
     T_J = T_e_eV * QE
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
-
-
-def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-    n_e_m3: float,
-    T_e_eV: float,
-    Z_eff: float = 2.0
-) -> float:
-    r"""Deprecated: use :func:`bremsstrahlung_power_density_from_n_e_T_e_Z_eff`.
-
-    The name states the argument order everywhere else in this module, and this
-    one stated it wrongly: it promised $(Z_{\mathrm{eff}}, n_e, T_e)$ while the
-    signature was $(n_e, T_e, Z_{\mathrm{eff}})$.  Every argument is a float and
-    $Z_{\mathrm{eff}}$ carried a default, so a call in the documented order was
-    accepted and returned a value 27 orders of magnitude wrong.
-
-    The shim keeps the old signature exactly and forwards unchanged, so a caller
-    written against the *signature* keeps its answer and a caller written
-    against the *name* keeps its wrong one -- a compatibility shim cannot tell
-    the two apart.  What it adds is the warning naming the replacement, whose
-    keyword-only ``Z_eff`` makes the mistake impossible to repeat.  Tracked in
-    #760.
-
-    See Also
-    --------
-    bremsstrahlung_power_density_from_n_e_T_e_Z_eff
-    """
-    warnings.warn(
-        "`bremsstrahlung_power_density_from_Z_eff_n_e_T_e` is deprecated -- its "
-        "name contradicts its argument order; use "
-        "`bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e, T_e, Z_eff=...)`. "
-        "The old spelling is removed in 0.8.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
-        n_e_m3, T_e_eV, Z_eff=Z_eff
-    )
 
 
 # ------------------------------------------------------------------
