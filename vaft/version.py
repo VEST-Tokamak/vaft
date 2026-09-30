@@ -1,11 +1,14 @@
 # Version information
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 
 
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
-# unreleased
+# 0.8.0
+# - development release line 2026-09-18 .. 2026-10-06 merged into main;
+#   the detailed notes are on the release pull request and the GitHub
+#   release. Headlines are filled in during the release review.
 # - Changed (#1016): a timeout is a result, not an exception, for CHEASE
 #   (run_chease, refine_equilibrium, scan_chease), GACODE (run_gacode, NEO,
 #   TGLF), NUBEAM, FLARE, TES, NICE and GENRAY. The result has

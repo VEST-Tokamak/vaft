@@ -52,6 +52,9 @@ _ALLOWED_DATA_SUFFIXES = {
     "geometry/": (".yaml", ".csv"),
     "gpec/": (".in", ".dat"),
     "legacy/": (".txt", ".yaml"),
+    # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
+    # (#995); package-data in pyproject.toml and an explicit include in MANIFEST.in.
+    "shotlog/schemas/": (".yaml",),
 }
 
 REQUIRED_FILES = {
@@ -64,6 +67,7 @@ REQUIRED_FILES = {
     "vaft/data/legacy/sql_table.txt",
     # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
     "vaft/data/public/__init__.py",
+    "vaft/data/shotlog/schemas/common.yaml",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 
