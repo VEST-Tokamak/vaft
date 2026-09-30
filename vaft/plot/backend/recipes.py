@@ -13142,11 +13142,23 @@ def _build_diagnostics_spectrum_coherence(
         time_x, x, time_y, y, sample_rate=sample_rate, nperseg=nperseg, noverlap=noverlap,
         window=window, detrend=detrend,
     )
+    band = f"0-{float(result.frequency[-1]):g} Hz" if result.frequency.size else "no frequency bin"
     if frequency_range is not None:
         keep = (result.frequency >= float(frequency_range[0])) & (result.frequency <= float(frequency_range[1]))
+        if not keep.any():
+            raise ValueError(
+                f"frequency_range=({float(frequency_range[0]):g}, {float(frequency_range[1]):g}) Hz "
+                "leaves no frequency "
+                f"bin of the cross-spectrum, which spans {band}"
+            )
         result = _replace(
             result, frequency=result.frequency[keep], csd=result.csd[keep],
             coherence=result.coherence[keep], phase=result.phase[keep],
+        )
+    if max_frequency is not None and not (result.frequency <= float(max_frequency)).any():
+        raise ValueError(
+            f"max_frequency={float(max_frequency):g} Hz leaves no frequency bin of the "
+            f"cross-spectrum, which spans {band}"
         )
     grid = (
         f"{result.sample_rate / 1e3:.4g} kHz grid, {result.time_range[0]:.4g}-{result.time_range[1]:.4g} s"

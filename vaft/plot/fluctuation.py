@@ -75,6 +75,12 @@ def cross_spectrum_model(
     coherence = np.asarray(result.coherence, dtype=float)
     phase = np.degrees(np.asarray(result.phase, dtype=float))
     keep = np.ones(frequency.size, dtype=bool) if max_frequency is None else frequency <= float(max_frequency)
+    if not keep.any():
+        raise ValueError(
+            "no frequency bin to draw: "
+            + (f"max_frequency={float(max_frequency):g} Hz lies below the first bin "
+               f"({frequency[0]:g} Hz)" if frequency.size else "the cross-spectrum is empty")
+        )
     frequency, coherence, phase = frequency[keep], coherence[keep], phase[keep]
     kilohertz = frequency / 1e3
     significance = float(result.significance_95)
