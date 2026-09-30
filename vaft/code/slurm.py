@@ -527,6 +527,13 @@ class SlurmBackend:
         never_started = cancelled and not begin
         if not timed_out and state is None and terminated:
             timed_out = self._walltime_kill(recorded, scratch, request)
+        # The program's own run time, from the node's clock at start and at
+        # the TERM that stopped it; ``elapsed_s`` below counts from submission.
+        run_s: Optional[float] = None
+        if terminated and begin.isdigit():
+            fields = recorded.split()
+            if len(fields) >= 2 and fields[1].isdigit():
+                run_s = float(max(int(fields[1]) - int(begin), 0))
 
         if timed_out:
             returncode: Optional[int] = None
@@ -577,6 +584,7 @@ class SlurmBackend:
             log_path=log_path,
             job_id=job_id,
             runtime_status="queue_timeout" if never_started else "",
+            run_s=run_s,
         )
 
     def _slurm(self, argv: list[str], *, environment: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
