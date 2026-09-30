@@ -459,3 +459,42 @@ def test_every_published_entry_cites_a_location_in_its_source():
         entry = B.get_boundary(key)
         if entry.origin == "published":
             assert all(source.equation for source in entry.sources), key
+
+
+# ------------------------------------------------------------------
+# Giacomin et al. 2022 edge density limit (#1068): the paper's worked predictions
+# ------------------------------------------------------------------
+
+def _giacomin(A, a, P, R, q, kappa, B_T):
+    return B.boundary_value(B.get_boundary("giacomin_edge"), mass_number=A, minor_radius=a,
+                            separatrix_power=P, major_radius=R, edge_safety_factor_95=q,
+                            elongation=kappa, toroidal_field=B_T)
+
+
+@pytest.mark.parametrize("A, a, P, R, q, kappa, B_T, expected", [
+    (2.0, 0.22, 5.0, 0.67, 4.0, 1.5, 8.0, 5.0),     # Alcator C-Mod, p. 5: "n_lim = 5e20"
+    (2.0, 2.0, 50.0, 6.2, 3.0, 1.8, 5.3, 2.5),      # ITER, p. 5: "~2.5e20"
+    (2.5, 0.57, 28.0, 1.85, 3.0, 2.0, 12.2, 8.7),   # SPARC, p. 5: "~8.7e20" (A = 2.5, D-T, inferred)
+])
+def test_giacomin_reproduces_the_papers_predictions(A, a, P, R, q, kappa, B_T, expected):
+    """The paper does not state A for each case; A = 2 (D) or 2.5 (D-T) is inferred from the match."""
+    assert _giacomin(A, a, P, R, q, kappa, B_T) == pytest.approx(expected, rel=0.10)
+
+
+def test_giacomin_exponents_are_eq_12():
+    base = dict(A=2.0, a=0.5, P=2.0, R=1.5, q=4.0, kappa=1.5, B_T=2.0)
+    ref = _giacomin(**base)
+    for name, factor, exponent in [("A", 2, 1 / 6), ("a", 2, 3 / 14), ("P", 2, 10 / 21),
+                                   ("R", 2, -43 / 42), ("q", 2, -22 / 21), ("B_T", 2, 2 / 3)]:
+        scaled = dict(base, **{name: base[name] * factor})
+        assert _giacomin(**scaled) / ref == pytest.approx(factor ** exponent)
+    assert _giacomin(**dict(base, kappa=2.0)) / ref == pytest.approx(((1 + 4.0) / (1 + 2.25)) ** (-1 / 3))
+
+
+def test_giacomin_targets_edge_density_and_reports_extrapolation():
+    entry = B.get_boundary("giacomin_edge")
+    assert entry.target.name == "edge_density" and entry.target.unit == "1e20 m^-3"
+    assert entry.uncertainty.coefficient == 0.3
+    vest = B.evaluate_boundary(entry, 0.05, mass_number=1.0, minor_radius=0.24, separatrix_power=0.1,
+                               major_radius=0.4, edge_safety_factor_95=6.0, elongation=1.5, toroidal_field=0.15)
+    assert set(vest.extrapolated) == {"toroidal_field", "major_radius"}

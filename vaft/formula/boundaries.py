@@ -875,3 +875,81 @@ _register(Boundary(
                        note="'the disruptive limit on plasma current (q_psi > 2)'"),
     ),
 ))
+
+# Giacomin et al., PRL 128 (2022) 185003, Eq. (12): the maximum edge density set by
+# turbulent transport across the separatrix. It is written as a function because
+# (1 + kappa^2) is not a power of one input; the exponents are those printed in Eq. (12).
+_GIACOMIN_ALPHA = 3.3
+
+
+def _giacomin_2022_edge_density_limit(mass_number, minor_radius, separatrix_power, major_radius,
+                                      edge_safety_factor_95, elongation, toroidal_field):
+    """Eq. (12) of Giacomin et al. 2022, in 1e20 m^-3."""
+    kappa = np.asarray(elongation, dtype=float)
+    return (_GIACOMIN_ALPHA
+            * np.asarray(mass_number, dtype=float) ** (1 / 6)
+            * np.asarray(minor_radius, dtype=float) ** (3 / 14)
+            * np.asarray(separatrix_power, dtype=float) ** (10 / 21)
+            * np.asarray(major_radius, dtype=float) ** (-43 / 42)
+            * np.asarray(edge_safety_factor_95, dtype=float) ** (-22 / 21)
+            * (1.0 + kappa**2) ** (-1 / 3)
+            * np.abs(np.asarray(toroidal_field, dtype=float)) ** (2 / 3))
+
+
+_EDGE_DENSITY = BoundaryQuantity(
+    "edge_density", "n_e,edge", "1e20 m^-3",
+    "Edge electron density at the MARFE onset: Thomson-scattering average over rho_pol 0.85-0.95; "
+    "not the line-averaged or separatrix density.",
+)
+
+_register(Boundary(
+    key="giacomin_edge",
+    family="density_limit",
+    target=_EDGE_DENSITY,
+    inputs=(
+        BoundaryQuantity("mass_number", "A", "-", "Mass number of the main plasma ions."),
+        _MINOR_RADIUS,
+        BoundaryQuantity("separatrix_power", "P_SOL", "MW",
+                         "Power crossing the separatrix: total coupled power minus core radiated power."),
+        _MAJOR_RADIUS,
+        BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface."),
+        BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation."),
+        _TOROIDAL_FIELD,
+    ),
+    form="function",
+    function=_giacomin_2022_edge_density_limit,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="first_principles_scaling_with_one_fitted_constant",
+    event="MARFE_onset",
+    regime="L_mode",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={"toroidal_field": (1.4, 3.0), "major_radius": (0.9, 3.0), "separatrix_power": (0.1, 9.0)},
+        assumptions=(
+            "validated on AUG, JET and TCV (carbon and metal walls; NBI, ECRH and ICRH); "
+            "line-averaged densities 2e19-1.1e20 m^-3, plasma current 0.1-2.5 MA",
+            "L-mode density limit; in the H-mode scenario it is reached after the H-L back transition",
+            "the target is the edge density at the MARFE onset (a precursor of the disruption), "
+            "not the line-averaged density of the Greenwald limit",
+            "alpha may depend on plasma shape and divertor geometry (not resolved by the database)",
+        ),
+    ),
+    uncertainty=Uncertainty(
+        coefficient=0.3,
+        note="alpha = 3.3 +- 0.3 (one constant for all tokamaks; per-machine variance below 10 %). "
+             "Indicative 20 % uncertainty on the measured and predicted edge density; P_SOL from "
+             "bolometry can be uncertain by up to 50 %.",
+    ),
+    sources=(
+        BoundarySource(
+            "M. Giacomin, A. Pau, P. Ricci et al., Phys. Rev. Lett. 128 (2022) 185003",
+            equation="Eq. (12); alpha from Fig. 3(a)", doi="10.1103/PhysRevLett.128.185003",
+            note="n_lim = alpha A^(1/6) a^(3/14) P_SOL^(10/21) R0^(-43/42) q^(-22/21) (1+kappa^2)^(-1/3) "
+                 "B_T^(2/3), n_lim in 1e20 m^-3, P_SOL in MW, R0 and a in m, B_T in T, q = q95",
+        ),
+    ),
+    notes="Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
+          "line-averaged density instead, so the two families are shown side by side, not substituted.",
+))
