@@ -32,6 +32,7 @@ is whatever its own `generators.yml` declares:
 | `/reference/process/` | `vaft.process.catalog` | yes | yes |
 | `/reference/plot/` | `vaft.plot.docs_catalog` | no | yes |
 | `/reference/diagram/` | `vaft.diagram.docs_catalog` | no | yes |
+| `/reference/api/<page>/` | `vaft._api_catalog` | no | yes |
 
 `main` gains the last two when a release carries the generators and its
 `generators.yml` declares them; nothing about the stable track changes before then.
@@ -43,6 +44,16 @@ exists; its docstring says what "public" means for each layer.
 `validate_docs.rb` then checks the other half: every catalog entry is rendered
 exactly once on its reference page (`data-catalog` elements in the built HTML),
 and nothing is rendered that the catalog no longer holds.
+
+The API pages under `/reference/api/` list every object a public module (no `_`
+in its dotted name) names in its `__all__`, with the signature, summary,
+deprecation status and source read from the code. `api_inventory.yml` says which
+page each module belongs to and lists the public modules that declare no `__all__`
+yet. A new module without `__all__` fails the build until it declares one or is
+added to that list; so does a listed module that has since declared one.
+Functions with a scientific detail page (formula, process, plot, diagram) appear
+there only as a link. The API pages are left out of the site search index, which
+would otherwise double in size.
 
 The pictures on `/reference/plot/` are committed, not drawn by the build.
 `python -m vaft.plot.docs_thumbnails` renders each registered plot from the first
@@ -98,7 +109,7 @@ npm run test:docs:develop
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,
-`_data/diagram_catalog.yml` and `_data/provenance.yml` are generated and are
+`_data/diagram_catalog.yml`, `_data/api_catalog.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.

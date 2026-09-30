@@ -49,6 +49,14 @@ diagram
     declares and every ``*.svg`` committed under ``docs/assets/diagrams`` is an
     asset entry; every builder has at least one asset.
 
+python API (#162)
+    every public module found **on disk** either declares ``__all__`` and
+    belongs to a page of ``docs/api_inventory.yml``, or is listed there as
+    ``undeclared``; a stale ``undeclared`` entry fails too.  Every name in an
+    ``__all__`` must exist and be public, and every exported object must be
+    described by exactly one entry of ``api_catalog.yml`` (matched by object
+    identity; constants by exported name).
+
 Finally every ``vaft`` module imported while checking must come from the tree
 being documented, so an editable install that serves a missing subpackage from
 another checkout cannot pass for this one.
@@ -314,6 +322,97 @@ def check_diagram(snapshot: dict, root: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------
+# the Python API reference (#162)
+# --------------------------------------------------------------------------
+
+
+def check_api(snapshot: dict, root: Path) -> list[str]:
+    """Every public module is accounted for, and every published object has one entry.
+
+    The module list comes from the files on disk, not from the generator: a
+    public module (no ``_`` in its dotted name) either declares ``__all__`` and
+    belongs to an inventory page, or is listed under ``undeclared`` in
+    ``docs/api_inventory.yml``.  The objects come from each module's
+    ``__all__``, read here again, and are matched to entries by identity.
+    """
+    import pkgutil
+    import warnings
+
+    import vaft
+    import yaml
+
+    problems: list[str] = []
+    inventory = yaml.safe_load((root / "docs" / "api_inventory.yml").read_text(encoding="utf-8")) or {}
+    prefixes = {prefix for page in inventory.get("pages") or [] for prefix in page.get("modules") or []}
+    undeclared = set(inventory.get("undeclared") or [])
+
+    def on_a_page(name: str) -> bool:
+        # the root "vaft" covers only itself, as in vaft._api_catalog.covers
+        return any(name == prefix or (prefix != "vaft" and name.startswith(prefix + ".")) for prefix in prefixes)
+
+    names = ["vaft"] + [info.name for info in pkgutil.walk_packages(vaft.__path__, "vaft.")]
+    public = sorted(name for name in names if not any(part.startswith("_") for part in name.split(".")))
+    #: every published name -> the object it is bound to (kept alive, so no id is ever reused)
+    published: dict[str, object] = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for name in public:
+            module = importlib.import_module(name)
+            declared = getattr(module, "__all__", None)
+            if declared is None:
+                if name not in undeclared:
+                    problems.append(f"api: public module {name} declares no __all__ and is not listed under "
+                                    f"undeclared in docs/api_inventory.yml; declare what it publishes")
+                continue
+            if name in undeclared:
+                problems.append(f"api: {name} now declares __all__; remove it from undeclared in docs/api_inventory.yml")
+            if not on_a_page(name):
+                problems.append(f"api: public module {name} belongs to no page of docs/api_inventory.yml")
+            for export in declared:
+                if export.startswith("_") and not (export.startswith("__") and export.endswith("__")):
+                    problems.append(f"api: {name}.__all__ lists private name {export}")
+                if not hasattr(module, export):
+                    problems.append(f"api: {name}.__all__ lists {export}, which the module does not define")
+                    continue
+                obj = getattr(module, export)
+                if not inspect.ismodule(obj):
+                    published[f"{name}.{export}"] = obj
+    for name in sorted(undeclared - set(public)):
+        problems.append(f"api: {name} is listed under undeclared in docs/api_inventory.yml but is not a public module")
+
+    # Every published name is claimed by exactly one entry -- as its id or one of
+    # its exported_as names -- and that entry describes the object the name is
+    # bound to: the same object for a function or class, a constant for a constant.
+    claimed: dict[str, str] = {}
+    for entry in snapshot.get("entries") or []:
+        names_of_entry = [entry["id"], *(entry.get("exported_as") or [])]
+        if f"{entry['module']}.{entry['name']}" != entry["id"]:
+            problems.append(f"api: entry {entry['id']} is not {entry['module']}.{entry['name']}")
+        home = published.get(entry["id"])
+        if entry["id"] not in published:
+            problems.append(f"api: entry {entry['id']} vanished: {entry['module']} no longer exports {entry['name']}")
+        for qualified in names_of_entry:
+            if qualified in claimed:
+                problems.append(f"api: {qualified} is claimed by more than one entry: {claimed[qualified]}, {entry['id']}")
+                continue
+            claimed[qualified] = entry["id"]
+            if qualified not in published:
+                if qualified != entry["id"]:
+                    problems.append(f"api: entry {entry['id']} lists {qualified}, which is not published")
+                continue
+            obj = published[qualified]
+            is_data = not (inspect.isclass(obj) or callable(obj))
+            if (entry.get("kind") == "data") != is_data:
+                problems.append(f"api: entry {entry['id']} is a {entry.get('kind')} but {qualified} is "
+                                f"{'data' if is_data else 'callable'}")
+            elif not is_data and home is not None and obj is not home:
+                problems.append(f"api: entry {entry['id']} lists {qualified}, which is a different object")
+    for qualified in sorted(set(published) - set(claimed)):
+        problems.append(f"api: {qualified} is published but no entry of api_catalog.yml describes it")
+    return problems
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -324,6 +423,7 @@ CHECKS = {
     "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
     "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot) + check_plot_thumbnails(snapshot, root),
     "vaft.diagram.docs_catalog": check_diagram,
+    "vaft._api_catalog": check_api,
 }
 
 
@@ -381,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         print(f"catalog coverage: {len(problems)} problems", file=sys.stderr)
         return 1
-    print("catalog coverage: every public formula, process, plot and diagram is catalogued")
+    print("catalog coverage: every public formula, process, plot, diagram and API object is catalogued")
     return 0
 
 

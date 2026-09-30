@@ -263,9 +263,29 @@ if (ROOT / "_data" / "diagram_catalog.yml").file?
   end
 end
 
+api_snapshot = nil
+if (ROOT / "_data" / "api_catalog.yml").file?
+  api_snapshot = data("api_catalog.yml")
+  %w[schema_version generator source pages modules entries].each do |field|
+    errors << "api snapshot missing #{field}" unless api_snapshot.key?(field)
+  end
+  check_snapshot_sources(errors, "api", api_snapshot, registry_source)
+  api_entries = api_snapshot.fetch("entries", [])
+  errors << "api snapshot has no entries" unless api_entries.is_a?(Array) && !api_entries.empty?
+  require_fields(errors, "api", api_entries, %w[id name module page kind signature summary deprecated source reference exported_as])
+  api_pages = api_snapshot.fetch("pages", []).map { |item| item["slug"] }
+  api_entries.each do |item|
+    errors << "api #{item['id']} belongs to no page" unless api_pages.include?(item["page"])
+    reference = item["reference"].to_s
+    next if reference.empty?
+    errors << "api #{item['id']} links to #{reference}, which is not built" unless output_path("#{BASEURL}#{reference.split('#').first}")
+  end
+end
+
 # A generated page whose data was not generated renders as an empty list and
 # would otherwise pass everything below.
-{ "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml" }.each do |page, snapshot|
+{ "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml",
+  "Api_reference_core.md" => "api_catalog.yml" }.each do |page, snapshot|
   next unless (ROOT / "_guide" / page).file?
   errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
 end
@@ -335,6 +355,13 @@ if plot_snapshot
         errors << "plot thumbnail #{image['data-thumbnail']} shows #{image['src']}, not its own #{expected_src}" unless image["src"] == expected_src
       end
     end
+  end
+end
+if api_snapshot
+  entries_by_page = api_snapshot.fetch("entries", []).group_by { |item| item["page"] }
+  api_snapshot.fetch("pages", []).each do |page|
+    ids = (entries_by_page[page["slug"]] || []).map { |item| item["id"] }
+    compare_rendered(errors, "api", "#{BASEURL}/reference/api/#{page['slug']}/", ids, '[data-catalog="api"]')
   end
 end
 if diagram_snapshot
