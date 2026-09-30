@@ -1242,15 +1242,16 @@ def compute_power_balance(
     # Compute volume-averaged pressure from core_profiles for all time slices
     p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
     
-    # Calculate W_th = p_vol_average * 2/3 * volume for each time slice
+    # Calculate W_th = p_vol_average * 3/2 * volume for each time slice, the
+    # same stored energy compute_tau_E_exp divides by P_loss (issue #1282).
     W_th = np.zeros(len(idxs), dtype=float)
     volume_series = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
         eq_ts = ods['equilibrium.time_slice'][i]
         volume = float(eq_ts['global_quantities.volume'])
         volume_series[k] = volume
-        # W_th = p_vol_average * 2/3 * volume
-        W_th[k] = p_vol_avg[k] * (2.0 / 3.0) * volume
+        # W_th = 3/2 * <p>_V * V for an ideal plasma (W = 3/2 integral p dV)
+        W_th[k] = p_vol_avg[k] * (3.0 / 2.0) * volume
     
     # Calculate dW/dt robustly on finite W_th points only.
     # This prevents NaNs at trailing slices from contaminating earlier finite slices.
