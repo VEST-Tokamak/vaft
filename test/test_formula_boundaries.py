@@ -473,15 +473,17 @@ def test_troyon_coefficient_is_2p2_mu0_in_percent_m_T_per_MA():
     assert 2.7 < B.boundary_value(entry) < 2.8  # the rounded "2.8" of later literature
 
 
-@pytest.mark.parametrize("I_MA, a, R, B_T", [(5.9, 1.3, 5.2, 5.5), (9.6, 1.25, 2.96, 3.45), (0.08, 0.24, 0.4, 0.15)])
-def test_troyon_is_the_papers_beta_A_versus_I_N_line(I_MA, a, R, B_T):
-    """(beta A)_max = 2.2 mu0 I A^2 / T_S with A = R/a and T_S = R B_T is beta_N = coefficient."""
-    from vaft.formula.constants import MU0
-
-    A, T_S = R / a, R * B_T
-    beta_percent = 2.2 * MU0 * (I_MA * 1e6) * A**2 / T_S / A
+def test_troyon_puts_jet_fully_stable_equilibrium_below_the_line():
+    """Troyon 1984: JET extended performance, R = 2.96 m, R/a = 2.36, T_S = 105 T m (p. 213)
+    read as 10 x R B; the fully stable equilibrium of Fig. 9 has I = 9.6 MA and beta = 5.5 %.
+    Stability to all n is stricter than the n = 1 line, so it must sit below it, but not far below."""
+    R, A, I_MA, beta_percent = 2.96, 2.36, 9.6, 5.5
+    a, B_T = R / A, (105.0 / 10.0) / R
     beta_N = beta_percent * a * B_T / I_MA
-    assert beta_N == pytest.approx(B.boundary_value(B.get_boundary("troyon")))
+    result = B.evaluate_boundary(B.get_boundary("troyon"), beta_N)
+    assert result.allowed and 0.0 < result.margin < 0.15
+    # Taking the printed 105 T m literally would put the same point ten times above the limit.
+    assert beta_percent * a * (105.0 / R) / I_MA > 9 * B.boundary_value(B.get_boundary("troyon"))
 
 
 def test_troyon_uses_the_same_beta_N_convention_as_the_stability_module():

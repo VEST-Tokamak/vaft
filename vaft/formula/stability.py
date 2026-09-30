@@ -452,8 +452,9 @@ def kink_stability_criterion(q_95: float,
 
     Validity
     --------
-    Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
-    [1]_; the multiplication by $q_{95}$ has no source in the literature or the
+    Empirical fit.  The coefficient 2.8 is the rounded Troyon limit
+    $2.2\,\mu_0\cdot10^6 \approx 2.76$ [1]_ (p. 214, $(\beta A)_{max} \approx 2.2\,I_N$);
+    the multiplication by $q_{95}$ has no source in the literature or the
     VAFT history and makes the limit rise with $q_{95}$, opposite to the
     observed trend.  :func:`beta_stability_boundary` uses the same form with
     0.028, i.e. the fraction rather than percent convention of $\beta_N$.
@@ -484,7 +485,7 @@ def sawtooth_stability_criterion(q_0: float,
 
     Porcelli et al. [1]_ trigger the crash on conditions in the internal-kink
     energy $\delta\hat W$, the fast-ion precession frequency, the ion diamagnetic
-    frequency and the shear $s_1$ at $q = 1$ (Eqs. 13-15), with $\beta_{p1}$
+    frequency (Eqs. 13-15) and, through Eq. (15a), the shear $s_1$ at $q = 1$, with $\beta_{p1}$
     defined inside the $q = 1$ surface (Eq. 12). None reduces to a threshold
     $0.3\,(1 - q_0)$ on the global $\beta_p$ (#350), so this has no drop-in
     replacement. Results are unchanged; a ``DeprecationWarning`` is emitted.
@@ -521,7 +522,7 @@ def sawtooth_stability_criterion(q_0: float,
     References
     ----------
     .. [1] F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys. Control.
-           Fusion 38 (1996) 2163, Sec. 3, Eqs. (12)-(15).
+           Fusion 38 (1996) 2163, Sec. 3, Eqs. (12)-(15a).
     """
     warnings.warn(
         "`sawtooth_stability_criterion` is deprecated: 0.3 (1 - q_0) on the global beta_p has no source "

@@ -878,7 +878,10 @@ _register(Boundary(
 ))
 
 # Troyon et al. 1984 give the n = 1 free-boundary limit as (beta A)_max ~ 2.2 I_N with
-# I_N = mu0 I A^2 / T_S, A = R/a and T_S = r B_phi at the surface (INTOR: 286 T m, i.e. R B).
+# I_N = mu0 I A^2 / T_S and A = R/a (p. 214). T_S is T = r B_phi at the surface, which equals the
+# vacuum value R B (T(psi_s = 0) = T_vac, p. 210). The values printed for INTOR (286 T m, p. 210)
+# and JET (105 T m at R = 2.96 m, p. 213) are ten times R B: only T_S = R B in SI puts JET's
+# n = 1 points of Fig. 8 (about 7 % at 10 MA, A = 2.36) on the line of Fig. 10.
 # Substituting gives beta[%] <= 2.2 mu0 I/(a B): 2.2 * mu0 * 1e6 ~ 2.76 with I in MA, the
 # origin of the commonly quoted beta_N <= 2.8. The paper does not print 2.8 or a q95 factor.
 _NORMALIZED_BETA = BoundaryQuantity(
@@ -902,7 +905,9 @@ _register(Boundary(
     applicability=Applicability(
         machine_class="tokamak",
         assumptions=(
-            "ideal MHD, n = 1 free-boundary kink, no conducting wall",
+            "ideal MHD, n = 1 free-boundary kink, no conducting wall; the limit is where the normalised "
+            "growth rate squared reaches 1e-4 (p. 210)",
+            "stability to all n gives a lower limit at high current (Fig. 8); this entry is the n = 1 line",
             "pressure profile optimised for ballooning stability; q_0 near the Mercier limit, q_s near 2",
             "JET- and INTOR-like shapes: R/a from 2.36 to 4, elongation 1.6-1.68, triangularity 0.3",
             "the paper notes resistivity may make the ideal limit soft",
@@ -916,8 +921,10 @@ _register(Boundary(
         BoundarySource("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",
                        equation="p. 214, (beta A)_max ~ 2.2 I_N with I_N = mu0 I A^2/T_S; Fig. 10",
                        doi="10.1088/0741-3335/26/1A/319",
-                       note="T_S = r B_phi at the plasma surface (p. 210: INTOR T_S = 286 T m); beta in %"),
+                       note="T_S = r B_phi at the surface = R B_vac; the printed INTOR (286 T m) and JET "
+                            "(105 T m) values are 10x R B and are read that way to match Fig. 10; beta in %, "
+                            "beta = 2 int p dV / int B^2 dV (p. 210)"),
     ),
-    notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (derived by substituting T_S = R B_T). Compare with "
+    notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (substituting T_S = R B_T into I_N). Compare with "
           "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
 ))
