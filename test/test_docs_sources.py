@@ -165,25 +165,22 @@ def test_diagram_builders_carry_their_span(snapshots):
 
 
 def test_api_functions_methods_and_classes_carry_their_span(snapshots):
+    """The API pages link every function, class and member, but show no code inline."""
     from vaft.code.chease import CHEASEConfig
     from vaft.database import export
 
     entries = {entry["id"]: entry for entry in snapshots["vaft._api_catalog"]["entries"]}
-    assert entries["vaft.database.export"]["source"] == _expected(export)
+    assert entries["vaft.database.export"]["source"] == {**_expected(export), "code": ""}
     config = entries["vaft.code.chease.CHEASEConfig"]
-    # a class links its definition; its body is shown member by member
     assert config["source"] == {**_expected(CHEASEConfig), "code": ""}
     members = {member["name"]: member for member in config["members"]}
-    assert members["resolved_mesh"]["source"] == _expected(CHEASEConfig.resolved_mesh.fget)
-    # a function with a scientific page is shown there, so the API page links only
-    linked = next(entry for entry in entries.values() if entry["reference"])
-    assert linked["source"]["line"] > 0 and linked["source"]["code"] == ""
+    assert members["resolved_mesh"]["source"] == {**_expected(CHEASEConfig.resolved_mesh.fget), "code": ""}
+    assert all(entry["source"]["code"] == "" for entry in entries.values())
 
 
-def test_every_catalog_span_is_a_whole_definition_of_the_tree(coverage, snapshots):
+def test_every_catalog_span_is_the_whole_definition_of_its_object(coverage, snapshots):
     for module, snapshot in snapshots.items():
-        assert coverage.check_sources(module, snapshot, ROOT, located=module != "vaft._api_catalog") == [], module
-    assert coverage.check_api_sources(snapshots["vaft._api_catalog"]) == []
+        assert coverage.check_sources(module, snapshot, ROOT) == [], module
 
 
 # --------------------------------------------------------------------------
@@ -191,29 +188,68 @@ def test_every_catalog_span_is_a_whole_definition_of_the_tree(coverage, snapshot
 # --------------------------------------------------------------------------
 
 
+def _formula(snapshot, name):
+    return next(row for row in snapshot["formulas"] if row["name"] == name)
+
+
 def _mutated(snapshot, mutate):
     changed = copy.deepcopy(snapshot)
-    mutate(next(row for row in changed["formulas"] if row["name"] == "greenwald_density")["source"])
+    mutate(_formula(changed, "greenwald_density")["source"], _formula(changed, "ballooning_alpha_from_p_B_R")["source"])
     return changed
 
 
 @pytest.mark.parametrize("mutate, message", [
-    (lambda src: src.update(line=src["line"] + 1), "is not a whole definition in that file"),
-    (lambda src: src.update(end_line=src["end_line"] - 1), "is not a whole definition in that file"),
-    (lambda src: src.update(code=src["code"].replace("def ", "def x", 1)), "inline source is not vaft/formula/stability.py lines"),
-    (lambda src: src.update(path="vaft/formula/nowhere.py"), "is not a file of the tree being documented"),
-    (lambda src: src.update(path="../outside.py"), "is not a file of the tree being documented"),
-    (lambda src: src.update(line=0, end_line=0), "greenwald_density: has no source location"),
+    (lambda src, other: src.update(line=src["line"] + 1), "is not where greenwald_density is defined"),
+    (lambda src, other: src.update(end_line=src["end_line"] - 1), "does not end where the definition does"),
+    (lambda src, other: src.update(code=src["code"].replace("def ", "def x", 1)), "inline source is not vaft/formula/stability.py lines"),
+    (lambda src, other: src.update(code=""), "inline source is not vaft/formula/stability.py lines"),
+    # another definition of the same file, span and code together
+    (lambda src, other: src.update(other), "is not where greenwald_density is defined"),
+    (lambda src, other: src.update(path="vaft/formula/nowhere.py"), "but it is defined in vaft/formula/stability.py"),
+    (lambda src, other: src.update(line=0, end_line=0), "greenwald_density: has no source location"),
 ])
 def test_a_stale_or_forged_span_is_caught(coverage, snapshots, mutate, message):
     problems = coverage.check_sources("vaft.formula.catalog", _mutated(snapshots["vaft.formula.catalog"], mutate), ROOT)
     assert any(message in problem for problem in problems), problems
 
 
-def test_an_api_function_without_a_span_is_caught(coverage, snapshots):
+def test_an_api_span_that_is_missing_or_shows_code_is_caught(coverage, snapshots):
     changed = copy.deepcopy(snapshots["vaft._api_catalog"])
     entry = next(entry for entry in changed["entries"] if entry["id"] == "vaft.database.export")
     entry["source"] = {"path": "", "line": 0, "end_line": 0, "code": ""}
-    assert coverage.check_api_sources(changed) == ["api vaft.database.export: has no source location"]
-    # the span check itself allows it in the API catalog, where constants have no def
-    assert coverage.check_sources("vaft._api_catalog", changed, ROOT, located=False) == []
+    config = next(entry for entry in changed["entries"] if entry["id"] == "vaft.code.chease.CHEASEConfig")
+    config["members"][0]["source"]["code"] = "def forged(): ..."
+    problems = coverage.check_sources("vaft._api_catalog", changed, ROOT)
+    assert "vaft._api_catalog vaft.database.export: has no source location" in problems
+    assert f"vaft._api_catalog vaft.code.chease.CHEASEConfig.{config['members'][0]['name']}: " \
+           "carries inline source the page does not show" in problems
+
+
+def test_a_trailing_comment_and_a_lambda_do_not_fail_the_check(coverage, tmp_path, monkeypatch):
+    """inspect ends a block after an indented trailing comment, where ast does not; a lambda has no def."""
+    (tmp_path / "vaft").mkdir()
+    (tmp_path / "vaft" / "pkg_edge.py").write_text(textwrap.dedent('''\
+        def commented(x):
+            y = x
+            return y
+            # a trailing comment inside the block
+
+
+        square = lambda x: x * x  # noqa: E731
+        '''), encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delitem(sys.modules, "vaft.pkg_edge", raising=False)
+    spec = importlib.util.spec_from_file_location("vaft.pkg_edge", tmp_path / "vaft" / "pkg_edge.py")
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "vaft.pkg_edge", module)
+    spec.loader.exec_module(module)
+    commented = _docstring.source_span(module.commented, tmp_path)
+    assert (commented["line"], commented["end_line"]) == (1, 4)
+    assert _docstring.source_span(module.square, tmp_path)["line"] == 0
+    snapshot = {"entries": [
+        {"id": "vaft.pkg_edge.commented", "module": "vaft.pkg_edge", "name": "commented", "kind": "function",
+         "source": {**commented, "code": ""}},
+        {"id": "vaft.pkg_edge.square", "module": "vaft.pkg_edge", "name": "square", "kind": "function",
+         "source": _docstring.source_span(module.square, tmp_path)},
+    ]}
+    assert coverage.check_sources("vaft._api_catalog", snapshot, tmp_path) == []

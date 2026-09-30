@@ -278,18 +278,26 @@ def test_every_source_link_is_pinned_to_the_generating_commit(site):
     assert counted > 1000
 
 
-@pytest.mark.parametrize("mutation, message", [
+@pytest.mark.parametrize("page, mutation, message", [
     # a moving branch instead of the commit
-    (lambda html, commit: html.replace(f"/blob/{commit}/", "/blob/develop/", 1), "source link is https://github.com/VEST-Tokamak/vaft/blob/develop/"),
+    ("reference/api/database/index.html",
+     lambda html, commit: html.replace(f"/blob/{commit}/", "/blob/develop/", 1),
+     "source link is https://github.com/VEST-Tokamak/vaft/blob/develop/"),
     # a range cut short
-    (lambda html, commit: __import__("re").sub(r'(data-source="vaft\.database\.export" href="[^"]*#L\d+-L)(\d+)',
+    ("reference/api/database/index.html",
+     lambda html, commit: __import__("re").sub(r'(data-source="vaft\.database\.export" href="[^"]*#L\d+-L)(\d+)',
                                                lambda m: m.group(1) + str(int(m.group(2)) - 1), html, count=1),
      "api vaft.database.export: source link is"),
     # inline code that is not the linked lines
-    (lambda html, commit: html.replace('<span class="nf">export</span>', '<span class="nf">exported</span>', 1),
-     "api vaft.database.export: inline source on /vaft/develop/reference/api/database/ differs from the catalog's"),
+    ("reference/formula/stability/index.html",
+     lambda html, commit: html.replace('<span class="nf">greenwald_density</span>', '<span class="nf">greenwald</span>', 1),
+     "formula greenwald_density: inline source on /vaft/develop/reference/formula/stability/ differs from the catalog's"),
+    # inline code dropped from the page
+    ("reference/formula/stability/index.html",
+     lambda html, commit: html.replace('data-source-code="greenwald_density"', 'data-source-code="removed"', 1),
+     "formula greenwald_density: 0 inline source views on /vaft/develop/reference/formula/stability/, expected 1"),
 ])
-def test_a_wrong_source_link_or_inline_source_is_caught(site, tmp_path, mutation, message):
+def test_a_wrong_source_link_or_inline_source_is_caught(site, tmp_path, page, mutation, message):
     source, builds = site
     _source_pages(source)
     destination, baseurl = builds["development"]
@@ -297,11 +305,11 @@ def test_a_wrong_source_link_or_inline_source_is_caught(site, tmp_path, mutation
                             capture_output=True, text=True).stdout.strip()
     mutated = tmp_path / "site"
     shutil.copytree(destination, mutated)
-    page = mutated / "reference" / "api" / "database" / "index.html"
-    html = page.read_text(encoding="utf-8")
+    target = mutated / page
+    html = target.read_text(encoding="utf-8")
     changed = mutation(html, commit)
     assert changed != html
-    page.write_text(changed, encoding="utf-8")
+    target.write_text(changed, encoding="utf-8")
     result = _validate(source, mutated, baseurl)
     assert result.returncode != 0
     assert message in result.stderr + result.stdout, result.stderr + result.stdout

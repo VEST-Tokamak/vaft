@@ -213,7 +213,7 @@ def source_span(obj, root, *, inline: bool = True) -> dict:
     come from the same tree.
 
     Returns an empty span (``line`` 0) when the source cannot be located, for
-    the reasons :func:`source_location` gives.
+    the reasons :func:`source_location` gives, and for a lambda.
     """
     import textwrap
     from pathlib import Path
@@ -225,7 +225,9 @@ def source_span(obj, root, *, inline: bool = True) -> dict:
         relative = path.relative_to(Path(root).resolve()).as_posix()
     except (OSError, TypeError, ValueError):
         return {"path": "", "line": 0, "end_line": 0, "code": ""}
-    if line == 0:  # a module: getsourcelines returns the whole file from line 0
+    if line == 0 or getattr(getattr(target, "__code__", None), "co_name", "") == "<lambda>":
+        # a module (getsourcelines returns the whole file from line 0), or a
+        # lambda, whose line is an expression rather than a definition
         return {"path": "", "line": 0, "end_line": 0, "code": ""}
     code = textwrap.dedent("".join(lines)).rstrip() if inline and len(lines) <= INLINE_SOURCE_LINES else ""
     return {"path": relative, "line": line, "end_line": line + len(lines) - 1, "code": code}

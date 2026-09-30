@@ -20,11 +20,10 @@ defining module is read from the source (it carries no ``__module__``), so two
 constants that merely share a name and a value stay two entries.
 
 "Where it is defined" is a source span (:func:`vaft._docstring.source_span`):
-the file and the first and last line of the definition, decorators included,
-and -- for a function or method of at most ``INLINE_SOURCE_LINES`` lines --
-the code itself.  The pages link the span at the provenance commit and show
-the code collapsed beside it (#1069); a class links its definition and shows
-its methods one by one.
+the file and the first and last line of the definition, decorators included.
+The pages link it at the provenance commit (#1069), for every function, class
+and class member; unlike the scientific pages they do not show the code inline
+(see :func:`source_of`).
 
 Functions that already have a scientific detail page -- the formula and
 process catalogs, registered plots, diagram builders -- are recorded with a
@@ -305,11 +304,18 @@ def warns_deprecation(obj: Any) -> bool:
     return inspect.isfunction(obj) and _warns_deprecation(inspect.unwrap(obj))
 
 
-def source_of(obj: Any, *, inline: bool = True) -> dict:
-    """Where ``obj`` is defined: ``{path, line, end_line, code}`` (see :func:`vaft._docstring.source_span`)."""
+def source_of(obj: Any) -> dict:
+    """Where ``obj`` is defined: ``{path, line, end_line, code}`` (see :func:`vaft._docstring.source_span`).
+
+    Always without inline code: the API pages link the source but do not show
+    it (#1069).  They list about 3000 functions and methods, many of them one
+    factory closure exported under hundreds of names, and inlining them would
+    double the site; the scientific pages (formula, process, plot, diagram)
+    show theirs.
+    """
     from vaft._docstring import source_span
 
-    return source_span(obj, _ROOT, inline=inline)
+    return source_span(obj, _ROOT, inline=False)
 
 
 def members_of(cls: type) -> list[dict]:
@@ -585,10 +591,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             "deprecated": deprecation_of(obj, access_warnings.get(f"{module_name}.{name}", "")
                                          or deprecated_modules.get(module_name, "")),
             "warns_deprecation": warns_deprecation(obj),
-            # a class's body is its members, each shown on its own; a linked
-            # function is shown on its reference page
-            "source": source_of(obj if kind != "data" else None,
-                                inline=kind == "function" and id(obj) not in links),
+            "source": source_of(obj if kind != "data" else None),
             "reference": links.get(id(obj), "") if kind == "function" else "",
             "exported_as": sorted(f"{site[0]}.{site[1]}" for site in sites if site != home),
             # other names that still work but warn: relocated re-exports, deprecated modules

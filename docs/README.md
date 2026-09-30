@@ -57,16 +57,22 @@ would otherwise double in size.
 
 Every generated entry (formula, process, plot, diagram, API object and class
 member) links its source as
-`github.com/VEST-Tokamak/vaft/blob/<commit>/<path>#L<first>-L<last>`, where
-`<commit>` is the catalog's `provenance.commit` and the range is the whole
-definition, decorators included. There is never a branch link, and a catalog
-without a provenance commit renders no links (use `build.py`, or `npm run data`,
-which records `HEAD`). Functions and methods of at most 80 lines
+`github.com/VEST-Tokamak/vaft/blob/<commit>/<path>#L<first>-L<last>`. `<commit>`
+is the catalog's `provenance.commit`, and the range is the whole definition,
+decorators included. There is never a branch link, and a catalog without a
+provenance commit renders no links. `build.py` archives the commit it pins to.
+`npm run data` pins to `HEAD` but reads the working tree, so uncommitted edits
+shift the local links.
+
+On the formula, process, plot and diagram pages, functions of at most 80 lines
 (`vaft._docstring.INLINE_SOURCE_LINES`) also show that code under a collapsed
-"Show source"; classes and longer bodies keep only the link. The coverage check
-requires every span to be a whole `def` or `class` of the tree and the inline
-code to be exactly those lines. `validate_docs.rb` requires every rendered link
-and inline view to match its catalog.
+"Show source". The API pages link only: inlining their ~3000 functions would
+double the site.
+
+`catalog_coverage.py` resolves each row's object and requires the span to be
+its definition in the tree: its file, its first line, and the end of its block.
+It also requires the inline code to be exactly those lines. `validate_docs.rb`
+requires every rendered link and inline view to match its catalog.
 
 The pictures on `/reference/plot/` are committed, not drawn by the build.
 `python -m vaft.plot.docs_thumbnails` renders each registered plot from the first

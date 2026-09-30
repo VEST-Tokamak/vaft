@@ -58,12 +58,12 @@ python API (#162)
     identity; constants by exported name).
 
 source spans (#1069)
-    every ``source`` span in every catalog names a file of the tree being
-    documented and a whole ``def`` or ``class`` of it (first decorator to last
-    line, read here with ``ast``), and its inline ``code`` is exactly those
-    lines.  Every entry but an API constant or alias has a span.  The tree is
-    the provenance commit's, so the pinned links and the inline source show
-    the revision the pages describe.
+    every rendered source span is the whole definition of the object its row
+    names, resolved here from the row: its file, its first line (the first
+    decorator) where ``ast`` finds a def or class of its name, the end of its
+    block, and -- on the scientific pages -- inline ``code`` that is exactly
+    those lines.  The tree is the provenance commit's, so the pinned links and
+    the inline source show the revision the pages describe.
 
 Finally every ``vaft`` module imported while checking must come from the tree
 being documented, so an editable install that serves a missing subpackage from
@@ -425,84 +425,153 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _spans(node, where: str = ""):
-    """``(entry, span)`` for every source span in a snapshot: a ``source`` mapping with a ``line``."""
-    if isinstance(node, dict):
-        where = str(node.get("id") or node.get("name") or where)
-        for key, value in node.items():
-            if key == "source" and isinstance(value, dict) and "line" in value:
-                yield where, value
-            else:
-                yield from _spans(value, where)
-    elif isinstance(node, list):
-        for item in node:
-            yield from _spans(item, where)
+def _resolve(module_name: str, name: str):
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return getattr(importlib.import_module(module_name), name)
 
 
-def _definitions(path: Path, cache: dict = {}) -> frozenset[tuple[int, int]]:  # noqa: B006 -- a per-run cache
-    """``(first line, last line)`` of every def and class in a file, decorators included."""
+def _member(cls, name: str):
+    attribute = vars(cls)[name]
+    if isinstance(attribute, property):
+        return attribute.fget
+    return getattr(attribute, "__func__", attribute)
+
+
+def _located(generator: str, snapshot: dict):
+    """``(label, span, object)`` for every source span a catalog renders, the object resolved here.
+
+    The object comes from where the row says it lives (``module`` and ``name``,
+    a renderer's qualified name, a class and its member), not from the span, so
+    a span that describes another definition cannot pass for this one.
+    """
+    rows: list[tuple[str, dict, object]] = []
+
+    def add(label, span, resolve):
+        try:
+            obj = resolve()
+        except Exception:  # noqa: BLE001 -- the catalog's own check reports what does not resolve
+            obj = None
+        rows.append((label, span or {}, obj))
+
+    if generator in ("vaft.formula.catalog", "vaft.process.catalog"):
+        for row in snapshot.get("formulas") or snapshot.get("functions") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve(row["module"], row["name"]))
+    elif generator == "vaft.plot.docs_catalog":
+        for row in snapshot.get("plots") or []:
+            module_name, _, qualname = row["renderer"].rpartition(".")
+            add(row["id"], row.get("source"), lambda m=module_name, q=qualname: _resolve(m, q))
+        for row in snapshot.get("entry_points") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve("vaft.plot", row["name"]))
+    elif generator == "vaft.diagram.docs_catalog":
+        for row in snapshot.get("builders") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve("vaft.diagram", row["name"]))
+    elif generator == "vaft._api_catalog":
+        for entry in snapshot.get("entries") or []:
+            if entry.get("kind") == "data":
+                continue
+            add(entry["id"], entry.get("source"), lambda e=entry: _resolve(e["module"], e["name"]))
+            for member in entry.get("members") or []:
+                add(f"{entry['id']}.{member['name']}", member.get("source"),
+                    lambda e=entry, m=member: _member(_resolve(e["module"], e["name"]), m["name"]))
+    return rows
+
+
+def _definitions(path: Path, cache: dict = {}) -> dict[int, list[str]]:  # noqa: B006 -- a per-run cache
+    """First line of every def and class in a file, decorators included -> the names defined there."""
     import ast
 
     if path not in cache:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        cache[path] = frozenset(
-            (min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)]), node.end_lineno)
-            for node in ast.walk(tree)
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        )
+        found: dict[int, list[str]] = {}
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                first = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
+                found.setdefault(first, []).append(node.name)
+        cache[path] = found
     return cache[path]
 
 
-def check_sources(label: str, snapshot: dict, root: Path, *, located: bool = True) -> list[str]:
-    """Every source span names a whole definition in ``root``, and its inline code is those lines.
+def check_sources(generator: str, snapshot: dict, root: Path) -> list[str]:
+    """Every rendered source span is the whole definition of the object its row names, in ``root``.
 
     The pages link each span as ``blob/<provenance commit>/<path>#L<line>-L<end_line>``
-    and show ``code`` beside it (``validate_docs.rb`` checks that); this checks
-    the span itself against the tree the catalog was generated from, which is
-    that commit's tree.  So a stale or shifted range, a range cut short, or
-    inline code that is not the linked lines fails the build.  With ``located``
-    every span must have a line: only the API catalog has objects without a
-    ``def`` (constants, typing aliases).
+    and, on the scientific pages, show ``code`` beside it (``validate_docs.rb``
+    checks the rendering); this checks the span against the tree the catalog
+    was generated from, which is that commit's tree.  For each row the object
+    is resolved from the row itself, and its span must be
+
+    * in the file that defines it, starting at its first line (the code
+      object's ``co_firstlineno`` or the class's ``__firstlineno__``: the first
+      decorator), where ``ast`` finds a ``def``/``class`` of its name;
+    * ending where that block ends (``inspect.getblock`` over the file's lines);
+    * with ``code`` equal to exactly those lines, dedented, when the page shows
+      it: on every page but the API pages, for a definition of at most
+      ``INLINE_SOURCE_LINES`` lines; and empty otherwise.
+
+    An object ``inspect`` cannot locate (a typing alias, a lambda, a builtin)
+    must have an empty span; a function or class of ``vaft`` must not.
     """
     import textwrap
 
+    from vaft._docstring import INLINE_SOURCE_LINES
+
+    inline = generator != "vaft._api_catalog"
+    root = root.resolve()
     problems: list[str] = []
-    for where, span in _spans(snapshot):
+    for label, span, obj in _located(generator, snapshot):
+        if obj is None:
+            continue
         path, line, end = str(span.get("path") or ""), int(span.get("line") or 0), int(span.get("end_line") or 0)
-        if line <= 0:
-            if located:
-                problems.append(f"{label} {where}: has no source location")
-            continue
-        file = (root / path).resolve()
-        if not path.startswith("vaft/") or not file.is_relative_to(root.resolve() / "vaft") or not file.is_file():
-            problems.append(f"{label} {where}: source {path!r} is not a file of the tree being documented")
-            continue
-        if (line, end) not in _definitions(file):
-            problems.append(f"{label} {where}: {path}#L{line}-L{end} is not a whole definition in that file")
-            continue
         code = span.get("code") or ""
-        lines = file.read_text(encoding="utf-8").split("\n")
-        if code and code != textwrap.dedent("\n".join(lines[line - 1:end])).rstrip():
-            problems.append(f"{label} {where}: inline source is not {path} lines {line}-{end}")
-    return problems
-
-
-def check_api_sources(snapshot: dict) -> list[str]:
-    """Every API function and class defined in ``vaft`` has a source span."""
-    import warnings
-
-    problems: list[str] = []
-    for entry in snapshot.get("entries") or []:
-        if entry.get("kind") == "data" or int((entry.get("source") or {}).get("line") or 0) > 0:
+        target = inspect.unwrap(obj)
+        first = None
+        if inspect.isfunction(target):
+            first = target.__code__.co_firstlineno
+        elif inspect.isclass(target):
+            # __firstlineno__ from Python 3.13; before it, what inspect finds
+            first = vars(target).get("__firstlineno__")
+            if first is None:
+                try:
+                    first = inspect.getsourcelines(target)[1]
+                except (OSError, TypeError):
+                    first = None
+        try:
+            defined_in = Path(inspect.getsourcefile(target)).resolve()
+        except (TypeError, OSError):
+            defined_in = None
+        locatable = (first is not None and defined_in is not None and defined_in.is_relative_to(root / "vaft")
+                     and getattr(getattr(target, "__code__", None), "co_name", "") != "<lambda>")
+        if not locatable:
+            if line > 0:
+                problems.append(f"{generator} {label}: has a source span but its object has no definition in the tree")
             continue
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                target = inspect.unwrap(getattr(importlib.import_module(entry["module"]), entry["name"]))
-            except Exception:  # noqa: BLE001 -- check_api reports what does not resolve
-                continue
-        if (inspect.isfunction(target) or inspect.isclass(target)) and str(target.__module__).startswith("vaft"):
-            problems.append(f"api {entry['id']}: has no source location")
+        if line <= 0:
+            problems.append(f"{generator} {label}: has no source location")
+            continue
+        expected_path = defined_in.relative_to(root).as_posix()
+        if path != expected_path:
+            problems.append(f"{generator} {label}: source is {path!r}, but it is defined in {expected_path}")
+            continue
+        text = defined_in.read_text(encoding="utf-8")
+        lines = text.split("\n")
+        # the def's own name: a factory closure may carry the name it is exported under
+        defined_as = target.__code__.co_name if inspect.isfunction(target) else target.__name__
+        if line != first or defined_as not in _definitions(defined_in).get(line, []):
+            problems.append(f"{generator} {label}: {path}#L{line} is not where {defined_as} is defined (line {first})")
+            continue
+        block = inspect.getblock([f"{row}\n" for row in lines[line - 1:]])
+        if end != line + len(block) - 1:
+            problems.append(f"{generator} {label}: {path}#L{line}-L{end} does not end where the definition does "
+                            f"(line {line + len(block) - 1})")
+            continue
+        shown = textwrap.dedent("\n".join(lines[line - 1:end])).rstrip()
+        due = inline and end - line + 1 <= INLINE_SOURCE_LINES
+        if due and code != shown:
+            problems.append(f"{generator} {label}: inline source is not {path} lines {line}-{end}")
+        elif not due and code:
+            problems.append(f"{generator} {label}: carries inline source the page does not show")
     return problems
 
 
@@ -517,7 +586,7 @@ CHECKS = {
     "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
     "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot) + check_plot_thumbnails(snapshot, root),
     "vaft.diagram.docs_catalog": check_diagram,
-    "vaft._api_catalog": lambda snapshot, root: check_api(snapshot, root) + check_api_sources(snapshot),
+    "vaft._api_catalog": check_api,
 }
 
 
@@ -561,8 +630,7 @@ def check(docs: Path = DOCS, root: Path | None = None) -> list[str]:
             continue
         snapshot = _load(output) or {}
         problems.extend(checker(snapshot, root))
-        problems.extend(check_sources(generator["module"], snapshot, root,
-                                      located=generator["module"] != "vaft._api_catalog"))
+        problems.extend(check_sources(generator["module"], snapshot, root))
     for module in foreign_modules(root):
         problems.append(f"{module} was imported from outside the tree being documented ({root})")
     return problems
