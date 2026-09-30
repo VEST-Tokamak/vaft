@@ -225,6 +225,12 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
   layer rejected. The decisions are recorded in the product under
   `equilibrium.code.parameters.channel_decisions`.
+* **`efit.preset` selects a named EFIT configuration** from `vaft.code.efit.PRESETS` (`routine`, which is
+  the same as leaving it empty, or `statistical_891`). The k-file stage then writes `efit_preset.json` beside
+  its manifest and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`);
+  pipeline 2's `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset. A
+  preset run writes the same product paths as a routine one, so give it its own `base_dir`. What each preset
+  sets is tabulated under [Named configurations]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/#named-configurations-presets).
 
 Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
 sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
